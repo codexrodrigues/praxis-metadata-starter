@@ -509,7 +509,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var roles = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            var roles = pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(CONTEXT.namespaceId(),
                     BulkPostgresTestSupport.DEPLOYMENT_ID), roles)).isEqualTo(5);
             assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap",
@@ -914,7 +914,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var roles = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            var roles = pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             initializePendingHistoricalV18(owner, roles);
             var before = historicalV18Rows(sql);
             var grantsBefore = historicalV18ReadPrivileges(sql);
@@ -942,7 +942,7 @@ class BulkDurableMigrationPostgresTest {
                         Boolean.class, "praxis_bulk." + table)).isFalse();
             assertThat(BulkExecutionMigrator.migrate(owner,
                     java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID), roles))
-                    .isEqualTo(1);
+                    .isEqualTo(2);
             assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap",
                     String.class)).isEqualTo("COMPLETE");
             BulkExecutionMigrator.validate(owner, roles);
@@ -955,7 +955,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var roles = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            var roles = pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             initializePendingHistoricalV18(owner, roles);
             assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap",
                     String.class)).isEqualTo("PENDING");
@@ -1086,6 +1086,168 @@ class BulkDurableMigrationPostgresTest {
             }
             assertHistoricalV18RowsUnchanged(sql, retainedRowsBefore);
             BulkExecutionMigrator.validate(owner, roles);
+        }
+    }
+
+    /** Exact PENDING fixture: only V7 base privileges and the host-owned V14 lock grant. */
+    private static BulkExecutionRoleConfiguration pendingV15RuntimeFixtureWithoutBootstrapGrants(
+            DataSource owner, JdbcTemplate sql, String role) {
+        migrateToVersion(owner, "7");
+        var roles = BulkPostgresTestSupport.grantRuntimeRole(owner, role);
+        migrateToVersion(owner, "15");
+        sql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to " + role);
+        assertThat(sql.queryForObject("select max(version::integer) from praxis_bulk.praxis_bulk_schema_history "
+                + "where version is not null", Integer.class)).isEqualTo(15);
+        for (String marker : List.of("manifest", "preview", "preview_integrity", "preview_reader"))
+            assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_" + marker + "_bootstrap",
+                    String.class)).isEqualTo("PENDING");
+        for (String table : List.of("target_manifest", "preview_state", "target_preview", "preview_item_integrity"))
+            assertThat(sql.queryForObject("select has_table_privilege(?, 'praxis_bulk.praxis_bulk_" + table
+                    + "', 'SELECT') OR has_table_privilege(?, 'praxis_bulk.praxis_bulk_" + table + "', 'INSERT')",
+                    Boolean.class, role, role)).isFalse();
+        return roles;
+    }
+
+    @Test
+    void initializerWaitsForOccupancyPhaseAndAclCommitBeforeAttestation() throws Exception {
+        assertInitializerWaitsForOccupancyTransaction(false);
+    }
+
+    @Test
+    void initializerWaitsForOccupancyRollbackThenCanonicalRetryCompletes() throws Exception {
+        assertInitializerWaitsForOccupancyTransaction(true);
+    }
+
+    private static void assertInitializerWaitsForOccupancyTransaction(boolean rollBackHolder) throws Exception {
+        try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
+                .setRegisterShutdownHook(false).start()) {
+            var owner = postgres.getPostgresDatabase();
+            var observer = new JdbcTemplate(owner);
+            migrateToVersion(owner, "7");
+            var roles = BulkPostgresTestSupport.grantRuntimeRole(owner, "bulk_c1_runtime");
+            migrateToVersion(owner, "15");
+            // Host-owned publication lock grant; no premature bootstrap-owned table grants.
+            observer.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) "
+                    + "to bulk_c1_runtime");
+            String url = postgres.getJdbcUrl("postgres", "postgres");
+            String separator = url.contains("?") ? "&" : "?";
+            String secondName = "b5b-c1-initializer-" + (rollBackHolder ? "rollback" : "commit");
+            var holder = new HoldOccupancyBootstrapDataSource(url + separator + "ApplicationName=b5b-c1-holder",
+                    rollBackHolder);
+            var secondOwner = new DriverManagerDataSource(url + separator + "ApplicationName=" + secondName,
+                    "postgres", "");
+            var deployments = java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID);
+            var workers = Executors.newFixedThreadPool(2);
+            Future<Integer> first = null;
+            Future<Integer> second = null;
+            try {
+                first = workers.submit(() -> BulkExecutionMigrator.migrate(holder, deployments, roles));
+                assertThat(holder.reached.await(8, TimeUnit.SECONDS)).as("real bootstrap19 owns its row latch").isTrue();
+                assertThat(observer.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap",
+                        String.class)).isEqualTo("COMPLETE");
+                assertThat(observer.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap",
+                        String.class)).isEqualTo("PENDING");
+                assertThat(observer.queryForObject("select has_table_privilege('bulk_c1_runtime', "
+                        + "'praxis_bulk.praxis_bulk_capacity_slot','SELECT')", Boolean.class)).isFalse();
+                second = workers.submit(() -> BulkExecutionMigrator.migrate(secondOwner, deployments, roles));
+                boolean observed = false;
+                long deadline = System.nanoTime() + java.time.Duration.ofSeconds(4).toNanos();
+                while (!observed && !second.isDone() && System.nanoTime() < deadline) {
+                    observed = Boolean.TRUE.equals(observer.queryForObject("""
+                            select exists(select 1 from pg_stat_activity a
+                              where a.application_name=? and a.pid<>? and a.wait_event_type='Lock'
+                                and a.query=? and ?=any(pg_blocking_pids(a.pid)))
+                            """, Boolean.class, secondName, holder.pid.get(),
+                            "select bootstrap_version, phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap for update",
+                            holder.pid.get()));
+                    if (!observed) java.util.concurrent.locks.LockSupport.parkNanos(
+                            TimeUnit.MILLISECONDS.toNanos(10));
+                }
+                assertThat(observed).as("initializer PID waits on the real bootstrap19 holder before phase/ACL validation")
+                        .isTrue();
+                holder.release.countDown();
+                if (rollBackHolder) {
+                    Future<Integer> failed = first;
+                    assertThatThrownBy(() -> failed.get(20, TimeUnit.SECONDS))
+                            .isInstanceOf(java.util.concurrent.ExecutionException.class)
+                            .hasRootCauseInstanceOf(SQLException.class);
+                    assertThat(second.get(20, TimeUnit.SECONDS)).isEqualTo(1);
+                    assertThat(BulkExecutionMigrator.migrate(holder, deployments, roles)).isZero();
+                } else {
+                    assertThat(first.get(20, TimeUnit.SECONDS) + second.get(20, TimeUnit.SECONDS)).isEqualTo(5);
+                }
+                assertThat(observer.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap",
+                        String.class)).isEqualTo("COMPLETE");
+                assertThat(observer.queryForObject("select has_table_privilege('bulk_c1_runtime', "
+                        + "'praxis_bulk.praxis_bulk_capacity_slot','SELECT')", Boolean.class)).isTrue();
+                assertThat(observer.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
+                        + "where version='20' and success", Integer.class)).isEqualTo(1);
+                BulkExecutionMigrator.validate(owner, roles);
+                assertThat(BulkExecutionMigrator.migrate(secondOwner, deployments, roles)).isZero();
+            } finally {
+                holder.release.countDown();
+                if (first != null) first.cancel(true);
+                if (second != null) second.cancel(true);
+                workers.shutdownNow();
+                assertThat(workers.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+            }
+            assertThat(observer.queryForObject("select count(*) from pg_stat_activity where "
+                    + "application_name in ('b5b-c1-holder',?)", Integer.class, secondName)).isZero();
+        }
+    }
+
+    /** Holds the actual bootstrap transaction after its real row lock; no production hooks. */
+    private static final class HoldOccupancyBootstrapDataSource extends DriverManagerDataSource {
+        final CountDownLatch reached = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        final AtomicInteger pid = new AtomicInteger();
+        private final AtomicBoolean held = new AtomicBoolean();
+        private final boolean rollback;
+
+        HoldOccupancyBootstrapDataSource(String url, boolean rollback) {
+            super(url, "postgres", "");
+            this.rollback = rollback;
+        }
+
+        @Override public Connection getConnection() throws SQLException {
+            Connection physical = super.getConnection();
+            return (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
+                    new Class<?>[]{Connection.class}, (proxy, method, args) -> {
+                        try {
+                            Object result = method.invoke(physical, args);
+                            if (!method.getName().equals("createStatement")) return result;
+                            var statement = (java.sql.Statement) result;
+                            return Proxy.newProxyInstance(java.sql.Statement.class.getClassLoader(),
+                                    new Class<?>[]{java.sql.Statement.class}, (statementProxy, operation, arguments) -> {
+                                        try {
+                                            Object value = operation.invoke(statement, arguments);
+                                            if (operation.getName().equals("executeQuery") && arguments != null
+                                                    && ("select bootstrap_version,phase from praxis_bulk."
+                                                        + "praxis_bulk_capacity_occupancy_bootstrap for update").equals(arguments[0])
+                                                    && held.compareAndSet(false, true)) {
+                                                try (var check = physical.createStatement();
+                                                     var rows = check.executeQuery("select pg_backend_pid()")) {
+                                                    if (!rows.next()) throw new SQLException("missing fixture holder PID");
+                                                    pid.set(rows.getInt(1));
+                                                }
+                                                reached.countDown();
+                                                try {
+                                                    if (!release.await(8, TimeUnit.SECONDS))
+                                                        throw new SQLException("fixture occupancy barrier timed out", "XX000");
+                                                } catch (InterruptedException failure) {
+                                                    Thread.currentThread().interrupt();
+                                                    throw new SQLException("fixture occupancy barrier interrupted", "XX000", failure);
+                                                }
+                                                if (rollback) {
+                                                    ((java.sql.ResultSet) value).close();
+                                                    throw new SQLException("test-only occupancy rollback before grants", "XX000");
+                                                }
+                                            }
+                                            return value;
+                                        } catch (InvocationTargetException failure) { throw failure.getCause(); }
+                                    });
+                        } catch (InvocationTargetException failure) { throw failure.getCause(); }
+                    });
         }
     }
 

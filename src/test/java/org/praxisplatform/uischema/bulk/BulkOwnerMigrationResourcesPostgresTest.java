@@ -437,16 +437,16 @@ class BulkOwnerMigrationResourcesPostgresTest {
                         assertThat(failed).hasSize(1);
                         proof.failure = failed.getFirst().failure();
                         assertTypedEventAcquisitionFailure(proof.failure);
-                        assertThat(applied).containsExactly(19);
+                        assertThat(applied).containsExactly(20);
                     } else {
                         assertThat(failed).isEmpty();
-                        assertThat(applied).containsExactlyInAnyOrder(19, 0);
+                        assertThat(applied).containsExactlyInAnyOrder(20, 0);
                     }
                     proof.assertHistoryAndBootstrap("COMPLETE");
                     assertSharedOwnerPoolReleased(proof);
                     BulkExecutionMigrator.validate(proof.pool, roles);
                     if (expectAcquisitionFailure) {
-                        // The peer legitimately applied V19; this case must not assert history0.
+                        // The peer legitimately applied V20; this case must not assert history0.
                         var beforeRetry = ownerHistoryAndBootstrapRows(proof.observer);
                         assertThat(BulkExecutionMigrator.migrate(proof.pool, deployment, roles)).isZero();
                         BulkExecutionMigrator.validate(proof.pool, roles);
