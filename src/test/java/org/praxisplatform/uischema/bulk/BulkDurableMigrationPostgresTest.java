@@ -74,7 +74,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var roles = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            var roles = pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             int checksum15 = sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history "
                     + "where version='15'", Integer.class);
             assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(CONTEXT.namespaceId(),
@@ -876,7 +876,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var roles = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            var roles = pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             initializePendingHistoricalV18(owner, roles);
             assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap",
                     String.class)).isEqualTo("PENDING");
@@ -901,7 +901,10 @@ class BulkDurableMigrationPostgresTest {
             sql.execute("revoke select on praxis_bulk.praxis_bulk_capacity_marker from bulk_v16_runtime");
             assertThat(BulkExecutionMigrator.migrate(owner,
                     java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID), roles))
-                    .isEqualTo(1);
+                    .isEqualTo(2);
+            for (String version : List.of("19", "20"))
+                assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
+                        + "where version=? and success", Integer.class, version)).isEqualTo(1);
             assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap",
                     String.class)).isEqualTo("COMPLETE");
             BulkExecutionMigrator.validate(owner, roles);
@@ -1407,7 +1410,7 @@ class BulkDurableMigrationPostgresTest {
                 .setRegisterShutdownHook(false).start()) {
             var owner = postgres.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            var roles = v15RuntimeFixture(owner, sql, "bulk_v16_runtime");
+            var roles = pendingV15RuntimeFixtureWithoutBootstrapGrants(owner, sql, "bulk_v16_runtime");
             assertThat(BulkExecutionMigrator.migrate(owner, java.util.Map.of(CONTEXT.namespaceId(),
                     BulkPostgresTestSupport.DEPLOYMENT_ID), roles)).isEqualTo(5);
             assertAtomicBootstrapPhase(sql, "COMPLETE");
