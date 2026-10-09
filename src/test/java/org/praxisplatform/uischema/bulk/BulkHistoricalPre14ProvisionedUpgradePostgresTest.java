@@ -353,6 +353,7 @@ class BulkHistoricalPre14ProvisionedUpgradePostgresTest {
         var builder = new ProcessBuilder(command).directory(project.toFile()).redirectErrorStream(true)
                 .redirectOutput(log.toFile());
         builder.environment().put("MAVEN_SKIP_RC", "true"); builder.environment().remove("MAVEN_ARGS");
+        builder.environment().put("JAVA_HOME", System.getProperty("java.home"));
         java.nio.file.Files.writeString(work.resolve("child-command.txt"), String.join("\n", command) + "\n");
         long started = System.currentTimeMillis();
         var process = builder.start();
@@ -428,7 +429,9 @@ class BulkHistoricalPre14ProvisionedUpgradePostgresTest {
             var property = (org.w3c.dom.Element) properties.item(index);
             if (property.getAttribute("name").equals("java.version")) javaVersions.add(property.getAttribute("value"));
         }
-        assertThat(javaVersions).containsExactly("21.0.10");
+        // Attest the actual parent JDK, rather than a workstation-specific patch release.
+        assertThat(Runtime.version().feature()).isEqualTo(21);
+        assertThat(javaVersions).containsExactly(System.getProperty("java.version"));
     }
 
     private static java.nio.file.Path historicalTestDirectory(String name, java.nio.file.Path defaultDirectory)
