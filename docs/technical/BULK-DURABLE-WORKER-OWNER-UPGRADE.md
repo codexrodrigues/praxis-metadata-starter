@@ -48,6 +48,15 @@ Um leitor V19 pode rejeitar V20: não há prova de rollout misto nem SLA de upgr
 online. A DDL/criação do índice pode bloquear relações e consumir I/O. O budget
 SQL do coordenador não limita pool, DDL inteira, rede ou callbacks.
 
+O initializer owner mantém o advisory `(1347574124,5)` e toma os marcadores
+em ordem V8→V9→V11→V12→V16→V18→V19 antes de ler fases e ACLs em
+READ_COMMITTED. Os bootstraps separados de capacity-read e occupancy mantêm
+somente seus respectivos latches V18 e V19; não adquirem esse advisory.
+Assim, um grant-before-COMPLETE concorrente deve confirmar ou reverter antes
+da atestação do initializer. A validação serving permanece REPEATABLE_READ,
+sem locks de escrita ou novos privilégios. Essa ordem não cria uma garantia
+nova de timeout global nem muda os limites de pool documentados.
+
 Conferir os sete marcadores: V8manifest, V9preview, V11preview-integrity,
 V12preview-reader, V16atomic, V18capacity-read e V19occupancy. Exigir coerência
 entre fases dependentes, zero ACLs controladas em PENDING e grants exatos em

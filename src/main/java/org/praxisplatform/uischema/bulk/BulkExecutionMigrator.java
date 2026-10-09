@@ -523,6 +523,7 @@ public final class BulkExecutionMigrator {
                 boolean pendingIntegrityBootstrap = lockPreviewIntegrityBootstrap(connection);
                 boolean pendingReaderBootstrap = lockPreviewReaderBootstrap(connection);
                 boolean pendingAtomicBootstrap = lockAtomicBootstrap(connection);
+                lockCapacityBootstrapMarkers(connection);
                 int historyVersion = currentHistoryVersion(connection);
                 require(historyVersion == 19 || historyVersion == 20, "Owner bootstrap requires V19 or V20");
                 validateProtectedCatalog(connection, roles, historyVersion, 0, historyVersion == 19, deployments);
@@ -570,6 +571,25 @@ public final class BulkExecutionMigrator {
             }
         } catch (SQLException failure) {
             throw new IllegalStateException("Unable to initialize governed bulk lifecycle", failure);
+        }
+    }
+
+    /**
+     * Capacity bootstraps run in separate owner transactions after this initializer releases
+     * its advisory fence. Pin their phase and ACL snapshot before READ_COMMITTED attestation:
+     * a concurrent grant-before-COMPLETE transaction must commit or roll back first.
+     * Keep ascending latch order, and never add the advisory fence to those separate transactions.
+     */
+    private static void lockCapacityBootstrapMarkers(Connection connection) throws SQLException {
+        for (var marker : List.of(Map.entry(CAPACITY_READ_BOOTSTRAP_TABLE, 18),
+                Map.entry(BulkCapacityOccupancyCatalog.BOOTSTRAP, 19))) {
+            try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                    "select bootstrap_version, phase from praxis_bulk." + marker.getKey() + " for update")) {
+                require(rows.next() && rows.getInt(1) == marker.getValue(),
+                        "Capacity bootstrap marker version differs");
+                require(Set.of("PENDING", "COMPLETE").contains(rows.getString(2)) && !rows.next(),
+                        "Capacity bootstrap marker phase or cardinality differs");
+            }
         }
     }
 
