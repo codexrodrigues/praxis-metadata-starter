@@ -215,6 +215,14 @@ projecao do `StatsFieldRegistry` do servico com:
 - `modes`, como `GROUP_BY`, `TIME_SERIES`, `DISTRIBUTION_TERMS`, `DISTRIBUTION_HISTOGRAM` e `METRIC_FIELD`
 - flags booleanas de elegibilidade para consumidores que preferem leitura direta
 
+`GET /{resource}/stats/capabilities` oferece a projeção `StatsCapability` do
+mesmo snapshot contextual usado pela capability da coleção. A coleção publica
+`_links.stats` para essa rota quando há campos estatísticos declarados e o serviço
+de capabilities está composto. O link e o inventário não autorizam uma consulta:
+cada operação estatística continua aplicando sua própria elegibilidade e política.
+Essa rota descobre metadados; ela não é um endpoint `GET /{resource}/stats` para
+calcular agregações.
+
 `StatsFieldRegistry` e `StatsSupportMode` continuam sendo a fonte canonica da
 elegibilidade; `capabilities.stats` e apenas discovery publico. Endpoints `/stats/*`
 herdados pelo controller nao bastam para anunciar analytics: `canonicalOperations.stats*`
@@ -883,3 +891,12 @@ Para onboarding, modelagem e validacao, siga os entry points documentados neste 
 Validação local durante desenvolvimento; Actions apenas no fechamento necessário de versões. Consulte [ACTIONS-RELEASE-POLICY.md](ACTIONS-RELEASE-POLICY.md) para gatilhos, gates e recuperação.
 
 - [Composição explícita do worker — candidato B5b.3](docs/technical/BULK-WORKER-EXPLICIT-COMPOSITION.md): vínculo canônico e callbacks por unidade; provas focais e consumidor JAR privado executados, revisão/integração e publicação pendentes, sem ingresso HTTP ASYNC.
+
+### Microvisualizações declarativas
+
+`@MicroVisualization` materializa `x-ui.presentation` após os presets;
+`@UISchema.extraProperties` conserva a precedência final. Um presenter efetivo
+`microVisualization` nesses campos anotados exige `visualization.fallbackText`
+textual não vazio, fornecido
+pela anotação ou por override. Consulte [o guia de authoring semântico](docs/guides/SEMANTIC-METADATA-AUTHORING.md#microvisualization-e-precedência-efetiva)
+para composição, acessibilidade e substituição explícita do presenter.

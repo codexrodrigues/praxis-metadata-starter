@@ -757,7 +757,8 @@ class CustomOpenApiResolverTest {
                 kind = MicroVisualizationKind.RADIAL,
                 targetExpr = "row.metaScore",
                 valueExpr = "row.scoreAtual",
-                tone = "info"
+                tone = "info",
+                fallbackText = "Pontuacao atual"
         )
         public Double score;
     }
@@ -805,6 +806,134 @@ class CustomOpenApiResolverTest {
         assertEquals("row.metaScore", radialViz.get("targetExpr"));
         assertEquals("row.scoreAtual", radialViz.get("valueExpr"));
         assertEquals("info", radialViz.get("tone"));
+    }
+
+    private static class EffectiveMicroVisualizationDummy {
+        @MicroVisualization(kind = MicroVisualizationKind.BULLET, target = 90, fallbackText = "Base")
+        @UISchema(preset = UISchemaPreset.MONETARY_AMOUNT, label = "Limite", extraProperties = {
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(name = "presentation.visualization.tone", value = "warning"),
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(name = "presentation.visualization.fallbackText", value = "Limite aprovado"),
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(name = "presentation.appearance", value = "soft")
+        })
+        public Double limite;
+
+        @MicroVisualization(kind = MicroVisualizationKind.RADIAL)
+        @UISchema(extraProperties = @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                name = "presentation.visualization.fallbackText", value = "Pontuacao informada"))
+        public Double score;
+
+        @MicroVisualization(kind = MicroVisualizationKind.BULLET)
+        @UISchema(extraProperties = {
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(name = "presentation.presenter", value = "chip"),
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(name = "presentation.appearance", value = "outlined")
+        })
+        public Double alternate;
+
+        @MicroVisualization(kind = MicroVisualizationKind.COMPARISON, fallbackText = "Valores selecionados")
+        @UISchema(options = "1|Primeiro,2|Segundo", extraProperties =
+                @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(name = "presentation.visualization.tone", value = "info"))
+        public java.util.List<Double> valores;
+    }
+
+    private static class MissingMicroFallbackDummy {
+        @MicroVisualization(kind = MicroVisualizationKind.BULLET)
+        public Double missing;
+    }
+
+    private static class BlankMicroFallbackDummy {
+        @MicroVisualization(kind = MicroVisualizationKind.BULLET, fallbackText = "Base valida")
+        @UISchema(extraProperties = @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                name = "presentation.visualization.fallbackText", value = "   "))
+        public Double blank;
+    }
+
+    private static class WrongTypeMicroFallbackDummy {
+        @MicroVisualization(kind = MicroVisualizationKind.BULLET, fallbackText = "Base valida")
+        @UISchema(extraProperties = @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                name = "presentation.visualization.fallbackText", value = "true"))
+        public Double wrongType;
+    }
+
+    private static class WrongShapeMicroVisualizationDummy {
+        @MicroVisualization(kind = MicroVisualizationKind.BULLET, fallbackText = "Base valida")
+        @UISchema(extraProperties = @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
+                name = "presentation.visualization", value = "false"))
+        public Double wrongShape;
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldResolveMicroVisualizationBaseBeforeFinalOverridesAndKeepCoAnnotations() {
+        Schema<?> schema = resolveEffectiveMicroSchema(EffectiveMicroVisualizationDummy.class);
+        Map<String, Object> limitUi = getXui((Schema<?>) schema.getProperties().get("limite"));
+        assertEquals("Limite", limitUi.get("label"));
+        assertEquals("monetary-amount", limitUi.get("presentationPreset"));
+        Map<String, Object> presentation = (Map<String, Object>) limitUi.get("presentation");
+        Map<String, Object> visualization = (Map<String, Object>) presentation.get("visualization");
+        assertEquals("microVisualization", presentation.get("presenter"));
+        assertEquals("soft", presentation.get("appearance"));
+        assertEquals("bullet", visualization.get("kind"));
+        assertEquals(90.0, visualization.get("target"));
+        assertEquals("warning", visualization.get("tone"));
+        assertEquals("Limite aprovado", visualization.get("fallbackText"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldAcceptFinalFallbackFromExtraPropertiesAndExplicitAlternatePresenter() {
+        Schema<?> schema = resolveEffectiveMicroSchema(EffectiveMicroVisualizationDummy.class);
+        Map<String, Object> score = (Map<String, Object>) getXui((Schema<?>) schema.getProperties().get("score")).get("presentation");
+        assertEquals("Pontuacao informada", ((Map<String, Object>) score.get("visualization")).get("fallbackText"));
+        Map<String, Object> alternate = (Map<String, Object>) getXui((Schema<?>) schema.getProperties().get("alternate")).get("presentation");
+        assertEquals("chip", alternate.get("presenter"));
+        assertEquals("outlined", alternate.get("appearance"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldPreserveArrayOptionsAlongsideFinalMicroVisualizationMetadata() {
+        Schema<?> schema = resolveEffectiveMicroSchema(EffectiveMicroVisualizationDummy.class);
+        Schema<?> array = (Schema<?>) schema.getProperties().get("valores");
+        assertTrue(array instanceof io.swagger.v3.oas.models.media.ArraySchema);
+        Map<String, Object> ui = getXui(array);
+        assertNotNull(ui.get("options"));
+        Map<String, Object> presentation = (Map<String, Object>) ui.get("presentation");
+        Map<String, Object> visualization = (Map<String, Object>) presentation.get("visualization");
+        assertEquals("comparison", visualization.get("kind"));
+        assertEquals("info", visualization.get("tone"));
+        assertEquals("Valores selecionados", visualization.get("fallbackText"));
+    }
+
+    @Test
+    void shouldRejectMissingBlankOrNonTextFinalMicroVisualizationFallback() {
+        for (Class<?> type : java.util.List.of(MissingMicroFallbackDummy.class, BlankMicroFallbackDummy.class,
+                WrongTypeMicroFallbackDummy.class)) {
+            RuntimeException failure = assertThrows(RuntimeException.class, () -> resolveEffectiveMicroSchema(type));
+            Throwable cause = failure;
+            while (cause.getCause() != null) cause = cause.getCause();
+            assertInstanceOf(IllegalArgumentException.class, cause);
+            assertTrue(cause.getMessage().contains("visualization.fallbackText must be a nonblank string"), type.getName());
+        }
+    }
+
+    @Test
+    void shouldRejectNonObjectFinalMicroVisualizationShape() {
+        RuntimeException failure = assertThrows(RuntimeException.class,
+                () -> resolveEffectiveMicroSchema(WrongShapeMicroVisualizationDummy.class));
+        Throwable cause = failure;
+        while (cause.getCause() != null) cause = cause.getCause();
+        assertInstanceOf(IllegalArgumentException.class, cause);
+        assertTrue(cause.getMessage().contains("visualization must be an object"));
+    }
+
+    private static Schema<?> resolveEffectiveMicroSchema(Class<?> type) {
+        io.swagger.v3.core.converter.ModelConverters converters = new io.swagger.v3.core.converter.ModelConverters();
+        converters.addConverter(new CustomOpenApiResolver(new ObjectMapper()));
+        io.swagger.v3.core.converter.ResolvedSchema resolved = converters.readAllAsResolvedSchema(type);
+        assertNotNull(resolved);
+        Schema<?> schema = resolved.referencedSchemas.get(type.getSimpleName());
+        assertNotNull(schema);
+        return schema;
     }
 
     @SuppressWarnings("unchecked")

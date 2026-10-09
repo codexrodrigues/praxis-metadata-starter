@@ -14,6 +14,9 @@ import java.lang.annotation.Target;
  * canonico publicado em {@code x-ui.presentation = { presenter: "microVisualization", visualization: { ... } }}.
  * O {@code @praxisui/table} consome esse contrato para instanciar automaticamente o renderer de celula
  * correspondente (bullet, radial, comparison, etc.) sem exigir codigo TypeScript no cliente.
+ * A anotacao fornece a base apos presets; {@code @UISchema.extraProperties} tem precedencia final.
+ * O contrato efetivo com presenter {@code microVisualization} exige fallback textual nao vazio,
+ * declarado aqui ou em {@code presentation.visualization.fallbackText} via extraProperties.
  * </p>
  */
 @Target({ElementType.FIELD, ElementType.METHOD})
@@ -83,6 +86,8 @@ public @interface MicroVisualization {
 
     /**
      * Texto alternativo legivel / fallback caso o microchart nao renderize.
+     * Obrigatorio e nao vazio no contrato efetivo de microVisualization. O valor pode ser
+     * fornecido por extraProperties; o starter nao inventa texto de dominio.
      */
     String fallbackText() default "";
 
