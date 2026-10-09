@@ -408,16 +408,24 @@ class BulkEvaluationStorePostgresTest {
         sql.update("update praxis_bulk.praxis_bulk_manifest_bootstrap set phase='COMPLETE' where bootstrap_version=8");
         var wrong=new BulkExecutionRoleConfiguration("postgres",java.util.Set.of("bulk_runtime_test"),
                 java.util.Set.of(),java.util.Set.of());
+        var originalHistory = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
         assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),wrong))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(org.flywaydb.core.api.FlywayException.class)
+                .hasMessageContaining("beforeEachMigrate")
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage("Publication predecessor schema ACL differs");
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                + "where version is null or version::integer<=8 order by installed_rank")).isEqualTo(originalHistory);
+        assertThat(sql.queryForObject("select max(version::integer) from praxis_bulk.praxis_bulk_schema_history",Integer.class)).isEqualTo(13);
+        assertThat(sql.queryForObject("select to_regclass('praxis_bulk.praxis_bulk_openapi_publication') is null",Boolean.class)).isTrue();
         assertThat(sql.queryForObject("""
                 select phase from praxis_bulk.praxis_bulk_preview_bootstrap where bootstrap_version=9
                 """,String.class)).isEqualTo("PENDING");
         assertThat(sql.queryForObject("""
                 select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_preview','insert')
                 """,Boolean.class)).isFalse();
-        grantPublicationReadToExistingRuntimeRoles();
+        prepareCanonicalPublicationReadForExistingRuntimeRoles();
         var historyBeforeRetry = historyThroughV19();
         assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
                 + "where version='20'",Integer.class)).isZero();
@@ -874,27 +882,29 @@ class BulkEvaluationStorePostgresTest {
         assertThat(count("praxis_bulk_target_manifest")).isZero();
     }
     @Test void v7EvaluationBackfillsAtomicallyBeforeValidation() {
-        Flyway.configure().dataSource(schemaOwnerDataSource).locations("classpath:db/praxis-bulk-migrations")
-                .schemas("praxis_bulk").defaultSchema("praxis_bulk")
-                .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
-                .target("7").load().migrate();
-        sql.update("insert into praxis_bulk.praxis_bulk_namespace_binding(namespace_id,deployment_id,bound_at) values(?,?,clock_timestamp())",
-                CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID);
-        BulkPostgresTestSupport.ready(schemaOwnerDataSource,CONTEXT.namespaceId(),CONTEXT.operationRef().operationId());
-        var first=evaluation(proposal(specialSnapshot("legacy\u0000id", "v\u0000legacy", "legacy\u0000payload")));
-        var second=evaluation(proposal(specialSnapshot("x".repeat(5000), "v2", "legacy-long")));
+        migrateToV7();
+        var firstProposal=proposal(specialSnapshot("legacy\u0000id", "v\u0000legacy", "legacy\u0000payload"));
+        var secondProposal=proposal(specialSnapshot("x".repeat(5000), "v2", "legacy-long"));
+        var first=evaluation(new BulkStoredProposal(java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"),
+                firstProposal.createdAt(),firstProposal.expiresAt(),firstProposal.snapshot(),firstProposal.controlExpectation()));
+        var second=evaluation(new BulkStoredProposal(java.util.UUID.fromString("00000000-0000-0000-0000-000000000002"),
+                secondProposal.createdAt(),secondProposal.expiresAt(),secondProposal.snapshot(),secondProposal.controlExpectation()));
+        var originalHistory=historyThroughV19();
         insertV7Evaluation(first);
         insertV7Evaluation(second);
-        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user");
-        sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
-                bytes("CORRUPT"),second.proposal().id());
+        assertThat(sql.queryForList("select proposal_id from praxis_bulk.praxis_bulk_evaluation order by proposal_id",
+                java.util.UUID.class)).containsExactly(first.proposal().id(),second.proposal().id());
+        replaceLegacyEvaluationPayload(second.proposal().id(),bytes("CORRUPT"));
         assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Protected bulk manifest differs from evaluation: " + second.proposal().id());
         assertThat(count("praxis_bulk_target_manifest")).isZero();
-        sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
-                BulkEvaluationStorageCodec.encode(second),second.proposal().id());
-        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation enable trigger user");
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                + "where version is null or version::integer<=7 order by installed_rank")).isEqualTo(originalHistory);
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class)).isEqualTo("PENDING");
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history where version='20'",Integer.class)).isZero();
+        replaceLegacyEvaluationPayload(second.proposal().id(),BulkEvaluationStorageCodec.encode(second));
         var historyBeforeRetry = historyThroughV19();
         assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
                 + "where version='20'",Integer.class)).isZero();
@@ -957,23 +967,20 @@ class BulkEvaluationStorePostgresTest {
         BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"durable_runtime");
         var value=evaluation(proposal(specialSnapshot("retry\u0000id","v\u0000retry","payload\u0000retry")));
         insertV7Evaluation(value);
-        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user");
-        sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
-                bytes("CORRUPT"),value.proposal().id());
+        replaceLegacyEvaluationPayload(value.proposal().id(),bytes("CORRUPT"));
         var roles=BulkPostgresTestSupport.testRoleConfiguration();
+        prepareCanonicalPublicationReadForExistingRuntimeRoles();
         assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Protected bulk manifest differs from evaluation: " + value.proposal().id());
         assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
                 .isEqualTo("PENDING");
         assertThat(count("praxis_bulk_target_manifest")).isZero();
         assertThat(sql.queryForObject("""
                 select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
                 """,Boolean.class)).isFalse();
-        grantPublicationReadToExistingRuntimeRoles();
-        sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
-                BulkEvaluationStorageCodec.encode(value),value.proposal().id());
-        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation enable trigger user");
+        replaceLegacyEvaluationPayload(value.proposal().id(),BulkEvaluationStorageCodec.encode(value));
         var historyBeforeRetry = historyThroughV19();
         assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
                 + "where version='20'",Integer.class)).isZero();
@@ -1015,16 +1022,24 @@ class BulkEvaluationStorePostgresTest {
         BulkPostgresTestSupport.grantRuntimeRole(schemaOwnerDataSource,"durable_runtime");
         var value=evaluation(proposal(specialSnapshot("upgrade-role","v1","plain")));
         insertV7Evaluation(value);
+        var originalHistory = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
         assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(org.flywaydb.core.api.FlywayException.class)
+                .hasMessageContaining("beforeEachMigrate")
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage("Publication predecessor schema ACL differs");
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                + "where version is null or version::integer<=7 order by installed_rank")).isEqualTo(originalHistory);
+        assertThat(sql.queryForObject("select max(version::integer) from praxis_bulk.praxis_bulk_schema_history",Integer.class)).isEqualTo(13);
+        assertThat(sql.queryForObject("select to_regclass('praxis_bulk.praxis_bulk_openapi_publication') is null",Boolean.class)).isTrue();
         assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
                 .isEqualTo("PENDING");
         assertThat(count("praxis_bulk_target_manifest")).isZero();
         assertThat(sql.queryForObject("""
                 select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
                 """,Boolean.class)).isFalse();
-        grantPublicationReadToExistingRuntimeRoles();
+        prepareCanonicalPublicationReadForExistingRuntimeRoles();
         var roles=BulkPostgresTestSupport.testRoleConfiguration();
         var historyBeforeRetry = historyThroughV19();
         assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
@@ -1044,11 +1059,50 @@ class BulkEvaluationStorePostgresTest {
                 java.util.Set.of(),java.util.Set.of());
         assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("governed lifecycle function grants differ");
         assertThat(sql.queryForObject("""
                 select has_table_privilege('missing_runtime','praxis_bulk.praxis_bulk_target_manifest','select,insert')
                 """,Boolean.class)).isFalse();
+        assertThat(sql.queryForObject("select has_function_privilege('missing_runtime','praxis_bulk.lock_operation_control(text,text)','execute')",Boolean.class)).isFalse();
+        assertThat(sql.queryForObject("select has_function_privilege('missing_runtime','praxis_bulk.lock_openapi_publication(text,text)','execute')",Boolean.class)).isFalse();
         assertThat(count("praxis_bulk_target_manifest")).isZero();
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class)).isEqualTo("PENDING");
+        assertThat(sql.queryForObject("select has_schema_privilege('missing_runtime','praxis_bulk','USAGE')",Boolean.class)).isFalse();
+        assertThat(sql.queryForObject("select has_table_privilege('missing_runtime','praxis_bulk.praxis_bulk_evaluation','select,insert')",Boolean.class)).isFalse();
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history where version='20'",Integer.class)).isZero();
+    }
+    private void replaceLegacyEvaluationPayload(java.util.UUID proposalId,byte[] payload) {
+        // Test-only corruption window: catalog attestation must see every guard enabled.
+        sql.execute("alter table praxis_bulk.praxis_bulk_evaluation disable trigger user");
+        try {
+            assertThat(sql.update("update praxis_bulk.praxis_bulk_evaluation set payload=? where proposal_id=?",
+                    payload,proposalId)).isEqualTo(1);
+        } finally {
+            sql.execute("alter table praxis_bulk.praxis_bulk_evaluation enable trigger user");
+        }
+    }
+    private void prepareCanonicalPublicationReadForExistingRuntimeRoles() {
+        // A failed V14 predecessor attempt has not created this function. First reach the
+        // canonical callback with the correct roles, retaining the owner bootstrap as PENDING.
+        var prefix = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
+        int prior = sql.queryForObject("select max(version::integer) from praxis_bulk.praxis_bulk_schema_history",Integer.class);
+        String manifestPhase = prior >= 8
+                ? sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class)
+                : "PENDING"; // V8 creates this owner-only marker; no pre-V8 table exists.
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
+                BulkPostgresTestSupport.testRoleConfiguration()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("governed lifecycle function grants differ");
+        assertThat(sql.queryForObject("select max(version::integer) from praxis_bulk.praxis_bulk_schema_history",Integer.class)).isEqualTo(19);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                + "where version is null or version::integer<=? order by installed_rank",prior)).isEqualTo(prefix);
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history where version='20'",Integer.class)).isZero();
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class)).isEqualTo(manifestPhase);
+        assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_target_manifest",Integer.class)).isZero();
+        assertThat(sql.queryForObject("select has_function_privilege('bulk_runtime_test','praxis_bulk.lock_openapi_publication(text,text)','execute')",Boolean.class)).isFalse();
+        grantPublicationReadToExistingRuntimeRoles();
     }
     private void grantPublicationReadToExistingRuntimeRoles() {
         // Host-owned V14 ACL only; V16 pending bootstrap must provision its own exact runtime grants.
@@ -1059,6 +1113,9 @@ class BulkEvaluationStorePostgresTest {
                 .schemas("praxis_bulk").defaultSchema("praxis_bulk")
                 .table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true)
                 .target("7").load().migrate();
+        // Synthetic predecessor admission: the namespace is backed by its durable bucket.
+        sql.update("insert into praxis_bulk.praxis_bulk_deployment_bucket(deployment_id) values(?)",
+                BulkPostgresTestSupport.DEPLOYMENT_ID);
         sql.update("insert into praxis_bulk.praxis_bulk_namespace_binding(namespace_id,deployment_id,bound_at) values(?,?,clock_timestamp())",
                 CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID);
         BulkPostgresTestSupport.ready(schemaOwnerDataSource,CONTEXT.namespaceId(),CONTEXT.operationRef().operationId());
