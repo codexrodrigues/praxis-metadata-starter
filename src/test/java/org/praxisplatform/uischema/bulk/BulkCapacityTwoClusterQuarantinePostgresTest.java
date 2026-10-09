@@ -61,7 +61,7 @@ class BulkCapacityTwoClusterQuarantinePostgresTest {
         try (var proof = new Proof()) {
             proof.writeHba(proof.originHba, bootstrapHba());
             var builder = proof.builder(proof.originData, proof.originHba, proof.firstLog, false);
-            JdbcBulkCapacityInstallation.ExpectedBinding expected;
+            BulkCapacityBinding expected;
             BulkFingerprintContext context;
             BulkExecutionControl control;
             Map<String, List<String>> rows;
@@ -405,14 +405,14 @@ class BulkCapacityTwoClusterQuarantinePostgresTest {
         }
     }
     private static String codeSource(Class<?> type) { return type.getProtectionDomain().getCodeSource().getLocation().toExternalForm(); }
-    private static ObjectNode binding(JdbcBulkCapacityInstallation.ExpectedBinding e) {
+    private static ObjectNode binding(BulkCapacityBinding e) {
         return JSON.createObjectNode().put("deployment", e.deploymentId()).put("tenant", e.tenantId()).put("environment", e.environment())
                 .put("binding", e.bindingId()).put("generation", e.generation()).put("databaseId", e.databaseId().toString())
                 .put("attestationId", e.attestationId().toString()).put("authorityId", e.authorityId().toString()).put("authorityEpoch", e.authorityEpoch());
     }
 
     private static Properties runtimeConfiguration(Proof proof, EmbeddedPostgres origin, EmbeddedPostgres clone,
-            JdbcBulkCapacityInstallation.ExpectedBinding e, BulkFingerprintContext c, BulkExecutionControl control) throws Exception {
+            BulkCapacityBinding e, BulkFingerprintContext c, BulkExecutionControl control) throws Exception {
         var p = new Properties(); p.setProperty("originUrl", origin.getJdbcUrl(RUNTIME, ORIGIN));
         p.setProperty("copyUrl", clone.getJdbcUrl(RUNTIME, ORIGIN)); p.setProperty("runtimePassword", proof.passwords.get(RUNTIME));
         p.setProperty("runtimeRoles", String.join(",", BulkPostgresTestSupport.testRoleConfiguration().runtimeGranteeRoles()));
@@ -429,7 +429,7 @@ class BulkCapacityTwoClusterQuarantinePostgresTest {
     }
 
     private static Properties agentConfiguration(Proof proof, EmbeddedPostgres origin,
-            JdbcBulkCapacityInstallation.ExpectedBinding expected, BulkFingerprintContext context,
+            BulkCapacityBinding expected, BulkFingerprintContext context,
             Session held, String prefix, String authority) throws Exception {
         var p = new Properties(); p.setProperty("bindingJson", JSON.writeValueAsString(binding(expected)));
         p.setProperty("namespace", context.namespaceId()); p.setProperty("adminUrl", origin.getJdbcUrl("postgres", "postgres"));

@@ -89,7 +89,7 @@ class BulkDurableWorkerLifecyclePostgresTest {
             var domainBefore = fixture.observer.queryForList("select * from occupancy_domain_witness order by id");
             var physical = new CopyOnWriteArrayList<BulkCapacityOccupancyPostgresFixture.PhysicalUnit>();
             var worker = new BulkDurableWorker(List.of(new BulkDurableWorker.Binding(kernel, List.of(
-                    new BulkDurableWorker.Handler(fixture.context.resourceKey(), fixture.context.operationRef(),
+                    new BulkDurableWorker.Handler(fixture.context.resourceKey(), fixture.context.operationRef(), () -> new BulkDurableWorkerComposition.UnitCallbacks(
                             unit -> BulkUnitAdmission.admit(), unit -> {
                         assertThat(pool.isClosed()).isFalse();
                         entered.countDown(); barrier(release);
@@ -106,7 +106,7 @@ class BulkDurableWorkerLifecyclePostgresTest {
                             return null;
                         });
                         writes.incrementAndGet(); return BulkUnitMutationResult.confirmed();
-                    })))));
+                    }, () -> { }))))));
             var context = new GenericApplicationContext();
             context.registerBean("operationalDatasource", com.zaxxer.hikari.HikariDataSource.class, () -> pool,
                     definition -> definition.setDestroyMethodName("close"));

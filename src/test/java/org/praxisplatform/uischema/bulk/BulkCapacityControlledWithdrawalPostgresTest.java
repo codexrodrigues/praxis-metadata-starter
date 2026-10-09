@@ -392,7 +392,7 @@ class BulkCapacityControlledWithdrawalPostgresTest {
                         Set.of(required(p, "runtimeRoles").split(",")), Set.of(), Set.of());
                 var infrastructure = new BulkExecutionInfrastructure(source, new DataSourceTransactionManager(source),
                         context.namespaceId(), required(p, "deployment"), roles);
-                var expected = new JdbcBulkCapacityInstallation.ExpectedBinding(required(p, "deployment"), required(p, "tenant"),
+                var expected = new BulkCapacityBinding(required(p, "deployment"), required(p, "tenant"),
                         required(p, "environment"), required(p, "binding"), number(p, "generation"), uuid(p, "databaseId"),
                         uuid(p, "attestationId"), uuid(p, "authorityId"), number(p, "authorityEpoch"));
                 var kernel = new JdbcBulkDurableExecution(infrastructure, null, expected);

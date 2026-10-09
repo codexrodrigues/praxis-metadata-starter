@@ -217,9 +217,9 @@ class BulkCapacityProvisioningInterlockPostgresTest {
         final Path directory;
         final Path lockFile;
         final Path dataFile;
-        final JdbcBulkCapacityInstallation.ExpectedBinding expected;
+        final BulkCapacityBinding expected;
 
-        Journal(Path directory, JdbcBulkCapacityInstallation.ExpectedBinding expected) {
+        Journal(Path directory, BulkCapacityBinding expected) {
             this.directory = directory; this.lockFile = directory.resolve("provisioning.lock");
             this.dataFile = directory.resolve("provisioning.json"); this.expected = expected;
         }
@@ -316,7 +316,7 @@ class BulkCapacityProvisioningInterlockPostgresTest {
         @Override public void close() throws Exception { try { lock.release(); } finally { channel.close(); } }
     }
 
-    private static ObjectNode binding(JdbcBulkCapacityInstallation.ExpectedBinding e) {
+    private static ObjectNode binding(BulkCapacityBinding e) {
         return JSON.createObjectNode().put("deployment", e.deploymentId()).put("tenant", e.tenantId())
                 .put("environment", e.environment()).put("binding", e.bindingId()).put("generation", e.generation())
                 .put("databaseId", e.databaseId().toString()).put("attestationId", e.attestationId().toString())
@@ -656,7 +656,7 @@ class BulkCapacityProvisioningInterlockPostgresTest {
             System.exit(exit);
         }
 
-        private static void retire(Properties p, Path output, JdbcBulkCapacityInstallation.ExpectedBinding expected) throws Exception {
+        private static void retire(Properties p, Path output, BulkCapacityBinding expected) throws Exception {
             Path hba = Path.of(required(p, "hbaFile"));
             replaceHba(hba, BulkCapacityProvisioningInterlockPostgresTest.hba(false));
             var adminSource = source(required(p, "adminUrl"), "postgres", required(p, "password.postgres"));
@@ -712,9 +712,9 @@ class BulkCapacityProvisioningInterlockPostgresTest {
         }
     }
 
-    private static JdbcBulkCapacityInstallation.ExpectedBinding expected(Properties p) throws Exception {
+    private static BulkCapacityBinding expected(Properties p) throws Exception {
         var b = JSON.readTree(required(p, "bindingJson"));
-        return new JdbcBulkCapacityInstallation.ExpectedBinding(b.path("deployment").asText(), b.path("tenant").asText(),
+        return new BulkCapacityBinding(b.path("deployment").asText(), b.path("tenant").asText(),
                 b.path("environment").asText(), b.path("binding").asText(), b.path("generation").longValue(),
                 UUID.fromString(b.path("databaseId").asText()), UUID.fromString(b.path("attestationId").asText()),
                 UUID.fromString(b.path("authorityId").asText()), b.path("authorityEpoch").longValue());
@@ -782,7 +782,7 @@ class BulkCapacityProvisioningInterlockPostgresTest {
             manifest.putArray("events");
         }
 
-        Journal journal(JdbcBulkCapacityInstallation.ExpectedBinding expected) { return new Journal(directory, expected); }
+        Journal journal(BulkCapacityBinding expected) { return new Journal(directory, expected); }
         ObjectNode event(String phase) {
             return manifest.withArray("events").addObject().put("phase", phase);
         }

@@ -182,7 +182,7 @@ class BulkDurableWorkerPostgresTest {
     static BulkDurableWorker.Binding binding(BulkCapacityOccupancyPostgresFixture fixture,
             BulkUnitMutationCallback mutation) {
         return new BulkDurableWorker.Binding(fixture.kernel, List.of(new BulkDurableWorker.Handler(
-                fixture.context.resourceKey(), fixture.context.operationRef(), unit -> BulkUnitAdmission.admit(), mutation)));
+                fixture.context.resourceKey(), fixture.context.operationRef(), () -> new BulkDurableWorkerComposition.UnitCallbacks( unit -> BulkUnitAdmission.admit(), mutation, () -> { }))));
     }
     static boolean completed(BulkCapacityOccupancyPostgresFixture fixture, UUID executionId) {
         return fixture.kernel.find(fixture.context, executionId).orElseThrow().status()

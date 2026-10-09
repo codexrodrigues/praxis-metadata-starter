@@ -87,7 +87,7 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
     final JdbcTemplate observer;
     final JdbcTemplate runtimeSql;
     final BulkExecutionInfrastructure runtime;
-    final JdbcBulkCapacityInstallation.ExpectedBinding expected;
+    final BulkCapacityBinding expected;
     final JdbcBulkCapacityInstallation installation;
     final JdbcBulkDurableExecution kernel;
     final BulkOperationControlExpectation control;
@@ -289,7 +289,7 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
             observer.execute("grant select,update on occupancy_domain_witness to bulk_runtime_test");
             runtime = new BulkExecutionInfrastructure(runtimeSource, new DataSourceTransactionManager(runtimeSource),
                     context.namespaceId(), DEPLOYMENT, BulkPostgresTestSupport.testRoleConfiguration());
-            expected = new JdbcBulkCapacityInstallation.ExpectedBinding(DEPLOYMENT, tenant, ENVIRONMENT,
+            expected = new BulkCapacityBinding(DEPLOYMENT, tenant, ENVIRONMENT,
                     binding, 3, UUID.randomUUID(), UUID.randomUUID(), scope.identity.authorityId(),
                     scope.identity.expectedAuthorityEpoch());
             installation = new JdbcBulkCapacityInstallation(expected, ownerSource,

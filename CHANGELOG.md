@@ -4,6 +4,10 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### B5b.3 — composição explícita candidata
+
+- [Composição explícita do worker — candidato B5b.3](docs/technical/BULK-WORKER-EXPLICIT-COMPOSITION.md): vínculo canônico e callbacks por unidade; provas focais e consumidor JAR privado executados, revisão/integração e publicação pendentes, sem ingresso HTTP ASYNC.
+
 ### C0-04 — administração local candidata
 
 - Acrescenta `BulkCapacityLocalAdministrationMain` como entrada operacional INSPECT/FENCE com JSON estrito privado, OWNER e vínculo completo explícitos. INSPECT não inicializa; FENCE revalida catálogo sob lock e só confirma após commit conhecido e readback independente. Código local é compartilhado com Installation; sem migração nova ou exposição do núcleo interno.

@@ -19,7 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Local owner administration; no global-authority connection or runtime authorization. */
 final class JdbcBulkCapacityLocalAdministration {
     private static final String MARKER = "praxis_bulk.praxis_bulk_capacity_marker";
-    private final JdbcBulkCapacityInstallation.ExpectedBinding expected;
+    private final BulkCapacityBinding expected;
     private final DataSource owner;
     private final DataSourceTransactionManager ownerManager;
     private final String ownerLogin;
@@ -28,7 +28,7 @@ final class JdbcBulkCapacityLocalAdministration {
     private final long lockMillis;
     private final JdbcTemplate jdbc;
 
-    JdbcBulkCapacityLocalAdministration(JdbcBulkCapacityInstallation.ExpectedBinding expected,
+    JdbcBulkCapacityLocalAdministration(BulkCapacityBinding expected,
             DataSource owner, DataSourceTransactionManager manager, String ownerLogin,
             BulkExecutionRoleConfiguration roles, Duration budget, Duration lockBudget) {
         this.expected = Objects.requireNonNull(expected, "expected");

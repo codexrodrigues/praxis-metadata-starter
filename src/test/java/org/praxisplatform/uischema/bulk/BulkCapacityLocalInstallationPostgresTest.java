@@ -58,11 +58,11 @@ class BulkCapacityLocalInstallationPostgresTest {
                     "select count(*) from praxis_bulk.praxis_bulk_capacity_installation", Integer.class))
                     .isEqualTo(1);
             var original = local.expected();
-            var otherBinding = new JdbcBulkCapacityInstallation.ExpectedBinding(original.deploymentId(),
+            var otherBinding = new BulkCapacityBinding(original.deploymentId(),
                     original.tenantId(), original.environment(), "other-binding", original.generation(),
                     original.databaseId(), original.attestationId(), original.authorityId(),
                     original.authorityEpoch());
-            var otherGeneration = new JdbcBulkCapacityInstallation.ExpectedBinding(original.deploymentId(),
+            var otherGeneration = new BulkCapacityBinding(original.deploymentId(),
                     original.tenantId(), original.environment(), original.bindingId(), original.generation() + 1,
                     original.databaseId(), original.attestationId(), original.authorityId(),
                     original.authorityEpoch());
@@ -160,10 +160,10 @@ class BulkCapacityLocalInstallationPostgresTest {
             var token = fixture.prepareIssued(local);
             assertThat(local.installation().install(token.tokenId())).isTrue();
             var original = local.expected();
-            var changedId = new JdbcBulkCapacityInstallation.ExpectedBinding(original.deploymentId(),
+            var changedId = new BulkCapacityBinding(original.deploymentId(),
                     original.tenantId(), original.environment(), original.bindingId(), original.generation(),
                     original.databaseId(), original.attestationId(), UUID.randomUUID(), original.authorityEpoch());
-            var changedEpoch = new JdbcBulkCapacityInstallation.ExpectedBinding(original.deploymentId(),
+            var changedEpoch = new BulkCapacityBinding(original.deploymentId(),
                     original.tenantId(), original.environment(), original.bindingId(), original.generation(),
                     original.databaseId(), original.attestationId(), original.authorityId(),
                     original.authorityEpoch() + 1);
@@ -201,7 +201,7 @@ class BulkCapacityLocalInstallationPostgresTest {
                 alternateProvisioner.enrollBinding(original.tenantId(), original.bindingId(), original.generation());
                 alternateProvisioner.registerAttestation(original.tenantId(), original.bindingId(),
                         original.generation(), original.databaseId(), original.attestationId());
-                var alternateExpected = new JdbcBulkCapacityInstallation.ExpectedBinding(original.deploymentId(),
+                var alternateExpected = new BulkCapacityBinding(original.deploymentId(),
                         original.tenantId(), original.environment(), original.bindingId(), original.generation(),
                         original.databaseId(), original.attestationId(), alternateIdentity.authorityId(),
                         alternateIdentity.expectedAuthorityEpoch());
@@ -679,7 +679,7 @@ class BulkCapacityLocalInstallationPostgresTest {
         assertThat(((Number) row.get("authority_epoch")).longValue()).isEqualTo(token.authorityEpoch());
     }
 
-    private record Local(JdbcBulkCapacityInstallation.ExpectedBinding expected, CountingDataSource ownerSource,
+    private record Local(BulkCapacityBinding expected, CountingDataSource ownerSource,
                          CountingDataSource runtimeSource, BulkExecutionInfrastructure runtime,
                          JdbcBulkCapacityInstallation installation, JdbcTemplate sql) { }
 
@@ -754,7 +754,7 @@ class BulkCapacityLocalInstallationPostgresTest {
             var runtime = new BulkExecutionInfrastructure(runtimeSource,
                     new DataSourceTransactionManager(runtimeSource), NAMESPACE, DEPLOYMENT,
                     BulkPostgresTestSupport.testRoleConfiguration());
-            var expected = new JdbcBulkCapacityInstallation.ExpectedBinding(DEPLOYMENT, TENANT, ENVIRONMENT,
+            var expected = new BulkCapacityBinding(DEPLOYMENT, TENANT, ENVIRONMENT,
                     binding, generation, UUID.randomUUID(), UUID.randomUUID(), identity.authorityId(),
                     identity.expectedAuthorityEpoch());
             return new Local(expected, owner, runtimeSource, runtime,
@@ -765,19 +765,19 @@ class BulkCapacityLocalInstallationPostgresTest {
             return installation(local.expected(), local.ownerSource(), local.runtime());
         }
 
-        JdbcBulkCapacityInstallation installation(JdbcBulkCapacityInstallation.ExpectedBinding expected,
+        JdbcBulkCapacityInstallation installation(BulkCapacityBinding expected,
                                                    CountingDataSource owner, BulkExecutionInfrastructure runtime) {
             return installation(expected, owner, runtime, Duration.ofSeconds(20), Duration.ofSeconds(3));
         }
 
-        JdbcBulkCapacityInstallation installation(JdbcBulkCapacityInstallation.ExpectedBinding expected,
+        JdbcBulkCapacityInstallation installation(BulkCapacityBinding expected,
                 CountingDataSource owner, BulkExecutionInfrastructure runtime,
                 Duration transactionBudget, Duration lockBudget) {
             return new JdbcBulkCapacityInstallation(expected, owner, new DataSourceTransactionManager(owner),
                     "postgres", runtime, provisioner, reader, transactionBudget, lockBudget);
         }
 
-        JdbcBulkCapacityIssuer.IssuedToken issue(JdbcBulkCapacityInstallation.ExpectedBinding expected) {
+        JdbcBulkCapacityIssuer.IssuedToken issue(BulkCapacityBinding expected) {
             var request = new JdbcBulkCapacityIssuer.Request(UUID.randomUUID(), DEPLOYMENT,
                     expected.tenantId(), expected.bindingId(), JdbcBulkCapacityIssuer.CapacityClass.ACTIVE, 1);
             issuer.requestCapacity(request);

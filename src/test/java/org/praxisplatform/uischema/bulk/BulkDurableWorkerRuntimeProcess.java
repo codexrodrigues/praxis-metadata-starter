@@ -75,7 +75,7 @@ public final class BulkDurableWorkerRuntimeProcess {
         var runtime = new BulkExecutionInfrastructure(source, new DataSourceTransactionManager(source),
                 v.getProperty(p + "namespace"), v.getProperty(p + "deployment"),
                 new BulkExecutionRoleConfiguration("postgres", Set.of("bulk_runtime_test", "durable_runtime"), Set.of(), Set.of()));
-        var expected = new JdbcBulkCapacityInstallation.ExpectedBinding(v.getProperty(p + "deployment"),
+        var expected = new BulkCapacityBinding(v.getProperty(p + "deployment"),
                 v.getProperty(p + "tenant"), v.getProperty(p + "environment"), v.getProperty(p + "binding"),
                 Long.parseLong(v.getProperty(p + "generation")), UUID.fromString(v.getProperty(p + "databaseId")),
                 UUID.fromString(v.getProperty(p + "attestationId")), UUID.fromString(v.getProperty(p + "authorityId")),
@@ -92,7 +92,7 @@ public final class BulkDurableWorkerRuntimeProcess {
             Properties values, String prefix, Path directory, AtomicInteger callbacks) {
         // Same trusted operational binding as the kernel; domain SQL must join its transaction.
         return new BulkDurableWorker.Binding(composed.kernel(), List.of(new BulkDurableWorker.Handler(context.resourceKey(),
-                context.operationRef(), unit -> BulkUnitAdmission.admit(), unit -> {
+                context.operationRef(), () -> new BulkDurableWorkerComposition.UnitCallbacks( unit -> BulkUnitAdmission.admit(), unit -> {
                     if (Boolean.parseBoolean(values.getProperty("fairness")) && unit.ordinal() == 0) {
                         if (prefix.equals("a.")) {
                             try { Files.writeString(directory.resolve("a-entered"), "A unit entered, no mutation yet"); }
@@ -112,7 +112,7 @@ public final class BulkDurableWorkerRuntimeProcess {
                     });
                     callbacks.incrementAndGet();
                     return BulkUnitMutationResult.confirmed();
-                })));
+                }, () -> { }))));
     }
     private static void awaitFile(Path path, Duration timeout) { awaitFiles(List.of(path), timeout); }
     private static void awaitFiles(List<Path> paths, Duration timeout) {

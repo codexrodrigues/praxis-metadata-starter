@@ -156,7 +156,7 @@ class BulkCapacityOccupancyPostgresTest {
                     .isInstanceOfSatisfying(BulkDurableExecutionException.class,
                             error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_EXECUTABLE));
             var expected = fixture.expected;
-            var mismatch = new JdbcBulkCapacityInstallation.ExpectedBinding(expected.deploymentId(), expected.tenantId(),
+            var mismatch = new BulkCapacityBinding(expected.deploymentId(), expected.tenantId(),
                     expected.environment(), expected.bindingId(), expected.generation(), expected.databaseId(),
                     UUID.randomUUID(), expected.authorityId(), expected.authorityEpoch());
             var wrongBinding = new JdbcBulkDurableExecution(fixture.runtime, null, mismatch);

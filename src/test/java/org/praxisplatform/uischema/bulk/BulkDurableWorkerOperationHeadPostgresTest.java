@@ -79,10 +79,10 @@ class BulkDurableWorkerOperationHeadPostgresTest {
             var headCalls = new AtomicInteger();
             var healthyCalls = new AtomicInteger();
             var physical = new CopyOnWriteArrayList<BulkCapacityOccupancyPostgresFixture.PhysicalUnit>();
-            var headHandler = new BulkDurableWorker.Handler(headContext.resourceKey(), headContext.operationRef(),
+            var headHandler = new BulkDurableWorker.Handler(headContext.resourceKey(), headContext.operationRef(), () -> new BulkDurableWorkerComposition.UnitCallbacks(
                     unit -> { headCalls.incrementAndGet(); return BulkUnitAdmission.admit(); },
-                    unit -> { headCalls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
-            var healthyHandler = new BulkDurableWorker.Handler(fixture.context.resourceKey(), fixture.context.operationRef(),
+                    unit -> { headCalls.incrementAndGet(); return BulkUnitMutationResult.confirmed(); }, () -> { }));
+            var healthyHandler = new BulkDurableWorker.Handler(fixture.context.resourceKey(), fixture.context.operationRef(), () -> new BulkDurableWorkerComposition.UnitCallbacks(
                     unit -> BulkUnitAdmission.admit(), unit -> {
                         healthyCalls.incrementAndGet();
                         assertThat(unit.executionId()).isEqualTo(healthy.executionId());
@@ -102,7 +102,7 @@ class BulkDurableWorkerOperationHeadPostgresTest {
                             }
                         }));
                         return BulkUnitMutationResult.confirmed();
-                    });
+                    }, () -> { }));
             var worker = new BulkDurableWorker(List.of(new BulkDurableWorker.Binding(kernel,
                     List.of(headHandler, healthyHandler))));
             try {

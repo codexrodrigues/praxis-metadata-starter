@@ -45,7 +45,7 @@ class BulkDurableWorkerActiveCapacityPostgresTest {
             var kernel = new JdbcBulkDurableExecution(runtime, null, fixture.expected);
             var calls = new AtomicInteger();
             var physical = new CopyOnWriteArrayList<BulkCapacityOccupancyPostgresFixture.PhysicalUnit>();
-            var handler = new BulkDurableWorker.Handler(fixture.context.resourceKey(), fixture.context.operationRef(),
+            var handler = new BulkDurableWorker.Handler(fixture.context.resourceKey(), fixture.context.operationRef(), () -> new BulkDurableWorkerComposition.UnitCallbacks(
                     unit -> BulkUnitAdmission.admit(), unit -> {
                         calls.incrementAndGet();
                         assertThat(unit.executionId()).isEqualTo(queued.executionId());
@@ -69,7 +69,7 @@ class BulkDurableWorkerActiveCapacityPostgresTest {
                             }
                         }));
                         return BulkUnitMutationResult.confirmed();
-                    });
+                    }, () -> { }));
             var worker = new BulkDurableWorker(List.of(new BulkDurableWorker.Binding(kernel, List.of(handler))));
             try {
                 worker.start();
