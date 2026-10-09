@@ -434,6 +434,9 @@ class BulkEvaluationStorePostgresTest {
         Flyway.configure().dataSource(schemaOwnerDataSource).locations("classpath:db/praxis-bulk-migrations")
                 .schemas("praxis_bulk").defaultSchema("praxis_bulk").table("praxis_bulk_schema_history")
                 .baselineOnMigrate(false).cleanDisabled(true).target("10").load().migrate();
+        // Synthetic V10 setup: the publication predecessor requires its durable bucket.
+        sql.update("insert into praxis_bulk.praxis_bulk_deployment_bucket(deployment_id) values(?)",
+                BulkPostgresTestSupport.DEPLOYMENT_ID);
         sql.update("insert into praxis_bulk.praxis_bulk_namespace_binding(namespace_id,deployment_id,bound_at) values(?,?,clock_timestamp())",
                 CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID);
         BulkPostgresTestSupport.ready(schemaOwnerDataSource,CONTEXT.namespaceId(),CONTEXT.operationRef().operationId());
@@ -447,6 +450,25 @@ class BulkEvaluationStorePostgresTest {
         var ownerTx=new TransactionTemplate(new DataSourceTransactionManager(schemaOwnerDataSource));
         ownerTx.executeWithoutResult(status -> {
             insertV7Evaluation(value);
+            // Coherent synthetic V10 admission evidence, created before any migration attempt.
+            String subjectDigest = BulkScopeDigests.subjectQuotaDigest(
+                    BulkPostgresTestSupport.DEPLOYMENT_ID,CONTEXT.subjectId());
+            String authorizationDigest = BulkScopeDigests.authorizationScopeDigest(CONTEXT.namespaceId(),
+                    CONTEXT.subjectId(),CONTEXT.resourceKey(),CONTEXT.operationRef().operationId());
+            sql.update("""
+                    insert into praxis_bulk.praxis_bulk_subject_bucket
+                        (deployment_id,subject_scope_digest_version,subject_scope_digest)
+                    values (?,?,?)
+                    """,BulkPostgresTestSupport.DEPLOYMENT_ID,BulkScopeDigests.VERSION,subjectDigest);
+            sql.update("""
+                    insert into praxis_bulk.praxis_bulk_allocation
+                        (allocation_id,namespace_id,deployment_id,subject_scope_digest_version,
+                         subject_scope_digest,authorization_scope_digest_version,authorization_scope_digest,
+                         kind,proposal_id,execution_id,state,created_at,released_at,release_reason)
+                    select ?,namespace_id,?,?,?,?,?,'PROPOSAL_PENDING',proposal_id,null,'PENDING',created_at,null,null
+                    from praxis_bulk.praxis_bulk_proposal where proposal_id=?
+                    """,java.util.UUID.randomUUID(),BulkPostgresTestSupport.DEPLOYMENT_ID,
+                    BulkScopeDigests.VERSION,subjectDigest,BulkScopeDigests.VERSION,authorizationDigest,value.proposal().id());
             sql.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
                 BulkOrdinalManifest.insert(connection,value);
                 return null;
@@ -465,11 +487,58 @@ class BulkEvaluationStorePostgresTest {
         });
         sql.update("update praxis_bulk.praxis_bulk_manifest_bootstrap set phase='COMPLETE' where bootstrap_version=8");
         sql.update("update praxis_bulk.praxis_bulk_preview_bootstrap set phase='COMPLETE' where bootstrap_version=9");
+        var originalHistory = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                + "where version is null or version::integer<=10 order by installed_rank");
+        var originalBinding = sql.queryForList("select * from praxis_bulk.praxis_bulk_namespace_binding");
+        var originalBucket = sql.queryForList("select * from praxis_bulk.praxis_bulk_deployment_bucket");
+        var originalSubjectBucket = sql.queryForList("select * from praxis_bulk.praxis_bulk_subject_bucket");
+        var originalAllocation = sql.queryForList("select * from praxis_bulk.praxis_bulk_allocation");
+        assertThat(originalSubjectBucket).hasSize(1);
+        assertThat(originalSubjectBucket.getFirst()).containsEntry("deployment_id",BulkPostgresTestSupport.DEPLOYMENT_ID)
+                .containsEntry("subject_scope_digest_version",BulkScopeDigests.VERSION)
+                .containsEntry("subject_scope_digest",BulkScopeDigests.subjectQuotaDigest(
+                        BulkPostgresTestSupport.DEPLOYMENT_ID,CONTEXT.subjectId()));
+        assertThat(originalAllocation).hasSize(1);
+        assertThat(originalAllocation.getFirst()).containsEntry("namespace_id",CONTEXT.namespaceId())
+                .containsEntry("deployment_id",BulkPostgresTestSupport.DEPLOYMENT_ID)
+                .containsEntry("subject_scope_digest_version",BulkScopeDigests.VERSION)
+                .containsEntry("subject_scope_digest",BulkScopeDigests.subjectQuotaDigest(
+                        BulkPostgresTestSupport.DEPLOYMENT_ID,CONTEXT.subjectId()))
+                .containsEntry("authorization_scope_digest_version",BulkScopeDigests.VERSION)
+                .containsEntry("authorization_scope_digest",BulkScopeDigests.authorizationScopeDigest(
+                        CONTEXT.namespaceId(),CONTEXT.subjectId(),CONTEXT.resourceKey(),CONTEXT.operationRef().operationId()))
+                .containsEntry("kind","PROPOSAL_PENDING").containsEntry("proposal_id",value.proposal().id())
+                .containsEntry("execution_id",null).containsEntry("state","PENDING")
+                .containsEntry("created_at",sql.queryForObject("select created_at from praxis_bulk.praxis_bulk_proposal "
+                        + "where proposal_id=?",java.sql.Timestamp.class,value.proposal().id()))
+                .containsEntry("released_at",null).containsEntry("release_reason",null);
+        var originalControl = sql.queryForList("select * from praxis_bulk.praxis_bulk_operation_control");
+        var originalSchemaAcl = sql.queryForObject("select nspacl::text from pg_catalog.pg_namespace "
+                + "where nspname='praxis_bulk'",String.class);
         var wrong=new BulkExecutionRoleConfiguration("postgres",java.util.Set.of("bulk_runtime_test"),
                 java.util.Set.of(),java.util.Set.of());
         assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),wrong))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(org.flywaydb.core.api.FlywayException.class)
+                .hasMessageContaining("beforeEachMigrate")
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage("Publication predecessor schema ACL differs");
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                + "where version is null or version::integer<=10 order by installed_rank")).isEqualTo(originalHistory);
+        assertThat(sql.queryForList("select version from praxis_bulk.praxis_bulk_schema_history "
+                + "where version::integer>10 order by installed_rank"))
+                .containsExactly(java.util.Map.of("version","11"),java.util.Map.of("version","12"),
+                        java.util.Map.of("version","13"));
+        assertThat(sql.queryForObject("select to_regclass('praxis_bulk.praxis_bulk_openapi_publication') is null",
+                Boolean.class)).isTrue();
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_namespace_binding")).isEqualTo(originalBinding);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_deployment_bucket")).isEqualTo(originalBucket);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_subject_bucket")).isEqualTo(originalSubjectBucket);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_allocation")).isEqualTo(originalAllocation);
+
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_operation_control")).isEqualTo(originalControl);
+        assertThat(sql.queryForObject("select nspacl::text from pg_catalog.pg_namespace "
+                + "where nspname='praxis_bulk'",String.class)).isEqualTo(originalSchemaAcl);
         assertThat(sql.queryForObject("""
                 select phase from praxis_bulk.praxis_bulk_preview_integrity_bootstrap
                 """,String.class)).isEqualTo("PENDING");
@@ -478,7 +547,34 @@ class BulkEvaluationStorePostgresTest {
                 select has_table_privilege('bulk_runtime_test',
                     'praxis_bulk.praxis_bulk_preview_item_integrity','insert')
                 """,Boolean.class)).isFalse();
+        // Correct roles permit V14 creation; the host-owned function grant is still absent.
+        // The real callback creates the publication origin, before bootstrap rejects that ACL.
+        assertThatThrownBy(() -> BulkExecutionMigrator.migrate(schemaOwnerDataSource,
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
+                BulkPostgresTestSupport.testRoleConfiguration()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("governed lifecycle function grants differ");
+        assertThat(sql.queryForObject("select max(version::integer) from praxis_bulk.praxis_bulk_schema_history",
+                Integer.class)).isEqualTo(19);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "
+                + "where version is null or version::integer<=10 order by installed_rank")).isEqualTo(originalHistory);
+        var publicationOrigin = sql.queryForList("select * from praxis_bulk.praxis_bulk_openapi_publication");
+        assertThat(publicationOrigin).hasSize(1);
+        assertThat(publicationOrigin.getFirst()).containsEntry("deployment_id",BulkPostgresTestSupport.DEPLOYMENT_ID)
+                .containsEntry("state","UNCOMPOSED").containsEntry("generation",0L)
+                .containsEntry("document_digest",null);
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_preview_integrity_bootstrap",
+                String.class)).isEqualTo("PENDING");
+        assertThat(count("praxis_bulk_preview_item_integrity")).isZero();
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_namespace_binding")).isEqualTo(originalBinding);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_deployment_bucket")).isEqualTo(originalBucket);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_subject_bucket")).isEqualTo(originalSubjectBucket);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_allocation")).isEqualTo(originalAllocation);
+
+        assertThat(sql.queryForObject("select has_function_privilege('bulk_runtime_test', "
+                + "'praxis_bulk.lock_openapi_publication(text,text)','execute')",Boolean.class)).isFalse();
         grantPublicationReadToExistingRuntimeRoles();
+        var historyBeforeRetry = historyThroughV19();
         sql.execute("alter table praxis_bulk.praxis_bulk_preview_state disable trigger user");
         sql.update("update praxis_bulk.praxis_bulk_preview_state set projection_digest=? where proposal_id=?",
                 "sha256:"+"0".repeat(64),value.proposal().id());
@@ -488,18 +584,33 @@ class BulkEvaluationStorePostgresTest {
                 BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Bulk preview projection is incomplete or corrupt");
         assertThat(count("praxis_bulk_preview_item_integrity")).isZero();
+        assertThat(historyThroughV19()).isEqualTo(historyBeforeRetry);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_openapi_publication")).isEqualTo(publicationOrigin);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_subject_bucket")).isEqualTo(originalSubjectBucket);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_allocation")).isEqualTo(originalAllocation);
+
+        assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_preview_integrity_bootstrap",
+                String.class)).isEqualTo("PENDING");
+        assertThat(sql.queryForObject("select projection_digest from praxis_bulk.praxis_bulk_preview_state "
+                + "where proposal_id=?",String.class,value.proposal().id())).isEqualTo("sha256:"+"0".repeat(64));
         sql.execute("alter table praxis_bulk.praxis_bulk_preview_state disable trigger user");
         sql.update("update praxis_bulk.praxis_bulk_preview_state set projection_digest=? where proposal_id=?",
                 digest,value.proposal().id());
         sql.execute("alter table praxis_bulk.praxis_bulk_preview_state enable trigger user");
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
-                BulkPostgresTestSupport.testRoleConfiguration())).isZero();
+                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(1);
+        assertV20OnceAndZeroWorkReplay(BulkPostgresTestSupport.testRoleConfiguration(),historyBeforeRetry);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_openapi_publication")).isEqualTo(publicationOrigin);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_subject_bucket")).isEqualTo(originalSubjectBucket);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_allocation")).isEqualTo(originalAllocation);
+
         assertThat(sql.queryForObject("""
                 select phase from praxis_bulk.praxis_bulk_preview_integrity_bootstrap
                 """,String.class)).isEqualTo("COMPLETE");
         assertThat(count("praxis_bulk_preview_item_integrity")).isEqualTo(1);
         BulkExecutionMigrator.validate(schemaOwnerDataSource,BulkPostgresTestSupport.testRoleConfiguration());
+        var completeHistory = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
         sql.execute("alter table praxis_bulk.praxis_bulk_preview_item_integrity disable trigger user");
         sql.update("update praxis_bulk.praxis_bulk_preview_item_integrity set item_digest=? where proposal_id=?",
                 "sha256:"+"0".repeat(64),value.proposal().id());
@@ -508,6 +619,12 @@ class BulkEvaluationStorePostgresTest {
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
                 BulkPostgresTestSupport.testRoleConfiguration())).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Bulk preview item integrity is incomplete or corrupt");
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank"))
+                .isEqualTo(completeHistory);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_openapi_publication")).isEqualTo(publicationOrigin);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_subject_bucket")).isEqualTo(originalSubjectBucket);
+        assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_allocation")).isEqualTo(originalAllocation);
+
         assertThat(count("praxis_bulk_preview_item_integrity")).isEqualTo(1);
         assertThat(sql.queryForObject("""
                 select item_digest from praxis_bulk.praxis_bulk_preview_item_integrity where proposal_id=?
