@@ -810,7 +810,6 @@ class CustomOpenApiResolverTest {
         assertEquals("info", radialViz.get("tone"));
     }
 
-<<<<<<< HEAD
     private static class EffectiveMicroVisualizationDummy {
         @MicroVisualization(kind = MicroVisualizationKind.BULLET, target = 90, fallbackText = "Base")
         @UISchema(preset = UISchemaPreset.MONETARY_AMOUNT, label = "Limite", extraProperties = {
@@ -862,7 +861,8 @@ class CustomOpenApiResolverTest {
         @UISchema(extraProperties = @io.swagger.v3.oas.annotations.extensions.ExtensionProperty(
                 name = "presentation.visualization", value = "false"))
         public Double wrongShape;
-=======
+    }
+
     private static class ThresholdVisualizationDummy {
         @MicroVisualization(
                 kind = MicroVisualizationKind.RADIAL,
@@ -884,7 +884,8 @@ class CustomOpenApiResolverTest {
                         @Threshold(value = 30.0, tone = "danger"),
                         @Threshold(value = 70.0, tone = "warning"),
                         @Threshold(value = 100.0, tone = "success")
-                }
+                },
+                fallbackText = "KPI Bullet"
         )
         public Double kpiBullet;
 
@@ -893,10 +894,21 @@ class CustomOpenApiResolverTest {
                 thresholds = {
                         @Threshold(equalsValue = "CRITICAL", tone = "danger"),
                         @Threshold(equalsValue = "OK", tone = "success")
-                }
+                },
+                fallbackText = "Alerta"
         )
         public String statusAlerta;
->>>>>>> 3e25a1f0ae (feat(metadata): add declarative thresholds and toneExpr to @MicroVisualization (issue #45))
+
+        @MicroVisualization(
+                kind = MicroVisualizationKind.RADIAL,
+                thresholds = {
+                        @Threshold(), // Orfao, sem condicao de ativacao -> deve ser descartado
+                        @Threshold(min = 60.0, max = 20.0, tone = "warning", label = "Invertido"), // Limites invertidos
+                        @Threshold(min = 10.0, tone = "success", label = "Valido")
+                },
+                fallbackText = "Robustez"
+        )
+        public Double robustezThresholds;
     }
 
     @Test
@@ -1043,6 +1055,23 @@ class CustomOpenApiResolverTest {
         assertEquals("danger", deltaThresholds.get(0).get("tone"));
         assertEquals("OK", deltaThresholds.get(1).get("equals"));
         assertEquals("success", deltaThresholds.get(1).get("tone"));
+
+        // 4. Robustez: descarte de limiares orfaos e preservacao de faixas validas
+        Schema<?> robustezSchema = (Schema<?>) dummySchema.getProperties().get("robustezThresholds");
+        assertNotNull(robustezSchema);
+        Map<String, Object> robustezViz = (Map<String, Object>) ((Map<String, Object>) getXui(robustezSchema).get("presentation")).get("visualization");
+        List<Map<String, Object>> robustezThresholds = (List<Map<String, Object>>) robustezViz.get("thresholds");
+        assertNotNull(robustezThresholds);
+        // O limiar orfao @Threshold() sem condicao deve ser descartado, restando 2 itens
+        assertEquals(2, robustezThresholds.size());
+        assertEquals(60.0, (Double) robustezThresholds.get(0).get("min"), 0.001);
+        assertEquals(20.0, (Double) robustezThresholds.get(0).get("max"), 0.001);
+        assertEquals("warning", robustezThresholds.get(0).get("tone"));
+        assertEquals("Invertido", robustezThresholds.get(0).get("label"));
+
+        assertEquals(10.0, (Double) robustezThresholds.get(1).get("min"), 0.001);
+        assertEquals("success", robustezThresholds.get(1).get("tone"));
+        assertEquals("Valido", robustezThresholds.get(1).get("label"));
     }
 
     @SuppressWarnings("unchecked")

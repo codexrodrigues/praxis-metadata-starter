@@ -2208,18 +2208,30 @@ public class CustomOpenApiResolver extends ModelResolver {
             List<Map<String, Object>> thresholdList = new ArrayList<>();
             for (Threshold t : thresholds) {
                 Map<String, Object> tMap = new LinkedHashMap<>();
+                boolean hasCondition = false;
                 if (!Double.isNaN(t.min())) {
                     tMap.put("min", t.min());
+                    hasCondition = true;
                 }
                 if (!Double.isNaN(t.max())) {
                     tMap.put("max", t.max());
+                    hasCondition = true;
                 }
                 if (!Double.isNaN(t.value())) {
                     tMap.put("value", t.value());
+                    hasCondition = true;
                 }
                 String eq = asTrimmedString(t.equalsValue());
                 if (eq != null) {
                     tMap.put("equals", parseNestedExtraPropertyValue(eq));
+                    hasCondition = true;
+                }
+                if (!hasCondition) {
+                    LOGGER.warn("Discarding @Threshold without activation condition (min, max, value, equalsValue) on property '{}'", property.getName());
+                    continue;
+                }
+                if (!Double.isNaN(t.min()) && !Double.isNaN(t.max()) && t.min() > t.max()) {
+                    LOGGER.warn("@Threshold declared with min ({}) > max ({}) on property '{}'", t.min(), t.max(), property.getName());
                 }
                 String thresholdTone = asTrimmedString(t.tone());
                 if (thresholdTone != null) {
@@ -2229,9 +2241,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                 if (label != null) {
                     tMap.put("label", label);
                 }
-                if (!tMap.isEmpty()) {
-                    thresholdList.add(tMap);
-                }
+                thresholdList.add(tMap);
             }
             if (!thresholdList.isEmpty()) {
                 visualization.put("thresholds", thresholdList);
