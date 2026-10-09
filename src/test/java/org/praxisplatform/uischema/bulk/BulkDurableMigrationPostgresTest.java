@@ -3140,7 +3140,8 @@ class BulkDurableMigrationPostgresTest {
             var sql = new JdbcTemplate(dataSource);
             assertThat(migrate(dataSource)).isEqualTo(20);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
-            var fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
+            var roles = BulkPostgresTestSupport.testRoleConfiguration();
+            var fixture = insertCurrentRunningExecution(postgres, dataSource, sql, roles);
             UUID executionId = fixture.id();
             UUID attemptId = UUID.randomUUID();
             insertAdmission(sql, executionId, attemptId, 0, fixture.digest0(),
@@ -3149,16 +3150,10 @@ class BulkDurableMigrationPostgresTest {
                     + "where execution_id=? and unit_ordinal=0", String.class, executionId))
                     .isEqualTo("TARGET_VERSION_CONFLICT");
             assertThatThrownBy(() -> insertAdmission(sql, executionId, UUID.randomUUID(), 0,
-                    "sha256:" + "d".repeat(64), "CONFLICT", "TARGET_STATE_CONFLICT"))
+                    fixture.digest0(), "CONFLICT", "TARGET_STATE_CONFLICT"))
                     .isInstanceOf(RuntimeException.class);
             assertThatThrownBy(() -> insertAdmission(sql, UUID.randomUUID(), UUID.randomUUID(), 1,
                     "sha256:" + "e".repeat(64), "DENIED", "TARGET_DENIED"))
-                    .isInstanceOf(RuntimeException.class);
-            assertThatThrownBy(() -> insertAdmission(sql, executionId, UUID.randomUUID(), 1,
-                    "sha256:" + "e".repeat(64), "DENIED", "UNAPPROVED_CODE"))
-                    .isInstanceOf(RuntimeException.class);
-            assertThatThrownBy(() -> insertAdmission(sql, executionId, UUID.randomUUID(), 1,
-                    "sha256:" + "e".repeat(64), "CONFLICT", "TARGET_DENIED"))
                     .isInstanceOf(RuntimeException.class);
             assertThatThrownBy(() -> sql.execute("update praxis_bulk.praxis_bulk_admission set outcome='DENIED'"))
                     .isInstanceOf(RuntimeException.class);
@@ -3166,10 +3161,18 @@ class BulkDurableMigrationPostgresTest {
                     .isInstanceOf(RuntimeException.class);
             // The unchanged progress is deliberately rejected by physical validation: a
             // separate admission must be acknowledged before the next ordinal is exposed.
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
                     .isInstanceOf(IllegalStateException.class);
             sql.update("update praxis_bulk.praxis_bulk_execution set next_ordinal=1 where execution_id=?", executionId);
-            BulkExecutionMigrator.validate(dataSource);
+            BulkExecutionMigrator.validate(dataSource, roles);
+            assertThatThrownBy(() -> insertAdmission(sql, executionId, UUID.randomUUID(), 1,
+                    fixture.digest1(), "DENIED", "UNAPPROVED_CODE"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("praxis_bulk_admission_outcome_reason_check");
+            assertThatThrownBy(() -> insertAdmission(sql, executionId, UUID.randomUUID(), 1,
+                    fixture.digest1(), "CONFLICT", "TARGET_DENIED"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("praxis_bulk_admission_outcome_reason_check");
             insertAdmission(sql, executionId, UUID.randomUUID(), 1,
                     fixture.digest1(), "DENIED", "TARGET_DENIED");
             // Seed an impossible-but-well-shaped physical state to prove the validator
@@ -3184,46 +3187,38 @@ class BulkDurableMigrationPostgresTest {
                     from stamp
                     where execution_id=?
                     """, executionId);
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
-                    .isInstanceOf(IllegalStateException.class);
+            sql.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_guard_terminal");
+            sql.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_release_active_allocation");
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("admission and receipt evidence must form one unambiguous contiguous prefix");
+            sql.execute("alter table praxis_bulk.praxis_bulk_execution disable trigger praxis_bulk_execution_guard_terminal");
+            sql.execute("alter table praxis_bulk.praxis_bulk_execution disable trigger praxis_bulk_execution_release_active_allocation");
             sql.update("update praxis_bulk.praxis_bulk_execution set status='COMPLETED_WITH_ERRORS' where execution_id=?",
                     executionId);
             sql.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_guard_terminal");
             sql.execute("alter table praxis_bulk.praxis_bulk_execution enable trigger praxis_bulk_execution_release_active_allocation");
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
-                    .isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Bulk allocation differs from canonical scope or lifecycle evidence");
             // Simulate the privileged operator repairing the deliberately trigger-bypassed fixture.
             // A normal terminal transition performs this release in its own transaction.
-            sql.update("update praxis_bulk.praxis_bulk_allocation set state='RELEASED', "
+            assertThat(sql.update("update praxis_bulk.praxis_bulk_allocation set state='RELEASED', "
                     + "released_at=clock_timestamp(), release_reason='TERMINAL_RECONCILED' where execution_id=? "
-                    + "and kind='EXECUTION_ACTIVE' and state='ACTIVE'", executionId);
-            BulkExecutionMigrator.validate(dataSource);
+                    + "and kind='EXECUTION_ACTIVE' and state='ACTIVE'", executionId)).isEqualTo(1);
+            assertNativeAllocation(sql, "PROPOSAL_PENDING", fixture.proposalId(), "CONSUMED",
+                    fixture.proposalId(), null);
+            assertNativeAllocation(sql, "EXECUTION_ACTIVE", executionId, "RELEASED", null, executionId);
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_allocation",
+                    Integer.class)).isEqualTo(2);
+            BulkExecutionMigrator.validate(dataSource, roles);
             assertThat(sql.queryForObject("select status from praxis_bulk.praxis_bulk_execution "
                     + "where execution_id=?", String.class, executionId)).isEqualTo("COMPLETED_WITH_ERRORS");
 
-            sql.execute("create role admission_runtime login");
-            sql.execute("grant usage on schema praxis_bulk to admission_runtime");
-            sql.execute("grant select, insert on praxis_bulk.praxis_bulk_admission to admission_runtime");
-            sql.execute("grant select, insert on praxis_bulk.praxis_bulk_atomic_receipt, "
-                    + "praxis_bulk.praxis_bulk_atomic_item_result, praxis_bulk.praxis_bulk_atomic_effect_ref, praxis_bulk.praxis_bulk_atomic_rejection to admission_runtime");
-            sql.execute("grant execute on function praxis_bulk.atomic_evidence_complete(uuid,integer) to admission_runtime");
-            sql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_manifest to admission_runtime");
-
-            sql.execute("grant select, insert on praxis_bulk.praxis_bulk_preview_state to admission_runtime");
-
-            sql.execute("grant select, insert on praxis_bulk.praxis_bulk_target_preview to admission_runtime");
-            sql.execute("grant select, insert on praxis_bulk.praxis_bulk_preview_item_integrity to admission_runtime");
-            sql.execute("grant execute on function praxis_bulk.lock_operation_control(text,text) to admission_runtime");
-            sql.execute("grant execute on function praxis_bulk.lock_openapi_publication(text,text) to admission_runtime");
-            sql.execute("grant execute on function praxis_bulk.assert_preview_integrity_complete() to admission_runtime");
-            sql.execute("grant select on praxis_bulk.praxis_bulk_capacity_marker, "
-                    + "praxis_bulk.praxis_bulk_capacity_installation to admission_runtime");
-            sql.execute("grant select on praxis_bulk.praxis_bulk_capacity_slot, "
-                    + "praxis_bulk.praxis_bulk_capacity_occupation to admission_runtime");
-            sql.execute("grant execute on function praxis_bulk.lock_capacity_marker(), "
-                    + "praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to admission_runtime");
+            BulkPostgresTestSupport.grantRuntimeRole(dataSource, "admission_runtime");
             var runtimeRoles = new BulkExecutionRoleConfiguration("postgres",
-                    java.util.Set.of("admission_runtime"), java.util.Set.of(), java.util.Set.of());
+                    java.util.Set.of("bulk_runtime_test", "durable_runtime", "admission_runtime"),
+                    java.util.Set.of(), java.util.Set.of());
             BulkExecutionMigrator.validate(dataSource, runtimeRoles);
             var runtime = new JdbcTemplate(new DriverManagerDataSource(
                     postgres.getJdbcUrl("admission_runtime", "postgres"), "admission_runtime", ""));
@@ -3234,12 +3229,12 @@ class BulkDurableMigrationPostgresTest {
             assertThatThrownBy(() -> runtime.execute("delete from praxis_bulk.praxis_bulk_admission"))
                     .isInstanceOf(RuntimeException.class);
             sql.execute("grant update on praxis_bulk.praxis_bulk_admission to admission_runtime");
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, runtimeRoles))
                     .isInstanceOf(IllegalStateException.class);
             sql.execute("revoke update on praxis_bulk.praxis_bulk_admission from admission_runtime");
             BulkExecutionMigrator.validate(dataSource, runtimeRoles);
             sql.execute("grant update(reason_code) on praxis_bulk.praxis_bulk_admission to admission_runtime");
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, runtimeRoles))
                     .isInstanceOf(IllegalStateException.class);
         }
     }
@@ -3252,11 +3247,13 @@ class BulkDurableMigrationPostgresTest {
             var sql = new JdbcTemplate(dataSource);
             assertThat(migrate(dataSource)).isEqualTo(20);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
-            var fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
+            var roles = BulkPostgresTestSupport.testRoleConfiguration();
+            var fixture = insertCurrentRunningExecution(postgres, dataSource, sql, roles);
             UUID executionId = fixture.id();
             insertAdmission(sql, executionId, UUID.randomUUID(), 0, fixture.digest0(),
                     "CONFLICT", "TARGET_VERSION_CONFLICT");
             sql.update("update praxis_bulk.praxis_bulk_execution set next_ordinal=1 where execution_id=?", executionId);
+            BulkExecutionMigrator.validate(dataSource, roles);
             sql.execute("alter table praxis_bulk.praxis_bulk_item_receipt disable trigger praxis_bulk_receipt_guard_terminal");
             sql.update("""
                     insert into praxis_bulk.praxis_bulk_item_receipt
@@ -3265,13 +3262,13 @@ class BulkDurableMigrationPostgresTest {
                     values (?, 0, ?, 'v1', ?, 1, 'CONFIRMED', clock_timestamp())
                     """, executionId, fixture.digest0(), UUID.randomUUID());
             sql.execute("alter table praxis_bulk.praxis_bulk_item_receipt enable trigger praxis_bulk_receipt_guard_terminal");
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
                     .isInstanceOf(IllegalStateException.class);
 
             sql.execute("drop schema praxis_bulk cascade");
             assertThat(migrate(dataSource)).isEqualTo(20);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
-            fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
+            fixture = insertCurrentRunningExecution(postgres, dataSource, sql, roles);
             executionId = fixture.id();
             sql.execute("alter table praxis_bulk.praxis_bulk_admission disable trigger praxis_bulk_admission_guard_terminal");
             insertAdmissionRaw(sql, executionId, UUID.randomUUID(), 1, fixture.digest1(),
@@ -3279,25 +3276,25 @@ class BulkDurableMigrationPostgresTest {
             sql.execute("alter table praxis_bulk.praxis_bulk_admission enable trigger praxis_bulk_admission_guard_terminal");
             UUID finalExecutionId = executionId;
             sql.update("update praxis_bulk.praxis_bulk_execution set next_ordinal=1 where execution_id=?", finalExecutionId);
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
                     .isInstanceOf(IllegalStateException.class);
 
             sql.execute("drop schema praxis_bulk cascade");
             assertThat(migrate(dataSource)).isEqualTo(20);
             BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
-            fixture = insertExecution(dataSource, sql, "RUNNING", 0, false);
+            fixture = insertCurrentRunningExecution(postgres, dataSource, sql, roles);
             executionId = fixture.id();
             insertAdmission(sql, executionId, UUID.randomUUID(), 0, fixture.digest0(),
                     "CONFLICT", "TARGET_VERSION_CONFLICT");
             sql.update("update praxis_bulk.praxis_bulk_execution set next_ordinal=1 where execution_id=?", executionId);
-            BulkExecutionMigrator.validate(dataSource);
+            BulkExecutionMigrator.validate(dataSource, roles);
             sql.update("update praxis_bulk.praxis_bulk_execution set status='STOPPED', "
                     + "terminal_at=clock_timestamp(), terminal_reason_code='POLICY_BLOCKED' where execution_id=?", executionId);
             // Append-only evidence cannot be patched. A forged matching prefix is still rejected.
             sql.execute("alter table praxis_bulk.praxis_bulk_admission disable trigger praxis_bulk_admission_reject_mutation");
             sql.update("update praxis_bulk.praxis_bulk_admission set expected_version='forged' where execution_id=?", executionId);
             sql.execute("alter table praxis_bulk.praxis_bulk_admission enable trigger praxis_bulk_admission_reject_mutation");
-            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource))
+            assertThatThrownBy(() -> BulkExecutionMigrator.validate(dataSource, roles))
                     .isInstanceOf(IllegalStateException.class);
         }
     }
