@@ -19,8 +19,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.CRC32;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.callback.Callback;
+import org.flywaydb.core.api.callback.Context;
+import org.flywaydb.core.api.callback.Event;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
@@ -331,7 +335,9 @@ public final class BulkExecutionMigrator {
                     // this canonical owner transaction rechecks its latch/ACL before any grant.
                     completeCapacityReadBootstrap(source, roles);
                 }
-                int migrationsExecuted = flyway(source, targetVersion).migrate().migrationsExecuted;
+                int migrationsExecuted = flyway(source, targetVersion,
+                        new PublicationCreationCallback(roles, deployments, owner))
+                        .migrate().migrationsExecuted;
                 coordination.commit();
                 return migrationsExecuted;
             } catch (SQLException | RuntimeException | Error failure) {
@@ -1480,7 +1486,11 @@ public final class BulkExecutionMigrator {
     }
 
     private static Flyway flyway(DataSource dataSource, int targetVersion) {
-        return Flyway.configure().target(org.flywaydb.core.api.MigrationVersion.fromVersion(
+        return flyway(dataSource, targetVersion, new Callback[0]);
+    }
+
+    private static Flyway flyway(DataSource dataSource, int targetVersion, Callback... callbacks) {
+        return Flyway.configure().callbacks(callbacks).target(org.flywaydb.core.api.MigrationVersion.fromVersion(
                         Integer.toString(targetVersion)))
                 .dataSource(dataSource)
                 .locations("classpath:db/praxis-bulk-migrations")
@@ -1492,6 +1502,290 @@ public final class BulkExecutionMigrator {
                 .cleanDisabled(true)
                 .validateOnMigrate(true)
                 .load();
+    }
+
+    /**
+     * Invocation-local provenance for the actual creation of the publication table. It never
+     * runs for an already applied V14, and cannot repair an absent identity on a later upgrade.
+     * DDL and seed use the migration connection; Flyway history may use another connection.
+     */
+    private static final class PublicationCreationCallback implements Callback {
+        private static final String SCRIPT = "V14__bulk_openapi_publication.sql";
+        private final BulkExecutionRoleConfiguration roles;
+        private final Map<String, String> deployments;
+        private final MigrationOwnerBackend coordinator;
+        private final int checksum;
+        private PublicationCreationWitness before;
+        private Map<String, String> bindings;
+        private boolean completed;
+
+        private PublicationCreationCallback(BulkExecutionRoleConfiguration roles,
+                Map<String, String> deployments, MigrationOwnerBackend coordinator) {
+            this.roles = roles;
+            this.deployments = Map.copyOf(deployments);
+            this.coordinator = coordinator;
+            // Flyway 11.17.0 checksum semantics: UTF-8 lines, no line endings, first BOM removed.
+            var crc = new CRC32();
+            String resource = readV14Migration();
+            if (resource.startsWith("\uFEFF")) resource = resource.substring(1);
+            resource.lines().forEach(line -> crc.update(line.getBytes(StandardCharsets.UTF_8)));
+            this.checksum = (int) crc.getValue();
+        }
+
+        @Override
+        public boolean supports(Event event, Context context) {
+            return (event == Event.BEFORE_EACH_MIGRATE || event == Event.AFTER_EACH_MIGRATE)
+                    && context.getMigrationInfo() != null
+                    && org.flywaydb.core.api.MigrationVersion.fromVersion("14")
+                            .equals(context.getMigrationInfo().getVersion());
+        }
+
+        @Override
+        public boolean canHandleInTransaction(Event event, Context context) { return true; }
+
+        @Override
+        public String getCallbackName() { return "bulk-publication-creation"; }
+
+        @Override
+        public void handle(Event event, Context context) {
+            require(supports(event, context), "Unexpected bulk publication creation event");
+            var migration = context.getMigrationInfo();
+            require(SCRIPT.equals(migration.getScript()) && migration.getChecksum() != null
+                            && checksum == migration.getChecksum(),
+                    "Bulk publication creation migration differs from its packaged resource");
+            Connection connection = context.getConnection();
+            try {
+                PublicationCreationWitness current = publicationCreationWitness(connection, roles, coordinator);
+                if (event == Event.BEFORE_EACH_MIGRATE) {
+                    require(before == null && !completed, "Bulk publication creation origin already observed");
+                    try (var statement = connection.createStatement();
+                            var rows = statement.executeQuery(
+                                    "select pg_catalog.to_regclass('praxis_bulk.praxis_bulk_openapi_publication') is null")) {
+                        require(rows.next() && rows.getBoolean(1) && !rows.next(),
+                                "Bulk publication creation requires an absent publication table");
+                    }
+                    validatePublicationPredecessor(connection, roles);
+                    var observed = new LinkedHashMap<String, String>();
+                    // Existing lock order: namespace SHARE in namespace order; no bucket locks here.
+                    try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                            "select namespace_id, deployment_id from praxis_bulk.praxis_bulk_namespace_binding "
+                                    + "order by namespace_id for share")) {
+                        while (rows.next()) observed.put(rows.getString(1), rows.getString(2));
+                    }
+                    require(deployments.entrySet().containsAll(observed.entrySet()),
+                            "Publication predecessor binding differs from explicit deployment map");
+                    try (var statement = connection.createStatement(); var rows = statement.executeQuery(
+                            "select count(*) from praxis_bulk.praxis_bulk_namespace_binding b "
+                                    + "where not exists (select 1 from praxis_bulk.praxis_bulk_deployment_bucket d "
+                                    + "where d.deployment_id=b.deployment_id)")) {
+                        require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+                                "Publication predecessor binding has no durable deployment bucket");
+                    }
+                    bindings = Map.copyOf(observed);
+                    before = current;
+                } else {
+                    require(before != null && !completed && before.equals(current),
+                            "Bulk publication creation lost its migration transaction origin");
+                    require(readNamespaceBindings(connection).equals(bindings),
+                            "Publication predecessor bindings changed during migration");
+                    for (String deployment : bindings.values().stream().distinct().sorted().toList()) {
+                        try (var statement = connection.prepareStatement("""
+                                insert into praxis_bulk.praxis_bulk_openapi_publication
+                                    (deployment_id, state, generation, document_digest, updated_at)
+                                values (?, 'UNCOMPOSED', 0, null, clock_timestamp())
+                                """)) {
+                            statement.setString(1, deployment);
+                            require(statement.executeUpdate() == 1,
+                                    "Bulk publication creation did not insert one identity");
+                        }
+                    }
+                    completed = true;
+                }
+            } catch (SQLException failure) {
+                throw new IllegalStateException("Unable to attest bulk publication creation", failure);
+            }
+        }
+    }
+
+    private record PublicationCreationWitness(int pid, String database, String owner, long transaction) { }
+
+    private static PublicationCreationWitness publicationCreationWitness(Connection connection,
+            BulkExecutionRoleConfiguration roles, MigrationOwnerBackend coordinator) throws SQLException {
+        require(!connection.getAutoCommit(), "Bulk publication creation requires a migration transaction");
+        assertPostgreSql(connection);
+        validateConnectionIdentity(connection, Set.of(roles.expectedSchemaOwnerRole()),
+                roles.expectedSchemaOwnerRole());
+        try (var statement = connection.createStatement()) {
+            int existingTimeout = statement.getQueryTimeout();
+            statement.setQueryTimeout(existingTimeout > 0 ? Math.min(existingTimeout, 10) : 10);
+            try (var rows = statement.executeQuery(
+                    "select pg_catalog.pg_backend_pid(), pg_catalog.current_database(), current_user, "
+                            + "pg_catalog.txid_current()")) {
+                require(rows.next(), "Bulk publication migration identity is absent");
+                var witness = new PublicationCreationWitness(rows.getInt(1), rows.getString(2),
+                        rows.getString(3), rows.getLong(4));
+                require(witness.pid() > 0 && witness.pid() != coordinator.pid()
+                                && coordinator.database().equals(witness.database())
+                                && coordinator.role().equals(witness.owner()) && witness.transaction() > 0
+                                && !rows.next(), "Bulk publication migration identity differs from coordinator");
+                return witness;
+            }
+        }
+    }
+
+    /** V5 binding/bucket primitives are unchanged through V13; current wrappers require V15+. */
+    private static void validatePublicationPredecessor(Connection connection,
+            BulkExecutionRoleConfiguration roles) throws SQLException {
+        validateConfiguredRoles(connection, roles);
+        validateConfiguredRoleInheritance(connection, roles);
+        validateNoOwnerMembership(connection, roles.expectedSchemaOwnerRole());
+        validateNamespaceBindingColumns(connection);
+        validateDeploymentBucketColumns(connection);
+        validateNamespaceBindingConstraints(connection);
+        validateDeploymentBucketConstraints(connection);
+        try (var statement = connection.prepareStatement("""
+                select n.nspname, owner.rolname from pg_catalog.pg_namespace n
+                join pg_catalog.pg_roles owner on owner.oid=n.nspowner where n.nspname=?
+                """)) {
+            statement.setString(1, SCHEMA);
+            try (var rows = statement.executeQuery()) {
+                require(rows.next() && roles.expectedSchemaOwnerRole().equals(rows.getString(2)) && !rows.next(),
+                        "Publication predecessor schema owner differs");
+            }
+        }
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select count(*) from pg_catalog.pg_roles where
+                rolname in ('praxis_bulk_retention_owner','praxis_bulk_retention_executor','praxis_bulk_control_owner')
+                and not rolcanlogin and not rolinherit and not rolsuper and not rolcreatedb
+                and not rolcreaterole and not rolreplication and not rolbypassrls
+                """)) {
+            require(rows.next() && rows.getLong(1) == 3 && !rows.next(),
+                    "Publication predecessor dedicated role identity differs");
+        }
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select count(*) from pg_catalog.pg_auth_members m
+                join pg_catalog.pg_roles granted on granted.oid=m.roleid
+                join pg_catalog.pg_roles member on member.oid=m.member
+                where granted.rolname in ('praxis_bulk_retention_owner','praxis_bulk_control_owner')
+                or member.rolname in ('praxis_bulk_retention_owner','praxis_bulk_retention_executor','praxis_bulk_control_owner')
+                """)) {
+            require(rows.next() && rows.getLong(1) == 0 && !rows.next(),
+                    "Publication predecessor dedicated role topology is unsafe");
+        }
+        validateRuntimeRoleMemberships(connection, roles.runtimeGranteeRoles());
+        validateConfiguredRoleMembershipClosure(connection, roles.controlPlaneGranteeRoles(),
+                roles.controlPlaneGranteeRoles(), "Publication predecessor control membership differs");
+        validateRetentionExecutorMemberships(connection, roles.retentionExecutorMembers());
+        validatePublicationPredecessorSchemaAcl(connection, roles);
+        for (String table : List.of(NAMESPACE_BINDING_TABLE, DEPLOYMENT_BUCKET_TABLE)) {
+            validatePublicationPredecessorTable(connection, roles, table);
+        }
+        validatePublicationPredecessorTrigger(connection, roles, NAMESPACE_BINDING_TABLE,
+                "praxis_bulk_namespace_binding_immutable", "protect_namespace_binding");
+        validatePublicationPredecessorTrigger(connection, roles, DEPLOYMENT_BUCKET_TABLE,
+                "praxis_bulk_deployment_bucket_guard_mutation", "guard_bucket_mutation");
+    }
+
+    private static void validatePublicationPredecessorSchemaAcl(Connection connection,
+            BulkExecutionRoleConfiguration roles) throws SQLException {
+        var required = new LinkedHashSet<>(Set.of("praxis_bulk_retention_owner|USAGE",
+                "praxis_bulk_retention_executor|USAGE", "praxis_bulk_control_owner|USAGE"));
+        var allowed = new LinkedHashSet<>(required);
+        roles.runtimeGranteeRoles().forEach(role -> allowed.add(role + "|USAGE"));
+        roles.controlPlaneGranteeRoles().forEach(role -> allowed.add(role + "|USAGE"));
+        var actual = new LinkedHashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select coalesce(r.rolname,'PUBLIC'), acl.privilege_type, acl.is_grantable, acl.grantee=n.nspowner
+                from pg_catalog.pg_namespace n
+                cross join lateral pg_catalog.aclexplode(coalesce(n.nspacl, pg_catalog.acldefault('n',n.nspowner))) acl
+                left join pg_catalog.pg_roles r on r.oid=acl.grantee where n.nspname=?
+                """)) {
+            statement.setString(1, SCHEMA);
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    if (rows.getBoolean(4)) continue;
+                    require(!rows.getBoolean(3), "Publication predecessor schema grants cannot be grantable");
+                    actual.add(rows.getString(1) + "|" + rows.getString(2));
+                }
+            }
+        }
+        require(actual.containsAll(required) && allowed.containsAll(actual),
+                "Publication predecessor schema ACL differs");
+    }
+
+    private static void validatePublicationPredecessorTable(Connection connection,
+            BulkExecutionRoleConfiguration roles, String table) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select owner.rolname from pg_catalog.pg_class c
+                join pg_catalog.pg_roles owner on owner.oid=c.relowner where c.oid=?::regclass
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            try (var rows = statement.executeQuery()) {
+                require(rows.next() && roles.expectedSchemaOwnerRole().equals(rows.getString(1)) && !rows.next(),
+                        "Publication predecessor table owner differs: " + table);
+            }
+        }
+        var grantees = new LinkedHashSet<String>();
+        try (var statement = connection.prepareStatement("""
+                select distinct coalesce(r.rolname,'PUBLIC') from pg_catalog.pg_class c
+                cross join lateral pg_catalog.aclexplode(coalesce(c.relacl,pg_catalog.acldefault('r',c.relowner))) acl
+                left join pg_catalog.pg_roles r on r.oid=acl.grantee
+                where c.oid=?::regclass and acl.grantee<>c.relowner
+                union
+                select distinct coalesce(r.rolname,'PUBLIC') from pg_catalog.pg_attribute a
+                join pg_catalog.pg_class c on c.oid=a.attrelid
+                cross join lateral pg_catalog.aclexplode(a.attacl) acl
+                left join pg_catalog.pg_roles r on r.oid=acl.grantee
+                where c.oid=?::regclass and acl.grantee<>c.relowner
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            statement.setString(2, SCHEMA + "." + table);
+            try (var rows = statement.executeQuery()) { while (rows.next()) grantees.add(rows.getString(1)); }
+        }
+        require(grantees.contains("praxis_bulk_retention_owner"), "Publication predecessor retention grants absent");
+        var allowed = new LinkedHashSet<>(roles.runtimeGranteeRoles());
+        allowed.add("praxis_bulk_retention_owner");
+        require(allowed.containsAll(grantees), "Publication predecessor table has unexpected grantee: " + table);
+        for (String role : grantees) {
+            require(tableRolePrivileges(connection, table, role).equals(Set.of("T:SELECT", "C:deployment_id:UPDATE")),
+                    "Publication predecessor lock-only grants differ: " + table);
+        }
+    }
+
+    private static void validatePublicationPredecessorTrigger(Connection connection,
+            BulkExecutionRoleConfiguration roles, String table, String trigger, String function) throws SQLException {
+        // pg_get_triggerdef is search_path-sensitive on Flyway's migration connection.
+        // Exact physical attributes attest the V5 ROW/BEFORE/DELETE/UPDATE trigger (1|2|8|16).
+        String body = extractFunctionBody(readV5Migration(), function, "V5");
+        try (var statement = connection.prepareStatement("""
+                select t.tgenabled,t.tgtype,p.prosrc,l.lanname,
+                       p.prorettype::regtype::text,p.prosecdef,p.proname,n.nspname,p.pronargs,
+                       p.proconfig=array['search_path=pg_catalog, pg_temp']::text[],owner.rolname,
+                       p.provolatile,p.proparallel,p.proleakproof,t.tgnargs,t.tgattr::text,
+                       t.tgqual is null,t.tgconstraint=0,p.prokind
+                from pg_catalog.pg_trigger t join pg_catalog.pg_proc p on p.oid=t.tgfoid
+                join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+                join pg_catalog.pg_language l on l.oid=p.prolang
+                join pg_catalog.pg_roles owner on owner.oid=p.proowner
+                where t.tgrelid=?::regclass and t.tgname=? and not t.tgisinternal
+                """)) {
+            statement.setString(1, SCHEMA + "." + table);
+            statement.setString(2, trigger);
+            try (var rows = statement.executeQuery()) {
+                require(rows.next() && "O".equals(rows.getString(1))
+                                && rows.getInt(2) == 27
+                                && normalizeExpression(body).equals(normalizeExpression(rows.getString(3)))
+                                && "plpgsql".equals(rows.getString(4)) && "trigger".equals(rows.getString(5))
+                                && !rows.getBoolean(6) && function.equals(rows.getString(7))
+                                && SCHEMA.equals(rows.getString(8)) && rows.getInt(9)==0 && rows.getBoolean(10)
+                                && roles.expectedSchemaOwnerRole().equals(rows.getString(11))
+                                && "v".equals(rows.getString(12)) && "u".equals(rows.getString(13))
+                                && !rows.getBoolean(14) && rows.getInt(15) == 0 && "".equals(rows.getString(16))
+                                && rows.getBoolean(17) && rows.getBoolean(18) && "f".equals(rows.getString(19))
+                                && !rows.next(),
+                        "Publication predecessor immutable trigger differs: " + table);
+            }
+        }
     }
 
     private static void requireOutsideSpringTransaction() {
@@ -2982,10 +3276,34 @@ public final class BulkExecutionMigrator {
         }
     }
 
-    private static void validateV5Columns(Connection connection) throws SQLException {
+    /** Protected predecessor primitives shared with the current catalog attestation. */
+    private static void validateNamespaceBindingColumns(Connection connection) throws SQLException {
         validateDurableColumns(connection, NAMESPACE_BINDING_TABLE, Map.ofEntries(
                 Map.entry("namespace_id", "text|true"), Map.entry("deployment_id", "text|true"),
                 Map.entry("bound_at", "timestamp with time zone|true")));
+    }
+
+    private static void validateDeploymentBucketColumns(Connection connection) throws SQLException {
+        validateDurableColumns(connection, DEPLOYMENT_BUCKET_TABLE,
+                Map.of("deployment_id", "text|true"));
+    }
+
+    private static void validateNamespaceBindingConstraints(Connection connection) throws SQLException {
+        validateDurableConstraints(connection, NAMESPACE_BINDING_TABLE, false, Map.ofEntries(
+                Map.entry("praxis_bulk_namespace_binding_pkey", "PRIMARY KEY (namespace_id)"),
+                Map.entry("praxis_bulk_namespace_binding_pair_key", "UNIQUE (namespace_id, deployment_id)"),
+                Map.entry("praxis_bulk_namespace_binding_namespace_check", "CHECK ((btrim(namespace_id) <> ''::text))"),
+                Map.entry("praxis_bulk_namespace_binding_deployment_check", "CHECK ((btrim(deployment_id) <> ''::text))")));
+    }
+
+    private static void validateDeploymentBucketConstraints(Connection connection) throws SQLException {
+        validateDurableConstraints(connection, DEPLOYMENT_BUCKET_TABLE, false, Map.ofEntries(
+                Map.entry("praxis_bulk_deployment_bucket_pkey", "PRIMARY KEY (deployment_id)"),
+                Map.entry("praxis_bulk_deployment_bucket_id_check", "CHECK ((btrim(deployment_id) <> ''::text))")));
+    }
+
+    private static void validateV5Columns(Connection connection) throws SQLException {
+        validateNamespaceBindingColumns(connection);
         validateDurableColumns(connection, OPERATION_CONTROL_TABLE, Map.ofEntries(
                 Map.entry("namespace_id", "text|true"), Map.entry("operation_id", "text|true"),
                 Map.entry("state", "text|true"), Map.entry("generation", "bigint|true"),
@@ -2994,8 +3312,7 @@ public final class BulkExecutionMigrator {
                 Map.entry("publication_generation", "bigint|false"),
                 Map.entry("publication_document_digest", "text|false"),
                 Map.entry("updated_at", "timestamp with time zone|true")));
-        validateDurableColumns(connection, DEPLOYMENT_BUCKET_TABLE,
-                Map.of("deployment_id", "text|true"));
+        validateDeploymentBucketColumns(connection);
         validateDurableColumns(connection, SUBJECT_BUCKET_TABLE, Map.ofEntries(
                 Map.entry("deployment_id", "text|true"),
                 Map.entry("subject_scope_digest_version", "integer|true"),
@@ -3024,11 +3341,7 @@ public final class BulkExecutionMigrator {
     }
 
     private static void validateV5Constraints(Connection connection) throws SQLException {
-        validateDurableConstraints(connection, NAMESPACE_BINDING_TABLE, false, Map.ofEntries(
-                Map.entry("praxis_bulk_namespace_binding_pkey", "PRIMARY KEY (namespace_id)"),
-                Map.entry("praxis_bulk_namespace_binding_pair_key", "UNIQUE (namespace_id, deployment_id)"),
-                Map.entry("praxis_bulk_namespace_binding_namespace_check", "CHECK ((btrim(namespace_id) <> ''::text))"),
-                Map.entry("praxis_bulk_namespace_binding_deployment_check", "CHECK ((btrim(deployment_id) <> ''::text))")));
+        validateNamespaceBindingConstraints(connection);
         validateDurableConstraints(connection, OPERATION_CONTROL_TABLE, false, Map.ofEntries(
                 Map.entry("praxis_bulk_operation_control_pkey", "PRIMARY KEY (namespace_id, operation_id)"),
                 Map.entry("praxis_bulk_operation_control_namespace_id_fkey", "FOREIGN KEY (namespace_id) REFERENCES praxis_bulk.praxis_bulk_namespace_binding(namespace_id) ON DELETE RESTRICT"),
@@ -3037,9 +3350,7 @@ public final class BulkExecutionMigrator {
                 Map.entry("praxis_bulk_operation_control_state_check", "CHECK ((state = ANY (ARRAY['UNCOMPOSED'::text, 'SUSPENDED'::text, 'READY'::text])))"),
                 Map.entry("praxis_bulk_operation_control_publication_check", "CHECK ((((state = 'READY'::text) AND (publication_generation IS NOT NULL) AND (publication_generation >= 1) AND (publication_document_digest IS NOT NULL) AND (publication_document_digest ~ '^sha256:[0-9a-f]{64}$'::text)) OR ((state <> 'READY'::text) AND (publication_generation IS NULL) AND (publication_document_digest IS NULL))))"),
                 Map.entry("praxis_bulk_operation_control_ready_check", "CHECK ((((state = 'READY'::text) AND (descriptor_fingerprint IS NOT NULL) AND (descriptor_fingerprint ~ '^sha256:[0-9a-f]{64}$'::text) AND (structural_revision IS NOT NULL) AND (btrim(structural_revision) <> ''::text)) OR ((state <> 'READY'::text) AND (descriptor_fingerprint IS NULL) AND (structural_revision IS NULL))))")));
-        validateDurableConstraints(connection, DEPLOYMENT_BUCKET_TABLE, false, Map.ofEntries(
-                Map.entry("praxis_bulk_deployment_bucket_pkey", "PRIMARY KEY (deployment_id)"),
-                Map.entry("praxis_bulk_deployment_bucket_id_check", "CHECK ((btrim(deployment_id) <> ''::text))")));
+        validateDeploymentBucketConstraints(connection);
         validateDurableConstraints(connection, SUBJECT_BUCKET_TABLE, false, Map.ofEntries(
                 Map.entry("praxis_bulk_subject_bucket_pkey", "PRIMARY KEY (deployment_id, subject_scope_digest_version, subject_scope_digest)"),
                 Map.entry("praxis_bulk_subject_bucket_deployment_id_fkey", "FOREIGN KEY (deployment_id) REFERENCES praxis_bulk.praxis_bulk_deployment_bucket(deployment_id) ON DELETE RESTRICT"),

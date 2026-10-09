@@ -71,7 +71,7 @@ class BulkHistoricalPre14UpgradePostgresTest {
             assertThat(remainingAfter).isEqualTo(remainingBefore);
             assertNewFunctionGrantsAbsent(sql, evidence);
             assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_openapi_publication",
-                    Integer.class)).isZero();
+                    Integer.class)).isEqualTo(1);
             var afterFirst = snapshot(sql, columns(sql));
             Files.writeString(evidence.resolve("after-first-full-rows.txt"), afterFirst.toString());
             var historyAfterFirst = history(sql);

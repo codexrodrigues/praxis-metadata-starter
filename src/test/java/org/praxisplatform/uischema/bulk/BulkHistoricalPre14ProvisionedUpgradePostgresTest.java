@@ -11,18 +11,17 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.*;
 
-/** Characterizes an unresolved legitimate upgrade, not the desired acceptance contract.
- * The child is a real public rc.146 producer; no current SQL constructs its historical state.
- * A passing characterization means producer PASS and current upgrade BLOCKED separately.
+/** Real public rc.146 predecessor: canonical V14 creation seeds deny-only publication identity.
+ * The first invocation still stops for external provisioning; only the documented grants permit
+ * completion. Original pre-fix C14 raw evidence remains historical, not a claim about this source.
  */
 class BulkHistoricalPre14ProvisionedUpgradePostgresTest {
     @TempDir Path temporaryDirectory;
     private static final String HISTORY = "praxis_bulk.praxis_bulk_schema_history";
-    private static final String LEDGER_BLOCK = "every bound deployment requires its durable OpenAPI publication row";
     private static final String BLOCK = "governed lifecycle function grants differ";
 
     @Test
-    void documentedOwnerProvisioningExposesMissingLedgerWithoutRepair() throws Exception {
+    void documentedOwnerProvisioningCompletesAuthenticPre14UpgradeWithoutRepublishing() throws Exception {
         var evidence = evidenceDirectory();
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start()) {
@@ -72,7 +71,12 @@ class BulkHistoricalPre14ProvisionedUpgradePostgresTest {
             assertThat(remainingAfter).isEqualTo(remainingBefore);
             assertNewFunctionGrantsAbsent(sql, evidence);
             assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_openapi_publication",
-                    Integer.class)).isZero();
+                    Integer.class)).isEqualTo(1);
+            var creationIdentity = sql.queryForMap("select * from praxis_bulk.praxis_bulk_openapi_publication");
+            assertThat(creationIdentity.get("deployment_id")).isEqualTo(historical.getProperty("deployment"));
+            assertThat(creationIdentity.get("state")).isEqualTo("UNCOMPOSED");
+            assertThat(((Number) creationIdentity.get("generation")).longValue()).isZero();
+            assertThat(creationIdentity.get("document_digest")).isNull();
             var afterFirst = snapshot(sql, columns(sql));
             Files.writeString(evidence.resolve("after-first-full-rows.txt"), afterFirst.toString());
             var historyAfterFirst = history(sql);
@@ -104,33 +108,36 @@ class BulkHistoricalPre14ProvisionedUpgradePostgresTest {
                     new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", ""),
                     bindings, roles, identities));
             writeFailure(evidence.resolve("restart-failure.txt"), retry);
-            assertThat(retry).isInstanceOf(IllegalStateException.class).hasMessage(LEDGER_BLOCK);
-            assertHistory(sql, 19);
-            assertThat(snapshot(sql, columns(sql))).isEqualTo(afterFirst);
-            assertThat(history(sql)).isEqualTo(historyAfterFirst);
-            assertThat(acl(sql)).isEqualTo(aclAfterProvisioning);
-            assertThat(roleTopology(sql)).isEqualTo(roleTopology);
-            assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_openapi_publication", Integer.class)).isZero();
+            assertThat(retry).isNull();
+            assertHistory(sql, 20);
+            assertThat(history(sql).subList(0, historyAfterFirst.size())).isEqualTo(historyAfterFirst);
+            assertThat(snapshot(sql, protectedColumns)).isEqualTo(afterHistoricalProjection);
+            assertThat(sql.queryForMap("select * from praxis_bulk.praxis_bulk_openapi_publication"))
+                    .isEqualTo(creationIdentity);
             assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_execution", Integer.class)).isZero();
-            Files.writeString(evidence.resolve("after-first-ledger-rejection-full-rows.txt"), snapshot(sql, columns(sql)).toString());
-            Files.writeString(evidence.resolve("after-first-ledger-rejection-history.txt"), history(sql).toString());
-            Files.writeString(evidence.resolve("after-first-ledger-rejection-acl.txt"), acl(sql).toString());
-            Files.writeString(evidence.resolve("after-first-ledger-rejection-topology.txt"), roleTopology(sql).toString());
+            BulkExecutionMigrator.validate(sql.getDataSource(), roles);
+            var completedRows = snapshot(sql, columns(sql));
+            var completedHistory = history(sql);
+            var completedAcl = acl(sql);
+            var completedTopology = roleTopology(sql);
+            Files.writeString(evidence.resolve("completed-full-rows.txt"), completedRows.toString());
+            Files.writeString(evidence.resolve("completed-history.txt"), completedHistory.toString());
+            Files.writeString(evidence.resolve("completed-acl.txt"), completedAcl.toString());
             var restarted = catchThrowable(() -> BulkExecutionMigrator.migrate(
                     new DriverManagerDataSource(postgres.getJdbcUrl("postgres", "postgres"), "postgres", ""),
                     bindings, roles, identities));
             writeFailure(evidence.resolve("provisioned-restart-failure.txt"), restarted);
-            assertThat(restarted).isInstanceOf(IllegalStateException.class).hasMessage(LEDGER_BLOCK);
-            assertThat(snapshot(sql, columns(sql))).isEqualTo(afterFirst);
-            assertThat(history(sql)).isEqualTo(historyAfterFirst);
-            assertThat(acl(sql)).isEqualTo(aclAfterProvisioning);
-            assertThat(roleTopology(sql)).isEqualTo(roleTopology);
+            assertThat(restarted).isNull();
+            assertThat(snapshot(sql, columns(sql))).isEqualTo(completedRows);
+            assertThat(history(sql)).isEqualTo(completedHistory);
+            assertThat(acl(sql)).isEqualTo(completedAcl);
+            assertThat(roleTopology(sql)).isEqualTo(completedTopology);
             Files.writeString(evidence.resolve("after-restart-full-rows.txt"), snapshot(sql, columns(sql)).toString());
             Files.writeString(evidence.resolve("after-restart-history.txt"), history(sql).toString());
             Files.writeString(evidence.resolve("after-restart-acl.txt"), acl(sql).toString());
-            Files.writeString(evidence.resolve("characterization-result.properties"),
-                    "producer=PASS\nprovisioning=EXACT_DOCUMENTED_GRANTS\ncurrentUpgrade=BLOCKED_LEDGER\nrestart=BLOCKED_WITHOUT_MUTATION\n"
-                    + "historicalAcceptance=CANNOT_CLOSE\nledgerAbsence=CAUSAL_DIAGNOSTIC_REACHED\nbackendComplete=false\n");
+            Files.writeString(evidence.resolve("acceptance-result.properties"),
+                    "producer=PASS\nprovisioning=EXACT_DOCUMENTED_GRANTS\ncurrentUpgrade=COMPLETE20\n"
+                    + "restart=STABLE\npublication=UNCOMPOSED_GENERATION0\nbackendComplete=false\n");
         }
     }
 

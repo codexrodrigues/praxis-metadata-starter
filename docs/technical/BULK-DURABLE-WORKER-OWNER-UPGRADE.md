@@ -3,7 +3,9 @@
 Este procedimento descreve a árvore privada que acrescenta V20, não a versão
 pública rc.155 adotada pelo host. Integração, publicação, adoção e aceite operacional
 são gates separados. Não há autostart, endpoint ASYNC/202 ou READY público derivado
-da aprovação deste núcleo. Angular permanece após os gates de fechamento backend.
+da aprovação deste núcleo. Conforme a emenda de escopo de 09/10/2026, o corte
+inicial SYNC / EXPLICIT / PER_ITEM permite Angular em paralelo; jobs/filas, ASYNC,
+QUERY e ATOMIC seguem como backlog, sem condicionar esse primeiro corte.
 
 ## Responsabilidades e execução
 
@@ -38,6 +40,42 @@ existente, funções canônicas e deployment explícito; valores já persistidos
 digests, allocations, quotas projetadas, ACLs e catálogo continuam exatos.
 Uma identidade deny-only inicial não publica autoridade. V8COMPLETE com outros
 marcadores PENDING, ou instalação V20, rejeita a ausência sem reparar a linha.
+
+## C17 — origem da primeira criação global (candidato privado, provas focais executadas)
+
+O candidato C17 altera somente o owner migrator canônico. Um callback privado por
+invocação observa o BEFORE/AFTER real da V14, verifica versão/script/checksum do
+recurso empacotado e vincula owner, database, backend e transaction id. Antes do
+DDL, atesta as estruturas V5 de namespace/bucket, proprietários, ACLs, roles e
+triggers imutáveis compatíveis com V13; toma namespace SHARE em ordem e exige
+que cada vínculo observado corresponda ao mapa explícito e possua bucket.
+Depois do DDL, insere estritamente UNCOMPOSED/generation0/document_digestNULL
+somente para deployments desses vínculos, na conexão da migration. Fresh sem
+vínculos não fabrica namespace ou bucket. Esse estado não publica autoridade.
+
+O callback não concede privilégios, altera propostas/receipts/domínio, confirma
+transações nem abre outra conexão. Preserva os locks/configuração Flyway. A
+history pode usar a mainConnection: não há afirmação de atomicidade física conjunta
+entre DDL, seed e history. As provas focais C17R2 executaram 20 testes sem falhas, erros ou skips, incluindo
+rollback do callback, falha determinística de INSERT na history e retry, consumidores
+históricos autênticos e pool4. Os resultados exigem revisão independente; não provam
+commit incerto ou ACK perdido, nem substituem consumo empacotado/publicação/adoção.
+A atestação do trigger usa atributos físicos do catálogo, sem comparar a renderização
+de `pg_get_triggerdef`: a qualificação da função depende de visibility/search_path.
+Rejeita inclusive trigger habilitado com `WHEN(false)`, mantendo owner, corpo, função
+e atributos exatos. Não altera search_path ou SQL imutável para contornar a diferença.
+
+Se V14 já consta aplicada, o callback não observa criação e não autoriza seed ou
+reparo. Prefix14 autenticado interrompido, native15 corrompido e history19 sem
+proveniência mantêm gates próprios de rejeição/recuperação. Raw Flyway externo
+não instala esse callback e não constitui adoção canônica do novo procedimento.
+As provas C13/C14 anteriores ao ajuste permanecem históricas; a nova árvore deve
+provar public146/native13 com retained data, suspensão V15 e pausa pelos grants
+externos antes de demonstrar conclusão e replay sem nova publicação.
+
+Não disponibilizado por release nem adotado pelo host. A atualização da skill
+canônica existente ocorrerá após estabilização do comportamento/provas/revisão,
+no mesmo ciclo; esta seção não fecha o pacote ou o backend.
 
 ## Cutover de manutenção e escopo da atestação
 
