@@ -70,42 +70,15 @@ begin
     return new;
 end;
 $$;
--- Owner assignment uses only a canonical, transaction-local SET edge and CREATE grant.
--- The predecessor attests the internal owner's USAGE-only schema ACL.
-grant create on schema praxis_bulk to praxis_bulk_control_owner;
-do $$ begin
-    execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user',current_user);
-end $$;
 alter function praxis_bulk.guard_descriptor_fence() owner to praxis_bulk_control_owner;
-do $$ begin
-    execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user',current_user);
-end $$;
-revoke create on schema praxis_bulk from praxis_bulk_control_owner;
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_control_owner;
-
 revoke all on function praxis_bulk.guard_descriptor_fence() from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user', current_user); end $$;
 
-
--- CREATE TRIGGER runs as the table owner and requires transient EXECUTE on the moved function.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_control_owner;
-do $$ begin execute pg_catalog.format('grant execute on function praxis_bulk.guard_descriptor_fence() to %I', session_user); end $$;
-reset role;
 create trigger praxis_bulk_proposal_descriptor_fence
     before insert on praxis_bulk.praxis_bulk_proposal
     for each row execute function praxis_bulk.guard_descriptor_fence();
 create trigger praxis_bulk_execution_descriptor_fence
     before insert on praxis_bulk.praxis_bulk_execution
     for each row execute function praxis_bulk.guard_descriptor_fence();
-set local role praxis_bulk_control_owner;
-do $$ begin execute pg_catalog.format('revoke execute on function praxis_bulk.guard_descriptor_fence() from %I granted by current_user', session_user); end $$;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user', current_user); end $$;
-
 
 create function praxis_bulk.protect_execution_descriptor_binding()
 returns trigger

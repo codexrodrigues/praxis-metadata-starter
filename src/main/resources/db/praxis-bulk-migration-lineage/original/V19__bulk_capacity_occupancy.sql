@@ -9,19 +9,12 @@ do $$ begin
         and not rolcanlogin and not rolinherit and not rolsuper and not rolcreatedb
         and not rolcreaterole and not rolreplication and not rolbypassrls)
        or exists(select 1 from pg_catalog.pg_auth_members m join pg_catalog.pg_roles r
-          on r.oid=m.roleid or r.oid=m.member where r.rolname='praxis_bulk_capacity_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+          on r.oid=m.roleid or r.oid=m.member where r.rolname='praxis_bulk_capacity_owner') then
         raise exception 'capacity owner topology is unsafe' using errcode='55000';
     end if;
-    execute pg_catalog.format('grant praxis_bulk_capacity_owner to %I with inherit false, set true granted by current_user',current_user);
-    execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user',current_user);
-    execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user',current_user);
+    execute pg_catalog.format('grant praxis_bulk_capacity_owner to %I',current_user);
+    execute pg_catalog.format('grant praxis_bulk_retention_owner to %I',current_user);
+    execute pg_catalog.format('grant praxis_bulk_control_owner to %I',current_user);
 end $$;
 grant usage,create on schema praxis_bulk to praxis_bulk_capacity_owner;
 
@@ -475,10 +468,6 @@ begin
     return new;
 end;
 $$;
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
 
 create or replace function praxis_bulk.release_active_allocation_on_terminal()
 returns trigger language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
@@ -523,13 +512,6 @@ begin
     return null;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
-
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_control_owner;
-set local role praxis_bulk_control_owner;
-
 
 create or replace function praxis_bulk.guard_new_bulk_admission()
 returns trigger language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
@@ -552,9 +534,6 @@ begin
     return new;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_control_owner;
-
 
 create or replace function praxis_bulk.protect_praxis_bulk_execution_binding()
 returns trigger language plpgsql as $$
@@ -582,10 +561,6 @@ begin
     return new;
 end;
 $$;
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
 
 create or replace function praxis_bulk.protect_allocation_transition()
 returns trigger language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
@@ -648,13 +623,6 @@ begin
     return new;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
-
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
 
 create or replace function praxis_bulk.validate_allocation_binding()
 returns trigger language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
@@ -724,13 +692,6 @@ begin
     return new;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
-
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
 
 create or replace function praxis_bulk.purge_terminal_execution(p_execution_id uuid)
 returns boolean language plpgsql security definer
@@ -822,13 +783,6 @@ begin
     return true;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
-
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
 
 create or replace function praxis_bulk.expire_unconsumed_proposal(p_proposal_id uuid)
 returns boolean language plpgsql security definer
@@ -881,9 +835,6 @@ begin
     return true;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
-
 
 alter table praxis_bulk.praxis_bulk_allocation
     drop constraint praxis_bulk_allocation_shape_check,
@@ -919,12 +870,7 @@ grant update(status,owner_id,owner_epoch,active_token_id,updated_at,terminal_at,
 grant insert,update on praxis_bulk.praxis_bulk_capacity_slot to praxis_bulk_capacity_owner;
 grant insert on praxis_bulk.praxis_bulk_capacity_occupation to praxis_bulk_capacity_owner;
 grant insert,update(state,released_at,release_reason) on praxis_bulk.praxis_bulk_allocation to praxis_bulk_capacity_owner;
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_control_owner;
-
 grant execute on function praxis_bulk.lock_operation_control(text,text) to praxis_bulk_capacity_owner;
-reset role;
-
 grant select,delete on praxis_bulk.praxis_bulk_capacity_occupation to praxis_bulk_retention_owner;
 grant select on praxis_bulk.praxis_bulk_capacity_slot to praxis_bulk_retention_owner;
 
@@ -936,60 +882,19 @@ alter function praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) 
 revoke create on schema praxis_bulk from praxis_bulk_capacity_owner;
 revoke all on praxis_bulk.praxis_bulk_capacity_slot,praxis_bulk.praxis_bulk_capacity_occupation,
     praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap from public;
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_capacity_owner;
-
-revoke all on function praxis_bulk.create_capacity_slot() from public;
-reset role;
-
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_capacity_owner;
-
-revoke all on function praxis_bulk.lock_capacity_marker() from public;
-reset role;
-
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_capacity_owner;
-
-revoke all on function praxis_bulk.capacity_marker_statement_fence() from public;
-reset role;
-
-revoke all on function praxis_bulk.guard_capacity_slot() from public;
-revoke all on function praxis_bulk.guard_capacity_occupation() from public;
-revoke all on function praxis_bulk.guard_capacity_execution() from public;
-revoke all on function praxis_bulk.guard_capacity_evidence() from public;
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_capacity_owner;
-
-revoke all on function praxis_bulk.materialize_capacity_execution() from public;
-reset role;
-
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_capacity_owner;
-
-revoke all on function praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) from public;
-reset role;
-
-revoke all on function praxis_bulk.protect_capacity_occupancy_bootstrap() from public;
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_capacity_owner;
-
+revoke all on function praxis_bulk.create_capacity_slot(),praxis_bulk.lock_capacity_marker(),
+    praxis_bulk.capacity_marker_statement_fence(),praxis_bulk.guard_capacity_slot(),
+    praxis_bulk.guard_capacity_occupation(),praxis_bulk.guard_capacity_execution(),
+    praxis_bulk.guard_capacity_evidence(),praxis_bulk.materialize_capacity_execution(),
+    praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint),
+    praxis_bulk.protect_capacity_occupancy_bootstrap() from public;
 grant execute on function praxis_bulk.lock_capacity_marker() to praxis_bulk_retention_owner;
-reset role;
-
 do $$ begin
-    execute pg_catalog.format('revoke praxis_bulk_capacity_owner from %I granted by current_user',current_user);
-    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user',current_user);
-    execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user',current_user);
+    execute pg_catalog.format('revoke praxis_bulk_capacity_owner from %I',current_user);
+    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I',current_user);
+    execute pg_catalog.format('revoke praxis_bulk_control_owner from %I',current_user);
     if exists(select 1 from pg_catalog.pg_auth_members m join pg_catalog.pg_roles r
-          on r.oid=m.roleid or r.oid=m.member where r.rolname='praxis_bulk_capacity_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+          on r.oid=m.roleid or r.oid=m.member where r.rolname='praxis_bulk_capacity_owner') then
         raise exception 'capacity owner membership survived migration' using errcode='55000';
     end if;
 end $$;

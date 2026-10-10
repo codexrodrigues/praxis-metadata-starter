@@ -74,9 +74,17 @@ final class BulkCapacityOccupancyCatalog {
         }
     }
 
+    static String functionBody(Connection connection, String name) throws SQLException {
+        return functionBody(BulkMigrationLineage.select(connection).sql(19), name);
+    }
+
     static String functionBody(String name) {
+        return functionBody(source(), name);
+    }
+
+    private static String functionBody(String sql, String name) {
         var matcher = Pattern.compile("(?is)create\\s+(?:or\\s+replace\\s+)?function\\s+praxis_bulk\\."
-                + Pattern.quote(name) + "\\s*\\([^)]*\\).*?\\bas\\s*\\$\\$(.*?)\\$\\$\\s*;").matcher(source());
+                + Pattern.quote(name) + "\\s*\\([^)]*\\).*?\\bas\\s*\\$\\$(.*?)\\$\\$\\s*;").matcher(sql);
         require(matcher.find(), "V19 function source absent: " + name);
         String body = matcher.group(1);
         require(!matcher.find(), "V19 function duplicated: " + name);
@@ -148,7 +156,8 @@ final class BulkCapacityOccupancyCatalog {
         }
         if (!roles.runtimeGranteeRoles().isEmpty()) {
             try (var s = c.createStatement()) {
-                s.execute("grant " + quotedRole(OWNER) + " to " + quotedRole(roles.expectedSchemaOwnerRole()));
+                s.execute("grant " + quotedRole(OWNER) + " to " + quotedRole(roles.expectedSchemaOwnerRole())
+                        + " with inherit false, set true granted by current_user");
                 s.execute("set local role " + quotedRole(OWNER));
                 for (String role : new java.util.TreeSet<>(roles.runtimeGranteeRoles())) {
                     s.execute("grant execute on function praxis_bulk.lock_capacity_marker(),"
@@ -157,7 +166,8 @@ final class BulkCapacityOccupancyCatalog {
                 // Restore only the transaction-local role: RESET ROLE would also
                 // change a pre-existing session role when this transaction commits.
                 s.execute("set local role " + ("none".equals(initialRole) ? "none" : quotedRole(initialRole)));
-                s.execute("revoke " + quotedRole(OWNER) + " from " + quotedRole(roles.expectedSchemaOwnerRole()));
+                s.execute("revoke " + quotedRole(OWNER) + " from " + quotedRole(roles.expectedSchemaOwnerRole())
+                        + " granted by current_user");
             }
         }
         // Certify the completed ACLs after revocation, before publishing COMPLETE.
@@ -229,7 +239,7 @@ final class BulkCapacityOccupancyCatalog {
                 """)) {
                 s.setString(1, signature);
                 try (var r = s.executeQuery()) {
-                    require(r.next() && normalize(functionBody(name)).equals(normalize(r.getString(1)))
+                    require(r.next() && normalize(functionBody(c, name)).equals(normalize(r.getString(1)))
                             && r.getBoolean(2) == DEFINERS.contains(name)
                             && (DEFINERS.contains(name) ? OWNER : roles.expectedSchemaOwnerRole()).equals(r.getString(3))
                             && java.util.Arrays.equals((String[]) r.getArray(4).getArray(),
@@ -333,8 +343,8 @@ final class BulkCapacityOccupancyCatalog {
         }
         try (var s = c.createStatement(); var r = s.executeQuery("""
             select count(*) from pg_auth_members m join pg_roles r on r.oid=m.roleid or r.oid=m.member
-            where r.rolname='praxis_bulk_capacity_owner'
-            """)) {
+            where r.rolname='praxis_bulk_capacity_owner' and not (%s)
+            """.formatted(BulkExecutionMigrator.MANAGED_ADMIN_MEMBERSHIP_PREDICATE))) {
             require(r.next() && r.getInt(1) == 0 && !r.next(), "V19 owner membership forbidden");
         }
         var ownerActual = new LinkedHashMap<String, Set<String>>();

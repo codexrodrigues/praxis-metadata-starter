@@ -900,3 +900,7 @@ Validação local durante desenvolvimento; Actions apenas no fechamento necessá
 textual não vazio, fornecido
 pela anotação ou por override. Consulte [o guia de authoring semântico](docs/guides/SEMANTIC-METADATA-AUTHORING.md#microvisualization-e-precedência-efetiva)
 para composição, acessibilidade e substituição explícita do presenter.
+
+## Adoção de storage bulk por owner gerenciado — candidato
+
+A correção em desenvolvimento estabelece PostgreSQL 17 como baseline do storage opcional de execução bulk e das provas de instalação por owner sem SUPERUSER. As evidências históricas em 14.22 permanecem registradas; não certificam esta nova adoção. A superfície REST/schema geral e a base Config têm fronteiras próprias. O [plano de adoção](docs/spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.md) registra os prefixos históricos admitidos, a rejeição de estados inseguros e os gates pendentes. Compilação/unit não equivale a publicação, adoção pública ou backend READY.
