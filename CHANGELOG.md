@@ -4,6 +4,13 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### Instalação de operações em lote por owner gerenciado
+
+- Corrige migrações e bootstrap para owner CREATEROLE sem SUPERUSER em PostgreSQL17+, distinguindo ADMIN, INHERIT e SET; exige proveniência administrativa exata e restaura privilégios temporários.
+- Seleciona uma linhagem canônica a partir do histórico completo, preservando recursos/checksums já aplicados. Não usa repair/clean nem altera histórico; prefixos originaisV5–V16 não têm continuação automática.
+- Grants iniciais e latches permanecem na mesma transação; estados inseguros e ACLs parciais/completas revogadas são rejeitados sem healing. Quinze cenários PostgreSQL17.11 e oito testes de linhagem passaram em fontes identificadas e revisão independente.
+- [Plano de adoção, provas e limites](docs/spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.md). Publicação, adoção pública e HTTP hospedado ainda são gates separados; não certifica a autoridade opcional de capacidade nem o backend integral.
+
 ### Resolução efetiva de MicroVisualization e discovery estatístico
 
 - Corrige a precedência da base `@MicroVisualization`: presets antes da anotação,

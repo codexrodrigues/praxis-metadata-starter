@@ -10,24 +10,10 @@ begin
                     or rolreplication or rolbypassrls))
        or exists (select 1 from pg_catalog.pg_auth_members m
                   join pg_catalog.pg_roles r on r.oid = m.roleid
-                  where r.rolname = 'praxis_bulk_control_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1))
+                  where r.rolname = 'praxis_bulk_control_owner')
        or exists (select 1 from pg_catalog.pg_auth_members m
                   join pg_catalog.pg_roles r on r.oid = m.member
-                  where r.rolname = 'praxis_bulk_control_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+                  where r.rolname = 'praxis_bulk_control_owner') then
         raise exception 'bulk control owner must be NOLOGIN/NOINHERIT without role memberships';
     end if;
 end;
@@ -158,10 +144,9 @@ end;
 $$;
 
 -- PostgreSQL requires owner membership only while assigning function ownership.
-grant create on schema praxis_bulk to praxis_bulk_control_owner;
 do $$
 begin
-    execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user', current_user);
+    execute pg_catalog.format('grant praxis_bulk_control_owner to %I', current_user);
 end;
 $$;
 alter function praxis_bulk.lock_operation_control(text, text) owner to praxis_bulk_control_owner;
@@ -171,60 +156,19 @@ alter function praxis_bulk.guard_new_bulk_admission() owner to praxis_bulk_contr
 alter function praxis_bulk.guard_new_bulk_evaluation() owner to praxis_bulk_control_owner;
 do $$
 begin
-    execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user', current_user);
+    execute pg_catalog.format('revoke praxis_bulk_control_owner from %I', current_user);
     if exists (select 1 from pg_catalog.pg_auth_members m
                join pg_catalog.pg_roles r on r.oid = m.roleid
-               where r.rolname = 'praxis_bulk_control_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1))
+               where r.rolname = 'praxis_bulk_control_owner')
        or exists (select 1 from pg_catalog.pg_auth_members m
                   join pg_catalog.pg_roles r on r.oid = m.member
-                  where r.rolname = 'praxis_bulk_control_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+                  where r.rolname = 'praxis_bulk_control_owner') then
         raise exception 'bulk control-owner membership was not fully revoked';
     end if;
 end;
 $$;
 revoke create on schema praxis_bulk from praxis_bulk_control_owner;
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_control_owner;
-
 revoke all on function praxis_bulk.lock_operation_control(text, text) from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user', current_user); end $$;
-
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_control_owner;
-
 revoke all on function praxis_bulk.transition_operation_control(text, text, bigint, text, text, text) from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user', current_user); end $$;
-
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_control_owner;
-
 revoke all on function praxis_bulk.guard_new_bulk_admission() from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user', current_user); end $$;
-
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_control_owner;
-
 revoke all on function praxis_bulk.guard_new_bulk_evaluation() from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user', current_user); end $$;

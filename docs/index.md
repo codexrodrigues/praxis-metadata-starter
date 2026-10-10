@@ -112,3 +112,5 @@ Quando houver duvida sobre a superficie publicada:
 - [Migração owner e cutover do worker durável — candidato privado B5b.2](technical/BULK-DURABLE-WORKER-OWNER-UPGRADE.html).
 
 - [Composição explícita do worker — candidato B5b.3](technical/BULK-WORKER-EXPLICIT-COMPOSITION.html): vínculo canônico e callbacks por unidade; provas focais e consumidor JAR privado executados, revisão/integração e publicação pendentes, sem ingresso HTTP ASYNC.
+
+- [Adoção de operações em lote por owner gerenciado](spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.html): candidato PostgreSQL17+, linhagem imutável, bootstrap transacional e provas focais; publicação e adoção hospedada pendentes.

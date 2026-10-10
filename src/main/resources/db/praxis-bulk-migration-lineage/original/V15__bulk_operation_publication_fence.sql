@@ -5,23 +5,9 @@ do $$ begin
         where rolname in ('praxis_bulk_control_owner','praxis_bulk_retention_owner')
           and not (rolcanlogin or rolinherit or rolsuper or rolcreatedb or rolcreaterole or rolreplication or rolbypassrls)) <> 2
        or exists (select 1 from pg_catalog.pg_auth_members m join pg_catalog.pg_roles r on r.oid=m.roleid
-                  where r.rolname in ('praxis_bulk_control_owner','praxis_bulk_retention_owner')
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1))
+                  where r.rolname in ('praxis_bulk_control_owner','praxis_bulk_retention_owner'))
        or exists (select 1 from pg_catalog.pg_auth_members m join pg_catalog.pg_roles r on r.oid=m.member
-                  where r.rolname in ('praxis_bulk_control_owner','praxis_bulk_retention_owner')
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1))
+                  where r.rolname in ('praxis_bulk_control_owner','praxis_bulk_retention_owner'))
        or pg_catalog.has_schema_privilege('praxis_bulk_control_owner','praxis_bulk','CREATE')
        or pg_catalog.has_schema_privilege('praxis_bulk_retention_owner','praxis_bulk','CREATE') then
         raise exception 'bulk definer-owner topology is unsafe before publication-fence migration';
@@ -71,13 +57,10 @@ grant update (publication_generation,publication_document_digest)
 
 -- Replacing definer-owned functions requires only temporary, bounded memberships.
 do $$ begin
-    execute pg_catalog.format('grant praxis_bulk_control_owner to %I with inherit false, set true granted by current_user',current_user);
-    execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user',current_user);
+    execute pg_catalog.format('grant praxis_bulk_control_owner to %I',current_user);
+    execute pg_catalog.format('grant praxis_bulk_retention_owner to %I',current_user);
 end $$;
 grant create on schema praxis_bulk to praxis_bulk_control_owner;
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_control_owner;
-
 
 create or replace function praxis_bulk.lock_operation_control(p_namespace_id text,p_operation_id text)
 returns table(state text,generation bigint,descriptor_fingerprint text,structural_revision text)
@@ -104,16 +87,9 @@ begin
      for share;
 end;
 $$;
-reset role;
-
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_control_owner;
-
 
 -- No six-argument compatibility overload survives the beta cutover.
 drop function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text);
-reset role;
-
 create function praxis_bulk.transition_operation_control(
     p_namespace_id text,p_operation_id text,p_expected_generation bigint,p_target_state text,
     p_descriptor_fingerprint text,p_structural_revision text,
@@ -175,9 +151,6 @@ $$;
 revoke all on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text) from public;
 alter function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text)
     owner to praxis_bulk_control_owner;
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_control_owner;
-
 -- Host grants EXECUTE on the new eight-argument CAS explicitly; no ACL repair.
 
 create or replace function praxis_bulk.guard_new_bulk_admission()
@@ -200,11 +173,6 @@ begin
     return new;
 end;
 $$;
-reset role;
-
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_control_owner;
-
 
 create or replace function praxis_bulk.guard_new_bulk_evaluation()
 returns trigger language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
@@ -226,11 +194,6 @@ begin
     return new;
 end;
 $$;
-reset role;
-
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_control_owner;
-
 
 create or replace function praxis_bulk.transition_openapi_publication(
     p_namespace_id text, p_deployment_id text, p_expected_generation bigint,
@@ -316,12 +279,6 @@ begin
     return query select true, v_publication.generation + 1;
 end;
 $$;
-reset role;
-
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
 
 create or replace function praxis_bulk.purge_terminal_execution(p_execution_id uuid)
 returns boolean language plpgsql security definer
@@ -406,13 +363,6 @@ begin
     return true;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
-
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
 
 create or replace function praxis_bulk.expire_unconsumed_proposal(p_proposal_id uuid)
 returns boolean language plpgsql security definer
@@ -464,40 +414,18 @@ begin
     return true;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
-
--- Scoped canonical function ownership; restoration is transactional.
-set local role praxis_bulk_control_owner;
-
 
 -- Retention uses the same namespace -> global -> operation lock, without requiring READY.
 grant execute on function praxis_bulk.lock_operation_control(text,text) to praxis_bulk_retention_owner;
-reset role;
-
 revoke select,update (state) on praxis_bulk.praxis_bulk_operation_control from praxis_bulk_retention_owner;
 revoke create on schema praxis_bulk from praxis_bulk_control_owner;
 do $$ begin
-    execute pg_catalog.format('revoke praxis_bulk_control_owner from %I granted by current_user',current_user);
-    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user',current_user);
+    execute pg_catalog.format('revoke praxis_bulk_control_owner from %I',current_user);
+    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I',current_user);
     if exists (select 1 from pg_catalog.pg_auth_members m join pg_catalog.pg_roles r on r.oid=m.roleid
-               where r.rolname in ('praxis_bulk_control_owner','praxis_bulk_retention_owner')
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1))
+               where r.rolname in ('praxis_bulk_control_owner','praxis_bulk_retention_owner'))
        or exists (select 1 from pg_catalog.pg_auth_members m join pg_catalog.pg_roles r on r.oid=m.member
-                  where r.rolname in ('praxis_bulk_control_owner','praxis_bulk_retention_owner')
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+                  where r.rolname in ('praxis_bulk_control_owner','praxis_bulk_retention_owner')) then
         raise exception 'bulk definer-owner membership was not fully revoked';
     end if;
 end $$;

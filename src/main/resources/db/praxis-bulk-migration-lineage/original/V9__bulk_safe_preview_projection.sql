@@ -1,95 +1,127 @@
--- V11 binds each safe V9 preview item to its immutable manifest row for bounded reads.
--- The final parent column has no default: a V9 writer omitting it cannot commit.
--- ADD DEFAULT fills historical rows without invoking V9's immutable UPDATE trigger.
--- DROP DEFAULT in the same DDL transaction fences V9 writers after commit.
-alter table praxis_bulk.praxis_bulk_preview_state
-    add column integrity_version integer not null default 11;
-alter table praxis_bulk.praxis_bulk_preview_state
-    alter column integrity_version drop default;
-alter table praxis_bulk.praxis_bulk_preview_state
-    add constraint praxis_bulk_preview_state_integrity_version_check check (integrity_version = 11);
-
-create table praxis_bulk.praxis_bulk_preview_item_integrity (
-    proposal_id uuid not null,
-    ordinal integer not null,
-    digest_version integer not null,
-    item_digest text not null,
-    constraint praxis_bulk_preview_item_integrity_pkey primary key (proposal_id, ordinal),
-    constraint praxis_bulk_preview_item_integrity_preview_fkey foreign key (proposal_id, ordinal)
-        references praxis_bulk.praxis_bulk_target_preview (proposal_id, ordinal) on delete restrict,
-    constraint praxis_bulk_preview_item_integrity_version_check check (digest_version = 1),
-    constraint praxis_bulk_preview_item_integrity_digest_check check (item_digest ~ '^sha256:[0-9a-f]{64}$')
+-- H1b RS2: provider-approved preview is separate from protected evaluation and private V8 manifest.
+create table praxis_bulk.praxis_bulk_preview_state (
+    proposal_id uuid primary key,
+    evaluation_fingerprint text not null,
+    projection_state text not null,
+    projector_revision text,
+    target_count integer,
+    public_allowlist bytea,
+    projection_digest text,
+    constraint praxis_bulk_preview_state_evaluation_fkey foreign key (proposal_id, evaluation_fingerprint)
+        references praxis_bulk.praxis_bulk_evaluation (proposal_id, evaluation_fingerprint) on delete restrict,
+    constraint praxis_bulk_preview_state_binding_key unique (proposal_id, evaluation_fingerprint),
+    constraint praxis_bulk_preview_state_state_check check (
+        (projection_state = 'COMPLETE' and projector_revision is not null
+            and length(projector_revision) between 1 and 128 and target_count is not null
+            and public_allowlist is not null and octet_length(public_allowlist) between 2 and 65536
+            and projection_digest ~ '^sha256:[0-9a-f]{64}$')
+        or (projection_state in ('UNAVAILABLE', 'UNAVAILABLE_LEGACY') and projector_revision is null
+            and target_count is null and public_allowlist is null and projection_digest is null)),
+    constraint praxis_bulk_preview_state_count_check check (target_count is null or target_count between 1 and 10000)
 );
-create trigger praxis_bulk_preview_item_integrity_immutable before update or delete
-    on praxis_bulk.praxis_bulk_preview_item_integrity for each row
-    execute function praxis_bulk.reject_preview_mutation();
-create trigger praxis_bulk_preview_item_integrity_guard_delete before delete
-    on praxis_bulk.praxis_bulk_preview_item_integrity for each row
-    execute function praxis_bulk.guard_lifecycle_delete();
+create table praxis_bulk.praxis_bulk_target_preview (
+    proposal_id uuid not null,
+    evaluation_fingerprint text not null,
+    ordinal integer not null,
+    decision text not null,
+    diagnostics bytea not null,
+    constraint praxis_bulk_target_preview_pkey primary key (proposal_id, ordinal),
+    constraint praxis_bulk_target_preview_manifest_fkey foreign key (proposal_id, ordinal)
+        references praxis_bulk.praxis_bulk_target_manifest (proposal_id, ordinal) on delete restrict,
+    constraint praxis_bulk_target_preview_state_fkey foreign key (proposal_id, evaluation_fingerprint)
+        references praxis_bulk.praxis_bulk_preview_state (proposal_id, evaluation_fingerprint) on delete restrict,
+    constraint praxis_bulk_target_preview_ordinal_check check (ordinal between 0 and 9999),
+    constraint praxis_bulk_target_preview_decision_check check (decision in ('EXECUTABLE', 'BLOCKED')),
+    constraint praxis_bulk_target_preview_diagnostics_check check (octet_length(diagnostics) between 2 and 65536)
+);
+-- Mark pre-V9 evaluations conservatively; their private messages cannot be certified public.
+insert into praxis_bulk.praxis_bulk_preview_state
+    (proposal_id, evaluation_fingerprint, projection_state)
+select e.proposal_id, e.evaluation_fingerprint, 'UNAVAILABLE_LEGACY'
+from praxis_bulk.praxis_bulk_evaluation e;
 
-create table praxis_bulk.praxis_bulk_preview_integrity_bootstrap (
-    bootstrap_version integer primary key check (bootstrap_version = 11),
+create table praxis_bulk.praxis_bulk_preview_bootstrap (
+    bootstrap_version integer primary key check (bootstrap_version = 9),
     phase text not null check (phase in ('PENDING', 'COMPLETE'))
 );
-insert into praxis_bulk.praxis_bulk_preview_integrity_bootstrap values (11, 'PENDING');
-revoke all on praxis_bulk.praxis_bulk_preview_integrity_bootstrap from public;
+insert into praxis_bulk.praxis_bulk_preview_bootstrap values (9, 'PENDING');
+revoke all on praxis_bulk.praxis_bulk_preview_bootstrap from public;
 
--- Flyway commits this fence in the same DDL transaction as the PENDING marker.
--- Runtime cannot see or alter the marker, and neither V9 nor V11 may admit
--- a new parent until the validated bootstrap commits COMPLETE.
-create function praxis_bulk.require_complete_preview_integrity_bootstrap()
-returns trigger language plpgsql security definer
-set search_path = pg_catalog, pg_temp as $$
-begin
-    if (select phase from praxis_bulk.praxis_bulk_preview_integrity_bootstrap
-        where bootstrap_version = 11) is distinct from 'COMPLETE' then
-        raise exception 'bulk preview integrity bootstrap is pending' using errcode = '55000';
-    end if;
-    return new;
-end;
-$$;
-create trigger praxis_bulk_preview_state_integrity_guard_insert before insert
-    on praxis_bulk.praxis_bulk_preview_state for each row
-    execute function praxis_bulk.require_complete_preview_integrity_bootstrap();
-revoke all on function praxis_bulk.require_complete_preview_integrity_bootstrap() from public;
-
-create function praxis_bulk.require_complete_preview_item_integrity()
+create function praxis_bulk.require_complete_target_preview()
 returns trigger language plpgsql set search_path = pg_catalog, pg_temp as $$
 declare
     v_state praxis_bulk.praxis_bulk_preview_state%rowtype;
     v_count bigint;
+    v_min integer;
+    v_max integer;
 begin
     select * into v_state from praxis_bulk.praxis_bulk_preview_state
      where proposal_id = new.proposal_id and evaluation_fingerprint = new.evaluation_fingerprint;
-    if not found or v_state.integrity_version <> 11 then
-        raise exception 'bulk evaluation requires V11 preview integrity' using errcode = '55000';
+    if not found or v_state.projection_state not in ('COMPLETE', 'UNAVAILABLE') then
+        raise exception 'protected bulk evaluation requires an explicit preview state'
+            using errcode = '55000';
     end if;
-    select count(*) into v_count from praxis_bulk.praxis_bulk_preview_item_integrity
-     where proposal_id = new.proposal_id;
-    if (v_state.projection_state = 'COMPLETE' and v_count <> v_state.target_count)
-       or (v_state.projection_state = 'UNAVAILABLE' and v_count <> 0)
-       or v_state.projection_state not in ('COMPLETE', 'UNAVAILABLE') then
-        raise exception 'bulk preview item integrity is incomplete' using errcode = '55000';
+    select count(*), min(ordinal), max(ordinal) into v_count, v_min, v_max
+      from praxis_bulk.praxis_bulk_target_preview
+     where proposal_id = new.proposal_id and evaluation_fingerprint = new.evaluation_fingerprint;
+    if (v_state.projection_state = 'UNAVAILABLE' and v_count <> 0)
+       or (v_state.projection_state = 'COMPLETE' and
+           (v_count <> v_state.target_count or v_min <> 0 or v_max <> v_state.target_count - 1)) then
+        raise exception 'bulk preview projection is incomplete' using errcode = '55000';
     end if;
     return null;
 end;
 $$;
-create constraint trigger praxis_bulk_evaluation_require_preview_item_integrity
-    after insert on praxis_bulk.praxis_bulk_evaluation deferrable initially deferred
-    for each row execute function praxis_bulk.require_complete_preview_item_integrity();
-revoke all on function praxis_bulk.require_complete_preview_item_integrity() from public;
+create constraint trigger praxis_bulk_evaluation_require_preview
+    after insert on praxis_bulk.praxis_bulk_evaluation
+    deferrable initially deferred for each row
+    execute function praxis_bulk.require_complete_target_preview();
 
--- Only the isolated retention definer may DELETE; V11 redefines the governed
--- retention functions to remove leaves before preview rows. RESTRICT makes
--- the ordering explicit and rejects accidental parent removal.
-grant select, delete on praxis_bulk.praxis_bulk_preview_item_integrity
-    to praxis_bulk_retention_owner;
+-- A runtime role can INSERT after the evaluation's deferred trigger has fired.
+-- The parent is immutable; its FK supplies the row-key lock at INSERT and
+-- rejects concurrent retention DELETE before a dangling item can commit.
+create function praxis_bulk.require_complete_preview_parent()
+returns trigger language plpgsql set search_path = pg_catalog, pg_temp as $$
+declare
+    v_state text;
+begin
+    select projection_state into v_state
+      from praxis_bulk.praxis_bulk_preview_state
+     where proposal_id = new.proposal_id
+       and evaluation_fingerprint = new.evaluation_fingerprint;
+    if v_state is distinct from 'COMPLETE' then
+        raise exception 'bulk preview item requires a complete parent projection'
+            using errcode = '55000';
+    end if;
+    return new;
+end;
+$$;
+create trigger praxis_bulk_target_preview_guard_insert before insert
+    on praxis_bulk.praxis_bulk_target_preview for each row
+    execute function praxis_bulk.require_complete_preview_parent();
 
--- V11 retention functions explicitly delete integrity leaves before previews.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end; $$;
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
+create function praxis_bulk.reject_preview_mutation()
+returns trigger language plpgsql set search_path = pg_catalog, pg_temp as $$
+begin
+    if tg_op = 'DELETE' and current_user = 'praxis_bulk_retention_owner' then return old; end if;
+    raise exception 'bulk preview projection is immutable' using errcode = '55000';
+end;
+$$;
+create trigger praxis_bulk_preview_state_immutable before update or delete
+    on praxis_bulk.praxis_bulk_preview_state for each row
+    execute function praxis_bulk.reject_preview_mutation();
+create trigger praxis_bulk_target_preview_immutable before update or delete
+    on praxis_bulk.praxis_bulk_target_preview for each row
+    execute function praxis_bulk.reject_preview_mutation();
+create trigger praxis_bulk_preview_state_guard_delete before delete
+    on praxis_bulk.praxis_bulk_preview_state for each row
+    execute function praxis_bulk.guard_lifecycle_delete();
+create trigger praxis_bulk_target_preview_guard_delete before delete
+    on praxis_bulk.praxis_bulk_target_preview for each row
+    execute function praxis_bulk.guard_lifecycle_delete();
+
+-- Retention functions stay owned by the isolated definer. Membership is temporary in Flyway DDL.
+do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I', current_user); end; $$;
 
 create or replace function praxis_bulk.purge_terminal_execution(p_execution_id uuid)
 returns boolean language plpgsql security definer
@@ -157,17 +189,13 @@ begin
     values (v_execution.namespace_id, v_allocation.authorization_scope_digest_version,
             v_allocation.authorization_scope_digest, v_execution.resource_key,
             v_execution.operation_id, v_execution.idempotency_key_digest,
-            v_execution.proposal_id, v_execution.execution_id,
-            case when v_execution.status = 'STOPPED'
-                       and v_execution.terminal_reason_code = 'CANCELLED_BY_USER'
-                 then 'CANCELLED' else v_execution.status end,
+            v_execution.proposal_id, v_execution.execution_id, v_execution.status,
             v_execution.terminal_at, v_now);
     delete from praxis_bulk.praxis_bulk_item_receipt where execution_id = p_execution_id;
     delete from praxis_bulk.praxis_bulk_admission where execution_id = p_execution_id;
     delete from praxis_bulk.praxis_bulk_allocation where execution_id = p_execution_id;
     delete from praxis_bulk.praxis_bulk_allocation where proposal_id = v_execution.proposal_id;
     delete from praxis_bulk.praxis_bulk_execution where execution_id = p_execution_id;
-    delete from praxis_bulk.praxis_bulk_preview_item_integrity where proposal_id = v_execution.proposal_id;
     delete from praxis_bulk.praxis_bulk_target_preview where proposal_id = v_execution.proposal_id;
     delete from praxis_bulk.praxis_bulk_preview_state where proposal_id = v_execution.proposal_id;
     delete from praxis_bulk.praxis_bulk_target_manifest where proposal_id = v_execution.proposal_id;
@@ -176,13 +204,6 @@ begin
     return true;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
-
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
 
 create or replace function praxis_bulk.expire_unconsumed_proposal(p_proposal_id uuid)
 returns boolean language plpgsql security definer
@@ -227,7 +248,6 @@ begin
         set state = 'RELEASED', released_at = clock_timestamp(), release_reason = 'PROPOSAL_EXPIRED'
         where proposal_id = p_proposal_id and state = 'PENDING';
     delete from praxis_bulk.praxis_bulk_allocation where proposal_id = p_proposal_id;
-    delete from praxis_bulk.praxis_bulk_preview_item_integrity where proposal_id = p_proposal_id;
     delete from praxis_bulk.praxis_bulk_target_preview where proposal_id = p_proposal_id;
     delete from praxis_bulk.praxis_bulk_preview_state where proposal_id = p_proposal_id;
     delete from praxis_bulk.praxis_bulk_target_manifest where proposal_id = p_proposal_id;
@@ -236,20 +256,16 @@ begin
     return true;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
 
 do $$ begin
-    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user);
+    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I', current_user);
     if exists (select 1 from pg_catalog.pg_auth_members m join pg_catalog.pg_roles r on r.oid=m.roleid
-               where r.rolname='praxis_bulk_retention_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+               where r.rolname='praxis_bulk_retention_owner') then
         raise exception 'bulk retention owner membership was not fully revoked';
     end if;
 end; $$;
+grant select, delete on praxis_bulk.praxis_bulk_preview_state to praxis_bulk_retention_owner;
+grant select, delete on praxis_bulk.praxis_bulk_target_preview to praxis_bulk_retention_owner;
+revoke all on function praxis_bulk.require_complete_target_preview() from public;
+revoke all on function praxis_bulk.require_complete_preview_parent() from public;
+revoke all on function praxis_bulk.reject_preview_mutation() from public;

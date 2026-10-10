@@ -36,14 +36,7 @@ begin
        or v_cancel_function is null
        or pg_catalog.has_schema_privilege('praxis_bulk_retention_owner', 'praxis_bulk', 'CREATE')
        or exists (select 1 from pg_catalog.pg_auth_members m
-                  where m.roleid='praxis_bulk_retention_owner'::pg_catalog.regrole
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1))
+                  where m.roleid='praxis_bulk_retention_owner'::pg_catalog.regrole)
        or exists (select 1 from pg_catalog.aclexplode(
                     (select coalesce(p.proacl,
                         pg_catalog.acldefault('f', p.proowner))
@@ -96,13 +89,11 @@ begin
     then
         raise exception 'bulk V5/V10 chronology guard attestation failed' using errcode='55000';
     end if;
-    execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user);
+    execute pg_catalog.format('grant praxis_bulk_retention_owner to %I', current_user);
+    execute pg_catalog.format(
+        'alter function praxis_bulk.guard_terminal_execution() owner to %I', current_user);
 end;
 $$;
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
 
 create or replace function praxis_bulk.guard_terminal_execution()
 returns trigger language plpgsql security definer set search_path = pg_catalog, pg_temp as $$
@@ -147,27 +138,20 @@ begin
     return new;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
 
-
--- The replacement retains its attested owner; restore the membership boundary before commit.
+-- Restore the governed function owner and zero-membership boundary before commit.
+grant create on schema praxis_bulk to praxis_bulk_retention_owner;
 do $$
 begin
-    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user);
+    alter function praxis_bulk.guard_terminal_execution() owner to praxis_bulk_retention_owner;
+    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I', current_user);
     if exists (select 1 from pg_catalog.pg_auth_members m
-               where m.roleid='praxis_bulk_retention_owner'::pg_catalog.regrole
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+               where m.roleid='praxis_bulk_retention_owner'::pg_catalog.regrole) then
         raise exception 'bulk retention owner membership was not fully revoked' using errcode='55000';
     end if;
 end;
 $$;
+revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
 do $$
 begin
     if pg_catalog.has_schema_privilege('praxis_bulk_retention_owner', 'praxis_bulk', 'CREATE') then

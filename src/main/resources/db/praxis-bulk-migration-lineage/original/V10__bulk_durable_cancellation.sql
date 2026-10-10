@@ -97,11 +97,7 @@ end;
 $$;
 
 -- Preserve the permanent replay denial record while retaining the safe public terminal kind.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end; $$;
--- Scoped canonical function ownership; restoration is transactional.
-grant create on schema praxis_bulk to praxis_bulk_retention_owner;
-set local role praxis_bulk_retention_owner;
-
+do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I', current_user); end; $$;
 create or replace function praxis_bulk.purge_terminal_execution(p_execution_id uuid)
 returns boolean language plpgsql security definer
 set search_path = pg_catalog, pg_temp as $$
@@ -186,20 +182,10 @@ begin
     return true;
 end;
 $$;
-reset role;
-revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
-
 do $$ begin
-    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user);
+    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I', current_user);
     if exists (select 1 from pg_catalog.pg_auth_members m join pg_catalog.pg_roles r on r.oid=m.roleid
-               where r.rolname='praxis_bulk_retention_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+               where r.rolname='praxis_bulk_retention_owner') then
         raise exception 'bulk retention owner membership was not fully revoked';
     end if;
 end; $$;

@@ -588,24 +588,10 @@ begin
            where rolname = 'praxis_bulk_retention_executor' and rolinherit)
        or exists (select 1 from pg_catalog.pg_auth_members m
            join pg_catalog.pg_roles r on r.oid = m.roleid
-           where r.rolname = 'praxis_bulk_retention_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1))
+           where r.rolname = 'praxis_bulk_retention_owner')
        or exists (select 1 from pg_catalog.pg_auth_members m
            join pg_catalog.pg_roles r on r.oid = m.member
-           where r.rolname in ('praxis_bulk_retention_owner', 'praxis_bulk_retention_executor')
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+           where r.rolname in ('praxis_bulk_retention_owner', 'praxis_bulk_retention_executor')) then
         raise exception 'bulk retention roles must be NOLOGIN and owner must have no members';
     end if;
 end;
@@ -781,7 +767,7 @@ $$;
 
 do $$
 begin
-    execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user);
+    execute pg_catalog.format('grant praxis_bulk_retention_owner to %I', current_user);
 end;
 $$;
 alter function praxis_bulk.purge_terminal_execution(uuid) owner to praxis_bulk_retention_owner;
@@ -792,17 +778,10 @@ alter function praxis_bulk.guard_terminal_execution() owner to praxis_bulk_reten
 alter function praxis_bulk.release_active_allocation_on_terminal() owner to praxis_bulk_retention_owner;
 do $$
 begin
-    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user);
+    execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I', current_user);
     if exists (select 1 from pg_catalog.pg_auth_members m
                join pg_catalog.pg_roles r on r.oid = m.roleid
-               where r.rolname = 'praxis_bulk_retention_owner'
-               and not (m.admin_option and not m.inherit_option and not m.set_option
-                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk')
-                  and exists(select 1 from pg_catalog.pg_roles bootstrap
-                             where bootstrap.oid=m.grantor and bootstrap.rolsuper)
-                  and (select count(*) from pg_catalog.pg_auth_members same_actor
-                       where same_actor.roleid=m.roleid and same_actor.member=m.member
-                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+               where r.rolname = 'praxis_bulk_retention_owner') then
         raise exception 'bulk retention owner membership was not fully revoked';
     end if;
 end;
@@ -810,75 +789,20 @@ $$;
 revoke create on schema praxis_bulk from praxis_bulk_retention_owner;
 revoke all on function praxis_bulk.guard_lifecycle_delete() from public;
 revoke all on function praxis_bulk.guard_tombstone_mutation() from public;
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_retention_owner;
-
 revoke all on function praxis_bulk.protect_allocation_transition() from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user); end $$;
-
 revoke all on function praxis_bulk.guard_bucket_mutation() from public;
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_retention_owner;
-
 revoke all on function praxis_bulk.validate_allocation_binding() from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user); end $$;
-
 revoke all on function praxis_bulk.protect_namespace_binding() from public;
 revoke all on function praxis_bulk.protect_operation_control() from public;
 revoke all on function praxis_bulk.guard_new_bulk_admission() from public;
 revoke all on function praxis_bulk.guard_new_bulk_evaluation() from public;
 revoke all on function praxis_bulk.terminal_evidence_complete(uuid, integer) from public;
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_retention_owner;
-
 revoke all on function praxis_bulk.guard_terminal_execution() from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user); end $$;
-
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_retention_owner;
-
 revoke all on function praxis_bulk.release_active_allocation_on_terminal() from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user); end $$;
-
 revoke all on function praxis_bulk.guard_terminal_evidence_insert() from public;
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_retention_owner;
-
 revoke all on function praxis_bulk.purge_terminal_execution(uuid) from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user); end $$;
-
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_retention_owner;
-
 revoke all on function praxis_bulk.expire_unconsumed_proposal(uuid) from public;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user); end $$;
-
 grant execute on function praxis_bulk.terminal_evidence_complete(uuid, integer)
     to praxis_bulk_retention_owner;
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_retention_owner;
-
 grant execute on function praxis_bulk.purge_terminal_execution(uuid) to praxis_bulk_retention_executor;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user); end $$;
-
--- Scoped canonical function ownership; restoration is transactional.
-do $$ begin execute pg_catalog.format('grant praxis_bulk_retention_owner to %I with inherit false, set true granted by current_user', current_user); end $$;
-set local role praxis_bulk_retention_owner;
-
 grant execute on function praxis_bulk.expire_unconsumed_proposal(uuid) to praxis_bulk_retention_executor;
-reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_retention_owner from %I granted by current_user', current_user); end $$;
