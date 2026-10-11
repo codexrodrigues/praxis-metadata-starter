@@ -34,6 +34,27 @@ fase Neon, o job revalida a mesma atribuição e exige 90 minutos restantes. A
 projeção pública whitelist da atribuição é preservada no artefato de custódia;
 ela inclui branch/parent/endpoint/owner e hashes, mas nenhuma URI ou senha.
 
+## Prova focal sem publicação
+
+O dispatch do mesmo workflow com `create_tag=false` executa somente a prova P4
+`BulkOptionalPoliciesNeonTest`, em uma child exclusiva nova e sem roles bulk.
+Não cria tag, altera versão, assina, publica nem aprova a matriz de release B–H.
+Use esse caminho quando a topologia do computador local impede uma prova remota
+representativa; registre que CI→Neon não certifica automaticamente Render→Neon.
+
+Prepare os secrets separados `NEON_PROOF_ASSIGNMENT_JSON` e
+`NEON_PROOF_OWNER_URI`. A atribuição usa `purpose=proof`, `baseCommit` e
+`exactSourceCommit` iguais ao SHA exato despachado; não contém `expectedTag`.
+Demais guards de child, role criada exclusivamente nela, TLS, tentativa e janela
+são iguais aos da release. O job de35min exige40min restantes de validade antes
+de começar; nenhum resume silencioso ou credencial herdada do parent é permitido.
+O harness cria um arquivo privado de credenciais da fixture fora do checkout.
+O job não transmite Maven bruto ao console; scanner verifica logs/XML contra
+credenciais owner e fixture antes do upload, inclusive em falhas. Resultados,
+classes/recursos, fontes e dependências resolvidas compõem um recibo focal com
+`releaseApproved=false`. A falha continua sendo falha mesmo quando a custódia é
+preservada. O inventário provisório da release permanece bloqueante.
+
 ## Fluxo (Release Candidate)
 1) Validar localmente o mecanismo offline (sem banco nem assinatura):
 ```

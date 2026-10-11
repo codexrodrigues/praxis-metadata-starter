@@ -6,7 +6,7 @@ name: CI and Release Java Starter (praxis-metadata-starter)
   workflow_dispatch:
     inputs:
       create_tag:
-        description: Create and push git tag from main (recommended).
+        description: True creates a release tag from main; false runs only the reviewed P4 source proof.
         required: false
         default: true
         type: boolean
@@ -35,7 +35,7 @@ concurrency:
 jobs:
   create_tag:
     name: Create release tag
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.create_tag
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -210,6 +210,82 @@ jobs:
           VERSION: ${{ steps.compute_version.outputs.resolved_version }}
           TAG: ${{ steps.compute_version.outputs.resolved_tag }}
     timeout-minutes: 10
+  neon_source_proof:
+    name: P4 source proof on assigned Neon child (no publication)
+    if: github.event_name == 'workflow_dispatch' && !inputs.create_tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-java@v5.5.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Validate exact-source proof assignment
+        id: proof_assignment
+        env:
+          NEON_PROOF_ASSIGNMENT_JSON: ${{ secrets.NEON_PROOF_ASSIGNMENT_JSON }}
+          NEON_PROOF_OWNER_URI: ${{ secrets.NEON_PROOF_OWNER_URI }}
+        run: |
+          set -euo pipefail
+          [[ -n "$NEON_PROOF_ASSIGNMENT_JSON" && -n "$NEON_PROOF_OWNER_URI" ]] || exit 1
+          umask 077
+          mkdir -p "$RUNNER_TEMP/neon-proof" "$RUNNER_TEMP/neon-proof-evidence"
+          printf '%s' "$NEON_PROOF_ASSIGNMENT_JSON" > "$RUNNER_TEMP/neon-proof/assignment.json"
+          printf '%s' "$NEON_PROOF_OWNER_URI" > "$RUNNER_TEMP/neon-proof/owner-uri"
+          python3 tools/release/neon_assignment.py --purpose proof --exact-source "$GITHUB_SHA" \
+            --assignment "$RUNNER_TEMP/neon-proof/assignment.json" \
+            --owner-uri-file "$RUNNER_TEMP/neon-proof/owner-uri" --repo "$PWD" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" --min-remaining-minutes 40 \
+            --github-output "$GITHUB_OUTPUT" \
+            --public-projection "$RUNNER_TEMP/neon-proof-evidence/assignment-public.json"
+          python3 -c 'from tools.release.neon_gate import verify_checkout_clean; from pathlib import Path; verify_checkout_clean(Path.cwd())'
+      - name: Run the exact reviewed P4 Neon case
+        env:
+          PRAXIS_BULK_NEON_CONNECTION_FILE: ${{ runner.temp }}/neon-proof/owner-uri
+          PRAXIS_BULK_NEON_EXPECTED_HOST: ${{ steps.proof_assignment.outputs.expected_host }}
+          PRAXIS_BULK_NEON_EXPECTED_OWNER: ${{ steps.proof_assignment.outputs.expected_owner }}
+          PRAXIS_BULK_NEON_FIXTURE_CREDENTIALS_FILE: ${{ runner.temp }}/neon-proof/fixture.properties
+        run: |
+          set -euo pipefail
+          java -version > "$RUNNER_TEMP/neon-proof-evidence/java-version.txt" 2>&1
+          bash ./mvnw -version > "$RUNNER_TEMP/neon-proof-evidence/maven-version.txt" 2>&1
+          bash ./mvnw -B -P release-neon-gate \
+            -Dpraxis.release.reportsDirectory="$RUNNER_TEMP/neon-proof-evidence/reports" \
+            -Dtest=BulkOptionalPoliciesNeonTest clean test \
+            > "$RUNNER_TEMP/neon-proof-evidence/maven.log" 2>&1
+          bash ./mvnw -B org.apache.maven.plugins:maven-dependency-plugin:3.8.1:build-classpath \
+            -DincludeScope=test -Dmdep.outputFile="$RUNNER_TEMP/neon-proof-evidence/classpath.txt" \
+            > "$RUNNER_TEMP/neon-proof-evidence/dependencies.log" 2>&1
+          python3 tools/release/neon_proof.py --source "$GITHUB_SHA" \
+            --evidence "$RUNNER_TEMP/neon-proof-evidence" \
+            --owner-uri-file "$RUNNER_TEMP/neon-proof/owner-uri" \
+            --fixture-credentials-file "$RUNNER_TEMP/neon-proof/fixture.properties" \
+            --assignment-public "$RUNNER_TEMP/neon-proof-evidence/assignment-public.json" \
+            --dependency-classpath "$RUNNER_TEMP/neon-proof-evidence/classpath.txt"
+      - name: Scan proof custody before upload, including failure
+        id: proof_scan
+        if: always()
+        run: |
+          python3 tools/release/neon_proof.py --scan-only --source "$GITHUB_SHA" \
+            --evidence "$RUNNER_TEMP/neon-proof-evidence" \
+            --owner-uri-file "$RUNNER_TEMP/neon-proof/owner-uri" \
+            --fixture-credentials-file "$RUNNER_TEMP/neon-proof/fixture.properties"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.proof_scan.outcome == 'success'
+        with:
+          name: neon-source-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/neon-proof-evidence/
+          if-no-files-found: ignore
+          retention-days: 14
   release:
     name: Publish to Maven Central
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')

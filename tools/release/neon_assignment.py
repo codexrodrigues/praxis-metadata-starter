@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from neon_gate import GateError, verify_tag_derivation
+from neon_gate import GateError, verify_tag_derivation, run_git
 
 REPOSITORY = "codexrodrigues/praxis-metadata-starter"
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z_0-9]*$")
@@ -47,16 +47,29 @@ def timestamp(value):
 
 
 def validate_assignment(document, owner_uri, repo, expected_tag, expected_version,
-                        expected_attempt, now=None, min_remaining_minutes=0):
+                        expected_attempt, now=None, min_remaining_minutes=0,
+                        purpose="release", exact_source=None):
     if document.get("schemaVersion") != 1 or document.get("repository") != REPOSITORY:
         raise GateError("assignment schema/repository mismatch")
     base = document.get("baseCommit", "")
     if not COMMIT.fullmatch(base):
         raise GateError("assignment base commit invalid")
-    if (document.get("expectedTag") != expected_tag or expected_tag != "v" + expected_version or
-            document.get("runAttempt") != expected_attempt):
-        raise GateError("assignment tag/version/attempt mismatch")
-    verify_tag_derivation(repo, base, expected_version)
+    if document.get("runAttempt") != expected_attempt:
+        raise GateError("assignment attempt mismatch")
+    if purpose == "proof":
+        if (document.get("purpose") != "proof" or not COMMIT.fullmatch(exact_source or "") or
+                document.get("exactSourceCommit") != exact_source or base != exact_source or
+                run_git(repo, "rev-parse", "HEAD") != exact_source or
+                document.get("expectedTag") is not None):
+            raise GateError("proof requires the exact dispatched source and no release tag")
+    elif purpose == "release":
+        if (document.get("purpose", "release") != "release" or
+                not isinstance(expected_version, str) or
+                document.get("expectedTag") != expected_tag or expected_tag != "v" + expected_version):
+            raise GateError("assignment tag/version/attempt mismatch")
+        verify_tag_derivation(repo, base, expected_version)
+    else:
+        raise GateError("unknown assignment purpose")
     current = now or datetime.now(timezone.utc)
     valid_from = timestamp(document.get("validFrom"))
     expires = timestamp(document.get("expiresAt"))
@@ -126,7 +139,9 @@ def public_projection(document, validated):
         "schemaVersion": 1,
         "repository": document["repository"],
         "baseCommit": document["baseCommit"],
-        "expectedTag": document["expectedTag"],
+        "purpose": document.get("purpose", "release"),
+        "expectedTag": document.get("expectedTag"),
+        "exactSourceCommit": document.get("exactSourceCommit"),
         "runAttempt": document["runAttempt"],
         "validFrom": document["validFrom"],
         "expiresAt": document["expiresAt"],
@@ -147,8 +162,10 @@ def main():
     parser.add_argument("--assignment", required=True, type=Path)
     parser.add_argument("--owner-uri-file", required=True, type=Path)
     parser.add_argument("--repo", required=True, type=Path)
-    parser.add_argument("--tag", required=True)
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--tag")
+    parser.add_argument("--purpose", choices=("release", "proof"), default="release")
+    parser.add_argument("--exact-source")
+    parser.add_argument("--version")
     parser.add_argument("--run-attempt", required=True, type=int)
     parser.add_argument("--github-output", required=True, type=Path)
     parser.add_argument("--public-projection", type=Path)
@@ -160,7 +177,8 @@ def main():
         assignment = json.loads(private_text(args.assignment))
         output = validate_assignment(assignment, private_text(args.owner_uri_file), args.repo,
                                      args.tag, args.version, args.run_attempt,
-                                     min_remaining_minutes=args.min_remaining_minutes)
+                                     min_remaining_minutes=args.min_remaining_minutes,
+                                     purpose=args.purpose, exact_source=args.exact_source)
         with args.github_output.open("a") as stream:
             for key, value in output.items():
                 stream.write(f"{key}={value}\n")

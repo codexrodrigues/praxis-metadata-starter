@@ -12,3 +12,12 @@ Antes de push, tag ou dispatch, confira os gatilhos reais de `.github/workflows/
 O job de tag executa duas fases de teste do wrapper: `clean test` da seleção completa sem DB inventariada e `verify` dos casos Neon B–H na child atribuída, seguido de assinatura. O perfil `release-neon-gate` separa diretórios Surefire; logs brutos, skips/falhas, casos parametrizados e identidade byte a byte das classes/recursos testados com o JAR staged são conferidos antes do ZIP. O assignment da child é preparado e revisado antes do dispatch, vinculado a base SHA/tag/versão e ao recibo do control plane, e revalidado antes do Neon; o artefato inclui projeção pública sem senha, run/tentativa, Java/Maven e dependências efetivas. Sem secrets ou matriz B–H fechada o job falha antes de usar banco ou publicar. Este é gate por impacto, não execução integral das fixtures H2/Embedded históricas.
 
 Depois, o mesmo job constrói e valida um ZIP explícito, preserva seus bytes e realiza um upload único pela API oficial, seguido da comparação pública de POM/JAR/SHA-512. Upload, status e disponibilidade compartilham o orçamento restante do job90min, com180s reservados para custódia final; sem janelas independentes ou reupload automático. A documentação é um workflow reutilizável dependente do sucesso da release. Commits de main/PR não iniciam build ou Javadoc. Não republique uma versão por demora de propagação: confirme primeiro a disponibilidade do artefato. Consulte RELEASING.md.
+
+## Diagnóstico operacional necessário antes da release
+
+`create_tag=false` seleciona uma prova P4 de fonte exata, com assignment e secrets
+próprios, sem tag/GPG/publicação. É uma execução focal para distinguir limitações
+da topologia local de defeitos no ambiente remoto, não rerun exploratório nem
+aprovação integral. O checkout deve ser exatamente o commit revisado, as bases
+Neon são exclusivas e logs/credenciais seguem a custódia descrita em RELEASING.md.
+O caminho `create_tag=true` continua limitado à main e à publicação autorizada.

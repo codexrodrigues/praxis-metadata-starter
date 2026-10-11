@@ -112,6 +112,26 @@ class NeonAssignmentOfflineTest(unittest.TestCase):
                          "br-parent-b456")
         self.assertEqual(projection["owner"]["role"], "owner_child")
 
+    def test_proof_binds_exact_commit_without_a_release_tag(self):
+        document = self.assignment()
+        document.update(purpose="proof", exactSourceCommit=self.base)
+        document.pop("expectedTag")
+        result = validate_assignment(document, self.uri, self.repo, None, None, 1,
+                                     self.now, purpose="proof", exact_source=self.base)
+        self.assertEqual(result["base_commit"], self.base)
+        self.assertEqual(public_projection(document, result)["purpose"], "proof")
+        with self.assertRaises(GateError):
+            validate_assignment(document, self.uri, self.repo, "v1.0.1", "1.0.1", 1, self.now)
+        for change in ({"purpose": "release"}, {"exactSourceCommit": "f" * 40},
+                       {"expectedTag": "v1.0.1"}, {"baseCommit": "f" * 40}):
+            altered = dict(document, **change)
+            with self.assertRaises(GateError):
+                validate_assignment(altered, self.uri, self.repo, None, None, 1,
+                                    self.now, purpose="proof", exact_source=self.base)
+        with self.assertRaises(GateError):
+            validate_assignment(document, self.uri, self.repo, None, None, 1,
+                                self.now, purpose="proof", exact_source="f" * 40)
+
 
 if __name__ == "__main__":
     unittest.main()
