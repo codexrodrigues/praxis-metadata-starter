@@ -153,7 +153,7 @@ Checklist minima para esse caso:
 - O `pom.xml` da tag e de main persiste a versao publicada; divergencia falha antes de publicar.
 - O flatten POM no perfil `release` remove o parent e gera um POM compatível com Central.
 - Para publicar a documentação (Javadoc HTML + markdown convertido para HTML):
-  - O workflow reutilizavel “Documentation” roda apos a release verde; commits em main nao publicam docs.
+  - O workflow reutilizavel “Documentation” roda apos a release verde; commits em main nao publicam docs. Para corrigir apenas a documentação de uma versão já publicada, integre a correção em `main` e execute manualmente `Documentation` (`docs.yml`) selecionando `main`. Esse dispatch só constrói Javadoc, verifica os links locais e publica `gh-pages`; não cria tag, repete a publicação do SDK nem executa a matriz Neon. Em outro ref, o job fica inativo.
 
 ## Troubleshooting
 - GPG key id não resolvido:
