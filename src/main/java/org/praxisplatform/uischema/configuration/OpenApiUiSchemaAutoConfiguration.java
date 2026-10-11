@@ -105,6 +105,10 @@ import org.springframework.aop.support.AopUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springdoc.core.models.GroupedOpenApi;
+import org.praxisplatform.uischema.validation.ExpressionValidationProperties;
+import org.praxisplatform.uischema.validation.PraxisExpressionStaticValidator;
+import org.praxisplatform.uischema.validation.PraxisExpressionValidationOpenApiCustomizer;
+import org.springframework.core.env.Environment;
 import org.springdoc.core.customizers.GlobalOpenApiCustomizer;
 import org.springdoc.core.customizers.GlobalOperationCustomizer;
 import org.springdoc.core.customizers.OpenApiCustomizer;
@@ -416,6 +420,31 @@ public class OpenApiUiSchemaAutoConfiguration {
             @Value("${praxis.stats.max-comparison-period-days:366}") int maxComparisonPeriodDays
     ) {
         return new StatsProperties(enabled, maxBuckets, maxSeriesPoints, defaultMode, maxComparisonCandidates, maxComparisonPeriodDays);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ExpressionValidationProperties expressionValidationProperties(
+            @Value("${praxis.metadata.expression-validation.enabled:true}") boolean enabled,
+            @Value("${praxis.metadata.expression-validation.strict:false}") boolean strict
+    ) {
+        return new ExpressionValidationProperties(enabled, strict);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PraxisExpressionStaticValidator praxisExpressionStaticValidator() {
+        return new PraxisExpressionStaticValidator();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PraxisExpressionValidationOpenApiCustomizer praxisExpressionValidationOpenApiCustomizer(
+            ExpressionValidationProperties properties,
+            Environment environment,
+            PraxisExpressionStaticValidator validator
+    ) {
+        return new PraxisExpressionValidationOpenApiCustomizer(properties, environment, validator);
     }
 
     /**
