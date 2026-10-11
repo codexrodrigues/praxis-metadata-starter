@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -11,7 +12,7 @@ from neon_gate import (GateError, audited_inventory, sha256, verify_reports,
                        verify_staged_jar, verify_tag_derivation, reviewed_scope_digest,
                        validate_superseded, verify_checkout_clean,
                        snapshot_dependency_classpath, verify_no_known_secrets,
-                       evidence_receipt)
+                       evidence_receipt, verify_test_class_snapshots)
 
 
 class NeonGateOfflineTest(unittest.TestCase):
@@ -118,6 +119,32 @@ class NeonGateOfflineTest(unittest.TestCase):
         self.assertNotEqual(original, reviewed_scope_digest(
             self.root, self._git("rev-parse", "HEAD"), review))
 
+    def test_release_disposition_is_bound_to_baseline_and_product_scope(self):
+        path, manifest = self._repo()
+        base = manifest["baselineCommit"]
+        entry = manifest["files"][0]
+        entry["kind"] = "excluded_outside_impact"
+        entry["impactReview"] = {
+            "diffBase": base, "reason": "Unchanged independent assertion",
+            "scopePrefixes": ["src/main/java/example/"],
+            "reviewedScopeDigest": reviewed_scope_digest(
+                self.root, base, {"scopePrefixes": ["src/main/java/example/"]}),
+        }
+        manifest["status"] = "release_ready_impact_reviewed"
+        path.write_text(json.dumps(manifest))
+        with patch("neon_gate.verify_neon_matrix_definition"):
+            audited_inventory(self.root, path, release=True, base=base, version="1.0.0")
+            entry["impactReview"]["diffBase"] = "unreviewed-base"
+            path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(GateError, "unreviewed impact exclusion"):
+                audited_inventory(self.root, path, release=True, base=base, version="1.0.0")
+            entry["impactReview"]["diffBase"] = base
+            entry["kind"] = "superseded"
+            entry.pop("impactReview")
+            path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(GateError, "unreviewed impact exclusion"):
+                audited_inventory(self.root, path, release=True, base=base, version="1.0.0")
+
     def test_superseded_requires_real_required_neon_case(self):
         entry = {"path": "src/test/java/example/OldTest.java",
                  "replacement": [{"impactGroup": "B", "className": "example.MissingTest",
@@ -167,22 +194,35 @@ class NeonGateOfflineTest(unittest.TestCase):
     def test_report_identities_include_parameterized_name_and_reject_skip(self):
         manifest = {
             "files": [{"kind": "no_db", "className": "example.PureTest"},
-                      {"kind": "neon_required", "className": "example.NeonTest"}],
+                      {"kind": "neon_required", "className": "example.NeonTest",
+                       "neonPhase": "managed-owner"},
+                      {"kind": "neon_required", "className": "example.OptionalTest",
+                       "neonPhase": "optional-policies"}],
             "requiredImpactGroups": {key: [{"className": "example.NeonTest",
-                                             "testcaseName": "retention[1]"}]
+                                             "testcaseName": "retention[1]",
+                                             "assertion": "reviewed retention assertion"}]
                                      for key in "BCDEFGH"},
         }
         no_db = self.root / "no-db"
-        neon = self.root / "neon"
+        neon = self.root / "managed-owner"
+        optional = self.root / "optional-policies"
         self._report(no_db, "example.PureTest")
         self._report(neon, "example.NeonTest", "retention[1]")
-        verify_reports(manifest, no_db, neon)
+        self._report(optional, "example.OptionalTest", "optional")
+        phases = {"managed-owner": neon, "optional-policies": optional}
+        verify_reports(manifest, no_db, phases)
+        with self.assertRaisesRegex(GateError, "both named phases"):
+            verify_reports(manifest, no_db, {"managed-owner": neon})
+        self._report(optional, "example.NeonTest", "retention[1]")
+        with self.assertRaisesRegex(GateError, "report set differs"):
+            verify_reports(manifest, no_db, phases)
+        (optional / "TEST-example.NeonTest.xml").unlink()
         self._report(neon, "example.NeonTest", "retention[2]")
         with self.assertRaisesRegex(GateError, "missing/duplicate JUnit case"):
-            verify_reports(manifest, no_db, neon)
+            verify_reports(manifest, no_db, phases)
         self._report(neon, "example.NeonTest", "retention[1]", skipped=True)
         with self.assertRaisesRegex(GateError, "failed/skipped"):
-            verify_reports(manifest, no_db, neon)
+            verify_reports(manifest, no_db, phases)
 
     def test_staged_jar_must_equal_tested_classes_and_resources(self):
         snapshot = {"example/Foo.class": sha256(b"bytecode"),
@@ -200,6 +240,26 @@ class NeonGateOfflineTest(unittest.TestCase):
             archive.writestr("sql/install.sql", b"SELECT 1")
         with self.assertRaisesRegex(GateError, "JAR differs"):
             verify_staged_jar(snapshot, snapshot, jar)
+
+    def test_test_classes_must_match_across_both_neon_phases(self):
+        snapshot = {"example/GateTest.class": "abc"}
+        verify_test_class_snapshots(snapshot, snapshot)
+        with self.assertRaisesRegex(GateError, "test classes changed"):
+            verify_test_class_snapshots(snapshot, {"example/GateTest.class": "def"})
+
+    def test_scan_private_includes_both_fixture_passwords(self):
+        credentials = self.root / "fixture.properties"
+        credentials.write_text("runtimePassword=runtime-secret-123\ncontrolPassword=control-secret-456\n")
+        credentials.chmod(0o600)
+        raw = self.root / "raw.log"
+        raw.write_text("no credential")
+        command = [sys.executable, str(Path(__file__).with_name("neon_gate.py")),
+                   "--scan-private", "--fixture-credentials-file", str(credentials),
+                   "--scan-root", str(raw)]
+        self.assertEqual(subprocess.run(command, capture_output=True).returncode, 0)
+        for secret in ("runtime-secret-123", "control-secret-456"):
+            raw.write_text("failure " + secret)
+            self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
 
     def test_resolved_dependency_snapshot_hashes_files_and_fails_missing(self):
         dependency = self.root / "example.jar"
@@ -238,28 +298,38 @@ class NeonGateOfflineTest(unittest.TestCase):
                                       "baseCommit": base, "expectedTag": "v1.0.0",
                                       "runAttempt": 2}))
         no_db = self.root / "no-db"
-        neon = self.root / "neon"
+        neon = self.root / "managed-owner"
+        optional = self.root / "optional-policies"
         self._report(no_db, "example.NoDbTest")
         self._report(neon, "example.NeonTest")
+        self._report(optional, "example.OptionalTest")
         no_db_log = self.root / "no-db.log"
         neon_log = self.root / "neon.log"
+        optional_log = self.root / "optional.log"
         no_db_log.write_text("no-db pass")
         neon_log.write_text("neon pass")
+        optional_log.write_text("optional pass")
         jar = self.root / "staged.jar"
         jar.write_bytes(b"jar bytes")
         custody = {}
         for name in ("effectivePom", "dependencyTree", "dependencySnapshot",
-                     "javaVersion", "mavenVersion"):
+                     "javaVersion", "mavenVersion", "testedTestClassesBefore",
+                     "testedTestClassesAfter"):
             path = self.root / f"{name}.txt"
             path.write_text('{"artifact.jar": "digest"}' if name == "dependencySnapshot"
+                            else '{"example/NeonTest.class": "digest"}' if name.startswith("testedTestClasses")
                             else f"{name} evidence")
             custody[name] = path
         inputs = (self.root, manifest_path, base, "1.0.0", assignment_sha,
-                  no_db, neon, no_db_log, neon_log, {"A": "hash"}, {"A": "hash"},
+                  no_db, {"managed-owner": neon, "optional-policies": optional},
+                  no_db_log, {"managed-owner": neon_log, "optional-policies": optional_log},
+                  {"A": "hash"}, {"A": "hash"},
                   jar, public, 123, 2, custody)
         receipt = evidence_receipt(*inputs)
         self.assertEqual(receipt["githubRunAttempt"], 2)
         self.assertIn("dependencySnapshot", receipt["buildCustodySha256"])
+        self.assertEqual(receipt["testedTestClasses"], {"example/NeonTest.class": "digest"})
+        self.assertEqual(set(receipt["surefireXml"]), {"noDb", "managed-owner", "optional-policies"})
         public.write_text(json.dumps({"assignmentSha256": assignment_sha,
                                       "baseCommit": base, "expectedTag": "v1.0.0",
                                       "runAttempt": 1}))

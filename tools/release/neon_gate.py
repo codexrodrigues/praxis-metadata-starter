@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 GROUPS = tuple("BCDEFGH")
+NEON_PHASES = ("managed-owner", "optional-policies")
 KINDS = {
     "no_db", "neon_required", "historical_reuse", "excluded_outside_impact",
     "superseded", "support", "db_local_legacy", "external_workspace",
@@ -179,6 +180,14 @@ def audited_inventory(repo, manifest_path, release=False, base=None, version=Non
         if changed.returncode:
             raise GateError("test source/resource checkout differs from tag")
     groups = manifest.get("fixtureGroups", {})
+    reviewed_scopes = {}
+
+    def checked_scope(review):
+        key = (tuple(sorted(review.get("scopePaths", []))),
+               tuple(sorted(review.get("scopePrefixes", []))))
+        if key not in reviewed_scopes:
+            reviewed_scopes[key] = reviewed_scope_digest(repo, base, review)
+        return reviewed_scopes[key]
     class_names = []
     for entry in entries + resource_entries + fixture_entries:
         path = entry["path"]
@@ -196,12 +205,13 @@ def audited_inventory(repo, manifest_path, release=False, base=None, version=Non
                 raise GateError(f"untracked fixture group: {entry['path']}")
             if release:
                 raise GateError(f"unresolved impact review: {group}")
-        if kind == "excluded_outside_impact" and release:
+        if kind in {"excluded_outside_impact", "superseded"} and release:
             review = entry.get("impactReview", {})
-            if (not review.get("diffBase") or not review.get("reason") or
+            if (review.get("diffBase") != baseline or
+                    not review.get("reason") or
                     not review.get("reviewedScopeDigest")):
                 raise GateError(f"unreviewed impact exclusion: {entry['path']}")
-            if reviewed_scope_digest(repo, base, review) != review["reviewedScopeDigest"]:
+            if checked_scope(review) != review["reviewedScopeDigest"]:
                 raise GateError(f"stale impact exclusion: {entry['path']}")
         if kind == "historical_reuse" and release:
             reuse = entry.get("reuse", {})
@@ -211,11 +221,11 @@ def audited_inventory(repo, manifest_path, release=False, base=None, version=Non
                     not reuse.get("dependencyDigest") or
                     not reuse.get("impactGroup")):
                 raise GateError(f"unbound historical reuse: {entry['path']}")
-            if reviewed_scope_digest(repo, base, reuse) != reuse["reviewedScopeDigest"]:
+            if checked_scope(reuse) != reuse["reviewedScopeDigest"]:
                 raise GateError(f"stale historical production scope: {entry['path']}")
             dependency = {"scopePaths": reuse.get("dependencyPaths", []),
                           "scopePrefixes": reuse.get("dependencyPrefixes", [])}
-            if reviewed_scope_digest(repo, base, dependency) != reuse["dependencyDigest"]:
+            if checked_scope(dependency) != reuse["dependencyDigest"]:
                 raise GateError(f"stale historical dependency scope: {entry['path']}")
             raw = Path(repo) / reuse["rawArtifactPath"]
             if not raw.is_file() or sha256(raw.read_bytes()) != reuse["rawArtifactSha256"]:
@@ -234,19 +244,32 @@ def audited_inventory(repo, manifest_path, release=False, base=None, version=Non
     if set(required) != set(GROUPS):
         raise GateError("B-H impact matrix is incomplete")
     if release:
-        runnable = {x["className"] for x in entries if x["kind"] == "neon_required"}
-        for group in GROUPS:
-            cases = required[group]
-            if not cases:
-                raise GateError(f"missing required Neon group {group}")
-            for case in cases:
-                if (case.get("className") not in runnable or
-                        not case.get("testcaseName") or not case.get("assertion")):
-                    raise GateError(f"invalid required Neon case in group {group}")
+        verify_neon_matrix_definition(manifest)
     return manifest
 
 
+def verify_neon_matrix_definition(manifest):
+    entries = manifest["files"]
+    runnable = {x["className"] for x in entries if x["kind"] == "neon_required"}
+    phases = {x.get("neonPhase"): x["className"] for x in entries
+              if x["kind"] == "neon_required"}
+    if set(phases) != set(NEON_PHASES) or len(runnable) != len(NEON_PHASES):
+        raise GateError("Neon phases must name exactly the two reviewed test classes")
+    required = manifest["requiredImpactGroups"]
+    for group in GROUPS:
+        cases = required[group]
+        if not cases:
+            raise GateError(f"missing required Neon group {group}")
+        for case in cases:
+            if (case.get("className") not in runnable or
+                    not case.get("testcaseName") or not case.get("assertion")):
+                raise GateError(f"invalid required Neon case in group {group}")
+
+
 def selected_classes(manifest, kind):
+    if kind in NEON_PHASES:
+        return sorted(x["className"] for x in manifest["files"]
+                      if x["kind"] == "neon_required" and x.get("neonPhase") == kind)
     return sorted(x["className"] for x in manifest["files"] if x["kind"] == kind)
 
 
@@ -282,20 +305,32 @@ def reports(directory):
     return suites, cases
 
 
-def verify_reports(manifest, no_db_dir, neon_dir):
-    no_db_suites, _ = reports(no_db_dir)
-    expected_no_db = set(selected_classes(manifest, "no_db"))
-    if set(no_db_suites) != expected_no_db:
-        raise GateError("no-DB Surefire report set differs from inventory")
-    neon_suites, neon_cases = reports(neon_dir)
-    expected_neon = set(selected_classes(manifest, "neon_required"))
-    if set(neon_suites) != expected_neon:
-        raise GateError("Neon Surefire report set differs from inventory")
+def verify_neon_reports(manifest, neon_dirs):
+    verify_neon_matrix_definition(manifest)
+    if set(neon_dirs) != set(NEON_PHASES):
+        raise GateError("Neon reports require both named phases")
+    neon_cases = Counter()
+    for phase in NEON_PHASES:
+        suites, cases = reports(neon_dirs[phase])
+        expected = set(selected_classes(manifest, phase))
+        if len(expected) != 1 or set(suites) != expected:
+            raise GateError(f"Neon {phase} Surefire report set differs from inventory")
+        neon_cases.update(cases)
+    if any(count != 1 for count in neon_cases.values()):
+        raise GateError("duplicate JUnit testcase identity across Neon phases")
     for group in GROUPS:
         for case in manifest["requiredImpactGroups"][group]:
             identity = (case["className"], case["testcaseName"])
             if neon_cases[identity] != 1:
                 raise GateError(f"missing/duplicate JUnit case in {group}: {identity}")
+
+
+def verify_reports(manifest, no_db_dir, neon_dirs):
+    no_db_suites, _ = reports(no_db_dir)
+    expected_no_db = set(selected_classes(manifest, "no_db"))
+    if set(no_db_suites) != expected_no_db:
+        raise GateError("no-DB Surefire report set differs from inventory")
+    verify_neon_reports(manifest, neon_dirs)
 
 
 def snapshot_classes(directory):
@@ -361,13 +396,20 @@ def verify_staged_jar(before, after, jar_path):
         raise GateError("staged JAR differs from tested production classes/resources")
 
 
+def verify_test_class_snapshots(before, after):
+    if not before or before != after:
+        raise GateError("test classes changed between audited phases")
+
+
 def evidence_receipt(repo, manifest_path, base, version, assignment_sha,
-                     no_db_dir, neon_dir, no_db_log, neon_log, before, after, jar,
+                     no_db_dir, neon_dirs, no_db_log, neon_logs, before, after, jar,
                      assignment_public, run_id, run_attempt, custody_files):
     if not assignment_sha or len(assignment_sha) != 64 or any(
             char not in "0123456789abcdef" for char in assignment_sha):
         raise GateError("reviewed assignment digest missing")
-    for path in (no_db_log, neon_log):
+    if set(neon_dirs) != set(NEON_PHASES) or set(neon_logs) != set(NEON_PHASES):
+        raise GateError("Neon custody requires both named phases")
+    for path in (no_db_log, *neon_logs.values()):
         if not Path(path).is_file() or not Path(path).stat().st_size:
             raise GateError("raw Maven phase log missing or empty")
     public = json.loads(Path(assignment_public).read_text())
@@ -386,6 +428,9 @@ def evidence_receipt(repo, manifest_path, base, version, assignment_sha,
     dependencies = json.loads(Path(custody_files["dependencySnapshot"]).read_text())
     if not isinstance(dependencies, dict) or not dependencies:
         raise GateError("resolved dependency snapshot is empty")
+    test_classes = json.loads(Path(custody_files["testedTestClassesAfter"]).read_text())
+    if not isinstance(test_classes, dict) or not test_classes:
+        raise GateError("tested test-class snapshot is empty")
     receipt = {
         "schemaVersion": 1,
         "commit": run_git(repo, "rev-parse", "HEAD"),
@@ -400,14 +445,17 @@ def evidence_receipt(repo, manifest_path, base, version, assignment_sha,
         "pomSha256": sha256(git_blob(repo, "pom.xml")),
         "jarSha256": sha256(Path(jar).read_bytes()),
         "testedProductionSnapshotSha256": sha256(json.dumps(after, sort_keys=True).encode()),
+        "testedTestClasses": test_classes,
         "phaseLogs": {"noDbSha256": sha256(Path(no_db_log).read_bytes()),
-                      "neonSha256": sha256(Path(neon_log).read_bytes())},
+                      "neonSha256": {phase: sha256(Path(neon_logs[phase]).read_bytes())
+                                     for phase in NEON_PHASES}},
         "surefireXml": {},
     }
-    for phase, directory in (("noDb", no_db_dir), ("neon", neon_dir)):
+    for phase, directory in (("noDb", no_db_dir),
+                             *((phase, neon_dirs[phase]) for phase in NEON_PHASES)):
         receipt["surefireXml"][phase] = {
             path.name: sha256(path.read_bytes()) for path in sorted(Path(directory).glob("TEST-*.xml"))}
-    if not receipt["surefireXml"]["noDb"] or not receipt["surefireXml"]["neon"]:
+    if any(not files for files in receipt["surefireXml"].values()):
         raise GateError("raw Surefire reports missing from receipt")
     return receipt
 
@@ -420,8 +468,9 @@ def main():
     parser.add_argument("--base", help="reviewed pre-dispatch main commit")
     parser.add_argument("--version", help="expected tag version without v prefix")
     parser.add_argument("--no-db-reports", type=Path)
-    parser.add_argument("--neon-reports", type=Path)
-    parser.add_argument("--print-selection", choices=("no_db", "neon_required"))
+    parser.add_argument("--neon-managed-owner-reports", type=Path)
+    parser.add_argument("--neon-optional-policies-reports", type=Path)
+    parser.add_argument("--print-selection", choices=("no_db", *NEON_PHASES))
     parser.add_argument("--require-clean", action="store_true")
     parser.add_argument("--write-snapshot", type=Path)
     parser.add_argument("--classes-dir", type=Path)
@@ -431,7 +480,8 @@ def main():
     parser.add_argument("--receipt", type=Path)
     parser.add_argument("--assignment-sha")
     parser.add_argument("--no-db-log", type=Path)
-    parser.add_argument("--neon-log", type=Path)
+    parser.add_argument("--neon-managed-owner-log", type=Path)
+    parser.add_argument("--neon-optional-policies-log", type=Path)
     parser.add_argument("--assignment-public", type=Path)
     parser.add_argument("--run-id", type=int)
     parser.add_argument("--run-attempt", type=int)
@@ -445,12 +495,18 @@ def main():
     parser.add_argument("--scan-private", action="store_true")
     parser.add_argument("--owner-uri-file", type=Path)
     parser.add_argument("--scan-root", type=Path, action="append")
+    parser.add_argument("--fixture-credentials-file", type=Path)
+    parser.add_argument("--test-before-snapshot", type=Path)
+    parser.add_argument("--test-after-snapshot", type=Path)
     args = parser.parse_args()
     manifest_path = args.manifest or args.repo / "tools/release/neon-test-inventory.json"
     try:
         if args.scan_private:
             verify_no_known_secrets(args.scan_root or [], args.owner_uri_file,
                                     os.environ.get("MAVEN_GPG_PASSPHRASE"))
+            if args.fixture_credentials_file:
+                from neon_proof import scan_fixture
+                scan_fixture(args.scan_root or [], args.fixture_credentials_file)
             return 0
         if args.require_clean:
             verify_checkout_clean(args.repo)
@@ -458,12 +514,15 @@ def main():
                                      base=args.base, version=args.version)
         if args.print_selection:
             print(",".join(selected_classes(manifest, args.print_selection)))
-        if bool(args.no_db_reports) != bool(args.neon_reports):
-            raise GateError("both report phases are required")
+        neon_dirs = {"managed-owner": args.neon_managed_owner_reports,
+                     "optional-policies": args.neon_optional_policies_reports}
+        if args.no_db_reports or any(neon_dirs.values()):
+            if not args.no_db_reports or any(value is None for value in neon_dirs.values()):
+                raise GateError("all three report phases are required")
         if args.no_db_reports:
             if not args.release:
                 raise GateError("report acceptance requires release-ready inventory")
-            verify_reports(manifest, args.no_db_reports, args.neon_reports)
+            verify_reports(manifest, args.no_db_reports, neon_dirs)
         if args.write_snapshot:
             if not args.classes_dir:
                 raise GateError("classes directory required for snapshot")
@@ -480,9 +539,17 @@ def main():
             before = json.loads(args.before_snapshot.read_text())
             after = json.loads(args.after_snapshot.read_text())
             verify_staged_jar(before, after, args.jar)
+        if args.test_before_snapshot or args.test_after_snapshot:
+            if not args.test_before_snapshot or not args.test_after_snapshot:
+                raise GateError("both test-class snapshots are required")
+            test_before = json.loads(args.test_before_snapshot.read_text())
+            test_after = json.loads(args.test_after_snapshot.read_text())
+            verify_test_class_snapshots(test_before, test_after)
         if args.receipt:
-            if not (args.release and args.no_db_reports and args.neon_reports and args.jar and
-                    args.no_db_log and args.neon_log and args.assignment_sha and
+            if not (args.release and args.no_db_reports and all(neon_dirs.values()) and args.jar and
+                    args.no_db_log and args.neon_managed_owner_log and args.neon_optional_policies_log and
+                    args.fixture_credentials_file and args.test_before_snapshot and args.test_after_snapshot and
+                    args.assignment_sha and
                     args.assignment_public and args.run_id and args.run_attempt and
                     args.effective_pom and args.dependency_tree and args.dependency_snapshot and
                     args.java_version and args.maven_version):
@@ -491,10 +558,22 @@ def main():
                              "dependencyTree": args.dependency_tree,
                              "dependencySnapshot": args.dependency_snapshot,
                              "javaVersion": args.java_version,
-                             "mavenVersion": args.maven_version}
+                             "mavenVersion": args.maven_version,
+                             "testedTestClassesBefore": args.test_before_snapshot,
+                             "testedTestClassesAfter": args.test_after_snapshot}
+            if not args.fixture_credentials_file.is_file():
+                raise GateError("P4 fixture credential file missing")
+            from neon_proof import scan_fixture
+            scan_fixture([args.no_db_log, *neon_dirs.values(),
+                          args.neon_managed_owner_log, args.neon_optional_policies_log,
+                          args.jar, args.assignment_public, *custody_files.values()],
+                         args.fixture_credentials_file)
             receipt = evidence_receipt(args.repo, manifest_path, args.base, args.version,
-                                       args.assignment_sha, args.no_db_reports, args.neon_reports,
-                                       args.no_db_log, args.neon_log, before, after, args.jar,
+                                       args.assignment_sha, args.no_db_reports, neon_dirs,
+                                       args.no_db_log,
+                                       {"managed-owner": args.neon_managed_owner_log,
+                                        "optional-policies": args.neon_optional_policies_log},
+                                       before, after, args.jar,
                                        args.assignment_public, args.run_id, args.run_attempt,
                                        custody_files)
             args.receipt.parent.mkdir(parents=True, exist_ok=True)
