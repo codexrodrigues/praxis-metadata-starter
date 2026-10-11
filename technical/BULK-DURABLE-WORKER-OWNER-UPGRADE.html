@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Migração owner do worker durável — candidato privado B5b.2</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Migração owner do worker durável — candidato privado
+B5b.2</h1>
+</header>
+<h1
+id="migração-owner-do-worker-durável-candidato-privado-b5b.2">Migração
+owner do worker durável — candidato privado B5b.2</h1>
+<p>Este procedimento descreve a árvore privada que acrescenta V20, não a
+versão pública rc.155 adotada pelo host. Integração, publicação, adoção
+e aceite operacional são gates separados. Não há autostart, endpoint
+ASYNC/202 ou READY público derivado da aprovação deste núcleo. Conforme
+a emenda de escopo de 09/10/2026, o corte inicial SYNC / EXPLICIT /
+PER_ITEM permite Angular em paralelo; jobs/filas, ASYNC, QUERY e ATOMIC
+seguem como backlog, sem condicionar esse primeiro corte.</p>
+<h2 id="responsabilidades-e-execução">Responsabilidades e execução</h2>
+<p>O Metadata define a semântica em <code>BulkExecutionMigrator</code>;
+o host fornece o mapa explícito namespace→deployment e declara o
+conjunto completo de roles reais. A identidade owner realiza DDL e
+bootstrap. Runtime e control não recebem direitos owner por
+conveniência. Migração é opt-in de deployment e não efeito de context
+startup. Não executar SQL de reparo, grants manuais ou raw Flyway para
+substituir a retomada canônica. Nenhum comando deste guia autoriza
+alterar uma instalação corporativa.</p>
+<p>Antes da operação, conferir o JAR realmente carregado,
+POM/version/checksum, recursos SQL, história Flyway, fases dos
+marcadores, vínculos e roles declaradas. Registrar limite de conexões e
+políticas nativas de timeout. Preservar a história V1–V19 e seus
+checksums; não mover ou reescrever uma migration já aplicada.</p>
+<h2 id="ordem-e-invariantes">Ordem e invariantes</h2>
+<p>O fluxo atesta e avança a história até V19 sob o lock coordenador
+existente. A validação anterior à inicialização mantém leitura da
+história e catálogo sob esse lock, mas devolve a conexão antes da
+aquisição de recursos do initializer. O bootstrap canônico retoma suas
+fases, incluindo capacity-read e occupancy. Somente após a atestação
+estrita de V19COMPLETE instala V20 e valida o estado final.</p>
+<p>O vetor de fases validado deve chegar aos validadores owner
+aninhados. Ele não substitui os wrappers estritos de serving nem a
+validação após grants/CASCOMPLETE. A janela transacional
+grant-before-COMPLETE permanece controlada pelo initializer. Não usar um
+contexto PENDING para autorizar correções após a conclusão.</p>
+<p>Em V19 histórico com V8manifestPENDING, algumas derivações de
+lifecycle e a linha inicial deny-only global podem legitimamente faltar.
+A retomada usa o initializer existente, funções canônicas e deployment
+explícito; valores já persistidos, digests, allocations, quotas
+projetadas, ACLs e catálogo continuam exatos. Uma identidade deny-only
+inicial não publica autoridade. V8COMPLETE com outros marcadores
+PENDING, ou instalação V20, rejeita a ausência sem reparar a linha.</p>
+<h2
+id="c17-origem-da-primeira-criação-global-candidato-privado-provas-focais-executadas">C17
+— origem da primeira criação global (candidato privado, provas focais
+executadas)</h2>
+<p>O candidato C17 altera somente o owner migrator canônico. Um callback
+privado por invocação observa o BEFORE/AFTER real da V14, verifica
+versão/script/checksum do recurso empacotado e vincula owner, database,
+backend e transaction id. Antes do DDL, atesta as estruturas V5 de
+namespace/bucket, proprietários, ACLs, roles e triggers imutáveis
+compatíveis com V13; toma namespace SHARE em ordem e exige que cada
+vínculo observado corresponda ao mapa explícito e possua bucket. Depois
+do DDL, insere estritamente UNCOMPOSED/generation0/document_digestNULL
+somente para deployments desses vínculos, na conexão da migration. Fresh
+sem vínculos não fabrica namespace ou bucket. Esse estado não publica
+autoridade.</p>
+<p>O callback não concede privilégios, altera
+propostas/receipts/domínio, confirma transações nem abre outra conexão.
+Preserva os locks/configuração Flyway. A history pode usar a
+mainConnection: não há afirmação de atomicidade física conjunta entre
+DDL, seed e history. As provas focais C17R2 executaram 20 testes sem
+falhas, erros ou skips, incluindo rollback do callback, falha
+determinística de INSERT na history e retry, consumidores históricos
+autênticos e pool4. Os resultados exigem revisão independente; não
+provam commit incerto ou ACK perdido, nem substituem consumo
+empacotado/publicação/adoção. A atestação do trigger usa atributos
+físicos do catálogo, sem comparar a renderização de
+<code>pg_get_triggerdef</code>: a qualificação da função depende de
+visibility/search_path. Rejeita inclusive trigger habilitado com
+<code>WHEN(false)</code>, mantendo owner, corpo, função e atributos
+exatos. Não altera search_path ou SQL imutável para contornar a
+diferença.</p>
+<p>Se V14 já consta aplicada, o callback não observa criação e não
+autoriza seed ou reparo. Prefix14 autenticado interrompido, native15
+corrompido e history19 sem proveniência mantêm gates próprios de
+rejeição/recuperação. Raw Flyway externo não instala esse callback e não
+constitui adoção canônica do novo procedimento. As provas C13/C14
+anteriores ao ajuste permanecem históricas; a nova árvore deve provar
+public146/native13 com retained data, suspensão V15 e pausa pelos grants
+externos antes de demonstrar conclusão e replay sem nova publicação.</p>
+<p>Não disponibilizado por release nem adotado pelo host. A atualização
+da skill canônica existente ocorrerá após estabilização do
+comportamento/provas/revisão, no mesmo ciclo; esta seção não fecha o
+pacote ou o backend.</p>
+<h2 id="cutover-de-manutenção-e-escopo-da-atestação">Cutover de
+manutenção e escopo da atestação</h2>
+<p>O candidato privado acrescenta V20; o host público permanece
+rc.155/V19. Interromper novas admissões e drenar executores antigos
+antes da manutenção owner. Executar o upgrade canônico e a validação
+estrita V20 antes de admitir o candidato. Um leitor V19 pode rejeitar
+V20: não há prova de rollout misto nem SLA de upgrade online. A
+DDL/criação do índice pode bloquear relações e consumir I/O. O budget
+SQL do coordenador não limita pool, DDL inteira, rede ou callbacks.</p>
+<p>O initializer owner mantém o advisory <code>(1347574124,5)</code> e
+toma os marcadores em ordem V8→V9→V11→V12→V16→V18→V19 antes de ler fases
+e ACLs em READ_COMMITTED. Os bootstraps separados de capacity-read e
+occupancy mantêm somente seus respectivos latches V18 e V19; não
+adquirem esse advisory. Assim, um grant-before-COMPLETE concorrente deve
+confirmar ou reverter antes da atestação do initializer. A validação
+serving permanece REPEATABLE_READ, sem locks de escrita ou novos
+privilégios. Essa ordem não cria uma garantia nova de timeout global nem
+muda os limites de pool documentados.</p>
+<p>Conferir os sete marcadores: V8manifest, V9preview,
+V11preview-integrity, V12preview-reader, V16atomic, V18capacity-read e
+V19occupancy. Exigir coerência entre fases dependentes, zero ACLs
+controladas em PENDING e grants exatos em COMPLETE. Outro marcador
+PENDING nunca autoriza reparar um marcador COMPLETE.</p>
+<p>A atestação do índice ocorre no owner migrate/validate/readiness; o
+job role mantém suas ACLs atuais. Isso não prova detecção online de
+drift do índice.</p>
+<h2 id="diagnóstico-baseado-em-evidência">Diagnóstico baseado em
+evidência</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Sintoma</th>
+<th>Evidência a confrontar</th>
+<th>Ação canônica e prova esperada</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Role declarada omitida</td>
+<td>Roles reais/ACLs de functions e tabela; snapshot antes/depois</td>
+<td>Corrigir declaração do host; nenhuma escrita de bootstrap no
+primeiro erro; retry canônico instala V20</td>
+</tr>
+<tr class="even">
+<td>Dados antigos com bootstrap interrompido</td>
+<td>História V19 e fases PENDING, retained rows completos e mapa
+deployment</td>
+<td>Retomar via migrator; conteúdo e checksums preservados, derivações
+exatas, replay zero</td>
+</tr>
+<tr class="odd">
+<td>Binding/digest/ACL divergente</td>
+<td>Tupla persistida, constraints/catálogo e grants</td>
+<td>Rejeitar sem mutation; não mascarar divergência concedendo
+privilégios ou regravando identidade</td>
+</tr>
+<tr class="even">
+<td>Linha global ausente após V8COMPLETE</td>
+<td>Fases e snapshots de todas as tabelas/ACLs</td>
+<td>Rejeitar sem healing, mesmo com outras fases pendentes</td>
+</tr>
+<tr class="odd">
+<td>Pool insuficiente ou espera</td>
+<td>Sampling real Hikari, aquisição, timeouts nativos e cleanup</td>
+<td>Diagnosticar recurso sem ampliar timeout por reflexo; positivo pool4
+não prova mínimo nem zero espera</td>
+</tr>
+<tr class="even">
+<td>Índice V20 divergente</td>
+<td>Owner, btree, ordem de chaves, predicate parcial e validade</td>
+<td>validate/replay rejeitam drift, não recriam índice
+silenciosamente</td>
+</tr>
+</tbody>
+</table>
+<p>As primeiras campanhas RED separaram defeitos de produto (contexto de
+fases perdido e identidade inicial ausente antes do bootstrap) de
+defeitos de fixture/ oracle (pré-grants em PENDING, comparação byte[]
+por identidade e expectativa de retry/replay). Não confundir falha de
+teste com corrupção comprovada de domínio. Cada correção recebe revisão
+independente e prova apenas dos cenários afetados.</p>
+<h2 id="provas-existentes-e-limites">Provas existentes e limites</h2>
+<p>As campanhas imutáveis V7two, V20growth e ownerpool4 usam a mesma
+árvore de860 fontes, freeze
+<code>ce1b0acdac95016addb40024ca6dc1ad3a29c28d752873146355e9e6d941dd9d</code>.
+Os resultados e pareceres estão vinculados em EXECUCAO/B1 e no status
+B5b.2. Provas anteriores pertencem às suas respectivas fontes, não a um
+whole verify implícito da árvore atual. Os processos exclusivos dos
+testes foram encerrados.</p>
+<p>O crescimento finito usa PostgreSQL14.22 e32/128/512STOPPED+2QUEUED,
+direitos 3QUEUE/0ACTIVE e limites originais SQL/lock1s. Com128/512 houve
+Index Only Scan V20 e1–3 páginas cacheadas no nó de acesso; heap fetches
+podem ocorrer. Com32 permaneceu Seq Scan+Sort. Não somar buffers
+inclusivos de pais nem inferir todas as entradas visitadas pelas linhas
+emitidas. Cache/corpus finito não prova SLO, T13, PG16 ou carga
+corporativa completa. A medição preserva a baseline pré-índice.</p>
+<h2 id="próximos-gates-de-entrega">Próximos gates de entrega</h2>
+<p>Conferir recursos V1–V20 dentro do JAR privado contra a fonte, versão
+embutida e CodeSource do consumidor independente. Compilar contra
+target/classes não prova consumo empacotado. Não instalar a coordenada
+pública localmente como substituto da disponibilidade no Central nem
+alterar o host para concluir uma prova privada.</p>
+<p>Concluir orientação canônica de manutenção com
+manifest/auditorias/revisão distinta, integração e sync seletivo,
+mantendo drifts alheios. Integrar o incremento completo somente depois
+das provas exigidas; uma aprovação focal não anuncia backend pronto.</p>
+<h2 id="fontes-para-conferir-o-procedimento">Fontes para conferir o
+procedimento</h2>
+<ul>
+<li><a
+href="../../src/main/java/org/praxisplatform/uischema/bulk/BulkExecutionMigrator.java">Migrator
+canônico</a>.</li>
+<li><a
+href="../../src/main/resources/db/praxis-bulk-migrations/V20__bulk_worker_queue_index.sql">DDL
+V20</a>.</li>
+<li><a
+href="../../src/test/java/org/praxisplatform/uischema/bulk/BulkWorkerQueueIndexPostgresTest.java">Provas
+de índice</a>.</li>
+<li><a
+href="../../src/test/java/org/praxisplatform/uischema/bulk/BulkDurableMigrationPostgresTest.java">Retomada
+e negativas COMPLETE</a>.</li>
+<li><a
+href="../../src/test/java/org/praxisplatform/uischema/bulk/BulkOwnerMigrationResourcesPostgresTest.java">Recursos
+e pool owner</a>.</li>
+<li><a href="BULK-DURABLE-WORKER-B5B2-STATUS.md">Estado e evidências do
+incremento</a>.</li>
+</ul>
+</body>
+</html>

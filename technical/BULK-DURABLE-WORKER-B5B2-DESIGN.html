@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>B5b.2 — worker durável protegido (desenho para revisão)</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">B5b.2 — worker durável protegido (desenho para
+revisão)</h1>
+</header>
+<blockquote>
+<p><strong>Desenho histórico de 08/10/2026.</strong> Baseline do
+desenho: <code>b35483beac248c20bc107dd9e966a7a70a7d67a2</code>, antes da
+implementação e das campanhas do worker. Expressões como “sem worker
+implementado”, “nenhum build” e “revisão pendente” abaixo descrevem
+aquele momento; não são o estado atual.</p>
+<p>Consulte o <a href="BULK-DURABLE-WORKER-B5B2-STATUS.md">status
+atual</a> e o <a href="BULK-DURABLE-WORKER-OWNER-UPGRADE.md">runbook
+owner/cutover</a>. Fluxos, ordem de locks e parâmetros propostos abaixo
+permanecem como registro do desenho original. A implementação canônica,
+o status e o runbook governam a operação corrente, incluindo o lock de
+publicação GLOBAL e os limites das provas qualificadas. Integração do
+candidato privado não significa conclusão B5b.2, publicação, adoção no
+host ou READY público.</p>
+</blockquote>
+<h1 id="b5b.2-worker-durável-protegido-desenho-para-revisão">B5b.2 —
+worker durável protegido (desenho para revisão)</h1>
+<p>Estado: proposta de implementação, sem worker implementado ou
+validação dinâmica nova. Não habilita ASYNC público, HTTP 202, READY,
+host, Angular ou release.</p>
+<h2 id="baseline-e-classe">Baseline e classe</h2>
+<p>Mudança arquitetural no Metadata; composição pública/host permanece
+B5b.3 e exige mapa próprio. Baseline
+<code>b35483beac248c20bc107dd9e966a7a70a7d67a2</code> (tag publicada
+rc.155 e origin/main conferidas em 08/10/2026). Worktree exclusivo
+<code>feat/b5b2-durable-worker-20261008</code>. Os 34 flags iniciais de
+Git são byte-idênticos a HEAD, auditados em
+<code>/tmp/praxis-b5b-capacity-occupancy-20261007/b5b2-durable-worker-20261008/eol-baseline-audit.json</code>;
+preservar e excluir do pacote. Nenhum build realizado neste
+incremento.</p>
+<p>Fonte do objetivo: host
+<code>internal-planning/bulk-operations/B5-JOBS-IMPLEMENTACAO.md</code>,
+B1/EXEC e revisão ROOT. Semântica pertence ao Metadata; o host não cria
+fila, ledger ou SQL concorrente.</p>
+<h2 id="inventário-e-impacto">Inventário e impacto</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Necessidade</th>
+<th>Aderência</th>
+<th>Fonte / decisão</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Enqueue durável, ocupação QUEUE, transferência ACTIVE</td>
+<td>suportado-parcialmente</td>
+<td><code>JdbcBulkDurableExecution.enqueue/claim</code>, V18/V19 já
+publicados, acesso protegido. Não expor por reflection/bridge.</td>
+</tr>
+<tr class="even">
+<td>Unidade, grants atuais, efeito+receipt, epoch, reconciliação</td>
+<td>ja-suportado-mal-materializado</td>
+<td><code>executeUnit</code>, callbacks existentes,
+<code>recover</code>, snapshots/codecs; worker deve reutilizar, sem
+duplicar protocolo.</td>
+</tr>
+<tr class="odd">
+<td>Seleção automática, ciclo e justiça de atendimento</td>
+<td>lacuna-real-de-contrato</td>
+<td>Falta control-loop produtivo; fixture de quatro JVMs chama claim
+manualmente. Novo comportamento interno concreto, sem segundo
+registry.</td>
+</tr>
+<tr class="even">
+<td>Expiração QUEUED sem instalação ACTIVE</td>
+<td>suportado-parcialmente</td>
+<td>SQL claim terminaliza deadline antes da instalação, mas Java exige
+ACTIVE upfront. Acrescentar transição interna usando
+lockLifecycle/validação existentes, sem exigir novo slot.</td>
+</tr>
+<tr class="odd">
+<td>Contexto confiável sem HTTP/JWT e wiring público</td>
+<td>suportado-parcialmente</td>
+<td>Host atual depende SecurityContext. B5b.3 separado; nenhuma cópia de
+JWT/contexto de requisição.</td>
+</tr>
+</tbody>
+</table>
+<p>Arquivos previstos: kernel existente (seleção protegida/expiração),
+novo worker package-private concreto no pacote bulk, testes focais de
+lifecycle/PG e processo JVM. Não alterar DDL inicialmente: grants V19 já
+permitem terminalização com trigger que certifica/release. Se faltar
+privilégio ou constraint, parar e revisar mapa antes de migrar. Não
+modificar DTO público, profile, controller, imports de autoconfiguration
+ou host neste corte sem decisão adicional ROOT.</p>
+<p>Consumidores: testes/composição interna confiável; host e
+auto-configuração pública recebem B5b.3 posterior. Docs
+técnicas/planejamento afetados; corpus/receita pública/Angular não
+materializam worker ainda. Breaking wire: nenhum. Skill concorrência e
+operational-proof precisam reavaliar guidance após comportamento
+provado; baseline canônica será conferida, sem inventar aceitação.</p>
+<h2 id="composição-concreta-e-limites">Composição concreta e
+limites</h2>
+<p>Proposta de corte: worker package-private com lifecycle Spring
+<code>SmartLifecycle</code>, construído explicitamente com lista
+imutável de bindings autenticados, kernel associado e callbacks reais
+existentes de admission/mutation. Não criar SPI/registry público vazio
+nem auto-start por simples presença de datasource. Lista vazia não
+inicia; entradas duplicadas/incompatíveis são rejeitadas. Configuração
+privada define scan batch limitado, polling/backoff positivo limitado e
+shutdown wait. A exposição/configuração suportada de
+host/autoconfiguração é gate B5b.3, não prova implícita neste corte.
+ROOT deve confirmar esse limite antes de patch.</p>
+<p>Uma thread nomeada por instância, nenhum executor ilimitado ou buffer
+de jobs pendentes em memória. Handles locais são apenas reservas
+confirmed adquiridas por CAS, no máximo um por binding e oito por
+worker. Quantum é uma executeUnit+ACK por binding/rodada; A com
+múltiplos ordinais não pode monopolizar B elegível até completar. Outros
+nós podem ocupar outros direitos ACTIVE. Esse corte tem concorrência
+menor por binding e não promete throughput máximo. A lista não
+transporta subject de requisição: seleção lê identidade da
+execução/proposta protegidas; o kernel decodifica e confronta bindings
+existentes, e callbacks só aceitam operações previamente compostas.
+Operações sem callback confiável não são adquiridas. Nenhuma enumeração
+de subject de cliente como autorização. O callback composto tem
+obrigação de revalidar grants/policy/domínio por unidade; adapters de
+teste não provam o host corporativo sem HTTP/JWT. Fixtures usam mutação
+real e callbacks autenticados; isso não certifica adapters HTTP do
+host.</p>
+<h2 id="seleção-concorrência-e-justiça">Seleção, concorrência e
+justiça</h2>
+<p>Cada rodada visita bindings por round-robin; dentro de um binding,
+seleção QUEUED usa <code>(created_at, execution_id)</code> estável e
+filtro de operações compostas. Leitura limitada é hint, sem lock de
+execução antecipado; não usar SKIP LOCKED antes de
+binding/control/buckets. Seleção de token ACTIVE instalado e slot livre
+também é hint. <code>claim</code> e triggers são a única autoridade:
+revalidam marker, tuple READY, estado QUEUED, deadline, epoch e ocupação
+na transação. Dois nós vendo o mesmo hint têm um único vencedor;
+perdedor não despacha callback.</p>
+<p>Janela de seleção deve avançar por keyset limitado para que
+candidatos suspensos/corruptos não bloqueiem indefinidamente candidatos
+posteriores. Nenhum cursor de memória determina posse ou autorização.
+Após uma página limitada por rodada, keyset avança somente como hint.
+Exhaustion faz wrap obrigatório ao início na rodada seguinte; depois de
+varredura limitada também não se mantém cursor eternamente sem wrap.
+Novas inserções anteriores ao cursor, clock move e empates de
+timestamp/UUID reaparecem no wrap. ACTIVE cheio não torna job invisível
+nem induz busy-spin. O cursor de varredura pode reiniciar no restart;
+propriedade durável é o CAS e ledger existentes. Rejeição/backoff por
+binding não bloqueia os demais.</p>
+<p>Justiça provada neste corte: serviço round-robin entre
+bindings/tenants configurados com direitos disponíveis; dentro de cada
+fila elegível, ordem estável e varredura progressiva. Não prometer FIFO
+total ou justiça global entre workers distribuídos. Justiça da emissão
+durável de direitos pelo issuer é distinta. Sem direitos instalados,
+nenhum worker inventa capacidade ou devolve direito global.</p>
+<h2 id="estados-relógios-e-ordem-de-locks">Estados, relógios e ordem de
+locks</h2>
+<p><code>QUEUED(epoch1) -&gt; claim confirmado -&gt; RUNNING(epoch2) -&gt; executeUnit -&gt; ACK -&gt; próximo ordinal</code>.
+Apenas ack não replay, estado RUNNING e avanço exato permitem sufixo.
+Terminal/erro/replay/resultado incerto interrompem dispatch; caminho de
+reconciliação não chama callbacks. Claim com acknowledgment recuperado
+(<code>replayed=true</code>) não inicia novas mutações: reconcile
+conservadoramente, preservando identidade/efeitos.</p>
+<p>Expiração: independente de haver ACTIVE livre/instalado, identificar
+hint deadline vencida e revalidar em transação sob locks. Só QUEUED,
+prefixo vazio certificado e clock_timestamp &gt;= deadline permitem
+STOPPED/DEADLINE_EXCEEDED. Não marcar CANCELLED_BY_USER para
+shutdown/expiry. Cancelamento existente pode vencer; re-leitura terminal
+é no-op. Corrupção exige reconciliação e não liberação inventada.
+Oráculo planejado: operation SUSPENDED impede claim, mas permite
+expiry/cleanup sem exigir READY; marker FENCED impede claim/mutação
+nova, mas permite terminalização/reconciliação certificada sem reabrir
+marker ou refund global. <code>lock_capacity_marker</code>/statement
+fence V19 apenas tomam share lock, sem gate ACTIVE;
+<code>requireBinding(..., false)</code> mantém identidade física para
+cleanup, e materialize_capacity_execution libera somente terminal
+certificado. Estes casos exigem prova PG antes de afirmar comportamento
+suportado.</p>
+<p>Clock PostgreSQL decide deadline e transição. System.nanoTime serve
+somente polling/espera local. Nenhuma lease de tempo libera slot ou
+retoma execução automaticamente. Epoch durável/protocolo existente fence
+executor antigo; recuperação preserva receipts e terminaliza restante
+sem mutação.</p>
+<p>Ordem: marker -&gt; namespace binding -&gt; operation control -&gt;
+deployment bucket -&gt; subject bucket -&gt; proposal -&gt;
+execution/epoch -&gt; receipt/admission -&gt; target, conforme fase
+existente. Hint read não adquire authority; claims e finalização
+conservam a ordem canônica. Cada unidade segue suas transações
+existentes, sem segurar bucket durante domínio ou abrir transação
+distribuída.</p>
+<h2 id="parâmetros-internos-e-critérios-de-teste">Parâmetros internos e
+critérios de teste</h2>
+<p>Defaults privados propostos: até oito bindings e oito handles (cap
+ACTIVE deployment existente); um handle por binding; scan quantum oito
+candidatos por binding/rodada com keyset e LIMIT 1, para limitar decode
+e avançar além de suspensos/corruptos; polling idle 250 ms, backoff de
+erro por binding 1 s, sem busy-spin; stop() espera local até 10 s e
+reporta pendência, sem callback falso. Não alterar limites de domínio
+10k/deadline30min/unidade5s. O kernel limita aquisição/read/reconcile
+por timeouts SQL existentes; callback confiável deve cooperar com
+remainingBudget, pois SQL timeout não limita código Java arbitrário. Não
+prometer bound absoluto de shutdown de callback não cooperativo.</p>
+<p>Spring phase <code>Integer.MAX_VALUE - 1024</code> permite parada
+antes dos dependentes de fase inferior, mas dependências explícitas
+prevalecem. Composição privada de teste declara dependsOn
+datasource/transactionManager e DefaultLifecycleProcessor com timeout de
+fase 30 s; futura composição host precisa declarar a mesma ordem e
+calibrar timeout a recursos reais. Esses valores são limites locais de
+engenharia, não SLO. DefaultLifecycleProcessor pode prosseguir depois do
+timeout de fase mesmo com isRunning verdadeiro; o worker não garante
+datasource vivo depois de contextClose. Teste Spring real deve observar
+parada antes destroy do datasource no caminho cooperativo e pendência
+verdadeira no caminho timeout/barreira; release e cleanup após
+observação. Referência oficial: <a
+href="https://docs.spring.io/spring-framework/docs/6.2.19/javadoc-api/org/springframework/context/support/DefaultLifecycleProcessor.html">DefaultLifecycleProcessor
+Spring 6.2.19</a>.</p>
+<h2 id="shutdown-e-falhas">Shutdown e falhas</h2>
+<p>stop impede nova seleção e novo ordinal. Um monitor curto lineariza
+STOPPING versus autorização local do próximo claim/unidade; não manter
+monitor durante JDBC. Unidade autorizada antes de stop pode concluir;
+depois de STOPPING, nenhum novo ordinal é autorizado. Start durante
+STOPPING não cria outra thread. Cada start efetivo usa owner UUID novo,
+nunca reassume RUNNING. Stops repetidos registram callbacks
+idempotentes, chamados uma vez por registro somente após terminação. Não
+interromper arbitrariamente thread dentro da transação; aguardar unidade
+em curso retornar e ACK/erro, então reconciliar job inacabado
+conservadoramente. Se stop disputar claim e este confirmar, não
+despachar domínio; reconciliar a reserva adquirida. Crash real pode
+conservar slot até reconciliação explícita; restart não varre RUNNING
+para executar sufixos.</p>
+<p>Timeout de espera local não prova encerramento:
+<code>isRunning</code> permanece verdadeiro enquanto a thread/unidade
+existir; callback de stop somente após terminação efetiva. Relatar
+espera excedida sem declarar recursos fechados ou tocar processos
+terceiros. Antes da reconciliação interna, recoverOwned compara
+executionId/proposalId/owner/epoch da reserva sob lockLifecycle NA MESMA
+transação da recuperação existente. FENCED ou terminal válido não toca
+sucessor. Não chamar recover público cegamente após perder autoridade.
+Falha de reconciliação mantém evidência/ocupação durável, não
+refund/retry de mutação. Eventos mínimos sanitizados diferenciam idle,
+claim perdido, falha de aquisição, execução encerrada e shutdown
+pendente, sem subjects/tokens/payloads.</p>
+<h2 id="provas-e-lease-propostas-ainda-sem-executar">Provas e lease
+propostas (ainda sem executar)</h2>
+<ol type="1">
+<li>PostgreSQL real: seleção de escopo/ordem/janela, instalada ACTIVE
+livre, expiry sem ACTIVE, cancel-before-claim, full tuple/fence e
+liberação uma vez.</li>
+<li>Dois JVMs reais disputam mesmo job sem chamada manual ao claim pelo
+teste: um callback de domínio, um receipt, epoch/ocupação/durable
+terminal certos; reinício não repete efeito.</li>
+<li>Dois bindings/tenants reais com backlog e direitos instalados: ambos
+atendidos; binding sem direito ou operation suspensa não monopoliza
+varredura. Não inferir limite distribuído de teste local.</li>
+<li>Barreiras PG/controle de processo provam deadline/cancel antes do
+claim, recovery tornando epoch antigo inválido, ausência de novas
+mutações após recovery.</li>
+<li>Shutdown durante unidade real e contexto Spring: stop sem próximo
+ordinal, unidade/receipt juntos, reconciliação sem callback e thread/PG
+encerrados. Timeout local mantém lifecycle pending observável até
+release da barreira.</li>
+<li>Lifecycle sem composição não inicia; limites inválidos negados; erro
+de um binding não mata atendimento de outro. Fonte congelada e revisão
+independente de evidências antes de aceite.</li>
+</ol>
+<p>MAIN único dono de Maven/target/PG/Git e arquivos acima; ROOT
+read-only revisa desenho e árvore final. Depois do aceite de desenho,
+editar POM literal para coordenada privada distinta
+<code>8.0.0-b5b2-durable-worker-20261008-SNAPSHOT</code>, cache privado
+<code>/tmp/praxis-b5b-capacity-occupancy-20261007/b5b2-durable-worker-20261008/m2-private</code>,
+target deste WT e embedded PostgreSQL oficial. Nunca instalar candidato
+sob rc.155 nem contaminar cache público. POM privado não é release.
+Validar focais novos e regressões diretamente afetadas; provas
+anteriores aceitas não são repetidas por reflexo. Registrar
+hashes/resultados/cleanup e atualizar B1/EXEC após revisão.</p>
+<h2 id="mapa-de-casos-antes-da-implementação">Mapa de casos antes da
+implementação</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Arquivo previsto</th>
+<th>Casos mínimos</th>
+<th>Recursos</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>BulkDurableWorkerPostgresTest</td>
+<td>keyset/identidade/operação completa; expiry sem ACTIVE;
+cancel/deadline antes claim; dois bindings A vários ordinais e B servido
+antes A terminal; full tuple/fence; error isolation</td>
+<td>embedded PG oficial, callbacks com SQL de domínio real</td>
+</tr>
+<tr class="even">
+<td>BulkDurableWorkerProcessesPostgresTest + processo runtime
+exclusivo</td>
+<td>dois PIDs JVM, ambos control-loop real, um callback/receipt; restart
+não reassume; recuperação exclui epoch antigo</td>
+<td>classpath candidato exato, roles runtime, barreiras finitas e
+resultados sanitizados</td>
+</tr>
+<tr class="odd">
+<td>BulkDurableWorkerLifecyclePostgresTest</td>
+<td>stop linearizado/in-flight/ACK; recoverOwned não toca sucessor;
+callbacks repetidos/start STOPPING; Spring dependsOn/destroy; timeout
+pendente sem falso cleanup</td>
+<td>contexto Spring real, PG/barreiras, um executor exclusivo</td>
+</tr>
+</tbody>
+</table>
+<p>Revisão ROOT em andamento: os ajustes de quantum e recoverOwned foram
+concordados; aceite final do desenho/números/matriz ainda pendente. Não
+houve edição de produto/POM/testes/build.</p>
+<p>Consulta limitada não garante custo limitado: capturar EXPLAIN PG
+real da seleção com histórico retido, sem inferir SLA10k. Se faltar
+índice, propor mudança DDL/index com mapa/constraints/prova/revisão
+próprios antes de editar; não mudar migrations aceitas por conveniência.
+Casos de wrap/inserção antes cursor, suspended/corrupt head, ACTIVE full
+temporário e timestamp/UUID tie integram a matriz focal.</p>
+</body>
+</html>

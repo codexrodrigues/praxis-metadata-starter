@@ -615,5 +615,16 @@ href="BULK-PROTOCOL-RESULTS.md">resultados</a>. A captura EXPLICIT sob
 locks, publicada na rc.153 e adotada pelo host, não habilita QUERY,
 ASYNC ou Angular por si só; o overload QUERY publicado na rc.154 mantém
 gates próprios de integração e adoção do host.</p>
+<h2 id="baseline-de-adoção-managed-owner-em-revisão">Baseline de adoção
+managed-owner em revisão</h2>
+<p>O incremento managed-owner estabelece PostgreSQL 17 para o storage de
+execução bulk; o version guard rejeita versões anteriores antes das
+novas consultas de membership ou DDL. A prova histórica em 14.22
+descrita acima é preservada e não certifica o candidato atual. Não usar
+o marcador PENDING como autorização para reparar ACLs. Consulte o <a
+href="BULK-MANAGED-OWNER-ADOPTION-PLAN.md">plano</a> para cutoffs de
+histórico, grants iniciais transacionais e provas ainda pendentes. Não
+há nova API pública de provisionamento nem modo paralelo de
+migração.</p>
 </body>
 </html>

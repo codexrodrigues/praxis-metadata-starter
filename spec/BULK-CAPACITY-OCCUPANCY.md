@@ -678,3 +678,7 @@ or provisioning agent. Twenty focal SDK tests and the separate packaged-consumer
 proof passed against a private candidate; final review, guidance and integration
 remain separate from public release/adoption. It does not reinterpret C2-a as a certified local fence, install
 a command into rc.154, or close production custody, continuity or start/restore.
+
+## Atualização candidata da adoção de owner
+
+O diagnóstico com o JAR público rc.155 reproduziu a rejeição do owner CREATEROLE sem SUPERUSER em PostgreSQL 17.11. A interpretação do ADMIN-only automático decorre do SQL e da semântica PostgreSQL; a transação V5 reverteu as memberships, que não foram capturadas como estado confirmado. O incremento managed-owner usa PostgreSQL 17 como baseline do storage de execução e preserva os bytes históricos. A prova 14 descrita acima permanece histórica. A nova correção, suas permissões temporárias e sua retomada não estão certificadas por essa prova; dependem das provas focais e da revisão registradas no [plano](BULK-MANAGED-OWNER-ADOPTION-PLAN.md).

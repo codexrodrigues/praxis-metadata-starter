@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Managed-owner adoption: implementation plan (candidate)</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Managed-owner adoption: implementation plan
+(candidate)</h1>
+</header>
+<h1
+id="managed-owner-adoption-implementation-plan-candidate">Managed-owner
+adoption: implementation plan (candidate)</h1>
+<p>Classification: architectural; canonical owner: Metadata Starter.
+Baseline remote main
+<code>1ac04d37180a5efcea1bda14fcb42ad96712d95d</code>, isolated
+checkout, 2026-10-10. This document records an independently reviewed
+implementation direction. It is not a completed migration or executable
+adoption recipe.</p>
+<h2 id="evidence-and-adherence">Evidence and adherence</h2>
+<p>The exact published rc.155 JAR (SHA256
+<code>8be69c98a109567118eb12d5f8b29ed955fe54335876a388ca3350265c71c371</code>)
+was invoked once in fresh, owned PostgreSQL 17.11 as a LOGIN, INHERIT,
+CREATEROLE, non-superuser database owner. V1–V4 committed; V5 rejected
+the retention-owner topology with P0001. Its transaction rolled back;
+this did not roll back the earlier migrations. The diagnostic JUnit
+result is not a green backend acceptance suite. No SDK migration was
+attempted on Neon.</p>
+<p>Evidence:
+<code>/tmp/praxis-b5b-capacity-occupancy-20261007/root-c30-public155-nonsuper-owner-diagnostic-actual-review.json</code>
+SHA256
+<code>b1ca3be96da2f4aa559b0977ab256f5749e834b5c870303b8658a3eeae4a60a3</code>.
+The automatic ADMIN-only membership interpretation is based on canonical
+SQL and PostgreSQL role semantics; the failed transaction’s internal
+role edges were not captured directly. Do not describe that inference as
+a Neon observation.</p>
+<p>Adherence: partially supported. Current superuser fixtures prove core
+behavior, but cannot prove installation by a managed non-superuser
+administrator. This is an installation/ownership capability gap, not a
+missing HTTP action or DTO.</p>
+<h2 id="constraints-and-impact">Constraints and impact</h2>
+<ul>
+<li>Preserve the published rc.155 artifact and applied migration
+checksums. No Flyway clean, repair, history rewrite or manual
+bootstrap-marker completion.</li>
+<li>Distinguish role administration from SET ROLE and inherited data
+access; runtime/control identities must remain disjoint from schema and
+definer owners.</li>
+<li>Audit V5/V6/V7 ownership transitions and later SQL guards in
+V8/V9/V11/V13/V14/ V15/V19, Java role preflights and runtime guards.
+Fixing only V5 is insufficient.</li>
+<li>Canonical changes belong in migration/bootstrap/validation and their
+tests. Quickstart consumes the newly published artifact without local
+override.</li>
+<li>Update managed-owner deployment documentation and canonical
+operational-proof / security-config skills. Review HTTP examples only if
+their taught deployment procedure changes. Angular implementation is
+outside this correction.</li>
+</ul>
+<h2 id="implementation-gates">Implementation gates</h2>
+<ol type="1">
+<li>ROOT approves an explicit versioned migration/adoption strategy
+covering both fresh managed installations and already-applied historical
+prefixes. A new migration that runs after a failing V5 does not solve
+fresh installation.</li>
+<li>Implement only that strategy in this isolated checkout. Treat
+ADMIN/SET/INHERIT separately; reject dangerous runtime inheritance,
+owner reachability and grants.</li>
+<li>Prove fresh non-superuser installation, validation and repeat-zero;
+existing immutable histories; failed ownership-transition recovery;
+denied unsafe memberships and excessive ACLs. Use independent owned
+PostgreSQL processes.</li>
+<li>Obtain independent source and evidence review. Verify current
+release/tag/ workflow state before choosing a new version; do not reuse
+a public coordinate.</li>
+<li>Publish through the official workflow, adopt the public artifact in
+Quickstart, then perform protected bootstrap and real HTTP validation.
+Keep publication controls deny-only until the authorized publication
+journey establishes them.</li>
+</ol>
+<p>ROOT approved the internal lineage and conditional bootstrap design.
+The focused implementation now has fifteen PostgreSQL cases; final
+package review, canonical skills and public/hosted adoption remain
+pending. Do not use an ad hoc superuser/SET ROLE or IAM workaround in
+the host.</p>
+<h2 id="accepted-internal-direction-and-remaining-proofs">Accepted
+internal direction and remaining proofs</h2>
+<p>The invocation resolves exactly one ordered migration chain from the
+complete successful Flyway history. Previously applied resources retain
+their immutable original bytes and checksums; pending resources use the
+corrected canonical SQL. Unknown identities, checksums, holes, failed
+rows and unreachable mixtures fail before DDL. Migration, validation,
+function-body attestation and the V14 creation witness must consume the
+same resolved lineage. No public compatibility switch, history repair or
+second migration authority is introduced.</p>
+<p>PostgreSQL 17 ADMIN-only role management is distinct from inherited
+privileges and SET authority. Only the explicitly trusted schema owner,
+through the known bootstrap-superuser grantor, may retain the canonical
+administrative edge. Temporary ownership operations must explicitly
+scope SET authority and schema CREATE only where required, then restore
+that scope. Runtime/control reachability to internal owners, unexpected
+grantors and duplicate or unsafe membership edges remain denied. The
+focused source and PostgreSQL proofs below establish these candidate
+paths; they do not replace release and hosted adoption gates.</p>
+<p>Fresh bootstrap retry after DDL19 is permitted only with a known
+distinct managed V5 checksum, intact canonical catalogue/preflights, all
+bootstrap phases 8/9/11/12/16 PENDING, and exactly empty base ACLs. Base
+grants, derived grants and completion of those latches form one
+transaction under the existing fence. PENDING alone, V14’s
+invocation-local witness or an uncomposed lifecycle row is insufficient.
+Historical original V5, completed bootstrap, revoked completed ACLs or
+new grantees must not be silently healed by this fresh-installation
+path. Supported historical prefixes and any denied continuation must be
+documented from proof; they are not inferred from an empty marker.</p>
+<p>The historical compiler/unit runs established eight lineage cases on
+their respective source freezes. Since canonical resources changed
+afterward, one current-source unit run is needed for the final package.
+Neither compiler nor lineage units alone certify database installation
+or HTTP readiness. The focused PostgreSQL evidence below is
+complementary. Canonical operational-proof and security-config guidance
+must be integrated before package completion.</p>
+<h2 id="explicit-database-baseline-impact">Explicit database baseline
+impact</h2>
+<p>ROOT directed a clean PostgreSQL 17 baseline for the governed bulk
+execution storage adoption. The previous 14.22 proof remains historical
+evidence; it does not certify the new managed-owner installation. The
+execution migrator now rejects an older database through JDBC metadata
+before DDL or the new membership queries, and the repository’s existing
+Darwin embedded-binary dependency moves to 17.11.0. No compatibility
+mode or history repair is introduced.</p>
+<p>This changes the optional bulk execution storage requirement, not the
+general Metadata REST/schema support or the separately owned Config
+database. Capacity authority has its own migration/catalogue boundary:
+its historical 14 proof and any remaining managed-17 gap must be
+identified separately before hosted adoption. Existing bulk deployments
+below 17 require database upgrade before adopting this increment.
+Documentation, downstream host packaging and canonical skills must state
+this requirement. Compilation alone cannot certify 17 runtime; the
+fifteen focused candidate cases below cover fresh installation, admitted
+continuation, denied unsafe states and bootstrap rollback. Hosted proof
+remains pending.</p>
+<h2 id="historical-continuation-cutoffs">Historical continuation
+cutoffs</h2>
+<p>Original successful prefixes V1–V4 are the supported historical
+failed-installation entry point. Original V5–V16 predecessors are not
+automatically continued: they are rejected before DDL because their
+intermediate ownership/ACL baseline has not been independently attested.
+Original V17/V18 use their existing strict predecessor checks; V19/V20
+retain their complete-history and protected-catalogue checks. Do not
+describe this as support for every historical prefix.</p>
+<p>A known managed V5 intermediate prefix may retry only after finite
+scope admission. Existing internal roles must preserve canonical
+attributes and exact trusted ADMIN-only provenance; temporary
+self-issued SET edges are forbidden. Initial prefixes admit no internal
+schema grants; managed intermediate prefixes admit USAGE without grant
+option, never CREATE. Migration-actor grants on internal-owned functions
+must be absent before temporary EXECUTE scope. The migrator rejects
+unsafe pre-state rather than deleting or repairing it. Managed V12
+intermediate continuation and unsafe CREATE rejection have focused
+runtime proof. The original V5 cutoff is exercised against archived SQL
+and preserved history; do not extrapolate that case to runtime
+certification of every original intermediate prefix.</p>
+<h2 id="focused-managed-owner-evidence-10-october-2026">Focused
+managed-owner evidence (10 October 2026)</h2>
+<p>The candidate now has independently reviewed PostgreSQL 17.11
+evidence for:</p>
+<ul>
+<li>Fresh installation through the actual non-superuser CREATEROLE
+schema owner, including the PostgreSQL-created ADMIN-only memberships,
+strict final validation and a repeat with zero pending migrations.</li>
+<li>Continuation of an original successful V1–V4 prefix while preserving
+all ten recorded history columns.</li>
+<li>Continuation after managed V19 DDL committed with empty host ACLs,
+preserving the committed history and completing the existing bootstrap
+transaction.</li>
+<li>Rejection without healing of partial host ACLs, a revoked permission
+after completed bootstrap, pre-existing internal schema CREATE, and
+unsafe SET or INHERIT memberships.</li>
+<li>Rollback of an injected Error after a real first base grant,
+preserving the pending bootstrap witness and permitting the later
+retry.</li>
+</ul>
+<p>The first run exposed an invalid V13 ownership handback. Its
+correction keeps <code>guard_terminal_execution</code> under its
+attested retention owner throughout <code>CREATE OR REPLACE</code>,
+using the temporary controlled role scope, then restoring schema CREATE
+and membership boundaries. No function body or archived migration was
+changed by this correction. The three affected positive cases passed
+after independent source review.</p>
+<p>The initial ADMIN negative fixture was rejected by PostgreSQL before
+calling the product. It earns no product acceptance. A corrected
+adversarial fixture and finite tests for a managed V12 continuation,
+unsafe intermediate CREATE, PUBLIC ACLs, runtime role reachability and
+the original V5 cutoff passed in six new isolated PostgreSQL 17.11
+clusters (6 tests, zero failures/errors/skips). The coordinator
+independently accepted the actual evidence. These tests combine with the
+earlier three positive and six negative/rollback cases to establish
+fifteen unique focused cases. SUPERUSER is used only to construct the
+otherwise unreachable adversarial or historical fixture in an isolated
+test cluster; product migration continues to use the non-superuser owner
+datasource.</p>
+<p>These are focused candidate proofs, not a complete backend gate,
+public artifact adoption or hosted HTTP evidence. Preserve the
+historical broad verify failures until a corresponding validation closes
+them. Canonical skills, release provenance, host adoption without
+override and hosted BASIC proof remain separate required steps. Do not
+infer certification of optional capacity authority from
+execution-storage installation.</p>
+</body>
+</html>

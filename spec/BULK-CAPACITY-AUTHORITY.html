@@ -338,5 +338,17 @@ reports and independent acceptance belong to the increment execution
 record. A discarded response after an independently observed commit can
 prove idempotent readback; it is not a fault-injected uncertain-commit
 or distributed transaction proof.</p>
+<h2 id="managed-owner-adoption-boundary">Managed-owner adoption
+boundary</h2>
+<p>The PostgreSQL 14 evidence above is historical authority evidence.
+The new managed-owner execution-storage candidate establishes a
+PostgreSQL 17 baseline in its own migrator. Authority migration,
+enrollment and allocator/read credentials remain a separate boundary:
+their managed PostgreSQL 17 installation must be inventoried and proved
+before hosted adoption. Passing the execution-storage proof does not
+certify this authority lane. See the <a
+href="BULK-MANAGED-OWNER-ADOPTION-PLAN.md">managed-owner adoption
+plan</a>; no compatibility mode or silent grant repair is
+introduced.</p>
 </body>
 </html>

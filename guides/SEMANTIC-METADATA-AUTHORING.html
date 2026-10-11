@@ -286,5 +286,41 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="
 <p>O reviewer nao gera descricoes. Ele apenas mostra onde a autoria
 humana ainda precisa decidir significado, limites, relacoes, impacto e
 governanca.</p>
+<h2 id="microvisualization-e-precedência-efetiva">MicroVisualization e
+precedência efetiva</h2>
+<p><code>@MicroVisualization</code> publica a base de
+<code>x-ui.presentation</code> após os presets de
+<code>@UISchema</code>. Overrides explícitos em
+<code>@UISchema.extraProperties</code> são aplicados por último. Prefira
+paths de folhas, como <code>presentation.visualization.tone</code>, para
+substituir somente uma propriedade e preservar <code>kind</code>,
+<code>target</code> e demais dados. Um override do objeto completo
+substitui esse objeto; não representa um merge de folhas. Metadados de
+controle, label, validação e options continuam independentes.</p>
+<p>Em campos anotados com <code>@MicroVisualization</code>, quando o
+presenter efetivo é <code>microVisualization</code>,
+<code>presentation.visualization.fallbackText</code> deve ser uma string
+não vazia, com texto do domínio legível para acessibilidade e
+indisponibilidade do gráfico. Pode vir de
+<code>@MicroVisualization(fallbackText = "...")</code> ou de
+<code>extraProperties</code>; a validação ocorre após os overrides.
+Valor ausente, vazio ou de outro tipo impede publicar esse schema. Um
+presenter alternativo explícito, como <code>chip</code>, pode substituir
+a microvisualização e não exige seu fallback. O starter não inventa
+texto de negócio.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@MicroVisualization</span><span class="op">(</span>kind <span class="op">=</span> MicroVisualizationKind<span class="op">.</span><span class="fu">BULLET</span><span class="op">,</span> target <span class="op">=</span> <span class="dv">90</span><span class="op">,</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>        valueExpr <span class="op">=</span> <span class="st">&quot;row.percentualAtendimento&quot;</span><span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        fallbackText <span class="op">=</span> <span class="st">&quot;Meta de atendimento: 90%&quot;</span><span class="op">)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>extraProperties <span class="op">=</span> <span class="at">@ExtensionProperty</span><span class="op">(</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        name <span class="op">=</span> <span class="st">&quot;presentation.visualization.tone&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;warning&quot;</span><span class="op">))</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">Double</span> percentualAtendimento<span class="op">;</span></span></code></pre></div>
+<p>Neste exemplo, <code>row.percentualAtendimento</code> e
+<code>target = 90</code> usam a mesma escala percentual de 0 a 100.
+<code>valueExpr</code> fornece o valor da linha; sem valor estático ou
+expressão, o renderer não recebe o valor do bullet e usa o fallback.</p>
+<p>O Angular consome esse contrato efetivo; não deve corrigir schemas
+inválidos com texto ou regras locais. A prova do resolver não substitui
+validação HTTP do host ou implantação do artefato público.</p>
 </body>
 </html>

@@ -380,21 +380,34 @@ sintéticas.</p>
 <p>Cada <code>BulkPolicyObservation</code> contém tenant/environment,
 coordenada Config (layer/type/key), estado textual canônico,
 resolutionFingerprint e observedAt. Estado/fingerprint são opacos para
-Metadata; o host consulta Config e avalia sua resolução completa,
-inclusive efeito e especialização. Não duplicar enum, cabeça ou payload
-Config no SDK. NEVER_APPLIED também exige observação positiva e decisão
-explícita do provider; retirada/falha jamais equivale a lista vazia. Uma
-observação pode registrar um estado impeditivo sem autorizá-lo.</p>
-<p>São aceitas de 1 a 64 coordenadas distintas, ordenadas pelos campos
-da coordenada. O host valida a completude do conjunto requerido e seu
-escopo; a infraestrutura não presume que várias leituras Config sejam um
-snapshot consistente. Qualquer combinação multialvo exige prova do
-provider. Cada observedAt pertence a
-<code>[proposal.createdAt, evaluatedAt]</code>, normalizado a
-microssegundos. O namespace e subject do input continuam vinculados ao
-recurso/operação/schema; o host deve verificar a correspondência desse
-contexto com tenant/environment de cada política, sem hints de headers
-do cliente.</p>
+Metadata; quando a operação exige política Config, o host consulta
+Config e avalia sua resolução completa, inclusive efeito e
+especialização. Não duplicar enum, cabeça ou payload Config no SDK.
+NEVER_APPLIED também exige observação positiva e decisão explícita do
+provider; retirada/falha jamais equivale a lista vazia. Uma observação
+pode registrar um estado impeditivo sem autorizá-lo.</p>
+<p>São aceitas de 0 a 64 coordenadas distintas, ordenadas pelos campos
+da coordenada. A lista deve estar explicitamente presente e não pode ser
+null. <code>policies=[]</code> representa exclusivamente um conjunto
+requerido vazio, definido pelo host confiável para aquela operação; não
+é uma decisão de autorização, um fallback de consulta nem uma opção do
+cliente para dispensar políticas. Autorização atual, revisão do
+avaliador, contexto, validade e revalidação de domínio continuam
+obrigatórios. Uma operação que exige política continua rejeitando sua
+ausência ou indisponibilidade; mudar seu conjunto requerido exige
+revisar a implementação e sua revisão canônica. IAM e decisão de negócio
+são obrigações distintas: não ocultar uma decisão governada do
+host/sidecar no fingerprint de autorização nem fabricar coordenadas
+Config para uma operação sem política adicional.</p>
+<p>O host valida a completude do conjunto requerido e seu escopo; a
+infraestrutura não presume que várias leituras Config sejam um snapshot
+consistente. Qualquer combinação multialvo exige prova do provider. Cada
+observedAt pertence a <code>[proposal.createdAt, evaluatedAt]</code>,
+normalizado a microssegundos. O namespace e subject do input continuam
+vinculados ao recurso/operação/schema; o host deve verificar a
+correspondência desse contexto com tenant/environment de cada política,
+sem hints de headers do cliente. As janelas de avaliação e expiração
+continuam sendo verificadas quando o conjunto requerido é vazio.</p>
 <p><code>matchesCurrentEvidence(currentContext, checkedAt, currentTargets, currentGovernance)</code>
 exige contexto completo idêntico, instante não anterior à avaliação e
 anterior à expiração. Compara fatos/planos/versões e governança; ignora
@@ -425,5 +438,15 @@ corte.</p>
 contexto/evidência, tempos e integridade do codec. A suite PostgreSQL
 também prova governança após commit, retirada divergente sem reescrever
 o registro e rejeição de payload antigo sem binding.</p>
+<p>A lista vazia usa o mesmo formato protegido e participa integralmente
+dos fingerprints de avaliação e recaptura. Vazio e não vazio são
+evidências diferentes; remover uma política de um payload existente
+invalida seu hash. Nenhuma migração SQL, reescrita de evidência ou
+alteração de checksums é necessária. Leitores anteriores que exigem
+lista não vazia rejeitam os novos snapshots vazios: atualizar todos os
+executores/leitores consumidores antes de produzi-los, sem anunciar
+compatibilidade rolling. Políticas já requeridas pelos pilotos
+permanecem obrigatórias; esta mudança não instala um sidecar nem
+certifica a autenticidade de uma autoridade externa.</p>
 </body>
 </html>

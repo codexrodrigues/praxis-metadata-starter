@@ -107,3 +107,10 @@ Quando houver duvida sobre a superficie publicada:
 - use a trilha desta home como referencia principal do baseline atual
 
 - [Administração local de capacidade (candidato C0-04)](spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.html): INSPECT/FENCE com OWNER e vínculo explícitos; provas privadas não são publicação ou adoção produtiva.
+- [Estado do worker durável B5b.2](technical/BULK-DURABLE-WORKER-B5B2-STATUS.html): candidato privado com primeira bateria aceita; matriz de fila, composição pública e fechamento do backend ainda pendentes.
+
+- [Migração owner e cutover do worker durável — candidato privado B5b.2](technical/BULK-DURABLE-WORKER-OWNER-UPGRADE.html).
+
+- [Composição explícita do worker — candidato B5b.3](technical/BULK-WORKER-EXPLICIT-COMPOSITION.html): vínculo canônico e callbacks por unidade; provas focais e consumidor JAR privado executados, revisão/integração e publicação pendentes, sem ingresso HTTP ASYNC.
+
+- [Adoção de operações em lote por owner gerenciado](spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.html): candidato PostgreSQL17+, linhagem imutável, bootstrap transacional e provas focais; publicação e adoção hospedada pendentes.
