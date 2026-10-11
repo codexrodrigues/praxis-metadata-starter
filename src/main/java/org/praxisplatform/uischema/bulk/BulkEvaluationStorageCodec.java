@@ -71,7 +71,7 @@ final class BulkEvaluationStorageCodec {
             JsonNode governance = root.get("governance");
             exact(governance, Set.of("evaluatorRevision", "authorizationFingerprint", "policies"));
             var policies = governance.get("policies");
-            if (!policies.isArray() || policies.isEmpty() || policies.size() > 64) throw invalid();
+            if (!policies.isArray() || policies.size() > 64) throw invalid();
             var observations = new ArrayList<BulkPolicyObservation>();
             for (var policy : policies) {
                 exact(policy, Set.of("tenantId", "environment", "targetLayer", "targetArtifactType",

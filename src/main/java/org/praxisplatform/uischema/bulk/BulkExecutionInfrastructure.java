@@ -190,20 +190,19 @@ public final class BulkExecutionInfrastructure {
 
     static String constrainLiveAttestationStatementTimeout(java.sql.Connection connection)
             throws java.sql.SQLException {
-        String previous;
-        try (var statement = connection.createStatement(); var rows = statement.executeQuery(
-                "select current_setting('statement_timeout')")) {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                with previous as materialized (select current_setting('statement_timeout') value)
+                select value, set_config('statement_timeout',
+                    case when value = '0' or value::interval > interval '250 milliseconds'
+                         then '250ms' else value end, true)
+                from previous
+                """)) {
             if (!rows.next()) throw new IllegalStateException("Unable to read PostgreSQL statement timeout");
-            previous = rows.getString(1);
-            if (rows.next()) throw new IllegalStateException("PostgreSQL statement timeout query returned multiple rows");
+            String previous = rows.getString(1);
+            if (previous == null || rows.next())
+                throw new IllegalStateException("PostgreSQL statement timeout query returned invalid rows");
+            return previous;
         }
-        try (var statement = connection.createStatement()) {
-            statement.execute("select set_config('statement_timeout', "
-                    + "case when current_setting('statement_timeout') = '0' "
-                    + "or current_setting('statement_timeout')::interval > interval '250 milliseconds' "
-                    + "then '250ms' else current_setting('statement_timeout') end, true)");
-        }
-        return previous;
     }
 
     static void restoreStatementTimeout(java.sql.Connection connection, String previous)
@@ -226,7 +225,7 @@ public final class BulkExecutionInfrastructure {
         } finally {
             try {
                 restoreStatementTimeout(connection, previous);
-            } catch (java.sql.SQLException restoreFailure) {
+            } catch (java.sql.SQLException | RuntimeException | Error restoreFailure) {
                 if (primaryFailure != null) {
                     primaryFailure.addSuppressed(restoreFailure);
                 } else {

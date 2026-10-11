@@ -78,6 +78,10 @@ final class BulkCapacityOccupancyCatalog {
         return functionBody(BulkMigrationLineage.select(connection).sql(19), name);
     }
 
+    static String functionBody(BulkMigrationLineage source, String name) {
+        return functionBody(source.sql(19), name);
+    }
+
     static String functionBody(String name) {
         return functionBody(source(), name);
     }
@@ -104,6 +108,10 @@ final class BulkCapacityOccupancyCatalog {
         }
         require(found.isEmpty() || found.equals(TABLES), "V19 physical occupancy is partial");
         return !found.isEmpty();
+    }
+
+    static boolean installed(BulkCatalogPhase catalog) {
+        return catalog.installed(TABLES, "V19 table kind differs", "V19 physical occupancy is partial");
     }
 
     static String phase(Connection c) throws SQLException {
@@ -183,134 +191,101 @@ final class BulkCapacityOccupancyCatalog {
     }
 
     static void validate(Connection c, BulkExecutionRoleConfiguration roles, boolean complete) throws SQLException {
-        require(installed(c), "V19 occupancy absent");
-        columns(c, SLOT, Map.of("token_id", "uuid|true", "capacity_class", "text|true", "occupancy_sequence",
+        var catalog = BulkCatalogPhase.capture(c, roles);
+        require(installed(catalog), "V19 occupancy absent");
+        columns(catalog, SLOT, Map.of("token_id", "uuid|true", "capacity_class", "text|true", "occupancy_sequence",
                 "bigint|true",
                 "current_execution_id", "uuid|false", "current_owner_epoch", "bigint|false"));
-        columns(c, HISTORY, Map.of("token_id", "uuid|true", "occupancy_sequence", "bigint|true", "execution_id",
+        columns(catalog, HISTORY, Map.of("token_id", "uuid|true", "occupancy_sequence", "bigint|true", "execution_id",
                 "uuid|true",
                 "owner_epoch", "bigint|true", "acquired_at", "timestamp with time zone|true"));
-        columns(c, BOOTSTRAP, Map.of("bootstrap_version", "smallint|true", "phase", "text|true"));
-        functions(c, roles, complete);
-        triggers(c);
-        terminalTriggerOrder(c);
-        roles(c, roles, complete);
+        columns(catalog, BOOTSTRAP, Map.of("bootstrap_version", "smallint|true", "phase", "text|true"));
+        functions(catalog, roles, complete, BulkMigrationLineage.select(c));
+        triggers(catalog);
+        terminalTriggerOrder(catalog);
+        roles(catalog, roles, complete);
         for (String table : TABLES)
-            constraints(c, table, constraints(table));
+            constraints(catalog, table, constraints(table));
         rows(c);
     }
 
-    static void validateAccess(Connection connection, BulkExecutionRoleConfiguration roles) throws SQLException {
-        require(installed(connection), "V19 occupancy absent");
-        functions(connection, roles, true);
-        triggers(connection);
-        terminalTriggerOrder(connection);
-        roles(connection, roles, true);
+    static void validateAccess(Connection connection, BulkExecutionRoleConfiguration roles,
+            BulkMigrationLineage source) throws SQLException {
+        validateAccess(BulkCatalogPhase.captureAccess(connection, roles), roles, source);
     }
 
-    private static void columns(Connection c, String table, Map<String, String> expected) throws SQLException {
+    static void validateAccess(BulkCatalogPhase catalog, BulkExecutionRoleConfiguration roles,
+            BulkMigrationLineage source) {
+        require(installed(catalog), "V19 occupancy absent");
+        functions(catalog, roles, true, source);
+        triggers(catalog);
+        terminalTriggerOrder(catalog);
+        roles(catalog, roles, true);
+    }
+
+    private static void columns(BulkCatalogPhase catalog, String table, Map<String, String> expected) {
         var actual = new LinkedHashMap<String, String>();
-        try (var s = c.prepareStatement("""
-                select a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,a.atthasdef,a.attidentity,a.attgenerated,
-                       t.relpersistence,t.relrowsecurity,t.relkind from pg_attribute a join pg_class t on t.oid=a.attrelid
-                where a.attrelid=?::regclass and a.attnum>0 and not a.attisdropped
-                """)) {
-            s.setString(1, "praxis_bulk." + table);
-            try (var r = s.executeQuery()) {
-                while (r.next()) {
-                    require(!r.getBoolean(4) && r.getString(5).isEmpty() && r.getString(6).isEmpty()
-                            && "p".equals(r.getString(7))
-                            && !r.getBoolean(8) && "r".equals(r.getString(9)), "V19 column attributes differ");
-                    actual.put(r.getString(1), r.getString(2) + "|" + r.getBoolean(3));
-                }
-            }
+        for (var row : catalog.table(catalog.relations, table)) {
+            if (row.text("attname") == null) continue;
+            require(!row.flag("atthasdef") && "".equals(row.text("attidentity")) && "".equals(row.text("attgenerated"))
+                    && "p".equals(row.text("relpersistence")) && !row.flag("relrowsecurity")
+                    && "r".equals(row.text("relkind")), "V19 column attributes differ");
+            actual.put(row.text("attname"), row.text("data_type") + "|" + row.flag("attnotnull"));
         }
         require(expected.equals(actual), "V19 columns differ: " + table);
     }
 
-    private static void functions(Connection c, BulkExecutionRoleConfiguration roles, boolean complete) throws SQLException {
+    private static void functions(BulkCatalogPhase catalog, BulkExecutionRoleConfiguration roles, boolean complete,
+            BulkMigrationLineage source) {
         for (String signature : FUNCTIONS) {
             String name = signature.substring(0, signature.indexOf('('));
-            try (var s = c.prepareStatement("""
-                select p.prosrc,p.prosecdef,pg_get_userbyid(p.proowner),p.proconfig,p.provolatile,p.proparallel,
-                    p.proleakproof,p.prokind,p.prorettype::regtype::text,l.lanname
-                from pg_proc p join pg_namespace n on n.oid=p.pronamespace join pg_language l on l.oid=p.prolang
-                where n.nspname='praxis_bulk' and p.proname||'('||pg_get_function_identity_arguments(p.oid)||')'=?
-                """)) {
-                s.setString(1, signature);
-                try (var r = s.executeQuery()) {
-                    require(r.next() && normalize(functionBody(c, name)).equals(normalize(r.getString(1)))
-                            && r.getBoolean(2) == DEFINERS.contains(name)
-                            && (DEFINERS.contains(name) ? OWNER : roles.expectedSchemaOwnerRole()).equals(r.getString(3))
-                            && java.util.Arrays.equals((String[]) r.getArray(4).getArray(),
-                                    new String[] {"search_path=pg_catalog, pg_temp"})
-                            && "v".equals(r.getString(5)) && "u".equals(r.getString(6)) && !r.getBoolean(7)
-                            && "f".equals(r.getString(8))
-                            && (name.equals("lock_capacity_marker") ? "text"
-                                    : name.equals("claim_capacity_execution") ? "boolean" : "trigger").equals(r.getString(9))
-                            && "plpgsql".equals(r.getString(10)) && !r.next(), "V19 function attributes/source differ: " + name);
-                }
-            }
+            var row = catalog.function(signature);
+            require(normalize(functionBody(source, name)).equals(normalize(row.text("prosrc")))
+                    && row.flag("prosecdef") == DEFINERS.contains(name)
+                    && (DEFINERS.contains(name) ? OWNER : roles.expectedSchemaOwnerRole()).equals(row.text("owner"))
+                    && java.util.Arrays.equals((String[]) row.value("proconfig"), new String[] {"search_path=pg_catalog, pg_temp"})
+                    && "v".equals(row.text("provolatile")) && "u".equals(row.text("proparallel")) && !row.flag("proleakproof")
+                    && "f".equals(row.text("prokind"))
+                    && (name.equals("lock_capacity_marker") ? "text" : name.equals("claim_capacity_execution") ? "boolean" : "trigger").equals(row.text("return_type"))
+                    && "plpgsql".equals(row.text("lanname")), "V19 function attributes/source differ: " + name);
             var expected = new LinkedHashSet<String>();
             if (name.equals("lock_capacity_marker")) expected.add("praxis_bulk_retention_owner|EXECUTE");
             if (complete && (name.equals("lock_capacity_marker") || name.equals("claim_capacity_execution")))
                 roles.runtimeGranteeRoles().forEach(role -> expected.add(role + "|EXECUTE"));
             var actual = new LinkedHashSet<String>();
-            try (var s = c.prepareStatement("""
-                select coalesce(r.rolname,'PUBLIC'),a.privilege_type,a.is_grantable
-                from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-                left join pg_roles r on r.oid=a.grantee
-                where p.oid=to_regprocedure(?) and a.grantee<>p.proowner
-                """)) {
-                s.setString(1, "praxis_bulk." + signature.replaceAll("\\bp_[a-z_]+\\s+", ""));
-                try (var r = s.executeQuery()) {
-                    while (r.next()) {
-                        require(!r.getBoolean(3), "V19 grant option forbidden");
-                        actual.add(r.getString(1) + "|" + r.getString(2));
-                    }
-                }
+            for (String grant : (String[]) row.value("acl")) {
+                int separator = grant.lastIndexOf('|');
+                require("false".equals(grant.substring(separator + 1)), "V19 grant option forbidden");
+                actual.add(grant.substring(0, separator));
             }
             require(expected.equals(actual), "V19 function ACL differs: " + name);
         }
     }
 
-    private static void triggers(Connection c) throws SQLException {
+    private static void triggers(BulkCatalogPhase catalog) {
         for (var entry : TRIGGERS.entrySet()) {
             var expected = entry.getValue();
-            try (var s = c.prepareStatement("""
-                select t.tgtype,t.tgenabled,t.tgnargs,t.tgqual is null,t.tgconstraint=0,
-                    t.tgoldtable is null,t.tgnewtable is null,p.proname,n.nspname,t.tgargs
-                from pg_trigger t join pg_proc p on p.oid=t.tgfoid join pg_namespace n on n.oid=p.pronamespace
-                where t.tgrelid=?::regclass and t.tgname=? and not t.tgisinternal
-                """)) {
-                s.setString(1, "praxis_bulk." + expected.table());
-                s.setString(2, entry.getKey());
-                try (var r = s.executeQuery()) {
-                    require(r.next() && r.getInt(1) == expected.type() && "O".equals(r.getString(2))
-                            && r.getInt(3) == 0 && r.getBoolean(4) && r.getBoolean(5) && r.getBoolean(6)
-                            && r.getBoolean(7)
-                            && expected.function().equals(r.getString(8)) && "praxis_bulk".equals(r.getString(9))
-                            && r.getBytes(10).length == 0 && !r.next(), "V19 trigger differs: " + entry.getKey());
-                }
-            }
+            var found = catalog.table(catalog.triggers, expected.table()).stream()
+                    .filter(r -> entry.getKey().equals(r.text("tgname"))).toList();
+            require(found.size() == 1, "V19 trigger differs: " + entry.getKey());
+            var row = found.get(0);
+            require(row.number("tgtype") == expected.type() && "O".equals(row.text("tgenabled"))
+                    && row.number("tgnargs") == 0 && row.flag("no_qual") && row.flag("no_constraint")
+                    && row.flag("no_old_table") && row.flag("no_new_table")
+                    && expected.function().equals(row.text("proname")) && "praxis_bulk".equals(row.text("function_schema"))
+                    && ((byte[]) row.value("tgargs")).length == 0, "V19 trigger differs: " + entry.getKey());
         }
     }
 
-    /** PostgreSQL orders same-event triggers by name; attest the two actual AFTER names in that order. */
-    private static void terminalTriggerOrder(Connection connection) throws SQLException {
-        try (var statement = connection.prepareStatement("""
-                select t.tgname from pg_trigger t
-                where t.tgrelid='praxis_bulk.praxis_bulk_execution'::regclass and not t.tgisinternal
-                  and t.tgname in ('praxis_bulk_execution_capacity_materialize',
-                                   'praxis_bulk_execution_release_active_allocation')
-                  and t.tgenabled='O' and (t.tgtype & 1)=1 and (t.tgtype & 2)=0 and (t.tgtype & 16)=16
-                order by t.tgname collate "C"
-                """); var rows = statement.executeQuery()) {
-            require(rows.next() && "praxis_bulk_execution_capacity_materialize".equals(rows.getString(1))
-                    && rows.next() && "praxis_bulk_execution_release_active_allocation".equals(rows.getString(1))
-                    && !rows.next(),
-                    "V19 terminal materialization must precede the allocation release certificate");
-        }
+    /** Captured in PostgreSQL C collation order, preserving the two actual AFTER names. */
+    private static void terminalTriggerOrder(BulkCatalogPhase catalog) {
+        var actual = catalog.table(catalog.triggers, "praxis_bulk_execution").stream()
+                .filter(r -> Set.of("praxis_bulk_execution_capacity_materialize", "praxis_bulk_execution_release_active_allocation").contains(r.text("tgname")))
+                .filter(r -> "O".equals(r.text("tgenabled")) && (r.number("tgtype") & 1) == 1
+                        && (r.number("tgtype") & 2) == 0 && (r.number("tgtype") & 16) == 16)
+                .map(r -> r.text("tgname")).toList();
+        require(actual.equals(java.util.List.of("praxis_bulk_execution_capacity_materialize", "praxis_bulk_execution_release_active_allocation")),
+                "V19 terminal materialization must precede the allocation release certificate");
     }
 
     static Map<String, Set<String>> ownerTablePrivileges() {
@@ -334,67 +309,33 @@ final class BulkCapacityOccupancyCatalog {
         return expected;
     }
 
-    private static void roles(Connection c, BulkExecutionRoleConfiguration roles, boolean complete) throws SQLException {
-        try (var s = c.createStatement(); var r = s.executeQuery("""
-            select count(*) from pg_roles where rolname='praxis_bulk_capacity_owner' and not rolcanlogin and not rolinherit
-              and not rolsuper and not rolcreatedb and not rolcreaterole and not rolreplication and not rolbypassrls
-            """)) {
-            require(r.next() && r.getInt(1) == 1 && !r.next(), "V19 owner attributes differ");
-        }
-        try (var s = c.createStatement(); var r = s.executeQuery("""
-            select count(*) from pg_auth_members m join pg_roles r on r.oid=m.roleid or r.oid=m.member
-            where r.rolname='praxis_bulk_capacity_owner' and not (%s)
-            """.formatted(BulkExecutionMigrator.MANAGED_ADMIN_MEMBERSHIP_PREDICATE))) {
-            require(r.next() && r.getInt(1) == 0 && !r.next(), "V19 owner membership forbidden");
-        }
+    private static void roles(BulkCatalogPhase catalog, BulkExecutionRoleConfiguration roles, boolean complete) {
+        require(catalog.count("capacity_attributes") == 1, "V19 owner attributes differ");
+        require(catalog.count("capacity_membership") == 0, "V19 owner membership forbidden");
         var ownerActual = new LinkedHashMap<String, Set<String>>();
-        for (var entry : allTablePrivileges(c, OWNER).entrySet())
+        for (var entry : catalog.allPrivileges(OWNER).entrySet())
             if (!entry.getValue().isEmpty())
                 ownerActual.put(entry.getKey(), entry.getValue());
         require(ownerTablePrivileges().equals(ownerActual), "V19 owner table grants differ");
         for (String table : TABLES) {
-            require(allTablePrivileges(c, "PUBLIC").getOrDefault(table, Set.of()).isEmpty(), "V19 PUBLIC access forbidden");
+            require(catalog.allPrivileges("PUBLIC").getOrDefault(table, Set.of()).isEmpty(), "V19 PUBLIC access forbidden");
             for (String role : roles.runtimeGranteeRoles())
-                require(allTablePrivileges(c, role).getOrDefault(table, Set.of()).equals(
+                require(catalog.allPrivileges(role).getOrDefault(table, Set.of()).equals(
                         complete && !table.equals(BOOTSTRAP) ? Set.of("T:SELECT") : Set.of()),
                         "V19 runtime table grants differ");
             for (String role : roles.controlPlaneGranteeRoles())
-                require(allTablePrivileges(c, role).getOrDefault(table, Set.of()).isEmpty(),
+                require(catalog.allPrivileges(role).getOrDefault(table, Set.of()).isEmpty(),
                         "V19 control-plane access forbidden");
-            require(allTablePrivileges(c, "praxis_bulk_retention_owner").getOrDefault(table, Set.of()).equals(
+            require(catalog.allPrivileges("praxis_bulk_retention_owner").getOrDefault(table, Set.of()).equals(
                     table.equals(HISTORY) ? Set.of("T:SELECT", "T:DELETE") : table.equals(SLOT) ? Set.of("T:SELECT") : Set.of()),
                     "V19 retention grants differ");
-            require(allTablePrivileges(c, "praxis_bulk_retention_executor").getOrDefault(table, Set.of()).isEmpty(),
+            require(catalog.allPrivileges("praxis_bulk_retention_executor").getOrDefault(table, Set.of()).isEmpty(),
                     "V19 retention executor table access forbidden");
         }
     }
 
-    private static Map<String, Set<String>> allTablePrivileges(Connection c, String role) throws SQLException {
-        var result = new LinkedHashMap<String, Set<String>>();
-        try (var s = c.prepareStatement("""
-            select q.relname,q.scope,q.col,q.privilege_type,q.is_grantable from (
-                select c.relname,'T'::text scope,null::text col,a.privilege_type,a.is_grantable,a.grantee,c.relowner
-                  from pg_class c join pg_namespace n on n.oid=c.relnamespace
-                  cross join lateral aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a where n.nspname='praxis_bulk'
-                union all
-                select c.relname,'C',v.attname,a.privilege_type,a.is_grantable,a.grantee,c.relowner
-                  from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_attribute v on v.attrelid=c.oid
-                  cross join lateral aclexplode(v.attacl) a where n.nspname='praxis_bulk' and v.attnum>0 and not v.attisdropped
-            ) q left join pg_roles r on r.oid=q.grantee where coalesce(r.rolname,'PUBLIC')=? and q.grantee<>q.relowner
-            """)) {
-            s.setString(1, role);
-            try (var r = s.executeQuery()) {
-                while (r.next()) {
-                    require(!r.getBoolean(5), "V19 table grant option forbidden");
-                    result.computeIfAbsent(r.getString(1), x -> new LinkedHashSet<>()).add(r.getString(2).equals("T") ?
-                            "T:" + r.getString(4) : "C:" + r.getString(3) + ":" + r.getString(4));
-                }
-            }
-        }
-        return result;
-    }
-
     static void constraints(Connection c, String table, Map<String, String> expected) throws SQLException {
+        // Other historical validators keep their narrow query and privilege surface.
         var actual = new LinkedHashMap<String, String>();
         try (var s = c.prepareStatement("""
             select k.conname,pg_get_constraintdef(k.oid),k.convalidated,k.condeferrable,k.condeferred,
@@ -411,6 +352,22 @@ final class BulkCapacityOccupancyCatalog {
                 }
             }
         }
+        compareConstraints(table, expected, actual);
+    }
+
+    private static void constraints(BulkCatalogPhase catalog, String table, Map<String, String> expected) {
+        catalog.requireTable(table);
+        var actual = new LinkedHashMap<String, String>();
+        for (var r : catalog.table(catalog.constraints, table)) {
+            require(r.flag("convalidated") && !r.flag("condeferrable") && !r.flag("condeferred")
+                    && (r.value("indisvalid") == null || r.flag("indisvalid") && r.flag("indisready")
+                        && r.flag("indislive") && r.flag("indimmediate")), "V19 constraint attributes differ");
+            actual.put(r.text("conname"), normalize(r.text("definition")));
+        }
+        compareConstraints(table, expected, actual);
+    }
+
+    private static void compareConstraints(String table, Map<String, String> expected, Map<String, String> actual) {
         var normalized = new LinkedHashMap<String, String>();
         expected.forEach((name, definition) -> normalized.put(name, normalize(definition)));
         require(normalized.equals(actual), "V19 constraints differ: " + table + " actual=" + actual);

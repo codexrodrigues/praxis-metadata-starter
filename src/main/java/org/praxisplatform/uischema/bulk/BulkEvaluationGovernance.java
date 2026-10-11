@@ -10,6 +10,9 @@ import java.util.Objects;
 /**
  * Protected provenance supplied by a trusted evaluator, not an authorization implementation.
  * The host owns current grants, required policy coordinates, scope and consistent capture.
+ * An explicitly empty policy list means the server-defined operation requires no additional
+ * policy observations. It neither authorizes execution nor replaces a required policy lookup,
+ * including initial absence, withdrawal or an unavailable policy authority.
  * Never synthesize authorizationFingerprint from JWT claims to imply revocable grants.
  */
 @JsonIgnoreType
@@ -18,7 +21,8 @@ public record BulkEvaluationGovernance(String evaluatorRevision, String authoriz
     public BulkEvaluationGovernance {
         BulkContractChecks.text(evaluatorRevision, "evaluatorRevision");
         BulkContractChecks.text(authorizationFingerprint, "authorizationFingerprint");
-        policies = BulkContractChecks.nonEmpty(policies);
+        if (policies == null) throw new IllegalArgumentException("policies is required");
+        policies = List.copyOf(policies);
         if (policies.size() > 64) throw new IllegalArgumentException("Too many policy observations");
         policies.forEach(value -> Objects.requireNonNull(value, "policy observation"));
         BulkContractChecks.unique(policies.stream().map(BulkPolicyObservation::coordinate).toList());
