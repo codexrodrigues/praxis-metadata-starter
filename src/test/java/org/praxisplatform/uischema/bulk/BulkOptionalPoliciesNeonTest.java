@@ -111,6 +111,7 @@ class BulkOptionalPoliciesNeonTest {
                 Map.of(NAMESPACE, DEPLOYMENT), roles)).isZero());
         owner.measure("negative-acl", () -> rejectsAlteredAcl(owner, roles, runtimeRole));
         owner.measure("negative-trigger", () -> rejectsAlteredTrigger(owner, roles));
+        owner.measure("negative-DE", () -> BulkNeonAdversarialProof.catalogs(owner, roles, runtimeRole));
         System.out.println("NEON_PROOF_MIGRATION=20,strict-validation-passed");
         }
         var ownerSql = new JdbcTemplate(owner);
@@ -135,6 +136,13 @@ class BulkOptionalPoliciesNeonTest {
         measureProfiles("live-control-attestation", runtime, control, () -> controlPlane.withConnection(connection -> null));
         assertBoundedStatementTimeout(runtime);
         var callbacks = new AtomicInteger();
+        // A real control credential bound as runtime reaches the live identity guard before protected work.
+        var wrongIdentity = new BulkExecutionInfrastructure(control, new DataSourceTransactionManager(control), NAMESPACE, DEPLOYMENT, roles);
+        assertThatThrownBy(() -> wrongIdentity.withLifecycleRead(connection -> callbacks.incrementAndGet()))
+                .hasMessageContaining("Bulk connection identity is not an allowlisted PostgreSQL role");
+        assertThat(callbacks).hasValue(0);
+        var controlBeforeDrift = ownerSql.queryForList("select * from praxis_bulk.praxis_bulk_operation_control order by namespace_id,operation_id");
+        var publicationBeforeDrift = ownerSql.queryForList("select * from praxis_bulk.praxis_bulk_openapi_publication order by deployment_id");
         ownerSql.execute("grant update on praxis_bulk.praxis_bulk_target_manifest to " + runtimeRole);
         try {
             assertThatThrownBy(() -> infrastructure.withLifecycleRead(connection -> callbacks.incrementAndGet()))
@@ -143,14 +151,17 @@ class BulkOptionalPoliciesNeonTest {
                     .hasMessageContaining("bulk runtime manifest grants differ");
             assertThat(callbacks).hasValue(0);
         } finally { ownerSql.execute("revoke update on praxis_bulk.praxis_bulk_target_manifest from " + runtimeRole); }
+        assertThat(ownerSql.queryForList("select * from praxis_bulk.praxis_bulk_operation_control order by namespace_id,operation_id")).isEqualTo(controlBeforeDrift);
+        assertThat(ownerSql.queryForList("select * from praxis_bulk.praxis_bulk_openapi_publication order by deployment_id")).isEqualTo(publicationBeforeDrift);
+        System.out.println("NEON_PROOF_WRONG_IDENTITY=real-connection-rejected,callbacks-zero");
         System.out.println("NEON_PROOF_LIVE_DRIFT=runtime-and-control-rejected-before-callback,fixture-grant-revoked");
-        measureProfiles("publication-seed", runtime, control, () -> seedPublication(ownerSql, controlPlane));
+        measureProfiles("publication-seed", runtime, control, () -> seedPublication(ownerSql, infrastructure, controlPlane));
         ownerSql.execute("create table public.bulk_optional_grant(subject text primary key, allowed boolean not null, revision integer not null)");
         ownerSql.execute("create table public.bulk_optional_domain(id integer primary key, writes integer not null default 0)");
         ownerSql.execute("grant select on public.bulk_optional_grant to " + runtimeRole);
         ownerSql.execute("grant select, update on public.bulk_optional_domain to " + runtimeRole);
         ownerSql.update("insert into public.bulk_optional_grant values (?,true,1)", CONTEXT.subjectId());
-        ownerSql.update("insert into public.bulk_optional_domain(id) values (1),(2)");
+        ownerSql.update("insert into public.bulk_optional_domain(id) values (1),(2),(3)");
         var tx = new TransactionTemplate(manager);
         var store = new JdbcBulkProposalStore(infrastructure);
         var runtimeSql = new JdbcTemplate(runtime);
@@ -164,6 +175,7 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(recovered.governance().authorizationFingerprint()).isEqualTo("fixture-grant-r1");
         assertThat(recovered.fingerprint()).isEqualTo(first.fingerprint());
         System.out.println("NEON_PROOF_ROUNDTRIP=empty-policy-set-and-fingerprint-preserved");
+        governanceNegatives(tx, store, infrastructure, ownerSql);
         var admitted = kernel.reserve(CONTEXT, first.proposal().id(), "accepted", "proof-owner", "structural-r1", Instant.now().plusSeconds(30));
         var admissionCalls = new AtomicInteger();
         var mutationCalls = new AtomicInteger();
@@ -184,6 +196,7 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(ownerSql.queryForObject("select writes from public.bulk_optional_domain where id=1", Integer.class)).isEqualTo(1);
         assertThat(ownerSql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class, admitted.executionId())).isEqualTo(1);
         assertThat(ownerSql.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, admitted.executionId())).isEqualTo("COMPLETED");
+        assertDomainReceiptRollback(tx, store, kernel, admission, runtime, ownerSql);
         ownerSql.update("update public.bulk_optional_grant set allowed=false, revision=2 where subject=?", CONTEXT.subjectId());
         int beforeReplay = admissionCalls.get();
         var replay = kernel.reserve(CONTEXT, first.proposal().id(), "accepted", "proof-owner", "structural-r1", Instant.now().plusSeconds(30));
@@ -200,6 +213,101 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(ownerSql.queryForObject("select terminal_reason_code from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, revoked.executionId())).isEqualTo("AUTHORIZATION_REVOKED");
         System.out.println("NEON_PROOF_EXECUTION=one-domain-write-and-receipt,replay-without-callback,revocation-zero-write-and-receipt");
         }
+    }
+
+    private static void governanceNegatives(TransactionTemplate tx, JdbcBulkProposalStore store,
+            BulkExecutionInfrastructure infrastructure, JdbcTemplate owner) {
+        var empty = evaluation(1);
+        var policy = new BulkPolicyObservation("fixture-tenant", "fixture-environment", "DOMAIN",
+                "POLICY", "optional-policies-proof", "APPLIED", "fixture-policy-r1", empty.evaluatedAt());
+        var value = new BulkEvaluationSnapshot(empty.proposal(), empty.evaluatedAt(), empty.targets(),
+                new BulkEvaluationGovernance("fixture-evaluator-r1", "fixture-grant-r1", List.of(policy)));
+        tx.executeWithoutResult(status -> store.insertEvaluated(value, preview(value)));
+        var loaded = tx.execute(status -> store.findEvaluation(CONTEXT, value.proposal().id()).orElseThrow());
+        assertThat(loaded.governance()).isEqualTo(value.governance());
+        assertThat(loaded.fingerprint()).isEqualTo(value.fingerprint());
+        var later = loaded.evaluatedAt().plusSeconds(1);
+        var changed = new BulkEvaluationGovernance(loaded.governance().evaluatorRevision(),
+                loaded.governance().authorizationFingerprint(), List.of(new BulkPolicyObservation(policy.tenantId(),
+                policy.environment(), policy.targetLayer(), policy.targetArtifactType(), policy.targetArtifactKey(),
+                "PREVIOUSLY_APPLIED_WITHOUT_ELIGIBLE_HEAD", "fixture-policy-r2", later)));
+        assertThat(loaded.matchesCurrentEvidence(CONTEXT, later, loaded.targets(), changed)).isFalse();
+        assertThat(tx.execute(status -> store.findEvaluation(CONTEXT, value.proposal().id()).orElseThrow()).fingerprint())
+                .isEqualTo(value.fingerprint());
+        System.out.println("NEON_PROOF_G_NONEMPTY=committed-roundtrip,changed-policy-rejected,no-rewrite");
+        for (String kind : List.of("missing-governance", "corrupt-json")) {
+            var corrupt = evaluation(1);
+            var document = (com.fasterxml.jackson.databind.node.ObjectNode) corrupt.storageDocument();
+            document.remove("governance");
+            byte[] payload = kind.equals("missing-governance") ? BulkSnapshotStorageCodec.json(document)
+                    : "{invalid-json".getBytes(StandardCharsets.UTF_8);
+            // INSERT only: opaque storage plus canonical companions. No immutable fence or FK is disabled.
+            tx.executeWithoutResult(status -> {
+                store.insert(corrupt.proposal());
+                infrastructure.withConnection(connection -> {
+                    try (var statement = connection.prepareStatement("insert into praxis_bulk.praxis_bulk_evaluation (proposal_id,input_fingerprint,evaluation_fingerprint,payload) values (?,?,?,?)")) {
+                        statement.setObject(1, corrupt.proposal().id()); statement.setString(2, corrupt.proposal().snapshot().fingerprint());
+                        statement.setString(3, corrupt.fingerprint()); statement.setBytes(4, payload); statement.executeUpdate();
+                    }
+                    BulkOrdinalManifest.insert(connection, corrupt);
+                    BulkPreviewStorage.insert(connection, corrupt, preview(corrupt));
+                    return null;
+                });
+            });
+            assertThat(owner.queryForObject("select payload from praxis_bulk.praxis_bulk_evaluation where proposal_id=?", byte[].class, corrupt.proposal().id()))
+                    .isEqualTo(payload);
+            assertThatThrownBy(() -> tx.execute(status -> store.findEvaluation(CONTEXT, corrupt.proposal().id())))
+                    .isInstanceOfSatisfying(BulkProposalStorageException.class,
+                            error -> assertThat(error.reason()).isEqualTo(BulkProposalStorageException.Reason.CORRUPT)).hasNoCause();
+            var protectedInput = tx.execute(status -> store.find(CONTEXT, corrupt.proposal().id()));
+            assertThat(protectedInput).isPresent();
+            System.out.println("NEON_PROOF_G_" + kind + "=committed-visible,protected-load-CORRUPT,input-intact");
+        }
+    }
+
+    private static void assertDomainReceiptRollback(TransactionTemplate tx, JdbcBulkProposalStore store,
+            JdbcBulkDurableExecution kernel, BulkUnitAdmissionCallback admission, MeasuredPool runtime, JdbcTemplate owner) {
+        var value = evaluation(3);
+        tx.executeWithoutResult(status -> store.insertEvaluated(value, preview(value)));
+        var reservation = kernel.reserve(CONTEXT, value.proposal().id(), "rollback-proof", "proof-owner", "structural-r1", Instant.now().plusSeconds(30));
+        // Deferred domain-only trigger observes the real receipt in the same transaction, then aborts COMMIT.
+        owner.execute("""
+                create function public.bulk_proof_abort_commit() returns trigger language plpgsql as $$
+                begin
+                  if exists(select 1 from praxis_bulk.praxis_bulk_item_receipt r
+                      join praxis_bulk.praxis_bulk_execution e using(execution_id)
+                      where e.proposal_id=TG_ARGV[0]::uuid) then
+                    raise exception 'fixture commit rejected after receipt' using errcode='PZ001';
+                  end if;
+                  raise exception 'fixture receipt was not written' using errcode='PZ002';
+                end; $$
+                """);
+        owner.execute("create constraint trigger bulk_proof_abort_commit after update on public.bulk_optional_domain "
+                + "deferrable initially deferred for each row when(new.id=3) execute function public.bulk_proof_abort_commit('" + value.proposal().id() + "')");
+        int receiptsBefore = runtime.recorder.successfulReceiptInserts.get();
+        int failedCommitsBefore = runtime.recorder.deferredReceiptCommitFailures.get();
+        var mutations = new AtomicInteger();
+        try {
+            // Outcome may be reconciliation-required; assert the exact commit failure and durable state below.
+            try {
+                kernel.advance(reservation, admission, unit -> {
+                    mutations.incrementAndGet();
+                    assertThat(new JdbcTemplate(runtime).update("update public.bulk_optional_domain set writes=writes+1 where id=3")).isEqualTo(1);
+                    return BulkUnitMutationResult.confirmed();
+                });
+            } catch (BulkDurableExecutionException expected) {
+                assertThat(expected.reason()).isEqualTo(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
+            }
+            assertThat(mutations).hasValue(1);
+            assertThat(runtime.recorder.successfulReceiptInserts).hasValue(receiptsBefore + 1);
+            assertThat(runtime.recorder.deferredReceiptCommitFailures).hasValue(failedCommitsBefore + 1);
+            assertThat(owner.queryForObject("select writes from public.bulk_optional_domain where id=3", Integer.class)).isZero();
+            assertThat(owner.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class, reservation.executionId())).isZero();
+        } finally {
+            owner.execute("drop trigger bulk_proof_abort_commit on public.bulk_optional_domain");
+            owner.execute("drop function public.bulk_proof_abort_commit()");
+        }
+        System.out.println("NEON_PROOF_F_ROLLBACK=real-receipt-inserted,commit-PZ001,domain-and-receipt-zero,no-callback-retry");
     }
 
     private static void measureProfiles(String label, MeasuredPool runtime, MeasuredPool control, CheckedAction action) throws Exception {
@@ -298,6 +406,8 @@ class BulkOptionalPoliciesNeonTest {
     /** Counts JDBC execute calls and SQL time, never SQL text/parameters or product telemetry. */
     private static final class MeasuredDataSource extends DelegatingDataSource {
         private final Map<String, long[]> counts = new TreeMap<>();
+        private final AtomicInteger successfulReceiptInserts = new AtomicInteger();
+        private final AtomicInteger deferredReceiptCommitFailures = new AtomicInteger();
         MeasuredDataSource(DataSource delegate) { super(delegate); }
         void measure(String label, CheckedAction action) throws Exception {
             counts.clear();
@@ -319,7 +429,11 @@ class BulkOptionalPoliciesNeonTest {
                     (proxy, method, args) -> {
                         Object result;
                         try { result = method.invoke(connection, args); }
-                        catch (InvocationTargetException failure) { throw failure.getCause(); }
+                        catch (InvocationTargetException failure) {
+                            if (method.getName().equals("commit") && failure.getCause() instanceof java.sql.SQLException sql
+                                    && "PZ001".equals(sql.getSQLState())) deferredReceiptCommitFailures.incrementAndGet();
+                            throw failure.getCause();
+                        }
                         if (!(result instanceof Statement statement)) return result;
                         String preparedSql = args != null && args.length > 0 && args[0] instanceof String sql ? sql : "";
                         Class<?> statementType = statement instanceof java.sql.CallableStatement ? java.sql.CallableStatement.class
@@ -341,7 +455,11 @@ class BulkOptionalPoliciesNeonTest {
                                                     "validateLiveControlPlaneRoleAccess").contains(name))
                                             .reduce((near, outer) -> outer).orElse("other"));
                                     long started = System.nanoTime();
-                                    try { return called.invoke(statement, values); }
+                                    try {
+                                        Object executed = called.invoke(statement, values);
+                                        if (sql.stripLeading().startsWith("insert into praxis_bulk.praxis_bulk_item_receipt")) successfulReceiptInserts.incrementAndGet();
+                                        return executed;
+                                    }
                                     catch (InvocationTargetException failure) { throw failure.getCause(); }
                                     finally {
                                         var count = counts.computeIfAbsent(phase, ignored -> new long[5]);
@@ -366,13 +484,14 @@ class BulkOptionalPoliciesNeonTest {
                 new BulkEvaluationGovernance("fixture-evaluator-r1", "fixture-grant-r1", List.of()));
     }
 
-    private static void seedPublication(JdbcTemplate owner, BulkControlPlaneInfrastructure controlPlane) {
+    private static void seedPublication(JdbcTemplate owner, BulkExecutionInfrastructure runtime, BulkControlPlaneInfrastructure controlPlane) {
         owner.update("insert into praxis_bulk.praxis_bulk_operation_control (namespace_id,operation_id,state,generation,updated_at) values (?,?,'UNCOMPOSED',0,clock_timestamp()) on conflict (namespace_id,operation_id) do nothing", NAMESPACE, OPERATION);
         assertThat(owner.queryForObject("select state||':'||generation from praxis_bulk.praxis_bulk_operation_control where namespace_id=? and operation_id=?", String.class, NAMESPACE, OPERATION)).isEqualTo("UNCOMPOSED:0");
         // Same test-only photograph as BulkPostgresTestSupport.ready, but through the actual
         // separately authenticated control-plane role. No production readiness is claimed.
+        var publication = runtime.withLifecycleRead(connection ->
+                JdbcBulkOpenApiPublication.lockForRead(connection, NAMESPACE, DEPLOYMENT));
         long suspendedGeneration = controlPlane.withConnection(connection -> {
-            var publication = JdbcBulkOpenApiPublication.lockForRead(connection, NAMESPACE, DEPLOYMENT);
             var suspended = JdbcBulkOpenApiPublication.transition(connection, NAMESPACE, DEPLOYMENT,
                     publication.generation(), JdbcBulkOpenApiPublication.Target.SUSPENDED, null);
             assertThat(suspended.applied()).isTrue();
