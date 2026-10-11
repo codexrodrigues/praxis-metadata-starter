@@ -3,8 +3,8 @@
 Status: `PLANEJAMENTO_REVISADO / SEM_NOVO_CONTRATO` (2026-09-05).
 Alteração documental; arquitetura futura transversal.
 
-O [plano canônico no Config](../../praxis-config-starter/docs/enterprise-ui-adaptation-platform-evolution-plan-2026-09.md)
-é a fonte de decisões e critérios EUA-01 a EUA-16.
+A [fundação canônica de workspace no Config](https://github.com/codexrodrigues/praxis-config-starter/blob/85f55e608237d3389d1e2b908fd478a355c794cb/docs/ui-layout-workspace-foundation.md)
+documenta a separação entre baseline, autoria e composição autorizada.
 
 ## Responsabilidade canônica
 
