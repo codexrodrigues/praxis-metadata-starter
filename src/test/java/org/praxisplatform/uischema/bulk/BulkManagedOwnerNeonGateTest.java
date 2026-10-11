@@ -35,6 +35,8 @@ class BulkManagedOwnerNeonGateTest {
     void managedOwnerRetentionRecoveryAndHistoricalPrefixes() throws Exception {
         Assignment assignment = Assignment.load();
         run(assignment, "configured-retention-fresh", true, BulkManagedOwnerNeonGateTest::configuredRetentionFresh);
+        run(assignment, "original-v4-preexisting-valid-retention", true,
+                BulkManagedOwnerNeonGateTest::originalFourWithExistingRetention);
         run(assignment, "v19-pending-retry", false, BulkManagedOwnerNeonGateTest::pendingNineteenRetry);
         run(assignment, "v19-partial-grant-denied", false, BulkManagedOwnerNeonGateTest::partialGrantDenied);
         run(assignment, "v19-after-grant-rollback", false, BulkManagedOwnerNeonGateTest::afterGrantRollback);
@@ -70,6 +72,27 @@ class BulkManagedOwnerNeonGateTest {
         assertThat(f.historyPrefix(20)).isEqualTo(history);
         assertThat(f.catalogueSnapshot()).isEqualTo(catalogue);
         f.assertRuntimeCannotOwnDdl();
+    }
+
+    private static void originalFourWithExistingRetention(Fixture f) throws Exception {
+        f.originalFour();
+        // The PG17 non-superuser owner creates only its own child-branch graph; V1–V4 are archived SQL.
+        f.execute("create role praxis_bulk_retention_executor nologin noinherit nosuperuser nocreaterole "
+                + "nocreatedb noreplication nobypassrls");
+        f.execute("grant praxis_bulk_retention_executor to " + f.retentionRole
+                + " with admin false, inherit true, set true granted by current_user");
+        f.assertRetentionExecutorAttributes();
+        String prefix = f.historyPrefix(4);
+        List<String> edge = f.retentionEdge();
+        assertThat(edge).hasSize(1);
+        assertThat(f.migrate()).isEqualTo(16);
+        assertThat(f.historyPrefix(4)).isEqualTo(prefix);
+        f.assertRetentionExecutorAttributes();
+        assertThat(f.retentionEdge()).isEqualTo(edge);
+        f.validate();
+        assertThat(f.migrate()).isZero();
+        assertThat(f.historyPrefix(4)).isEqualTo(prefix);
+        assertThat(f.retentionEdge()).isEqualTo(edge);
     }
 
     private static void pendingNineteenRetry(Fixture f) throws Exception {
@@ -356,6 +379,18 @@ class BulkManagedOwnerNeonGateTest {
         List<String> manifestMarkers() {
             return sql.queryForList("select to_jsonb(b)::text from praxis_bulk.praxis_bulk_manifest_bootstrap b "
                     + "order by bootstrap_version", String.class);
+        }
+        void assertRetentionExecutorAttributes() {
+            assertThat(sql.queryForObject("select not rolcanlogin and not rolinherit and not rolsuper "
+                    + "and not rolcreaterole and not rolcreatedb and not rolreplication and not rolbypassrls "
+                    + "from pg_roles where rolname='praxis_bulk_retention_executor'", Boolean.class)).isTrue();
+        }
+        List<String> retentionEdge() {
+            // Whole pg_auth_members row preserves roleid/member/grantor and all three PG17 option flags.
+            return sql.queryForList("select to_jsonb(m)::text from pg_auth_members m "
+                    + "join pg_roles role on role.oid=m.roleid join pg_roles member on member.oid=m.member "
+                    + "where role.rolname='praxis_bulk_retention_executor' and member.rolname=? "
+                    + "order by m.roleid,m.member,m.grantor", String.class, retentionRole);
         }
         void assertRuntimeCannotOwnDdl() throws Exception {
             var runtime = assignment.source(database, runtimeRole, runtimePassword);
