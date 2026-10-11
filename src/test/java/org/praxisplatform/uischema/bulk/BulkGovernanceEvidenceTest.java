@@ -31,6 +31,93 @@ class BulkGovernanceEvidenceTest {
     }
 
     @Test
+    void explicitlyEmptyPolicySetSurvivesStorageWithoutLosingCurrentAuthorityOrValidityBinding() {
+        var seed = evidence();
+        var governance = governance("evaluator-r1", "authorization-r1", List.of());
+        var value = new BulkEvaluationSnapshot(seed.proposal(), seed.evaluatedAt(), seed.targets(), governance);
+        var loaded = BulkEvaluationStorageCodec.decode(value.proposal(),
+                BulkEvaluationStorageCodec.encode(value), value.fingerprint());
+        var checkedAt = value.evaluatedAt().plusSeconds(1);
+
+        assertThat(loaded.governance()).isEqualTo(governance);
+        assertThat(loaded.governance().policies()).isEmpty();
+        assertThat(loaded.fingerprint()).isEqualTo(value.fingerprint());
+        assertThat(loaded.matchesCurrentEvidence(CONTEXT, checkedAt, value.targets(), governance)).isTrue();
+        for (var changed : List.of(governance("evaluator-r2", "authorization-r1", List.of()),
+                governance("evaluator-r1", "authorization-r2", List.of()))) {
+            assertThat(loaded.matchesCurrentEvidence(CONTEXT, checkedAt, value.targets(), changed)).isFalse();
+        }
+        assertThat(loaded.matchesCurrentEvidence(context("namespace-other", CONTEXT.subjectId(), CONTEXT.schemaRevision()),
+                checkedAt, value.targets(), governance)).isFalse();
+        assertThat(loaded.matchesCurrentEvidence(context(CONTEXT.namespaceId(), "subject-other", CONTEXT.schemaRevision()),
+                checkedAt, value.targets(), governance)).isFalse();
+        assertThat(loaded.matchesCurrentEvidence(context(CONTEXT.namespaceId(), CONTEXT.subjectId(), "schema-other"),
+                checkedAt, value.targets(), governance)).isFalse();
+        assertThat(loaded.matchesCurrentEvidence(CONTEXT, value.evaluatedAt().minusNanos(1),
+                value.targets(), governance)).isFalse();
+        assertThat(loaded.matchesCurrentEvidence(CONTEXT, value.proposal().expiresAt(),
+                value.targets(), governance)).isFalse();
+        for (String missing : Arrays.asList(null, "")) {
+            assertThatThrownBy(() -> governance(missing, "authorization-r1", List.of()))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> governance("evaluator-r1", missing, List.of()))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void changingRequiredPolicySetChangesEvidenceInBothDirectionsAndCannotReuseTheStoredHash() {
+        var required = evidence();
+        var emptyGovernance = governance("evaluator-r1", "authorization-r1", List.of());
+        var empty = new BulkEvaluationSnapshot(required.proposal(), required.evaluatedAt(), required.targets(), emptyGovernance);
+        var checkedAt = required.evaluatedAt().plusSeconds(1);
+
+        assertThat(empty.fingerprint()).isNotEqualTo(required.fingerprint());
+        assertThat(required.matchesCurrentEvidence(CONTEXT, checkedAt, required.targets(), emptyGovernance)).isFalse();
+        assertThat(empty.matchesCurrentEvidence(CONTEXT, checkedAt, empty.targets(), governance(checkedAt))).isFalse();
+        assertThatThrownBy(() -> BulkEvaluationStorageCodec.decode(required.proposal(),
+                BulkEvaluationStorageCodec.encode(empty), required.fingerprint()))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid protected evaluation content");
+        assertThatThrownBy(() -> BulkEvaluationStorageCodec.decode(empty.proposal(),
+                BulkEvaluationStorageCodec.encode(required), empty.fingerprint()))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid protected evaluation content");
+    }
+
+    @Test
+    void policySetRemainsBoundedAndCannotBeMissingNullOrContainDuplicateCoordinates() {
+        var seed = evidence();
+        var policies = new ArrayList<BulkPolicyObservation>();
+        for (int i = 0; i < 64; i++) policies.add(policy("tenant", "test", "layer", "type", "key-" + i,
+                "OPAQUE", "fingerprint", seed.evaluatedAt()));
+        var maximum = new BulkEvaluationSnapshot(seed.proposal(), seed.evaluatedAt(), seed.targets(),
+                governance("evaluator-r1", "authorization-r1", policies));
+        assertThat(BulkEvaluationStorageCodec.decode(maximum.proposal(), BulkEvaluationStorageCodec.encode(maximum),
+                maximum.fingerprint()).governance().policies()).hasSize(64);
+        policies.add(policy("tenant", "test", "layer", "type", "key-64", "OPAQUE", "fingerprint", seed.evaluatedAt()));
+        assertThatThrownBy(() -> governance("e", "a", policies)).isInstanceOf(IllegalArgumentException.class);
+
+        var missing = (ObjectNode) seed.storageDocument();
+        ((ObjectNode) missing.get("governance")).remove("policies");
+        var nullSet = (ObjectNode) seed.storageDocument();
+        ((ObjectNode) nullSet.get("governance")).putNull("policies");
+        var nullElement = (ObjectNode) seed.storageDocument();
+        ((ObjectNode) nullElement.get("governance")).putArray("policies").addNull();
+        var duplicate = (ObjectNode) seed.storageDocument();
+        ((com.fasterxml.jackson.databind.node.ArrayNode) duplicate.at("/governance/policies"))
+                .add(duplicate.at("/governance/policies/0").deepCopy());
+        var excessive = (ObjectNode) maximum.storageDocument();
+        ((com.fasterxml.jackson.databind.node.ArrayNode) excessive.at("/governance/policies"))
+                .add(policies.getLast().document(true));
+        for (var invalid : List.of(missing, nullSet, nullElement, duplicate, excessive)) {
+            // A matching hash cannot make an invalid shape into trusted governance evidence.
+            assertThatThrownBy(() -> BulkEvaluationStorageCodec.decode(seed.proposal(), bytes(invalid.toString()),
+                    BulkCanonicalJson.evaluationDigest(invalid)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Invalid protected evaluation content").hasNoCause();
+        }
+    }
+
+    @Test
     void comparisonRequiresExactContextAndProposalLifetime() {
         var value = evidence();
         var checkedAt = value.evaluatedAt().plusSeconds(1);
@@ -169,7 +256,7 @@ class BulkGovernanceEvidenceTest {
         assertThat(governance.toString()).doesNotContain("evaluator-secret", "authorization-secret");
 
         assertThatThrownBy(() -> governance("e", "a", null)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> governance("e", "a", List.of())).isInstanceOf(IllegalArgumentException.class);
+        assertThat(governance("e", "a", List.of()).policies()).isEmpty();
         assertThatThrownBy(() -> governance("e", "a", Arrays.asList(first, null))).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> governance("e", "a", List.of(first,
                 policy("north", "prod|test", "layer", "type", "key", "OTHER", "f3", first.observedAt()))))
