@@ -9,31 +9,59 @@ Este documento descreve como publicar um Release Candidate (RC) e versões finai
   - `GPG_PASSPHRASE` (passphrase da chave)
   - `GPG_KEY_ID` (opcional; se ausente, o workflow resolve automaticamente)
   - `RELEASE_PAT` (obrigatorio quando o workflow `workflow_dispatch` criar tags; pushes feitos com `GITHUB_TOKEN` nao disparam novo workflow de tag)
+  - `NEON_RELEASE_ASSIGNMENT_JSON` (assignment revisado antes do dispatch, sem senha, com SHA-base, tag/versão esperada, janela curta e receipt/hash do control plane da child exclusiva)
+  - `NEON_RELEASE_OWNER_URI` (URI da role criada somente na child, com `sslmode=verify-full`; nunca credencial do parent ou produção)
 - Java 21 instalado localmente (para builds locais).
+- Antes do dispatch, o coordenador cria uma child Neon não protegida e exclusiva, registra receipt recente do control plane e revisa sua ligação a base-main SHA, tag/versão, endpoint/parent e role. A role da child não pode autenticar no parent. O runner confere esse assignment e a identidade/TLS da conexão; **não** consulta a API Neon. Secrets devem estar prontas antes do dispatch, pois o push da tag inicia o job. Reexecução exige assignment para o novo número de tentativa e uma child adequada.
+
+O JSON do assignment usa `schemaVersion=1`, `repository`, `baseCommit` (SHA-40 da
+main antes do dispatch), `expectedTag`, `runAttempt`, `validFrom`, `expiresAt`,
+`owner` (`role`, `database`, `createdOnChild=true`) e `controlPlane` com
+`observedAt`, `branch` (`id`, `project_id`, `parent_id`, `protected=false`) e
+`endpoint` (`id`, `project_id`, `branch_id`, `host`, `type=read_write`,
+`pooler_enabled` conforme observado, `true` ou `false`). Esse campo informa a
+disponibilidade de pooling no compute; a conexão direta é fixada pela igualdade
+da URI com `endpoint.host` sem `-pooler`. `controlPlaneSha256` é o SHA-256 do objeto
+`controlPlane` em JSON canônico (`sort_keys=true`, separadores compactos,
+UTF-8). O coordenador conserva o recibo bruto de onde extraiu esses campos e a
+revisão independente; o JSON sozinho não atesta que o runner consultou Neon.
+O script exige `HEAD==baseCommit` ou exatamente um commit filho cujo único
+delta no POM é a versão raiz esperada. A URI secreta precisa usar o host direto
+do endpoint, a role e o banco atribuídos e `sslmode=verify-full`; o teste remoto
+atesta PG/identidade real. O assignment expira em até quatro horas e uma nova
+tentativa do workflow não pode reutilizar silenciosamente a anterior. Antes da
+fase Neon, o job revalida a mesma atribuição e exige 90 minutos restantes. A
+projeção pública whitelist da atribuição é preservada no artefato de custódia;
+ela inclui branch/parent/endpoint/owner e hashes, mas nenhuma URI ou senha.
 
 ## Fluxo (Release Candidate)
-1) Validar localmente (sem assinar):
+1) Validar localmente o mecanismo offline (sem banco nem assinatura):
 ```
-./mvnw -B -T 1C clean verify
-./mvnw -B javadoc:javadoc && test -d target/site/apidocs
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/release -p 'test_*.py' -v
+python3 tools/release/neon_gate.py
 ```
-O gate inclui `EmbeddedPostgresColdStartTest`, que extrai e inicia PostgreSQL em
-diretório novo com resolver independente. Cache Maven isolado não equivale a
-cache de binários vazio: uma instalação já extraída pode ocultar incompatibilidade
-entre Commons Compress e Commons Lang. Antes de ajustar dependências, conferir
-`mvn dependency:tree`; preservar o alinhamento também no classpath de runtime e
-na adoção do host, sem corrigir somente o classpath dos testes.
+O inventário `tools/release/neon-test-inventory.json` deve estar fechado para a
+árvore integrada: todo teste/recurso/fixture rastreado é enumerado e as células
+B–H apontam para casos Neon e asserções reais. `db_local_legacy` ou
+`external_workspace` pendente, classe desconhecida, skip ou evidência divergente
+bloqueiam a release. Exclusões fora do impacto exigem revisão do diff/callpath;
+somente reuso que sustenta uma obrigação A–I precisa de artefato bruto e digest
+do escopo produtivo/dependências. `EmbeddedPostgresColdStartTest` é prova
+histórica de extração local e não integra a validação remota; sua substituição
+no inventário deve apontar a caso Neon B executável e à custódia real do JAR.
+Não executar `clean verify` integral enquanto fixtures H2/Embedded permanecerem
+na árvore: testes dependentes de banco usam exclusivamente uma child Neon.
 
 O ciclo Maven prepara os SDKs históricos usados pelas provas de migração em
 `generate-test-resources`, pelo `download-maven-plugin` com URL de Maven Central,
-SHA-256 fixado, `alwaysVerifyChecksum=true` e `failOnError=true`. A prova V19 usa
+SHA-256 fixado, `alwaysVerifyChecksum=true` e `failOnError=true`. A prova histórica V19 usa
 `target/historical-bulk-sdk/metadata-v19-rc155.jar`; o teste resolve esse caminho
 por padrão e ainda valida hash, CodeSource e migrations do SDK nativo.
 Não é necessário fornecer `praxis.bulk.historical.rc155.jar` no release workflow.
 Uma property explícita continua disponível para provas históricas controladas,
 sem desativar a validação de bytes. JAR ausente/divergente ou download falho
-bloqueiam o gate: não excluir testes, instalar a coordenada pública atual como
-fixture, ou encaminhar `target/classes` para substituir o SDK histórico.
+bloqueiam a prova selecionada: não instalar a coordenada pública atual como
+fixture nem encaminhar `target/classes` para substituir o SDK histórico.
 
 2) Para qualquer mudanca de contrato publico, executar o gate corporativo antes
    da tag:
@@ -68,8 +96,9 @@ Checklist minima para esse caso:
    o POM e envia commit/tag atomicamente; nao cria tag sobre POM divergente.
 4) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
 - O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.6`).
-- Passos: conferir ancestralidade e versão persistida → hygiene público → importar GPG → testes e assinatura com `./mvnw -P release ... clean verify` → construir/validar o ZIP → preservar o arquivo → upload único pela API oficial e verificação dos bytes públicos.
-- O wrapper Maven 3.9.6, a suíte completa e o gate `check-public-contract-gate.sh` permanecem obrigatórios. Não repetir o build para construir o bundle.
+- Passos: conferir ancestralidade e versão persistida → higiene pública → importar GPG → validar assignment/inventário → `clean test` da seleção sem DB → revalidar child/janela → `verify` dos casos Neon B–H no mesmo job/tag com perfil release → verificar XMLs/logs/casos parametrizados/bytes de `target/classes` e JAR → construir/validar o ZIP → preservar o arquivo → upload único pela API oficial e verificação dos bytes públicos.
+- O wrapper Maven 3.9.6, a seleção sem DB completa e auditada, o gate Neon por impacto e `check-public-contract-gate.sh` são obrigatórios. Não se afirma suíte integral nem equivalência das fixtures históricas não executadas. Os relatórios Surefire são separados por fase; erro, skip, log ausente, receipt fora da árvore/tag ou JAR diferente bloqueiam antes do upload. A segunda invocação não usa `clean`; o script confere os bytes de classes/recursos testados e empacotados. O bundle usa o mesmo JAR staged, sem rebuild posterior.
+- O receipt vincula `run_id`/tentativa, base/tag, assignment público e hash do segredo original, versão de Java/Maven, POM efetivo, árvore de dependências e SHA-256 dos JARs no classpath de teste resolvido. As três consultas Maven de custódia não executam testes nem recompilam o JAR. A passphrase GPG entra somente pelo ambiente `MAVEN_GPG_PASSPHRASE` suportado pelo plugin 3.2.4; não é passada por `-Dgpg.passphrase`.
 - O publicador exige `PUBLISHED` para o GAV esperado e compara POM/JAR públicos e SHA-512 com o ZIP validado em `repo.maven.apache.org`; HTTP 200 ou uma instalação local não bastam.
 - Consumidores só são atualizados após essa prova; o host ainda deve executar seu próprio `verify` com dependências públicas sem override.
 
