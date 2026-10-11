@@ -166,16 +166,14 @@ class BulkOptionalPoliciesNeonTest {
         var store = new JdbcBulkProposalStore(infrastructure);
         var runtimeSql = new JdbcTemplate(runtime);
         var kernel = new JdbcBulkDurableExecution(infrastructure);
+        governanceNegatives(tx, store, infrastructure, ownerSql);
         var first = evaluation(1);
-        var second = evaluation(2);
         tx.executeWithoutResult(status -> store.insertEvaluated(first, preview(first)));
-        tx.executeWithoutResult(status -> store.insertEvaluated(second, preview(second)));
         var recovered = tx.execute(status -> store.findEvaluation(CONTEXT, first.proposal().id()).orElseThrow());
         assertThat(recovered.governance().policies()).isEmpty();
         assertThat(recovered.governance().authorizationFingerprint()).isEqualTo("fixture-grant-r1");
         assertThat(recovered.fingerprint()).isEqualTo(first.fingerprint());
         System.out.println("NEON_PROOF_ROUNDTRIP=empty-policy-set-and-fingerprint-preserved");
-        governanceNegatives(tx, store, infrastructure, ownerSql);
         var admitted = kernel.reserve(CONTEXT, first.proposal().id(), "accepted", "proof-owner", "structural-r1", Instant.now().plusSeconds(30));
         var admissionCalls = new AtomicInteger();
         var mutationCalls = new AtomicInteger();
@@ -197,6 +195,9 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(ownerSql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class, admitted.executionId())).isEqualTo(1);
         assertThat(ownerSql.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, admitted.executionId())).isEqualTo("COMPLETED");
         assertDomainReceiptRollback(tx, store, kernel, admission, runtime, ownerSql);
+        // Evaluate while the grant is valid, immediately before its explicit revocation.
+        var second = evaluation(2);
+        tx.executeWithoutResult(status -> store.insertEvaluated(second, preview(second)));
         ownerSql.update("update public.bulk_optional_grant set allowed=false, revision=2 where subject=?", CONTEXT.subjectId());
         int beforeReplay = admissionCalls.get();
         var replay = kernel.reserve(CONTEXT, first.proposal().id(), "accepted", "proof-owner", "structural-r1", Instant.now().plusSeconds(30));

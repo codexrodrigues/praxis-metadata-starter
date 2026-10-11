@@ -109,14 +109,21 @@ class BulkManagedOwnerNeonGateTest {
     private static void partialGrantDenied(Fixture f) throws Exception {
         f.ddlTarget(19);
         f.execute("grant usage on schema praxis_bulk to " + f.runtimeRole);
-        String prefix = f.historyPrefix(19);
+        String history = f.historyPrefix(Integer.MAX_VALUE);
+        List<String> catalogue = f.catalogueSnapshot();
+        List<String> markers = f.allBootstrapMarkers();
         long acl = f.count("select count(*) from pg_namespace n cross join lateral aclexplode(n.nspacl) a "
                 + "where n.nspname='praxis_bulk' and a.grantee='" + f.runtimeRole + "'::regrole "
                 + "and a.privilege_type='USAGE'");
         assertThat(acl).isEqualTo(1);
+        // Partial host ACLs disqualify fresh bootstrap. Strict V5 function grants are checked
+        // before schema grants; reject this state without supplying the missing permissions.
         assertThatThrownBy(f::migrate).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("bulk retention schema grants differ");
-        assertThat(f.historyPrefix(19)).isEqualTo(prefix);
+                .hasMessage("governed lifecycle function grants differ");
+        assertThat(f.historyPrefix(Integer.MAX_VALUE)).isEqualTo(history);
+        assertThat(f.count("select max(version::int) from praxis_bulk.praxis_bulk_schema_history")).isEqualTo(19);
+        assertThat(f.catalogueSnapshot()).isEqualTo(catalogue);
+        assertThat(f.allBootstrapMarkers()).isEqualTo(markers);
         assertThat(f.count("select count(*) from praxis_bulk.praxis_bulk_manifest_bootstrap where phase='PENDING'"))
                 .isEqualTo(1);
         assertThat(f.count("select count(*) from pg_namespace n cross join lateral aclexplode(n.nspacl) a "
@@ -375,6 +382,19 @@ class BulkManagedOwnerNeonGateTest {
                     ) snapshot order by value
                     """, String.class, assignment.ownerRole, runtimeRole, controlRole,
                     retentionRole == null ? "" : retentionRole);
+        }
+        List<String> allBootstrapMarkers() {
+            List<String> tables = List.of("praxis_bulk_manifest_bootstrap", "praxis_bulk_preview_bootstrap",
+                    "praxis_bulk_preview_integrity_bootstrap", "praxis_bulk_preview_reader_bootstrap",
+                    "praxis_bulk_atomic_bootstrap", "praxis_bulk_capacity_read_bootstrap",
+                    "praxis_bulk_capacity_occupancy_bootstrap");
+            String query = tables.stream().map(table -> "select '" + table
+                    + "|'||to_jsonb(b)::text as marker from praxis_bulk." + table + " b")
+                    .collect(java.util.stream.Collectors.joining(" union all "));
+            List<String> markers = sql.queryForList("select marker from (" + query + ") markers order by marker",
+                    String.class);
+            assertThat(markers).hasSize(tables.size());
+            return markers;
         }
         List<String> manifestMarkers() {
             return sql.queryForList("select to_jsonb(b)::text from praxis_bulk.praxis_bulk_manifest_bootstrap b "

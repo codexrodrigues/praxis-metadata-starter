@@ -1616,7 +1616,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkManagedOwnerNeonGateTest.java",
-      "sha256": "168adf2ce163759e8bb28ca7b9336a433bfad059da18bf2e8bcf1ec30e8542c9",
+      "sha256": "ebf212e3d0e6a7068e63bf1ca92555452c8172000ea36ede7d402aeb99c87787",
       "kind": "neon_required",
       "reason": "Serial managed-owner recovery and history cases on one assigned child; disposable database per case.",
       "className": "org.praxisplatform.uischema.bulk.BulkManagedOwnerNeonGateTest",
@@ -1759,7 +1759,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkOptionalPoliciesNeonTest.java",
-      "sha256": "b95d8dfad01b6b12d5db4d10c707c096cedc1a8887275495811056f7a84aeb61",
+      "sha256": "6f19bf2d0122c27776d50fb2d41d3b1d2a752a8d0377477dcffaa56980ed7af6",
       "kind": "neon_required",
       "reason": "Fresh remote owner/runtime/control and durable optional-policy evidence on assigned child.",
       "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
