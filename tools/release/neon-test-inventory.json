@@ -1759,7 +1759,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkOptionalPoliciesNeonTest.java",
-      "sha256": "6f19bf2d0122c27776d50fb2d41d3b1d2a752a8d0377477dcffaa56980ed7af6",
+      "sha256": "792552c35c0724a941d523b427738756b6bc978903f772b2c4e556915e33ceed",
       "kind": "neon_required",
       "reason": "Fresh remote owner/runtime/control and durable optional-policy evidence on assigned child.",
       "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",

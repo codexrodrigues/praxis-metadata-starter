@@ -458,7 +458,9 @@ class BulkOptionalPoliciesNeonTest {
                                     long started = System.nanoTime();
                                     try {
                                         Object executed = called.invoke(statement, values);
-                                        if (sql.stripLeading().startsWith("insert into praxis_bulk.praxis_bulk_item_receipt")) successfulReceiptInserts.incrementAndGet();
+                                        // The canonical insert begins with the receipt_clock CTE, not INSERT.
+                                        // COMMIT PZ001 below independently proves a receipt row existed in this transaction.
+                                        if (sql.contains("insert into praxis_bulk.praxis_bulk_item_receipt\n")) successfulReceiptInserts.incrementAndGet();
                                         return executed;
                                     }
                                     catch (InvocationTargetException failure) { throw failure.getCause(); }
