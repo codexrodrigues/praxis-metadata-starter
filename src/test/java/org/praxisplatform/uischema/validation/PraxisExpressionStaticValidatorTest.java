@@ -176,4 +176,82 @@ class PraxisExpressionStaticValidatorTest {
 
         assertDoesNotThrow(() -> customizerDisabled.customise(openApi));
     }
+
+    @Test
+    @DisplayName("Accepts expressions with global JS utility functions (parseInt, parseFloat, isNaN, isFinite, encodeURIComponent)")
+    void testGlobalJsUtilityFunctionsAllowedInExpressions() {
+        String expr1 = "= parseInt(row.score) > 10 ? 'success' : 'neutral'";
+        assertTrue(validator.validateExpression(expr1, validProperties, "field1").valid());
+
+        String expr2 = "= !isNaN(row.valorTotal) ? 'info' : 'danger'";
+        assertTrue(validator.validateExpression(expr2, validProperties, "field2").valid());
+
+        String expr3 = "parseFloat(item.taxaAtingimento) >= 80.5 ? 'success' : 'danger'";
+        assertTrue(validator.validateExpression(expr3, validProperties, "field3").valid());
+
+        String expr4 = "= isFinite(form.valorTotal) ? 'success' : 'warning'";
+        assertTrue(validator.validateExpression(expr4, validProperties, "field4").valid());
+
+        String expr5 = "${encodeURIComponent(data.nome)} != null ? 'info' : 'warning'";
+        assertTrue(validator.validateExpression(expr5, validProperties, "field5").valid());
+    }
+
+    @Test
+    @DisplayName("Normalizes 'data.' and 'form.' prefixes in expressions and JsonLogic")
+    void testPrefixesDataAndFormNormalized() {
+        String expr1 = "${data.status} === 'ACTIVE' ? 'success' : 'neutral'";
+        assertTrue(validator.validateExpression(expr1, validProperties, "field1").valid());
+
+        String expr2 = "= form.valorTotal > 500 ? 'warning' : 'neutral'";
+        assertTrue(validator.validateExpression(expr2, validProperties, "field2").valid());
+
+        String expr3 = "= data.taxaAtingimento >= 80 ? 'success' : 'danger'";
+        assertTrue(validator.validateExpression(expr3, validProperties, "field3").valid());
+
+        Map<String, Object> dataVarLogic = Map.of(
+                "==", List.of(Map.of("var", "data.status"), "ACTIVE")
+        );
+        assertTrue(validator.validateJsonLogic(dataVarLogic, validProperties, "rules.when").valid());
+
+        Map<String, Object> formVarLogic = Map.of(
+                "==", List.of(Map.of("var", "form.status"), "ACTIVE")
+        );
+        assertTrue(validator.validateJsonLogic(formVarLogic, validProperties, "rules.when").valid());
+    }
+
+    @Test
+    @DisplayName("Validates schema rules: visible, disabled, required, and computed")
+    void testSchemaValidationRulesCoverage() {
+        Schema<?> schema = new Schema<>();
+        Schema<String> statusProp = new StringSchema();
+        statusProp.setName("status");
+
+        Map<String, Object> uiExtension = new LinkedHashMap<>();
+        Map<String, Object> rules = new LinkedHashMap<>();
+        rules.put("visible", "= row.status == 'ACTIVE'");
+        rules.put("required", true); // boolean should be ignored
+        rules.put("disabled", Map.of("==", List.of(Map.of("var", "score"), 100)));
+        rules.put("computed", "= row.valorTotal * 2");
+        uiExtension.put("rules", rules);
+        statusProp.addExtension("x-ui", uiExtension);
+
+        schema.addProperty("status", statusProp);
+        schema.addProperty("score", new StringSchema());
+        schema.addProperty("valorTotal", new StringSchema());
+
+        List<String> validErrors = validator.validateSchemaExpressions("HeroDTO", schema, false);
+        assertTrue(validErrors.isEmpty(), "Schema rules should be valid: " + validErrors);
+
+        // Invalid rules.visible
+        rules.put("visible", "= row.campoInexistente == 'ACTIVE'");
+        List<String> invalidErrors = validator.validateSchemaExpressions("HeroDTO", schema, false);
+        assertFalse(invalidErrors.isEmpty());
+        assertTrue(invalidErrors.get(0).contains("campoInexistente"));
+        assertTrue(invalidErrors.get(0).contains("rules.visible"));
+
+        // Strict mode throws
+        assertThrows(InvalidDomainExpressionException.class, () ->
+                validator.validateSchemaExpressions("HeroDTO", schema, true)
+        );
+    }
 }

@@ -24,6 +24,7 @@ public class PraxisExpressionStaticValidator {
     private static final Set<String> RESERVED_KEYWORDS = Set.of(
             "true", "false", "null", "undefined", "NaN", "Infinity",
             "Math", "Number", "String", "Date", "Array", "Boolean", "Object",
+            "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURIComponent", "decodeURIComponent",
             "typeof", "instanceof", "in", "new", "this",
             // Semantic tones permitidos em expressoes
             "neutral", "info", "success", "warning", "danger", "critical"
@@ -172,6 +173,11 @@ public class PraxisExpressionStaticValidator {
                         }
                     }
                 }
+
+                validateRuleExpressionOrLogic("visible", rules.get("visible"), validPropNames, schemaName, propName, schemaErrors);
+                validateRuleExpressionOrLogic("disabled", rules.get("disabled"), validPropNames, schemaName, propName, schemaErrors);
+                validateRuleExpressionOrLogic("required", rules.get("required"), validPropNames, schemaName, propName, schemaErrors);
+                validateRuleExpressionOrLogic("computed", rules.get("computed"), validPropNames, schemaName, propName, schemaErrors);
             }
         }
 
@@ -186,6 +192,24 @@ public class PraxisExpressionStaticValidator {
         }
 
         return schemaErrors;
+    }
+
+    private void validateRuleExpressionOrLogic(String ruleName, Object ruleValue, Set<String> validProps,
+                                               String schemaName, String propName, List<String> errors) {
+        if (ruleValue == null) {
+            return;
+        }
+        String context = schemaName + "." + propName + ".rules." + ruleName;
+        if (ruleValue instanceof String exprStr) {
+            if (!exprStr.isBlank()) {
+                ValidationResult result = validateExpression(exprStr, validProps, context);
+                errors.addAll(result.errors());
+            }
+        } else if (ruleValue instanceof Map<?, ?> logicMap) {
+            Map<?, ?> targetMap = (logicMap.get("when") instanceof Map<?, ?> whenMap) ? whenMap : logicMap;
+            ValidationResult result = validateJsonLogic(targetMap, validProps, context);
+            errors.addAll(result.errors());
+        }
     }
 
     private void validateVizField(String fieldName, Object fieldValue, Set<String> validProps,
@@ -303,11 +327,15 @@ public class PraxisExpressionStaticValidator {
                 continue;
             }
 
-            // Normaliza prefixos 'row.' e 'item.'
+            // Normaliza prefixos 'row.', 'item.', 'data.', 'form.'
             String propName;
             if (token.startsWith("row.")) {
                 propName = token.substring(4);
             } else if (token.startsWith("item.")) {
+                propName = token.substring(5);
+            } else if (token.startsWith("data.")) {
+                propName = token.substring(5);
+            } else if (token.startsWith("form.")) {
                 propName = token.substring(5);
             } else if (token.contains(".")) {
                 // Token encadeado, ex: user.profile -> pega a raiz 'user' se for propriedade do DTO
@@ -407,6 +435,10 @@ public class PraxisExpressionStaticValidator {
         if (name.startsWith("row.")) {
             name = name.substring(4);
         } else if (name.startsWith("item.")) {
+            name = name.substring(5);
+        } else if (name.startsWith("data.")) {
+            name = name.substring(5);
+        } else if (name.startsWith("form.")) {
             name = name.substring(5);
         }
         if (name.contains(".")) {
