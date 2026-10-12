@@ -353,6 +353,17 @@ do chamador quando possível. Tempo anterior à participação é
 contabilizado e pode invalidar a captura; pool, attestation e código
 Java arbitrário não são cancelados preemptivamente. Não interpretar
 8s/30s como teto duro end-to-end.</p>
+<p>Cada verificação interna combina o clamp LOCAL e um
+<code>clock_timestamp()</code> fresco em uma consulta; a inicialização
+também lê os timeouts anteriores e o relógio do banco juntos. O supplier
+entregue à callback continua aplicando o clamp por SQL. O saldo inicial
+do chamador é ancorado imediatamente antes da leitura desse supplier,
+sem descontar novamente o tempo de participação já refletido no saldo; o
+teto próprio de 30s permanece ancorado antes da infraestrutura e a
+expiração da proposta não é renovada. Falhas SQL, runtime ou Error na
+restauração não substituem a falha primária; sem falha primária, a
+restauração mal-sucedida impede sucesso. A exceção pública sanitizada
+não recebe causas nem suppressed crus da restauração.</p>
 <p>Na rota persistente MissionParticipant, expiresAt é fixado como
 createdAt+validity antes da captura; espera ou avaliação não renovam a
 janela. A avaliação standalone anterior mantém sua política de validade
