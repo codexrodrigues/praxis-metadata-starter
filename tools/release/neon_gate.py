@@ -19,6 +19,12 @@ from urllib.parse import unquote, urlsplit
 
 GROUPS = tuple("BCDEFGH")
 NEON_PHASES = ("managed-owner", "optional-policies")
+CAPTURE_MARKERS = (
+    'NEON_PROOF_CAPTURE_TRANSACTION=same-writable-RR-connection,callback-once,committed-seven-stores,independent-readback',
+    'NEON_PROOF_CAPTURE_EXPIRY=postgres-clock-after-callback,safe-unavailable,outer-catch-rollback-only,seven-stores-zero',
+    'NEON_PROOF_CAPTURE_LOWER_GUC=statement-and-lock-never-widened,prior-limits-restored,rollback-zero',
+    'NEON_PROOF_CAPTURE_FAILURE=callback-domain-write,safe-unavailable,outer-catch-rollback-only,seven-stores-zero,domain-restored',
+)
 KINDS = {
     "no_db", "neon_required", "historical_reuse", "excluded_outside_impact",
     "superseded", "support", "db_local_legacy", "external_workspace",
@@ -315,6 +321,12 @@ def verify_neon_reports(manifest, neon_dirs):
         expected = set(selected_classes(manifest, phase))
         if len(expected) != 1 or set(suites) != expected:
             raise GateError(f"Neon {phase} Surefire report set differs from inventory")
+        if phase == "optional-policies":
+            root = ET.parse(next(iter(suites.values()))).getroot()
+            output = "\n".join(node.text or "" for node in root.iter("system-out"))
+            lines = output.splitlines()
+            if any(lines.count(marker) != 1 for marker in CAPTURE_MARKERS):
+                raise GateError("missing/duplicate P4 capture oracle marker")
         neon_cases.update(cases)
     if any(count != 1 for count in neon_cases.values()):
         raise GateError("duplicate JUnit testcase identity across Neon phases")

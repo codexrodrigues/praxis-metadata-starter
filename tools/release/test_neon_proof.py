@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from neon_gate import GateError, sha256
+from neon_gate import CAPTURE_MARKERS, GateError, sha256
 from neon_proof import scan_fixture, verify_source_matrix
 
 
@@ -22,9 +22,10 @@ class SourceProofTest(unittest.TestCase):
                                      ('optional-policies', P4, P4_CASE)):
                 directory = evidence / 'reports' / phase
                 directory.mkdir(parents=True)
+                output = '\n'.join(CAPTURE_MARKERS) if phase == 'optional-policies' else ''
                 (directory / f'TEST-{cls}.xml').write_text(
                     f'<testsuite name="{cls}" tests="1" errors="0" failures="0" skipped="0">'
-                    f'<testcase classname="{cls}" name="{case}"/></testsuite>')
+                    f'<testcase classname="{cls}" name="{case}"/><system-out>{output}</system-out></testsuite>')
                 (evidence / f'{phase}.log').write_text(phase + ' PASS')
             compiled = {}
             for kind, path in (('production', root / 'target/classes/A.class'),
