@@ -361,6 +361,23 @@ operacional do binding:
    A configuração inicial dos dois limites de controle de 1 s também usa um único statement.
    Esse agrupamento reduz viagens ao banco; não renova o prazo persistido de 5 s, não remove
    verificações posteriores de relógio e não muda a ordem de autorização, locks ou callbacks.
+   No caminho PER_ITEM/SYNC, o prefixo de aplicação reúne os 13 comandos em uma execução
+   JDBC com resultados múltiplos ordenados: marcador de capacidade, identidade, controle
+   SHARE, execução UPDATE, receipt/admission pontuais, relógio, avaliação, prefixos duráveis,
+   fence READY, relógio de unidade e instalação do saldo. Os sucessores são escopados pela
+   execução e tentativa, e resultados ausentes, extras ou inconsistentes impedem a callback.
+   Depois de ADMIT, a instalação do saldo e os dois relógios continuam comandos distintos,
+   enviados juntos. Antes de cada callback, a âncora monotônica original também recusa saldo
+   esgotado durante transporte ou decodificação. Em ASYNC, os reads adicionais de capacidade
+   conservam seus limites iniciais antes da instalação separada do saldo.
+   Receipt, promoção para pending e snapshot final também são enviados em ordem; o UPDATE
+   exige o receipt exato da tentativa, com ordinal, digest, versão, epoch e prazo concordantes.
+   Receipt ausente não promove pending. Falha SQL tardia ou validação inválida reverte toda a
+   transação, incluindo o efeito de domínio. Os guards de publicação e suas atestações vivas
+   continuam; ACK permanece em outra transação após o commit. Os testes JDBC sem banco
+   verificam bindings, consumo e recusa dos callbacks; locks, gates SQL, rollback físico e
+   desempenho com transporte controlado exigem prova Neon própria. Esse corte não certifica
+   desempenho Render, execução ATOMIC ou adoção HTTP do consumidor.
    Domínio, receipt e mudança para `UNIT_COMMITTED_PENDING_ACK` confirmam juntos. Resultado
    `CONFIRMED` nunca é observado antes desse commit.
 3. **Acknowledgement.** Somente depois que o manager confirmou a transação anterior, uma nova

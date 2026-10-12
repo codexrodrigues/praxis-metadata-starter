@@ -204,6 +204,10 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(ownerSql.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, admitted.executionId())).isEqualTo("COMPLETED");
         assertDomainReceiptRollback(tx, store, kernel, admission, runtime, ownerSql);
         assertExpiredAdmissionCannotMutate(tx, store, kernel, runtime, ownerSql);
+        assertExpiredMutationCannotPersist(tx, store, kernel, runtime, ownerSql);
+        assertOrderedApplyFences(tx, store, kernel, infrastructure, controlPlane, ownerSql);
+        assertOrderedNonemptyPrefix(tx, store, kernel, ownerSql);
+        assertOrderedTransportProfile(tx, store, kernel, runtime, ownerSql);
         // Evaluate while the grant is valid, immediately before its explicit revocation.
         var second = evaluation(2);
         tx.executeWithoutResult(status -> store.insertEvaluated(second, preview(second)));
@@ -534,6 +538,258 @@ class BulkOptionalPoliciesNeonTest {
         System.out.println("NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION=ADMIT-returned,deadline-STOP,mutation-zero,domain-preserved,receipt-and-admission-zero");
     }
 
+    /** A confirmed callback after the real database deadline cannot leave domain, receipt or pending. */
+    private static void assertExpiredMutationCannotPersist(TransactionTemplate tx, JdbcBulkProposalStore store,
+            JdbcBulkDurableExecution kernel, DataSource runtime, JdbcTemplate owner) {
+        var value = evaluation(3);
+        tx.executeWithoutResult(status -> store.insertEvaluated(value, preview(value)));
+        var reservation = kernel.reserve(CONTEXT, value.proposal().id(), "expired-mutation-proof", "proof-owner",
+                "structural-r1", Instant.now().plusSeconds(30));
+        var baseline = owner.queryForList("select * from public.bulk_optional_domain order by id");
+        var mutations = new AtomicInteger(); var confirmed = new AtomicBoolean();
+        kernel.advance(reservation, unit -> BulkUnitAdmission.admit(), unit -> {
+            mutations.incrementAndGet();
+            assertThat(new JdbcTemplate(runtime).update("update public.bulk_optional_domain set writes=writes+1 where id=3")).isEqualTo(1);
+            var connection = org.springframework.jdbc.datasource.DataSourceUtils.getConnection(runtime);
+            try {
+                TimeUnit.NANOSECONDS.sleep(unit.remainingBudget().toNanos() / 2);
+                long wait = Math.max(0, Duration.between(unitDatabaseClock(connection), unit.unitDeadline()).toNanos());
+                TimeUnit.NANOSECONDS.sleep(wait + Duration.ofMillis(50).toNanos());
+                assertThat(unitDatabaseClock(connection)).isAfterOrEqualTo(unit.unitDeadline());
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt(); throw new IllegalStateException(interrupted);
+            } catch (SQLException failure) { throw new IllegalStateException(failure); }
+            finally { org.springframework.jdbc.datasource.DataSourceUtils.releaseConnection(connection, runtime); }
+            confirmed.set(true);
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(mutations).hasValue(1); assertThat(confirmed).isTrue();
+        assertThat(owner.queryForList("select * from public.bulk_optional_domain order by id")).isEqualTo(baseline);
+        assertThat(owner.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, reservation.executionId())).isEqualTo("STOPPED");
+        assertThat(owner.queryForObject("select terminal_reason_code from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, reservation.executionId())).isEqualTo("DEADLINE_EXCEEDED");
+        assertThat(owner.queryForObject("select next_ordinal from praxis_bulk.praxis_bulk_execution where execution_id=?", Integer.class, reservation.executionId())).isZero();
+        for(String table:List.of("praxis_bulk_item_receipt","praxis_bulk_admission"))
+            assertThat(owner.queryForObject("select count(*) from praxis_bulk." + table + " where execution_id=?", Integer.class, reservation.executionId())).isZero();
+        System.out.println("NEON_PROOF_ORDERED_UNIT_EXPIRED_MUTATION=CONFIRMED-returned,deadline-STOP,no-pending,domain-rollback,receipt-and-admission-zero");
+    }
+
+    /** Real prepare/apply phases, explicitly invoked separately to test the committed boundary. */
+    private static void assertOrderedApplyFences(TransactionTemplate tx, JdbcBulkProposalStore store,
+            JdbcBulkDurableExecution kernel, BulkExecutionInfrastructure infrastructure,
+            BulkControlPlaneInfrastructure controlPlane, JdbcTemplate owner) {
+        var baseline = owner.queryForList("select * from public.bulk_optional_domain order by id");
+        var epochValue = evaluation(3);
+        tx.executeWithoutResult(status -> store.insertEvaluated(epochValue, preview(epochValue)));
+        var epoch = kernel.reserve(CONTEXT, epochValue.proposal().id(), "ordered-epoch-proof", "proof-owner", "structural-r1", Instant.now().plusSeconds(30));
+        Object epochAttempt = preparedAttempt(infrastructure, kernel, epoch.control());
+        var recovered = kernel.recover(CONTEXT, epoch.executionId(), "recovered-owner");
+        assertThat(recovered.execution().control().epoch()).isEqualTo(epoch.control().epoch() + 1);
+        var callbacks = new AtomicInteger();
+        var epochAfterRecovery = owner.queryForMap("select * from praxis_bulk.praxis_bulk_execution where execution_id=?", epoch.executionId());
+        assertThatThrownBy(() -> appliedAttempt(infrastructure, kernel, epoch.control(), epochAttempt, callbacks))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class, failure ->
+                        assertThat(failure.reason()).isEqualTo(BulkDurableExecutionException.Reason.FENCED));
+        assertThat(callbacks).hasValue(0);
+        assertEmptyAttemptEffects(owner, epoch.executionId());
+        assertThat(owner.queryForMap("select * from praxis_bulk.praxis_bulk_execution where execution_id=?", epoch.executionId())).isEqualTo(epochAfterRecovery);
+
+        // An additional fixture operation avoids resetting/changing the principal operation's history.
+        String operation = OPERATION + "-ordered-fence";
+        owner.update("insert into praxis_bulk.praxis_bulk_operation_control (namespace_id,operation_id,state,generation,updated_at) values (?,?,'UNCOMPOSED',0,clock_timestamp())", NAMESPACE, operation);
+        var publication = infrastructure.withLifecycleRead(connection ->
+                JdbcBulkOpenApiPublication.lockForRead(connection, NAMESPACE, DEPLOYMENT));
+        controlPlane.withConnection(connection -> {
+            assertThat(JdbcBulkOperationControl.transition(connection, NAMESPACE, operation, 0,
+                    JdbcBulkOperationControl.Target.READY, CONTROL_EXPECTATION.descriptorFingerprint(),
+                    CONTROL_EXPECTATION.structuralRevision(), publication.generation(), publication.documentDigest()).applied()).isTrue();
+            return null;
+        });
+        var context = new BulkFingerprintContext(NAMESPACE, CONTEXT.subjectId(), CONTEXT.resourceKey(),
+                new CanonicalOperationRef("proof", operation, "/proof/ordered-fence", "POST"),
+                CONTEXT.schemaRevision(), ActionCollectionAtomicity.PER_ITEM);
+        var fencedValue = evaluation(3, context);
+        tx.executeWithoutResult(status -> store.insertEvaluated(fencedValue, preview(fencedValue)));
+        var fenced = kernel.reserve(context, fencedValue.proposal().id(), "ordered-control-proof", "proof-owner", "structural-r1", Instant.now().plusSeconds(30));
+        Object fencedAttempt = preparedAttempt(infrastructure, kernel, fenced.control());
+        controlPlane.withConnection(connection -> {
+            assertThat(JdbcBulkOperationControl.transition(connection, NAMESPACE, operation, 1,
+                    JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null).applied()).isTrue();
+            return null;
+        });
+        var fencedBeforeApply = owner.queryForMap("select * from praxis_bulk.praxis_bulk_execution where execution_id=?", fenced.executionId());
+        assertThatThrownBy(() -> appliedAttempt(infrastructure, kernel, fenced.control(), fencedAttempt, callbacks))
+                .isInstanceOfSatisfying(BulkDurableExecutionException.class, failure ->
+                        assertThat(failure.reason()).isEqualTo(BulkDurableExecutionException.Reason.NOT_EXECUTABLE));
+        assertThat(callbacks).hasValue(0);
+        assertEmptyAttemptEffects(owner, fenced.executionId());
+        assertThat(owner.queryForMap("select * from praxis_bulk.praxis_bulk_execution where execution_id=?", fenced.executionId())).isEqualTo(fencedBeforeApply);
+        assertThat(owner.queryForList("select * from public.bulk_optional_domain order by id")).isEqualTo(baseline);
+        System.out.println("NEON_PROOF_ORDERED_UNIT_FENCES=prepare-committed,canonical-recovery-epoch-FENCED,canonical-suspend-NOT_EXECUTABLE,callbacks-zero,domain-preserved,receipt-and-admission-zero");
+    }
+
+    private static Object preparedAttempt(BulkExecutionInfrastructure infrastructure,
+            JdbcBulkDurableExecution kernel, BulkExecutionControl control) {
+        var phase = new TransactionTemplate(infrastructure.transactionManager());
+        phase.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        Object preparation = phase.execute(status -> infrastructure.withConnection(connection -> {
+            JdbcBulkDurableExecution.setControlLockBudget(connection);
+            return invokeUnitPhase(kernel, "prepare", connection, control, 0);
+        }));
+        try {
+            var method = preparation.getClass().getDeclaredMethod("attempt"); method.setAccessible(true);
+            Object attempt = method.invoke(preparation); assertThat(attempt).isNotNull(); return attempt;
+        } catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
+    }
+
+    private static void appliedAttempt(BulkExecutionInfrastructure infrastructure,
+            JdbcBulkDurableExecution kernel, BulkExecutionControl control, Object attempt, AtomicInteger callbacks) {
+        var phase = new TransactionTemplate(infrastructure.transactionManager());
+        phase.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        phase.executeWithoutResult(status -> infrastructure.withConnection(connection -> {
+            JdbcBulkDurableExecution.setControlLockBudget(connection);
+            return invokeUnitPhase(kernel, "applyAndReceipt", connection, control, attempt,
+                    (BulkUnitAdmissionCallback)unit -> { callbacks.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                    (BulkUnitMutationCallback)unit -> { callbacks.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+        }));
+    }
+
+    private static Object invokeUnitPhase(JdbcBulkDurableExecution kernel, String name, Object... args) throws SQLException {
+        try {
+            var method = java.util.Arrays.stream(JdbcBulkDurableExecution.class.getDeclaredMethods())
+                    .filter(value -> value.getName().equals(name) && value.getParameterCount() == args.length)
+                    .findFirst().orElseThrow();
+            method.setAccessible(true); return method.invoke(kernel, args);
+        } catch (InvocationTargetException failure) {
+            if (failure.getCause() instanceof SQLException sql) throw sql;
+            if (failure.getCause() instanceof RuntimeException runtime) throw runtime;
+            if (failure.getCause() instanceof Error error) throw error;
+            throw new AssertionError(failure.getCause());
+        } catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
+    }
+
+    private static void assertEmptyAttemptEffects(JdbcTemplate owner, UUID execution) {
+        for (String table : List.of("praxis_bulk_item_receipt", "praxis_bulk_admission"))
+            assertThat(owner.queryForObject("select count(*) from praxis_bulk." + table + " where execution_id=?", Integer.class, execution)).isZero();
+        assertThat(owner.queryForObject("select next_ordinal from praxis_bulk.praxis_bulk_execution where execution_id=?", Integer.class, execution)).isZero();
+    }
+
+    /** Public advance reads the first unit's real prefix before the second; no corruption fixture. */
+    private static void assertOrderedNonemptyPrefix(TransactionTemplate tx, JdbcBulkProposalStore store,
+            JdbcBulkDurableExecution kernel, JdbcTemplate owner) {
+        var selection = new BulkSelection<Integer, com.fasterxml.jackson.databind.JsonNode>(BulkSelectionMode.EXPLICIT,
+                List.of(new BulkTarget<>(1, "v1"), new BulkTarget<>(2, "v1")), null, null);
+        var request = new BulkCommandEvaluationRequest<com.fasterxml.jackson.databind.JsonNode, Integer, com.fasterxml.jackson.databind.JsonNode>(
+                BulkExecutionMode.SYNC, selection, BulkEvaluationSnapshotTest.JSON.objectNode().put("amount", 1));
+        var input = BulkIntentSnapshot.command(CONTEXT, BulkIdentityCodecs.integers(), request,
+                com.fasterxml.jackson.databind.JsonNode::deepCopy, com.fasterxml.jackson.databind.JsonNode::deepCopy);
+        Instant created = Instant.now().minusSeconds(1);
+        var proposal = new BulkStoredProposal(UUID.randomUUID(), created, created.plusSeconds(300), input, CONTROL_EXPECTATION);
+        var targets = List.<BulkTargetEvidence<?>>of(
+                new BulkTargetEvidence<>(new BulkTarget<>(1,"v1"),"v1",BulkEvaluationSnapshotTest.JSON.objectNode(),BulkEvaluationSnapshotTest.JSON.objectNode(),BulkTargetEligibility.executable()),
+                new BulkTargetEvidence<>(new BulkTarget<>(2,"v1"),"v1",BulkEvaluationSnapshotTest.JSON.objectNode(),BulkEvaluationSnapshotTest.JSON.objectNode(),BulkTargetEligibility.executable()));
+        var value = new BulkEvaluationSnapshot(proposal, Instant.now(), targets,
+                new BulkEvaluationGovernance("fixture-evaluator-r1", "fixture-grant-r1", List.of()));
+        tx.executeWithoutResult(status -> store.insertEvaluated(value, preview(value)));
+        var reservation = kernel.reserve(CONTEXT, proposal.id(), "ordered-prefix-proof", "proof-owner", "structural-r1", Instant.now().plusSeconds(30));
+        var baseline = owner.queryForList("select * from public.bulk_optional_domain order by id");
+        var admissionCalls = new AtomicInteger(); var ordinals = new java.util.ArrayList<Integer>();
+        kernel.advance(reservation, unit -> { admissionCalls.incrementAndGet(); return BulkUnitAdmission.admit(); }, unit -> {
+            ordinals.add(unit.ordinal()); return BulkUnitMutationResult.unchanged();
+        });
+        assertThat(admissionCalls).hasValue(2); assertThat(ordinals).containsExactly(0,1);
+        assertThat(owner.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, reservation.executionId())).isEqualTo("COMPLETED");
+        assertThat(owner.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=? and outcome='UNCHANGED'", Integer.class, reservation.executionId())).isEqualTo(2);
+        assertThat(owner.queryForObject("select count(*) from praxis_bulk.praxis_bulk_admission where execution_id=?", Integer.class, reservation.executionId())).isZero();
+        kernel.advance(reservation, unit -> { admissionCalls.incrementAndGet(); return BulkUnitAdmission.admit(); }, unit -> {
+            ordinals.add(unit.ordinal()); return BulkUnitMutationResult.unchanged();
+        });
+        assertThat(admissionCalls).hasValue(2); assertThat(ordinals).containsExactly(0,1);
+        assertThat(owner.queryForList("select * from public.bulk_optional_domain order by id")).isEqualTo(baseline);
+        System.out.println("NEON_PROOF_ORDERED_UNIT_PREFIX=two-public-units,nonempty-prefix-read,two-unchanged-receipts,replay-without-callback,domain-preserved");
+    }
+
+    /** Synthetic transport profile, not a host/Render simulation: all original product deadlines remain. */
+    private static void assertOrderedTransportProfile(TransactionTemplate tx, JdbcBulkProposalStore store,
+            JdbcBulkDurableExecution kernel, MeasuredPool runtime, JdbcTemplate owner) {
+        var value = evaluation(1);
+        tx.executeWithoutResult(status -> store.insertEvaluated(value, preview(value)));
+        var reservation = kernel.reserve(CONTEXT, value.proposal().id(), "ordered-transport-proof", "proof-owner",
+                "structural-r1", Instant.now().plusSeconds(30));
+        int before = owner.queryForObject("select writes from public.bulk_optional_domain where id=1", Integer.class);
+        var calls = new AtomicInteger();
+        var mutations = new AtomicInteger();
+        long[] balances = new long[] {-1, -1, -1};
+        long[] executes = new long[] {-1, -1, -1, -1, -1};
+        var runtimeSql = new JdbcTemplate(runtime);
+        runtime.recorder.beginUnitFloor();
+        Throwable executionFailure = null;
+        try {
+            kernel.advance(reservation, unit -> {
+                calls.incrementAndGet();
+                executes[0] = runtime.recorder.unitExecutes;
+                // Entry clamp(1), publication guards(10), grant(1), protected lock/read graph(9).
+                // These are explicitly synthetic reads on the real bound connection, not authority.
+                syntheticReads(runtimeSql, 21);
+                executes[1] = runtime.recorder.unitExecutes;
+                balances[0] = unit.remainingBudget().toMillis();
+                if (balances[0] <= 2100)
+                    return BulkUnitAdmission.stop(BulkUnitReasonCode.COMMON_GOVERNANCE_UNAVAILABLE);
+                syntheticReads(runtimeSql, 6); // policy(1), recheck(2), prepared entity/active check(3).
+                executes[2] = runtime.recorder.unitExecutes;
+                balances[1] = unit.remainingBudget().toMillis();
+                return BulkUnitAdmission.admit();
+            }, unit -> {
+                mutations.incrementAndGet();
+                executes[3] = runtime.recorder.unitExecutes;
+                syntheticReads(runtimeSql, 1); // First host mutation clamp.
+                assertThat(runtimeSql.update("update public.bulk_optional_domain set writes=writes+1 where id=1")).isEqualTo(1);
+                syntheticReads(runtimeSql, 1); // Final host mutation clamp after flush.
+                executes[4] = runtime.recorder.unitExecutes;
+                balances[2] = unit.remainingBudget().toMillis();
+                return BulkUnitMutationResult.confirmed();
+            });
+        } catch (RuntimeException | Error failure) {
+            executionFailure = failure;
+        } finally {
+            runtime.recorder.endUnitFloor();
+            System.out.println("NEON_ORDERED_TRANSPORT=floorMillis=100,executes=" + runtime.recorder.unitExecutes
+                    + ",jdbcNanos=" + runtime.recorder.unitJdbcNanos + ",imposedNanos=" + runtime.recorder.unitImposedNanos
+                    + ",policyRemainingMillis=" + balances[0] + ",admittedRemainingMillis=" + balances[1]
+                    + ",mutationRemainingMillis=" + balances[2]
+                    + ",checkpointExecutes=" + java.util.Arrays.toString(executes) + ",sqlState=" + runtime.recorder.unitSqlState);
+        }
+        String state = owner.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, reservation.executionId());
+        int effects = owner.queryForObject("select writes from public.bulk_optional_domain where id=1", Integer.class) - before;
+        int receipts = owner.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class, reservation.executionId());
+        int admissions = owner.queryForObject("select count(*) from praxis_bulk.praxis_bulk_admission where execution_id=?", Integer.class, reservation.executionId());
+        System.out.println("NEON_ORDERED_TRANSPORT_READBACK=status=" + state + ",effects=" + effects
+                + ",receipts=" + receipts + ",admissions=" + admissions);
+        // Always record the independent durable result before reporting an insufficient profile.
+        if (executionFailure instanceof RuntimeException failure) throw failure;
+        if (executionFailure instanceof Error failure) throw failure;
+        assertThat(balances[0]).as("synthetic pre-policy balance with original 5s unit").isGreaterThan(2100);
+        assertThat(calls).hasValue(1); assertThat(mutations).hasValue(1);
+        assertThat(state).isEqualTo("COMPLETED"); assertThat(effects).isEqualTo(1);
+        assertThat(receipts).isEqualTo(1); assertThat(admissions).isZero();
+        assertThat(executes[1]-executes[0]).isEqualTo(21);
+        assertThat(executes[2]-executes[1]).isEqualTo(6);
+        assertThat(executes[3]-executes[2]).isEqualTo(1); // Post-admission three-result batch.
+        assertThat(executes[4]-executes[3]).isEqualTo(3);
+        assertThat(runtime.recorder.unitExecutes-executes[4]).isEqualTo(1); // Receipt/pending/snapshot batch.
+        assertThat(runtime.recorder.unitJdbcNanos + runtime.recorder.unitImposedNanos)
+                .isGreaterThanOrEqualTo(runtime.recorder.unitExecutes * TimeUnit.MILLISECONDS.toNanos(100));
+        kernel.advance(reservation, unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); },
+                unit -> { mutations.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
+        assertThat(calls).hasValue(1); assertThat(mutations).hasValue(1);
+        assertThat(owner.queryForObject("select writes from public.bulk_optional_domain where id=1", Integer.class)).isEqualTo(before + 1);
+        assertThat(owner.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class, reservation.executionId())).isEqualTo(1);
+        System.out.println("NEON_PROOF_ORDERED_UNIT_TRANSPORT=100ms-floor,policy-reserve-over-2100ms,one-domain-effect-and-receipt,completed,replay-without-callback");
+    }
+
+    private static void syntheticReads(JdbcTemplate sql, int count) {
+        for (int i = 0; i < count; i++) assertThat(sql.queryForObject("select 1", Integer.class)).isEqualTo(1);
+    }
+
     private static void assertDomainReceiptRollback(TransactionTemplate tx, JdbcBulkProposalStore store,
             JdbcBulkDurableExecution kernel, BulkUnitAdmissionCallback admission, MeasuredPool runtime, JdbcTemplate owner) {
         var value = evaluation(3);
@@ -677,6 +933,16 @@ class BulkOptionalPoliciesNeonTest {
         private final Map<String, long[]> counts = new TreeMap<>();
         private final AtomicInteger successfulReceiptInserts = new AtomicInteger();
         private final AtomicInteger deferredReceiptCommitFailures = new AtomicInteger();
+        private boolean unitProfile, unitWindow, applyEntered;
+        private long unitExecutes, unitJdbcNanos, unitImposedNanos;
+        private String unitSqlState;
+        void beginUnitFloor() {
+            assertThat(unitProfile).isFalse();
+            unitProfile=true; unitWindow=false; applyEntered=false;
+            unitExecutes=0; unitJdbcNanos=0; unitImposedNanos=0; unitSqlState=null;
+        }
+        void endUnitFloor() { unitProfile=false; unitWindow=false; applyEntered=false; }
+
         MeasuredDataSource(DataSource delegate) { super(delegate); }
         void measure(String label, CheckedAction action) throws Exception {
             counts.clear();
@@ -703,6 +969,10 @@ class BulkOptionalPoliciesNeonTest {
                                     && "PZ001".equals(sql.getSQLState())) deferredReceiptCommitFailures.incrementAndGet();
                             throw failure.getCause();
                         }
+                        if (unitProfile && unitWindow && method.getName().equals("setAutoCommit")
+                                && args != null && Boolean.FALSE.equals(args[0])) applyEntered=true;
+                        if (unitProfile && (method.getName().equals("rollback")
+                                || applyEntered && method.getName().equals("commit"))) unitWindow=false;
                         if (!(result instanceof Statement statement)) return result;
                         String preparedSql = args != null && args.length > 0 && args[0] instanceof String sql ? sql : "";
                         Class<?> statementType = statement instanceof java.sql.CallableStatement ? java.sql.CallableStatement.class
@@ -723,6 +993,9 @@ class BulkOptionalPoliciesNeonTest {
                                                     "migrateSchemaWithHistoricalPreflight", "validateCurrent", "validateLiveRuntimeRoleAccess",
                                                     "validateLiveControlPlaneRoleAccess").contains(name))
                                             .reduce((near, outer) -> outer).orElse("other"));
+                                    boolean beginsAttempt = unitProfile && sql.contains("set status='UNIT_IN_FLIGHT', active_attempt_id=?");
+                                    if (beginsAttempt) unitWindow=true;
+                                    boolean imposeFloor=unitProfile && unitWindow;
                                     long started = System.nanoTime();
                                     try {
                                         Object executed = called.invoke(statement, values);
@@ -731,23 +1004,40 @@ class BulkOptionalPoliciesNeonTest {
                                         if (sql.contains("insert into praxis_bulk.praxis_bulk_item_receipt\n")) successfulReceiptInserts.incrementAndGet();
                                         return executed;
                                     }
-                                    catch (InvocationTargetException failure) { throw failure.getCause(); }
+                                    catch (InvocationTargetException failure) {
+                                        if (imposeFloor && unitSqlState == null && failure.getCause() instanceof SQLException sqlFailure) {
+                                            String state = sqlFailure.getSQLState();
+                                            if (state != null && state.matches("[0-9A-Z]{5}")) unitSqlState=state;
+                                        }
+                                        throw failure.getCause();
+                                    }
                                     finally {
+                                        long jdbcElapsed=System.nanoTime()-started;
+                                        if (imposeFloor) {
+                                            long sleepStarted=System.nanoTime();
+                                            long until=started+TimeUnit.MILLISECONDS.toNanos(100);
+                                            while (System.nanoTime()<until)
+                                                java.util.concurrent.locks.LockSupport.parkNanos(until-System.nanoTime());
+                                            unitExecutes++; unitJdbcNanos+=jdbcElapsed;
+                                            unitImposedNanos+=Math.max(0,System.nanoTime()-sleepStarted);
+                                        }
                                         var count = counts.computeIfAbsent(phase, ignored -> new long[5]);
                                         count[0]++;
                                         if (sql.contains("with governed_tables as") || sql.contains("q.relname,coalesce(r.rolname")) count[1]++;
                                         if (StackWalker.getInstance().walk(frames -> frames.anyMatch(frame -> frame.getClassName().equals(BulkCatalogPhase.class.getName())))) count[4]++;
                                         if (sql.contains("select 'T:' || acl.privilege_type")) count[2]++;
-                                        count[3] += System.nanoTime() - started;
+                                        count[3] += jdbcElapsed;
                                     }
                                 });
                     });
         }
     }
 
-    private static BulkEvaluationSnapshot evaluation(int id) {
+    private static BulkEvaluationSnapshot evaluation(int id) { return evaluation(id, CONTEXT); }
+
+    private static BulkEvaluationSnapshot evaluation(int id, BulkFingerprintContext context) {
         Instant created = Instant.now().minusSeconds(1);
-        var intent = snapshot(CONTEXT, BulkMode.DOMAIN_COMMAND, BulkIdentityCodecs.integers(), Integer.toString(id), "1");
+        var intent = snapshot(context, BulkMode.DOMAIN_COMMAND, BulkIdentityCodecs.integers(), Integer.toString(id), "1");
         var proposal = new BulkStoredProposal(UUID.randomUUID(), created, created.plusSeconds(300), intent, CONTROL_EXPECTATION);
         var evidence = new BulkTargetEvidence<>(new BulkTarget<>(id, "v1"), "v1",
                 BulkEvaluationSnapshotTest.JSON.objectNode(), BulkEvaluationSnapshotTest.JSON.objectNode(), BulkTargetEligibility.executable());
