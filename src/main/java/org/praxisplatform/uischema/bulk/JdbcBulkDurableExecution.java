@@ -1535,8 +1535,7 @@ public final class JdbcBulkDurableExecution {
         BulkTargetEvidence<?> evidence = evaluation.snapshot().targets().get(ordinal);
         String targetDigest = targetDigest(evaluation, ordinal, evidence);
         UUID attemptId = UUID.randomUUID();
-        Instant unitDeadline;
-        long monotonicDeadlineNanos;
+        AttemptTiming timing;
         try (var statement = connection.prepareStatement("""
                 with attempt_clock as (select clock_timestamp() as started_at)
                 update praxis_bulk.praxis_bulk_execution e
@@ -1547,27 +1546,45 @@ public final class JdbcBulkDurableExecution {
                 from attempt_clock
                 where e.execution_id=? and e.namespace_id=? and e.owner_id=? and e.owner_epoch=?
                   and e.status='RUNNING' and e.next_ordinal=? and attempt_clock.started_at < e.deadline_at
-                returning e.active_unit_deadline_at
+                returning e.active_unit_deadline_at, clock_timestamp() as observed_at
                 """)) {
             statement.setObject(1, attemptId); statement.setInt(2, ordinal); statement.setString(3, targetDigest);
             statement.setLong(4, UNIT_BUDGET.toMillis()); statement.setObject(5, control.executionId());
             statement.setString(6, infrastructure.namespace()); statement.setString(7, control.ownerId());
             statement.setLong(8, control.epoch()); statement.setInt(9, ordinal);
-            try (ResultSet rows = statement.executeQuery()) {
-                if (!rows.next()) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
-                unitDeadline = rows.getObject(1, OffsetDateTime.class).toInstant();
-                if (rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
-            }
-            long clockReadStarted = System.nanoTime();
-            Instant databaseNow = clock(connection);
-            long clockReadElapsed = Math.max(0, System.nanoTime() - clockReadStarted);
-            long remainingNanos = Duration.between(databaseNow, unitDeadline).toNanos() - clockReadElapsed;
-            if (remainingNanos <= 0) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
-            monotonicDeadlineNanos = System.nanoTime() + remainingNanos;
+            timing = readAttemptTiming(statement, execution.deadlineAt(), System::nanoTime);
         }
-        return new Preparation(new Attempt(attemptId, ordinal, targetDigest, control.epoch(), unitDeadline,
-                monotonicDeadlineNanos), null, null, null);
+        return new Preparation(new Attempt(attemptId, ordinal, targetDigest, control.epoch(), timing.unitDeadline(),
+                timing.monotonicDeadlineNanos()), null, null, null);
     }
+
+    /** The returned database clock and all execute/decoding time share one nonrenewing anchor. */
+    static AttemptTiming readAttemptTiming(java.sql.PreparedStatement statement, Instant executionDeadline,
+            java.util.function.LongSupplier nanoTime) throws SQLException {
+        long began = nanoTime.getAsLong();
+        Instant deadline;
+        Instant observed;
+        try (ResultSet rows = statement.executeQuery()) {
+            if (!rows.next()) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+            OffsetDateTime returnedDeadline = rows.getObject(1, OffsetDateTime.class);
+            OffsetDateTime returnedClock = rows.getObject(2, OffsetDateTime.class);
+            if (returnedDeadline == null || returnedClock == null || rows.next())
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            deadline = returnedDeadline.toInstant();
+            observed = returnedClock.toInstant();
+        }
+        long completed = nanoTime.getAsLong();
+        if (deadline.isAfter(executionDeadline)) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        if (!observed.isBefore(deadline)) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+        long available;
+        try { available = Duration.between(observed, deadline).toNanos(); }
+        catch (ArithmeticException invalid) { throw failure(BulkDurableExecutionException.Reason.CORRUPT); }
+        long remaining = available - Math.max(0, completed - began);
+        if (remaining <= 0) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+        return new AttemptTiming(deadline, completed + remaining);
+    }
+
+    record AttemptTiming(Instant unitDeadline, long monotonicDeadlineNanos) { }
 
     private UnitWrite applyAndReceipt(Connection connection, BulkExecutionControl control, Attempt attempt,
             BulkUnitAdmissionCallback admissionCallback, BulkUnitMutationCallback callback) throws SQLException {

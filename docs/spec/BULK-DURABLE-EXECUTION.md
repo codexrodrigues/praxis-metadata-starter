@@ -361,6 +361,12 @@ operacional do binding:
    A configuração inicial dos dois limites de controle de 1 s também usa um único statement.
    Esse agrupamento reduz viagens ao banco; não renova o prazo persistido de 5 s, não remove
    verificações posteriores de relógio e não muda a ordem de autorização, locks ou callbacks.
+   Na preparação PER_ITEM, o próprio UPDATE devolve o prazo persistido e uma amostra fresca
+   de `clock_timestamp()` no RETURNING, sem SELECT de relógio posterior. A âncora monotônica
+   é tomada antes do execute; todo o tempo de execução, transporte, leitura e fechamento do
+   resultado é descontado do saldo retornado. Não se calcula um novo prazo a partir do relógio
+   local ou de uma nova janela de cinco segundos. O SQL continua usando o menor entre o prazo
+   da execução e cinco segundos desde seu clock de tentativa; ATOMIC não muda neste recorte.
    No caminho PER_ITEM/SYNC, o prefixo de aplicação reúne os 13 comandos em uma execução
    JDBC com resultados múltiplos ordenados: marcador de capacidade, identidade, controle
    SHARE, execução UPDATE, receipt/admission pontuais, relógio, avaliação, prefixos duráveis,

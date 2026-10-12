@@ -91,6 +91,100 @@ class JdbcBulkUnitOrderedBatchTest {
         assertThat(f.queries).hasSize(4);
     }
 
+    @Test void perItemPrepareReturnsPersistedDeadlineAndFreshClockWithoutAnotherClockQuery() throws Throwable {
+        for (boolean asynchronous : new boolean[] {false, true}) {
+            var f = new Fixture(Duration.ofSeconds(5), asynchronous);
+            Object attempt = f.prepare();
+            var accessor = attempt.getClass().getDeclaredMethod("unitDeadline"); accessor.setAccessible(true);
+            assertThat(accessor.invoke(attempt)).isEqualTo(f.unitDeadline);
+            String update = f.queries.getLast();
+            assertThat(update).contains("least(e.deadline_at, attempt_clock.started_at + (? * interval '1 millisecond'))",
+                    "returning e.active_unit_deadline_at, clock_timestamp() as observed_at",
+                    "e.owner_id=? and e.owner_epoch=?", "e.status='RUNNING' and e.next_ordinal=?");
+            assertThat(f.queries.stream().filter(query -> query.equals("select clock_timestamp()"))).hasSize(1);
+            var bindings = f.bindings.getLast();
+            assertThat(bindings).hasSize(9);
+            assertThat(bindings.get(4)).isEqualTo(5000L);
+            assertThat(bindings.get(5)).isEqualTo(f.executionId);
+            assertThat(bindings.get(6)).isEqualTo(f.context.namespaceId());
+            assertThat(bindings.get(7)).isEqualTo("owner"); assertThat(bindings.get(8)).isEqualTo(1L);
+            assertThat(bindings.get(9)).isEqualTo(0);
+            assertThat(f.admissions).hasValue(0); assertThat(f.mutations).hasValue(0);
+        }
+    }
+
+    @Test void prepareAnchorAccountsForExecuteDecodeAndCloseWithoutRenewingTheReturnedDeadline() throws Exception {
+        var f = new TimingFixture();
+        long began = f.nano.get();
+        when(f.statement.executeQuery()).thenAnswer(call -> {
+            assertThat(f.nanoReads).hasValue(1);
+            f.nano.addAndGet(Duration.ofMillis(150).toNanos()); return f.rows;
+        });
+        when(f.rows.getObject(1,OffsetDateTime.class)).thenAnswer(call -> {
+            f.nano.addAndGet(Duration.ofMillis(100).toNanos()); return f.deadline.atOffset(ZoneOffset.UTC);
+        });
+        when(f.rows.getObject(2,OffsetDateTime.class)).thenAnswer(call -> {
+            f.nano.addAndGet(Duration.ofMillis(250).toNanos()); return f.observed.atOffset(ZoneOffset.UTC);
+        });
+        doAnswer(call -> { f.nano.addAndGet(Duration.ofMillis(50).toNanos()); return null; }).when(f.rows).close();
+        var timing = f.read();
+        assertThat(timing.unitDeadline()).isEqualTo(f.deadline);
+        assertThat(timing.monotonicDeadlineNanos()).isEqualTo(began + Duration.ofSeconds(5).toNanos());
+        assertThat(timing.monotonicDeadlineNanos()-f.nano.get()).isEqualTo(Duration.ofMillis(4450).toNanos());
+        assertThat(f.nanoReads).hasValue(2);
+        verify(f.statement).executeQuery(); verify(f.rows).close();
+        var shorter = new TimingFixture();
+        Instant executionDeadline = shorter.observed.plusSeconds(2);
+        when(shorter.rows.getObject(1,OffsetDateTime.class)).thenReturn(executionDeadline.atOffset(ZoneOffset.UTC));
+        var bounded = JdbcBulkDurableExecution.readAttemptTiming(shorter.statement,executionDeadline,shorter.nano::get);
+        assertThat(bounded.unitDeadline()).isEqualTo(executionDeadline);
+        assertThat(bounded.monotonicDeadlineNanos()).isEqualTo(shorter.nano.get()+Duration.ofSeconds(2).toNanos());
+    }
+
+    @Test void prepareMissingExtraNullAndCorruptDeadlineFailClosed() throws Exception {
+        var missing = new TimingFixture(); when(missing.rows.next()).thenReturn(false);
+        assertReason(missing::read,BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+        var extra = new TimingFixture(); when(extra.rows.next()).thenReturn(true,true);
+        assertReason(extra::read,BulkDurableExecutionException.Reason.CORRUPT);
+        for (int column : new int[] {1,2}) {
+            var absent = new TimingFixture(); when(absent.rows.getObject(column,OffsetDateTime.class)).thenReturn(null);
+            assertReason(absent::read,BulkDurableExecutionException.Reason.CORRUPT);
+        }
+        var beyondExecution = new TimingFixture();
+        when(beyondExecution.rows.getObject(1,OffsetDateTime.class)).thenReturn(beyondExecution.executionDeadline.plusSeconds(1).atOffset(ZoneOffset.UTC));
+        assertReason(beyondExecution::read,BulkDurableExecutionException.Reason.CORRUPT);
+    }
+
+    @Test void prepareLateReturnedClockAndElapsedTransportOrDecodeCannotCreateValidAttempt() throws Exception {
+        for (int delay : new int[] {0,1,2}) {
+            var f = new TimingFixture();
+            if (delay==0) when(f.rows.getObject(2,OffsetDateTime.class)).thenReturn(f.deadline.atOffset(ZoneOffset.UTC));
+            if (delay==1) when(f.statement.executeQuery()).thenAnswer(call -> {
+                f.nano.addAndGet(Duration.ofSeconds(5).toNanos()); return f.rows;
+            });
+            if (delay==2) when(f.rows.getObject(2,OffsetDateTime.class)).thenAnswer(call -> {
+                f.nano.addAndGet(Duration.ofSeconds(5).toNanos()); return f.observed.atOffset(ZoneOffset.UTC);
+            });
+            assertReason(f::read,BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+            verify(f.statement).executeQuery(); verify(f.rows).close();
+        }
+    }
+
+    @Test void prepareJdbcAndCloseFailuresPreserveTheOriginalFailure() throws Exception {
+        var sql = new TimingFixture(); var primary = new SQLException("private execute", "57014");
+        when(sql.statement.executeQuery()).thenThrow(primary);
+        assertThatThrownBy(sql::read).isSameAs(primary);
+        var close = new TimingFixture(); var closeFailure = new SQLException("private close", "57014");
+        doThrow(closeFailure).when(close.rows).close();
+        assertThatThrownBy(close::read).isSameAs(closeFailure);
+        var both = new TimingFixture(); when(both.rows.next()).thenReturn(false);
+        doThrow(closeFailure).when(both.rows).close();
+        assertThatThrownBy(both::read).isInstanceOfSatisfying(BulkDurableExecutionException.class, failure -> {
+            assertThat(failure.reason()).isEqualTo(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+            assertThat(failure.getSuppressed()).containsExactly(closeFailure);
+        });
+    }
+
     @Test void ownerEpochAttemptStateAndReadyFenceFailBeforeCallbacks() throws Throwable {
         for (Map<String,Object> change : List.of(Map.<String,Object>of("owner_id","other"),
                 Map.<String,Object>of("owner_epoch",2L), Map.<String,Object>of("active_attempt_epoch",2L),
@@ -220,6 +314,25 @@ class JdbcBulkUnitOrderedBatchTest {
         when(statement.getUpdateCount()).thenReturn(-1);
     }
 
+    private static final class TimingFixture {
+        final Instant observed=Instant.parse("2026-10-12T15:00:00Z");
+        final Instant deadline=observed.plusSeconds(5), executionDeadline=observed.plusSeconds(30);
+        final java.util.concurrent.atomic.AtomicLong nano=new java.util.concurrent.atomic.AtomicLong(10_000_000_000L);
+        final AtomicInteger nanoReads=new AtomicInteger();
+        final PreparedStatement statement=mock(PreparedStatement.class);
+        final ResultSet rows=mock(ResultSet.class);
+        TimingFixture() throws Exception {
+            when(statement.executeQuery()).thenReturn(rows); when(rows.next()).thenReturn(true,false);
+            when(rows.getObject(1,OffsetDateTime.class)).thenReturn(deadline.atOffset(ZoneOffset.UTC));
+            when(rows.getObject(2,OffsetDateTime.class)).thenReturn(observed.atOffset(ZoneOffset.UTC));
+        }
+        JdbcBulkDurableExecution.AttemptTiming read() throws SQLException {
+            return JdbcBulkDurableExecution.readAttemptTiming(statement,executionDeadline,() -> {
+                nanoReads.incrementAndGet(); return nano.get();
+            });
+        }
+    }
+
     private static final class Fixture {
         final UUID executionId=UUID.randomUUID(), attemptId=UUID.randomUUID();
         final Instant now=Instant.now(), deadline=now.plusSeconds(30), unitDeadline=now.plusSeconds(5);
@@ -323,6 +436,43 @@ class JdbcBulkUnitOrderedBatchTest {
                 doAnswer(inv -> { values.put(inv.getArgument(0),inv.getArgument(1)); return null; }).when(statement).setInt(anyInt(),anyInt());
                 return statement;
             });
+        }
+        Object prepare() throws Throwable {
+            execution.put("status","RUNNING");
+            for (String key : List.of("active_attempt_id","active_attempt_ordinal","active_target_digest",
+                    "active_attempt_epoch","active_unit_deadline_at")) execution.put(key,null);
+            var controlQueries=new AtomicInteger();
+            when(connection.prepareStatement(anyString())).thenAnswer(call -> {
+                String query=call.getArgument(0); queries.add(query);
+                var statement=mock(PreparedStatement.class);
+                ResultSet rows;
+                if(query.equals("select praxis_bulk.lock_capacity_marker()")) rows=prefixRows.get(0);
+                else if(query.contains("select operation_id from")) rows=prefixRows.get(1);
+                else if(query.contains("from praxis_bulk.lock_operation_control")) rows=prefixRows.get(controlQueries.getAndIncrement()==0 ? 2 : 10);
+                else if(query.contains("select e.*")) rows=prefixRows.get(3);
+                else if(query.contains("from praxis_bulk.praxis_bulk_item_receipt")) rows=prefixRows.get(query.contains("order by") ? 8 : 4);
+                else if(query.contains("from praxis_bulk.praxis_bulk_admission")) rows=prefixRows.get(query.contains("order by") ? 9 : 5);
+                else if(query.contains("select p.created_at")) rows=prefixRows.get(7);
+                else if(query.contains("select m.database_id,m.deployment_id")) rows=single(Map.of(1,capacity.databaseId(),2,capacity.deploymentId(),3,capacity.tenantId(),4,capacity.environment(),5,capacity.bindingId(),6,capacity.generation(),7,capacity.attestationId(),8,capacity.authorityId(),9,capacity.authorityEpoch(),10,"ACTIVE"));
+                else if(query.contains("from praxis_bulk.praxis_bulk_capacity_slot s")) rows=single(Map.of(1,1));
+                else if(query.equals("select clock_timestamp()")) rows=single(Map.of(1,now.atOffset(ZoneOffset.UTC)));
+                else if(query.contains("returning e.active_unit_deadline_at, clock_timestamp() as observed_at")) rows=single(Map.of(1,unitDeadline.atOffset(ZoneOffset.UTC),2,now.atOffset(ZoneOffset.UTC)));
+                else throw new AssertionError("Unexpected prepare SQL shape");
+                when(statement.executeQuery()).thenReturn(rows);
+                Map<Integer,Object> values=new HashMap<>();bindings.add(values);
+                doAnswer(inv -> { values.put(inv.getArgument(0),inv.getArgument(1));return null; }).when(statement).setObject(anyInt(),any());
+                doAnswer(inv -> { values.put(inv.getArgument(0),inv.getArgument(1));return null; }).when(statement).setString(anyInt(),any());
+                doAnswer(inv -> { values.put(inv.getArgument(0),inv.getArgument(1));return null; }).when(statement).setLong(anyInt(),anyLong());
+                doAnswer(inv -> { values.put(inv.getArgument(0),inv.getArgument(1));return null; }).when(statement).setInt(anyInt(),anyInt());
+                return statement;
+            });
+            var method=JdbcBulkDurableExecution.class.getDeclaredMethod("prepare",Connection.class,BulkExecutionControl.class,int.class);
+            method.setAccessible(true);
+            Object preparation;
+            try { preparation=method.invoke(service,connection,new BulkExecutionControl(executionId,"owner",1L),0); }
+            catch(InvocationTargetException failure) { throw failure.getCause(); }
+            var accessor=preparation.getClass().getDeclaredMethod("attempt");accessor.setAccessible(true);
+            return accessor.invoke(preparation);
         }
         void apply() throws Throwable {
             var constructor=attemptType.getDeclaredConstructors()[0]; constructor.setAccessible(true);

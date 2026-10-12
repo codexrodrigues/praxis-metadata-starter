@@ -771,6 +771,8 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(calls).hasValue(1); assertThat(mutations).hasValue(1);
         assertThat(state).isEqualTo("COMPLETED"); assertThat(effects).isEqualTo(1);
         assertThat(receipts).isEqualTo(1); assertThat(admissions).isZero();
+        assertThat(executes[0]).as("marker UPDATE plus apply infrastructure/setup/prefix").isEqualTo(7);
+        assertThat(executes[1]).as("all counted executes before policy reserve").isEqualTo(28);
         assertThat(executes[1]-executes[0]).isEqualTo(21);
         assertThat(executes[2]-executes[1]).isEqualTo(6);
         assertThat(executes[3]-executes[2]).isEqualTo(1); // Post-admission three-result batch.
