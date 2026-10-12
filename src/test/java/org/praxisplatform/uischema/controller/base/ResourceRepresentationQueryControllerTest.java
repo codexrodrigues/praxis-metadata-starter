@@ -61,6 +61,7 @@ class ResourceRepresentationQueryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("before"))
                 .andExpect(header().string("ETag", token(3)))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate, no-transform"))
                 .andExpect(jsonPath("$.data.persistedVersion").doesNotExist())
                 .andExpect(jsonPath("$.data.body").doesNotExist());
 
@@ -78,7 +79,8 @@ class ResourceRepresentationQueryControllerTest {
         fixture.mvc.perform(get("/snapshot/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("ordinary"))
-                .andExpect(header().doesNotExist("ETag"));
+                .andExpect(header().doesNotExist("ETag"))
+                .andExpect(header().doesNotExist("Cache-Control"));
         assertEquals(1, fixture.service.readCalls);
     }
 
@@ -148,8 +150,10 @@ class ResourceRepresentationQueryControllerTest {
                 ResourceRepresentationResult.unversioned("historical response without revision"));
 
         assertEquals(token(2), historical.getHeaders().getETag());
+        assertEquals("no-cache, no-store, max-age=0, must-revalidate, no-transform", historical.getHeaders().getCacheControl());
         assertEquals("historical response", historical.getBody());
         assertNull(unproven.getHeaders().getETag());
+        assertNull(unproven.getHeaders().getCacheControl());
         assertEquals(0, fixture.service.readCalls);
         verifyNoInteractions(fixture.repository);
     }
@@ -161,6 +165,7 @@ class ResourceRepresentationQueryControllerTest {
         ResponseEntity<String> source = ResponseEntity.status(HttpStatus.ACCEPTED)
                 .header("X-Data-Version", "previous-dataset")
                 .header("X-Trace", "first", "second")
+                .header("Cache-Control", "private, max-age=60", "must-revalidate")
                 .eTag(token(8))
                 .body("historical response");
         assertThrows(UnsupportedOperationException.class,
@@ -173,13 +178,66 @@ class ResourceRepresentationQueryControllerTest {
         assertEquals(source.getBody(), materialized.getBody());
         assertEquals(List.of("current-dataset"), materialized.getHeaders().get("X-Data-Version"));
         assertEquals(token(2), materialized.getHeaders().getETag());
+        assertEquals(List.of("private, max-age=60", "must-revalidate", "no-transform"), materialized.getHeaders().get("Cache-Control"));
         assertEquals(List.of("first", "second"), materialized.getHeaders().get("X-Trace"));
         assertEquals(List.of("previous-dataset"), source.getHeaders().get("X-Data-Version"));
         assertEquals(token(8), source.getHeaders().getETag());
+        assertEquals(List.of("private, max-age=60", "must-revalidate"), source.getHeaders().get("Cache-Control"));
         assertEquals(List.of("first", "second"), source.getHeaders().get("X-Trace"));
         assertEquals("historical response", source.getBody());
         assertEquals(0, fixture.service.readCalls);
         verifyNoInteractions(fixture.repository);
+    }
+
+    @Test
+    void cachePolicyDirectiveIsCaseInsensitiveAndIdempotentAcrossHeaderValues() {
+        Fixture fixture = fixture(true);
+        var policies = List.of("private, max-age=60", "\tNo-TrAnSfOrM , must-revalidate");
+        var source = ResponseEntity.ok().header("Cache-Control", policies.toArray(String[]::new)).body("historical");
+        var result = ResourceRepresentationResult.versioned(source.getBody(), 2);
+
+        var first = fixture.controller.actionResult(source, result);
+        var replay = fixture.controller.actionResult(first, result);
+
+        assertEquals(policies, first.getHeaders().get("Cache-Control"));
+        assertEquals(policies, replay.getHeaders().get("Cache-Control"));
+        assertEquals(token(2), replay.getHeaders().getETag());
+        assertEquals(policies, source.getHeaders().get("Cache-Control"));
+        assertEquals(0, fixture.service.readCalls);
+    }
+
+    @Test
+    void quotedCommasAndEscapedQuotesDoNotMasqueradeAsNoTransform() {
+        Fixture fixture = fixture(true);
+        for (String policy : List.of("private=\"x, no-transform, y\", max-age=60",
+                "extension=\"escaped\\\", no-transform, value\"", "x-no-transform, max-age=60")) {
+            var source = ResponseEntity.ok().header("Cache-Control", policy).body("historical");
+            var result = ResourceRepresentationResult.versioned(source.getBody(), 2);
+            var first = fixture.controller.actionResult(source, result);
+            var replay = fixture.controller.actionResult(first, result);
+
+            assertEquals(List.of(policy, "no-transform"), first.getHeaders().get("Cache-Control"));
+            assertEquals(List.of(policy, "no-transform"), replay.getHeaders().get("Cache-Control"));
+            assertEquals(List.of(policy), source.getHeaders().get("Cache-Control"));
+        }
+    }
+
+    @Test
+    void emptyCachePoliciesReceiveSafeDefaultsOnlyWhenAnEtagIsEmitted() {
+        Fixture fixture = fixture(true);
+        for (String policy : List.of("", " \t ")) {
+            var source = ResponseEntity.ok().header("Cache-Control", policy).body("historical");
+            var versioned = fixture.controller.actionResult(source, ResourceRepresentationResult.versioned("historical", 2));
+            var unversioned = fixture.controller.actionResult(source, ResourceRepresentationResult.unversioned("historical"));
+
+            assertEquals("no-cache, no-store, max-age=0, must-revalidate, no-transform", versioned.getHeaders().getCacheControl());
+            assertEquals(List.of(policy), unversioned.getHeaders().get("Cache-Control"));
+            assertNull(unversioned.getHeaders().getETag());
+        }
+        ReflectionTestUtils.setField(fixture.controller, "resourceVersionEtagService", null);
+        var unsupported = fixture.controller.actionResult(ResourceRepresentationResult.versioned("historical", 2));
+        assertNull(unsupported.getHeaders().getETag());
+        assertNull(unsupported.getHeaders().getCacheControl());
     }
 
     @Test

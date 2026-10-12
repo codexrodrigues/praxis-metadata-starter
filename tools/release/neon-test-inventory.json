@@ -2431,7 +2431,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/controller/base/ResourceRepresentationQueryControllerTest.java",
-      "sha256": "155942d569b0304413470e5acf747e4b72e22206af039b7be8ef4f4f827a824f",
+      "sha256": "06fb6d7373fb6f295c34c9d25c13624219780ac41de3b84d801755884906a87e",
       "kind": "no_db",
       "reason": "Pure JUnit/Mockito/serialization/source contract; no datasource or local database fixture found.",
       "className": "org.praxisplatform.uischema.controller.base.ResourceRepresentationQueryControllerTest"
@@ -2456,7 +2456,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/controller/base/VersionedCreateUpdateResourceControllerTest.java",
-      "sha256": "53543a2b8656a3c86878923dc10dbb1e011555b133b0d101cd35f6d0d26cb644",
+      "sha256": "b15425fbb83aa0e6656092d2d63ddbe5d7c9951c8a8f7eb0f9dc98ab44896602",
       "kind": "no_db",
       "reason": "MVC slice with mocked collaborators; no datasource fixture.",
       "className": "org.praxisplatform.uischema.controller.base.VersionedCreateUpdateResourceControllerTest"

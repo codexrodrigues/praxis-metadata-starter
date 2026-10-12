@@ -17,6 +17,10 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+import org.praxisplatform.uischema.service.base.BaseCreateUpdateResourceCommandService;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -30,11 +34,12 @@ import static org.mockito.Mockito.times;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// Mapping/validation slice has no IAM contract; security-chain proof has its own authenticated fixture.
+// Real Security header chain with permit-all fixture routing; no production IAM or database contract.
 @WebMvcTest(excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class, value = VersionedCreateUpdateResourceControllerTest.VersionedController.class)
 @Import({
         VersionedCreateUpdateResourceControllerTest.VersionedController.class,
@@ -71,6 +76,13 @@ class VersionedCreateUpdateResourceControllerTest {
                 .andExpect(jsonPath("$.errors[0].code").value("STALE_RESOURCE_VERSION"));
 
         mockMvc.perform(put("/versioned/11")
+                        .header("If-Match", "W/" + etags.create(TEST_SCOPE, "test.versioned", 11L, 7L))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":11}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].code").value("INVALID_RESOURCE_VERSION"));
+
+        mockMvc.perform(put("/versioned/11")
                         .header("If-Match", "not-an-etag")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\":11}"))
@@ -90,6 +102,7 @@ class VersionedCreateUpdateResourceControllerTest {
                         .content("{\"id\":11}"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("ETag", etags.create(TEST_SCOPE, "test.versioned", 11L, 8L)))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate, no-transform"))
                 .andExpect(jsonPath("$.data.id").value(11));
         verify(service, never()).findById(any());
         verify(service, never()).update(any(), any(UpdateDto.class));
@@ -108,6 +121,8 @@ class VersionedCreateUpdateResourceControllerTest {
         mockMvc.perform(get("/versioned/11"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("ETag", etags.create(TEST_SCOPE, "test.versioned", 11L, 7L)))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate, no-transform"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(jsonPath("$.data.revision").value(7))
                 .andExpect(jsonPath("$.data.persistedVersion").doesNotExist())
                 .andExpect(jsonPath("$.data.body").doesNotExist());
@@ -134,6 +149,7 @@ class VersionedCreateUpdateResourceControllerTest {
                         .content("{\"id\":11}"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("ETag", etags.create(TEST_SCOPE, "test.versioned", 11L, 8L)))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate, no-transform"))
                 .andExpect(jsonPath("$.data.revision").value(8));
 
         assertEquals(9, currentRevision.get());
@@ -161,6 +177,18 @@ class VersionedCreateUpdateResourceControllerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(header().doesNotExist("ETag"));
         verify(service, never()).findById(any());
+    }
+
+    @Test
+    void createKeepsTheSecurityCacheDefaultsWithoutInventingAnItemEtag() throws Exception {
+        when(service.create(any(CreateDto.class))).thenReturn(
+                new BaseCreateUpdateResourceCommandService.SavedResult<>(11L, new ResponseDto(11L)));
+
+        mockMvc.perform(post("/versioned").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated())
+                .andExpect(header().doesNotExist("ETag"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
     }
 
     interface VersionedService extends VersionedCreateUpdateResourceService<
@@ -200,7 +228,13 @@ class VersionedCreateUpdateResourceControllerTest {
     }
 
     @TestConfiguration
+    @EnableWebSecurity
     static class VersionConfiguration {
+        @Bean SecurityFilterChain fixtureHeaderChain(HttpSecurity http) throws Exception {
+            return http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+                    .csrf(csrf -> csrf.disable()).build();
+        }
+
         @Bean ResourceVersionEtagService resourceVersionEtagService() {
             return new ResourceVersionEtagService("test-secret");
         }
