@@ -1663,16 +1663,46 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     /**
      * Adds an item ETag from the revision captured with this body, without rereading the item.
      * A replay must supply its historical revision or an empty revision, never the current one.
+     * Emitted strong validators disallow intermediary transformations while retaining cache policy.
      * This is intentionally distinct from {@code X-Data-Version}, which describes collection data.
      */
     protected <T> ResponseEntity<T> withResourceVersion(
             ResponseEntity.BodyBuilder builder, ID id, ResourceRepresentationResult<T> result) {
         if (resourceVersionEtagService != null) {
-            result.persistedVersion().ifPresent(version -> builder.eTag(
-                    resourceVersionEtagService.create(resourceVersionScope(), getResourceKey(), id, version)
-            ));
+            result.persistedVersion().ifPresent(version -> {
+                builder.eTag(resourceVersionEtagService.create(resourceVersionScope(), getResourceKey(), id, version));
+                builder.headers(headers -> {
+                    List<String> policies = headers.get(org.springframework.http.HttpHeaders.CACHE_CONTROL);
+                    if (policies == null || policies.stream().noneMatch(StringUtils::hasText)) {
+                        // An explicit header suppresses Spring Security's cache defaults: retain their safety.
+                        headers.setCacheControl("no-cache, no-store, max-age=0, must-revalidate, no-transform");
+                    } else if (policies.stream().noneMatch(AbstractResourceQueryController::hasNoTransformDirective)) {
+                        var protectedPolicies = new ArrayList<>(policies);
+                        protectedPolicies.add("no-transform");
+                        headers.put(org.springframework.http.HttpHeaders.CACHE_CONTROL, protectedPolicies);
+                    }
+                });
+            });
         }
         return withVersion(builder, result.body());
+    }
+
+    /** Checks directive boundaries without interpreting or rewriting quoted extension values. */
+    private static boolean hasNoTransformDirective(String policy) {
+        if (policy == null) return false;
+        boolean quoted = false;
+        int start = 0;
+        for (int i = 0; i <= policy.length(); i++) {
+            if (i == policy.length() || policy.charAt(i) == ',' && !quoted) {
+                if (policy.substring(start, i).trim().equalsIgnoreCase("no-transform")) return true;
+                start = i + 1;
+            } else if (policy.charAt(i) == '\\' && quoted && i + 1 < policy.length()) {
+                i++; // A quoted-pair does not terminate the quoted value.
+            } else if (policy.charAt(i) == '"') {
+                quoted = !quoted;
+            }
+        }
+        return false;
     }
 
     /**

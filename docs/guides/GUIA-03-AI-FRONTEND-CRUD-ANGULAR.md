@@ -230,6 +230,17 @@ Recursos que implementam `VersionedCreateUpdateResourceService` publicam update 
    transacao do update;
 4. a resposta bem-sucedida devolve o novo `ETag`.
 
+Quando `withResourceVersion` emite o ETag da revisão capturada, a resposta inclui
+`Cache-Control: no-transform`: preserva todas as políticas existentes e, se não
+houver política, usa `no-cache, no-store, max-age=0, must-revalidate` junto à diretiva.
+Isso protege o validator forte contra transformação por intermediários sem tornar
+respostas privadas cacheáveis. GET e PUT versionados e replay pelo helper usam essa
+regra; respostas sem revisão e ETags emitidos manualmente por outros caminhos não
+são alterados. O cliente deve reenviar o token original forte, sem remover `W/` ou
+normalizar a assinatura. Após release/adoção, conferir o header efetivamente servido
+nas variantes identity/gzip/br e o uso do token intacto; testes MVC não certificam
+um proxy ou deployment específico.
+
 No contrato Java candidato B4-R1, `ResourceRepresentationResult` carrega corpo e
 `persistedVersion` capturados da **mesma entidade**. `findById` projeta ambos na
 transação de leitura; o PUT versionado de três argumentos captura ambos após o último
