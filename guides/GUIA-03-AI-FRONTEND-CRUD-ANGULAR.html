@@ -445,6 +445,19 @@ condicional:</p>
 dentro da mesma transacao do update;</li>
 <li>a resposta bem-sucedida devolve o novo <code>ETag</code>.</li>
 </ol>
+<p>Quando <code>withResourceVersion</code> emite o ETag da revisão
+capturada, a resposta inclui <code>Cache-Control: no-transform</code>:
+preserva todas as políticas existentes e, se não houver política, usa
+<code>no-cache, no-store, max-age=0, must-revalidate</code> junto à
+diretiva. Isso protege o validator forte contra transformação por
+intermediários sem tornar respostas privadas cacheáveis. GET e PUT
+versionados e replay pelo helper usam essa regra; respostas sem revisão
+e ETags emitidos manualmente por outros caminhos não são alterados. O
+cliente deve reenviar o token original forte, sem remover
+<code>W/</code> ou normalizar a assinatura. Após release/adoção,
+conferir o header efetivamente servido nas variantes identity/gzip/br e
+o uso do token intacto; testes MVC não certificam um proxy ou deployment
+específico.</p>
 <p>No contrato Java candidato B4-R1,
 <code>ResourceRepresentationResult</code> carrega corpo e
 <code>persistedVersion</code> capturados da <strong>mesma
