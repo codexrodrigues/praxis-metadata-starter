@@ -107,7 +107,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -204,12 +204,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkActionSchemaProjectionHttpTest.java",
       "sha256": "0aa16c5c59d8571ceb56ef89f8f572ae38152dd9231fe38819a711ee5669a609",
       "kind": "excluded_outside_impact",
-      "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff.",
+      "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Reviewed no-transform transport delta against this class: Seven-role and idField UI variants assert filtered-schema hashes/304 through ApiDocsController; ProjectionController uses collection command responses, not persisted item ETag. Schema cache and payload unchanged. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.bulk.BulkActionSchemaProjectionHttpTest",
       "fixtureGroup": "bulk_http_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Seven-role and idField UI variants assert filtered-schema hashes/304 through ApiDocsController; ProjectionController uses collection command responses, not persisted item ETag. Schema cache and payload unchanged. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff.",
         "scopePaths": [
@@ -220,7 +220,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
@@ -249,7 +249,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -276,7 +276,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -303,7 +303,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -330,7 +330,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -357,7 +357,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -384,7 +384,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -411,7 +411,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -439,7 +439,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -467,7 +467,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -496,7 +496,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -525,7 +525,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -551,7 +551,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -580,7 +580,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -609,7 +609,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -651,7 +651,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -680,7 +680,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -734,7 +734,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a",
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
         "reason": "The changed shared capture constructor/check, initial budget anchor and timeout restoration are covered by the four required P4 capture oracles and deterministic no-DB CaptureBudget unit tests. Specialized QUERY admission, ASYNC capacity, paging, fleet/contention and other legacy assertions are outside this three-fix review; this disposition does not claim full suite equivalence or historical PASS."
       }
     },
@@ -764,7 +764,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -799,7 +799,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -828,7 +828,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -863,7 +863,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -892,7 +892,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -911,12 +911,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkConsumerArtifactIntegrationTest.java",
       "sha256": "40abf610cce16461e14cb2d49a321f7f3716ce70ada05bc82ae91af06e3e3944",
       "kind": "excluded_outside_impact",
-      "reason": "Nested standalone consumer build and HTTP fixture, not a changed backend runtime path. Release I verifies staged Metadata JAR classes/resources; it does not claim this historical consumer integration passed on Neon.",
+      "reason": "Nested standalone consumer build and HTTP fixture, not a changed backend runtime path. Release I verifies staged Metadata JAR classes/resources; it does not claim this historical consumer integration passed on Neon. Reviewed no-transform transport delta against this class: Nested consumer builds/artifact provenance and lifecycle/schema HTTP assertions; fixture ArtifactLifecycleTestController is standalone and its ETag assertions concern filtered-schema hash/304. No item withResourceVersion caller; staged-artifact/release and new exact host proof remain separate. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.bulk.BulkConsumerArtifactIntegrationTest",
       "fixtureGroup": "consumer_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Nested standalone consumer build and HTTP fixture, not a changed backend runtime path. Release I verifies staged Metadata JAR classes/resources; it does not claim this historical consumer integration passed on Neon. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Nested standalone consumer build and HTTP fixture, not a changed backend runtime path. Release I verifies staged Metadata JAR classes/resources; it does not claim this historical consumer integration passed on Neon. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Nested consumer builds/artifact provenance and lifecycle/schema HTTP assertions; fixture ArtifactLifecycleTestController is standalone and its ETag assertions concern filtered-schema hash/304. No item withResourceVersion caller; staged-artifact/release and new exact host proof remain separate. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [
           "I"
         ],
@@ -929,7 +929,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
@@ -962,7 +962,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a",
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
         "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
       }
     },
@@ -970,12 +970,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkCrudOperationalCapabilityHttpTest.java",
       "sha256": "e91f22d38e33e4602f063b562e1b9dd618fae2265b0bdb9ca63cc2abc947b63e",
       "kind": "excluded_outside_impact",
-      "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff.",
+      "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Reviewed no-transform transport delta against this class: Capability routes, publication availability and schema hash/304; mocked BaseCreateUpdateResourceService is not VersionedCreateUpdateResourceService and protocol handlers return explicit views. No persisted-version item ETag branch. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.bulk.BulkCrudOperationalCapabilityHttpTest",
       "fixtureGroup": "bulk_http_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Capability routes, publication availability and schema hash/304; mocked BaseCreateUpdateResourceService is not VersionedCreateUpdateResourceService and protocol handlers return explicit views. No persisted-version item ETag branch. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff.",
         "scopePaths": [
@@ -986,7 +986,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
@@ -1020,7 +1020,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1034,12 +1034,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkCrudStructuralOpenApiHttpTest.java",
       "sha256": "b58a39be21b6883861762b8467d95e52a927daecc0fa523e2e0b3eb10a10bf13",
       "kind": "excluded_outside_impact",
-      "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff.",
+      "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Reviewed no-transform transport delta against this class: Inherited and overridden PUT use ordinary BaseCreateUpdateResourceService, so withVersion remains unchanged; remaining ETag assertions are structural schema/304, not record-version transport. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.bulk.BulkCrudStructuralOpenApiHttpTest",
       "fixtureGroup": "bulk_http_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Inherited and overridden PUT use ordinary BaseCreateUpdateResourceService, so withVersion remains unchanged; remaining ETag assertions are structural schema/304, not record-version transport. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff.",
         "scopePaths": [
@@ -1050,7 +1050,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
@@ -1079,7 +1079,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1132,7 +1132,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a",
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
         "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
       }
     },
@@ -1154,7 +1154,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1175,7 +1175,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1196,7 +1196,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1217,7 +1217,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1238,7 +1238,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1259,7 +1259,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1280,7 +1280,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1301,7 +1301,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1322,7 +1322,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1348,7 +1348,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1375,7 +1375,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "8509429b4dad8c78a31c088456fa761770cd2e2f98b6ffa1f59ae7145cc6d9f9"
+        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
       }
     },
     {
@@ -1422,7 +1422,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a",
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
         "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
       }
     },
@@ -1463,7 +1463,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a",
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
         "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
       }
     },
@@ -1520,7 +1520,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1548,7 +1548,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1576,7 +1576,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1604,7 +1604,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1679,7 +1679,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a",
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
         "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
       }
     },
@@ -1719,7 +1719,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1745,19 +1745,19 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkOperationStructuralCompilerTest.java",
       "sha256": "4231ce018b161f138f21bb247bf12b35498a3e95ac7f7bb7403f10976bcb7d39",
       "kind": "excluded_outside_impact",
-      "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff.",
+      "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Reviewed no-transform transport delta against this class: Reflection/typed operation/schema/provider/descriptor and publication lifecycle checks do not invoke item response materialization. New helper is private/unannotated; public signatures, annotations, DTO/OpenAPI and SDK lifecycle unchanged. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.bulk.BulkOperationStructuralCompilerTest",
       "fixtureGroup": "bulk_http_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Reflection/typed operation/schema/provider/descriptor and publication lifecycle checks do not invoke item response materialization. New helper is private/unannotated; public signatures, annotations, DTO/OpenAPI and SDK lifecycle unchanged. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing structural HTTP/OpenAPI composition contracts. This H2 fixture does not exercise the changed PostgreSQL owner/catalog/attestation/storage paths or new expression annotations; its asserted HTTP shape is outside this BASIC backend diff.",
         "scopePaths": [
@@ -1768,7 +1768,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
@@ -1804,7 +1804,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1844,7 +1844,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1871,7 +1871,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1911,7 +1911,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -1940,7 +1940,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -2036,7 +2036,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -2072,7 +2072,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -2106,7 +2106,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       },
       "replacement": [
         {
@@ -2147,7 +2147,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       }
     },
     {
@@ -2175,7 +2175,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "06a91e5a0f7a01e808479215963e3b813da194c846ab9f90d70126121c47c63a"
+        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
       },
       "replacement": [
         {
@@ -2361,12 +2361,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/controller/base/AbstractResourceControllerJpaWriteIntegrationTest.java",
       "sha256": "20e9becfb2529afd58b8bba2445258df0a0723af855e56b77599085cbb263b1f",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: EmployeeService is an ordinary AbstractBaseResourceService with no captured-version hook; CRUD/profile/query/discovery/lazy-association DTO assertions are unversioned. Create/ordinary GET/PUT behavior is retained; focused MVC tests exercise optional-version branching without claiming historical JPA execution. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.controller.base.AbstractResourceControllerJpaWriteIntegrationTest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: EmployeeService is an ordinary AbstractBaseResourceService with no captured-version hook; CRUD/profile/query/discovery/lazy-association DTO assertions are unversioned. Create/ordinary GET/PUT behavior is retained; focused MVC tests exercise optional-version branching without claiming historical JPA execution. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2377,7 +2377,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
@@ -2561,12 +2561,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/e2e/ActionCatalogE2ETest.java",
       "sha256": "00242ec23d1cf8165458ad2e83e8f2df2410a8c4bd65a65e1cad540e13b23d40",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Workflow action discovery, availability and typed manual approve handlers; IF_MATCH is catalog metadata, not an invocation of the changed item-header helper. Catalog/state/domain command semantics unchanged. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.ActionCatalogE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Workflow action discovery, availability and typed manual approve handlers; IF_MATCH is catalog metadata, not an invocation of the changed item-header helper. Catalog/state/domain command semantics unchanged. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2577,19 +2577,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/BulkResourceOperationOpenApiHttpTest.java",
       "sha256": "e41bdb1453691a56514681f9fc2cf4c12a735b2a540f05dc2ccd0f820078f468",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Declared lifecycle identities and real OpenAPI mapping; custom controller void handlers and schema references, not persisted resource-version output. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.BulkResourceOperationOpenApiHttpTest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Declared lifecycle identities and real OpenAPI mapping; custom controller void handlers and schema references, not persisted resource-version output. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2600,19 +2600,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/CanonicalRequestSchemaHttpIntegrationTest.java",
       "sha256": "c1edbec8c94643ffbd106c7d6f559b45fbe9754497911dec8fe9baffeb301b3b",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Strict real handler request schema and immutable filtered UI projection/cached document; structural ETag is emitted by ApiDocsController, not withResourceVersion. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.CanonicalRequestSchemaHttpIntegrationTest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Strict real handler request schema and immutable filtered UI projection/cached document; structural ETag is emitted by ApiDocsController, not withResourceVersion. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2623,19 +2623,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/CapabilityConsistencyE2ETest.java",
       "sha256": "1a1f6de745ec3a24ef4a851eec2ea462300b7e5b72dbef56640cdad2420ad0d1",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Collection/item capabilities, dedicated catalogs and HATEOAS consistency; item lookup determines availability but does not emit a captured item ETag response. Metadata payload and gating unchanged. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.CapabilityConsistencyE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Collection/item capabilities, dedicated catalogs and HATEOAS consistency; item lookup determines availability but does not emit a captured item ETag response. Metadata payload and gating unchanged. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2646,19 +2646,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/CapabilityE2ETest.java",
       "sha256": "5cac5465853852697a3716166ead42d2061ec96bf99ae14bc185d1cd25c23ecc",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Capability snapshots/authorities/support/read-only affordances and repeated metadata stability; no item-version response token or cache-policy assertion. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.CapabilityE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Capability snapshots/authorities/support/read-only affordances and repeated metadata stability; no item-version response token or cache-policy assertion. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2669,19 +2669,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/CatalogDiscoveryE2ETest.java",
       "sha256": "c2a06666fc140d605c0bf77a92e8d2d9c22bb1509d6032d1359e3d0119db8e98",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Catalog endpoints and resolvable schema links; structural docs/discovery routing does not pass through captured item-version materialization. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.CatalogDiscoveryE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Catalog endpoints and resolvable schema links; structural docs/discovery routing does not pass through captured item-version materialization. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2692,7 +2692,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
@@ -2705,12 +2705,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/e2e/HateoasAndPayloadSizeE2ETest.java",
       "sha256": "9cc2a68e3e8608a55a196ecfa47b25ee35a514962b6f8014f875a10526c366a5",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: HATEOAS toggle and item/collection payload sizes on unversioned Employee/Payroll services; default entity version hook is empty. Body/links and no-version header behavior unchanged, covered by ordinary GET focused case. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.HateoasAndPayloadSizeE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: HATEOAS toggle and item/collection payload sizes on unversioned Employee/Payroll services; default entity version hook is empty. Body/links and no-version header behavior unchanged, covered by ordinary GET focused case. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2721,19 +2721,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/HypermediaDiscoveryE2ETest.java",
       "sha256": "429aa5503a8c5365fa7c5c188c1456ccc3113b902c4587ea199208fd79db40c0",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Unversioned item/collection links, forwarded local origins and related-resource schemas. Version hook is empty; schema ETag and forwarded link resolution are separate unchanged paths. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.HypermediaDiscoveryE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Unversioned item/collection links, forwarded local origins and related-resource schemas. Version hook is empty; schema ETag and forwarded link resolution are separate unchanged paths. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2744,19 +2744,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/LimitsAndErrorsE2ETest.java",
       "sha256": "323f63e964970d88f7fe4db27955b536a296a6ca341f8f372a7d5a49aad96746",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Malformed/limit/read-only defensive status and sanitized error payloads; denied/error/collection paths do not emit a captured persisted-version ETag. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.LimitsAndErrorsE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Malformed/limit/read-only defensive status and sanitized error payloads; denied/error/collection paths do not emit a captured persisted-version ETag. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2767,19 +2767,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/MutableResourceLifecycleE2ETest.java",
       "sha256": "fa5cbf461a142d58c96b5c2df86e8cafb33163ebc8e4777ae389240e11c8be14",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Ordinary Employee GET/create/PUT/delete lifecycle and validation, using nonversioned fixture services. No snapshot version hook or versioned update SPI; no-token branch and create defaults preserved by focused MVC. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.MutableResourceLifecycleE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Ordinary Employee GET/create/PUT/delete lifecycle and validation, using nonversioned fixture services. No snapshot version hook or versioned update SPI; no-token branch and create defaults preserved by focused MVC. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2790,19 +2790,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/NonJpaOptionSourceProviderE2ETest.java",
       "sha256": "6068377ac157ecfdce7e54b43a14b368acfb0d24f37e0f0476cf09d6ed05b14f",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Provider-backed options/filter/byIds/dependency/sort validation; collection option projections have no captured persisted-version item response and no changed header path. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.NonJpaOptionSourceProviderE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Provider-backed options/filter/byIds/dependency/sort validation; collection option projections have no captured persisted-version item response and no changed header path. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2813,19 +2813,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/OpenApiGroupRegistrationE2ETest.java",
       "sha256": "a71a2129d501b5118f7447c6c2f6f363425862623f955d2409ffef3bd31ae9c6",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Group registration, paths and response schema references; method annotations/signatures/DTOs are unchanged and no persisted item header is evaluated. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.OpenApiGroupRegistrationE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Group registration, paths and response schema references; method annotations/signatures/DTOs are unchanged and no persisted item header is evaluated. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2836,19 +2836,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/OpenApiGroupResolutionE2ETest.java",
       "sha256": "9fd76f92356312bf2074afb34b071eb2574b92a59b21976372bfdf2039b62ab9",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Action-path ownership/group resolution via metadata; no HTTP item response or cache policy materialization. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.OpenApiGroupResolutionE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Action-path ownership/group resolution via metadata; no HTTP item response or cache policy materialization. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2859,19 +2859,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/OptionsAndOptionSourcesE2ETest.java",
       "sha256": "70b94f42a729caff540099f95ecf3620d42461a139a3afcfb72256980fc69a69",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Standard/JPA option-source scoped query/sort/filter contracts; no captured item ETag emitted by those collection query endpoints. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.OptionsAndOptionSourcesE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Standard/JPA option-source scoped query/sort/filter contracts; no captured item ETag emitted by those collection query endpoints. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2882,19 +2882,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/ReadOnlyResourceE2ETest.java",
       "sha256": "0345d7564e066f120b8a5299dc36e2c7e09599b81b34b8eaf6ab844cdc9deb40",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Payroll all/item reads and absent write routes on ordinary AbstractReadOnlyResourceService with empty version hook. Shared item method still emits no item ETag or new Cache-Control; focused ordinary GET checks this branch. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.ReadOnlyResourceE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Payroll all/item reads and absent write routes on ordinary AbstractReadOnlyResourceService with empty version hook. Shared item method still emits no item ETag or new Cache-Control; focused ordinary GET checks this branch. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2905,19 +2905,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/ResourceQuerySurfaceE2ETest.java",
       "sha256": "34ecdf6b9a1bb88d326fa262edb6986795514fb2740cc430e1dd22b61fc85edf",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Filter/cursor/locate/byIds order and functional/access scopes, all collection projections. No changed persisted-version response branch or record-validator comparison. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.ResourceQuerySurfaceE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Filter/cursor/locate/byIds order and functional/access scopes, all collection projections. No changed persisted-version response branch or record-validator comparison. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2928,19 +2928,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/SchemaDiscoveryE2ETest.java",
       "sha256": "45d09cfcc471f4adea65ec698dafeee5b695309725132935d0c5d212c956edb5",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Filtered schema identity, variants and If-None-Match304; ETag is structural ApiDocs hash, outside canonical record-version helper. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.SchemaDiscoveryE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Filtered schema identity, variants and If-None-Match304; ETag is structural ApiDocs hash, outside canonical record-version helper. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2951,19 +2951,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/SchemaHashE2eTest.java",
       "sha256": "a38c329ccb54a62836310c9cecc9649f79c83e3ea5f3164d3620c083f07add94",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Schema GET/304/content-type and must-revalidate Cache-Control on /schemas/filtered. This existing explicit cache assertion is a separate ApiDocsController path and is not altered by item-header policy. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.SchemaHashE2eTest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Schema GET/304/content-type and must-revalidate Cache-Control on /schemas/filtered. This existing explicit cache assertion is a separate ApiDocsController path and is not altered by item-header policy. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2974,19 +2974,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/StarterBootstrapE2ETest.java",
       "sha256": "7c0f099387218b9edaeec93125715c04a314ef64c4fc3cca26b9fae4074a01fb",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Auto-bootstrap groups, all/filter/option-source and filtered schemas on ordinary fixture services; no new configuration/bean/public API is introduced and no persisted item token path is used. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.StarterBootstrapE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Auto-bootstrap groups, all/filter/option-source and filtered schemas on ordinary fixture services; no new configuration/bean/public API is introduced and no persisted item token path is used. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -2997,19 +2997,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/StatsE2ETest.java",
       "sha256": "41a41c1e821b40fc8a90b1b3ee6d2674d2bae0d79f72d29c33555d5a9a4beeb9",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Stats metrics/periods/aggregate/field discovery/error and schema hash/304; dataset/schema response headers remain withVersion/ApiDocs, not record version. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.StatsE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Stats metrics/periods/aggregate/field discovery/error and schema hash/304; dataset/schema response headers remain withVersion/ApiDocs, not record version. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -3020,19 +3020,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/SurfaceCatalogE2ETest.java",
       "sha256": "28db1391c2ef3101df96094db6ea8e837fa32555ba4cd7dd987910857bac59b2",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Automatic/explicit/item-scoped surface discovery and contextual availability; reads unversioned fixture state for availability, not a versioned item transport response. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.SurfaceCatalogE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Automatic/explicit/item-scoped surface discovery and contextual availability; reads unversioned fixture state for availability, not a versioned item transport response. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -3043,19 +3043,19 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/WorkflowNegativePathsE2ETest.java",
       "sha256": "37eb666f2d4fd703ab52397e9562ff0485c7affb5f6a8f007406b64b4e860549",
       "kind": "excluded_outside_impact",
-      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
+      "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Reviewed no-transform transport delta against this class: Manual typed approve validation/not-found/atomic no-partial-effect assertions; no captured item-version response helper and no HMAC/precondition/domain transaction changes. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
       "className": "org.praxisplatform.uischema.e2e.WorkflowNegativePathsE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Reviewed no-transform transport delta against this class: Manual typed approve validation/not-found/atomic no-partial-effect assertions; no captured item-version response helper and no HMAC/precondition/domain transaction changes. Canonical changed branch is covered by23 source-bound no-DB cases (ResourceRepresentationQueryControllerTest12, VersionedCreateUpdateResourceControllerTest6 with real Security headers, ResourceVersionEtagServiceTest5). No equivalence or historical PASS of this database fixture is claimed. Exact public artifact release/Quickstart Neon HTTP9 and deployed identity/gzip/br validation remain separate required gates.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JPA/HTTP discovery, capabilities and resource semantics; this fixture does not declare expression metadata. The functional rc.157 delta in this path is opt-in expression beans/customizer and MicroVisualization projection, covered by no-DB resolver/validator tests in A; EOL-only edits are not behavioral changes.",
         "scopePaths": [
@@ -3066,7 +3066,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "27d9bb5da9f1490dad3daa094a27e5c4204df1ee86356d267289c0c6f281bc36"
+        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
       }
     },
     {
@@ -3723,7 +3723,7 @@
           "src/test/java/org/praxisplatform/uischema/validation/JsonLogicExpressionValidatorParityTest.java"
         ],
         "scopePrefixes": [],
-        "reviewedScopeDigest": "4abb7644215b658387958a9f821e15ccca06ede42d4334ff8c885f4250d1e34c"
+        "reviewedScopeDigest": "c5e2cb8a62214d03bddf772bd176ff6ab2e3af1ef4e6d8c18c9967036d899d75"
       }
     },
     {
