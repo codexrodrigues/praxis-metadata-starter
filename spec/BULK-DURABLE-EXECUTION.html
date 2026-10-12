@@ -746,9 +746,20 @@ banco confere o prazo com <code>clock_timestamp()</code>. Se ele
 expirou, a transação é revertida e o receipt não é gravado. O insert do
 receipt usa o relógio do PostgreSQL e só ocorre quando
 <code>confirmed_at</code> antecede o prazo da execução e o prazo
-persistido da unidade. Domínio, receipt e mudança para
-<code>UNIT_COMMITTED_PENDING_ACK</code> confirmam juntos. Resultado
-<code>CONFIRMED</code> nunca é observado antes desse commit.</li>
+persistido da unidade. A instalação dos três timeouts usa um único
+statement e uma única amostra materializada de
+<code>clock_timestamp()</code>: <code>statement_timeout</code> e
+<code>idle_in_transaction_session_timeout</code> recebem o saldo em
+milissegundos inteiros, e <code>lock_timeout</code> recebe o menor entre
+esse saldo e 1 s. Saldo expirado ou inferior a 1 ms falha fechado sem
+aplicar <code>0ms</code> (que desabilitaria o timeout). A configuração
+inicial dos dois limites de controle de 1 s também usa um único
+statement. Esse agrupamento reduz viagens ao banco; não renova o prazo
+persistido de 5 s, não remove verificações posteriores de relógio e não
+muda a ordem de autorização, locks ou callbacks. Domínio, receipt e
+mudança para <code>UNIT_COMMITTED_PENDING_ACK</code> confirmam juntos.
+Resultado <code>CONFIRMED</code> nunca é observado antes desse
+commit.</li>
 <li><strong>Acknowledgement.</strong> Somente depois que o manager
 confirmou a transação anterior, uma nova transação relê receipt/attempt
 sob lock, avança <code>nextOrdinal</code>, limpa a tentativa e escolhe
