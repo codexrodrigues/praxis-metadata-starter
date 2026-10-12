@@ -28,6 +28,10 @@ CAPTURE_MARKERS = (
     'NEON_PROOF_UNIT_DEADLINE_EXPIRED=denied,no-timeout-disabled-or-renewed',
     'NEON_PROOF_UNIT_DEADLINE_ROLLBACK=original-session-gucs-preserved',
     'NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION=ADMIT-returned,deadline-STOP,mutation-zero,domain-preserved,receipt-and-admission-zero',
+    'NEON_PROOF_ORDERED_UNIT_EXPIRED_MUTATION=CONFIRMED-returned,deadline-STOP,no-pending,domain-rollback,receipt-and-admission-zero',
+    'NEON_PROOF_ORDERED_UNIT_FENCES=prepare-committed,canonical-recovery-epoch-FENCED,canonical-suspend-NOT_EXECUTABLE,callbacks-zero,domain-preserved,receipt-and-admission-zero',
+    'NEON_PROOF_ORDERED_UNIT_PREFIX=two-public-units,nonempty-prefix-read,two-unchanged-receipts,replay-without-callback,domain-preserved',
+    'NEON_PROOF_ORDERED_UNIT_TRANSPORT=100ms-floor,policy-reserve-over-2100ms,one-domain-effect-and-receipt,completed,replay-without-callback',
 )
 KINDS = {
     "no_db", "neon_required", "historical_reuse", "excluded_outside_impact",
