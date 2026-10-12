@@ -41,14 +41,14 @@
       {
         "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
         "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
-        "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows."
+        "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows. Shared unit/control deadline helpers serve PER_ITEM and ATOMIC. P4 markers NEON_PROOF_UNIT_DEADLINE_BATCH, NEON_PROOF_UNIT_DEADLINE_EXPIRED and NEON_PROOF_UNIT_DEADLINE_ROLLBACK require exact production one-clock/three-GUC SQL, same absolute deadline decreasing, expired input rejection without setter side effects, and rollback restoring original session GUCs; no full ATOMIC orchestration acceptance is inferred."
       }
     ],
     "G": [
       {
         "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
         "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
-        "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline."
+        "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline. NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION requires ADMIT returned after the five-second unit expired, durable DEADLINE_EXCEEDED STOP, zero mutation callback, unchanged domain and zero receipt/admission; existing positive PER_ITEM commit/receipt and callback-free replay remain mandatory."
       }
     ],
     "H": [
@@ -107,7 +107,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -220,7 +220,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -232,14 +232,15 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches executeAtomic/its ACK via this fixture. P4 checks the same shared GUC/deadline helpers physically; full ATOMIC admission, mutation and ACK orchestration remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches executeAtomic/its ACK via this fixture. P4 checks the same shared GUC/deadline helpers physically; full ATOMIC admission, mutation and ACK orchestration remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -249,7 +250,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -276,7 +277,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -288,12 +289,12 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches reserve,executeUnit,requestCancel in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches reserve,executeUnit,requestCancel in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -303,7 +304,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -315,12 +316,12 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches reserve,executeUnit,advance in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches reserve,executeUnit,advance in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -330,7 +331,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -342,12 +343,12 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Control-setup SQL delta reaches reserve,requestCancel (unitTransaction/workerTransaction) in this fixture. P4 checks that exact control GUC helper; specialized worker/authority/reader behavior remains excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Control-setup SQL delta reaches reserve,requestCancel (unitTransaction/workerTransaction) in this fixture. P4 checks that exact control GUC helper; specialized worker/authority/reader behavior remains excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -357,7 +358,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -384,7 +385,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -396,12 +397,12 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches advance in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches advance in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -411,7 +412,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -439,7 +440,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -467,7 +468,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -479,14 +480,15 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -496,7 +498,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -508,14 +510,15 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior.",
+        "unchangedGuarantee": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -525,7 +528,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -537,11 +540,12 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches reserve,executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior.",
+        "unchangedGuarantee": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Unit/control SQL delta reaches reserve,executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -551,7 +555,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -563,14 +567,15 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -580,7 +585,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -609,7 +614,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -634,14 +639,15 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -651,7 +657,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -680,7 +686,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -706,13 +712,13 @@
         {
           "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
           "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
-          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows.",
+          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows. Shared unit/control deadline helpers serve PER_ITEM and ATOMIC. P4 markers NEON_PROOF_UNIT_DEADLINE_BATCH, NEON_PROOF_UNIT_DEADLINE_EXPIRED and NEON_PROOF_UNIT_DEADLINE_ROLLBACK require exact production one-clock/three-GUC SQL, same absolute deadline decreasing, expired input rejection without setter side effects, and rollback restoring original session GUCs; no full ATOMIC orchestration acceptance is inferred.",
           "impactGroup": "F"
         },
         {
           "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
           "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
-          "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline.",
+          "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline. NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION requires ADMIT returned after the five-second unit expired, durable DEADLINE_EXCEEDED STOP, zero mutation callback, unchanged domain and zero receipt/admission; existing positive PER_ITEM commit/receipt and callback-free replay remain mandatory.",
           "impactGroup": "G"
         }
       ],
@@ -734,7 +740,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597",
         "reason": "The changed shared capture constructor/check, initial budget anchor and timeout restoration are covered by the four required P4 capture oracles and deterministic no-DB CaptureBudget unit tests. Specialized QUERY admission, ASYNC capacity, paging, fleet/contention and other legacy assertions are outside this three-fix review; this disposition does not claim full suite equivalence or historical PASS."
       }
     },
@@ -747,14 +753,15 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches reserve,executeUnit,requestCancel in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches reserve,executeUnit,requestCancel in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -764,7 +771,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -782,14 +789,15 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches reserve,executeUnit,requestCancel,recover in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior.",
+        "unchangedGuarantee": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Unit/control SQL delta reaches reserve,executeUnit,requestCancel,recover in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -799,7 +807,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -828,7 +836,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -846,14 +854,15 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches reserve,executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches reserve,executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -863,7 +872,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -875,14 +884,15 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -892,7 +902,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -929,7 +939,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -944,7 +954,7 @@
           "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
           "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
           "impactGroup": "F",
-          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows."
+          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows. Shared unit/control deadline helpers serve PER_ITEM and ATOMIC. P4 markers NEON_PROOF_UNIT_DEADLINE_BATCH, NEON_PROOF_UNIT_DEADLINE_EXPIRED and NEON_PROOF_UNIT_DEADLINE_ROLLBACK require exact production one-clock/three-GUC SQL, same absolute deadline decreasing, expired input rejection without setter side effects, and rollback restoring original session GUCs; no full ATOMIC orchestration acceptance is inferred."
         }
       ],
       "impactReview": {
@@ -962,7 +972,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597",
         "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
       }
     },
@@ -986,7 +996,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -1020,7 +1030,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1050,7 +1060,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -1062,14 +1072,15 @@
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches reserve,executeUnit,advance,requestCancel,recover in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches reserve,executeUnit,advance,requestCancel,recover in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1079,7 +1090,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1120,9 +1131,11 @@
         "affectedSharedPathGroups": [
           "B",
           "C",
+          "F",
+          "G",
           "H"
         ],
-        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions.",
+        "unchangedGuarantee": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Unit/control SQL delta reaches reserve,executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1132,8 +1145,8 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
-        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597",
+        "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Unit/control SQL delta reaches reserve,executeUnit in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS."
       }
     },
     {
@@ -1145,7 +1158,7 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Control-setup SQL delta reaches recover (unitTransaction/workerTransaction) in this fixture. P4 checks that exact control GUC helper; specialized worker/authority/reader behavior remains excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1154,7 +1167,11 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8",
+        "affectedSharedPathGroups": [
+          "F",
+          "G"
+        ]
       }
     },
     {
@@ -1166,7 +1183,7 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Control-setup SQL delta reaches recover (unitTransaction/workerTransaction) in this fixture. P4 checks that exact control GUC helper; specialized worker/authority/reader behavior remains excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1175,7 +1192,11 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8",
+        "affectedSharedPathGroups": [
+          "F",
+          "G"
+        ]
       }
     },
     {
@@ -1196,7 +1217,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8"
       }
     },
     {
@@ -1208,7 +1229,7 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Control-setup SQL delta reaches recover (unitTransaction/workerTransaction) in this fixture. P4 checks that exact control GUC helper; specialized worker/authority/reader behavior remains excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1217,7 +1238,11 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8",
+        "affectedSharedPathGroups": [
+          "F",
+          "G"
+        ]
       }
     },
     {
@@ -1238,7 +1263,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8"
       }
     },
     {
@@ -1250,7 +1275,7 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Control-setup SQL delta reaches requestCancel (unitTransaction/workerTransaction) in this fixture. P4 checks that exact control GUC helper; specialized worker/authority/reader behavior remains excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1259,7 +1284,11 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8",
+        "affectedSharedPathGroups": [
+          "F",
+          "G"
+        ]
       }
     },
     {
@@ -1271,7 +1300,7 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Worker scheduling, roster, shutdown and fairness guarantees remain in unchanged BulkDurableWorker and BulkDurableWorkerComposition code since rc.157. Changed shared migration, catalog and live-attestation paths remain mandatory in B-F Neon cases; this is an impact exclusion, not a PASS or equivalent rerun of local fixtures. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Control-setup SQL delta reaches reserve,requestCancel,recover (unitTransaction/workerTransaction) in this fixture. P4 checks that exact control GUC helper; specialized worker/authority/reader behavior remains excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1280,7 +1309,11 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8",
+        "affectedSharedPathGroups": [
+          "F",
+          "G"
+        ]
       }
     },
     {
@@ -1301,7 +1334,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8"
       }
     },
     {
@@ -1322,7 +1355,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8"
       }
     },
     {
@@ -1334,11 +1367,12 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "EXPLAIN plans, 32/128/512 retained-history scaling and worker selector 1s are unchanged ASYNC guarantees outside BASIC and are not claimed as measured on Neon. The changed withLifecycleRead attestation and bounded PostgreSQL timeout are required in F/P4, including real read and 250ms SQLSTATE 57014. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "EXPLAIN plans, 32/128/512 retained-history scaling and worker selector 1s are unchanged ASYNC guarantees outside BASIC and are not claimed as measured on Neon. The changed withLifecycleRead attestation and bounded PostgreSQL timeout are required in F/P4, including real read and 250ms SQLSTATE 57014. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. Control-setup SQL delta reaches requestCancel (unitTransaction/workerTransaction) in this fixture. P4 checks that exact control GUC helper; specialized worker/authority/reader behavior remains excluded, not certified PASS.",
         "affectedSharedPathGroups": [
-          "F"
+          "F",
+          "G"
         ],
-        "unchangedGuarantee": "EXPLAIN plans, 32/128/512 retained-history scaling and worker selector 1s are unchanged ASYNC guarantees outside BASIC and are not claimed as measured on Neon. The changed withLifecycleRead attestation and bounded PostgreSQL timeout are required in F/P4, including real read and 250ms SQLSTATE 57014.",
+        "unchangedGuarantee": "EXPLAIN plans, 32/128/512 retained-history scaling and worker selector 1s are unchanged ASYNC guarantees outside BASIC and are not claimed as measured on Neon. The changed withLifecycleRead attestation and bounded PostgreSQL timeout are required in F/P4, including real read and 250ms SQLSTATE 57014. Control-setup SQL delta reaches requestCancel (unitTransaction/workerTransaction) in this fixture. P4 checks that exact control GUC helper; specialized worker/authority/reader behavior remains excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1348,7 +1382,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1375,7 +1409,7 @@
           "src/main/java/org/praxisplatform/uischema/bulk/",
           "src/main/resources/db/praxis-bulk-migrations/"
         ],
-        "reviewedScopeDigest": "e17bbd2133480a6ba4d40a37bd89629e684b441b83f40fa8a75ef377c5e47c30"
+        "reviewedScopeDigest": "5d37c28f624ae2461b6293fe6b673482576799e46dfabeac3580c024a7b2d6b8"
       }
     },
     {
@@ -1404,7 +1438,7 @@
           "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
           "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
           "impactGroup": "G",
-          "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline."
+          "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline. NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION requires ADMIT returned after the five-second unit expired, durable DEADLINE_EXCEEDED STOP, zero mutation callback, unchanged domain and zero receipt/admission; existing positive PER_ITEM commit/receipt and callback-free replay remain mandatory."
         }
       ],
       "impactReview": {
@@ -1422,7 +1456,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597",
         "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
       }
     },
@@ -1445,7 +1479,7 @@
           "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
           "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
           "impactGroup": "F",
-          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows."
+          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows. Shared unit/control deadline helpers serve PER_ITEM and ATOMIC. P4 markers NEON_PROOF_UNIT_DEADLINE_BATCH, NEON_PROOF_UNIT_DEADLINE_EXPIRED and NEON_PROOF_UNIT_DEADLINE_ROLLBACK require exact production one-clock/three-GUC SQL, same absolute deadline decreasing, expired input rejection without setter side effects, and rollback restoring original session GUCs; no full ATOMIC orchestration acceptance is inferred."
         }
       ],
       "impactReview": {
@@ -1463,7 +1497,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597",
         "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
       }
     },
@@ -1520,7 +1554,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1548,7 +1582,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1576,7 +1610,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1604,7 +1638,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1679,7 +1713,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888",
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597",
         "reason": "Legacy specialized bulk behavior (atomic sets, authorized paging, capacity ASYNC, publication lifecycle, historical variants or pool-pressure details) is outside the new BASIC owner/optional-policy assertion. The changed shared migration/catalog/live-attestation/governance path is required in the cited Neon groups; those cases do not certify all specialized legacy assertions. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim."
       }
     },
@@ -1719,7 +1753,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1745,7 +1779,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1768,14 +1802,14 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkOptionalPoliciesNeonTest.java",
-      "sha256": "2534ae45e5c834811a4c1fd1b9fc3240d0c924cba23859eafc6b955439754cd4",
+      "sha256": "279c88b1c6481e950d6e1f3d24b5f68dff40e156d43d1f1238e0bc6c4e91b207",
       "kind": "neon_required",
-      "reason": "Fresh remote owner/runtime/control and durable optional-policy evidence on assigned child. Includes four finite capture oracles in the same required P4 case; no third phase.",
+      "reason": "Fresh remote owner/runtime/control and durable optional-policy evidence on assigned child. Includes four finite capture oracles in the same required P4 case; no third phase. Includes shared unit/control SQL GUC, expiry/no-renewal/rollback and post-admission five-second expiry oracles in the same P4 method; full ATOMIC execution remains outside this narrow proof.",
       "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
       "neonPhase": "optional-policies"
     },
@@ -1804,7 +1838,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1844,7 +1878,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1871,7 +1905,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1911,7 +1945,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -1940,7 +1974,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -2036,7 +2070,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -2072,7 +2106,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -2106,19 +2140,19 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       },
       "replacement": [
         {
           "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
           "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
-          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows.",
+          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows. Shared unit/control deadline helpers serve PER_ITEM and ATOMIC. P4 markers NEON_PROOF_UNIT_DEADLINE_BATCH, NEON_PROOF_UNIT_DEADLINE_EXPIRED and NEON_PROOF_UNIT_DEADLINE_ROLLBACK require exact production one-clock/three-GUC SQL, same absolute deadline decreasing, expired input rejection without setter side effects, and rollback restoring original session GUCs; no full ATOMIC orchestration acceptance is inferred.",
           "impactGroup": "F"
         },
         {
           "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
           "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
-          "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline.",
+          "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline. NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION requires ADMIT returned after the five-second unit expired, durable DEADLINE_EXCEEDED STOP, zero mutation callback, unchanged domain and zero receipt/admission; existing positive PER_ITEM commit/receipt and callback-free replay remain mandatory.",
           "impactGroup": "G"
         }
       ]
@@ -2147,7 +2181,7 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       }
     },
     {
@@ -2159,13 +2193,13 @@
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "The changed shared capture constructor/check, initial budget anchor and timeout restoration are covered by the four required P4 capture oracles and deterministic no-DB CaptureBudget unit tests. Specialized QUERY admission, ASYNC capacity, paging, fleet/contention and other legacy assertions are outside this three-fix review; this disposition does not claim full suite equivalence or historical PASS.",
+        "reason": "The changed shared capture constructor/check, initial budget anchor and timeout restoration are covered by the four required P4 capture oracles and deterministic no-DB CaptureBudget unit tests. Specialized QUERY admission, ASYNC capacity, paging, fleet/contention and other legacy assertions are outside this three-fix review; this disposition does not claim full suite equivalence or historical PASS. Unit/control SQL delta reaches reserve,advance,requestCancel in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "affectedSharedPathGroups": [
           "B",
           "F",
           "G"
         ],
-        "unchangedGuarantee": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior.",
+        "unchangedGuarantee": "ASYNC capacity binding, clone/quarantine, process contention or uniform-query guarantees remain outside the changed BASIC policy/owner path. The shared catalog and live-guard implementation touched by this fixture is required in B/D/E/F; those cases do not certify its fleet, load or HBA behavior. Unit/control SQL delta reaches reserve,advance,requestCancel in this fixture. P4 checks shared GUC/expiry/rollback and one PER_ITEM commit/receipt/replay; specialized assertions remain excluded, not certified PASS.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -2175,22 +2209,29 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": "763e6814a188f65d07022995a9c3874126a355416b56b8d5fdee71bd3943d888"
+        "reviewedScopeDigest": "3cddb91a807b8a1c84037c193b80a41dac3e468ee30bd0b9e6442c2fa354e597"
       },
       "replacement": [
         {
           "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
           "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
-          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows.",
+          "assertion": "Distinct TLS-authenticated runtime/control identities; wrong identity and committed live drift reject before callback; runtime 250ms PostgreSQL statement timeout returns 57014; actual receipt plus domain mutation are both absent after deferred COMMIT PZ001. Capture markers NEON_PROOF_CAPTURE_TRANSACTION, NEON_PROOF_CAPTURE_EXPIRY, NEON_PROOF_CAPTURE_LOWER_GUC and NEON_PROOF_CAPTURE_FAILURE require one real capture COMMIT with same writable RR backend/tx and independent seven-store readback, PostgreSQL expiry after callback, lower GUC preservation/restore, and callback failure rollback-only; all rollback cases preserve full preexisting rows. Shared unit/control deadline helpers serve PER_ITEM and ATOMIC. P4 markers NEON_PROOF_UNIT_DEADLINE_BATCH, NEON_PROOF_UNIT_DEADLINE_EXPIRED and NEON_PROOF_UNIT_DEADLINE_ROLLBACK require exact production one-clock/three-GUC SQL, same absolute deadline decreasing, expired input rejection without setter side effects, and rollback restoring original session GUCs; no full ATOMIC orchestration acceptance is inferred.",
           "impactGroup": "F"
         },
         {
           "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
           "testcaseName": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
-          "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline.",
+          "assertion": "Empty policy list persists, reopens and executes with receipt; nonempty policy evidence persists and changed policy is rejected without rewrite; missing governance and invalid JSON return CORRUPT on protected read; revoked grant prevents new domain write and receipt while replay remains callback-free. captureAndInsertEvaluated committed evaluation fingerprint is reopened by runtime and seven persisted artifacts are independently read by owner; rollback cases leave no proposal UUID rows and preserve the committed full-row baseline. NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION requires ADMIT returned after the five-second unit expired, durable DEADLINE_EXCEEDED STOP, zero mutation callback, unchanged domain and zero receipt/admission; existing positive PER_ITEM commit/receipt and callback-free replay remain mandatory.",
           "impactGroup": "G"
         }
       ]
+    },
+    {
+      "path": "src/test/java/org/praxisplatform/uischema/bulk/JdbcBulkUnitDeadlineBudgetTest.java",
+      "sha256": "f51d1322eb11be3d10eab2f984e101b7660a5cbe670892382e6ed0e96dc9c8a0",
+      "kind": "no_db",
+      "reason": "Mock JDBC verifies shared unit/control budget SQL batching, immutable deadline expiry and one-query bounds without a database. Physical GUC, expired-admission rollback and PER_ITEM commit/receipt/replay remain required in P4; no full ATOMIC execution certification.",
+      "className": "org.praxisplatform.uischema.bulk.JdbcBulkUnitDeadlineBudgetTest"
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/persistence/fixture/BulkDurableJpaDomainRow.java",
@@ -2377,7 +2418,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2577,7 +2618,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2600,7 +2641,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2623,7 +2664,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2646,7 +2687,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2669,7 +2710,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2692,7 +2733,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2721,7 +2762,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2744,7 +2785,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2767,7 +2808,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2790,7 +2831,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2813,7 +2854,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2836,7 +2877,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2859,7 +2900,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2882,7 +2923,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2905,7 +2946,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2928,7 +2969,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2951,7 +2992,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2974,7 +3015,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -2997,7 +3038,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -3020,7 +3061,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -3043,7 +3084,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -3066,7 +3107,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "e1e5d38bbba8e9823a605246a22c0502151e9ca3cf21b29e312af0d50b3ef7ab"
+        "reviewedScopeDigest": "3b96a9cac488409a8433a9bd3916d6577c89e00943259439884d47562f300cd5"
       }
     },
     {
@@ -3723,7 +3764,7 @@
           "src/test/java/org/praxisplatform/uischema/validation/JsonLogicExpressionValidatorParityTest.java"
         ],
         "scopePrefixes": [],
-        "reviewedScopeDigest": "c5e2cb8a62214d03bddf772bd176ff6ab2e3af1ef4e6d8c18c9967036d899d75"
+        "reviewedScopeDigest": "56f9a1672e959edfddf12e9f9efa82cb452b2f3ea88b76fa4e16154691452b80"
       }
     },
     {

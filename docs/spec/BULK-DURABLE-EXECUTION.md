@@ -354,6 +354,13 @@ operacional do binding:
    ele expirou, a transação é revertida e o receipt não é gravado. O insert do receipt usa o
    relógio do PostgreSQL e só ocorre quando `confirmed_at` antecede o prazo da execução e o
    prazo persistido da unidade.
+   A instalação dos três timeouts usa um único statement e uma única amostra materializada de
+   `clock_timestamp()`: `statement_timeout` e `idle_in_transaction_session_timeout` recebem o
+   saldo em milissegundos inteiros, e `lock_timeout` recebe o menor entre esse saldo e 1 s.
+   Saldo expirado ou inferior a 1 ms falha fechado sem aplicar `0ms` (que desabilitaria o timeout).
+   A configuração inicial dos dois limites de controle de 1 s também usa um único statement.
+   Esse agrupamento reduz viagens ao banco; não renova o prazo persistido de 5 s, não remove
+   verificações posteriores de relógio e não muda a ordem de autorização, locks ou callbacks.
    Domínio, receipt e mudança para `UNIT_COMMITTED_PENDING_ACK` confirmam juntos. Resultado
    `CONFIRMED` nunca é observado antes desse commit.
 3. **Acknowledgement.** Somente depois que o manager confirmou a transação anterior, uma nova

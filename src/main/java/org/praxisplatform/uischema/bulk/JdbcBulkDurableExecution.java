@@ -2770,19 +2770,44 @@ public final class JdbcBulkDurableExecution {
     /** Unit-control acquisition has a bounded wait even when the execution deadline is distant. */
     private <T> T unitTransaction(SqlWork<T> work) {
         return transaction(connection -> {
-            setLocalTimeout(connection, "statement_timeout", CONTROL_LOCK_BUDGET.toMillis());
-            setLocalTimeout(connection, "lock_timeout", CONTROL_LOCK_BUDGET.toMillis());
+            setControlLockBudget(connection);
             return work.apply(connection);
         });
     }
 
+    /** Installs both control limits on the existing unit connection in one round trip. */
+    static void setControlLockBudget(Connection connection) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select set_config('statement_timeout', ?, true),
+                       set_config('lock_timeout', ?, true)
+                """)) {
+            String limit = CONTROL_LOCK_BUDGET.toMillis() + "ms";
+            statement.setString(1, limit); statement.setString(2, limit);
+            statement.execute();
+        }
+    }
+
     /** After the control row is locked and replay checked, remaining deadline bounds DB work and target locks. */
-    private static void setDeadlineBudget(Connection connection, Instant deadline) throws SQLException {
-        long remainingMillis = Duration.between(clock(connection), deadline).toMillis();
-        if (remainingMillis <= 0) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
-        setLocalTimeout(connection, "statement_timeout", remainingMillis);
-        setLocalTimeout(connection, "lock_timeout", Math.min(remainingMillis, CONTROL_LOCK_BUDGET.toMillis()));
-        setLocalTimeout(connection, "idle_in_transaction_session_timeout", remainingMillis);
+    static void setDeadlineBudget(Connection connection, Instant deadline) throws SQLException {
+        // One database clock sample feeds all three limits. CASE also prevents an expired or
+        // sub-millisecond remainder from disabling a timeout with PostgreSQL's special 0 value.
+        try (var statement = connection.prepareStatement("""
+                with remaining as materialized (
+                    select floor(extract(epoch from (?::timestamptz - clock_timestamp())) * 1000)::bigint as millis
+                )
+                select millis,
+                       case when millis > 0 then set_config('statement_timeout', millis::text || 'ms', true) end,
+                       case when millis > 0 then set_config('lock_timeout', least(millis, ?)::text || 'ms', true) end,
+                       case when millis > 0 then set_config('idle_in_transaction_session_timeout', millis::text || 'ms', true) end
+                from remaining
+                """)) {
+            statement.setObject(1, Objects.requireNonNull(deadline, "deadline").atOffset(ZoneOffset.UTC));
+            statement.setLong(2, CONTROL_LOCK_BUDGET.toMillis());
+            try (var rows = statement.executeQuery()) {
+                if (!rows.next() || rows.getLong(1) <= 0 || rows.wasNull() || rows.next())
+                    throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
+            }
+        }
     }
 
     private static void requireAtomicMonotonicBudget(AtomicAttempt attempt) {
@@ -2798,17 +2823,6 @@ public final class JdbcBulkDurableExecution {
 
     private static Instant min(Instant first, Instant second) {
         return first.isBefore(second) ? first : second;
-    }
-
-    private static void setLocalTimeout(Connection connection, String setting, long millis) throws SQLException {
-        if (!"statement_timeout".equals(setting) && !"lock_timeout".equals(setting)
-                && !"idle_in_transaction_session_timeout".equals(setting))
-            throw new IllegalArgumentException("Unsupported local timeout setting");
-        try (var statement = connection.prepareStatement("select set_config(?, ?, true)")) {
-            statement.setString(1, setting);
-            statement.setString(2, Math.max(1, millis) + "ms");
-            statement.execute();
-        }
     }
 
     private void requireScope(BulkFingerprintContext scope) {

@@ -24,6 +24,10 @@ CAPTURE_MARKERS = (
     'NEON_PROOF_CAPTURE_EXPIRY=postgres-clock-after-callback,safe-unavailable,outer-catch-rollback-only,seven-stores-zero',
     'NEON_PROOF_CAPTURE_LOWER_GUC=statement-and-lock-never-widened,prior-limits-restored,rollback-zero',
     'NEON_PROOF_CAPTURE_FAILURE=callback-domain-write,safe-unavailable,outer-catch-rollback-only,seven-stores-zero,domain-restored',
+    'NEON_PROOF_UNIT_DEADLINE_BATCH=one-clock,three-gucs,same-deadline-decreases',
+    'NEON_PROOF_UNIT_DEADLINE_EXPIRED=denied,no-timeout-disabled-or-renewed',
+    'NEON_PROOF_UNIT_DEADLINE_ROLLBACK=original-session-gucs-preserved',
+    'NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION=ADMIT-returned,deadline-STOP,mutation-zero,domain-preserved,receipt-and-admission-zero',
 )
 KINDS = {
     "no_db", "neon_required", "historical_reuse", "excluded_outside_impact",
