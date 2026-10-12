@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.bulk;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.time.Duration;
@@ -99,9 +100,10 @@ public final class JdbcBulkProposalStore {
         try {
             return infrastructure.withConnection(connection -> {
                 requireCaptureTransaction(connection);
+                long initialBegan = System.nanoTime();
                 Duration initial = positive(callerRemaining.get());
                 CaptureBudget budget = new CaptureBudget(connection, proposal, callerRemaining,
-                        began, initial);
+                        began, initialBegan, initial);
                 Throwable failure = null;
                 boolean capturingSelection = false;
                 try {
@@ -145,11 +147,7 @@ public final class JdbcBulkProposalStore {
                     failure = error;
                     throw error;
                 } finally {
-                    try { budget.restore(); }
-                    catch (SQLException restore) {
-                        if (failure != null) failure.addSuppressed(restore);
-                        else throw restore;
-                    }
+                    budget.restore(failure);
                 }
             });
         } catch (DataAccessException error) { throw safe(error); }
@@ -210,6 +208,7 @@ public final class JdbcBulkProposalStore {
         private final BulkStoredProposal proposal;
         private final Supplier<Duration> caller;
         private final long began;
+        private final long initialBegan;
         private final Duration initial;
         private final Duration expiryWindow;
         private final long expiryBegan;
@@ -217,57 +216,57 @@ public final class JdbcBulkProposalStore {
         private final String priorLock;
 
         CaptureBudget(Connection connection, BulkStoredProposal proposal, Supplier<Duration> caller,
-                long began, Duration initial) throws SQLException {
+                long began, long initialBegan, Duration initial) throws SQLException {
             this.connection = connection;
             this.proposal = proposal;
             this.caller = caller;
             this.began = began;
+            this.initialBegan = initialBegan;
             this.initial = initial;
             try (var statement = connection.createStatement();
                     var rows = statement.executeQuery(
-                            "select current_setting('statement_timeout'), current_setting('lock_timeout')")) {
+                            "select current_setting('statement_timeout'), current_setting('lock_timeout'), clock_timestamp()")) {
                 if (!rows.next()) throw unavailable();
                 priorStatement = rows.getString(1);
                 priorLock = rows.getString(2);
-                if (rows.next()) throw unavailable();
-            }
-            try (var statement = connection.createStatement();
-                    var rows = statement.executeQuery("select clock_timestamp()")) {
-                if (!rows.next()) throw unavailable();
-                expiryWindow = Duration.between(rows.getObject(1, OffsetDateTime.class).toInstant(),
+                expiryWindow = Duration.between(rows.getObject(3, OffsetDateTime.class).toInstant(),
                         proposal.expiresAt());
                 if (rows.next() || expiryWindow.isNegative() || expiryWindow.isZero()) throw unavailable();
             }
             expiryBegan = System.nanoTime();
         }
 
-        @Override public Duration get() {
+        private Duration remaining() {
             Duration remaining = positive(caller.get());
-            long elapsed = Math.max(0L, System.nanoTime() - began);
-            Duration own = Duration.ofSeconds(30).minusNanos(elapsed);
-            Duration original = initial.minusNanos(elapsed);
-            Duration expiry = expiryWindow.minusNanos(Math.max(0L, System.nanoTime() - expiryBegan));
+            long now = System.nanoTime();
+            Duration own = Duration.ofSeconds(30).minusNanos(Math.max(0L, now - began));
+            Duration original = initial.minusNanos(Math.max(0L, now - initialBegan));
+            Duration expiry = expiryWindow.minusNanos(Math.max(0L, now - expiryBegan));
             remaining = least(remaining, least(own, least(original, expiry)));
             if (remaining.isNegative() || remaining.isZero()) throw unavailable();
-            try { tighten(remaining); }
-            catch (SQLException error) { throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE); }
+            return remaining;
+        }
+
+        @Override public Duration get() {
+            Duration remaining = remaining();
+            try (var statement = tighteningStatement(remaining, false)) { statement.execute(); }
+            catch (SQLException error) { throw unavailable(); }
             return remaining;
         }
 
         void check() throws SQLException {
-            get();
-            try (var statement = connection.createStatement();
-                    var rows = statement.executeQuery("select clock_timestamp()")) {
-                if (!rows.next() || !rows.getObject(1, OffsetDateTime.class).toInstant().isBefore(proposal.expiresAt())
+            try (var statement = tighteningStatement(remaining(), true);
+                    var rows = statement.executeQuery()) {
+                if (!rows.next() || !rows.getObject(3, OffsetDateTime.class).toInstant().isBefore(proposal.expiresAt())
                         || rows.next()) throw unavailable();
             }
         }
 
-        private void tighten(Duration remaining) throws SQLException {
+        private PreparedStatement tighteningStatement(Duration remaining, boolean includeClock) throws SQLException {
             long milliseconds = remaining.toMillis();
             if (milliseconds < 1) throw unavailable();
             String limit = milliseconds + "ms";
-            try (var statement = connection.prepareStatement("""
+            var statement = connection.prepareStatement("""
                     select set_config('statement_timeout',
                                case when current_setting('statement_timeout') = '0'
                                       or current_setting('statement_timeout')::interval > ?::interval
@@ -276,19 +275,30 @@ public final class JdbcBulkProposalStore {
                                case when current_setting('lock_timeout') = '0'
                                       or current_setting('lock_timeout')::interval > ?::interval
                                     then ? else current_setting('lock_timeout') end, true)
-                    """)) {
+                    """ + (includeClock ? ", clock_timestamp()" : ""));
+            try {
                 statement.setString(1, limit); statement.setString(2, limit);
                 statement.setString(3, limit); statement.setString(4, limit);
-                statement.execute();
+                return statement;
+            } catch (SQLException | RuntimeException | Error error) {
+                try { statement.close(); }
+                catch (SQLException | RuntimeException | Error close) {
+                    if (error != close) error.addSuppressed(close);
+                }
+                throw error;
             }
         }
 
-        void restore() throws SQLException {
+        void restore(Throwable primary) throws SQLException {
             try (var statement = connection.prepareStatement("""
                     select set_config('statement_timeout', ?, true), set_config('lock_timeout', ?, true)
                     """)) {
                 statement.setString(1, priorStatement); statement.setString(2, priorLock);
                 statement.execute();
+            } catch (SQLException | RuntimeException | Error restore) {
+                if (primary == null) throw restore;
+                if (primary != restore && !(primary instanceof BulkProposalStorageException))
+                    primary.addSuppressed(restore);
             }
         }
 

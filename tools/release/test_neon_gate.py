@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from neon_gate import (GateError, audited_inventory, sha256, verify_reports,
+from neon_gate import (CAPTURE_MARKERS, GateError, audited_inventory, sha256, verify_reports,
                        verify_staged_jar, verify_tag_derivation, reviewed_scope_digest,
                        validate_superseded, verify_checkout_clean,
                        snapshot_dependency_classpath, verify_no_known_secrets,
@@ -185,11 +185,12 @@ class NeonGateOfflineTest(unittest.TestCase):
     def _report(directory, class_name, case_name="works[1]", skipped=False):
         directory.mkdir(parents=True, exist_ok=True)
         element = '<skipped/>' if skipped else ''
+        output = '\n'.join(CAPTURE_MARKERS) if 'Optional' in class_name else ''
         Path(directory / f"TEST-{class_name}.xml").write_text(
             f'<testsuite name="{class_name}" tests="1" errors="0" failures="0" '
             f'skipped="{1 if skipped else 0}">'
             f'<testcase classname="{class_name}" name="{case_name}">{element}</testcase>'
-            '</testsuite>')
+            f'<system-out>{output}</system-out></testsuite>')
 
     def test_report_identities_include_parameterized_name_and_reject_skip(self):
         manifest = {
@@ -271,6 +272,26 @@ class NeonGateOfflineTest(unittest.TestCase):
         classpath.write_text(os.pathsep.join((str(dependency), str(self.root / "missing.jar"))))
         with self.assertRaisesRegex(GateError, "missing/non-file"):
             snapshot_dependency_classpath(classpath)
+
+    def test_capture_markers_are_all_required_exactly_once(self):
+        from neon_gate import verify_neon_reports
+        manifest = {"files": [
+            {"kind": "neon_required", "className": "example.NeonTest", "neonPhase": "managed-owner"},
+            {"kind": "neon_required", "className": "example.OptionalTest", "neonPhase": "optional-policies"}],
+            "requiredImpactGroups": {key: [{"className": "example.NeonTest", "testcaseName": "works[1]",
+                                             "assertion": "reviewed assertion"}] for key in "BCDEFGH"}}
+        phases = {phase: self.root / phase for phase in ("managed-owner", "optional-policies")}
+        self._report(phases["managed-owner"], "example.NeonTest")
+        self._report(phases["optional-policies"], "example.OptionalTest")
+        xml = phases["optional-policies"] / "TEST-example.OptionalTest.xml"
+        original = xml.read_text()
+        verify_neon_reports(manifest, phases)
+        for marker in CAPTURE_MARKERS:
+            for bad in (original.replace(marker, ""), original.replace(marker, marker + "\n" + marker)):
+                xml.write_text(bad)
+                with self.assertRaisesRegex(GateError, "capture oracle marker"):
+                    verify_neon_reports(manifest, phases)
+        xml.write_text(original)
 
     def test_raw_evidence_rejects_known_credentials(self):
         owner = self.root / "owner-uri"

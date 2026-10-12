@@ -6,6 +6,12 @@ import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.sql.SQLException;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import java.util.TreeMap;
 import javax.sql.DataSource;
 import org.springframework.jdbc.datasource.DelegatingDataSource;
@@ -166,6 +172,7 @@ class BulkOptionalPoliciesNeonTest {
         var store = new JdbcBulkProposalStore(infrastructure);
         var runtimeSql = new JdbcTemplate(runtime);
         var kernel = new JdbcBulkDurableExecution(infrastructure);
+        captureOracles(manager, runtime, store, ownerSql);
         governanceNegatives(tx, store, infrastructure, ownerSql);
         var first = evaluation(1);
         tx.executeWithoutResult(status -> store.insertEvaluated(first, preview(first)));
@@ -214,6 +221,154 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(ownerSql.queryForObject("select terminal_reason_code from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, revoked.executionId())).isEqualTo("AUTHORIZATION_REVOKED");
         System.out.println("NEON_PROOF_EXECUTION=one-domain-write-and-receipt,replay-without-callback,revocation-zero-write-and-receipt");
         }
+    }
+
+    /** Four bounded capture oracles on the existing ordinary runtime; no fixture reset or new authority. */
+    private static void captureOracles(DataSourceTransactionManager manager, DataSource runtime,
+            JdbcBulkProposalStore store, JdbcTemplate ownerSql) {
+        var repeatable = new TransactionTemplate(manager);
+        repeatable.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        repeatable.setReadOnly(false);
+        var runtimeSql = new JdbcTemplate(runtime);
+        var captured = evaluation(1);
+        var callbacks = new AtomicInteger();
+        repeatable.executeWithoutResult(status -> {
+            int pid = runtimeSql.queryForObject("select pg_backend_pid()", Integer.class);
+            String txid = runtimeSql.queryForObject("select txid_current()::text", String.class);
+            var actual = store.captureAndInsertEvaluated(captured.proposal(), (connection, budget) -> {
+                callbacks.incrementAndGet();
+                assertThat(captureValue(connection, "select current_setting('transaction_isolation')")).isEqualTo("repeatable read");
+                assertThat(captureValue(connection, "select current_setting('transaction_read_only')")).isEqualTo("off");
+                assertThat(captureValue(connection, "select pg_backend_pid()::text")).isEqualTo(Integer.toString(pid));
+                assertThat(captureValue(connection, "select txid_current()::text")).isEqualTo(txid);
+                assertThat(budget.get()).isPositive().isLessThanOrEqualTo(Duration.ofSeconds(20));
+                return captured;
+            }, BulkEvaluationSnapshotTest::preview, () -> Duration.ofSeconds(20));
+            assertThat(actual.fingerprint()).isEqualTo(captured.fingerprint());
+            assertCaptureRows(runtimeSql, captured.proposal().id(), 1);
+        });
+        assertThat(callbacks).hasValue(1);
+        assertCaptureRows(ownerSql, captured.proposal().id(), 1);
+        var recoveredCapture = repeatable.execute(status -> store.findEvaluation(CONTEXT, captured.proposal().id()).orElseThrow());
+        assertThat(recoveredCapture.fingerprint()).isEqualTo(captured.fingerprint());
+        System.out.println("NEON_PROOF_CAPTURE_TRANSACTION=same-writable-RR-connection,callback-once,committed-seven-stores,independent-readback");
+
+        var committedBaseline = captureRowsSnapshot(ownerSql);
+        // Derive expiry from PostgreSQL, then observe that same clock cross it after callback entry.
+        Instant serverNow = ownerSql.queryForObject("select clock_timestamp()", OffsetDateTime.class).toInstant();
+        var template = evaluation(1);
+        var expiring = new BulkStoredProposal(UUID.randomUUID(), serverNow.minusSeconds(1), serverNow.plusSeconds(8),
+                template.proposal().snapshot(), CONTROL_EXPECTATION);
+        var expiringEvaluation = new BulkEvaluationSnapshot(expiring, serverNow, template.targets(), template.governance());
+        var entered = new AtomicBoolean();
+        var expiredByPostgres = new AtomicBoolean();
+        var expiryDenied = new AtomicBoolean();
+        assertThatThrownBy(() -> repeatable.executeWithoutResult(status -> {
+            try {
+                store.captureAndInsertEvaluated(expiring, (connection, budget) -> {
+                    entered.set(true);
+                    return expiringEvaluation;
+                }, value -> {
+                    var connection = org.springframework.jdbc.datasource.DataSourceUtils.getConnection(runtime);
+                    try (var query = connection.prepareStatement("select clock_timestamp() >= ?")) {
+                        query.setObject(1, OffsetDateTime.ofInstant(expiring.expiresAt(), ZoneOffset.UTC));
+                        long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+                        do {
+                            try (var rows = query.executeQuery()) {
+                                assertThat(rows.next()).isTrue();
+                                expiredByPostgres.set(rows.getBoolean(1));
+                            }
+                            if (expiredByPostgres.get()) break;
+                            java.util.concurrent.locks.LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(10));
+                        } while (System.nanoTime() < until);
+                    } catch (SQLException failure) { throw new AssertionError(failure); }
+                    finally { org.springframework.jdbc.datasource.DataSourceUtils.releaseConnection(connection, runtime); }
+                    assertThat(expiredByPostgres).isTrue();
+                    return preview(value);
+                }, () -> Duration.ofSeconds(20));
+            } catch (BulkProposalStorageException denied) {
+                assertThat(denied.reason()).isEqualTo(BulkProposalStorageException.Reason.UNAVAILABLE);
+                assertThat(denied).hasNoCause();
+                expiryDenied.set(true);
+            }
+        })).isInstanceOf(org.springframework.transaction.UnexpectedRollbackException.class);
+        assertThat(entered).isTrue();
+        assertThat(expiredByPostgres).isTrue();
+        assertThat(expiryDenied).isTrue();
+        assertCaptureRows(ownerSql, expiring.id(), 0);
+        assertThat(captureRowsSnapshot(ownerSql)).isEqualTo(committedBaseline);
+        System.out.println("NEON_PROOF_CAPTURE_EXPIRY=postgres-clock-after-callback,safe-unavailable,outer-catch-rollback-only,seven-stores-zero");
+
+        var lower = evaluation(1);
+        repeatable.executeWithoutResult(status -> {
+            runtimeSql.queryForMap("select set_config('statement_timeout','1s',true),set_config('lock_timeout','1s',true)");
+            store.captureAndInsertEvaluated(lower.proposal(), (connection, budget) -> {
+                assertThat(captureValue(connection, "select current_setting('statement_timeout')")).isEqualTo("1s");
+                assertThat(captureValue(connection, "select current_setting('lock_timeout')")).isEqualTo("1s");
+                return lower;
+            }, BulkEvaluationSnapshotTest::preview, () -> Duration.ofSeconds(20));
+            assertThat(runtimeSql.queryForObject("select current_setting('statement_timeout')", String.class)).isEqualTo("1s");
+            assertThat(runtimeSql.queryForObject("select current_setting('lock_timeout')", String.class)).isEqualTo("1s");
+            assertCaptureRows(runtimeSql, lower.proposal().id(), 1);
+            status.setRollbackOnly();
+        });
+        assertCaptureRows(ownerSql, lower.proposal().id(), 0);
+        assertThat(captureRowsSnapshot(ownerSql)).isEqualTo(committedBaseline);
+        System.out.println("NEON_PROOF_CAPTURE_LOWER_GUC=statement-and-lock-never-widened,prior-limits-restored,rollback-zero");
+
+        var domainBeforeFailure = ownerSql.queryForList("select id,writes from public.bulk_optional_domain order by id");
+        var failed = evaluation(1);
+        var failureEntered = new AtomicBoolean();
+        var callbackDenied = new AtomicBoolean();
+        assertThatThrownBy(() -> repeatable.executeWithoutResult(status -> {
+            try {
+                store.captureAndInsertEvaluated(failed.proposal(), (connection, budget) -> {
+                    failureEntered.set(true);
+                    // Fixture-only rollback sentinel: a real write precedes the primary failure.
+                    try (var mutation = connection.prepareStatement("update public.bulk_optional_domain set writes=writes+1 where id=3")) {
+                        assertThat(mutation.executeUpdate()).isEqualTo(1);
+                    } catch (SQLException failure) { throw new AssertionError(failure); }
+                    throw new IllegalStateException("fixture callback failure");
+                }, BulkEvaluationSnapshotTest::preview, () -> Duration.ofSeconds(20));
+            } catch (BulkProposalStorageException denied) {
+                assertThat(denied.reason()).isEqualTo(BulkProposalStorageException.Reason.UNAVAILABLE);
+                assertThat(denied).hasNoCause();
+                callbackDenied.set(true);
+            }
+        })).isInstanceOf(org.springframework.transaction.UnexpectedRollbackException.class);
+        assertThat(failureEntered).isTrue();
+        assertThat(callbackDenied).isTrue();
+        assertThat(ownerSql.queryForList("select id,writes from public.bulk_optional_domain order by id")).isEqualTo(domainBeforeFailure);
+        assertCaptureRows(ownerSql, failed.proposal().id(), 0);
+        assertThat(captureRowsSnapshot(ownerSql)).isEqualTo(committedBaseline);
+        System.out.println("NEON_PROOF_CAPTURE_FAILURE=callback-domain-write,safe-unavailable,outer-catch-rollback-only,seven-stores-zero,domain-restored");
+    }
+
+    private static String captureValue(Connection connection, String query) {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery(query)) {
+            assertThat(rows.next()).isTrue();
+            String value = rows.getString(1);
+            assertThat(rows.next()).isFalse();
+            return value;
+        } catch (SQLException failure) { throw new AssertionError(failure); }
+    }
+
+    private static Map<String, List<String>> captureRowsSnapshot(JdbcTemplate sql) {
+        var rows = new TreeMap<String, List<String>>();
+        for (String table : List.of("praxis_bulk_proposal", "praxis_bulk_evaluation", "praxis_bulk_target_manifest",
+                "praxis_bulk_preview_state", "praxis_bulk_target_preview", "praxis_bulk_preview_item_integrity",
+                "praxis_bulk_allocation"))
+            rows.put(table, sql.queryForList("select to_jsonb(t)::text from praxis_bulk." + table
+                    + " t order by to_jsonb(t)::text", String.class));
+        return rows;
+    }
+
+    private static void assertCaptureRows(JdbcTemplate sql, UUID proposalId, int expected) {
+        for (String table : List.of("praxis_bulk_proposal", "praxis_bulk_evaluation", "praxis_bulk_target_manifest",
+                "praxis_bulk_preview_state", "praxis_bulk_target_preview", "praxis_bulk_preview_item_integrity",
+                "praxis_bulk_allocation"))
+            assertThat(sql.queryForObject("select count(*) from praxis_bulk." + table + " where proposal_id=?",
+                    Integer.class, proposalId)).as(table).isEqualTo(expected);
     }
 
     private static void governanceNegatives(TransactionTemplate tx, JdbcBulkProposalStore store,
