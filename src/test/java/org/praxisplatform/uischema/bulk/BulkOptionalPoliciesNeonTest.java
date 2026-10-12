@@ -141,6 +141,7 @@ class BulkOptionalPoliciesNeonTest {
         runtime.recorder.measure("live-runtime-attestation", () -> infrastructure.withLifecycleRead(connection -> null));
         measureProfiles("live-control-attestation", runtime, control, () -> controlPlane.withConnection(connection -> null));
         assertBoundedStatementTimeout(runtime);
+        assertUnitDeadlineBudgets(runtime);
         var callbacks = new AtomicInteger();
         // A real control credential bound as runtime reaches the live identity guard before protected work.
         var wrongIdentity = new BulkExecutionInfrastructure(control, new DataSourceTransactionManager(control), NAMESPACE, DEPLOYMENT, roles);
@@ -202,6 +203,7 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(ownerSql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class, admitted.executionId())).isEqualTo(1);
         assertThat(ownerSql.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, admitted.executionId())).isEqualTo("COMPLETED");
         assertDomainReceiptRollback(tx, store, kernel, admission, runtime, ownerSql);
+        assertExpiredAdmissionCannotMutate(tx, store, kernel, runtime, ownerSql);
         // Evaluate while the grant is valid, immediately before its explicit revocation.
         var second = evaluation(2);
         tx.executeWithoutResult(status -> store.insertEvaluated(second, preview(second)));
@@ -220,6 +222,66 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(ownerSql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class, revoked.executionId())).isZero();
         assertThat(ownerSql.queryForObject("select terminal_reason_code from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, revoked.executionId())).isEqualTo("AUTHORIZATION_REVOKED");
         System.out.println("NEON_PROOF_EXECUTION=one-domain-write-and-receipt,replay-without-callback,revocation-zero-write-and-receipt");
+        }
+    }
+
+    /** Exact production SQL on the already attested ordinary runtime; only transaction-local GUCs. */
+    private static void assertUnitDeadlineBudgets(DataSource runtime) throws Exception {
+        try (var connection = runtime.getConnection()) {
+            assertThat(connection.getAutoCommit()).isTrue();
+            var baseline = unitTimeouts(connection);
+            connection.setAutoCommit(false);
+            try {
+                JdbcBulkDurableExecution.setControlLockBudget(connection);
+                var control = unitTimeouts(connection);
+                assertThat(control.get("statement_timeout")).isEqualTo(1000L);
+                assertThat(control.get("lock_timeout")).isEqualTo(1000L);
+                assertThat(control.get("idle_in_transaction_session_timeout"))
+                        .isEqualTo(baseline.get("idle_in_transaction_session_timeout"));
+                Instant deadline = unitDatabaseClock(connection).plusSeconds(5);
+                JdbcBulkDurableExecution.setDeadlineBudget(connection, deadline);
+                var first = unitTimeouts(connection);
+                assertThat(first.get("statement_timeout")).isBetween(1L, 5000L);
+                assertThat(first.get("lock_timeout")).isEqualTo(Math.min(first.get("statement_timeout"), 1000L));
+                assertThat(first.get("idle_in_transaction_session_timeout")).isEqualTo(first.get("statement_timeout"));
+                JdbcBulkDurableExecution.setDeadlineBudget(connection, deadline);
+                var second = unitTimeouts(connection);
+                assertThat(second.get("statement_timeout")).isPositive().isLessThan(first.get("statement_timeout"));
+                assertThat(second.get("idle_in_transaction_session_timeout")).isEqualTo(second.get("statement_timeout"));
+                assertThat(second.get("lock_timeout")).isEqualTo(Math.min(second.get("statement_timeout"), 1000L));
+                System.out.println("NEON_PROOF_UNIT_DEADLINE_BATCH=one-clock,three-gucs,same-deadline-decreases");
+                // The already elapsed database instant is the input, not this process's wall clock.
+                Instant expired = unitDatabaseClock(connection);
+                assertThatThrownBy(() -> JdbcBulkDurableExecution.setDeadlineBudget(connection, expired))
+                        .isInstanceOfSatisfying(BulkDurableExecutionException.class,
+                                error -> assertThat(error.reason()).isEqualTo(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED));
+                assertThat(unitTimeouts(connection)).isEqualTo(second);
+                System.out.println("NEON_PROOF_UNIT_DEADLINE_EXPIRED=denied,no-timeout-disabled-or-renewed");
+            } finally {
+                connection.rollback();
+                connection.setAutoCommit(true);
+            }
+            assertThat(unitTimeouts(connection)).isEqualTo(baseline);
+            System.out.println("NEON_PROOF_UNIT_DEADLINE_ROLLBACK=original-session-gucs-preserved");
+        }
+    }
+
+    private static Instant unitDatabaseClock(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("select clock_timestamp()")) {
+            assertThat(rows.next()).isTrue();
+            return rows.getObject(1, OffsetDateTime.class).toInstant();
+        }
+    }
+
+    private static Map<String, Long> unitTimeouts(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                select (extract(epoch from current_setting('statement_timeout')::interval) * 1000)::bigint,
+                       (extract(epoch from current_setting('lock_timeout')::interval) * 1000)::bigint,
+                       (extract(epoch from current_setting('idle_in_transaction_session_timeout')::interval) * 1000)::bigint
+                """)) {
+            assertThat(rows.next()).isTrue();
+            return Map.of("statement_timeout", rows.getLong(1), "lock_timeout", rows.getLong(2),
+                    "idle_in_transaction_session_timeout", rows.getLong(3));
         }
     }
 
@@ -419,6 +481,57 @@ class BulkOptionalPoliciesNeonTest {
             assertThat(protectedInput).isPresent();
             System.out.println("NEON_PROOF_G_" + kind + "=committed-visible,protected-load-CORRUPT,input-intact");
         }
+    }
+
+    /** Admission returns ADMIT after the same persisted deadline; no renewed window may reach mutation. */
+    private static void assertExpiredAdmissionCannotMutate(TransactionTemplate tx, JdbcBulkProposalStore store,
+            JdbcBulkDurableExecution kernel, DataSource runtime, JdbcTemplate owner) {
+        var value = evaluation(3);
+        tx.executeWithoutResult(status -> store.insertEvaluated(value, preview(value)));
+        var reservation = kernel.reserve(CONTEXT, value.proposal().id(), "expired-admission-proof", "proof-owner",
+                "structural-r1", Instant.now().plusSeconds(30));
+        var originalDomain = owner.queryForList("select * from public.bulk_optional_domain order by id");
+        var admissions = new AtomicInteger(); var mutations = new AtomicInteger();
+        var returnedAdmit = new AtomicBoolean();
+        kernel.advance(reservation, unit -> {
+            admissions.incrementAndGet();
+            assertThat(unit.remainingBudget()).isLessThanOrEqualTo(Duration.ofSeconds(5));
+            var connection = org.springframework.jdbc.datasource.DataSourceUtils.getConnection(runtime);
+            try {
+                // A midpoint read keeps this legitimate connection active without renewing any
+                // GUC or deadline. Database time distinguishes actual expiry from the conservative
+                // monotonic estimate. These clock reads belong only to the adversarial callback.
+                TimeUnit.NANOSECONDS.sleep(unit.remainingBudget().toNanos() / 2);
+                long waitNanos = Math.max(0, Duration.between(unitDatabaseClock(connection), unit.unitDeadline()).toNanos());
+                TimeUnit.NANOSECONDS.sleep(waitNanos + Duration.ofMillis(50).toNanos());
+                assertThat(unitDatabaseClock(connection)).isAfterOrEqualTo(unit.unitDeadline());
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt(); throw new IllegalStateException(interrupted);
+            } catch (SQLException failure) { throw new IllegalStateException(failure); }
+            finally { org.springframework.jdbc.datasource.DataSourceUtils.releaseConnection(connection, runtime); }
+            assertThat(unit.remainingBudget()).isZero();
+            returnedAdmit.set(true);
+            return BulkUnitAdmission.admit();
+        }, unit -> {
+            mutations.incrementAndGet();
+            new JdbcTemplate(runtime).update("update public.bulk_optional_domain set writes=writes+1 where id=3");
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(admissions).hasValue(1); assertThat(returnedAdmit).isTrue(); assertThat(mutations).hasValue(0);
+        assertThat(owner.queryForList("select * from public.bulk_optional_domain order by id")).isEqualTo(originalDomain);
+        assertThat(owner.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?",
+                String.class, reservation.executionId())).isEqualTo("STOPPED");
+        assertThat(owner.queryForObject("select terminal_reason_code from praxis_bulk.praxis_bulk_execution where execution_id=?",
+                String.class, reservation.executionId())).isEqualTo("DEADLINE_EXCEEDED");
+        assertThat(owner.queryForObject("select next_ordinal from praxis_bulk.praxis_bulk_execution where execution_id=?",
+                Integer.class, reservation.executionId())).isZero();
+        for (String table : List.of("praxis_bulk_item_receipt", "praxis_bulk_admission"))
+            assertThat(owner.queryForObject("select count(*) from praxis_bulk." + table + " where execution_id=?",
+                    Integer.class, reservation.executionId())).isZero();
+        // Returning ADMIT is reached only after a successful read on the same expired unit
+        // connection. Connection loss in the callback fails this oracle, rather than masquerading
+        // as evidence of the post-admission deadline check.
+        System.out.println("NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION=ADMIT-returned,deadline-STOP,mutation-zero,domain-preserved,receipt-and-admission-zero");
     }
 
     private static void assertDomainReceiptRollback(TransactionTemplate tx, JdbcBulkProposalStore store,

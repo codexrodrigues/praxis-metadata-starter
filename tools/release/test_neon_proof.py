@@ -50,6 +50,17 @@ class SourceProofTest(unittest.TestCase):
             self.assertEqual(verify_source_matrix(manifest, evidence, root), compiled)
             xml = evidence / 'reports/optional-policies' / f'TEST-{P4}.xml'
             original = xml.read_text()
+            # The same verifier protects source proof and official release: every new
+            # unit oracle must be present exactly once, with its exact observed outcome.
+            for marker in (value for value in CAPTURE_MARKERS if value.startswith('NEON_PROOF_UNIT_')):
+                for bad in (original.replace(marker, ''),
+                            original.replace(marker, marker + '\n' + marker),
+                            original.replace(marker, marker.replace('=', '=unobserved-'))):
+                    with self.subTest(marker=marker, projection=bad):
+                        xml.write_text(bad)
+                        with self.assertRaisesRegex(GateError, 'missing/duplicate P4 capture oracle marker'):
+                            verify_source_matrix(manifest, evidence, root)
+            xml.write_text(original)
             for bad in (original.replace('skipped="0"', 'skipped="1"'),
                         original.replace(P4_CASE, 'unreviewed'),
                         original.replace('errors="0"', 'errors="1"')):
