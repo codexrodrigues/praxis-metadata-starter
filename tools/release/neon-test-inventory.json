@@ -3761,7 +3761,7 @@
       "fixtureGroup": "external_workspace",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Java\u2194Angular operator-arity parity is unchanged from rc.157; this source reads an unavailable sibling and can skip. New Praxis expression validation does not redefine the operator matrix. This is exclusion of the old parity assertion only, not evidence of current Angular parity or of the new validator. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim.",
+        "reason": "Java\u2194Angular operator-arity parity is unchanged from rc.157; this source reads an unavailable sibling and can skip. New Praxis expression validation does not redefine the operator matrix. This is exclusion of the old parity assertion only, not evidence of current Angular parity or of the new validator. Capture-only delta reviewed at 233c486: shared constructor/check/anchor/restore path is covered by P4 capture plus no-DB unit; specialized assertions retain their stated exclusion, with no full legacy equivalence claim. The new baseline includes the already-published rc.162 POM version bump from rc.161; both validators and this parity source are byte-identical. This digest refresh adds no operator/parity acceptance.",
         "affectedSharedPathGroups": [],
         "unchangedGuarantee": "Existing JsonLogic operator-arity matrix; no semantic diff in Java operator definitions or this parity test.",
         "scopePaths": [
@@ -3771,7 +3771,7 @@
           "src/test/java/org/praxisplatform/uischema/validation/JsonLogicExpressionValidatorParityTest.java"
         ],
         "scopePrefixes": [],
-        "reviewedScopeDigest": "56f9a1672e959edfddf12e9f9efa82cb452b2f3ea88b76fa4e16154691452b80"
+        "reviewedScopeDigest": "4e70412e8f29672da850b73fa710d1406c75a8b45ee9dcada3ec7a01da5e5e96"
       }
     },
     {
