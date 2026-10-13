@@ -101,6 +101,17 @@ public final class BulkExecutionInfrastructure {
      * suspends any caller transaction and is intentionally separate from proposal/mutation work.
      */
     <T> T withLifecycleRead(ConnectionCallback<T> work) {
+        return withLifecycleRead(work, null);
+    }
+
+    /** Same runtime attestation and namespace check, with a bounded database-local identity read. */
+    boolean verifyControlDatabaseIdentity(int key1, int key2) {
+        return withLifecycleRead(ignored -> true, new DatabaseIdentity(key1, key2));
+    }
+
+    private record DatabaseIdentity(int key1, int key2) { }
+
+    private <T> T withLifecycleRead(ConnectionCallback<T> work, DatabaseIdentity identity) {
         Objects.requireNonNull(work, "work");
         validateBinding();
         TransactionTemplate independent = new TransactionTemplate(transactionManager);
@@ -121,12 +132,18 @@ public final class BulkExecutionInfrastructure {
                         || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource)) {
                     throw new IllegalStateException("Lifecycle verification must use the runtime transaction connection");
                 }
-                constrainLifecycleTimeouts(connection);
-                attestWithBoundStatementTimeout(connection,
-                        attestedConnection -> BulkExecutionMigrator.validateLiveRuntimeRoleAccess(
-                                attestedConnection, roleConfiguration));
-                verifyDurableNamespaceBinding(connection);
-                return work.doInConnection(connection);
+                String previous = constrainLifecycleAttestationTimeouts(connection);
+                try {
+                    BulkExecutionMigrator.validateLiveRuntimeRoleAccess(connection, roleConfiguration);
+                    restoreAndVerifyLifecycleBinding(connection, previous, identity);
+                } catch (java.sql.SQLException | RuntimeException | Error failure) {
+                    restoreAfterLifecycleFailure(connection, previous, failure);
+                    throw failure;
+                }
+                requireLifecycleTimeRemaining(dataSource);
+                T result = work.doInConnection(connection);
+                requireLifecycleTimeRemaining(dataSource);
+                return result;
             });
         });
     }
@@ -153,24 +170,137 @@ public final class BulkExecutionInfrastructure {
                                 DataSourceUtils.getTargetConnection(connection), dataSource)) {
                     throw new IllegalStateException("Snapshot must use the bound operational connection");
                 }
-                try (var statement = connection.createStatement();
-                        var state = statement.executeQuery("""
-                                select current_setting('transaction_isolation'),
-                                       current_setting('transaction_read_only')
-                                """)) {
-                    if (!state.next() || !"repeatable read".equals(state.getString(1))
-                            || !"on".equals(state.getString(2)) || state.next()) {
-                        throw new IllegalStateException("PostgreSQL read-only repeatable-read snapshot is required");
-                    }
+                String previous = constrainSnapshotAttestationTimeouts(connection);
+                try {
+                    BulkExecutionMigrator.validateLiveRuntimeRoleAccess(connection, roleConfiguration);
+                    restoreAndVerifyLifecycleBinding(connection, previous, null);
+                } catch (java.sql.SQLException | RuntimeException | Error failure) {
+                    restoreAfterLifecycleFailure(connection, previous, failure);
+                    throw failure;
                 }
-                constrainLifecycleTimeouts(connection);
-                attestWithBoundStatementTimeout(connection,
-                        attested -> BulkExecutionMigrator.validateLiveRuntimeRoleAccess(
-                                attested, roleConfiguration));
-                verifyDurableNamespaceBinding(connection);
-                return work.doInConnection(connection);
+                requireLifecycleTimeRemaining(dataSource);
+                T result = work.doInConnection(connection);
+                requireLifecycleTimeRemaining(dataSource);
+                return result;
             });
         });
+    }
+
+    /** The read-only snapshot's state and lower-preserving clamp share one submission. */
+    static String constrainSnapshotAttestationTimeouts(java.sql.Connection connection)
+            throws java.sql.SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                with previous as materialized (
+                    select case when current_setting('statement_timeout') = '0'
+                                      or current_setting('statement_timeout')::interval > interval '2 seconds'
+                                then '2s' else current_setting('statement_timeout') end value)
+                select value,
+                       set_config('lock_timeout',
+                           case when current_setting('lock_timeout') = '0'
+                                     or current_setting('lock_timeout')::interval > interval '1 second'
+                                then '1s' else current_setting('lock_timeout') end, true),
+                       set_config('statement_timeout',
+                           case when value::interval > interval '250 milliseconds'
+                                then '250ms' else value end, true)
+                       , current_setting('transaction_isolation'),
+                       current_setting('transaction_read_only')
+                from previous
+                """)) {
+            if (!rows.next()) throw new IllegalStateException("Unable to read lifecycle statement timeout");
+            String previous = rows.getString(1);
+            if (previous == null || rows.getString(2) == null || rows.getString(3) == null
+                    || !"repeatable read".equals(rows.getString(4))
+                    || !"on".equals(rows.getString(5)) || rows.next())
+                throw new IllegalStateException("Lifecycle timeout query returned invalid rows");
+            return previous;
+        }
+    }
+
+    /** The return value is the exact post-lifecycle-clamp timeout to restore, including lower limits. */
+    static String constrainLifecycleAttestationTimeouts(java.sql.Connection connection)
+            throws java.sql.SQLException {
+        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                with previous as materialized (
+                    select case when current_setting('statement_timeout') = '0'
+                                      or current_setting('statement_timeout')::interval > interval '2 seconds'
+                                then '2s' else current_setting('statement_timeout') end value)
+                select value,
+                       set_config('lock_timeout',
+                           case when current_setting('lock_timeout') = '0'
+                                     or current_setting('lock_timeout')::interval > interval '1 second'
+                                then '1s' else current_setting('lock_timeout') end, true),
+                       set_config('statement_timeout',
+                           case when value::interval > interval '250 milliseconds'
+                                then '250ms' else value end, true)
+                from previous
+                """)) {
+            if (!rows.next()) throw new IllegalStateException("Unable to read lifecycle statement timeout");
+            String previous = rows.getString(1);
+            if (previous == null || rows.getString(2) == null || rows.getString(3) == null || rows.next())
+                throw new IllegalStateException("Lifecycle timeout query returned invalid rows");
+            return previous;
+        }
+    }
+
+    static void requireLifecycleTimeRemaining(DataSource source) {
+        if (!(TransactionSynchronizationManager.getResource(source) instanceof ConnectionHolder holder)
+                || !holder.hasTimeout())
+            throw new IllegalStateException("Lifecycle transaction deadline is absent");
+        holder.getTimeToLiveInMillis();
+    }
+
+    static void restoreAfterLifecycleFailure(java.sql.Connection connection, String previous, Throwable primary) {
+        try { restoreStatementTimeout(connection, previous); }
+        catch (java.sql.SQLException | RuntimeException | Error restoreFailure) {
+            if (restoreFailure != primary) primary.addSuppressed(restoreFailure);
+        }
+    }
+
+    private void restoreAndVerifyLifecycleBinding(java.sql.Connection connection, String previous,
+            DatabaseIdentity identity) throws java.sql.SQLException {
+        String sql = "select set_config('statement_timeout', ?, true);\n"
+                + "select deployment_id from praxis_bulk.praxis_bulk_namespace_binding where namespace_id = ?";
+        if (identity != null) sql += ";\n" + """
+                select exists (
+                    select 1 from pg_catalog.pg_locks l
+                    where l.locktype = 'advisory' and l.granted and l.mode = 'ExclusiveLock'
+                      and l.database = (select d.oid from pg_catalog.pg_database d
+                                        where d.datname = current_database())
+                      and l.classid = ?::oid and l.objid = ?::oid and l.objsubid = 2
+                      and l.pid <> pg_backend_pid())
+                """;
+        try (var statement = connection.prepareStatement(sql)) {
+            statement.setString(1, previous); statement.setString(2, namespace);
+            if (identity != null) {
+                statement.setLong(3, Integer.toUnsignedLong(identity.key1()));
+                statement.setLong(4, Integer.toUnsignedLong(identity.key2()));
+            }
+            requireLifecycleResult(statement.execute(), "Lifecycle timeout restoration result is absent");
+            try (var rows = statement.getResultSet()) {
+                if (rows == null || !rows.next() || !previous.equals(rows.getString(1)) || rows.next())
+                    throw new IllegalStateException("Lifecycle timeout restoration returned invalid rows");
+            }
+            requireLifecycleResult(statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT),
+                    "Operational namespace binding result is absent");
+            try (var rows = statement.getResultSet()) {
+                if (rows == null || !rows.next() || !deploymentId.equals(rows.getString(1)) || rows.next())
+                    throw new IllegalStateException("Operational namespace is not bound to the configured deployment");
+            }
+            if (identity != null) {
+                requireLifecycleResult(statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT),
+                        "Database identity result is absent");
+                try (var rows = statement.getResultSet()) {
+                    if (rows == null || !rows.next() || !rows.getBoolean(1) || rows.wasNull() || rows.next())
+                        throw new IllegalStateException("Runtime and control-plane bindings do not reach the same PostgreSQL database");
+                }
+            }
+            if (statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT) || statement.getUpdateCount() != -1)
+                throw new IllegalStateException("Lifecycle verification returned unexpected extra results");
+        }
+    }
+
+    static void requireLifecycleResult(boolean result, String message) {
+        if (!result) throw new IllegalStateException(message);
     }
 
     static void constrainLifecycleTimeouts(java.sql.Connection connection) throws java.sql.SQLException {

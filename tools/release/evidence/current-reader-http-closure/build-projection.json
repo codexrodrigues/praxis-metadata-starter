@@ -1,0 +1,86 @@
+{
+  "schema": "async-ready3-build-v1",
+  "runId": 38366921456,
+  "runAttempt": 1,
+  "secretsPresent": false,
+  "hostJarSha256": "e7145e8a0b9ddb759d8706950e0d92159f1e3846fd235097cec4bbcf4e20b079",
+  "metadataName": "praxis-metadata-starter-8.0.0-async-656e915-SNAPSHOT.jar",
+  "metadataSha256": "e17dc7faf15810d414010cd2c9dabc2a707c352641a8a86a9f20dad9fd99d12c",
+  "configJarSha256": "be9c664c89002cc25504f57f435f2ca098be66cb2007077cfd754e3d7ba4e74d",
+  "hostClosure": {
+    "allBytesEqual": true,
+    "hostClassEntries": 1074,
+    "nestedDependencyEntries": 185,
+    "rootResourceMapping": [
+      "META-INF/build-info.properties"
+    ]
+  },
+  "unitInput": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "tests": 9
+  },
+  "unitReports": {
+    "config.BulkAsyncReady3CiBindingTest": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 8,
+      "xmlSha256": "17f82a7f6c3c07a9a0d3f30a5a902b2390647b58461711abd81a31ef28941da1"
+    },
+    "config.BulkBasicReadyNeonInputTest": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 9,
+      "xmlSha256": "74be86ad4f3883a6cd2e6483ae324797fb5e5e366ffe0264d7e5172b65cc8902"
+    },
+    "config.OpenApiPublicationOriginConfigTest": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 14,
+      "xmlSha256": "e13fcf6b7dbba6e0ddf82f7181f18f3a4102747dc798b1cb79e7792fe02d326c"
+    },
+    "security.QuickstartPrincipalGrantSnapshotBatchTest": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 5,
+      "xmlSha256": "41980508f3844ece61190aa8e4c91992a889b3cef0e789cd3440755f8643ed02"
+    }
+  },
+  "publicationTransition": "STABLE_ORIGIN",
+  "originalBuildReceiptSha256": "b601a071ee306e74adb5cb2fc0ab1cfc95d5442f459a1d669f43f6c2bfa92f8d",
+  "buildArtifactId": 11796414194,
+  "refs": {
+    "HOST": {
+      "sha": "5fe45b7831cbc37a8cef1a7de70fae4161c70fd0",
+      "tree": "b0387c6624dcacbeae3223443456096fadeee76d"
+    },
+    "PROOF": {
+      "sha": "5fe45b7831cbc37a8cef1a7de70fae4161c70fd0",
+      "tree": "b0387c6624dcacbeae3223443456096fadeee76d"
+    },
+    "SDK": {
+      "sha": "656e915448f7a2de5802ce0b64f3b53015957a08",
+      "tree": "27734947e965b95dc0faaa93e55d5e1c08cc7fcd"
+    }
+  },
+  "bundleFileCount": 1847,
+  "bundleManifestSha256": "80f5d171e9d7f00f5337c63e92853b245e12f1428f00862da3d1604b3e987d3d",
+  "sourcePins": {
+    "SDK:src/main/java/org/praxisplatform/uischema/bulk/BulkExecutionInfrastructure.java": "b738aeee7a3f17d6314391a9b67737b43d5178a3fff035e1c22b5e7ab240d0bc",
+    "SDK:src/main/java/org/praxisplatform/uischema/bulk/BulkProtectedProposalReader.java": "a17596550b9b8c0598015488b453b711078d7b8b647dff38626d6bf51bd65cac",
+    "SDK:src/main/java/org/praxisplatform/uischema/bulk/BulkPreviewPageReader.java": "64aeba7e073170f7ac5d72de07a0b9f796b0b33ef4cc09f8642a03f3741ee030",
+    "SDK:src/main/java/org/praxisplatform/uischema/bulk/BulkAuthorizedProposalReader.java": "e708ccdf8971c92ad270a11f8d52e38993b1d88a1d7b12452e26de3574ed8561",
+    "SDK:src/main/java/org/praxisplatform/uischema/bulk/BulkAuthorizedProposalResultsReader.java": "9793796f546a6b922fad08ede7807ae1716c7d2d13c0a215a45a4cbbe81ee284",
+    "SDK:src/main/java/org/praxisplatform/uischema/bulk/BulkAuthorizedExecutionReader.java": "2448646d2d2cec3418f5c212efe7392914c3424638c5ef75abf509dd57d037d8",
+    "SDK:src/main/java/org/praxisplatform/uischema/bulk/BulkAuthorizedExecutionResultsReader.java": "f73623dacd207288d8af6a01ede7c5fa01710c0848e0542e8b6758d091336c33",
+    "SDK:src/main/java/org/praxisplatform/uischema/bulk/JdbcBulkDurableExecution.java": "47920bdd2c44f73a68b556eb0df6e79aafb1a9f055f6ca7c344813c2c24a98a9",
+    "HOST:src/test/java/com/example/praxis/apiquickstart/config/BulkAsyncUniformPackagedNeonProof.java": "bd7fcc6884e091ca4ecdc4a12d9e1e2c7341dd15820a06a8271b33c15198bb2f",
+    "HOST:src/main/java/com/example/praxis/apiquickstart/security/QuickstartPrincipalGrantRepository.java": "e00f815d804c25ffb4a0f9239c6bdd961766237060b7b8ae3f36aa33b263bcd9"
+  },
+  "projection": "Selected source/artifact/count/hash fields only; full original build receipt and bundle remain in audited custody. This projection is not the full original manifest."
+}

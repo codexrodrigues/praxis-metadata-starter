@@ -1,0 +1,179 @@
+{
+  "schema": "reader-impact-closure-v1",
+  "status": "ACCEPTED_LIMITED_CAUSAL_CLOSURE",
+  "inventoryOnly": true,
+  "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+  "currentMainAtReview": "5879a9e0dcf4ca58f821d0bf56a5e8b550f83043",
+  "historicalInventoryDiffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
+  "hostProofSource": "5fe45b7831cbc37a8cef1a7de70fae4161c70fd0",
+  "buildRunId": 38366921456,
+  "buildArtifactId": 11796414194,
+  "httpRunId": 38367607163,
+  "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+  "originalBuildReceiptSha256": "b601a071ee306e74adb5cb2fc0ab1cfc95d5442f459a1d669f43f6c2bfa92f8d",
+  "buildProjectionSha256": "6f45351285937e614461b585c64c667386a502b5e58689aec4bc5cc1d6095531",
+  "rootReviewSha256": "93040b1d593f68b8e88aae3ceb15f739231e55995dd2685dcb480c465d647174",
+  "independentReviewSha256": "4aa52d3fbff3ac29b39d8757adb681c8c3d1469c4bbc8d9a1ea5fc84db1f481e",
+  "priorCausalMapSha256": "ad7109388420bd8dfa052f04dd8292100f0f99b7401b2b0a0f7a3fa0d1fde76c",
+  "digestAlgorithm": "tools/release/neon_gate.py:reviewed_scope_digest(repo, SDK_SOURCE_SHA, impactReview), sorted Git paths + NUL + blob SHA256 + LF; existing historical diffBase and scope sets preserved. Evidence is outside these scopes; no recursive evidence hash.",
+  "gateAlgorithmSha256": "4c084026115980a49e578837ee787b2202ae572f103b088b6b5f12d22331f94d",
+  "focusedUnitEvidence": {
+    "BulkConsistentReadBatchTest": {
+      "tests": 5,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "xmlSha256": "c8ac8e620d081832edb41315f4d3daab532fe770ce24dd0804b693c27b13e34e"
+    },
+    "BulkReadBatchBoundaryTest": {
+      "tests": 10,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "xmlSha256": "e8fbc8f64522df5fe0d4fed9b03918a082856e681baba8e2f1b4e740ded98974"
+    }
+  },
+  "httpWitnessDefinitions": {
+    "H1": "Authorized historical proposal GET410/BULK_GONE after observed expiry; locator/evaluation/auth path, not preview metadata.",
+    "H2": "Historical and new proposal results GET200 size1 through existing results-preview overload.",
+    "H3": "Historical and new execution/results GET200, durable replay and exact one-effect/one-receipt assertions.",
+    "H4": "Live proposal GET200 before confirmation with COMPLETE/READY canonical RS1 aggregate, identity/mode/intent checks and zero-effect readback.",
+    "H5": "Current grant revocation causes execution GET403 (recipe permits403/404), worker stops without effect/receipt."
+  },
+  "closures": [
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkAtomicExecutionPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H3"
+      ],
+      "causalPath": "summarizeConsistent(scope) uses the changed RR/RO setup; the same-connection summary callback is unchanged.",
+      "limits": "Whole-set ATOMIC mutation, prefix, rollback, retention and uncertain-commit cases are not rerun or certified by this read proof.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedExecutionReaderPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H3",
+        "H5"
+      ],
+      "causalPath": "Authorized execution reads use the changed RR/RO preauthorization/full-authorization and summary path with current grants.",
+      "limits": "Specialized cross-subject, purge and non-enumeration variants are not claimed executed.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedExecutionResultsReaderPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H3",
+        "H5"
+      ],
+      "causalPath": "Authorized execution result reads use the changed RR/RO/auth setup; the watermark and cursor callback remain unchanged.",
+      "limits": "Physical size-one result reads do not certify multipage, cursor tampering, purge or retention variants.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedProposalReaderPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H1",
+        "H4"
+      ],
+      "causalPath": "Expired authorized history and a live COMPLETE/READY proposal exercise the locator/clamp, decoder boundary, evaluation, grouped header/metadata and real projection.",
+      "limits": "No maximum-page, memory ceiling or latency SLA claim; failure precedence remains backed by focused tests.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedProposalResultsCapacityPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H2"
+      ],
+      "causalPath": "Proposal result reads exercise the changed RR/RO setup with the existing preview callback; page-size and cursor semantics are unchanged.",
+      "limits": "No physical 10k-target, heavy-page, memory-pressure or whole capacity-fixture claim.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedProposalResultsContinuationPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H2"
+      ],
+      "causalPath": "Fresh authorization and the changed RR/RO setup are exercised; cursor continuation, watermark and expiry rules remain unchanged.",
+      "limits": "The observed first page does not certify follow-cursor, rotation or tamper variants.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkCapacityOccupancyPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H3"
+      ],
+      "causalPath": "The four summarizeConsistent(scope) call sites inherit the changed RR/RO setup exercised by execution reads.",
+      "limits": "Writable capacity/claim/recovery/fencing assertions retain their separately reviewed scope; storage8/80 is not a substitute for H3.",
+      "reviewedScopeDigest": "d39ba20853dffd458852193a341062aa8696b2a46473e3d0a22707b5cc87ad6c"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkDurableExecutionPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H3"
+      ],
+      "causalPath": "Consistent read, inspection and summary wrappers share the changed snapshot pipeline; authorized summary/results callbacks execute physically.",
+      "limits": "No new claim for the whole durable apply, ATOMIC, fencing, retention or recovery graph.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkDurableMigrationPostgresTest",
+      "kind": "superseded",
+      "httpWitnesses": [
+        "H1",
+        "H3"
+      ],
+      "causalPath": "Post-migration read callbacks inherit the changed consistent-read setup; migration callback SQL is unchanged.",
+      "limits": "Existing B/C/H replacement recipes remain mandatory; this HTTP proof is not fresh migration or the entire legacy embedded class.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkPreviewPageReaderPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H2",
+        "H4"
+      ],
+      "causalPath": "Existing result-page reads and the new grouped RS1 COMPLETE overload execute physically; conditional suffix/page sequencing remains intact.",
+      "limits": "Poisoned payload, all metadata branches, cursor variants and maximum memory remain limited to their focused/source evidence.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkProtectedProposalReaderPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H1",
+        "H2"
+      ],
+      "causalPath": "Ordinary scoped reads execute changed snapshot/clamp/locator decoding before evaluation and current authorization.",
+      "limits": "Absent/corrupt payload and cleanup precedence are focused-test evidence, not all physical non-enumeration cases.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    },
+    {
+      "className": "org.praxisplatform.uischema.bulk.BulkReadCapacityPostgresTest",
+      "kind": "excluded_outside_impact",
+      "httpWitnesses": [
+        "H2",
+        "H4"
+      ],
+      "causalPath": "The shared RR/RO preview setup changed and is physically exercised; the metadata decoder and bounded payload delegation retain their rules.",
+      "limits": "Heavy200/10k pressure cases are outside this delta acceptance; size-one HTTP is not a physical20MiB or full read-capacity claim.",
+      "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d"
+    }
+  ],
+  "limits": [
+    "Inventory readiness is not release/tag/deploy authorization; staged-artifact and required release gates remain independent.",
+    "No12 legacy database classes were rerun or marked PASS. Their specialized exclusions/replacements remain.",
+    "Lower-GUC restoration, invalid-result cardinality/NULL, deadline and cleanup-failure precedence are focused-test/source evidence; not injected physical HTTP cases.",
+    "No physical10k/20MiB stress, multipage ceiling, region proximity or throughput/latency SLA claim.",
+    "Historical ASYNC/authority and serial8/80 evidence retain independent limited scopes; HTTP does not retroactively make them current whole-candidate proofs."
+  ]
+}

@@ -76,6 +76,99 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
 
     private BulkCapacityAuthorityCatalog() { }
 
+    /** Authority-private ordered reads: one PGJDBC multi-query execute, never JDBC addBatch. */
+    static final class ReadBatch {
+        @FunctionalInterface interface Check { void accept(java.sql.ResultSet rows) throws SQLException; }
+        private record Read(String sql, Check check, Object[] parameters) { }
+        private final java.util.List<Read> reads = new java.util.ArrayList<>();
+        void add(String sql, Check check, Object... parameters) {
+            reads.add(new Read(sql, check, parameters.clone()));
+        }
+        void execute(Connection connection) throws SQLException {
+            if (reads.isEmpty()) throw new IllegalStateException("Empty capacity catalog batch");
+            String sql = reads.stream().map(Read::sql).collect(java.util.stream.Collectors.joining(";\n"));
+            try (var statement = connection.prepareStatement(sql)) {
+                int index = 1;
+                for (var read : reads) for (Object value : read.parameters()) {
+                    if (value instanceof String string) statement.setString(index++, string);
+                    else statement.setObject(index++, value);
+                }
+                boolean result = statement.execute();
+                for (var read : reads) {
+                    if (!result) throw new IllegalStateException("Missing capacity catalog result");
+                    try (var rows = statement.getResultSet()) {
+                        if (rows == null) throw new IllegalStateException("Missing capacity catalog rows");
+                        read.check().accept(rows);
+                    }
+                    result = statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT);
+                }
+                if (result || statement.getUpdateCount() != -1)
+                    throw new IllegalStateException("Extra capacity catalog result");
+            }
+        }
+    }
+
+    static boolean booleanValue(java.sql.ResultSet rows, int index) throws SQLException {
+        boolean value = rows.getBoolean(index);
+        if (rows.wasNull()) throw new IllegalStateException("NULL capacity catalog boolean");
+        return value;
+    }
+    static int intValue(java.sql.ResultSet rows, int index) throws SQLException {
+        int value = rows.getInt(index);
+        if (rows.wasNull()) throw new IllegalStateException("NULL capacity catalog integer");
+        return value;
+    }
+
+    /** Exact Flyway PG history prefix, before pending authority DDL; owner-only defaults are allowed. */
+    static void validateEmptyHistory(Connection connection) throws SQLException {
+        var batch = new ReadBatch();
+        collectEmptyHistory(batch);
+        batch.execute(connection);
+    }
+
+    private static void collectEmptyHistory(ReadBatch batch) throws SQLException {
+        batch.add("""
+                with expected(attnum,attname,type,required,default_expr) as (values
+                    (1,'installed_rank','integer',true,null::text),
+                    (2,'version','character varying(50)',false,null),
+                    (3,'description','character varying(200)',true,null),
+                    (4,'type','character varying(20)',true,null),
+                    (5,'script','character varying(1000)',true,null),
+                    (6,'checksum','integer',false,null),
+                    (7,'installed_by','character varying(100)',true,null),
+                    (8,'installed_on','timestamp without time zone',true,'now()'),
+                    (9,'execution_time','integer',true,null),(10,'success','boolean',true,null)),
+                actual as (
+                    select a.attnum::integer,a.attname::text,pg_catalog.format_type(a.atttypid,a.atttypmod),
+                           a.attnotnull,pg_catalog.pg_get_expr(d.adbin,d.adrelid)
+                    from pg_catalog.pg_attribute a
+                    left join pg_catalog.pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
+                    where a.attrelid=to_regclass('praxis_bulk_capacity.praxis_bulk_capacity_schema_history')
+                      and a.attnum>0 and not a.attisdropped),
+                difference as ((select * from expected except select * from actual)
+                           union all (select * from actual except select * from expected))
+                select coalesce(n.nspacl=pg_catalog.acldefault('n',n.nspowner),true)
+                   and coalesce(c.relacl=pg_catalog.acldefault('r',c.relowner),true)
+                   and c.relkind='r' and c.relpersistence='p' and not c.relispartition
+                   and not c.relrowsecurity and not c.relforcerowsecurity
+                   and not exists(select 1 from difference)
+                   and not exists(select 1 from pg_catalog.pg_attribute a where a.attrelid=c.oid
+                       and a.attnum>0 and (a.attisdropped or a.attacl is not null
+                                           or a.attgenerated<>'' or a.attidentity<>''))
+                   and not exists(select 1 from pg_catalog.pg_trigger t where t.tgrelid=c.oid)
+                   and not exists(select 1 from pg_catalog.pg_rewrite r where r.ev_class=c.oid)
+                   and not exists(select 1 from pg_catalog.pg_policy p where p.polrelid=c.oid)
+                   and not exists(select 1 from pg_catalog.pg_type t where t.typnamespace=n.oid
+                       and t.oid<>c.reltype and t.oid<>(select typarray from pg_catalog.pg_type where oid=c.reltype))
+                from pg_catalog.pg_namespace n join pg_catalog.pg_class c on c.relnamespace=n.oid
+                where n.nspname='praxis_bulk_capacity' and c.relname='praxis_bulk_capacity_schema_history'
+                """, rows -> {
+            if (!rows.next() || !booleanValue(rows, 1) || rows.next())
+                throw new IllegalStateException("Capacity authority empty history structure or ACL changed");
+        });
+        assertStructuralTuples(batch, false, true);
+    }
+
     static void validate(Connection connection, String owner) throws SQLException {
         validate(connection, owner, true);
     }
@@ -84,29 +177,34 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
         validate(connection, owner, false);
     }
 
-    private static void validate(Connection connection, String owner, boolean v2) throws SQLException {
-        owner = BulkCapacityAuthorityMigrator.canonical(owner);
-        try (var statement = connection.prepareStatement("""
+    private static void validate(Connection connection, String expectedOwner, boolean v2) throws SQLException {
+        var batch = new ReadBatch();
+        collect(batch, BulkCapacityAuthorityMigrator.canonical(expectedOwner), v2);
+        batch.execute(connection);
+    }
+
+    private static void collect(ReadBatch batch, String owner, boolean v2) throws SQLException {
+        batch.add("""
                 select pg_catalog.pg_get_userbyid(nspowner)
                 from pg_catalog.pg_namespace where nspname='praxis_bulk_capacity'
-                """); var rows = statement.executeQuery()) {
+                """, rows -> {
             if (!rows.next() || !owner.equals(rows.getString(1)) || rows.next())
                 throw new IllegalStateException("Capacity authority schema owner changed");
-        }
-        try (var statement = connection.prepareStatement("""
+        });
+        batch.add("""
                 select pg_catalog.pg_get_userbyid(relowner), relkind, relrowsecurity
                 from pg_catalog.pg_class
                 where oid=to_regclass('praxis_bulk_capacity.praxis_bulk_capacity_schema_history')
-                """); var rows = statement.executeQuery()) {
+                """, rows -> {
             if (!rows.next() || !owner.equals(rows.getString(1)) || !"r".equals(rows.getString(2))
-                    || rows.getBoolean(3) || rows.next())
+                    || booleanValue(rows, 3) || rows.next())
                 throw new IllegalStateException("Capacity authority history owner changed");
-        }
+        });
         for (var entry : (v2 ? BulkCapacityAuthorityMigrator.columns()
                 : BulkCapacityAuthorityMigrator.v1Columns()).entrySet()) {
             String table = entry.getKey();
             String[] expected = entry.getValue().split(",");
-            try (var statement = connection.prepareStatement("""
+            batch.add("""
                     select a.attname, pg_catalog.format_type(a.atttypid,a.atttypmod),
                            a.attnotnull, pg_catalog.pg_get_expr(d.adbin,d.adrelid),
                            a.attgenerated, a.attidentity
@@ -114,42 +212,39 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                     left join pg_catalog.pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
                     where a.attrelid=to_regclass(?) and a.attnum>0 and not a.attisdropped
                     order by a.attnum
-                    """)) {
-                statement.setString(1, BulkCapacityAuthorityMigrator.SCHEMA + "." + table);
-                try (var rows = statement.executeQuery()) {
-                    for (String column : expected) {
-                        String[] parts = column.split(":", 2);
-                        if (!rows.next() || !parts[0].equals(rows.getString(1))
-                                || !parts[1].equals(rows.getString(2))
-                                || rows.getBoolean(3) == (table.equals("fairness_cursor")
-                                        && parts[0].equals("last_tenant_id"))
-                                || !expectedDefault(table, parts[0]).equals(normalizeDefault(rows.getString(4)))
-                                || !"".equals(rows.getString(5)) || !"".equals(rows.getString(6)))
-                            throw new IllegalStateException("Capacity authority column contract changed");
-                    }
-                    if (rows.next()) throw new IllegalStateException("Extra capacity authority column");
+                    """, rows -> {
+                for (String column : expected) {
+                    String[] parts = column.split(":", 2);
+                    if (!rows.next() || !parts[0].equals(rows.getString(1))
+                            || !parts[1].equals(rows.getString(2))
+                            || booleanValue(rows, 3) == (table.equals("fairness_cursor")
+                                    && parts[0].equals("last_tenant_id"))
+                            || !expectedDefault(table, parts[0]).equals(normalizeDefault(rows.getString(4)))
+                            || !"".equals(rows.getString(5)) || !"".equals(rows.getString(6)))
+                        throw new IllegalStateException("Capacity authority column contract changed");
                 }
-            }
+                if (rows.next()) throw new IllegalStateException("Extra capacity authority column");
+            }, BulkCapacityAuthorityMigrator.SCHEMA + "." + table);
         }
-        try (var statement = connection.prepareStatement("""
+        batch.add("""
                 select count(*) from pg_catalog.pg_trigger t
                 join pg_catalog.pg_class c on c.oid=t.tgrelid
                 join pg_catalog.pg_namespace n on n.oid=c.relnamespace
                 where n.nspname='praxis_bulk_capacity' and not t.tgisinternal
-                """); var rows = statement.executeQuery()) {
-            if (!rows.next() || rows.getInt(1) != 0)
+                """, rows -> {
+            if (!rows.next() || intValue(rows, 1) != 0 || rows.next())
                 throw new IllegalStateException("Capacity authority trigger contract changed");
-        }
-        try (var statement = connection.prepareStatement("""
+        });
+        batch.add("""
                 select count(*) from pg_catalog.pg_trigger t
                 join pg_catalog.pg_class c on c.oid=t.tgrelid
                 join pg_catalog.pg_namespace n on n.oid=c.relnamespace
                 where n.nspname='praxis_bulk_capacity' and t.tgisinternal and t.tgenabled<>'O'
-                """); var rows = statement.executeQuery()) {
-            if (!rows.next() || rows.getInt(1) != 0)
+                """, rows -> {
+            if (!rows.next() || intValue(rows, 1) != 0 || rows.next())
                 throw new IllegalStateException("Capacity authority FK trigger was disabled");
-        }
-        assertStructuralTuples(connection, v2);
+        });
+        assertStructuralTuples(batch, v2);
         var functions = new java.util.HashMap<>(Map.of(
                 "enroll_binding", "plpgsql:v:void:false",
                 "request_capacity", "plpgsql:v:void:false",
@@ -180,7 +275,7 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
         }
         for (var entry : (v2 ? BulkCapacityAuthorityMigrator.functions()
                 : BulkCapacityAuthorityMigrator.v1Functions()).entrySet()) {
-            try (var statement = connection.prepareStatement("""
+            batch.add("""
                     select l.lanname, p.provolatile, p.prorettype::regtype::text, p.proretset,
                            p.proisstrict, p.prosecdef,
                            p.proconfig = array['search_path=pg_catalog, pg_temp']::text[],
@@ -188,32 +283,29 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                            pg_catalog.pg_get_function_result(p.oid), p.proparallel, p.proleakproof
                     from pg_catalog.pg_proc p join pg_catalog.pg_language l on l.oid=p.prolang
                     where p.oid=to_regprocedure(?)
-                    """)) {
-                statement.setString(1, BulkCapacityAuthorityMigrator.SCHEMA + "." + entry.getKey()
+                    """, rows -> {
+                String[] expected = functions.get(entry.getKey()).split(":");
+                if (!rows.next() || !expected[0].equals(rows.getString(1))
+                        || !expected[1].equals(rows.getString(2))
+                        || !expected[2].equals(rows.getString(3))
+                        || Boolean.parseBoolean(expected[3]) != booleanValue(rows, 4)
+                        || booleanValue(rows, 5) || !booleanValue(rows, 6) || !booleanValue(rows, 7)
+                        || !"praxis_bulk_capacity_definer".equals(rows.getString(8))
+                        || !results.get(entry.getKey()).equals(rows.getString(9))
+                        || !"u".equals(rows.getString(10)) || booleanValue(rows, 11) || rows.next())
+                    throw new IllegalStateException("Capacity authority function signature changed");
+            }, BulkCapacityAuthorityMigrator.SCHEMA + "." + entry.getKey()
                         + "(" + entry.getValue() + ")");
-                try (var rows = statement.executeQuery()) {
-                    String[] expected = functions.get(entry.getKey()).split(":");
-                    if (!rows.next() || !expected[0].equals(rows.getString(1))
-                            || !expected[1].equals(rows.getString(2))
-                            || !expected[2].equals(rows.getString(3))
-                            || Boolean.parseBoolean(expected[3]) != rows.getBoolean(4)
-                            || rows.getBoolean(5) || !rows.getBoolean(6) || !rows.getBoolean(7)
-                            || !"praxis_bulk_capacity_definer".equals(rows.getString(8))
-                            || !results.get(entry.getKey()).equals(rows.getString(9))
-                            || !"u".equals(rows.getString(10)) || rows.getBoolean(11) || rows.next())
-                        throw new IllegalStateException("Capacity authority function signature changed");
-                }
-            }
         }
-        validateAcls(connection, owner, v2);
+        validateAcls(batch, owner, v2);
         // The source-owned sets above and below are primary; V1's catalog photograph adds a drift witness.
     }
 
-    private static void validateAcls(Connection connection, String owner, boolean v2) throws SQLException {
+    private static void validateAcls(ReadBatch batch, String owner, boolean v2) throws SQLException {
         var schemaExpected = Set.of("praxis_bulk_capacity_definer|USAGE",
                 "praxis_bulk_capacity_provisioner|USAGE", "praxis_bulk_capacity_allocator|USAGE",
                 "praxis_bulk_capacity_reader|USAGE");
-        assertAcl(connection, """
+        assertAcl(batch, """
                 select pg_catalog.pg_get_userbyid(a.grantee), a.privilege_type, a.is_grantable,
                        pg_catalog.pg_get_userbyid(a.grantor)
                 from pg_catalog.pg_namespace n,
@@ -231,7 +323,7 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
             relationExpected.add("binding_attestation|praxis_bulk_capacity_definer|SELECT");
             relationExpected.add("binding_attestation|praxis_bulk_capacity_definer|INSERT");
         }
-        assertNamedAcl(connection, """
+        assertNamedAcl(batch, """
                 select c.relname, pg_catalog.pg_get_userbyid(a.grantee), a.privilege_type,
                        a.is_grantable, pg_catalog.pg_get_userbyid(a.grantor)
                 from pg_catalog.pg_class c
@@ -248,7 +340,7 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 "capacity_request.state|praxis_bulk_capacity_definer|UPDATE",
                 "fairness_cursor.last_tenant_id|praxis_bulk_capacity_definer|UPDATE",
                 "fairness_cursor.cursor_epoch|praxis_bulk_capacity_definer|UPDATE");
-        assertNamedAcl(connection, """
+        assertNamedAcl(batch, """
                 select c.relname || '.' || a.attname, pg_catalog.pg_get_userbyid(x.grantee),
                        x.privilege_type, x.is_grantable,
                        pg_catalog.pg_get_userbyid(x.grantor)
@@ -273,7 +365,7 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
             functionExpected.add("read_attestation(uuid)|praxis_bulk_capacity_reader|EXECUTE");
             functionExpected.add("read_issued_token(uuid)|praxis_bulk_capacity_reader|EXECUTE");
         }
-        assertNamedAcl(connection, """
+        assertNamedAcl(batch, """
                 select p.oid::regprocedure::text, pg_catalog.pg_get_userbyid(a.grantee), a.privilege_type,
                        a.is_grantable, pg_catalog.pg_get_userbyid(a.grantor)
                 from pg_catalog.pg_proc p
@@ -283,39 +375,43 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 """, functionExpected, "function", "praxis_bulk_capacity_definer");
     }
 
-    private static void assertAcl(Connection connection, String sql, Set<String> expected,
+    private static void assertAcl(ReadBatch batch, String sql, Set<String> expected,
                                   String surface, String expectedGrantor) throws SQLException {
-        var actual = new HashSet<String>();
-        try (var statement = connection.prepareStatement(sql); var rows = statement.executeQuery()) {
-            while (rows.next()) {
-                if (rows.getBoolean(3) || !expectedGrantor.equals(rows.getString(4))
-                        || !actual.add(rows.getString(1) + "|" + rows.getString(2)))
-                    throw new IllegalStateException("Capacity authority " + surface + " ACL changed");
-            }
-        }
-        if (!actual.equals(expected))
-            throw new IllegalStateException("Capacity authority " + surface + " ACL changed");
+        batch.add(sql, rows -> {
+                var actual = new HashSet<String>();
+                while (rows.next()) {
+                    if (booleanValue(rows, 3) || !expectedGrantor.equals(rows.getString(4))
+                            || !actual.add(rows.getString(1) + "|" + rows.getString(2)))
+                        throw new IllegalStateException("Capacity authority " + surface + " ACL changed");
+                }
+            if (!actual.equals(expected))
+                throw new IllegalStateException("Capacity authority " + surface + " ACL changed");
+        });
     }
 
-    private static void assertNamedAcl(Connection connection, String sql, Set<String> expected,
+    private static void assertNamedAcl(ReadBatch batch, String sql, Set<String> expected,
                                        String surface, String expectedGrantor) throws SQLException {
-        var actual = new HashSet<String>();
-        try (var statement = connection.prepareStatement(sql); var rows = statement.executeQuery()) {
-            while (rows.next()) {
-                if (rows.getBoolean(4) || !expectedGrantor.equals(rows.getString(5))
-                        || !actual.add(rows.getString(1)
-                        .replace("praxis_bulk_capacity.", "") + "|" + rows.getString(2)
-                        + "|" + rows.getString(3)))
-                    throw new IllegalStateException("Capacity authority " + surface + " ACL changed");
-            }
-        }
-        if (!actual.equals(expected))
-            throw new IllegalStateException("Capacity authority " + surface + " ACL changed");
+        batch.add(sql, rows -> {
+                var actual = new HashSet<String>();
+                while (rows.next()) {
+                    if (booleanValue(rows, 4) || !expectedGrantor.equals(rows.getString(5))
+                            || !actual.add(rows.getString(1)
+                            .replace("praxis_bulk_capacity.", "") + "|" + rows.getString(2)
+                            + "|" + rows.getString(3)))
+                        throw new IllegalStateException("Capacity authority " + surface + " ACL changed");
+                }
+            if (!actual.equals(expected))
+                throw new IllegalStateException("Capacity authority " + surface + " ACL changed");
+        });
     }
 
-    private static void assertStructuralTuples(Connection connection, boolean v2) throws SQLException {
-        var constraints = new HashSet<String>();
-        try (var statement = connection.prepareStatement("""
+    private static void assertStructuralTuples(ReadBatch batch, boolean v2) throws SQLException {
+        assertStructuralTuples(batch, v2, false);
+    }
+
+    private static void assertStructuralTuples(ReadBatch batch, boolean v2, boolean historyOnly) throws SQLException {
+
+        batch.add("""
                 select c.relname, k.conname, k.contype,
                        pg_catalog.pg_get_constraintdef(k.oid,false),
                        k.convalidated, k.condeferrable, k.condeferred,
@@ -325,17 +421,18 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 join pg_catalog.pg_class c on c.oid=k.conrelid
                 join pg_catalog.pg_namespace n on n.oid=c.relnamespace
                 where n.nspname='praxis_bulk_capacity' and c.relname<>'binding_attestation'
-                """); var rows = statement.executeQuery()) {
-            while (rows.next()) {
-                String tuple = structuralTuple(rows, 12);
-                if (!constraints.add(tuple))
-                    throw new IllegalStateException("Duplicate capacity constraint tuple");
-            }
-        }
-        if (!constraints.equals(EXPECTED_CONSTRAINTS))
-            throw new IllegalStateException("Capacity authority constraint manifest changed");
-        var indexes = new HashSet<String>();
-        try (var statement = connection.prepareStatement("""
+                """, rows -> {
+            var constraints = new HashSet<String>();
+                while (rows.next()) {
+                    String tuple = structuralTuple(rows, 12);
+                    if (!constraints.add(tuple))
+                        throw new IllegalStateException("Duplicate capacity constraint tuple");
+                }
+            if (!constraints.equals(historyOnly ? historyTuples(EXPECTED_CONSTRAINTS) : EXPECTED_CONSTRAINTS))
+                throw new IllegalStateException("Capacity authority constraint manifest changed");
+        });
+
+        batch.add("""
                 select c.relname, i.relname, pg_catalog.pg_get_indexdef(i.oid),
                        x.indisunique, x.indisprimary, x.indisvalid, x.indisready,
                        x.indislive, pg_catalog.pg_get_expr(x.indpred,x.indrelid,false)
@@ -344,16 +441,22 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 join pg_catalog.pg_class i on i.oid=x.indexrelid
                 join pg_catalog.pg_namespace n on n.oid=c.relnamespace
                 where n.nspname='praxis_bulk_capacity' and c.relname<>'binding_attestation'
-                """); var rows = statement.executeQuery()) {
-            while (rows.next()) {
-                String tuple = structuralTuple(rows, 9);
-                if (!indexes.add(tuple))
-                    throw new IllegalStateException("Duplicate capacity index tuple");
-            }
-        }
-        if (!indexes.equals(EXPECTED_INDEXES))
-            throw new IllegalStateException("Capacity authority index manifest changed");
-        if (v2) assertV2AttestationStructure(connection);
+                """, rows -> {
+            var indexes = new HashSet<String>();
+                while (rows.next()) {
+                    String tuple = structuralTuple(rows, 9);
+                    if (!indexes.add(tuple))
+                        throw new IllegalStateException("Duplicate capacity index tuple");
+                }
+            if (!indexes.equals(historyOnly ? historyTuples(EXPECTED_INDEXES) : EXPECTED_INDEXES))
+                throw new IllegalStateException("Capacity authority index manifest changed");
+        });
+        if (v2) assertV2AttestationStructure(batch);
+    }
+
+    private static Set<String> historyTuples(Set<String> tuples) {
+        return tuples.stream().filter(t -> t.startsWith("praxis_bulk_capacity_schema_history|"))
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     private static String structuralTuple(java.sql.ResultSet rows, int size) throws SQLException {
@@ -365,7 +468,7 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
         return String.join("|", parts);
     }
 
-    private static void assertV2AttestationStructure(Connection connection) throws SQLException {
+    private static void assertV2AttestationStructure(ReadBatch batch) throws SQLException {
         var expected = Map.ofEntries(
                 Map.entry("binding_attestation_pkey", new V2Constraint("p", "PRIMARY KEY (attestation_id)",
                         "1", "-", "-", " ")),
@@ -397,8 +500,8 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 Map.entry("binding_attestation_environment_canonical", new V2Constraint("c",
                         "CHECK (((environment <> ''::text) AND (environment = btrim(environment)) "
                         + "AND (environment !~ '[[:cntrl:]]'::text)))", "6", "-", "-", " ")));
-        var seen = new HashSet<String>();
-        try (var statement = connection.prepareStatement("""
+
+        batch.add("""
                 select k.conname, pg_catalog.pg_get_constraintdef(k.oid,false),
                        k.convalidated, k.condeferrable, k.condeferred, k.contype,
                        k.conkey::text, k.confkey::text,
@@ -406,32 +509,33 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                        k.confupdtype, k.confdeltype, k.confmatchtype
                 from pg_catalog.pg_constraint k
                 where k.conrelid=to_regclass('praxis_bulk_capacity.binding_attestation')
-                """); var rows = statement.executeQuery()) {
-            while (rows.next()) {
-                String name = rows.getString(1);
-                V2Constraint source = expected.get(name);
-                if (!seen.add(name) || source == null
-                        || !constraintShape(rows.getString(2)).equals(constraintShape(source.definition()))
-                        || !rows.getBoolean(3) || rows.getBoolean(4) || rows.getBoolean(5)
-                        || !source.type().equals(rows.getString(6))
-                        || !source.key().equals(arrayKey(rows.getString(7)))
-                        || !source.foreignKey().equals(arrayKey(rows.getString(8)))
-                        || !source.foreignTable().equals(
-                                rows.getString(9).replace("praxis_bulk_capacity.", ""))
-                        || !(source.type().equals("f") ? "a" : " ").equals(rows.getString(10))
-                        || !source.deleteAction().equals(rows.getString(11))
-                        || !(source.type().equals("f") ? "s" : " ").equals(rows.getString(12)))
-                    throw new IllegalStateException("Capacity attestation constraint changed");
-            }
-        }
-        if (!seen.equals(expected.keySet()))
-            throw new IllegalStateException("Capacity attestation constraint manifest changed");
+                """, rows -> {
+            var seen = new HashSet<String>();
+                while (rows.next()) {
+                    String name = rows.getString(1);
+                    V2Constraint source = expected.get(name);
+                    if (!seen.add(name) || source == null
+                            || !constraintShape(rows.getString(2)).equals(constraintShape(source.definition()))
+                            || !booleanValue(rows, 3) || booleanValue(rows, 4) || booleanValue(rows, 5)
+                            || !source.type().equals(rows.getString(6))
+                            || !source.key().equals(arrayKey(rows.getString(7)))
+                            || !source.foreignKey().equals(arrayKey(rows.getString(8)))
+                            || !source.foreignTable().equals(
+                                    rows.getString(9).replace("praxis_bulk_capacity.", ""))
+                            || !(source.type().equals("f") ? "a" : " ").equals(rows.getString(10))
+                            || !source.deleteAction().equals(rows.getString(11))
+                            || !(source.type().equals("f") ? "s" : " ").equals(rows.getString(12)))
+                        throw new IllegalStateException("Capacity attestation constraint changed");
+                }
+            if (!seen.equals(expected.keySet()))
+                throw new IllegalStateException("Capacity attestation constraint manifest changed");
+        });
         var expectedIndexes = Map.of(
                 "binding_attestation_pkey", new V2Index("attestation_id", "1", true),
                 "binding_attestation_database_unique", new V2Index("database_id", "2", false),
                 "binding_attestation_binding_unique", new V2Index("binding_id", "3", false));
-        var indexes = new HashSet<String>();
-        try (var statement = connection.prepareStatement("""
+
+        batch.add("""
                 select i.relname, pg_catalog.pg_get_indexdef(i.oid), x.indkey::text,
                        x.indisunique, x.indisprimary, x.indisvalid,
                        x.indisready, x.indislive, pg_catalog.pg_get_expr(x.indpred,x.indrelid,false),
@@ -439,25 +543,26 @@ tenant_capacity|tenant_capacity_pkey|CREATE UNIQUE INDEX tenant_capacity_pkey ON
                 from pg_catalog.pg_index x
                 join pg_catalog.pg_class i on i.oid=x.indexrelid
                 where x.indrelid=to_regclass('praxis_bulk_capacity.binding_attestation')
-                """); var rows = statement.executeQuery()) {
-            while (rows.next()) {
-                String name = rows.getString(1);
-                V2Index source = expectedIndexes.get(name);
-                if (!indexes.add(name) || source == null || !rows.getBoolean(4)
-                        || !rows.getBoolean(6) || !rows.getBoolean(7) || !rows.getBoolean(8)
-                        || rows.getString(9) != null || !rows.getBoolean(10)
-                        || rows.getInt(11) != 1 || rows.getInt(12) != 1
-                        || !constraintShape(rows.getString(2)).equals(constraintShape(
-                                "CREATE UNIQUE INDEX " + name + " ON "
-                                        + "praxis_bulk_capacity.binding_attestation USING btree ("
-                                        + source.column() + ")"))
-                        || !arrayKey(rows.getString(3)).equals(source.key())
-                        || rows.getBoolean(5) != source.primary())
-                    throw new IllegalStateException("Capacity attestation index changed");
-            }
-        }
-        if (!indexes.equals(expectedIndexes.keySet()))
-            throw new IllegalStateException("Capacity attestation index manifest changed");
+                """, rows -> {
+            var indexes = new HashSet<String>();
+                while (rows.next()) {
+                    String name = rows.getString(1);
+                    V2Index source = expectedIndexes.get(name);
+                    if (!indexes.add(name) || source == null || !booleanValue(rows, 4)
+                            || !booleanValue(rows, 6) || !booleanValue(rows, 7) || !booleanValue(rows, 8)
+                            || rows.getString(9) != null || !booleanValue(rows, 10)
+                            || intValue(rows, 11) != 1 || intValue(rows, 12) != 1
+                            || !constraintShape(rows.getString(2)).equals(constraintShape(
+                                    "CREATE UNIQUE INDEX " + name + " ON "
+                                            + "praxis_bulk_capacity.binding_attestation USING btree ("
+                                            + source.column() + ")"))
+                            || !arrayKey(rows.getString(3)).equals(source.key())
+                            || booleanValue(rows, 5) != source.primary())
+                        throw new IllegalStateException("Capacity attestation index changed");
+                }
+            if (!indexes.equals(expectedIndexes.keySet()))
+                throw new IllegalStateException("Capacity attestation index manifest changed");
+        });
     }
 
     private record V2Constraint(String type, String definition, String key, String foreignKey,

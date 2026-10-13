@@ -30,14 +30,18 @@ public record BulkOperationalProfile(
             throw new IllegalArgumentException("maxRequestBytes exceeds the bulk protocol ceiling");
         positive(proposalLifetime, "proposalLifetime");
         positive(unitDeadline, "unitDeadline");
-        if (operationModes.size() != 1
+        boolean asynchronous = executionModes.equals(EnumSet.of(BulkExecutionMode.ASYNC));
+        if (asynchronous && (!operationModes.equals(EnumSet.of(BulkMode.UNIFORM_UPDATE))
+                || !selectionModes.equals(EnumSet.of(BulkSelectionMode.EXPLICIT))))
+            throw new IllegalArgumentException("ASYNC requires an exclusively UNIFORM_UPDATE/EXPLICIT profile");
+        if (!asynchronous && (operationModes.size() != 1
                 || !executionModes.equals(EnumSet.of(BulkExecutionMode.SYNC))
                 || !(selectionModes.equals(EnumSet.of(BulkSelectionMode.EXPLICIT))
                     || operationModes.contains(BulkMode.UNIFORM_UPDATE)
-                        && selectionModes.equals(EnumSet.of(BulkSelectionMode.EXPLICIT, BulkSelectionMode.QUERY)))) {
+                        && selectionModes.equals(EnumSet.of(BulkSelectionMode.EXPLICIT, BulkSelectionMode.QUERY))))) {
             throw new IllegalArgumentException("QUERY requires a UNIFORM_UPDATE SYNC profile with EXPLICIT preserved");
         }
-        if (maxTargets > 200) throw new IllegalArgumentException("P1 SYNC/PER_ITEM is limited to 200 targets");
+        if (!asynchronous && maxTargets > 200) throw new IllegalArgumentException("P1 SYNC/PER_ITEM is limited to 200 targets");
         if (proposalLifetime.compareTo(Duration.ofMinutes(15)) > 0)
             throw new IllegalArgumentException("Proposal lifetime exceeds the P1 ceiling of 15 minutes");
         if (unitDeadline.compareTo(Duration.ofSeconds(5)) > 0)

@@ -71,6 +71,57 @@ final class BulkPreviewPageReader {
             int lastOrdinal, int watermarkExclusive, int size) throws SQLException {
         requireReadGate(connection);
         Header header = header(connection, scope, proposalId);
+        Page state = headerState(connection, proposalId, lastOrdinal, watermarkExclusive, header);
+        if (state != null) return state;
+        requireNoManifestSuffix(connection, proposalId, watermarkExclusive);
+        return completePage(connection, proposalId, lastOrdinal, watermarkExclusive, size, header);
+    }
+
+    /** Metadata is batched; bounded page payload remains a separate fetchSize(1) cursor. */
+    Page read(Connection connection, BulkFingerprintContext scope, UUID proposalId,
+            int lastOrdinal, int watermarkExclusive, int size, int remainingMillis) throws SQLException {
+        if (remainingMillis <= 0) throw unavailable();
+        Header header;
+        try (var query = connection.prepareStatement("""
+                select set_config('statement_timeout',
+                    case when current_setting('statement_timeout') = '0'
+                              or current_setting('statement_timeout')::interval > (? * interval '1 millisecond')
+                         then ? || 'ms' else current_setting('statement_timeout') end, true);
+                select praxis_bulk.assert_preview_integrity_complete();
+                """ + HEADER_SQL)) {
+            query.setInt(1, remainingMillis); query.setInt(2, remainingMillis);
+            query.setObject(3, proposalId); query.setString(4, scope.namespaceId());
+            query.setString(5, scope.subjectId()); query.setString(6, scope.resourceKey());
+            query.setString(7, scope.operationRef().operationId());
+            requireMetadataResult(query.execute());
+            try (var rows = query.getResultSet()) {
+                if (rows == null || !rows.next() || rows.getString(1) == null || rows.next()) throw unavailable();
+            }
+            requireMetadataResult(query.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT));
+            try (var rows = query.getResultSet()) {
+                if (rows == null || !rows.next() || !Boolean.TRUE.equals(rows.getObject(1, Boolean.class))
+                        || rows.next()) throw unavailable();
+            }
+            requireMetadataResult(query.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT));
+            try (var rows = query.getResultSet()) {
+                if (rows == null) throw corrupt();
+                header = decodedHeader(rows);
+            }
+            if (query.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT) || query.getUpdateCount() != -1)
+                throw corrupt();
+        }
+        Page state = headerState(connection, proposalId, lastOrdinal, watermarkExclusive, header);
+        if (state != null) return state;
+        requireNoManifestSuffix(connection, proposalId, watermarkExclusive);
+        return completePage(connection, proposalId, lastOrdinal, watermarkExclusive, size, header);
+    }
+
+    private static void requireMetadataResult(boolean present) {
+        if (!present) throw unavailable();
+    }
+
+    private static Page headerState(Connection connection, UUID proposalId, int lastOrdinal,
+            int watermarkExclusive, Header header) throws SQLException {
         if (header == null) return Page.state(Kind.ABSENT);
         if (header.kind() == Kind.NOT_EVALUATED) {
             requireNoRows(connection, proposalId, List.of("praxis_bulk_target_manifest",
@@ -84,7 +135,11 @@ final class BulkPreviewPageReader {
         }
         if (watermarkExclusive != header.targetCount() || lastOrdinal >= watermarkExclusive)
             throw corrupt();
-        requireNoManifestSuffix(connection, proposalId, watermarkExclusive);
+        return null;
+    }
+
+    private static Page completePage(Connection connection, UUID proposalId, int lastOrdinal,
+            int watermarkExclusive, int size, Header header) throws SQLException {
         byte[] parentDigest = BulkPreviewItemIntegrity.contextDigest(proposalId,
                 header.fingerprint(), header.revision(), header.targetCount(),
                 header.allowlist(), header.projectionDigest());
@@ -200,8 +255,7 @@ final class BulkPreviewPageReader {
         }
     }
 
-    private static Header header(Connection connection, BulkFingerprintContext scope, UUID id) throws SQLException {
-        try (var query = connection.prepareStatement("""
+    private static final String HEADER_SQL = """
                 select p.fingerprint, e.input_fingerprint, e.evaluation_fingerprint,
                        s.evaluation_fingerprint, s.projection_state, s.integrity_version,
                        s.projector_revision, s.target_count, s.public_allowlist, s.projection_digest
@@ -210,48 +264,55 @@ final class BulkPreviewPageReader {
                   left join praxis_bulk.praxis_bulk_preview_state s on s.proposal_id=p.proposal_id
                  where p.proposal_id=? and p.namespace_id=? and p.subject_id=?
                    and p.resource_key=? and p.operation_id=?
-                """)) {
+                """;
+
+    private static Header header(Connection connection, BulkFingerprintContext scope, UUID id) throws SQLException {
+        try (var query = connection.prepareStatement(HEADER_SQL)) {
             query.setObject(1, id);
             query.setString(2, scope.namespaceId());
             query.setString(3, scope.subjectId());
             query.setString(4, scope.resourceKey());
             query.setString(5, scope.operationRef().operationId());
             try (var rows = query.executeQuery()) {
-                if (!rows.next()) return null;
-                String fingerprint = rows.getString(3);
-                if (fingerprint == null) {
-                    if (rows.getString(4) != null || rows.next()) throw corrupt();
-                    return new Header(Kind.NOT_EVALUATED, null, null, 0, null, null, 0);
-                }
-                if (!rows.getString(1).equals(rows.getString(2)) || !fingerprint.equals(rows.getString(4)))
-                    throw corrupt();
-                String state = rows.getString(5);
-                if (state == null || rows.getObject(6, Integer.class) == null || rows.getInt(6) != 11)
-                    throw corrupt();
-                Kind kind;
-                try { kind = Kind.valueOf(state); }
-                catch (IllegalArgumentException failure) { throw corrupt(); }
-                String revision = rows.getString(7);
-                Integer count = rows.getObject(8, Integer.class);
-                byte[] allowlist = rows.getBytes(9);
-                String digest = rows.getString(10);
-                if (kind == Kind.COMPLETE) {
-                    if (revision == null || revision.isBlank() || count == null || count < 1
-                            || count > 10000 || allowlist == null || allowlist.length > 65536
-                            || digest == null || !digest.matches("sha256:[0-9a-f]{64}")) throw corrupt();
-                    long selectedBytes = utf8(rows.getString(1)) + utf8(rows.getString(2))
-                            + utf8(fingerprint) + utf8(rows.getString(4)) + utf8(state)
-                            + utf8(revision) + allowlist.length + utf8(digest)
-                            + 2L * Integer.BYTES + 128L;
-                    if (rows.next()) throw corrupt();
-                    return new Header(kind, fingerprint, revision, count, allowlist, digest, selectedBytes);
-                }
-                if ((kind != Kind.UNAVAILABLE && kind != Kind.UNAVAILABLE_LEGACY)
-                        || revision != null || count != null || allowlist != null || digest != null) throw corrupt();
-                if (rows.next()) throw corrupt();
-                return new Header(kind, fingerprint, null, 0, null, null, 0);
+                return decodedHeader(rows);
             }
         }
+    }
+
+    private static Header decodedHeader(java.sql.ResultSet rows) throws SQLException {
+        if (!rows.next()) return null;
+        String fingerprint = rows.getString(3);
+        if (fingerprint == null) {
+            if (rows.getString(4) != null || rows.next()) throw corrupt();
+            return new Header(Kind.NOT_EVALUATED, null, null, 0, null, null, 0);
+        }
+        if (!rows.getString(1).equals(rows.getString(2)) || !fingerprint.equals(rows.getString(4)))
+            throw corrupt();
+        String state = rows.getString(5);
+        if (state == null || rows.getObject(6, Integer.class) == null || rows.getInt(6) != 11)
+            throw corrupt();
+        Kind kind;
+        try { kind = Kind.valueOf(state); }
+        catch (IllegalArgumentException failure) { throw corrupt(); }
+        String revision = rows.getString(7);
+        Integer count = rows.getObject(8, Integer.class);
+        byte[] allowlist = rows.getBytes(9);
+        String digest = rows.getString(10);
+        if (kind == Kind.COMPLETE) {
+            if (revision == null || revision.isBlank() || count == null || count < 1
+                    || count > 10000 || allowlist == null || allowlist.length > 65536
+                    || digest == null || !digest.matches("sha256:[0-9a-f]{64}")) throw corrupt();
+            long selectedBytes = utf8(rows.getString(1)) + utf8(rows.getString(2))
+                    + utf8(fingerprint) + utf8(rows.getString(4)) + utf8(state)
+                    + utf8(revision) + allowlist.length + utf8(digest)
+                    + 2L * Integer.BYTES + 128L;
+            if (rows.next()) throw corrupt();
+            return new Header(kind, fingerprint, revision, count, allowlist, digest, selectedBytes);
+        }
+        if ((kind != Kind.UNAVAILABLE && kind != Kind.UNAVAILABLE_LEGACY)
+                || revision != null || count != null || allowlist != null || digest != null) throw corrupt();
+        if (rows.next()) throw corrupt();
+        return new Header(kind, fingerprint, null, 0, null, null, 0);
     }
 
     private static List<ResourceCommandMessage> diagnostics(String decision, byte[] bytes,

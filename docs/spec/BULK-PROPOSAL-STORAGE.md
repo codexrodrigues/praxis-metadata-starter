@@ -123,3 +123,21 @@ O recorte histórico de persistência/primeira página RS2 não alterou x-ui, di
 ## Baseline de adoção managed-owner em revisão
 
 O incremento managed-owner estabelece PostgreSQL 17 para o storage de execução bulk; o version guard rejeita versões anteriores antes das novas consultas de membership ou DDL. A prova histórica em 14.22 descrita acima é preservada e não certifica o candidato atual. Não usar o marcador PENDING como autorização para reparar ACLs. Consulte o [plano](BULK-MANAGED-OWNER-ADOPTION-PLAN.md) para cutoffs de histórico, grants iniciais transacionais e provas ainda pendentes. Não há nova API pública de provisionamento nem modo paralelo de migração.
+
+## Captura pública ASYNC candidata
+
+A fábrica `BulkStoredProposal.asynchronous(admission, id, createdAt, expiresAt,
+snapshot)` usa uma admissão obtida por `BulkOperationLifecycle.requireReady`
+para o perfil ASYNC-only de UNIFORM_UPDATE/EXPLICIT/PER_ITEM. Ela valida identidade,
+codec, número de alvos e validade máxima do perfil; construir a proposta não
+confere autoridade. As antigas entradas sem admissão continuam rejeitando ASYNC.
+
+O overload existente `captureAndInsertEvaluated(admission, ...)` exige a mesma
+infraestrutura e expectativa, participa da transação writable REPEATABLE READ do
+chamador e verifica marker/binding ativo antes das quotas, do controle e do
+callback. A coluna `execution_mode` é vinculada ao intent validado. Proposta,
+evaluation, ordinal manifest, preview e allocation pendente confirmam ou fazem
+rollback juntos. Não se abre uma nova transação para esconder isolamento
+inadequado. Orçamento, expiração, limites SQL e restauração permanecem os mesmos.
+A prova física do caminho público requer o consumidor Neon usando o lifecycle
+real; guardas locais com doubles não substituem essa prova.

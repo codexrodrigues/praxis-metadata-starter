@@ -78,8 +78,20 @@ final class BulkCapacityAuthorityInfrastructure {
                 throw new IllegalStateException("Capacity authority transaction is not bound to its JDBC connection");
             BulkExecutionInfrastructure.constrainLifecycleTimeouts(connection);
             attest(connection);
-            return work.doInConnection(connection);
+            requireTransactionTime();
+            T result = work.doInConnection(connection);
+            requireTransactionTime();
+            return result;
         }));
+    }
+
+    // Inspect the same Spring deadline after decoding, without another JDBC statement or renewal.
+    private void requireTransactionTime() {
+        Object resource = TransactionSynchronizationManager.getResource(dataSource);
+        if (!(resource instanceof org.springframework.jdbc.datasource.ConnectionHolder holder)
+                || !holder.hasTimeout())
+            throw new IllegalStateException("Capacity authority transaction deadline is absent");
+        holder.getTimeToLiveInMillis();
     }
 
     /** Provisioning is separate from allocation and only declares a binding in B5b.1a. */
@@ -148,11 +160,17 @@ final class BulkCapacityAuthorityInfrastructure {
             statement.setLong(5, identity.expectedAuthorityEpoch());
             try (var rows = statement.executeQuery()) {
                 if (!rows.next() || !expectedLoginRole.equals(rows.getString(1))
-                        || !rows.getBoolean(2) || !rows.getBoolean(3)
+                        || !BulkCapacityAuthorityCatalog.booleanValue(rows, 2) || !BulkCapacityAuthorityCatalog.booleanValue(rows, 3)
                         || rows.next())
                     throw new IllegalStateException("Capacity authority role, database, or expected epoch changed");
             }
         }
+        var batch = new BulkCapacityAuthorityCatalog.ReadBatch();
+        collectPrivileges(batch, access);
+        batch.execute(connection);
+    }
+
+    private static void collectPrivileges(BulkCapacityAuthorityCatalog.ReadBatch batch, Access access) {
         for (var other : Access.values()) {
             if (other == access) continue;
             String role = switch (other) {
@@ -160,14 +178,11 @@ final class BulkCapacityAuthorityInfrastructure {
                 case ALLOCATOR -> BulkCapacityAuthorityMigrator.ALLOCATOR_ROLE;
                 case READER -> BulkCapacityAuthorityMigrator.READER_ROLE;
             };
-            try (var statement = connection.prepareStatement(
-                    "select pg_has_role(current_user, ?, 'MEMBER')")) {
-                statement.setString(1, role);
-                try (var rows = statement.executeQuery()) {
-                    if (!rows.next() || rows.getBoolean(1) || rows.next())
-                        throw new IllegalStateException("Capacity authority credentials overlap roles");
-                }
-            }
+            batch.add(
+                    "select pg_has_role(current_user, to_regrole(?), 'MEMBER')", rows -> {
+                if (!rows.next() || BulkCapacityAuthorityCatalog.booleanValue(rows, 1) || rows.next())
+                    throw new IllegalStateException("Capacity authority credentials overlap roles");
+            }, role);
         }
         String[] functions = {
                 "enroll_binding(text,text,text,bigint)",
@@ -183,48 +198,37 @@ final class BulkCapacityAuthorityInfrastructure {
                 case ALLOCATOR -> index == 1 || index == 2 || index == 7;
                 case READER -> index == 3 || index == 5 || index == 6 || index == 7;
             };
-            try (var statement = connection.prepareStatement(
-                    "select has_function_privilege(current_user, ?, 'EXECUTE')")) {
-                statement.setString(1, "praxis_bulk_capacity." + functions[index]);
-                try (var rows = statement.executeQuery()) {
-                    if (!rows.next() || rows.getBoolean(1) != expected || rows.next())
-                        throw new IllegalStateException("Capacity authority function privileges changed");
-                }
-            }
+            batch.add(
+                    "select has_function_privilege(current_user, to_regprocedure(?), 'EXECUTE')", rows -> {
+                if (!rows.next() || BulkCapacityAuthorityCatalog.booleanValue(rows, 1) != expected || rows.next())
+                    throw new IllegalStateException("Capacity authority function privileges changed");
+            }, "praxis_bulk_capacity." + functions[index]);
         }
-        try (var statement = connection.prepareStatement("""
-                select has_schema_privilege(current_user, 'praxis_bulk_capacity', 'CREATE'),
-                       has_schema_privilege(current_user, 'praxis_bulk_capacity', 'USAGE')
-                """);
-             var rows = statement.executeQuery()) {
-            if (!rows.next() || rows.getBoolean(1) || !rows.getBoolean(2) || rows.next())
+        batch.add("""
+                select has_schema_privilege(current_user, to_regnamespace('praxis_bulk_capacity'), 'CREATE'),
+                       has_schema_privilege(current_user, to_regnamespace('praxis_bulk_capacity'), 'USAGE')
+                """, rows -> {
+            if (!rows.next() || BulkCapacityAuthorityCatalog.booleanValue(rows, 1) || !BulkCapacityAuthorityCatalog.booleanValue(rows, 2) || rows.next())
                 throw new IllegalStateException("Capacity authority schema privilege changed");
-        }
+        });
         for (String table : BulkCapacityAuthorityMigrator.tableNames()) {
             for (String privilege : new String[] {"SELECT", "INSERT", "UPDATE", "DELETE",
                     "TRUNCATE", "REFERENCES", "TRIGGER"}) {
-                try (var statement = connection.prepareStatement(
-                        "select has_table_privilege(current_user, ?, ?)")) {
-                    statement.setString(1, "praxis_bulk_capacity." + table);
-                    statement.setString(2, privilege);
-                    try (var rows = statement.executeQuery()) {
-                        if (!rows.next() || rows.getBoolean(1) || rows.next())
-                            throw new IllegalStateException("Capacity caller acquired direct table privilege");
-                    }
-                }
+                batch.add(
+                        "select has_table_privilege(current_user, to_regclass(?), ?)", rows -> {
+                    if (!rows.next() || BulkCapacityAuthorityCatalog.booleanValue(rows, 1) || rows.next())
+                        throw new IllegalStateException("Capacity caller acquired direct table privilege");
+                }, "praxis_bulk_capacity." + table, privilege);
             }
-            try (var statement = connection.prepareStatement("""
+            batch.add("""
                     select count(*) from pg_catalog.pg_attribute a,
                          lateral aclexplode(a.attacl) x
                     where a.attrelid=to_regclass(?) and a.attnum>0
                       and x.grantee=(select oid from pg_catalog.pg_roles where rolname=current_user)
-                    """)) {
-                statement.setString(1, "praxis_bulk_capacity." + table);
-                try (var rows = statement.executeQuery()) {
-                    if (!rows.next() || rows.getInt(1) != 0)
-                        throw new IllegalStateException("Capacity caller acquired direct column privilege");
-                }
-            }
+                    """, rows -> {
+                if (!rows.next() || BulkCapacityAuthorityCatalog.intValue(rows, 1) != 0 || rows.next())
+                    throw new IllegalStateException("Capacity caller acquired direct column privilege");
+            }, "praxis_bulk_capacity." + table);
         }
     }
 }

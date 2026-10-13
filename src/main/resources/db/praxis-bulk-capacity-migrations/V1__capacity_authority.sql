@@ -19,8 +19,20 @@ begin
         select 1 from pg_catalog.pg_auth_members m
         join pg_catalog.pg_roles r on r.oid = m.roleid
         where r.rolname = 'praxis_bulk_capacity_definer'
+          and not (m.admin_option and not m.inherit_option and not m.set_option
+                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk_capacity')
+                  and exists(select 1 from pg_catalog.pg_roles bootstrap where bootstrap.oid=m.grantor and bootstrap.rolsuper)
+                  and (select count(*) from pg_catalog.pg_auth_members same_actor
+                       where same_actor.roleid=m.roleid and same_actor.member=m.member
+                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)
     ) then
         raise exception 'capacity definer role has members' using errcode = '55000';
+    end if;
+    if exists(select 1 from pg_catalog.pg_auth_members m
+        join pg_catalog.pg_roles r on r.oid=m.member
+        where r.rolname in ('praxis_bulk_capacity_definer','praxis_bulk_capacity_provisioner',
+                            'praxis_bulk_capacity_allocator','praxis_bulk_capacity_reader')) then
+        raise exception 'capacity functional role has nested membership' using errcode='55000';
     end if;
 end;
 $$;
@@ -378,7 +390,7 @@ $$;
 grant create on schema praxis_bulk_capacity to praxis_bulk_capacity_definer;
 do $$
 begin
-    execute pg_catalog.format('grant praxis_bulk_capacity_definer to %I', current_user);
+    execute pg_catalog.format('grant praxis_bulk_capacity_definer to %I with inherit false, set true granted by current_user', current_user);
 end;
 $$;
 alter function praxis_bulk_capacity.enroll_binding(text,text,text,bigint)
@@ -410,7 +422,7 @@ grant execute on function praxis_bulk_capacity.assert_authority_identity(text,te
 reset role;
 do $$
 begin
-    execute pg_catalog.format('revoke praxis_bulk_capacity_definer from %I', current_user);
+    execute pg_catalog.format('revoke praxis_bulk_capacity_definer from %I granted by current_user', current_user);
 end;
 $$;
 revoke create on schema praxis_bulk_capacity from praxis_bulk_capacity_definer;

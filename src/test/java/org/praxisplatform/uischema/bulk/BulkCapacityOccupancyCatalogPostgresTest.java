@@ -42,9 +42,9 @@ class BulkCapacityOccupancyCatalogPostgresTest {
             assertThat(new BulkOperationalProfile(Set.of(BulkMode.UNIFORM_UPDATE), Set.of(BulkExecutionMode.SYNC),
                     Set.of(BulkSelectionMode.EXPLICIT), 200, 1024, Duration.ofMinutes(5), Duration.ofSeconds(5)))
                     .isNotNull();
-            assertThatThrownBy(() -> new BulkOperationalProfile(Set.of(BulkMode.UNIFORM_UPDATE),
+            assertThat(new BulkOperationalProfile(Set.of(BulkMode.UNIFORM_UPDATE),
                     Set.of(BulkExecutionMode.ASYNC), Set.of(BulkSelectionMode.EXPLICIT), 200, 1024,
-                    Duration.ofMinutes(5), Duration.ofSeconds(5))).isInstanceOf(IllegalArgumentException.class);
+                    Duration.ofMinutes(5), Duration.ofSeconds(5))).isNotNull();
             var store = new JdbcBulkProposalStore(fixture.runtime);
             unavailable(() -> store.insert(proposal));
             unavailable(() -> store.insertEvaluated(evaluation, BulkPreviewProjection.unavailable(evaluation)));

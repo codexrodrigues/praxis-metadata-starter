@@ -64,6 +64,46 @@ final class BulkProtectedProposalReader {
         return observe(connection, proposal, proposalId);
     }
 
+    /** Ordered, route-bound read after global authorization; result decoding grants no authority. */
+    static Observation readForAuthorizedComposition(Connection connection, String namespaceId,
+            String resourceKey, String operationId, UUID proposalId, int remainingMillis) throws SQLException {
+        if (remainingMillis <= 0) throw new IllegalStateException("Bulk proposal read deadline exceeded");
+        BulkStoredProposal stored;
+        try (var query = connection.prepareStatement("""
+                select set_config('statement_timeout',
+                    case when current_setting('statement_timeout') = '0'
+                              or current_setting('statement_timeout')::interval > (? * interval '1 millisecond')
+                         then ? || 'ms' else current_setting('statement_timeout') end, true);
+                """ + JdbcBulkProposalStore.LOCATE_PROPOSAL_SQL)) {
+            query.setInt(1, remainingMillis); query.setInt(2, remainingMillis);
+            query.setObject(3, proposalId); query.setString(4, namespaceId);
+            query.setString(5, resourceKey); query.setString(6, operationId);
+            requireResult(query.execute());
+            try (var rows = query.getResultSet()) {
+                if (rows == null || !rows.next() || rows.getString(1) == null || rows.next()) throw corrupt();
+            }
+            requireResult(query.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT));
+            try (var rows = query.getResultSet()) {
+                if (rows == null) throw corrupt();
+                stored = !rows.next() ? null : JdbcBulkProposalStore.decodedProposal(rows, proposalId,
+                        namespaceId, rows.getString("subject_id"), resourceKey, operationId);
+            }
+            if (query.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT) || query.getUpdateCount() != -1)
+                throw corrupt();
+        }
+        // Preserve the original boundary: no evaluation query before successful proposal decode
+        // and locator cleanup. In particular an absent proposal can still reach its tombstone.
+        return observe(connection, java.util.Optional.ofNullable(stored), proposalId);
+    }
+
+    private static void requireResult(boolean present) {
+        if (!present) throw corrupt();
+    }
+
+    private static BulkProposalStorageException corrupt() {
+        return new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+    }
+
     private static Observation observe(Connection connection,
             java.util.Optional<BulkStoredProposal> proposal, UUID proposalId) throws SQLException {
         if (proposal.isEmpty()) return new Observation(Kind.ABSENT, null, null);

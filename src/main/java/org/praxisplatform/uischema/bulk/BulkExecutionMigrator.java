@@ -403,6 +403,21 @@ public final class BulkExecutionMigrator {
                    and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1
             """;
 
+    /** Initial admission only: an absent local schema cannot witness a cluster-global PG17 bootstrap edge. */
+    private static final String INITIAL_SCOPE_MANAGED_ADMIN_MEMBERSHIP_PREDICATE =
+            "(" + MANAGED_ADMIN_MEMBERSHIP_PREDICATE + ") or (" + """
+                    not exists(select 1 from pg_catalog.pg_namespace n where n.nspname='praxis_bulk')
+                    and current_user=session_user
+                    and exists(select 1 from pg_catalog.pg_roles actor
+                               where actor.oid=m.member and actor.rolname=current_user)
+                    and m.admin_option and not m.inherit_option and not m.set_option
+                    and exists(select 1 from pg_catalog.pg_roles bootstrap
+                               where bootstrap.oid=m.grantor and bootstrap.rolsuper)
+                    and (select count(*) from pg_catalog.pg_auth_members same_actor
+                         where same_actor.roleid=m.roleid and same_actor.member=m.member
+                           and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1
+                    """ + ")";
+
     private record MigrationOwnerBackend(int pid, String role, String database) { }
 
     private static void completeCapacityReadBootstrap(DataSource source,
@@ -613,7 +628,7 @@ public final class BulkExecutionMigrator {
     }
 
     /** Initial scopes must not erase pre-existing internal-role authority or schema grants. */
-    private static void validateInitialManagedScopeAdmission(Connection connection,
+    static void validateInitialManagedScopeAdmission(Connection connection,
             BulkExecutionRoleConfiguration roles, boolean initialPrefix) throws SQLException {
         try (var statement = connection.prepareStatement("select current_user=session_user and current_user=?")) {
             statement.setString(1, roles.expectedSchemaOwnerRole());
@@ -636,12 +651,13 @@ public final class BulkExecutionMigrator {
                 select exists(select 1 from pg_catalog.pg_auth_members m
                     join pg_catalog.pg_roles r on r.oid=m.roleid
                     where r.rolname='praxis_bulk_retention_executor' and not (%s))
-                """.formatted(MANAGED_ADMIN_MEMBERSHIP_PREDICATE))) {
+                """.formatted(INITIAL_SCOPE_MANAGED_ADMIN_MEMBERSHIP_PREDICATE))) {
             require(rows.next(), "Unable to inspect existing retention executor memberships");
             if (rows.getBoolean(1)) {
                 validateConfiguredRoles(connection, roles);
                 validateConfiguredRoleInheritance(connection, roles);
-                validateRetentionExecutorMemberships(connection, roles.retentionExecutorMembers());
+                validateRetentionExecutorMemberships(connection, roles.retentionExecutorMembers(),
+                        INITIAL_SCOPE_MANAGED_ADMIN_MEMBERSHIP_PREDICATE);
             }
         }
         try (var statement = connection.prepareStatement("""
@@ -655,7 +671,7 @@ public final class BulkExecutionMigrator {
                   and not (%s)
                   and not (granted.rolname='praxis_bulk_retention_executor'
                            and member.rolname=any(?) and not m.admin_option)
-                """.formatted(MANAGED_ADMIN_MEMBERSHIP_PREDICATE))) {
+                """.formatted(INITIAL_SCOPE_MANAGED_ADMIN_MEMBERSHIP_PREDICATE))) {
             statement.setArray(1, connection.createArrayOf("text", roles.retentionExecutorMembers().toArray()));
             try (var rows = statement.executeQuery()) {
                 require(rows.next() && rows.getLong(1)==0 && !rows.next(), "Pre-existing internal role membership is unsafe");
@@ -4929,6 +4945,11 @@ public final class BulkExecutionMigrator {
 
     private static void validateRetentionExecutorMemberships(Connection connection, Set<String> expectedMembers)
             throws SQLException {
+        validateRetentionExecutorMemberships(connection, expectedMembers, MANAGED_ADMIN_MEMBERSHIP_PREDICATE);
+    }
+
+    private static void validateRetentionExecutorMemberships(Connection connection, Set<String> expectedMembers,
+            String managedAdminMembershipPredicate) throws SQLException {
         var actualMembers = new LinkedHashSet<String>();
         try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
                 with recursive membership(roleid, member, admin_option) as (
@@ -4943,8 +4964,8 @@ public final class BulkExecutionMigrator {
                 select distinct child.rolname, bool_or(membership.admin_option)
                 from membership join pg_roles child on child.oid=membership.member
                 group by child.rolname
-                """.formatted(MANAGED_ADMIN_MEMBERSHIP_PREDICATE,
-                        MANAGED_ADMIN_MEMBERSHIP_PREDICATE))) {
+                """.formatted(managedAdminMembershipPredicate,
+                        managedAdminMembershipPredicate))) {
             while (rows.next()) {
                 require(!rows.getBoolean(2), "retention executor memberships cannot have ADMIN OPTION");
                 actualMembers.add(rows.getString(1));
@@ -4952,11 +4973,17 @@ public final class BulkExecutionMigrator {
         }
         require(actualMembers.equals(expectedMembers), "retention executor members differ from explicit host configuration");
         validateConfiguredRoleMembershipClosure(connection, expectedMembers, expectedMembers,
-                "retention executor membership introduces an unconfigured grantee");
+                "retention executor membership introduces an unconfigured grantee", managedAdminMembershipPredicate);
     }
 
     private static void validateConfiguredRoleMembershipClosure(Connection connection, Set<String> roots,
             Set<String> allowedMembers, String message) throws SQLException {
+        validateConfiguredRoleMembershipClosure(connection, roots, allowedMembers, message,
+                MANAGED_ADMIN_MEMBERSHIP_PREDICATE);
+    }
+
+    private static void validateConfiguredRoleMembershipClosure(Connection connection, Set<String> roots,
+            Set<String> allowedMembers, String message, String managedAdminMembershipPredicate) throws SQLException {
         if (roots.isEmpty()) return;
         var actualMembers = new LinkedHashSet<String>();
         try (var statement = connection.prepareStatement("""
@@ -4972,8 +4999,8 @@ public final class BulkExecutionMigrator {
                 select distinct child.rolname, bool_or(membership.admin_option)
                 from membership join pg_roles child on child.oid=membership.member
                 group by child.rolname
-                """.formatted(MANAGED_ADMIN_MEMBERSHIP_PREDICATE,
-                        MANAGED_ADMIN_MEMBERSHIP_PREDICATE))) {
+                """.formatted(managedAdminMembershipPredicate,
+                        managedAdminMembershipPredicate))) {
             statement.setArray(1, connection.createArrayOf("text", roots.toArray()));
             try (var rows = statement.executeQuery()) {
                 while (rows.next()) {

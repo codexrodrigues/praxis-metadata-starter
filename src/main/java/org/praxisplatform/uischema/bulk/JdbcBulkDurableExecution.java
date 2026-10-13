@@ -48,7 +48,8 @@ public final class JdbcBulkDurableExecution {
         this(infrastructure, lifecycle, null);
     }
 
-    JdbcBulkDurableExecution(BulkExecutionInfrastructure infrastructure, BulkOperationLifecycle lifecycle,
+    /** Trusted composition only; ASYNC admission still requires live lifecycle and capacity checks. */
+    public JdbcBulkDurableExecution(BulkExecutionInfrastructure infrastructure, BulkOperationLifecycle lifecycle,
             BulkCapacityBinding capacityBinding) {
         this.infrastructure = Objects.requireNonNull(infrastructure, "infrastructure");
         this.lifecycle = lifecycle;
@@ -225,18 +226,64 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
+    /**
+     * Admits an EXPLICIT/UNIFORM_UPDATE/PER_ITEM proposal to the durable ASYNC queue.
+     * Scope, supervisor, revision and deadline are trusted host inputs, not request authority.
+     * A matching durable replay precedes READY, active-capacity, expiry and free-slot checks.
+     */
+    public BulkExecutionReservation enqueue(BulkFingerprintContext scope, UUID proposalId, String idempotencyKey,
+            String supervisorId, String structuralRevision, Instant deadline) {
+        requireNoAmbientTransaction(); requireScope(scope);
+        Objects.requireNonNull(proposalId, "proposalId");
+        String keyDigest = BulkScopeDigests.idempotencyKeyDigest(text(idempotencyKey, "idempotencyKey"));
+        String revision = text(structuralRevision, "structuralRevision");
+        text(supervisorId, "supervisorId"); Objects.requireNonNull(deadline, "deadline");
+        Optional<BulkExecutionSnapshot> replay;
+        try {
+            replay = unitTransaction(connection -> {
+                if (tombstoneExists(connection, scope, keyDigest) || purgedProposal(connection, scope, proposalId))
+                    throw failure(BulkDurableExecutionException.Reason.RESULT_PURGED);
+                Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
+                validateAsynchronousSubset(evaluation);
+                if (!evaluation.proposal().snapshot().context().operationRef().equals(scope.operationRef()))
+                    throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+                return findReservation(connection, scope, proposalId, keyDigest,
+                        reservationFingerprint(evaluation, revision));
+            });
+        } catch (BulkDurableExecutionException safe) { throw safe; }
+        catch (RuntimeException unsafe) { throw capacityFailure(unsafe); }
+        if (replay.isPresent()) return new BulkExecutionReservation(replay.orElseThrow(), true);
+        if (lifecycle == null || capacityBinding == null)
+            throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
+        BulkOperationLifecycle.ReadyAdmission admission;
+        try {
+            admission = lifecycle.requireReady(new BulkOperationControlIdentity(scope.namespaceId(),
+                    scope.operationRef().operationId()), BulkExecutionMode.ASYNC, BulkSelectionMode.EXPLICIT);
+        } catch (RuntimeException unavailable) { throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE); }
+        return enqueue(scope, proposalId, idempotencyKey, supervisorId, structuralRevision, deadline, null, admission);
+    }
+
     /** Protected enqueue; deliberately unavailable through the public SYNC reservation API. */
     BulkExecutionReservation enqueue(BulkFingerprintContext scope, UUID proposalId, String idempotencyKey,
             String supervisorId, String structuralRevision, Instant deadline, UUID queueTokenId) {
+        Objects.requireNonNull(queueTokenId, "queueTokenId");
+        return enqueue(scope, proposalId, idempotencyKey, supervisorId, structuralRevision, deadline, queueTokenId, null);
+    }
+
+    private BulkExecutionReservation enqueue(BulkFingerprintContext scope, UUID proposalId, String idempotencyKey,
+            String supervisorId, String structuralRevision, Instant deadline, UUID queueTokenId,
+            BulkOperationLifecycle.ReadyAdmission admission) {
         requireNoAmbientTransaction(); requireScope(scope);
-        Objects.requireNonNull(proposalId, "proposalId"); Objects.requireNonNull(queueTokenId, "queueTokenId");
+        Objects.requireNonNull(proposalId, "proposalId");
         String keyDigest = BulkScopeDigests.idempotencyKeyDigest(text(idempotencyKey, "idempotencyKey"));
         String owner = text(supervisorId, "supervisorId"); String revision = text(structuralRevision, "structuralRevision");
         Instant bounded = micro(Objects.requireNonNull(deadline, "deadline"));
         try {
         ReservationWrite write = unitTransaction(connection -> {
-            JdbcBulkCapacityOccupancy.lockMarker(connection);
-            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
+            if (queueTokenId != null) {
+                JdbcBulkCapacityOccupancy.lockMarker(connection);
+                JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
+            }
             if (tombstoneExists(connection, scope, keyDigest) || purgedProposal(connection, scope, proposalId))
                 throw failure(BulkDurableExecutionException.Reason.RESULT_PURGED);
             Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
@@ -244,6 +291,19 @@ public final class JdbcBulkDurableExecution {
             String fingerprint = reservationFingerprint(evaluation, revision);
             Optional<BulkExecutionSnapshot> replay = findReservation(connection, scope, proposalId, keyDigest, fingerprint);
             if (replay.isPresent()) return new ReservationWrite(replay.orElseThrow(), false);
+            if (queueTokenId == null) {
+                JdbcBulkCapacityOccupancy.lockMarker(connection);
+                JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
+            }
+            if (queueTokenId == null && (admission == null || !admission.belongsTo(infrastructure)
+                    || !admission.matchesScope(scope) || !admission.matchesScope(evaluation.proposal().snapshot().context())
+                    || !admission.matchesCodec(evaluation.proposal().snapshot())
+                    || admission.executionMode() != BulkExecutionMode.ASYNC
+                    || admission.selectionMode() != BulkSelectionMode.EXPLICIT
+                    || !admission.capacityBinding().filter(capacityBinding::equals).isPresent()
+                    || !admission.expectation().equals(evaluation.proposal().controlExpectation())
+                    || evaluation.snapshot().targets().size() > admission.maxTargets()))
+                throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
             JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, true);
             BulkQuotaLedger.lockProposal(connection, infrastructure, evaluation.proposal(), true, false);
             replay = findReservation(connection, scope, proposalId, keyDigest, fingerprint);
@@ -255,7 +315,9 @@ public final class JdbcBulkDurableExecution {
             if (!bounded.isAfter(now) || bounded.isAfter(now.plus(Duration.ofMinutes(30))))
                 throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
             setDeadlineBudget(connection, bounded);
-            JdbcBulkCapacityOccupancy.requireInstallation(connection, queueTokenId, "QUEUE");
+            UUID selectedQueueToken = queueTokenId == null
+                    ? JdbcBulkCapacityOccupancy.availableQueueToken(connection) : queueTokenId;
+            JdbcBulkCapacityOccupancy.requireInstallation(connection, selectedQueueToken, "QUEUE");
             UUID executionId = UUID.randomUUID();
             try (var statement = connection.prepareStatement("""
                     insert into praxis_bulk.praxis_bulk_execution
@@ -273,7 +335,7 @@ public final class JdbcBulkDurableExecution {
                 statement.setString(10, evaluation.snapshot().fingerprint()); statement.setString(11, revision);
                 statement.setLong(12, expected.generation()); statement.setString(13, expected.descriptorFingerprint());
                 statement.setString(14, owner); statement.setInt(15, evaluation.snapshot().targets().size());
-                statement.setObject(16, bounded.atOffset(ZoneOffset.UTC)); statement.setObject(17, queueTokenId);
+                statement.setObject(16, bounded.atOffset(ZoneOffset.UTC)); statement.setObject(17, selectedQueueToken);
                 statement.executeUpdate();
             }
             return new ReservationWrite(snapshot(row(connection, executionId, false)), true);
@@ -1115,6 +1177,39 @@ public final class JdbcBulkDurableExecution {
         return new AtomicHeader(attempt.attemptId(), attempt.epoch(), attempt.setDigest(),
                 execution.targetCount(), declaredEffects.size(), effectDigest,
                 confirmedAt, attempt.unitDeadline());
+    }
+
+    /**
+     * Finds an existing reservation without admitting a new execution. The host must resolve
+     * and authorize the scope before calling, and authorize any subsequent result projection.
+     * This preserves proposal-or-key replay identity and the stored execution mode even when
+     * current publication or capacity no longer permits new admission. It does not renew a
+     * deadline, acquire capacity, or validate current executability. An evaluated proposal with
+     * no reservation returns empty; an unknown proposal remains NOT_FOUND.
+     *
+     * <p>The existing reservation query takes row locks in a kernel-owned transaction; this
+     * method is not a SQL READ ONLY API. No reservation or operational state is written.</p>
+     */
+    public Optional<BulkExecutionSnapshot> findReservation(BulkFingerprintContext scope, UUID proposalId,
+            String idempotencyKey, String structuralRevision) {
+        requireNoAmbientTransaction();
+        requireScope(scope);
+        Objects.requireNonNull(proposalId, "proposalId");
+        String keyDigest = BulkScopeDigests.idempotencyKeyDigest(text(idempotencyKey, "idempotencyKey"));
+        String revision = text(structuralRevision, "structuralRevision");
+        try {
+            return transaction(connection -> {
+                if (tombstoneExists(connection, scope, keyDigest) || purgedProposal(connection, scope, proposalId))
+                    throw failure(BulkDurableExecutionException.Reason.RESULT_PURGED);
+                Evaluation evaluation = loadEvaluation(connection, scope, proposalId, false);
+                return findReservation(connection, scope, proposalId, keyDigest,
+                        reservationFingerprint(evaluation, revision));
+            });
+        } catch (BulkDurableExecutionException error) {
+            throw error;
+        } catch (RuntimeException error) {
+            throw failure(BulkDurableExecutionException.Reason.UNAVAILABLE);
+        }
     }
 
     public Optional<BulkExecutionSnapshot> find(BulkFingerprintContext scope, UUID executionId) {

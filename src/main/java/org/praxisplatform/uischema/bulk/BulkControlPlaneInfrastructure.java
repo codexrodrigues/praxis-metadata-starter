@@ -74,12 +74,22 @@ public final class BulkControlPlaneInfrastructure {
                 if (connection.getAutoCommit() || connection.isReadOnly()
                         || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource))
                     throw new IllegalStateException("Control-plane work must use its transaction connection");
-                BulkExecutionInfrastructure.constrainLifecycleTimeouts(connection);
-                BulkExecutionInfrastructure.attestWithBoundStatementTimeout(connection,
-                        attestedConnection -> BulkExecutionMigrator.validateLiveControlPlaneRoleAccess(
-                                attestedConnection, runtime.roleConfiguration(), expectedRole));
-                verifySamePhysicalDatabase(connection);
-                return work.doInConnection(connection);
+                String previous = BulkExecutionInfrastructure.constrainLifecycleAttestationTimeouts(connection);
+                int key1 = FENCE_RANDOM.nextInt();
+                int key2 = FENCE_RANDOM.nextInt();
+                try {
+                    BulkExecutionMigrator.validateLiveControlPlaneRoleAccess(
+                            connection, runtime.roleConfiguration(), expectedRole);
+                    restoreAndAcquireDatabaseIdentityLock(connection, previous, key1, key2);
+                } catch (java.sql.SQLException | RuntimeException | Error failure) {
+                    BulkExecutionInfrastructure.restoreAfterLifecycleFailure(connection, previous, failure);
+                    throw failure;
+                }
+                runtime.verifyControlDatabaseIdentity(key1, key2);
+                BulkExecutionInfrastructure.requireLifecycleTimeRemaining(dataSource);
+                T result = work.doInConnection(connection);
+                BulkExecutionInfrastructure.requireLifecycleTimeRemaining(dataSource);
+                return result;
             });
         });
     }
@@ -90,40 +100,29 @@ public final class BulkControlPlaneInfrastructure {
      * transaction-scoped advisory lock is database-local; the runtime connection must observe
      * this exact unpredictable lock while the control transaction holds it.
      */
-    private void verifySamePhysicalDatabase(java.sql.Connection controlConnection) throws java.sql.SQLException {
-        int key1 = FENCE_RANDOM.nextInt();
-        int key2 = FENCE_RANDOM.nextInt();
-        try (var lock = controlConnection.prepareStatement("select pg_try_advisory_xact_lock(?, ?)")) {
-            lock.setInt(1, key1);
-            lock.setInt(2, key2);
-            try (var row = lock.executeQuery()) {
-                if (!row.next() || !row.getBoolean(1) || row.next())
+    private void restoreAndAcquireDatabaseIdentityLock(java.sql.Connection controlConnection,
+            String previous, int key1, int key2) throws java.sql.SQLException {
+        try (var statement = controlConnection.prepareStatement("""
+                select set_config('statement_timeout', ?, true);
+                select pg_try_advisory_xact_lock(?, ?)
+                """)) {
+            statement.setString(1, previous); statement.setInt(2, key1); statement.setInt(3, key2);
+            BulkExecutionInfrastructure.requireLifecycleResult(statement.execute(),
+                    "Control-plane timeout restoration result is absent");
+            try (var rows = statement.getResultSet()) {
+                if (rows == null || !rows.next() || !previous.equals(rows.getString(1)) || rows.next())
+                    throw new IllegalStateException("Control-plane timeout restoration returned invalid rows");
+            }
+            BulkExecutionInfrastructure.requireLifecycleResult(
+                    statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT),
+                    "Control-plane database identity lock result is absent");
+            try (var row = statement.getResultSet()) {
+                if (row == null || !row.next() || !row.getBoolean(1) || row.wasNull() || row.next())
                     throw new IllegalStateException("Could not acquire the temporary control-plane database identity lock");
             }
+            if (statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT) || statement.getUpdateCount() != -1)
+                throw new IllegalStateException("Control-plane verification returned unexpected extra results");
         }
-        boolean visible = runtime.withLifecycleRead(runtimeConnection -> {
-            try (var query = runtimeConnection.prepareStatement("""
-                    select exists (
-                        select 1 from pg_catalog.pg_locks l
-                        where l.locktype = 'advisory' and l.granted and l.mode = 'ExclusiveLock'
-                          and l.database = (select d.oid from pg_catalog.pg_database d
-                                            where d.datname = current_database())
-                          and l.classid = ?::oid and l.objid = ?::oid and l.objsubid = 2
-                          and l.pid <> pg_backend_pid()
-                    )
-                    """)) {
-                query.setLong(1, Integer.toUnsignedLong(key1));
-                query.setLong(2, Integer.toUnsignedLong(key2));
-                try (var row = query.executeQuery()) {
-                    if (!row.next()) throw new IllegalStateException("Could not observe the database identity lock");
-                    boolean found = row.getBoolean(1);
-                    if (row.next()) throw new IllegalStateException("Database identity query returned multiple rows");
-                    return found;
-                }
-            }
-        });
-        if (!visible)
-            throw new IllegalStateException("Runtime and control-plane bindings do not reach the same PostgreSQL database");
     }
 
     private void validateBinding() {

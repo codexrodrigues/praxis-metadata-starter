@@ -538,3 +538,21 @@ o consumidor precisa de prova de rollback e de readback independente. O S4a não
 política, schema atual ou elegibilidade e não publica uma operação executável. O deadline
 protege a inserção do receipt no banco; não promete interrupção segura de rede ou COMMIT.
 Quando o resultado do commit não é conhecido, a execução permanece bloqueada até recuperação.
+
+### Historical reservation lookup without admission
+
+`JdbcBulkDurableExecution.findReservation(scope, proposalId, idempotencyKey,
+structuralRevision)` exposes the existing scoped proposal-or-key replay lookup
+without reserving an execution. The caller authenticates and authorizes scope
+before lookup and separately authorizes result projection. An evaluated proposal
+without a reservation returns empty; an unknown proposal remains `NOT_FOUND`.
+A purged proposal/key is `RESULT_PURGED`; incompatible or ambiguous reservation
+identity remains `CONFLICT`. The stored execution mode governs historical replay,
+independently of current READY state, capacity, or the host's new-admission profile.
+
+This lookup never inserts a reservation, dispatches work, acquires capacity, or
+renews a deadline. It retains the existing row locks and owns a normal transaction;
+it is not a SQL `READ ONLY` promise. A host retiring new SYNC admission can use this
+lookup for authorized historical replay instead of calling `reserve`, whose EXPLICIT
+path may create a reservation. Infrastructure uncertainty remains `UNAVAILABLE`;
+there is no automatic retry or fallback to admission. No HTTP shape changes here.
