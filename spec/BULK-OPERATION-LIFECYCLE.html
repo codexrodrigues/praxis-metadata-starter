@@ -253,6 +253,18 @@ commit durável válido e o nó local fechado; não declarar rollback apenas
 pela exceção de instalação.</p>
 <h2 id="leituras-suspensão-e-recuperação">Leituras, suspensão e
 recuperação</h2>
+<p><code>readPublishedReadyGeneration(identity)</code> lê somente a
+geração READY corrente para a publicação durável, pelo fence canônico e
+pela identidade runtime. Exige namespace configurado, confirmação bulk
+declarada válida e provider vinculado à mesma instância de
+infraestrutura runtime; rejeita transação ambiente antes de SQL. Não
+compõe OpenAPI, não instala fotografia, não altera controle nem requer
+Servlet. Retorna <code>OptionalLong.empty()</code> para ausência, estado
+não READY ou publicação stale filtrada pelo fence; falhas SQL, de papel
+ou catálogo propagam. A geração é um hint momentâneo para recuperação
+governada, sem autoridade ou garantia: <code>reconcilePublished</code>
+ainda revalida geração, descritor e digest antes de instalar. O host
+permanece responsável por autorização e tenant.</p>
 <p><code>requireReady</code>, projeções, documentos e hashes usam a
 fotografia instalada, com guard durável antes/depois. Leituras não
 regeneram SpringDoc nem fazem fallback para a origem dinâmica quando o
@@ -295,14 +307,14 @@ de mutar caches; não são ferramentas de recuperação local de uma
 réplica. Falha do guard conserva dados locais, mas a época invalida a
 autoridade anterior. Nova publicação exige a geração resultante.</p>
 <p><code>reconcilePublished(identity, readyGeneration)</code> recaptura
-a fotografia explicitamente fora do caminho de request, mesmo quando o
-nó mantém uma fotografia antiga. Exige digest igual ao ledger atual,
-descritor igual à operação READY e nova verificação durável antes de
-instalar. Não escreve controle, não suspende a publicação de outra
-réplica nem executa domínio. Fonte divergente é negada.
-<code>publish</code> em nó warm divergente também nega: reconciliar
-explicitamente antes de publicar outra operação; não usar
-<code>clearCaches</code> para isso.</p>
+a fotografia por chamada administrativa explícita, fora do caminho de
+discovery e com contexto Servlet real, mesmo quando o nó mantém uma
+fotografia antiga. Exige digest igual ao ledger atual, descritor igual à
+operação READY e nova verificação durável antes de instalar. Não escreve
+controle, não suspende a publicação de outra réplica nem executa
+domínio. Fonte divergente é negada. <code>publish</code> em nó warm
+divergente também nega: reconciliar explicitamente antes de publicar
+outra operação; não usar <code>clearCaches</code> para isso.</p>
 <h2 id="admissão-query-publicada-no-sdk-rc.154">Admissão QUERY publicada
 no SDK rc.154</h2>
 <p>Na rc.154 pública, <code>requireReady(identity, SYNC, QUERY)</code>

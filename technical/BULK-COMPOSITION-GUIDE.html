@@ -320,5 +320,44 @@ que IAM, provisionamento de produção, confirmação QUERY de 200 alvos,
 <code>READY</code> geral ou Angular estejam certificados. Melhorias
 privadas em validação não fazem parte da rc.154 nem desta receita
 pública.</p>
+<h2 id="diagnóstico-privado-de-leituras-autorizadas">Diagnóstico privado
+de leituras autorizadas</h2>
+<p><code>BulkAuthorizedProposalReader</code> e
+<code>BulkAuthorizedProposalResultsReader</code> preservam os estados
+públicos, autorização, SQL e orçamento de leitura. Quando uma falha é
+normalizada, o logger privado
+<code>org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics</code>
+pode emitir <code>BULK_READ_FAILURE</code> com
+<code>schemaVersion=1</code>. Esse evento não é DTO, endpoint ou SPI e
+não deve ser devolvido ao cliente.</p>
+<p>A projeção contém reader/stage/reason fechados, timestamp de emissão,
+threadId e grafo limitado de classe, SQLSTATE validado e frames
+canônicos. Não contém mensagem, SQL, filename, IDs de domínio, payload,
+cursor ou credenciais. Cada ocorrência limita 12 exceções e 32 arestas
+no grafo, 8 suprimidas e 32 frames por nó; classes desconhecidas
+tornam-se OTHER. O SQLSTATE só provém de SQLException, nunca de
+inferência pelo texto. Razões sem Throwable têm grafo vazio.</p>
+<p>A coleta por chamada guarda no máximo a primeira ocorrência interna e
+a última externa, para não perder uma falha de commit/close posterior.
+Apenas referências e enums são coletados durante a leitura. Serialização
+e logger ficam depois da decisão do resultado/deadline e do fechamento
+da transação própria; uma transação ambiente do chamador pode já estar
+restaurada. Falha do diagnóstico não substitui o resultado. Um sink
+lento ainda pode acrescentar latência à entrega HTTP; não há promessa de
+entrega de log, SLA ou correção de uma causa 503.</p>
+<p>No host, correlacione os eventos privados com o intervalo/thread do
+diagnóstico de avaliação existente, preservando a distinção entre
+captura confirmada e falha de leitura posterior. Não repita uma mutação
+nem renove TTL para obter diagnóstico. Ausência/negação normal não gera
+esse evento; falhas protegidas continuam com resposta não
+enumerável.</p>
+<p><code>BulkReadFailureDiagnosticsTest</code> usa readers reais, Spring
+e doubles JDBC para sanitização, causas/suprimidas, observador
+lento/falho, fechamento e estado preservado. Não certifica transporte
+PostgreSQL/pooler, JpaTransactionManager ou latência Render. As
+evidências HTTP históricas sustentam apenas os caminhos e artefatos que
+executaram; a emissão nova e a adoção do novo artefato exigem observação
+do consumidor Neon atribuído. Os gates oficiais managed-owner/P4 não
+instanciam estes dois readers e não substituem essa observação.</p>
 </body>
 </html>
