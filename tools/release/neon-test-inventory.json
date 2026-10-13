@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "baselineCommit": "64665a46d8743846b57306db3a7965ab2756ab69",
-  "status": "impact_review_pending",
+  "status": "release_ready_impact_reviewed",
   "policy": "Every test source, resource and nested fixture is inventoried against published rc.157. Database-local and external workspace tests have reviewed impact dispositions; only the required A-I cases and staged artifact can authorize release. An exclusion is neither historical PASS nor full equivalence. Unknown source, stale hash, invalid replacement, skipped/failed required case or divergent receipt blocks release.",
   "requiredImpactGroups": {
     "B": [
@@ -255,12 +255,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkAtomicExecutionPostgresTest.java",
       "sha256": "2c593c8cee250f215084572d9633880a9874a2a49f43d279daea9dd2b17fd63c",
       "kind": "excluded_outside_impact",
-      "reason": "Whole-set ATOMIC/DOMAIN_COMMAND/updates, rollback do último alvo, receipt/rejection, uncertain commit e ACK são testes diretos applyAtomic. Esse corpo não muda; infrastructure lifecycle compartilhada muda antes dele. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "summarizeConsistent(scope) uses the changed RR/RO setup; the same-connection summary callback is unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Whole-set ATOMIC mutation, prefix, rollback, retention and uncertain-commit cases are not rerun or certified by this read proof. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkAtomicExecutionPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Whole-set ATOMIC/DOMAIN_COMMAND/updates, rollback do último alvo, receipt/rejection, uncertain commit e ACK são testes diretos applyAtomic. Esse corpo não muda; infrastructure lifecycle compartilhada muda antes dele. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "summarizeConsistent(scope) uses the changed RR/RO setup; the same-connection summary callback is unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Whole-set ATOMIC mutation, prefix, rollback, retention and uncertain-commit cases are not rerun or certified by this read proof. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
@@ -268,7 +268,7 @@
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Whole-set ATOMIC mutation, prefix, rollback, retention and uncertain-commit cases are not rerun or certified by this read proof.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -278,7 +278,17 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H3"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
@@ -312,17 +322,17 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedExecutionReaderPostgresTest.java",
       "sha256": "035bd030e7e06ae9500c67d7507e75fe1e6615c2e61fbdc9c247990923f08dd4",
       "kind": "excluded_outside_impact",
-      "reason": "Estados Running/Stopped/Completed, correlação não enumerável, full authorization no mesmo snapshot, purge e final budget verificam readers autorizados inalterados; chamados find/read transitam pelo runtime live guard alterado. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "Authorized execution reads use the changed RR/RO preauthorization/full-authorization and summary path with current grants. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3/H5 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Specialized cross-subject, purge and non-enumeration variants are not claimed executed. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedExecutionReaderPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Estados Running/Stopped/Completed, correlação não enumerável, full authorization no mesmo snapshot, purge e final budget verificam readers autorizados inalterados; chamados find/read transitam pelo runtime live guard alterado. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "Authorized execution reads use the changed RR/RO preauthorization/full-authorization and summary path with current grants. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3/H5 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Specialized cross-subject, purge and non-enumeration variants are not claimed executed. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Specialized cross-subject, purge and non-enumeration variants are not claimed executed.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -332,24 +342,35 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H3",
+            "H5"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedExecutionResultsReaderPostgresTest.java",
       "sha256": "c822a5ea775a0ea892197c7619a95d3a6b05f68778b1aa5027320c2b5ef120dc",
       "kind": "excluded_outside_impact",
-      "reason": "Pages/outcomes com watermark fixo, cursor purpose/requester/fingerprint/expiry e retained purge: serializers/cursor remain unchanged; guard compartilhado e stored ASYNC mode são atingidos. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "Authorized execution result reads use the changed RR/RO/auth setup; the watermark and cursor callback remain unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3/H5 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Physical size-one result reads do not certify multipage, cursor tampering, purge or retention variants. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedExecutionResultsReaderPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Pages/outcomes com watermark fixo, cursor purpose/requester/fingerprint/expiry e retained purge: serializers/cursor remain unchanged; guard compartilhado e stored ASYNC mode são atingidos. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "Authorized execution result reads use the changed RR/RO/auth setup; the watermark and cursor callback remain unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3/H5 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Physical size-one result reads do not certify multipage, cursor tampering, purge or retention variants. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Physical size-one result reads do not certify multipage, cursor tampering, purge or retention variants.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -359,24 +380,35 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H3",
+            "H5"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedProposalReaderPostgresTest.java",
       "sha256": "144b306d02c84a018590bb37d9f4d4efb4af2d520420b40c9b081ff442680f97",
       "kind": "excluded_outside_impact",
-      "reason": "READY preview redigido, blocked pages e full-set grant, upgrade legacy e purge/non-enumeration exercitam read-only snapshot; insert de executionMode e novo ASYNC payload são mudança de entrada. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "Expired authorized history and a live COMPLETE/READY proposal exercise the locator/clamp, decoder boundary, evaluation, grouped header/metadata and real projection. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H1/H4 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. No maximum-page, memory ceiling or latency SLA claim; failure precedence remains backed by focused tests. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedProposalReaderPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "READY preview redigido, blocked pages e full-set grant, upgrade legacy e purge/non-enumeration exercitam read-only snapshot; insert de executionMode e novo ASYNC payload são mudança de entrada. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "Expired authorized history and a live COMPLETE/READY proposal exercise the locator/clamp, decoder boundary, evaluation, grouped header/metadata and real projection. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H1/H4 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. No maximum-page, memory ceiling or latency SLA claim; failure precedence remains backed by focused tests. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "No maximum-page, memory ceiling or latency SLA claim; failure precedence remains backed by focused tests.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -386,24 +418,35 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H1",
+            "H4"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedProposalResultsCapacityPostgresTest.java",
       "sha256": "98b382d72a733560a052be8b3357c423e4159828a77aab6a9030134cd0409c34",
       "kind": "excluded_outside_impact",
-      "reason": "Cinquenta páginas/199-200-201 e off-page target revocation pertencem ao reader capacity/budget; novo profile permite 10k ASYNC mas paginação e cursor não mudam. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "Proposal result reads exercise the changed RR/RO setup with the existing preview callback; page-size and cursor semantics are unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H2 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. No physical 10k-target, heavy-page, memory-pressure or whole capacity-fixture claim. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedProposalResultsCapacityPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Cinquenta páginas/199-200-201 e off-page target revocation pertencem ao reader capacity/budget; novo profile permite 10k ASYNC mas paginação e cursor não mudam. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "Proposal result reads exercise the changed RR/RO setup with the existing preview callback; page-size and cursor semantics are unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H2 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. No physical 10k-target, heavy-page, memory-pressure or whole capacity-fixture claim. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "No physical 10k-target, heavy-page, memory-pressure or whole capacity-fixture claim.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -413,24 +456,34 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H2"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedProposalResultsContinuationPostgresTest.java",
       "sha256": "228850e2f99c3f92ceb143fce5d1cc1a5149209ae24b2c061bc320f0ab126e80",
       "kind": "excluded_outside_impact",
-      "reason": "Fixed watermark, auth antes cursor e lifetime durante key rotation são reader continuation inalterado; não chama enqueue público novo. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "Fresh authorization and the changed RR/RO setup are exercised; cursor continuation, watermark and expiry rules remain unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H2 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. The observed first page does not certify follow-cursor, rotation or tamper variants. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkAuthorizedProposalResultsContinuationPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Fixed watermark, auth antes cursor e lifetime durante key rotation são reader continuation inalterado; não chama enqueue público novo. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "Fresh authorization and the changed RR/RO setup are exercised; cursor continuation, watermark and expiry rules remain unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H2 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. The observed first page does not certify follow-cursor, rotation or tamper variants. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "The observed first page does not certify follow-cursor, rotation or tamper variants.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -440,7 +493,17 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H2"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
@@ -822,12 +885,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresTest.java",
       "sha256": "b6723be809cb50fe65b980009a928fd43d8fbd5b67571b0f9d5a512db0a588a4",
       "kind": "excluded_outside_impact",
-      "reason": "Enqueue/claim/cancel/recovery, saturação/replay, active ownership/epoch, callback rollback, expiry e append-only occupation são asserts diretos do kernel/occupancy com código alterado. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "The four summarizeConsistent(scope) call sites inherit the changed RR/RO setup exercised by execution reads. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Writable capacity/claim/recovery/fencing assertions retain their separately reviewed scope; storage8/80 is not a substitute for H3. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkCapacityOccupancyPostgresTest",
       "fixtureGroup": "bulk_indirect_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Enqueue/claim/cancel/recovery, saturação/replay, active ownership/epoch, callback rollback, expiry e append-only occupation são asserts diretos do kernel/occupancy com código alterado. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "The four summarizeConsistent(scope) call sites inherit the changed RR/RO setup exercised by execution reads. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Writable capacity/claim/recovery/fencing assertions retain their separately reviewed scope; storage8/80 is not a substitute for H3. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
@@ -835,7 +898,7 @@
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Writable capacity/claim/recovery/fencing assertions retain their separately reviewed scope; storage8/80 is not a substitute for H3.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -847,7 +910,17 @@
           "src/main/resources/db/praxis-bulk-capacity-migrations/",
           "src/main/resources/db/praxis-bulk-capacity-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "d39ba20853dffd458852193a341062aa8696b2a46473e3d0a22707b5cc87ad6c",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H3"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
@@ -1113,12 +1186,12 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableExecutionPostgresTest.java",
       "sha256": "a5ccbd78f965496b8fd837a0520d1f377112d68cd1994a34ded1a9a15fc47665",
       "kind": "excluded_outside_impact",
-      "reason": "reserve/advance/prepare/apply/ACK/recovery/cancel/read snapshot compreende SYNC/QUERY/10k/epoch/receipt e quota. Delta adiciona public enqueue e finder sem escrever reserva; infraestrutura fresh alterada é shared, applyAtomic/ordered core não refeito neste patch. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "Consistent read, inspection and summary wrappers share the changed snapshot pipeline; authorized summary/results callbacks execute physically. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. No new claim for the whole durable apply, ATOMIC, fencing, retention or recovery graph. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkDurableExecutionPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "reserve/advance/prepare/apply/ACK/recovery/cancel/read snapshot compreende SYNC/QUERY/10k/epoch/receipt e quota. Delta adiciona public enqueue e finder sem escrever reserva; infraestrutura fresh alterada é shared, applyAtomic/ordered core não refeito neste patch. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "Consistent read, inspection and summary wrappers share the changed snapshot pipeline; authorized summary/results callbacks execute physically. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H3 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. No new claim for the whole durable apply, ATOMIC, fencing, retention or recovery graph. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
@@ -1126,7 +1199,7 @@
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "No new claim for the whole durable apply, ATOMIC, fencing, retention or recovery graph.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1136,14 +1209,24 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H3"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableMigrationPostgresTest.java",
       "sha256": "d182e5c1f2320255324d089e385aa466e213aeb6ba78d8999727a853323a6165",
       "kind": "superseded",
-      "reason": "Asserts domínioV3–V20/quota/preview/occupancyBootstrap/control e checksums públicos; domain SQL original não mudou, mas role/live guard de setup agora batch. Authority V1/V2 é schema separado e não cabe em reason de domain lineage. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "Post-migration read callbacks inherit the changed consistent-read setup; migration callback SQL is unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H1/H3 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Existing B/C/H replacement recipes remain mandatory; this HTTP proof is not fresh migration or the entire legacy embedded class. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkDurableMigrationPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "replacement": [
@@ -1181,7 +1264,7 @@
           "G",
           "H"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Existing B/C/H replacement recipes remain mandatory; this HTTP proof is not fresh migration or the entire legacy embedded class.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1191,8 +1274,19 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null,
-        "reason": "Asserts domínioV3–V20/quota/preview/occupancyBootstrap/control e checksums públicos; domain SQL original não mudou, mas role/live guard de setup agora batch. Authority V1/V2 é schema separado e não cabe em reason de domain lineage. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash."
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "reason": "Post-migration read callbacks inherit the changed consistent-read setup; migration callback SQL is unchanged. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H1/H3 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Existing B/C/H replacement recipes remain mandatory; this HTTP proof is not fresh migration or the entire legacy embedded class. This disposition does not mark the legacy class PASS.",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H1",
+            "H3"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
@@ -1941,17 +2035,17 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkPreviewPageReaderPostgresTest.java",
       "sha256": "2dcfffce8cc8604e2d4595b7121f210b53e555370be756b3f5fbc873ee0ca0b7",
       "kind": "excluded_outside_impact",
-      "reason": "SafeRS2 preview/keyset size+1/expiry/marker/catalogdefiner drifts verifica public redaction; reader e leaf schema não mudaram, ASYNC input novo e preflight batch compartilhado chegam ao caminho. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "Existing result-page reads and the new grouped RS1 COMPLETE overload execute physically; conditional suffix/page sequencing remains intact. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H2/H4 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Poisoned payload, all metadata branches, cursor variants and maximum memory remain limited to their focused/source evidence. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkPreviewPageReaderPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "SafeRS2 preview/keyset size+1/expiry/marker/catalogdefiner drifts verifica public redaction; reader e leaf schema não mudaram, ASYNC input novo e preflight batch compartilhado chegam ao caminho. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "Existing result-page reads and the new grouped RS1 COMPLETE overload execute physically; conditional suffix/page sequencing remains intact. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H2/H4 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Poisoned payload, all metadata branches, cursor variants and maximum memory remain limited to their focused/source evidence. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Poisoned payload, all metadata branches, cursor variants and maximum memory remain limited to their focused/source evidence.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1961,24 +2055,35 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H2",
+            "H4"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkProtectedProposalReaderPostgresTest.java",
       "sha256": "092412c5b6213aefac325621f346e8f41692a87b2d7b97dc0387c4a6bd2659df",
       "kind": "excluded_outside_impact",
-      "reason": "Protected pair/proposal-only/corruptpayload semcause/grant unavailable/expiry snapshot: protected readers permanecem unchanged, novo actual executionMode entra pelo capture. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "Ordinary scoped reads execute changed snapshot/clamp/locator decoding before evaluation and current authorization. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H1/H2 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Absent/corrupt payload and cleanup precedence are focused-test evidence, not all physical non-enumeration cases. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkProtectedProposalReaderPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Protected pair/proposal-only/corruptpayload semcause/grant unavailable/expiry snapshot: protected readers permanecem unchanged, novo actual executionMode entra pelo capture. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "Ordinary scoped reads execute changed snapshot/clamp/locator decoding before evaluation and current authorization. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H1/H2 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Absent/corrupt payload and cleanup precedence are focused-test evidence, not all physical non-enumeration cases. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "F",
           "G"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Absent/corrupt payload and cleanup precedence are focused-test evidence, not all physical non-enumeration cases.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -1988,7 +2093,18 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H1",
+            "H2"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
@@ -2035,19 +2151,19 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkReadCapacityPostgresTest.java",
       "sha256": "49fd0a8215cbef8a42fc71da416cfbac210638a4518ffd19c1d2135509b2b08b",
       "kind": "excluded_outside_impact",
-      "reason": "Heavy200 preview/10k current schema/read first,last,warm medem limites reader; core reader não muda, SDK profile ASYNC tem teto10k mas host200. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+      "reason": "The shared RR/RO preview setup changed and is physically exercised; the metadata decoder and bounded payload delegation retain their rules. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H2/H4 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Heavy200/10k pressure cases are outside this delta acceptance; size-one HTTP is not a physical20MiB or full read-capacity claim. This disposition does not mark the legacy class PASS.",
       "className": "org.praxisplatform.uischema.bulk.BulkReadCapacityPostgresTest",
       "fixtureGroup": "bulk_embedded_pg",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Heavy200 preview/10k current schema/read first,last,warm medem limites reader; core reader não muda, SDK profile ASYNC tem teto10k mas host200. Current read patch 03d521f6 changes this fixture's consistent RR/RO path. The specialized legacy class remains excluded/superseded, but the shared read setup is IN IMPACT. Historical P4, authority, ASYNC worker and lifecycle RC evidence does not accept this changed path. Current SDK mock focals 5+10 and host5 are partial evidence; current source/JAR-bound physical reader proof is PENDING. Limit: Current RR/RO reader proof PENDING; no complete legacy rerun is required merely by the broad closure hash.",
+        "reason": "The shared RR/RO preview setup changed and is physically exercised; the metadata decoder and bounded payload delegation retain their rules. Current SDK656 source and the accepted HTTP38367607163 artifact-bound H2/H4 proof close this shared read impact, together with current ConsistentRead5, ReadBoundary10 and host grant5 focused evidence. Heavy200/10k pressure cases are outside this delta acceptance; size-one HTTP is not a physical20MiB or full read-capacity claim. This disposition does not mark the legacy class PASS.",
         "affectedSharedPathGroups": [
           "B",
           "D",
           "E",
           "F"
         ],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Heavy200/10k pressure cases are outside this delta acceptance; size-one HTTP is not a physical20MiB or full read-capacity claim.",
         "scopePaths": [
           "pom.xml",
           "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
@@ -2057,7 +2173,18 @@
           "src/main/resources/db/praxis-bulk-migrations/",
           "src/main/resources/db/praxis-bulk-migration-lineage/"
         ],
-        "reviewedScopeDigest": null
+        "reviewedScopeDigest": "0d023ecb671d80df142615a675e1d3d06ea346cb969ec6eca8b9d99705f67d5d",
+        "readerClosureEvidence": {
+          "path": "tools/release/evidence/current-reader-http-closure/causal-review.json",
+          "httpReceiptPath": "tools/release/evidence/current-reader-http-closure/http-receipt.json",
+          "httpReceiptSha256": "e6a15e1b789780e6309efbabb4a522a2e6b3fd61efc73b3557d38e5aa00ac16f",
+          "sdkSource": "656e915448f7a2de5802ce0b64f3b53015957a08",
+          "httpWitnesses": [
+            "H2",
+            "H4"
+          ],
+          "sha256": "ed5fe4e2ab0b95833e19b2f95fa6f7c70bd7797fac693e021253d6b2beb209d6"
+        }
       }
     },
     {
@@ -4001,7 +4128,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkReadBatchBoundaryTest.java",
-      "sha256": "efab5d1330d5b34fbe7fbeb067906e2bf0f004e0371d78ac6e93c0c5c8779f24",
+      "sha256": "9b3916f78a9f13cc585fc72af35f60ff4a3624a3872f33e1afced0dd6189890c",
       "kind": "no_db",
       "className": "org.praxisplatform.uischema.bulk.BulkReadBatchBoundaryTest",
       "reason": "Real protected/authorized proposal and preview composition over JDBC mocks: locator decode/close before evaluation, absent+tombstone, expiry, cardinality, metadata branches, complete suffix and bounded fetch-size-one preview. No remote PostgreSQL, current positive full HTTP projection or physical streaming acceptance."
@@ -4093,7 +4220,7 @@
   "fixtureGroups": {
     "bulk_embedded_pg": {
       "disposition": "reviewed_by_impact",
-      "reason": "Entry-specific causal reviews incorporated; specialized assertions remain scoped, not whole-suite PASS. Twelve named consistent-read dispositions require current physical reader proof. ASYNC/authority component reuse and serial 8/80 evidence have independent limited scopes; no blanket BASIC exclusion.",
+      "reason": "Entry-specific causal reviews incorporated; specialized assertions remain scoped, not whole-suite PASS. Twelve named consistent-read dispositions are closed by current source-bound H1-H5 HTTP proof plus focused tests; this does not mark their specialized legacy classes PASS. ASYNC/authority component reuse and serial 8/80 evidence have independent limited scopes; no blanket BASIC exclusion.",
       "countsByKind": {
         "excluded_outside_impact": 32,
         "superseded": 6
@@ -4101,7 +4228,7 @@
     },
     "bulk_indirect_pg": {
       "disposition": "reviewed_by_impact",
-      "reason": "Entry-specific causal reviews incorporated; specialized assertions remain scoped, not whole-suite PASS. Twelve named consistent-read dispositions require current physical reader proof. ASYNC/authority component reuse and serial 8/80 evidence have independent limited scopes; no blanket BASIC exclusion.",
+      "reason": "Entry-specific causal reviews incorporated; specialized assertions remain scoped, not whole-suite PASS. Twelve named consistent-read dispositions are closed by current source-bound H1-H5 HTTP proof plus focused tests; this does not mark their specialized legacy classes PASS. ASYNC/authority component reuse and serial 8/80 evidence have independent limited scopes; no blanket BASIC exclusion.",
       "countsByKind": {
         "excluded_outside_impact": 17,
         "superseded": 1
@@ -4109,7 +4236,7 @@
     },
     "bulk_http_h2": {
       "disposition": "reviewed_by_impact",
-      "reason": "Entry-specific causal reviews incorporated; specialized assertions remain scoped, not whole-suite PASS. Twelve named consistent-read dispositions require current physical reader proof. ASYNC/authority component reuse and serial 8/80 evidence have independent limited scopes; no blanket BASIC exclusion.",
+      "reason": "Entry-specific causal reviews incorporated; specialized assertions remain scoped, not whole-suite PASS. Twelve named consistent-read dispositions are closed by current source-bound H1-H5 HTTP proof plus focused tests; this does not mark their specialized legacy classes PASS. ASYNC/authority component reuse and serial 8/80 evidence have independent limited scopes; no blanket BASIC exclusion.",
       "countsByKind": {
         "excluded_outside_impact": 4
       }
