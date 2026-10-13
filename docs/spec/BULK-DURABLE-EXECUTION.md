@@ -532,6 +532,14 @@ autenticado consultado; a API host pode mapear este caso a HTTP 410.
 
 ## Limites de garantia
 
+### Diagnóstico privado das fachadas de leitura
+
+As fachadas de proposta, preview, execução e resultados reutilizam `BULK_READ_FAILURE` somente nos seus limites de sanitização existentes. O collector por invocação retém a primeira falha interna e uma falha posterior de transação/prazo; serialização, inspeção do grafo e emissão ocorrem após a decisão e o término da transação própria de leitura. Uma transação ambiente pode ter sido retomada nesse momento. Falha do observador não substitui o retorno ou `Throwable` original; emissão síncrona ainda pode acrescentar latência após a decisão do SDK.
+
+`EXECUTION/SUMMARY` distingue exceção, resumo não vivo e correlação divergente; `EXECUTION_RESULTS/RESULTS` distingue exceção e página não viva. Expiração inicial do cursor após a transação recebe `CURSOR_EXPIRED`; cursor inválido e continuação expirada preservam seus resultados normais. Denegação, ausência e tombstone não são tratados como falha apenas por não retornar conteúdo.
+
+O evento privado contém somente enums, classes/frames canônicos e SQLSTATE validado, com o grafo e os limites existentes; nunca IDs, subject, chave, cursor, mensagens, SQL, parâmetros, fingerprints ou itens. Esse diagnóstico não é contrato público, prova de commit, correção de um 503 anterior ou aceite remoto. SQL, autorização, estados, propagação e prazos permanecem os existentes.
+
 O kernel prova atomicidade local somente quando callback, receipts e domínio usam o mesmo
 manager/datasource verificável. Não detecta `REQUIRES_NEW` ou banco remoto por introspecção;
 o consumidor precisa de prova de rollback e de readback independente. O S4a não decide grants,
