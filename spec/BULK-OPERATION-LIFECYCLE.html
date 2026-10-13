@@ -358,5 +358,36 @@ consumidor: orçamento host de 8s além dos cenários focais já provados,
 verify integral e aceite de adoção. As provas antigas do protocolo fresh
 V6/V7 não certificam V15. Nenhuma publicação/deploy ou Angular é
 autorizada pela aprovação de um teste isolado.</p>
+<h2 id="candidato-de-admissão-pública-async-delimitada">Candidato de
+admissão pública ASYNC delimitada</h2>
+<p>O perfil público candidato aceita exclusivamente
+<code>UNIFORM_UPDATE / EXPLICIT / PER_ITEM / ASYNC</code>, até o teto
+protocolar de 10.000 alvos. Não combina SYNC e ASYNC no mesmo
+<code>BulkOperationalProfile</code>: o limite SYNC de 200 não muda.
+QUERY/ASYNC, DOMAIN_COMMAND/ASYNC e ATOMIC/ASYNC permanecem
+rejeitados.</p>
+<p>O provider declara <code>asynchronousCapacityBinding()</code> com a
+identidade completa de capacidade proveniente do provisionamento
+confiável. Os nove campos participam do fingerprint operacional,
+portanto alteração invalida expectativa, projeção e reconciliação
+anteriores. O campo é privado: o contrato HTTP continua usando as mesmas
+operações e propriedades. Para providers SYNC o accessor permanece vazio
+e nenhum campo é acrescentado ao documento do fingerprint, preservando
+seus bytes.</p>
+<p><code>requireReady(identity, ASYNC, EXPLICIT)</code> compõe a
+publicação atual fora da transação operacional e verifica a instalação
+ativa. A admissão opaca pertence à mesma instância de infraestrutura,
+recurso, operação canônica completa e codec. O READY durável de
+publicação/reconcile registra o descriptor governado; não é atestado
+instantâneo de instalação ativa. Publicação/reconcile vinculam o binding
+pelo fingerprint, sem ampliar permissões do control plane. A verificação
+ACTIVE ocorre nas leituras de admissão/projeção e novamente na transação
+consumidora. Não é autoridade cacheada nem promessa de slot livre.
+Captura e enqueue repetem os fences e a verificação de capacidade na
+transação que efetivamente grava.</p>
+<p>A implementação e os testes sem banco deste candidato não constituem
+aceite Neon, publicação Maven, adoção HTTP202 do host ou prova de escala
+global. Essas etapas têm evidências e gates próprios; o worker e o
+ledger existentes são reutilizados, sem novo broker ou IAM.</p>
 </body>
 </html>

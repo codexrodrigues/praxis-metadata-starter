@@ -73,6 +73,11 @@ history repair or second migration authority is introduced.
 PostgreSQL 17 ADMIN-only role management is distinct from inherited privileges
 and SET authority. Only the explicitly trusted schema owner, through the known
 bootstrap-superuser grantor, may retain the canonical administrative edge.
+For an initial database with no governed schema, admission uses the authenticated
+`current_user=session_user=expectedSchemaOwnerRole` as the owner witness for that
+same unique SUPER-grantor ADMIN-only edge. This permits serial installation in
+another database of the same managed owner; existing-schema/live validation still
+requires the local schema-owner witness and rejects arbitrary administrative edges.
 Temporary ownership operations must explicitly scope SET authority and schema
 CREATE only where required, then restore that scope. Runtime/control reachability
 to internal owners, unexpected grantors and duplicate or unsafe membership edges
@@ -178,3 +183,29 @@ until a corresponding validation closes them. Canonical skills, release
 provenance, host adoption without override and hosted BASIC proof remain separate
 required steps. Do not infer certification of optional capacity authority from
 execution-storage installation.
+
+
+## Capacity authority managed PG17 candidate
+
+The authority has a separate two-version migration owner and history. Its current
+candidate follows the storage lineage pattern without modifying the twenty-version
+storage resolver or reusing its schema-specific trust predicate. Published V1/V2
+bytes/checksums are retained; only pending resources use scoped PG17 ownership
+operations. The authority predicate recognizes the exact ADMIN-only edge of its
+own trusted schema owner, not an owner role name or any arbitrary administrator.
+Function bodies, issuer limits, protected table ACLs and caller responsibilities
+remain unchanged. No IAM API, timeout, host fallback or manual ACL cleanup is added.
+
+Unit history resolution and resource parity do not certify PostgreSQL installation.
+The finite physical gate is managed PG17 NOSUPER installation V1→V2, repeat/validate,
+preserved administrative edge with no residual SET/CREATE, ordinary callers and
+unsafe membership negatives, followed by the already scoped ASYNC consumer tests.
+Published PG14 history stays labeled historical. Actual adoption of an original
+V1 predecessor on PG17 is pending separately when such a legitimate predecessor
+is available; do not forge a history row or rewrite its checksum to manufacture it.
+
+A failed V1 may leave only Flyway's exact SCHEMA marker. Product migration verifies
+that empty prefix; a test continuation additionally binds fresh complete catalog
+readback and the prior run. It must not relabel that state as a new empty database
+or erase its history. Physical proof of this candidate is pending; the domain's
+previous managed-owner proof does not imply authority acceptance.

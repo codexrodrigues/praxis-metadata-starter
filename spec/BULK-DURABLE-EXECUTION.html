@@ -968,5 +968,25 @@ operação executável. O deadline protege a inserção do receipt no banco;
 não promete interrupção segura de rede ou COMMIT. Quando o resultado do
 commit não é conhecido, a execução permanece bloqueada até
 recuperação.</p>
+<h3 id="historical-reservation-lookup-without-admission">Historical
+reservation lookup without admission</h3>
+<p><code>JdbcBulkDurableExecution.findReservation(scope, proposalId, idempotencyKey, structuralRevision)</code>
+exposes the existing scoped proposal-or-key replay lookup without
+reserving an execution. The caller authenticates and authorizes scope
+before lookup and separately authorizes result projection. An evaluated
+proposal without a reservation returns empty; an unknown proposal
+remains <code>NOT_FOUND</code>. A purged proposal/key is
+<code>RESULT_PURGED</code>; incompatible or ambiguous reservation
+identity remains <code>CONFLICT</code>. The stored execution mode
+governs historical replay, independently of current READY state,
+capacity, or the host’s new-admission profile.</p>
+<p>This lookup never inserts a reservation, dispatches work, acquires
+capacity, or renews a deadline. It retains the existing row locks and
+owns a normal transaction; it is not a SQL <code>READ ONLY</code>
+promise. A host retiring new SYNC admission can use this lookup for
+authorized historical replay instead of calling <code>reserve</code>,
+whose EXPLICIT path may create a reservation. Infrastructure uncertainty
+remains <code>UNAVAILABLE</code>; there is no automatic retry or
+fallback to admission. No HTTP shape changes here.</p>
 </body>
 </html>

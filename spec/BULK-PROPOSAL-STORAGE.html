@@ -637,5 +637,26 @@ href="BULK-MANAGED-OWNER-ADOPTION-PLAN.md">plano</a> para cutoffs de
 histórico, grants iniciais transacionais e provas ainda pendentes. Não
 há nova API pública de provisionamento nem modo paralelo de
 migração.</p>
+<h2 id="captura-pública-async-candidata">Captura pública ASYNC
+candidata</h2>
+<p>A fábrica
+<code>BulkStoredProposal.asynchronous(admission, id, createdAt, expiresAt, snapshot)</code>
+usa uma admissão obtida por
+<code>BulkOperationLifecycle.requireReady</code> para o perfil
+ASYNC-only de UNIFORM_UPDATE/EXPLICIT/PER_ITEM. Ela valida identidade,
+codec, número de alvos e validade máxima do perfil; construir a proposta
+não confere autoridade. As antigas entradas sem admissão continuam
+rejeitando ASYNC.</p>
+<p>O overload existente
+<code>captureAndInsertEvaluated(admission, ...)</code> exige a mesma
+infraestrutura e expectativa, participa da transação writable REPEATABLE
+READ do chamador e verifica marker/binding ativo antes das quotas, do
+controle e do callback. A coluna <code>execution_mode</code> é vinculada
+ao intent validado. Proposta, evaluation, ordinal manifest, preview e
+allocation pendente confirmam ou fazem rollback juntos. Não se abre uma
+nova transação para esconder isolamento inadequado. Orçamento,
+expiração, limites SQL e restauração permanecem os mesmos. A prova
+física do caminho público requer o consumidor Neon usando o lifecycle
+real; guardas locais com doubles não substituem essa prova.</p>
 </body>
 </html>

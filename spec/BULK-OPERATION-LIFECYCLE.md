@@ -53,3 +53,32 @@ As 25 provas focais compostas do SDK candidato (12 + 1 + 12) cobrem o núcleo; o
 Preparação e composição têm budgets de admissão separados; não são prazo acumulado ponta a ponta. Locks/HTTP respeitam o prazo, mas callbacks arbitrários não são interrompidos. Um commit admitido não vira rollback declarado porque o prazo de nova admissão expirou. A instalação mantém os fences locais/duráveis próprios.
 
 Provas anteriores do candidato incluem Servlet/HTTP de captura, Boot/Tomcat de registro e PostgreSQL real. Evidências precisam identificar a árvore e as fontes testadas. Recovery local simulada não equivale a duas instâncias; IAM de fixture não equivale à segurança completa do host. O SDK rc.154 foi publicado pelo workflow oficial 37236119846 com 1.530 testes, zero falhas/erros, três skips e POM/JAR verificados no Maven Central. Permanecem gates de fechamento do consumidor: orçamento host de 8s além dos cenários focais já provados, verify integral e aceite de adoção. As provas antigas do protocolo fresh V6/V7 não certificam V15. Nenhuma publicação/deploy ou Angular é autorizada pela aprovação de um teste isolado.
+
+## Candidato de admissão pública ASYNC delimitada
+
+O perfil público candidato aceita exclusivamente `UNIFORM_UPDATE / EXPLICIT /
+PER_ITEM / ASYNC`, até o teto protocolar de 10.000 alvos. Não combina SYNC e ASYNC
+no mesmo `BulkOperationalProfile`: o limite SYNC de 200 não muda. QUERY/ASYNC,
+DOMAIN_COMMAND/ASYNC e ATOMIC/ASYNC permanecem rejeitados.
+
+O provider declara `asynchronousCapacityBinding()` com a identidade completa de
+capacidade proveniente do provisionamento confiável. Os nove campos participam do
+fingerprint operacional, portanto alteração invalida expectativa, projeção e
+reconciliação anteriores. O campo é privado: o contrato HTTP continua usando as
+mesmas operações e propriedades. Para providers SYNC o accessor permanece vazio e
+nenhum campo é acrescentado ao documento do fingerprint, preservando seus bytes.
+
+`requireReady(identity, ASYNC, EXPLICIT)` compõe a publicação atual fora da
+transação operacional e verifica a instalação ativa. A admissão opaca pertence à
+mesma instância de infraestrutura, recurso, operação canônica completa e codec.
+O READY durável de publicação/reconcile registra o descriptor governado; não é
+atestado instantâneo de instalação ativa. Publicação/reconcile vinculam o binding
+pelo fingerprint, sem ampliar permissões do control plane. A verificação ACTIVE
+ocorre nas leituras de admissão/projeção e novamente na transação consumidora.
+Não é autoridade cacheada nem promessa de slot livre. Captura e enqueue repetem
+os fences e a verificação de capacidade na transação que efetivamente grava.
+
+A implementação e os testes sem banco deste candidato não constituem aceite
+Neon, publicação Maven, adoção HTTP202 do host ou prova de escala global. Essas
+etapas têm evidências e gates próprios; o worker e o ledger existentes são
+reutilizados, sem novo broker ou IAM.

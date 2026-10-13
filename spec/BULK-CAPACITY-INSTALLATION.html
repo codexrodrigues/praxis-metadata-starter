@@ -370,5 +370,183 @@ backend-complete or Angular claim. The previous 42 B5b.1a cases remain
 historical issuer evidence; the current 97-case composition is tied to
 the extended V2/V18 source, not attributed to rc.154. See <a
 href="BULK-CAPACITY-AUTHORITY.md">issuer scope</a>.</p>
+<h2 id="public-administrative-entry-candidate">Public administrative
+entry candidate</h2>
+<p><code>org.praxisplatform.uischema.bulk.BulkCapacityProvisioningMain</code>
+materializes the existing provisioning protocol in a separate
+administrative JVM. This source candidate still requires its packaged
+Neon acceptance and public release; the historical acceptance above does
+not cover this entry. It adds no migration, HTTP route, owner bean in
+the host, token format or alternative capacity ledger.</p>
+<p>Invoke with exactly three arguments:
+<code>COMMAND /absolute/private/input.json /absolute/private/receipt.json</code>.
+Credentials belong only in the input file, never arguments or
+environment logging. Both paths reject symlinks; the input is a regular
+0600 file, at most 32 KiB, and each immediate parent is 0700. The
+receipt must not exist. JSON keys are exact, duplicate keys/trailing
+JSON/coercion are rejected. PostgreSQL URLs require
+<code>sslmode=verify-full</code>, cannot override explicit credentials
+and retain smaller native connection/socket timeouts. This custody
+assumes a trusted OS identity; it does not defend against another
+process with the same identity.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Command</th>
+<th>Existing operation</th>
+<th>Command-specific root keys (plus <code>authority</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>BOOTSTRAP</code></td>
+<td>Fix local physical binding</td>
+<td><code>provisioner</code>, <code>reader</code>,
+<code>operational</code>, <code>binding</code></td>
+</tr>
+<tr class="even">
+<td><code>ENROLL</code></td>
+<td>Enroll the authority binding</td>
+<td><code>provisioner</code>, <code>binding</code></td>
+</tr>
+<tr class="odd">
+<td><code>REGISTER_ATTESTATION</code></td>
+<td>Owner/runtime witness, then authority registration</td>
+<td><code>provisioner</code>, <code>reader</code>,
+<code>operational</code>, <code>binding</code></td>
+</tr>
+<tr class="even">
+<td><code>ACTIVATE</code></td>
+<td>Authenticated attestation read, then activate local marker</td>
+<td><code>provisioner</code>, <code>reader</code>,
+<code>operational</code>, <code>binding</code></td>
+</tr>
+<tr class="odd">
+<td><code>REQUEST</code></td>
+<td>Submit the governed request UUID/payload</td>
+<td><code>allocator</code>, <code>reader</code>,
+<code>request</code></td>
+</tr>
+<tr class="even">
+<td><code>ALLOCATE_NEXT</code></td>
+<td>Allocate at most one right fairly for a class</td>
+<td><code>allocator</code>, <code>reader</code>,
+<code>capacityClass</code></td>
+</tr>
+<tr class="odd">
+<td><code>READ_ISSUE</code></td>
+<td>Read and compare the complete request identity</td>
+<td><code>allocator</code>, <code>reader</code>,
+<code>request</code></td>
+</tr>
+<tr class="even">
+<td><code>INSTALL</code></td>
+<td>Authenticate token UUID, install and independently read back</td>
+<td><code>provisioner</code>, <code>reader</code>,
+<code>operational</code>, <code>binding</code>,
+<code>tokenId</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>authority</code> contains <code>deploymentId</code>,
+<code>environment</code>, <code>authorityId</code>,
+<code>authorityEpoch</code>, and <code>roles</code> with
+<code>ownerLogin</code>, <code>provisionerLogin</code>,
+<code>allocatorLogin</code>, <code>readerLogin</code>. The authority
+owner is an expected catalog identity, not a credential supplied to this
+entry. Each credential object has exactly <code>url</code>,
+<code>username</code>, <code>password</code>. Secrets retain their
+original bytes. <code>binding</code> contains the existing nine fields
+documented above. IDs are canonical UUID strings; generation/epoch are
+positive integral 64-bit values.</p>
+<p><code>operational</code> contains <code>namespace</code>,
+<code>roles</code>, <code>owner</code>, <code>runtime</code>. Its
+<code>roles</code> is the existing four-field
+<code>BulkExecutionRoleConfiguration</code>:
+<code>expectedSchemaOwnerRole</code>, <code>runtimeGranteeRoles</code>,
+<code>retentionExecutorMembers</code>,
+<code>controlPlaneGranteeRoles</code>. Each role array is explicit.
+Runtime username must belong to the configured runtime roles, and actual
+identities/privileges/catalog are still attested by the canonical
+implementations. <code>request</code> contains <code>requestId</code>,
+<code>tenantId</code>, <code>bindingId</code>,
+<code>capacityClass</code>, <code>requestedCount</code>; the deployment
+comes from <code>authority</code>. Class is exactly <code>QUEUE</code>
+or <code>ACTIVE</code>, and the existing request limit applies.
+<code>ALLOCATE_NEXT</code> accepts only the class, never a preferred
+tenant/binding.</p>
+<p>The current canonical installation constructor requires owner/runtime
+plus provisioner/reader; the issuer constructor requires
+allocator/reader. The input exposes these administrative composition
+boundaries honestly, even when one method uses only a subset.
+Credentials never enter the host/worker process. The tool performs one
+command and has no loop, automatic retry, compensation, DDL, ID
+generation, epoch succession, refund or restore authorization.</p>
+<p>Initial order is <code>BOOTSTRAP</code>, <code>ENROLL</code>,
+<code>REGISTER_ATTESTATION</code>, <code>ACTIVATE</code>, followed by
+explicit request/emission/read/install steps. Migration and role
+provisioning remain separate prerequisites through the existing public
+migrators. Issued rights in transit stay counted. Allocation can select
+another eligible tenant; use <code>READ_ISSUE</code> for the original
+request and preserve its complete identity. Never allocate repeatedly
+until a particular tenant wins.</p>
+<p>A private <code>PENDING_UNCONFIRMED</code> receipt containing the
+command and governed intent is created with exclusive creation and
+file/directory synchronization before any datasource construction. It
+contains no JDBC URL or credential. Final replacement uses a private
+temporary file, file synchronization, atomic move and directory
+synchronization; it never truncates the only intent copy. Success is
+<code>CONFIRMED</code> with a private result (including token/issue IDs
+where applicable). BOOTSTRAP, REGISTER_ATTESTATION and ACTIVATE return
+an empty result; INSTALL retains its <code>inserted</code> boolean.
+These commands do not append an unrelated local-marker inspection or
+return <code>markerState</code>. Their canonical locks, identity checks,
+authority registration and INSTALL’s independent installation readback
+remain mandatory. Use the explicit INSPECT command for a fresh
+local-state observation; it cannot confirm an authority-side
+registration.</p>
+<p>Lost commit/readback/receipt acknowledgement is
+<code>UNCONFIRMED</code>, never an assertion of rollback. A crash can
+leave the pending receipt; preserve it. An UNCONFIRMED private receipt
+may include a closed diagnostic: phase is COMMAND, FINAL_BUDGET,
+RECEIPT_PUBLICATION or PUBLISH_BUDGET; category is BUDGET_EXPIRED,
+TIMEOUT, SQL_ERROR, IO_ERROR, INVALID_STATE or OTHER; sqlState is null
+or five uppercase alphanumeric characters. No exception message, class
+name, stack, URL or input is copied. COMMAND includes infrastructure
+construction and the canonical operation; it does not identify which
+transaction committed. A later exact state readback is separate
+reconciliation evidence, never a retroactive CONFIRMED invocation or
+permission for automatic retry.</p>
+<p>Shared stdout has only <code>schemaVersion</code>,
+<code>operation</code>, <code>result</code>, <code>code</code>. Exit 0
+is <code>CONFIRMED/OK</code>; exit 64 is
+<code>DENIED/INVALID_INPUT</code> or
+<code>DENIED/RECEIPT_NOT_CREATED</code>; exit 2 is
+<code>UNCONFIRMED/STEP_NOT_CONFIRMED</code>. No exception graph or
+credential is printed. Trusted administration retains the private input
+and receipt. An uncertain <code>ALLOCATE_NEXT</code> must not be retried
+automatically: inspect the original requests and issued rights first.
+Reuse exact identities for explicitly approved idempotent recovery;
+never create a replacement identity to hide uncertainty.</p>
+<p>A monotonic 20-second admission/publication budget covers
+construction, acquisition, canonical work, readback and successful
+receipt publication. Authority transactions retain 3s/2s/1s bounds;
+local installation retains its 20s/3s bounds. Acquisition is constrained
+by the remaining outer budget and stricter native limits. This does not
+claim distributed rollback or universal wall-clock interruption of
+OS/driver/filesystem operations. Late completion cannot publish
+successful stdout; do not increase product budgets to make a
+provisioning environment pass.</p>
+<p><code>INSPECT</code> and terminal <code>FENCE</code> remain in the
+independent <a href="BULK-CAPACITY-LOCAL-ADMINISTRATION.md">local
+administration entry</a>, without an availability dependency on the
+authority database. A fenced marker cannot be reactivated or installed
+by this new entry. Unit input/custody tests are separate from pending
+packaged Neon command, replay, rollback and fencing evidence.</p>
 </body>
 </html>
