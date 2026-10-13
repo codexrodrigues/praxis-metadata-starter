@@ -40,7 +40,7 @@ A resposta de capabilities/actions usa um frame síncrono isolado. O builder do 
 
 `suspend(identity, expectedGeneration)` suspende a operação e depois o ledger global antes de limpar os caches. O ledger suspende operações READY de todas as namespaces do deployment. `clearCaches`/refresh estrito explícito usam esse guard antes de mutar caches; não são ferramentas de recuperação local de uma réplica. Falha do guard conserva dados locais, mas a época invalida a autoridade anterior. Nova publicação exige a geração resultante.
 
-`reconcilePublished(identity, readyGeneration)` recaptura a fotografia explicitamente fora do caminho de request, mesmo quando o nó mantém uma fotografia antiga. Exige digest igual ao ledger atual, descritor igual à operação READY e nova verificação durável antes de instalar. Não escreve controle, não suspende a publicação de outra réplica nem executa domínio. Fonte divergente é negada. `publish` em nó warm divergente também nega: reconciliar explicitamente antes de publicar outra operação; não usar `clearCaches` para isso.
+`reconcilePublished(identity, readyGeneration)` recaptura a fotografia por chamada administrativa explícita, fora do caminho de discovery e com contexto Servlet real, mesmo quando o nó mantém uma fotografia antiga. Exige digest igual ao ledger atual, descritor igual à operação READY e nova verificação durável antes de instalar. Não escreve controle, não suspende a publicação de outra réplica nem executa domínio. Fonte divergente é negada. `publish` em nó warm divergente também nega: reconciliar explicitamente antes de publicar outra operação; não usar `clearCaches` para isso.
 
 ## Admissão QUERY publicada no SDK rc.154
 
