@@ -8,6 +8,8 @@ import java.sql.*;
 import java.time.ZoneOffset;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.sql.DataSource;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.junit.jupiter.api.Test;
 
 /** JDBC result ordering and real protected/page decoders, without a database. */
@@ -20,27 +22,31 @@ class BulkReadBatchBoundaryTest {
         verify(c,times(1)).prepareStatement(anyString());verify(q).close();
     }
     @Test void absentProposalRetainsAuthorizedTombstoneWhenEvaluationWouldThrow() throws Exception {
-        var c=mock(Connection.class);var q=batch(rows(new Object[]{"200ms"}),rows());
-        var tomb=mock(PreparedStatement.class);when(tomb.executeQuery()).thenAnswer(x->rows(new Object[]{"STOPPED"}));
-        when(c.prepareStatement(anyString())).thenAnswer(x->{String sql=x.getArgument(0);if(sql.contains("praxis_bulk_evaluation"))throw new SQLException("evaluation must not run");return sql.contains("praxis_bulk_tombstone")?tomb:q;});
-        var infra=mock(BulkExecutionInfrastructure.class);var auth=mock(BulkReadAuthorizationProvider.class);var projection=mock(BulkProposalProjectionProvider.class);
-        var reader=authorizedReader(c,infra,auth,projection);
-        assertThat(reader.readProposal(CONTEXT.subjectId(),UUID.randomUUID()).state()).isEqualTo(BulkAuthorizedProposalReader.State.TOMBSTONED);
-        verify(auth,never()).authorize(any(),anyString(),anyList(),any());verify(projection,never()).projectRedactedIntent(any());
-        verify(tomb).setString(4,BulkScopeDigests.authorizationScopeDigest(CONTEXT.namespaceId(),CONTEXT.subjectId(),CONTEXT.resourceKey(),CONTEXT.operationRef().operationId()));
+        try(var f=new BulkConsistentReadBatchTest.Fixture()) {
+            var c=f.connection;var q=batch(rows(new Object[]{"200ms"}),rows());
+            var tomb=mock(PreparedStatement.class);when(tomb.executeQuery()).thenAnswer(x->rows(new Object[]{"STOPPED"}));
+            when(c.prepareStatement(argThat(BulkReadBatchBoundaryTest::proposalReadSql))).thenAnswer(x->{String sql=x.getArgument(0);if(sql.contains("praxis_bulk_evaluation"))throw new SQLException("evaluation must not run");return sql.contains("praxis_bulk_tombstone")?tomb:q;});
+            var infra=infrastructure(f.ds);var auth=mock(BulkReadAuthorizationProvider.class);var projection=mock(BulkProposalProjectionProvider.class);
+            var reader=authorizedReader(infra,auth,projection);
+            assertThat(reader.readProposal(CONTEXT.subjectId(),UUID.randomUUID()).state()).isEqualTo(BulkAuthorizedProposalReader.State.TOMBSTONED);
+            verify(auth,never()).authorize(any(),anyString(),anyList(),any());verify(projection,never()).projectRedactedIntent(any());
+            verify(tomb).setString(4,BulkScopeDigests.authorizationScopeDigest(CONTEXT.namespaceId(),CONTEXT.subjectId(),CONTEXT.resourceKey(),CONTEXT.operationRef().operationId()));
+            assertThat(f.attests).hasValue(1);verify(c).commit();
+        }
     }
     @Test void expiredProposalIsGoneOnlyAfterCompleteAuthorizationAndNeverProjects() throws Exception {
-        var p=proposal();var e=evaluation(p);var c=mock(Connection.class);var q=batch(rows(new Object[]{"200ms"}),proposalRows(p));
-        var ev=mock(PreparedStatement.class);when(ev.executeQuery()).thenAnswer(x->rows(new Object[]{p.snapshot().fingerprint(),e.fingerprint(),BulkEvaluationStorageCodec.encode(e)}));when(c.prepareStatement(anyString())).thenReturn(q,ev);
-        var infra=mock(BulkExecutionInfrastructure.class);var auth=mock(BulkReadAuthorizationProvider.class);var projection=mock(BulkProposalProjectionProvider.class);
-        var reader=authorizedReader(c,infra,auth,projection);
-        when(auth.authorize(any(),anyString(),anyList(),any())).thenReturn(BulkReadAuthorizationProvider.ScopeDecision.authorized(new byte[32]));
-        assertThat(reader.readProposal(CONTEXT.subjectId(),p.id()).state()).isEqualTo(BulkAuthorizedProposalReader.State.GONE);
-        verify(auth).authorize(any(),eq(CONTEXT.subjectId()),argThat(x->x.size()==1),any());verify(projection,never()).projectRedactedIntent(any());
+        try(var f=new BulkConsistentReadBatchTest.Fixture()) {
+            var p=proposal();var e=evaluation(p);var c=f.connection;var q=batch(rows(new Object[]{"200ms"}),proposalRows(p));
+            var ev=mock(PreparedStatement.class);when(ev.executeQuery()).thenAnswer(x->rows(new Object[]{p.snapshot().fingerprint(),e.fingerprint(),BulkEvaluationStorageCodec.encode(e)}));when(c.prepareStatement(argThat(BulkReadBatchBoundaryTest::proposalReadSql))).thenReturn(q,ev);
+            var infra=infrastructure(f.ds);var auth=mock(BulkReadAuthorizationProvider.class);var projection=mock(BulkProposalProjectionProvider.class);
+            var reader=authorizedReader(infra,auth,projection);
+            when(auth.authorize(any(),anyString(),anyList(),any())).thenReturn(BulkReadAuthorizationProvider.ScopeDecision.authorized(new byte[32]));
+            assertThat(reader.readProposal(CONTEXT.subjectId(),p.id()).state()).isEqualTo(BulkAuthorizedProposalReader.State.GONE);
+            verify(auth).authorize(any(),eq(CONTEXT.subjectId()),argThat(x->x.size()==1),any());verify(projection,never()).projectRedactedIntent(any());
+            assertThat(f.attests).hasValue(1);verify(c).commit();
+        }
     }
-    private static BulkAuthorizedProposalReader authorizedReader(Connection c,BulkExecutionInfrastructure infra,BulkReadAuthorizationProvider auth,BulkProposalProjectionProvider projection) throws Exception {
-        when(infra.namespace()).thenReturn(CONTEXT.namespaceId());
-        when(infra.withConsistentRead(any())).thenAnswer(x->((org.springframework.jdbc.core.ConnectionCallback<?>)x.getArgument(0)).doInConnection(c));
+    private static BulkAuthorizedProposalReader authorizedReader(BulkExecutionInfrastructure infra,BulkReadAuthorizationProvider auth,BulkProposalProjectionProvider projection) throws Exception {
         when(auth.executionInfrastructure()).thenReturn(infra);when(auth.confirmationOperationId()).thenReturn(CONTEXT.operationRef().operationId());when(auth.preAuthorize(any(),any())).thenReturn(BulkReadAuthorizationProvider.GlobalDecision.ALLOWED);
         when(projection.resourceKey()).thenReturn(CONTEXT.resourceKey());when(projection.confirmationOperationId()).thenReturn(CONTEXT.operationRef().operationId());when(projection.projectionRevision()).thenReturn("r");
         return new BulkAuthorizedProposalReader(infra,CONTEXT.resourceKey(),auth,projection,java.time.Clock.fixed(java.time.Instant.parse("2026-10-13T00:00:00Z"),ZoneOffset.UTC));
@@ -103,7 +109,18 @@ class BulkReadBatchBoundaryTest {
         }
     }
     private static BulkProtectedProposalReader.Observation protectedRead(Connection c,UUID id)throws Exception{return BulkProtectedProposalReader.readForAuthorizedComposition(c,CONTEXT.namespaceId(),CONTEXT.resourceKey(),CONTEXT.operationRef().operationId(),id,200);}
-    private static BulkPreviewPageReader preview(Connection c){return new BulkPreviewPageReader(mock(BulkExecutionInfrastructure.class));}
+    private static BulkPreviewPageReader preview(Connection c) {
+        var ds=mock(DataSource.class);var reader=new BulkPreviewPageReader(infrastructure(ds));
+        verifyNoInteractions(ds);return reader;
+    }
+    private static BulkExecutionInfrastructure infrastructure(DataSource ds) {
+        return new BulkExecutionInfrastructure(ds,new DataSourceTransactionManager(ds),CONTEXT.namespaceId(),"dep",
+                new BulkExecutionRoleConfiguration("owner",Set.of("runtime"),Set.of(),Set.of("control")));
+    }
+    private static boolean proposalReadSql(String sql) {
+        return sql!=null&&(sql.contains("praxis_bulk_proposal")||sql.contains("praxis_bulk_evaluation")
+                ||sql.contains("praxis_bulk_tombstone"));
+    }
     private static ResultSet proposalRows(BulkStoredProposal p)throws Exception {
         var r=rows(new Object[]{p.createdAt().atOffset(ZoneOffset.UTC),p.expiresAt().atOffset(ZoneOffset.UTC),p.snapshot().fingerprint(),BulkSnapshotStorageCodec.encode(p.snapshot()),1L,CONTROL_EXPECTATION.descriptorFingerprint(),CONTROL_EXPECTATION.structuralRevision()});
         when(r.getString("subject_id")).thenReturn(CONTEXT.subjectId());when(r.getString("execution_mode")).thenReturn("SYNC");when(r.getString("atomicity")).thenReturn("ATOMIC");when(r.getShort("protocol_version")).thenReturn((short)2);return r;
