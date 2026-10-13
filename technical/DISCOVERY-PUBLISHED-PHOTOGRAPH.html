@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Discovery sobre a fotografia OpenAPI publicada</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      background-color: #1a1a1a;
+      border: none;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Discovery sobre a fotografia OpenAPI publicada</h1>
+</header>
+<h1 id="discovery-sobre-a-fotografia-openapi-publicada">Discovery sobre
+a fotografia OpenAPI publicada</h1>
+<p><code>DefaultCapabilityService</code> e o caminho de related-resource
+de <code>SurfaceCatalogService</code> separam a leitura estrutural da
+avaliação de disponibilidade. No caminho governado, a resposta usa os
+documentos da publicação instalada; não reconsulta o produtor nem
+transforma essa fotografia em autorização.</p>
+<h2 id="fronteiras-da-composição">Fronteiras da composição</h2>
+<ol type="1">
+<li>A fase estrutural curta usa <code>withSchemaCacheReadLock</code>.
+Quando há publicação local governada, indicadores e operações do recurso
+são resolvidos a partir do mesmo documento. Nesse caminho, o suporte às
+operações de um filho é resolvido uma vez por
+<code>childResourcePath</code>, independentemente da quantidade de
+operações declaradas.</li>
+<li>Os mapas privados são destacados dessa fase. Resolvers de contexto,
+snapshots de estado e regras de disponibilidade executam depois de
+liberar o lock.</li>
+<li>Quando há uma fotografia publicada real, o fence existente é
+capturado dentro de seu escopo e verificado novamente após os callbacks.
+O fence do pai também rejeita mudanças de publicação entre a leitura do
+pai e a do filho. Todos os fences são fechados, inclusive quando a
+preparação, o callback ou a verificação final falham. A falha não
+provoca repetição do callback.</li>
+</ol>
+<p><code>hasLocalPublishedBulkOpenApiPublication()</code> indica
+presença, não autoridade. Sua leitura dentro da fase estrutural escolhe
+o overload do resolver; a guarda concreta e o fence final verificam a
+publicação. O hint externo serve apenas para rejeitar antecipadamente
+uma transação ambiente incompatível. A condição é reverificada dentro da
+fase para cobrir instalação concorrente.</p>
+<p>Na fase governada, callbacks ficam fora dos locks e de transações
+operacionais. Uma regra pode realizar sua própria consulta independente
+de READY. Suspensão, republicação com os mesmos bytes mas outra geração,
+troca da fotografia, invalidação ou mudança de transporte durante a
+composição impedem a resposta bem-sucedida. Capturar a negativa dentro
+de uma regra não neutraliza o fence final.</p>
+<p>A composição não mantém TTL, ACLs, memberships, grants,
+disponibilidade ou READY entre respostas. Os frames e as verificações de
+provider do lifecycle bulk continuam independentes e preservam suas
+obrigações.</p>
+<h2 id="wiring-e-implementações-existentes">Wiring e implementações
+existentes</h2>
+<p>A auto-configuração injeta <code>OpenApiDocumentService</code> no
+construtor de cinco argumentos de <code>SurfaceCatalogService</code>. Os
+construtores existentes continuam servindo integrações que já os usam.
+Implementações genuinamente não governadas preservam os getters de
+documento e os overloads de resolver existentes, sem fabricar um fence
+de publicação nem impor a nova fronteira transacional governada.</p>
+<p>Uma guarda instalada sem fotografia local falha na leitura concreta
+antes dos callbacks do caminho doc-aware. Ausência de fotografia não
+autoriza servir uma publicação substituta. Surfaces sem related-resource
+não recebem uma leitura adicional de documento apenas por existirem.</p>
+<p>Resolvers estruturais devem interpretar suporte declarado e os
+documentos recebidos. Políticas, estado do registro e permissões atuais
+pertencem à fase de disponibilidade, não aos mapas estruturais.</p>
+<h2 id="evidência-e-limites">Evidência e limites</h2>
+<p><code>DiscoveryPublishedPhotographTest</code> usa captures e
+fotografia instalada concretos, com seam de guarda durável. Cobre
+contagem constante de guards, igualdade dos bytes, callbacks sem lock,
+republicação entre fases, ausência local, transação ambiente governada,
+transações legadas, fechamento e próxima requisição limpa. O caso
+suplementar em <code>BulkOperationStructuralCompilerTest</code> chama
+<code>requireReady</code> real com doubles JDBC; não é prova de banco
+nem transforma a classe histórica mista em uma seleção integral sem
+banco.</p>
+<p>A seleção focal atual passou 47 casos sem banco. No cenário da prova
+com pai e filho e seis operações relacionadas, há oito guards; isso mede
+chamadas desse cenário, não latência ou throughput. Não certifica IAM,
+Neon, transporte HTTP, Render, toda a suíte legada ou a jornada do Hero.
+A publicação do SDK exige as seleções oficiais do mesmo commit; a adoção
+exige nova prova do consumidor e validação após reinício real do
+Render.</p>
+</body>
+</html>

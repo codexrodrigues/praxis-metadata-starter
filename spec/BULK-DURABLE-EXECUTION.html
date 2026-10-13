@@ -959,6 +959,30 @@ epoch novo, status final/bloqueante e contagem derivada de receipts.
 correspondência de tombstone no escopo autenticado consultado; a API
 host pode mapear este caso a HTTP 410.</p>
 <h2 id="limites-de-garantia">Limites de garantia</h2>
+<h3 id="diagnóstico-privado-das-fachadas-de-leitura">Diagnóstico privado
+das fachadas de leitura</h3>
+<p>As fachadas de proposta, preview, execução e resultados reutilizam
+<code>BULK_READ_FAILURE</code> somente nos seus limites de sanitização
+existentes. O collector por invocação retém a primeira falha interna e
+uma falha posterior de transação/prazo; serialização, inspeção do grafo
+e emissão ocorrem após a decisão e o término da transação própria de
+leitura. Uma transação ambiente pode ter sido retomada nesse momento.
+Falha do observador não substitui o retorno ou <code>Throwable</code>
+original; emissão síncrona ainda pode acrescentar latência após a
+decisão do SDK.</p>
+<p><code>EXECUTION/SUMMARY</code> distingue exceção, resumo não vivo e
+correlação divergente; <code>EXECUTION_RESULTS/RESULTS</code> distingue
+exceção e página não viva. Expiração inicial do cursor após a transação
+recebe <code>CURSOR_EXPIRED</code>; cursor inválido e continuação
+expirada preservam seus resultados normais. Denegação, ausência e
+tombstone não são tratados como falha apenas por não retornar
+conteúdo.</p>
+<p>O evento privado contém somente enums, classes/frames canônicos e
+SQLSTATE validado, com o grafo e os limites existentes; nunca IDs,
+subject, chave, cursor, mensagens, SQL, parâmetros, fingerprints ou
+itens. Esse diagnóstico não é contrato público, prova de commit,
+correção de um 503 anterior ou aceite remoto. SQL, autorização, estados,
+propagação e prazos permanecem os existentes.</p>
 <p>O kernel prova atomicidade local somente quando callback, receipts e
 domínio usam o mesmo manager/datasource verificável. Não detecta
 <code>REQUIRES_NEW</code> ou banco remoto por introspecção; o consumidor
