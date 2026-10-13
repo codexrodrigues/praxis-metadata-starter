@@ -160,6 +160,180 @@ class BulkLifecycleReadBatchTest {
         }
     }
 
+    @Test void publishedReadyGenerationUsesRuntimeFenceWithoutComposingOrInstallingDocuments() throws Exception {
+        try (var f = new Fixture();
+                var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+            var documents = coldDocuments();
+            var lifecycle = lifecycle(f, context, documents, List.of(provider(f, "crud.uniform")));
+            var identity = new BulkOperationControlIdentity("ns", "crud.uniform");
+            for (long generation : List.of(11L, 12L)) {
+                f.r.operationRows = new Object[][] {{"READY", generation, "private-fingerprint", "private-revision"}};
+                assertThat(lifecycle.readPublishedReadyGeneration(identity)).hasValue(generation);
+            }
+            assertThat(f.r.operationSql).contains("praxis_bulk.lock_operation_control(?, ?)");
+            assertThat(f.r.operationParameters).containsAllEntriesOf(Map.of(1, "ns", 2, "crud.uniform")).hasSize(2);
+            assertThat(f.runtimeAttest).hasValue(2);
+            verify(f.r.connection, times(2)).commit();
+            verifyNoInteractions(f.c.source, documents);
+        }
+    }
+
+    @Test void publishedReadyGenerationAcceptsDeclaredDomainConfirmationToo() throws Exception {
+        try (var f = new Fixture();
+                var context = BulkCrudStructuralCompilerTest.context(BulkResourceOperationBindingsTest.CompleteBulkController.class)) {
+            var lifecycle = lifecycle(f, context, coldDocuments(), List.of(new BulkCrudOperationalCompositionTest.Provider("items.bulk-approve", "r1",
+                    BulkCrudOperationalCompositionTest.UNIFORM_POINTER, BulkMode.DOMAIN_COMMAND, f.runtime)));
+            f.r.operationRows = new Object[][] {{"READY", 9L, "fingerprint", "revision"}};
+            assertThat(lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "items.bulk-approve")))
+                    .hasValue(9L);
+        }
+    }
+
+    @Test void publishedReadyGenerationIsEmptyForAbsentOrNonReadyControl() throws Exception {
+        try (var f = new Fixture();
+                var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+            var lifecycle = lifecycle(f, context, coldDocuments(), List.of(provider(f, "crud.uniform")));
+            // The canonical SQL function also represents stale-publication READY as no row.
+            for (Object[][] rows : List.of(new Object[0][],
+                    new Object[][] {{"UNCOMPOSED", 0L, null, null}},
+                    new Object[][] {{"SUSPENDED", 10L, null, null}})) {
+                f.r.operationRows = rows;
+                assertThat(lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "crud.uniform")))
+                        .isEmpty();
+            }
+            verify(f.r.connection, times(3)).commit();
+        }
+    }
+
+    @Test void publishedReadyGenerationRejectsNullForeignUnknownAndNonConfirmationBeforeSql() throws Exception {
+        try (var f = new Fixture();
+                var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+            var lifecycle = lifecycle(f, context, coldDocuments(), List.of(provider(f, "crud.uniform")));
+            assertThatThrownBy(() -> lifecycle.readPublishedReadyGeneration(null)).isInstanceOf(NullPointerException.class);
+            assertThatThrownBy(() -> lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("foreign", "crud.uniform")))
+                    .isInstanceOf(IllegalArgumentException.class);
+            for (String operation : List.of("unknown", "crud.proposal", "crud.uniform.evaluation"))
+                assertThatThrownBy(() -> lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", operation)))
+                        .isInstanceOf(IllegalStateException.class);
+            verifyNoInteractions(f.r.source, f.c.source);
+        }
+    }
+
+    @Test void publishedReadyGenerationRejectsMalformedBindingAndMissingProviderBeforeSql() throws Exception {
+        try (var f = new Fixture();
+                var malformed = BulkCrudStructuralCompilerTest.context(BulkResourceOperationBindingsTest.MissingUpdateSource.class);
+                var valid = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+            var invalid = lifecycle(f, malformed, coldDocuments(), List.of(provider(f, "crud.uniform")));
+            assertThatThrownBy(() -> invalid.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "crud.uniform")))
+                    .isInstanceOf(IllegalStateException.class);
+            var withoutProvider = lifecycle(f, valid, coldDocuments(), List.of(provider(f, "crud.items")));
+            assertThatThrownBy(() -> withoutProvider.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "crud.uniform")))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("provider");
+            verifyNoInteractions(f.r.source, f.c.source);
+        }
+    }
+
+    @Test void publishedReadyGenerationRejectsAmbiguousProviderBeforeSql() throws Exception {
+        try (var f = new Fixture();
+                var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+            var lifecycle = lifecycle(f, context, coldDocuments(),
+                    List.of(provider(f, "crud.uniform"), provider(f, "crud.uniform")));
+            assertThatThrownBy(() -> lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "crud.uniform")))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("Multiple descriptor providers");
+            verifyNoInteractions(f.r.source, f.c.source);
+        }
+    }
+
+    @Test void publishedReadyGenerationRejectsProviderFromOtherInfrastructureBeforeSql() throws Exception {
+        try (var f = new Fixture();
+                var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+            var other = new BulkExecutionInfrastructure(f.r.source, new DataSourceTransactionManager(f.r.source),
+                    "ns", "dep", ROLES);
+            var provider = new BulkCrudOperationalCompositionTest.Provider("crud.uniform", "r1",
+                    BulkCrudOperationalCompositionTest.UNIFORM_POINTER, BulkMode.UNIFORM_UPDATE, other);
+            var lifecycle = lifecycle(f, context, coldDocuments(), List.of(provider));
+            assertThatThrownBy(() -> lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "crud.uniform")))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("this runtime infrastructure");
+            verifyNoInteractions(f.r.source, f.c.source);
+        }
+    }
+
+    @Test void publishedReadyGenerationRejectsAmbientTransactionsBeforeSql() throws Exception {
+        try (var f = new Fixture();
+                var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+            var lifecycle = lifecycle(f, context, coldDocuments(), List.of(provider(f, "crud.uniform")));
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                assertThatThrownBy(() -> lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "crud.uniform")))
+                        .isInstanceOf(IllegalStateException.class).hasMessageContaining("outside transactions");
+            } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+            verifyNoInteractions(f.r.source, f.c.source);
+        }
+    }
+
+    @Test void publishedReadyGenerationPropagatesSqlAndDuplicateRowFailures() throws Exception {
+        for (boolean duplicate : List.of(false, true)) {
+            try (var f = new Fixture();
+                    var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+                var lifecycle = lifecycle(f, context, coldDocuments(), List.of(provider(f, "crud.uniform")));
+                var failure = new SQLException("denied operation control");
+                if (duplicate) f.r.operationRows = new Object[][] {{"READY", 11L, "f", "r"}, {"READY", 11L, "f", "r"}};
+                else f.r.operationFailure = failure;
+                assertThatThrownBy(() -> lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "crud.uniform")))
+                        .isInstanceOf(org.springframework.dao.DataAccessException.class)
+                        .satisfies(error -> {
+                            if (!duplicate) assertThat(error.getCause()).isSameAs(failure);
+                            else assertThat(error.getCause()).hasMessageContaining("duplicate rows");
+                        });
+                verify(f.r.connection).rollback();
+            }
+        }
+    }
+
+    @Test void publishedReadyGenerationPropagatesRoleAndCatalogFailuresBeforeControlRead() throws Exception {
+        for (Throwable failure : List.of(new IllegalStateException("role not allowlisted"), new SQLException("catalog unavailable"))) {
+            try (var f = new Fixture();
+                    var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+                var lifecycle = lifecycle(f, context, coldDocuments(), List.of(provider(f, "crud.uniform")));
+                f.runtimeFailure = failure;
+                assertThatThrownBy(() -> lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "crud.uniform")))
+                        .satisfies(error -> {
+                            if (failure instanceof SQLException) assertThat(error.getCause()).isSameAs(failure);
+                            else assertThat(error).isSameAs(failure);
+                        });
+                assertThat(f.r.operationSql).isNull();
+                verify(f.r.connection).rollback();
+            }
+        }
+    }
+
+    private static org.praxisplatform.uischema.openapi.OpenApiDocumentService coldDocuments() {
+        var documents = mock(org.praxisplatform.uischema.openapi.OpenApiDocumentService.class);
+        when(documents.supportsFreshBulkLifecycleComposition()).thenReturn(true);
+        when(documents.supportsFreshBulkLifecyclePublicCacheCoherence()).thenReturn(true);
+        return documents;
+    }
+
+    private static BulkOperationDescriptorProvider provider(Fixture f, String operation) {
+        return new BulkCrudOperationalCompositionTest.Provider(operation, "r1",
+                BulkCrudOperationalCompositionTest.UNIFORM_POINTER, BulkMode.UNIFORM_UPDATE, f.runtime);
+    }
+
+    private static BulkOperationLifecycle lifecycle(Fixture f,
+            org.springframework.web.context.support.AnnotationConfigWebApplicationContext context,
+            org.praxisplatform.uischema.openapi.OpenApiDocumentService documents,
+            List<BulkOperationDescriptorProvider> providers) {
+        var bindings = BulkResourceOperationBindings.from(context.getBean(
+                org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping.class));
+        var lifecycle = new BulkOperationLifecycle(bindings,
+                mock(org.praxisplatform.uischema.openapi.CanonicalOperationResolver.class), documents,
+                mock(org.praxisplatform.uischema.action.ActionDefinitionRegistry.class),
+                new com.fasterxml.jackson.databind.ObjectMapper(),
+                mock(org.praxisplatform.uischema.schema.SchemaReferenceResolver.class), f.runtime, f.control, providers);
+        clearInvocations(documents);
+        return lifecycle;
+    }
+
     private static void expire(DataSource source) {
         ((ConnectionHolder)TransactionSynchronizationManager.getResource(source)).setTimeoutInMillis(-1);
     }
@@ -209,6 +383,10 @@ class BulkLifecycleReadBatchTest {
         Throwable restoreFailure;
         SQLException parseFailure,closeFailure;
         PreparedStatement lastTail;
+        String operationSql;
+        final Map<Integer, Object> operationParameters = new HashMap<>();
+        Object[][] operationRows = new Object[0][];
+        SQLException operationFailure;
         List<ResultSet> lastRows;
         Endpoint(boolean control) throws Exception {
             when(source.getConnection()).thenReturn(connection);
@@ -229,6 +407,17 @@ class BulkLifecycleReadBatchTest {
             });
             when(connection.prepareStatement(anyString())).thenAnswer(call->{
                 String sql=call.getArgument(0);var p=mock(PreparedStatement.class);
+                if (sql.contains("praxis_bulk.lock_operation_control(?, ?)")) {
+                    operationSql = sql;
+                    doAnswer(x -> { operationParameters.put(x.getArgument(0), x.getArgument(1)); return null; })
+                            .when(p).setString(anyInt(), anyString());
+                    when(p.executeQuery()).thenAnswer(x -> {
+                        executions.incrementAndGet();
+                        if (operationFailure != null) throw operationFailure;
+                        return rows(operationRows);
+                    });
+                    return p;
+                }
                 if(!sql.contains(";")){
                     if(restoreFailure!=null)throw restoreFailure;
                     when(p.execute()).thenAnswer(x->{executions.incrementAndGet();return true;});return p;
@@ -267,6 +456,7 @@ class BulkLifecycleReadBatchTest {
         var r=mock(ResultSet.class);var cursor=new AtomicInteger(-1);var wasNull=new boolean[1];
         when(r.next()).thenAnswer(c->cursor.incrementAndGet()<values.length);
         when(r.getString(anyInt())).thenAnswer(c->{Object v=values[cursor.get()][(int)c.getArgument(0)-1];wasNull[0]=v==null;return v==null?null:v.toString();});
+        when(r.getLong(anyInt())).thenAnswer(c -> ((Number) values[cursor.get()][(int)c.getArgument(0)-1]).longValue());
         when(r.getBoolean(anyInt())).thenAnswer(c->{Object v=values[cursor.get()][(int)c.getArgument(0)-1];wasNull[0]=v==null;return Boolean.TRUE.equals(v);});
         when(r.wasNull()).thenAnswer(c->wasNull[0]);return r;
     }

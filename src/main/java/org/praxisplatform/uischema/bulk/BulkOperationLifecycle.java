@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
@@ -68,6 +69,33 @@ public final class BulkOperationLifecycle {
         documents.installBulkLifecycleInvalidationGuard(() -> {
             if (!lifecycleCacheFence.get()) suspendAllBeforeCacheClear();
         });
+    }
+
+    /**
+     * Reads the publication-current durable READY generation through the runtime-role fence,
+     * without composing OpenAPI or installing a local photograph. The identity must name a
+     * valid declared bulk confirmation with an operational descriptor provider bound to this
+     * exact runtime infrastructure in this namespace.
+     *
+     * <p>An empty result means the operation is absent, not READY, or filtered by the durable
+     * publication fence. Database, role and catalog failures propagate. This method must start
+     * outside any transaction. The result is a momentary hint, not authorization, admission or
+     * a promise of readiness; {@link #reconcilePublished(BulkOperationControlIdentity, long)}
+     * independently revalidates the generation, descriptor and document digest before installation.</p>
+     */
+    public OptionalLong readPublishedReadyGeneration(BulkOperationControlIdentity identity) {
+        requireIdentity(identity);
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw unavailable("Published readiness lookup must start outside transactions");
+        if (!bindings.diagnostics().isEmpty() || bindings.bulkOperations().stream().noneMatch(binding ->
+                binding.confirmationOperationId().equals(identity.confirmationOperationId())))
+            throw unavailable("Published readiness lookup requires a valid declared bulk confirmation");
+        BulkOperationDescriptorProvider provider = providerSnapshot().get(identity.confirmationOperationId());
+        if (provider == null || provider.executionInfrastructure() != runtime)
+            throw unavailable("Published readiness lookup requires a provider bound to this runtime infrastructure");
+        JdbcBulkOperationControl.Snapshot current = read(identity);
+        return current != null && current.ready()
+                ? OptionalLong.of(current.generation()) : OptionalLong.empty();
     }
 
     /**
