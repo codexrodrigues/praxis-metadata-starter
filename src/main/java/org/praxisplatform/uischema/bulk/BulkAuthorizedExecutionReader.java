@@ -1,5 +1,9 @@
 package org.praxisplatform.uischema.bulk;
 
+import static org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics.Reader.EXECUTION;
+import org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics.Stage;
+import org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics.Reason;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreType;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.nio.ByteBuffer;
@@ -63,28 +67,43 @@ public final class BulkAuthorizedExecutionReader {
         BulkContractChecks.text(authenticatedSubjectId, "authenticatedSubjectId");
         String requester = requireStrictScopeText(authenticatedSubjectId, "authenticatedSubjectId");
         Objects.requireNonNull(executionId, "executionId");
+        var diagnostic = new BulkReadFailureDiagnostics.Capture(EXECUTION);
+        try { return readExecutionObserved(requester, executionId, diagnostic); }
+        finally { diagnostic.emit(); }
+    }
+
+    private Observation readExecutionObserved(String requester, UUID executionId,
+            BulkReadFailureDiagnostics.Capture diagnostic) {
         Deadline deadline = Deadline.start(READ_BUDGET);
         Observation result;
         try {
             result = infrastructure.withConsistentRead(connection ->
-                    readSnapshot(connection, requester, executionId, deadline));
+                    readSnapshot(connection, requester, executionId, deadline, diagnostic));
         } catch (RuntimeException failure) {
+            diagnostic.record(Stage.SNAPSHOT_TRANSACTION, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
-        return deadline.expired() ? Observation.state(State.UNAVAILABLE) : result;
+        if (deadline.expired()) {
+            diagnostic.record(Stage.AFTER_TRANSACTION, Reason.DEADLINE_EXPIRED, null);
+            return Observation.state(State.UNAVAILABLE);
+        }
+        return result;
     }
 
     private Observation readSnapshot(Connection connection, String requester, UUID executionId,
-            Deadline deadline) {
+            Deadline deadline, BulkReadFailureDiagnostics.Capture diagnostic) {
         var context = new BulkReadAuthorizationProvider.Context(infrastructure.namespace(),
                 resourceKey, operationId, requester);
         BulkReadAuthorizationProvider.GlobalDecision global;
         try {
             global = authorization.preAuthorize(context, deadline.remainingForProvider());
         } catch (RuntimeException failure) {
+            diagnostic.record(Stage.GLOBAL_AUTHORIZATION, Reason.EXCEPTION, failure);
             return Observation.state(State.GLOBAL_UNAVAILABLE);
         }
         if (global == null || global == BulkReadAuthorizationProvider.GlobalDecision.UNAVAILABLE) {
+            diagnostic.record(Stage.GLOBAL_AUTHORIZATION, global == null
+                    ? Reason.GLOBAL_DECISION_MISSING : Reason.GLOBAL_UNAVAILABLE, null);
             return Observation.state(State.GLOBAL_UNAVAILABLE);
         }
         if (global == BulkReadAuthorizationProvider.GlobalDecision.DENIED) {
@@ -139,10 +158,12 @@ public final class BulkAuthorizedExecutionReader {
                 return Observation.state(State.NOT_FOUND_OR_DENIED);
             }
         } catch (BulkProposalStorageException | BulkDurableExecutionException failure) {
+            diagnostic.record(Stage.PROTECTED_AUTHORIZATION, Reason.EXCEPTION, failure);
             // Before complete target authorization, corruption, absence and scope mismatch must not
             // become an execution-existence oracle.
             return Observation.state(State.NOT_FOUND_OR_DENIED);
         } catch (RuntimeException | SQLException failure) {
+            diagnostic.record(Stage.PROTECTED_AUTHORIZATION, Reason.EXCEPTION, failure);
             return Observation.state(State.NOT_FOUND_OR_DENIED);
         }
 
@@ -152,14 +173,19 @@ public final class BulkAuthorizedExecutionReader {
             BulkExecutionSummary summary = executions.summarizeConsistent(
                     connection, storedContext, executionId);
             deadline.requireRemaining();
-            if (summary.kind() != BulkExecutionSummary.Kind.LIVE
-                    || !summary.proposalId().equals(evaluation.proposal().id())) {
+            if (summary.kind() != BulkExecutionSummary.Kind.LIVE) {
+                diagnostic.record(Stage.SUMMARY, Reason.SUMMARY_NOT_LIVE, null);
+                return Observation.state(State.UNAVAILABLE);
+            }
+            if (!summary.proposalId().equals(evaluation.proposal().id())) {
+                diagnostic.record(Stage.SUMMARY, Reason.SUMMARY_PROPOSAL_MISMATCH, null);
                 return Observation.state(State.UNAVAILABLE);
             }
             BulkExecution projection = project(summary, evaluation.proposal().snapshot());
             deadline.requireRemaining();
             return Observation.complete(projection);
         } catch (RuntimeException | SQLException failure) {
+            diagnostic.record(Stage.SUMMARY, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
     }
