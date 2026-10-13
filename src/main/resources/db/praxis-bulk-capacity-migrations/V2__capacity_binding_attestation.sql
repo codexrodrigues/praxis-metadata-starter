@@ -1,3 +1,31 @@
+-- Managed PG17 ownership operations retain only the trusted ADMIN-only edge.
+do $$ begin
+    if (select count(*) from pg_catalog.pg_roles where rolname in
+        ('praxis_bulk_capacity_definer','praxis_bulk_capacity_provisioner',
+         'praxis_bulk_capacity_allocator','praxis_bulk_capacity_reader'))<>4
+       or exists(select 1 from pg_catalog.pg_roles where rolname in
+        ('praxis_bulk_capacity_definer','praxis_bulk_capacity_provisioner',
+         'praxis_bulk_capacity_allocator','praxis_bulk_capacity_reader')
+        and (rolcanlogin or rolinherit or rolsuper or rolcreatedb or rolcreaterole or rolreplication or rolbypassrls)) then
+        raise exception 'unsafe capacity role' using errcode='55000';
+    end if;
+    if exists(select 1 from pg_catalog.pg_auth_members m
+        join pg_catalog.pg_roles r on r.oid=m.roleid
+        where r.rolname='praxis_bulk_capacity_definer' and not (m.admin_option and not m.inherit_option and not m.set_option
+                  and m.member=(select nspowner from pg_catalog.pg_namespace where nspname='praxis_bulk_capacity')
+                  and exists(select 1 from pg_catalog.pg_roles bootstrap where bootstrap.oid=m.grantor and bootstrap.rolsuper)
+                  and (select count(*) from pg_catalog.pg_auth_members same_actor
+                       where same_actor.roleid=m.roleid and same_actor.member=m.member
+                         and same_actor.admin_option and not same_actor.inherit_option and not same_actor.set_option)=1)) then
+        raise exception 'capacity definer role has members' using errcode='55000';
+    end if;
+    if exists(select 1 from pg_catalog.pg_auth_members m
+        join pg_catalog.pg_roles r on r.oid=m.member
+        where r.rolname in ('praxis_bulk_capacity_definer','praxis_bulk_capacity_provisioner',
+                            'praxis_bulk_capacity_allocator','praxis_bulk_capacity_reader')) then
+        raise exception 'capacity functional role has nested membership' using errcode='55000';
+    end if;
+end; $$;
 -- B5b.1b.A: one immutable physical attestation per declared binding.
 -- Verify V1 before changing its photographed catalog; never bless pre-existing drift.
 do $$
@@ -172,7 +200,7 @@ language sql stable security definer set search_path = pg_catalog, pg_temp as $$
 $$;
 
 grant create on schema praxis_bulk_capacity to praxis_bulk_capacity_definer;
-do $$ begin execute pg_catalog.format('grant praxis_bulk_capacity_definer to %I', current_user); end; $$;
+do $$ begin execute pg_catalog.format('grant praxis_bulk_capacity_definer to %I with inherit false, set true granted by current_user', current_user); end; $$;
 alter function praxis_bulk_capacity.register_attestation(text,text,text,text,bigint,uuid,uuid)
     owner to praxis_bulk_capacity_definer;
 alter function praxis_bulk_capacity.read_attestation(uuid)
@@ -188,7 +216,7 @@ grant execute on function praxis_bulk_capacity.register_attestation(text,text,te
 grant execute on function praxis_bulk_capacity.read_attestation(uuid),
     praxis_bulk_capacity.read_issued_token(uuid) to praxis_bulk_capacity_reader;
 reset role;
-do $$ begin execute pg_catalog.format('revoke praxis_bulk_capacity_definer from %I', current_user); end; $$;
+do $$ begin execute pg_catalog.format('revoke praxis_bulk_capacity_definer from %I granted by current_user', current_user); end; $$;
 revoke create on schema praxis_bulk_capacity from praxis_bulk_capacity_definer;
 
 -- Refresh the exact catalog photograph after the V2 DDL in the same Flyway transaction.

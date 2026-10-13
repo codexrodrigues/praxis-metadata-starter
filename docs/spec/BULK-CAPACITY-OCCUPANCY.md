@@ -682,3 +682,31 @@ a command into rc.154, or close production custody, continuity or start/restore.
 ## Atualização candidata da adoção de owner
 
 O diagnóstico com o JAR público rc.155 reproduziu a rejeição do owner CREATEROLE sem SUPERUSER em PostgreSQL 17.11. A interpretação do ADMIN-only automático decorre do SQL e da semântica PostgreSQL; a transação V5 reverteu as memberships, que não foram capturadas como estado confirmado. O incremento managed-owner usa PostgreSQL 17 como baseline do storage de execução e preserva os bytes históricos. A prova 14 descrita acima permanece histórica. A nova correção, suas permissões temporárias e sua retomada não estão certificadas por essa prova; dependem das provas focais e da revisão registradas no [plano](BULK-MANAGED-OWNER-ADOPTION-PLAN.md).
+
+## Public ASYNC admission candidate
+
+The public constructor `JdbcBulkDurableExecution(infrastructure, lifecycle,
+capacityBinding)` supplies the trusted local binding. Its six-argument
+`enqueue(scope, proposalId, idempotencyKey, supervisorId, structuralRevision,
+deadline)` accepts no host-selected queue token. Scope must come from authenticated
+server context; supervisor, revision, deadline and capacity identity are trusted
+composition inputs, not request authority.
+
+A matching durable reservation is returned before requesting new READY admission,
+active capacity, an unexpired proposal or a free queue slot. Replay retains the
+original execution, owner and deadline, including after suspension or saturation.
+A new enqueue mints publication admission outside the transaction, rechecks replay,
+then verifies the same infrastructure/descriptor/codec/binding under the existing
+marker and quota/control order. After locking the deployment bucket, it selects
+at most one installed free QUEUE slot in ordinal/token order. This SELECT does not
+lock or mutate slots directly: the existing occupancy trigger performs the final
+slot CAS and atomic ledger/pending allocation transition. Exhaustion fails closed;
+there is no polling, retry loop or second queue ledger. Enqueue invokes no domain
+callback. The host maps confirmed durable ASYNC reservation to its existing 202
+protocol; SDK unit evidence alone does not certify that HTTP adoption.
+
+The five-second unit and one-second lock bounds, 30-minute execution deadline
+including queue wait, worker ownership and receipt-first unit handling are
+unchanged. This candidate does not establish multi-binding/global-scale or
+QUERY/ATOMIC support. Physical public capture/enqueue/worker/replay evidence is a
+separate mandatory gate before release/adoption acceptance.

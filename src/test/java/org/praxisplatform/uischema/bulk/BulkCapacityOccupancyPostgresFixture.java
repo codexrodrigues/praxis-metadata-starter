@@ -95,9 +95,25 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
     final JdbcBulkCapacityIssuer.CapacityReader reader;
     final BulkCapacityAuthorityInfrastructure provisioner;
 
+    @FunctionalInterface interface NeonCheckpoint { void completed(String phase) throws Exception; }
+
+    /** Explicit remote test resources, all prepared outside the test before any migration. */
+    record NeonScope(String owner, BulkExecutionRoleConfiguration roles,
+            BulkCapacityAuthorityMigrator.Identity identity,
+            BulkCapacityAuthorityMigrator.RoleConfiguration authorityRoles,
+            Map<String, String> roleAliases, Map<String, BulkCapacityBinding> bindings,
+            Map<String, DataSource> sources, List<com.zaxxer.hikari.HikariDataSource> pools, NeonCheckpoint checkpoint,
+            boolean reuseAuthorityAndFirstDomain) {
+        NeonScope {
+            roleAliases = Map.copyOf(roleAliases); bindings = Map.copyOf(bindings);
+            sources = Map.copyOf(sources); pools = List.copyOf(pools);
+        }
+    }
+
     /** One genuine authority shared by local bindings; the scope owns only test resources. */
     static final class SharedScope implements AutoCloseable {
         final EmbeddedPostgres postgres;
+        private final NeonScope neon;
         final BulkCapacityAuthorityMigrator.Identity identity;
         final JdbcTemplate authorityObserver;
         final BulkCapacityAuthorityInfrastructure provisioner;
@@ -119,6 +135,7 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
         /** Optional authenticated test startup; no secret is published in proof certificates. */
         SharedScope(EmbeddedPostgres.Builder builder, Map<String, String> credentials,
                 org.springframework.jdbc.core.ConnectionCallback<Void> bootstrap) throws Exception {
+            this.neon = null;
             this.credentials = Map.copyOf(credentials);
             if (!this.credentials.isEmpty()) {
                 if (!this.credentials.keySet().equals(Set.of("postgres", "occupancy_provisioner",
@@ -175,6 +192,49 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
             }
         }
 
+        SharedScope(NeonScope neon) throws Exception {
+            this.neon = Objects.requireNonNull(neon, "explicit Neon scope");
+            this.credentials = Map.of(); this.postgres = null; this.identity = neon.identity();
+            try {
+                var owner = source("postgres", "capacity_global");
+                authorityObserver = new JdbcTemplate(owner);
+                if (!neon.reuseAuthorityAndFirstDomain())
+                    assertThat(BulkCapacityAuthorityMigrator.migrate(owner, identity, neon.authorityRoles())).isEqualTo(2);
+                BulkCapacityAuthorityMigrator.validate(owner, identity, neon.authorityRoles());
+                neon.checkpoint().completed(neon.reuseAuthorityAndFirstDomain()
+                        ? "AUTHORITY_VALIDATION_REUSED" : "AUTHORITY_MIGRATION_2");
+                provisioner = authority("occupancy_provisioner", neon.authorityRoles(),
+                        BulkCapacityAuthorityInfrastructure.Access.PROVISIONER);
+                var allocator = authority("occupancy_allocator", neon.authorityRoles(),
+                        BulkCapacityAuthorityInfrastructure.Access.ALLOCATOR);
+                var reading = authority("occupancy_reader", neon.authorityRoles(),
+                        BulkCapacityAuthorityInfrastructure.Access.READER);
+                reader = new JdbcBulkCapacityIssuer.CapacityReader(reading);
+                issuer = new JdbcBulkCapacityIssuer(allocator, reading);
+            } catch (Exception | Error primary) {
+                closeNeonPools(primary); throw primary;
+            }
+        }
+
+        private void closeNeonPools(Throwable primary) {
+            if (neon == null) return;
+            for (int i = neon.pools().size() - 1; i >= 0; i--) {
+                try { neon.pools().get(i).close(); }
+                catch (Exception | Error cleanup) { primary.addSuppressed(cleanup); }
+            }
+        }
+
+        boolean isNeon() { return neon != null; }
+        boolean reusesFirstDomain(String database) {
+            return neon != null && neon.reuseAuthorityAndFirstDomain() && "capacity_local_1".equals(database);
+        }
+        void completed(String phase) throws Exception { if (neon != null) neon.checkpoint().completed(phase); }
+
+        String role(String alias) { return neon == null ? alias : Objects.requireNonNull(neon.roleAliases().get(alias)); }
+        BulkExecutionRoleConfiguration roles() {
+            return neon == null ? BulkPostgresTestSupport.testRoleConfiguration() : neon.roles();
+        }
+
         BulkCapacityOccupancyPostgresFixture local(String caseId, int ordinal) throws Exception {
             if (closed || ordinal < 1 || ordinal > 5) throw new IllegalArgumentException("Invalid local binding ordinal");
             String namespace = "tenant:prod:occupancy-global-" + ordinal;
@@ -187,6 +247,8 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
         }
 
         DataSource source(String role, String database) {
+            if (neon != null) return Objects.requireNonNull(neon.sources().get(role + ":" + database),
+                    "Only explicitly assigned role/database sources are available");
             return new DriverManagerDataSource(postgres.getJdbcUrl(role, database), role, password(role));
         }
 
@@ -214,7 +276,14 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
                     if (failure == null) failure = cleanup; else failure.addSuppressed(cleanup);
                 }
             }
-            try { postgres.close(); }
+            if (neon != null) {
+                for (int index = neon.pools().size() - 1; index >= 0; index--) {
+                    try { neon.pools().get(index).close(); }
+                    catch (Exception | Error cleanup) {
+                        if (failure == null) failure = cleanup; else failure.addSuppressed(cleanup);
+                    }
+                }
+            } else try { postgres.close(); }
             catch (Exception | Error cleanup) {
                 if (failure == null) failure = cleanup; else failure.addSuppressed(cleanup);
             }
@@ -270,33 +339,52 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
         this.context = context;
         this.syncContext = syncContext;
         try {
-            new JdbcTemplate(scope.credentials.isEmpty() ? postgres.getPostgresDatabase()
+            if (scope.neon == null) new JdbcTemplate(scope.credentials.isEmpty() ? postgres.getPostgresDatabase()
                     : scope.source("postgres", "postgres")).execute("create database " + localDatabase);
             provisioner = scope.provisioner;
             reader = scope.reader;
             issuer = scope.issuer;
             ownerSource = source("postgres", localDatabase);
-            assertThat(BulkPostgresTestSupport.migrate(ownerSource, this.namespaceDeployments)).isEqualTo(20);
+            if (scope.neon == null) {
+                assertThat(BulkPostgresTestSupport.migrate(ownerSource, this.namespaceDeployments)).isEqualTo(20);
+            } else {
+                if (!scope.reusesFirstDomain(localDatabase))
+                    assertThat(BulkExecutionMigrator.migrate(ownerSource, this.namespaceDeployments, scope.roles())).isEqualTo(20);
+                BulkExecutionMigrator.validate(ownerSource, scope.roles());
+            }
             runtimeSource = source("bulk_runtime_test", localDatabase);
             observer = new JdbcTemplate(ownerSource);
             runtimeSql = new JdbcTemplate(runtimeSource);
-            assertThat(runtimeSql.queryForObject("select current_user", String.class)).isEqualTo("bulk_runtime_test");
-            observer.execute("""
-                    create table occupancy_domain_witness(id integer primary key,writes integer not null,
-                        last_pid integer,last_xid bigint)
-                    """);
-            observer.update("insert into occupancy_domain_witness(id,writes) values(1,0),(2,0)");
-            observer.execute("grant select,update on occupancy_domain_witness to bulk_runtime_test");
+            assertThat(runtimeSql.queryForObject("select current_user", String.class)).isEqualTo(scope.role("bulk_runtime_test"));
+            if (!scope.reusesFirstDomain(localDatabase)) {
+                observer.execute("""
+                        create table occupancy_domain_witness(id integer primary key,writes integer not null,
+                            last_pid integer,last_xid bigint)
+                        """);
+                observer.update("insert into occupancy_domain_witness(id,writes) values(1,0),(2,0)");
+                observer.execute("grant select,update on occupancy_domain_witness to " + scope.role("bulk_runtime_test"));
+            } else {
+                var witness = observer.queryForList("select id,writes,last_pid,last_xid from occupancy_domain_witness order by id");
+                assertThat(witness).hasSize(2);
+                assertThat(witness.stream().map(row -> row.get("id")).toList()).containsExactly(1, 2);
+                assertThat(witness).allSatisfy(row -> assertThat(row).containsEntry("writes", 0)
+                        .containsEntry("last_pid", null).containsEntry("last_xid", null));
+            }
             runtime = new BulkExecutionInfrastructure(runtimeSource, new DataSourceTransactionManager(runtimeSource),
-                    context.namespaceId(), DEPLOYMENT, BulkPostgresTestSupport.testRoleConfiguration());
-            expected = new BulkCapacityBinding(DEPLOYMENT, tenant, ENVIRONMENT,
+                    context.namespaceId(), DEPLOYMENT, scope.roles());
+            expected = scope.neon == null ? new BulkCapacityBinding(DEPLOYMENT, tenant, ENVIRONMENT,
                     binding, 3, UUID.randomUUID(), UUID.randomUUID(), scope.identity.authorityId(),
-                    scope.identity.expectedAuthorityEpoch());
+                    scope.identity.expectedAuthorityEpoch()) : Objects.requireNonNull(scope.neon.bindings().get(localDatabase));
+            assertThat(expected.tenantId()).isEqualTo(tenant);
+            assertThat(expected.bindingId()).isEqualTo(binding);
             installation = new JdbcBulkCapacityInstallation(expected, ownerSource,
-                    new DataSourceTransactionManager(ownerSource), "postgres", runtime, provisioner, reader,
+                    new DataSourceTransactionManager(ownerSource), scope.role("postgres"), runtime, provisioner, reader,
                     Duration.ofSeconds(20), Duration.ofSeconds(3));
             kernel = new JdbcBulkDurableExecution(runtime, null, expected);
             control = composeDedicatedStorageControl();
+            if (scope.neon != null) scope.completed(scope.reusesFirstDomain(localDatabase)
+                    ? "DOMAIN1_STORAGE_VALIDATION_REUSED"
+                    : "DOMAIN_MIGRATION_20_" + localDatabase.substring("capacity_local_".length()));
             if (!ownsScope) scope.locals.add(this);
         } catch (Exception | Error failure) {
             // A failed borrowed binding must not tear down its siblings or their shared authority.
@@ -307,7 +395,24 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
         }
     }
 
+    String runtimeRole() { return scope.role("bulk_runtime_test"); }
+    BulkExecutionRoleConfiguration roleConfiguration() { return scope.roles(); }
+
     void activate() {
+        if (scope.reusesFirstDomain(localDatabase)) {
+            var marker = observer.queryForMap("select * from praxis_bulk.praxis_bulk_capacity_marker");
+            assertThat(marker).containsEntry("database_id", expected.databaseId())
+                    .containsEntry("attestation_id", expected.attestationId()).containsEntry("deployment_id", expected.deploymentId())
+                    .containsEntry("tenant_id", expected.tenantId()).containsEntry("environment", expected.environment())
+                    .containsEntry("binding_id", expected.bindingId()).containsEntry("binding_generation", expected.generation())
+                    .containsEntry("authority_id", expected.authorityId()).containsEntry("authority_epoch", expected.authorityEpoch())
+                    .containsEntry("state", "ACTIVE");
+            var attestation = reader.readAttestation(expected.attestationId()).orElseThrow();
+            assertThat(attestation).isEqualTo(new JdbcBulkCapacityIssuer.Attestation(expected.attestationId(),
+                    expected.databaseId(), expected.bindingId(), expected.deploymentId(), expected.tenantId(),
+                    expected.environment(), expected.generation(), expected.authorityId(), expected.authorityEpoch()));
+            return; // Existing public scenario assertions follow; no enroll/register/activate or bootstrap write.
+        }
         installation.bootstrap();
         provisioner.enrollBinding(tenant, expected.bindingId(), expected.generation());
         installation.registerAttestation();
@@ -948,11 +1053,15 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
                 .put("executionMode", "ASYNC").put("selectionMode", "EXPLICIT").put("atomicity", "PER_ITEM")
                 .put("structuralRevision", context.schemaRevision()).put("scope", "protected-storage-conformance-only"));
         String document = BulkCanonicalJson.digest(JSON.objectNode().put("fixturePublication", context.operationRef().operationId()));
+        if (scope.reusesFirstDomain(localDatabase))
+            return readNeonControl(runtimeSource, context, descriptor, document, 2, 1);
         observer.update("""
                 insert into praxis_bulk.praxis_bulk_operation_control
                     (namespace_id,operation_id,state,generation,descriptor_fingerprint,structural_revision,updated_at)
                 values (?,?,'UNCOMPOSED',0,null,null,clock_timestamp())
                 """, context.namespaceId(), context.operationRef().operationId());
+        if (scope.isNeon()) return composeNeonControl(runtimeSource,
+                source("durable_runtime", localDatabase), context, descriptor, document);
         try (var connection = ownerSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -973,6 +1082,66 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
                         current.structuralRevision());
             } catch (Exception | Error failure) { connection.rollback(); throw failure; }
         }
+    }
+
+    /** Read locks belong to runtime; governance transitions belong to a disjoint control login. */
+    static BulkOperationControlExpectation composeNeonControl(DataSource read, DataSource write,
+            BulkFingerprintContext context, String descriptor, String document) {
+        var initial = initializerTransaction(read, 2, true, connection -> {
+            var publication = JdbcBulkOpenApiPublication.lockForRead(connection, context.namespaceId(), DEPLOYMENT);
+            assertThat(publication.state()).isEqualTo("UNCOMPOSED");
+            assertThat(publication.generation()).isZero();
+            return publication;
+        });
+        // Runtime SHARE locks have been released before the disjoint control login starts its CAS transaction.
+        long[] generations = initializerTransaction(write, 3, false, connection -> {
+            var suspended = JdbcBulkOpenApiPublication.transition(connection, context.namespaceId(), DEPLOYMENT,
+                    initial.generation(), JdbcBulkOpenApiPublication.Target.SUSPENDED, null);
+            assertThat(suspended.applied()).isTrue();
+            var published = JdbcBulkOpenApiPublication.transition(connection, context.namespaceId(), DEPLOYMENT,
+                    suspended.generation(), JdbcBulkOpenApiPublication.Target.PUBLISHED, document);
+            assertThat(published.applied()).isTrue();
+            var changed = JdbcBulkOperationControl.transition(connection, context.namespaceId(),
+                    context.operationRef().operationId(), 0, JdbcBulkOperationControl.Target.READY,
+                    descriptor, context.schemaRevision(), published.generation(), document);
+            assertThat(changed.applied()).isTrue();
+            return new long[]{published.generation(), changed.generation()};
+        });
+        return readNeonControl(read, context, descriptor, document, generations[0], generations[1]);
+    }
+
+    private static BulkOperationControlExpectation readNeonControl(DataSource read, BulkFingerprintContext context,
+            String descriptor, String document, long publicationGeneration, long operationGeneration) {
+        return initializerTransaction(read, 2, true, connection -> {
+            var publication = JdbcBulkOpenApiPublication.lockForRead(connection, context.namespaceId(), DEPLOYMENT);
+            assertThat(publication.published()).isTrue();
+            assertThat(publication.generation()).isEqualTo(publicationGeneration);
+            assertThat(publication.documentDigest()).isEqualTo(document);
+            var current = JdbcBulkOperationControl.lockForAdmission(connection, context.namespaceId(),
+                    context.operationRef().operationId());
+            assertThat(current).isNotNull(); assertThat(current.ready()).isTrue();
+            assertThat(current.generation()).isEqualTo(operationGeneration);
+            assertThat(current.descriptorFingerprint()).isEqualTo(descriptor);
+            assertThat(current.structuralRevision()).isEqualTo(context.schemaRevision());
+            return new BulkOperationControlExpectation(current.generation(), descriptor, context.schemaRevision());
+        });
+    }
+
+    private static <T> T initializerTransaction(DataSource source, int seconds, boolean read,
+            org.springframework.jdbc.core.ConnectionCallback<T> work) {
+        var tx = new TransactionTemplate(new DataSourceTransactionManager(source));
+        tx.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        tx.setIsolationLevel(read ? org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ
+                : org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        tx.setTimeout(seconds);
+        return tx.execute(status -> new JdbcTemplate(source).execute((org.springframework.jdbc.core.ConnectionCallback<T>) connection -> {
+            // These read-lock transactions are writable at PostgreSQL: FOR SHARE is forbidden in READ ONLY.
+            BulkExecutionInfrastructure.constrainLifecycleTimeouts(connection);
+            BulkExecutionInfrastructure.requireLifecycleTimeRemaining(source);
+            T result = work.doInConnection(connection);
+            BulkExecutionInfrastructure.requireLifecycleTimeRemaining(source);
+            return result;
+        }));
     }
 
     /** Trusted storage-only control on the current photo, not public composition or capture. */
@@ -1230,6 +1399,10 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
         var certificates = manifest.putArray("physicalCertificates");
         physicalCertificates.forEach(certificate -> certificates.add(certificate.deepCopy()));
         Path file = directory.resolve(caseId + ".json");
+        if (scope.neon != null) {
+            Files.createFile(file, java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
+        }
         Files.writeString(file, manifest.toPrettyString(), StandardCharsets.UTF_8);
         if (configured == null) System.out.println("Occupancy proof manifest: " + file.toAbsolutePath());
     }

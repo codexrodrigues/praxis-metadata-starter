@@ -43,16 +43,25 @@ public record BulkExecutionContract(
         selectionModes = List.copyOf(selectionModes);
         executionModes = List.copyOf(executionModes);
         Objects.requireNonNull(limits, "limits");
-        if (!(selectionModes.equals(List.of(BulkSelectionMode.EXPLICIT))
+        boolean asynchronous = executionModes.equals(List.of(BulkExecutionMode.ASYNC));
+        if (asynchronous && (mode != BulkMode.UNIFORM_UPDATE
+                || atomicity != ActionCollectionAtomicity.PER_ITEM
+                || !selectionModes.equals(List.of(BulkSelectionMode.EXPLICIT))))
+            throw new IllegalArgumentException("ASYNC requires UNIFORM_UPDATE/EXPLICIT/PER_ITEM");
+        if (!asynchronous && (!(selectionModes.equals(List.of(BulkSelectionMode.EXPLICIT))
                 || mode == BulkMode.UNIFORM_UPDATE && atomicity == ActionCollectionAtomicity.PER_ITEM
                     && selectionModes.equals(List.of(BulkSelectionMode.EXPLICIT, BulkSelectionMode.QUERY)))
-                || !executionModes.equals(List.of(BulkExecutionMode.SYNC)))
+                || !executionModes.equals(List.of(BulkExecutionMode.SYNC))))
             throw new IllegalArgumentException("QUERY requires UNIFORM_UPDATE/PER_ITEM/SYNC with EXPLICIT preserved");
         if (atomicity == ActionCollectionAtomicity.ATOMIC
                 && (limits.maxTargets() > 50
                         || limits.unitDeadlineMillis() > 5_000))
             throw new IllegalArgumentException("ATOMIC projection requires at most 50 targets and a five-second unit deadline");
-        if (atomicity == ActionCollectionAtomicity.PER_ITEM && limits.maxTargets() > 200)
+        if (asynchronous && (limits.maxTargets() > BulkProtocolLimits.defaults().maxTargets()
+                || limits.maxRequestBytes() > BulkProtocolLimits.defaults().maxRequestBytes()
+                || limits.proposalLifetimeMillis() > 900_000 || limits.unitDeadlineMillis() > 5_000))
+            throw new IllegalArgumentException("ASYNC projection exceeds its protocol bounds");
+        if (!asynchronous && atomicity == ActionCollectionAtomicity.PER_ITEM && limits.maxTargets() > 200)
             throw new IllegalArgumentException("PER_ITEM projection exceeds its target ceiling");
         if (evaluationOperation.requestSchema() == null || confirmationOperation.requestSchema() == null
                 || proposalOperation.requestSchema() != null || proposalResultsOperation.requestSchema() != null

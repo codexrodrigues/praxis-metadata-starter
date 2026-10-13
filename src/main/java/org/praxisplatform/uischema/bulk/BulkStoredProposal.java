@@ -25,6 +25,25 @@ public final class BulkStoredProposal {
         this(id, createdAt, expiresAt, snapshot, controlExpectation, false);
     }
 
+    /**
+     * Builds an ASYNC input from a lifecycle-minted admission. Capture must still verify this
+     * admission on its exact infrastructure and recheck live control/capacity in the caller transaction.
+     */
+    public static BulkStoredProposal asynchronous(BulkOperationLifecycle.ReadyAdmission admission,
+            UUID id, Instant createdAt, Instant expiresAt, BulkIntentSnapshot snapshot) {
+        Objects.requireNonNull(admission, "admission");
+        Objects.requireNonNull(snapshot, "snapshot");
+        if (admission.executionMode() != BulkExecutionMode.ASYNC
+                || admission.selectionMode() != BulkSelectionMode.EXPLICIT
+                || admission.mode() != BulkMode.UNIFORM_UPDATE
+                || admission.capacityBinding().isEmpty()
+                || !admission.matchesScope(snapshot.context()) || !admission.matchesCodec(snapshot)
+                || snapshot.intent().at("/selection/targets").size() > admission.maxTargets()
+                || java.time.Duration.between(createdAt, expiresAt).compareTo(admission.profile().proposalLifetime()) > 0)
+            throw new IllegalArgumentException("Proposal does not match its ASYNC admission");
+        return asynchronous(id, createdAt, expiresAt, snapshot, admission.expectation());
+    }
+
     /** Protected representation only; this factory grants no capture or execution authority. */
     static BulkStoredProposal asynchronous(UUID id, Instant createdAt, Instant expiresAt,
             BulkIntentSnapshot snapshot, BulkOperationControlExpectation controlExpectation) {

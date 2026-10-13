@@ -77,7 +77,7 @@ public final class JdbcBulkProposalStore {
         return captureAndInsertEvaluated(null, proposal, capture, project, callerRemaining);
     }
 
-    /** QUERY requires a lifecycle-minted, publication-bound admission before this transaction. */
+    /** QUERY/SYNC and EXPLICIT/ASYNC require a lifecycle-minted admission before this transaction. */
     public BulkEvaluationSnapshot captureAndInsertEvaluated(BulkOperationLifecycle.ReadyAdmission admission,
             BulkStoredProposal proposal,
             BiFunction<Connection, Supplier<Duration>, BulkEvaluationSnapshot> capture,
@@ -90,7 +90,9 @@ public final class JdbcBulkProposalStore {
         requireNamespace(proposal.snapshot().context());
         requireControlExpectation(proposal);
         boolean query = "QUERY".equals(proposal.snapshot().intent().at("/selection/mode").asText());
-        if (!"SYNC".equals(proposal.snapshot().intent().path("executionMode").asText())
+        boolean asynchronous = "ASYNC".equals(proposal.snapshot().intent().path("executionMode").asText());
+        if (asynchronous ? !matchesAsyncAdmission(admission, proposal)
+                : !"SYNC".equals(proposal.snapshot().intent().path("executionMode").asText())
                 || query && (admission == null || !matchesQueryAdmission(admission, proposal))
                 || !query && admission != null
                 || !query && proposal.snapshot().mode() != BulkMode.PER_ITEM_UPDATE
@@ -108,6 +110,12 @@ public final class JdbcBulkProposalStore {
                 boolean capturingSelection = false;
                 try {
                     budget.check();
+                    if (asynchronous) {
+                        JdbcBulkCapacityOccupancy.lockMarker(connection);
+                        JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure,
+                                admission.capacityBinding().orElseThrow(), true);
+                        budget.check();
+                    }
                     BulkQuotaLedger.Scope quota = BulkQuotaLedger.lockProposal(
                             connection, infrastructure, proposal, false, true);
                     budget.check();
@@ -159,6 +167,22 @@ public final class JdbcBulkProposalStore {
         if (!"SYNC".equals(proposal.snapshot().intent().path("executionMode").asText())
                 || "QUERY".equals(proposal.snapshot().intent().at("/selection/mode").asText()))
             throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
+    }
+
+    private boolean matchesAsyncAdmission(BulkOperationLifecycle.ReadyAdmission admission,
+            BulkStoredProposal proposal) {
+        return admission != null && admission.belongsTo(infrastructure)
+                && admission.executionMode() == BulkExecutionMode.ASYNC
+                && admission.selectionMode() == BulkSelectionMode.EXPLICIT
+                && admission.mode() == BulkMode.UNIFORM_UPDATE
+                && admission.capacityBinding().isPresent()
+                && admission.matchesScope(proposal.snapshot().context()) && admission.matchesCodec(proposal.snapshot())
+                && admission.expectation().equals(proposal.controlExpectation())
+                && proposal.snapshot().mode() == BulkMode.UNIFORM_UPDATE
+                && "EXPLICIT".equals(proposal.snapshot().intent().at("/selection/mode").asText())
+                && proposal.snapshot().intent().at("/selection/targets").size() <= admission.maxTargets()
+                && Duration.between(proposal.createdAt(), proposal.expiresAt())
+                    .compareTo(admission.profile().proposalLifetime()) <= 0;
     }
 
     private static boolean matchesQueryAdmission(BulkOperationLifecycle.ReadyAdmission admission,
@@ -341,15 +365,17 @@ public final class JdbcBulkProposalStore {
     }
 
     /** Route-bound locator used only by the authorized read compositor before the creator is known. */
-    static Optional<BulkStoredProposal> locateProposal(Connection connection, String namespaceId,
-            String resourceKey, String operationId, UUID id) throws SQLException {
-        try (var statement = connection.prepareStatement("""
+    static final String LOCATE_PROPOSAL_SQL = """
                 select created_at, expires_at, fingerprint, payload,
                        control_generation, control_descriptor_fingerprint, control_structural_revision,
                        atomicity, protocol_version, subject_id, execution_mode
                 from praxis_bulk.praxis_bulk_proposal
                 where proposal_id=? and namespace_id=? and resource_key=? and operation_id=?
-                """)) {
+                """;
+
+    static Optional<BulkStoredProposal> locateProposal(Connection connection, String namespaceId,
+            String resourceKey, String operationId, UUID id) throws SQLException {
+        try (var statement = connection.prepareStatement(LOCATE_PROPOSAL_SQL)) {
             statement.setObject(1, id); statement.setString(2, namespaceId);
             statement.setString(3, resourceKey); statement.setString(4, operationId);
             try (var rows = statement.executeQuery()) {
@@ -360,7 +386,7 @@ public final class JdbcBulkProposalStore {
         }
     }
 
-    private static BulkStoredProposal decodedProposal(java.sql.ResultSet rows, UUID id,
+    static BulkStoredProposal decodedProposal(java.sql.ResultSet rows, UUID id,
             String namespaceId, String subjectId, String resourceKey, String operationId) throws SQLException {
         try {
             var snapshot = BulkSnapshotStorageCodec.decode(rows.getBytes(4), rows.getString(3));
@@ -453,7 +479,7 @@ public final class JdbcBulkProposalStore {
                 (proposal_id, namespace_id, subject_id, resource_key, operation_id, created_at, expires_at,
                  fingerprint, payload, control_generation, control_descriptor_fingerprint, control_structural_revision,
                  atomicity, protocol_version, execution_mode)
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2, 'SYNC')
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?)
                 """)) {
             BulkOperationControlExpectation expectation = proposal.controlExpectation();
             statement.setObject(1, proposal.id()); statement.setString(2, context.namespaceId());
@@ -466,6 +492,7 @@ public final class JdbcBulkProposalStore {
             statement.setString(11, expectation.descriptorFingerprint());
             statement.setString(12, expectation.structuralRevision());
             statement.setString(13, context.atomicity().name());
+            statement.setString(14, snapshot.intent().path("executionMode").asText());
             statement.executeUpdate();
         }
     }

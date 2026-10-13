@@ -26,6 +26,14 @@ final class BulkOperationalDescriptorComposer {
         var profile = Objects.requireNonNull(provider.profile(), "profile");
         var codec = Objects.requireNonNull(provider.identityCodec(), "identityCodec");
         var infrastructure = Objects.requireNonNull(provider.executionInfrastructure(), "executionInfrastructure");
+        var capacity = Objects.requireNonNull(provider.asynchronousCapacityBinding(), "asynchronousCapacityBinding");
+        boolean asynchronous = profile.executionModes().equals(java.util.Set.of(BulkExecutionMode.ASYNC));
+        if (asynchronous != capacity.isPresent()
+                || asynchronous && (structural.mode() != BulkMode.UNIFORM_UPDATE
+                    || structural.atomicity() != ActionCollectionAtomicity.PER_ITEM
+                    || !profile.selectionModes().equals(java.util.Set.of(BulkSelectionMode.EXPLICIT))
+                    || !infrastructure.deploymentId().equals(capacity.orElseThrow().deploymentId())))
+            throw new IllegalArgumentException("ASYNC composition requires its exact provisioned capacity binding");
         String codecId = canonical(codec.codecId(), "codecId");
         var wireSchema = codec.canonicalWireSchema();
         if (wireSchema == null) throw new IllegalArgumentException("Identity codec requires a wire schema");
@@ -104,13 +112,23 @@ final class BulkOperationalDescriptorComposer {
         profileNode.put("proposalLifetimeMillis", profile.proposalLifetime().toMillis());
         profileNode.put("unitDeadlineMillis", profile.unitDeadline().toMillis());
 
+        // Deliberately absent for SYNC: its operational digest remains byte-compatible.
+        capacity.ifPresent(value -> {
+            var node = root.putObject("asynchronousCapacityBinding");
+            node.put("deploymentId", value.deploymentId()); node.put("tenantId", value.tenantId());
+            node.put("environment", value.environment()); node.put("bindingId", value.bindingId());
+            node.put("generation", value.generation()); node.put("databaseId", value.databaseId().toString());
+            node.put("attestationId", value.attestationId().toString());
+            node.put("authorityId", value.authorityId().toString()); node.put("authorityEpoch", value.authorityEpoch());
+        });
+
         var descriptor = new BulkOperationalDescriptor(
                 new BulkOperationControlIdentity(infrastructure.namespace(), confirmation.operationId()),
                 structuralRevision,
                 BulkCanonicalJson.operationalDescriptorDigest(root),
                 providerId,
                 providerRevision,
-                profile, structural, infrastructure);
+                profile, structural, infrastructure, capacity, codecId);
         // Readiness includes the usable evaluation/confirmation UI protocol. A transport-only
         // descriptor must never publish READY and expose a direct workflow without that protocol.
         BulkExecutionContract.from(descriptor);

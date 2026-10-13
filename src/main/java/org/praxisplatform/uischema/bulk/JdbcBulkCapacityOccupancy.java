@@ -47,6 +47,23 @@ final class JdbcBulkCapacityOccupancy {
         }
     }
 
+    /** Called after the deployment quota bucket is locked; the occupancy trigger owns slot CAS. */
+    static UUID availableQueueToken(Connection connection) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select s.token_id from praxis_bulk.praxis_bulk_capacity_slot s
+                join praxis_bulk.praxis_bulk_capacity_installation i on i.token_id=s.token_id
+                where s.capacity_class='QUEUE' and i.capacity_class='QUEUE'
+                  and s.current_execution_id is null
+                order by i.token_ordinal,s.token_id limit 1
+                """); var rows = statement.executeQuery()) {
+            if (!rows.next())
+                throw new BulkDurableExecutionException(BulkDurableExecutionException.Reason.CAPACITY);
+            UUID token = rows.getObject(1, UUID.class);
+            if (token == null || rows.next()) throw corrupt();
+            return token;
+        }
+    }
+
     static void requireInstallation(Connection connection, UUID token, String capacityClass) throws SQLException {
         try (var statement = connection.prepareStatement("select 1 from praxis_bulk.praxis_bulk_capacity_installation where token_id=? and capacity_class=?")) {
             statement.setObject(1, token); statement.setString(2, capacityClass);

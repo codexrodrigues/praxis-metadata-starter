@@ -38,6 +38,15 @@ public interface BulkOperationDescriptorProvider {
     /** Server-owned limits and supported modes, included in the operation's effective contract. */
     BulkOperationalProfile profile();
 
+    /**
+     * Trusted provisioning identity for an ASYNC-only operation. Never supplied by a request.
+     * Presence is configuration, not live authority or a promise of a free queue slot.
+     * SYNC providers retain the empty default and their existing fingerprint.
+     */
+    default java.util.Optional<BulkCapacityBinding> asynchronousCapacityBinding() {
+        return java.util.Optional.empty();
+    }
+
     /** Runtime transaction binding for the operation. */
     BulkExecutionInfrastructure executionInfrastructure();
 }

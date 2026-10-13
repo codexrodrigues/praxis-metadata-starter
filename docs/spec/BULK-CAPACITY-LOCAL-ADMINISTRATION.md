@@ -256,3 +256,13 @@ No release or adoption is recorded.
 
 None of these milestones by itself completes external continuity/custody,
 production supervisor, worker or backend readiness for Angular.
+
+## Relationship to provisioning
+
+The separate `BulkCapacityProvisioningMain` source candidate exposes the existing
+bootstrap/enrollment/attestation/activation/request/allocation/read/install
+steps; see its [input and recovery contract](BULK-CAPACITY-INSTALLATION.md#public-administrative-entry-candidate).
+It does not change this entry's two-argument protocol or add any authority
+credential to `INSPECT`/`FENCE`. Keep these local operations available when the
+authority is unavailable. Provisioning source acceptance, packaged Neon proof,
+public release and host adoption are separate gates.

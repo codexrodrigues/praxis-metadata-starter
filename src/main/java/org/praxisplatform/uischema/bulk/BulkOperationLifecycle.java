@@ -86,9 +86,11 @@ public final class BulkOperationLifecycle {
         return documents.withPublishedBulkOpenApiPublication((candidate, publicationGeneration) -> {
             operationResolver.refreshPublishedOpenApiGroupsStrict(requiredGroups);
             BulkOperationalDescriptor descriptor = descriptor(identity, false);
-            JdbcBulkOperationControl.Snapshot current = runtime.withLifecycleRead(connection ->
-                    JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(),
-                            identity.confirmationOperationId()));
+            JdbcBulkOperationControl.Snapshot current = runtime.withLifecycleRead(connection -> {
+                requireCapacityBinding(connection, descriptor);
+                return JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(),
+                        identity.confirmationOperationId());
+            });
             if (current == null || !current.ready()
                     || !descriptor.descriptorFingerprint().equals(current.descriptorFingerprint())
                     || !descriptor.structuralRevision().equals(current.structuralRevision()))
@@ -121,16 +123,21 @@ public final class BulkOperationLifecycle {
                             || descriptor.structural().atomicity()
                                 != org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM))
                 throw unavailable("Selection is not published for this operation");
-            JdbcBulkOperationControl.Snapshot current = runtime.withLifecycleRead(connection ->
-                    JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(),
-                            identity.confirmationOperationId()));
+            JdbcBulkOperationControl.Snapshot current = runtime.withLifecycleRead(connection -> {
+                requireCapacityBinding(connection, descriptor);
+                return JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(),
+                        identity.confirmationOperationId());
+            });
             if (current == null || !current.ready()
                     || !descriptor.descriptorFingerprint().equals(current.descriptorFingerprint())
                     || !descriptor.structuralRevision().equals(current.structuralRevision()))
                 throw unavailable("Bulk operation is not durably READY for the current composed descriptor");
             return new ReadyAdmission(identity, descriptor.expectation(current.generation()),
                     descriptor.structural().mode(), descriptor.structural().atomicity(),
-                    executionMode, selectionMode, profile);
+                    executionMode, selectionMode, profile, descriptor.infrastructure(),
+                    descriptor.structural().resourceKey(),
+                    descriptor.structural().operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference(),
+                    descriptor.asynchronousCapacityBinding(), descriptor.codecId());
         });
     }
 
@@ -143,12 +150,19 @@ public final class BulkOperationLifecycle {
         private final BulkExecutionMode executionMode;
         private final BulkSelectionMode selectionMode;
         private final BulkOperationalProfile profile;
+        private final BulkExecutionInfrastructure infrastructure;
+        private final String resourceKey;
+        private final org.praxisplatform.uischema.openapi.CanonicalOperationRef operationRef;
+        private final java.util.Optional<BulkCapacityBinding> capacityBinding;
+        private final String codecId;
 
         private ReadyAdmission(BulkOperationControlIdentity identity,
                 BulkOperationControlExpectation expectation, BulkMode mode,
                 org.praxisplatform.uischema.action.ActionCollectionAtomicity atomicity,
                 BulkExecutionMode executionMode, BulkSelectionMode selectionMode,
-                BulkOperationalProfile profile) {
+                BulkOperationalProfile profile, BulkExecutionInfrastructure infrastructure,
+                String resourceKey, org.praxisplatform.uischema.openapi.CanonicalOperationRef operationRef,
+                java.util.Optional<BulkCapacityBinding> capacityBinding, String codecId) {
             this.identity = identity;
             this.expectation = expectation;
             this.mode = mode;
@@ -156,7 +170,20 @@ public final class BulkOperationLifecycle {
             this.executionMode = executionMode;
             this.selectionMode = selectionMode;
             this.profile = profile;
+            this.infrastructure = infrastructure;
+            this.resourceKey = resourceKey;
+            this.operationRef = operationRef;
+            this.capacityBinding = capacityBinding;
+            this.codecId = codecId;
         }
+        boolean matchesCodec(BulkIntentSnapshot snapshot) { return codecId.equals(snapshot.codecId()); }
+        boolean matchesScope(BulkFingerprintContext scope) {
+            return identity.namespaceId().equals(scope.namespaceId())
+                    && resourceKey.equals(scope.resourceKey()) && operationRef.equals(scope.operationRef())
+                    && atomicity == scope.atomicity();
+        }
+        boolean belongsTo(BulkExecutionInfrastructure expected) { return infrastructure == expected; }
+        java.util.Optional<BulkCapacityBinding> capacityBinding() { return capacityBinding; }
         public BulkOperationControlIdentity identity() { return identity; }
         public BulkOperationControlExpectation expectation() { return expectation; }
         public BulkMode mode() { return mode; }
@@ -284,6 +311,7 @@ public final class BulkOperationLifecycle {
                 for (var descriptor : descriptors) {
                     var initial = before.get(descriptor.identity());
                     if (initial == null || !initial.ready()) continue;
+                    requireCapacityBinding(connection, descriptor);
                     var current = JdbcBulkOperationControl.lockForAdmission(connection,
                             descriptor.identity().namespaceId(), descriptor.identity().confirmationOperationId());
                     if (!matches(initial, "READY", initial.generation(), descriptor)
@@ -377,6 +405,7 @@ public final class BulkOperationLifecycle {
                     return runtime.withLifecycleRead(connection -> {
                         for (var descriptor : descriptors) {
                             if (!identities.contains(descriptor.identity())) continue;
+                            requireCapacityBinding(connection, descriptor);
                             var current = JdbcBulkOperationControl.lockForAdmission(connection,
                                     descriptor.identity().namespaceId(), descriptor.identity().confirmationOperationId());
                             if (!matches(current, "READY", approved.get(descriptor.identity()).generation(), descriptor))
@@ -736,6 +765,13 @@ public final class BulkOperationLifecycle {
         }
     }
 
+    private void requireCapacityBinding(java.sql.Connection connection, BulkOperationalDescriptor descriptor)
+            throws java.sql.SQLException {
+        if (descriptor.asynchronousCapacityBinding().isPresent())
+            JdbcBulkCapacityOccupancy.requireBinding(connection, runtime,
+                    descriptor.asynchronousCapacityBinding().orElseThrow(), true);
+    }
+
     private static final class CapturedProvider implements BulkOperationDescriptorProvider {
         private final String confirmationOperationId;
         private final String providerId;
@@ -744,6 +780,7 @@ public final class BulkOperationLifecycle {
         private final String identitySchemaPointer;
         private final BulkOperationalProfile profile;
         private final BulkExecutionInfrastructure infrastructure;
+        private final java.util.Optional<BulkCapacityBinding> capacityBinding;
 
         private CapturedProvider(BulkOperationDescriptorProvider source) {
             confirmationOperationId = source.confirmationOperationId();
@@ -753,6 +790,7 @@ public final class BulkOperationLifecycle {
             identitySchemaPointer = source.identitySchemaPointer();
             profile = source.profile();
             infrastructure = source.executionInfrastructure();
+            capacityBinding = source.asynchronousCapacityBinding();
         }
         public String confirmationOperationId() { return confirmationOperationId; }
         public String providerId() { return providerId; }
@@ -761,5 +799,6 @@ public final class BulkOperationLifecycle {
         public String identitySchemaPointer() { return identitySchemaPointer; }
         public BulkOperationalProfile profile() { return profile; }
         public BulkExecutionInfrastructure executionInfrastructure() { return infrastructure; }
+        public java.util.Optional<BulkCapacityBinding> asynchronousCapacityBinding() { return capacityBinding; }
     }
 }

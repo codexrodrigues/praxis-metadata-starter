@@ -11,7 +11,8 @@ record BulkOperationalDescriptor(
         String providerRevision,
         BulkOperationalProfile profile,
         BulkOperationStructuralDescriptor structural,
-        BulkExecutionInfrastructure infrastructure) {
+        BulkExecutionInfrastructure infrastructure,
+        java.util.Optional<BulkCapacityBinding> asynchronousCapacityBinding, String codecId) {
 
     BulkOperationalDescriptor {
         Objects.requireNonNull(identity, "identity");
@@ -24,6 +25,8 @@ record BulkOperationalDescriptor(
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(structural, "structural");
         Objects.requireNonNull(infrastructure, "infrastructure");
+        Objects.requireNonNull(asynchronousCapacityBinding, "asynchronousCapacityBinding");
+        text(codecId, "codecId");
         if (!identity.namespaceId().equals(infrastructure.namespace()))
             throw new IllegalArgumentException("Control identity and runtime infrastructure namespaces differ");
     }

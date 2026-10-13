@@ -83,3 +83,111 @@ accepted, QUEUED, worker, executor fence, restore-safe/succession/retirement, HT
 ASYNC, READY, backend-complete or Angular claim. The previous 42 B5b.1a cases remain
 historical issuer evidence; the current 97-case composition is tied to the extended
 V2/V18 source, not attributed to rc.154. See [issuer scope](BULK-CAPACITY-AUTHORITY.md).
+
+## Public administrative entry candidate
+
+`org.praxisplatform.uischema.bulk.BulkCapacityProvisioningMain` materializes the
+existing provisioning protocol in a separate administrative JVM. This source
+candidate still requires its packaged Neon acceptance and public release; the
+historical acceptance above does not cover this entry. It adds no migration,
+HTTP route, owner bean in the host, token format or alternative capacity ledger.
+
+Invoke with exactly three arguments: `COMMAND /absolute/private/input.json
+/absolute/private/receipt.json`. Credentials belong only in the input file, never
+arguments or environment logging. Both paths reject symlinks; the input is a
+regular 0600 file, at most 32 KiB, and each immediate parent is 0700. The receipt
+must not exist. JSON keys are exact, duplicate keys/trailing JSON/coercion are
+rejected. PostgreSQL URLs require `sslmode=verify-full`, cannot override explicit
+credentials and retain smaller native connection/socket timeouts. This custody
+assumes a trusted OS identity; it does not defend against another process with
+the same identity.
+
+| Command | Existing operation | Command-specific root keys (plus `authority`) |
+| --- | --- | --- |
+| `BOOTSTRAP` | Fix local physical binding | `provisioner`, `reader`, `operational`, `binding` |
+| `ENROLL` | Enroll the authority binding | `provisioner`, `binding` |
+| `REGISTER_ATTESTATION` | Owner/runtime witness, then authority registration | `provisioner`, `reader`, `operational`, `binding` |
+| `ACTIVATE` | Authenticated attestation read, then activate local marker | `provisioner`, `reader`, `operational`, `binding` |
+| `REQUEST` | Submit the governed request UUID/payload | `allocator`, `reader`, `request` |
+| `ALLOCATE_NEXT` | Allocate at most one right fairly for a class | `allocator`, `reader`, `capacityClass` |
+| `READ_ISSUE` | Read and compare the complete request identity | `allocator`, `reader`, `request` |
+| `INSTALL` | Authenticate token UUID, install and independently read back | `provisioner`, `reader`, `operational`, `binding`, `tokenId` |
+
+`authority` contains `deploymentId`, `environment`, `authorityId`,
+`authorityEpoch`, and `roles` with `ownerLogin`, `provisionerLogin`,
+`allocatorLogin`, `readerLogin`. The authority owner is an expected catalog
+identity, not a credential supplied to this entry. Each credential object has
+exactly `url`, `username`, `password`. Secrets retain their original bytes.
+`binding` contains the existing nine fields documented above. IDs are canonical
+UUID strings; generation/epoch are positive integral 64-bit values.
+
+`operational` contains `namespace`, `roles`, `owner`, `runtime`. Its `roles` is the
+existing four-field `BulkExecutionRoleConfiguration`: `expectedSchemaOwnerRole`,
+`runtimeGranteeRoles`, `retentionExecutorMembers`, `controlPlaneGranteeRoles`.
+Each role array is explicit. Runtime username must belong to the configured
+runtime roles, and actual identities/privileges/catalog are still attested by
+the canonical implementations. `request` contains `requestId`, `tenantId`,
+`bindingId`, `capacityClass`, `requestedCount`; the deployment comes from
+`authority`. Class is exactly `QUEUE` or `ACTIVE`, and the existing request limit
+applies. `ALLOCATE_NEXT` accepts only the class, never a preferred tenant/binding.
+
+The current canonical installation constructor requires owner/runtime plus
+provisioner/reader; the issuer constructor requires allocator/reader. The input
+exposes these administrative composition boundaries honestly, even when one
+method uses only a subset. Credentials never enter the host/worker process.
+The tool performs one command and has no loop, automatic retry, compensation,
+DDL, ID generation, epoch succession, refund or restore authorization.
+
+Initial order is `BOOTSTRAP`, `ENROLL`, `REGISTER_ATTESTATION`, `ACTIVATE`, followed
+by explicit request/emission/read/install steps. Migration and role provisioning
+remain separate prerequisites through the existing public migrators. Issued
+rights in transit stay counted. Allocation can select another eligible tenant;
+use `READ_ISSUE` for the original request and preserve its complete identity.
+Never allocate repeatedly until a particular tenant wins.
+
+A private `PENDING_UNCONFIRMED` receipt containing the command and governed
+intent is created with exclusive creation and file/directory synchronization
+before any datasource construction. It contains no JDBC URL or credential.
+Final replacement uses a private temporary file, file synchronization, atomic
+move and directory synchronization; it never truncates the only intent copy.
+Success is `CONFIRMED` with a private result (including token/issue IDs where
+applicable). BOOTSTRAP, REGISTER_ATTESTATION and ACTIVATE return an empty result;
+INSTALL retains its `inserted` boolean. These commands do not append an unrelated
+local-marker inspection or return `markerState`. Their canonical locks, identity
+checks, authority registration and INSTALL's independent installation readback
+remain mandatory. Use the explicit INSPECT command for a fresh local-state
+observation; it cannot confirm an authority-side registration.
+
+Lost commit/readback/receipt acknowledgement is `UNCONFIRMED`, never
+an assertion of rollback. A crash can leave the pending receipt; preserve it.
+An UNCONFIRMED private receipt may include a closed diagnostic: phase is COMMAND,
+FINAL_BUDGET, RECEIPT_PUBLICATION or PUBLISH_BUDGET; category is BUDGET_EXPIRED,
+TIMEOUT, SQL_ERROR, IO_ERROR, INVALID_STATE or OTHER; sqlState is null or five
+uppercase alphanumeric characters. No exception message, class name, stack,
+URL or input is copied. COMMAND includes infrastructure construction and the
+canonical operation; it does not identify which transaction committed.
+A later exact state readback is separate reconciliation evidence, never a
+retroactive CONFIRMED invocation or permission for automatic retry.
+
+Shared stdout has only `schemaVersion`, `operation`, `result`, `code`. Exit 0 is
+`CONFIRMED/OK`; exit 64 is `DENIED/INVALID_INPUT` or `DENIED/RECEIPT_NOT_CREATED`;
+exit 2 is `UNCONFIRMED/STEP_NOT_CONFIRMED`. No exception graph or credential is
+printed. Trusted administration retains the private input and receipt. An
+uncertain `ALLOCATE_NEXT` must not be retried automatically: inspect the original
+requests and issued rights first. Reuse exact identities for explicitly approved
+idempotent recovery; never create a replacement identity to hide uncertainty.
+
+A monotonic 20-second admission/publication budget covers construction,
+acquisition, canonical work, readback and successful receipt publication.
+Authority transactions retain 3s/2s/1s bounds; local installation retains its
+20s/3s bounds. Acquisition is constrained by the remaining outer budget and
+stricter native limits. This does not claim distributed rollback or universal
+wall-clock interruption of OS/driver/filesystem operations. Late completion
+cannot publish successful stdout; do not increase product budgets to make a
+provisioning environment pass.
+
+`INSPECT` and terminal `FENCE` remain in the independent
+[local administration entry](BULK-CAPACITY-LOCAL-ADMINISTRATION.md), without an
+availability dependency on the authority database. A fenced marker cannot be
+reactivated or installed by this new entry. Unit input/custody tests are separate
+from pending packaged Neon command, replay, rollback and fencing evidence.

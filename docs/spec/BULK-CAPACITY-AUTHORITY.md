@@ -71,11 +71,16 @@ it never opens a domain database transaction while holding authority locks.
 Migration and enrollment are explicit privileged operations. Provision the
 authority database and its `public` schema ownership for the declared
 migration owner. The explicit Flyway lane creates the authority schema under
-that login; do not pre-create an unmanaged authority schema. The candidate must prove PostgreSQL 14 migration with
-a LOGIN/INHERIT/CREATEROLE owner without SUPERUSER or BYPASSRLS; the ordinary
-allocator and reader logins have neither of those administrative privileges.
-Temporary definer membership and schema CREATE needed for function ownership
-transfer must be removed before migration completes. Allocator and reader
+that login; do not pre-create an unmanaged authority schema. Current installation
+and validation require PostgreSQL 17 or later; PostgreSQL 17 is the proof baseline.
+The migration owner is LOGIN/INHERIT/CREATEROLE without SUPERUSER or BYPASSRLS;
+the ordinary allocator and reader logins have neither administrative privilege.
+The sole permitted administrative membership is ADMIN true, INHERIT false and
+SET false, held by this schema's owner, granted by a superuser, with exactly one
+such edge for that role/member pair. This edge confers neither inherited nor SET
+authority. Temporary SET membership is explicitly granted and revoked by the
+migration owner; schema CREATE is removed before migration completes. No role
+name whitelist or manual grant repair substitutes for these catalog predicates. Allocator and reader
 credentials must not receive table DML, DDL or provisioning privileges. Restricted
 functions and live catalog validation are part of the implementation's proof;
 Flyway history alone does not establish those guarantees. No starter bean runs
@@ -142,4 +147,79 @@ it is not a fault-injected uncertain-commit or distributed transaction proof.
 
 ## Managed-owner adoption boundary
 
-The PostgreSQL 14 evidence above is historical authority evidence. The new managed-owner execution-storage candidate establishes a PostgreSQL 17 baseline in its own migrator. Authority migration, enrollment and allocator/read credentials remain a separate boundary: their managed PostgreSQL 17 installation must be inventoried and proved before hosted adoption. Passing the execution-storage proof does not certify this authority lane. See the [managed-owner adoption plan](BULK-MANAGED-OWNER-ADOPTION-PLAN.md); no compatibility mode or silent grant repair is introduced.
+The PostgreSQL 14 evidence above remains historical authority evidence; it does
+not certify this managed PG17 candidate. Authority migration, enrollment and
+allocator/read credentials remain separate from execution storage. Passing the
+execution-storage proof does not certify this lane or ASYNC execution.
+
+The internal two-version lineage preserves the exact published V1/V2 resources,
+SHA-256 and Flyway checksums. Applied versions resolve to their recorded original
+or managed bytes; pending versions resolve to the managed canonical resources.
+Accepted histories are complete successful prefixes with exact rank, version,
+description, script and checksum. Original V1 followed by managed V2 is a valid
+selection; managed V1 followed by original V2 is unreachable and rejected.
+Unknown/failed rows, holes and ambiguous histories fail before migration. No
+public mode, Flyway repair, checksum rewrite or extra V3 is introduced.
+
+Fresh installation and an exact Flyway SCHEMA-only prefix use the managed chain.
+A schema-only prefix must have the expected owner/history, owner-only default
+schema/history ACLs, exact Flyway columns/PK/indexes, no RLS/force-RLS,
+triggers/rules/policies/extra types and no installed authority relations/functions.
+Extra grants are rejected before DDL rather than silently removed during V1. This supports transactional V1 rollback without
+blessing an arbitrary partially used authority. A committed V1 additionally
+requires its source-owned live catalog and row/caller preflight before V2.
+Historical V1/V2 checksums remain resolvable on PG17; physical adoption of a
+historical PG14 predecessor is a separate pending proof, not an inference from
+unit resolution or a newly installed managed authority.
+
+Runtime attestation does not acquire SELECT on Flyway history. Its protected
+function bodies and catalog-photograph query are unchanged between the published
+and managed SQL resources (guarded by source tests); migration and owner validation
+use the history-selected resources. The trusted administrative edge is also
+checked during live caller validation. Effective definer membership, nested
+internal-role privileges and caller DDL/DML remain rejected.
+
+The observed failed installation rejected a definer membership inside V1. After
+rollback the definer was absent; the captured ADMIN-only edge belonged to the
+domain's distinct capacity owner. The specific transient definer grantor/flags
+were therefore not directly observed. Managed Neon installation, repeat validation,
+unsafe-edge negatives and the ASYNC consumer proof remain required before hosted
+adoption. See the [managed-owner adoption plan](BULK-MANAGED-OWNER-ADOPTION-PLAN.md).
+
+### Live authority collection within the operation deadline
+
+Every authority operation, including construction attestation, rereads the catalog,
+caller memberships, exact identity and effective privileges on its own bound physical
+connection. Collection is grouped into four fixed, ordered JDBC multi-result reads:
+source catalog, live photograph and protected bodies, caller graph, and effective
+privilege matrix. The identity function remains a separate statement between caller
+and effective-privilege validation; the existing timeout clamp remains first.
+No successful attestation, role grant or database photograph is cached across operations.
+
+The V2 path uses six JDBC `execute`/`executeQuery` submissions before business work
+(previously 164). This is not a guarantee of six network roundtrips: PGJDBC may insert
+protocol synchronizations for buffering or prepared-query handling. The private reader
+uses one `PreparedStatement.execute()` per collection and consumes every result in
+order; it does not use `addBatch`/`executeBatch` for SELECTs. Missing/extra result sets,
+update counts, missing/extra/duplicate contract rows and required SQL NULL values fail
+closed. PostgreSQL 17 caller membership options must be explicitly true.
+
+The original three-second Spring transaction deadline, statement timeout at most two
+seconds and lock timeout at most one second remain unchanged, including any stricter
+SQL settings. The same transaction deadline is checked after decoding and before the
+callback, then again before returning its result. Collection may execute later read-only
+SELECTs before Java rejects an earlier result; no identity-dependent business callback
+runs on that failure. Safe OID lookup preserves missing-object rejection without turning
+a later name lookup into an avoidable SQL error. A real database error still aborts the
+whole collection and transaction.
+
+No-database collection/validator tests establish result consumption and rejection
+semantics, not network latency or live privileges. The isolated Neon managed-authority
+proof must pass the reader constructor and operation under the unchanged deadline.
+A fresh run requires all six cases executed with no skips. An explicitly bound
+continuation may consolidate the prior new-managed-V1 upgrade/replay success as
+`REUSED` with five current cases `PASS`, with zero skipped cases in that current
+execution. Reuse requires exact preserved V1/V2 SQL bytes, prior raw result/source
+custody and a fresh full-state continuation guard; it is never a new V1 execution
+or a silent skip. Historical ORIGINAL predecessor adoption and the separate ASYNC
+worker journey retain their own evidence requirements.

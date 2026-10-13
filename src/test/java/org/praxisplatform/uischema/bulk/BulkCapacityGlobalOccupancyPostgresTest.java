@@ -32,8 +32,13 @@ class BulkCapacityGlobalOccupancyPostgresTest {
     @Test
     @Timeout(value = 4, unit = TimeUnit.MINUTES)
     void fourTenantsOccupyEightActiveAndEightyQueueSlotsAndRejectAFifthBinding() throws Exception {
-        try (var scope = new BulkCapacityOccupancyPostgresFixture.SharedScope();
-                var proof = new GlobalProof()) {
+        try (var scope = new BulkCapacityOccupancyPostgresFixture.SharedScope()) {
+            exercise(scope);
+        }
+    }
+
+    static void exercise(BulkCapacityOccupancyPostgresFixture.SharedScope scope) throws Exception {
+        try (var proof = new GlobalProof(scope)) {
             var locals = new ArrayList<BulkCapacityOccupancyPostgresFixture>();
             var markerBefore = new ArrayList<Map<String, Object>>();
             var controlBefore = new ArrayList<Map<String, Object>>();
@@ -62,8 +67,8 @@ class BulkCapacityGlobalOccupancyPostgresTest {
                 assertThat(attestations.add(local.expected.attestationId())).isTrue();
                 assertThat(bindings.add(local.expected.bindingId())).isTrue();
                 assertThat(local.runtimeSql.queryForObject("select current_user", String.class))
-                        .isEqualTo("bulk_runtime_test");
-                BulkExecutionMigrator.validate(local.ownerSource, BulkPostgresTestSupport.testRoleConfiguration());
+                        .isEqualTo(local.runtimeRole());
+                BulkExecutionMigrator.validate(local.ownerSource, local.roleConfiguration());
             }
             assertThat(scope.authorityObserver.queryForObject("select count(*) from "
                     + "praxis_bulk_capacity.authority_identity", Long.class)).isEqualTo(1);
@@ -402,11 +407,18 @@ class BulkCapacityGlobalOccupancyPostgresTest {
         private final com.fasterxml.jackson.databind.node.ArrayNode phases = manifest.putArray("phases");
         private final com.fasterxml.jackson.databind.node.ArrayNode localCounts = manifest.putArray("localCounts");
         private boolean assertionsComplete;
+        private final BulkCapacityOccupancyPostgresFixture.SharedScope scope;
 
-        void phase(String phase, int running, int queued, int historyRows) {
+        GlobalProof(BulkCapacityOccupancyPostgresFixture.SharedScope scope) {
+            this.scope = scope;
+            if (scope.isNeon()) manifest.put("observationModel", "SERIAL_QUIESCENT_NEON_READ_COMPOSITION");
+        }
+
+        void phase(String phase, int running, int queued, int historyRows) throws Exception {
             if (!phase.matches("[A-Z][A-Z0-9_]{0,80}") || running < 0 || queued < 0 || historyRows < 0)
                 throw new IllegalArgumentException("Invalid global proof phase");
             phases.addObject().put("phase", phase).put("running", running).put("queued", queued).put("historyRows", historyRows);
+            scope.completed(phase);
         }
 
         @Override public void close() throws Exception {
@@ -415,6 +427,8 @@ class BulkCapacityGlobalOccupancyPostgresTest {
             Path directory = configured == null ? Files.createTempDirectory("praxis-global-occupancy-proof-") : Path.of(configured);
             Files.createDirectories(directory);
             Path file = directory.resolve("global-four-tenants-eight-active-eighty-queue.json");
+            if (scope.isNeon()) Files.createFile(file, java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
             Files.writeString(file, manifest.toPrettyString(), StandardCharsets.UTF_8);
             if (configured == null) System.out.println("Global occupancy proof manifest: " + file.toAbsolutePath());
         }
