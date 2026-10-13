@@ -458,6 +458,94 @@ class BulkOperationStructuralCompilerTest {
     }
 
     @Test
+    void nonBulkCapabilityAvailabilityMayRequireAnotherReadyOperationOutsideTheDocumentScope() throws Exception {
+        // Actual lifecycle/compiler/published document path, with explicit JDBC seams only.
+        // This unit proves nesting/locking and schema coherence, not physical PG or host grants.
+        try (var context = context();
+             var sql = org.mockito.Mockito.mockStatic(JdbcBulkOperationControl.class,
+                     org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+             var globalSql = org.mockito.Mockito.mockStatic(JdbcBulkOpenApiPublication.class,
+                     org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE))) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var documents = LifecycleDocuments.create(context, operationalDocument(BulkIdentityCodecs.longs()));
+            var runtime = org.mockito.Mockito.mock(BulkExecutionInfrastructure.class,
+                    org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+            org.mockito.Mockito.when(runtime.namespace()).thenReturn("test-namespace");
+            org.mockito.Mockito.when(runtime.deploymentId()).thenReturn("deployment-a");
+            var control = org.mockito.Mockito.mock(BulkControlPlaneInfrastructure.class,
+                    org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+            org.mockito.Mockito.when(control.namespace()).thenReturn("test-namespace");
+            org.mockito.Mockito.when(control.deploymentId()).thenReturn("deployment-a");
+            var connection = org.mockito.Mockito.mock(java.sql.Connection.class);
+            org.mockito.Mockito.when(runtime.withLifecycleRead(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation ->
+                    ((org.springframework.jdbc.core.ConnectionCallback<?>) invocation.getArgument(0)).doInConnection(connection));
+            org.mockito.Mockito.when(control.withConnection(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation ->
+                    ((org.springframework.jdbc.core.ConnectionCallback<?>) invocation.getArgument(0)).doInConnection(connection));
+            var publication = new java.util.concurrent.atomic.AtomicReference<>(
+                    new JdbcBulkOpenApiPublication.Snapshot("UNCOMPOSED", 0, null, java.time.Instant.EPOCH));
+            var operation = new java.util.concurrent.atomic.AtomicReference<>(
+                    new JdbcBulkOperationControl.Snapshot("UNCOMPOSED", 0, null, null));
+            globalSql.when(() -> JdbcBulkOpenApiPublication.lockForRead(connection, "test-namespace", "deployment-a"))
+                    .thenAnswer(invocation -> publication.get());
+            globalSql.when(() -> JdbcBulkOpenApiPublication.transition(org.mockito.ArgumentMatchers.same(connection),
+                    org.mockito.ArgumentMatchers.eq("test-namespace"), org.mockito.ArgumentMatchers.eq("deployment-a"),
+                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.nullable(String.class)))
+                    .thenAnswer(invocation -> {
+                        long next = (Long) invocation.getArgument(3) + 1;
+                        publication.set(new JdbcBulkOpenApiPublication.Snapshot(invocation.getArgument(4).toString(), next,
+                                invocation.getArgument(5), java.time.Instant.EPOCH));
+                        return new JdbcBulkOpenApiPublication.Transition(true, next);
+                    });
+            sql.when(() -> JdbcBulkOperationControl.lockForAdmission(connection, "test-namespace", ACTION_ID))
+                    .thenAnswer(invocation -> operation.get());
+            sql.when(() -> JdbcBulkOperationControl.transition(org.mockito.ArgumentMatchers.same(connection),
+                    org.mockito.ArgumentMatchers.eq("test-namespace"), org.mockito.ArgumentMatchers.eq(ACTION_ID),
+                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString()))
+                    .thenAnswer(invocation -> {
+                        long next = (Long) invocation.getArgument(3) + 1;
+                        operation.set(new JdbcBulkOperationControl.Snapshot("READY", next,
+                                invocation.getArgument(5), invocation.getArgument(6)));
+                        return new JdbcBulkOperationControl.Transition(true, next);
+                    });
+            var lifecycle = new BulkOperationLifecycle(bindings,
+                    new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory")), documents,
+                    registry(actionDefinition()), new ObjectMapper(), new FilteredSchemaReferenceResolver(), runtime, control,
+                    List.of(provider("provider.r1", "deployment-a", 200, ACTION_ID, runtime)));
+            var identity = new BulkOperationControlIdentity("test-namespace", ACTION_ID);
+            var ready = lifecycle.publish(identity, 0);
+            var surfaceDefinitions = org.mockito.Mockito.mock(org.praxisplatform.uischema.surface.SurfaceDefinitionRegistry.class);
+            var actionDefinitions = org.mockito.Mockito.mock(ActionDefinitionRegistry.class);
+            org.mockito.Mockito.when(surfaceDefinitions.findByResourceKey("plain.items")).thenReturn(List.of());
+            org.mockito.Mockito.when(actionDefinitions.findByResourceKey("plain.items")).thenReturn(List.of());
+            var surfaces = new org.praxisplatform.uischema.surface.SurfaceCatalogService(surfaceDefinitions,
+                    (definition, availability) -> org.praxisplatform.uischema.capability.AvailabilityDecision.allowAll(),
+                    (key, path, id) -> null);
+            var actions = new org.praxisplatform.uischema.action.ActionCatalogService(actionDefinitions,
+                    (definition, availability) -> org.praxisplatform.uischema.capability.AvailabilityDecision.allowAll(),
+                    (key, path, id) -> null);
+            var callbackCalls = new AtomicInteger();
+            var capabilities = new org.praxisplatform.uischema.capability.DefaultCapabilityService(
+                    new org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver(documents),
+                    surfaces, actions, documents, availability -> {
+                        assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+                        var lock = (java.util.concurrent.locks.ReentrantReadWriteLock)
+                                org.springframework.test.util.ReflectionTestUtils.getField(documents, "cacheLifecycleLock");
+                        assertEquals(0, lock.getReadHoldCount());
+                        assertFalse(lock.isWriteLockedByCurrentThread());
+                        if (callbackCalls.getAndIncrement() == 0) assertEquals(ready, lifecycle.requireReady(identity));
+                        return org.praxisplatform.uischema.capability.AvailabilityDecision.allowAll();
+                    }, (key, id) -> java.util.Optional.empty(), null, () -> lifecycle);
+            var snapshot = capabilities.collectionCapabilities("plain.items", "/api/items");
+            assertEquals("plain.items", snapshot.resourceKey());
+            assertTrue(callbackCalls.get() > 0);
+            assertEquals(ready, lifecycle.requireReady(identity), "a following independent read has no leaked document scope");
+        }
+    }
+
+    @Test
     void lifecyclePublishesOnlyFreshCompositionAndSuspendsBeforeInvalidatingCaches() throws Exception {
         try (var postgres = EmbeddedPostgres.builder().setCleanDataDirectory(true)
                 .setRegisterShutdownHook(false).start(); var context = context()) {
