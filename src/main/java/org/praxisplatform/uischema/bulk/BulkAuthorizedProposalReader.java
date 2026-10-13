@@ -1,5 +1,9 @@
 package org.praxisplatform.uischema.bulk;
 
+import static org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics.Reader.PROPOSAL;
+import org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics.Stage;
+import org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics.Reason;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreType;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.sql.Connection;
@@ -82,15 +86,26 @@ public final class BulkAuthorizedProposalReader {
     public Observation readProposal(String authenticatedSubjectId, UUID proposalId) {
         strictText(authenticatedSubjectId, "authenticatedSubjectId");
         Objects.requireNonNull(proposalId, "proposalId");
+        var diagnostic = new BulkReadFailureDiagnostics.Capture(PROPOSAL);
+        try { return readProposalObserved(authenticatedSubjectId, proposalId, diagnostic); }
+        finally { diagnostic.emit(); }
+    }
+
+    private Observation readProposalObserved(String authenticatedSubjectId, UUID proposalId,
+            BulkReadFailureDiagnostics.Capture diagnostic) {
         Deadline deadline = Deadline.start(READ_BUDGET);
         Observation result;
         try {
             result = infrastructure.withConsistentRead(connection -> readSnapshot(connection,
-                    authenticatedSubjectId, proposalId, deadline));
+                    authenticatedSubjectId, proposalId, deadline, diagnostic));
         } catch (RuntimeException failure) {
+            diagnostic.record(Stage.SNAPSHOT_TRANSACTION, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
-        if (deadline.expired()) return Observation.state(State.UNAVAILABLE);
+        if (deadline.expired()) {
+            diagnostic.record(Stage.AFTER_TRANSACTION, Reason.DEADLINE_EXPIRED, null);
+            return Observation.state(State.UNAVAILABLE);
+        }
         if (result.state() == State.COMPLETE && result.expiresAt != null
                 && !result.expiresAt.isAfter(clock.instant()))
             return Observation.state(State.GONE);
@@ -98,7 +113,7 @@ public final class BulkAuthorizedProposalReader {
     }
 
     private Observation readSnapshot(Connection connection, String authenticatedSubjectId,
-            UUID proposalId, Deadline deadline) {
+            UUID proposalId, Deadline deadline, BulkReadFailureDiagnostics.Capture diagnostic) {
         var context = new BulkReadAuthorizationProvider.Context(infrastructure.namespace(),
                 resourceKey, operationId, authenticatedSubjectId);
         BulkReadAuthorizationProvider.GlobalDecision global;
@@ -106,10 +121,14 @@ public final class BulkAuthorizedProposalReader {
             deadline.requireRemaining();
             global = authorization.preAuthorize(context, deadline.remainingForProvider());
         } catch (RuntimeException failure) {
+            diagnostic.record(Stage.GLOBAL_AUTHORIZATION, Reason.EXCEPTION, failure);
             return Observation.state(State.GLOBAL_UNAVAILABLE);
         }
-        if (global == null || global == BulkReadAuthorizationProvider.GlobalDecision.UNAVAILABLE)
+        if (global == null || global == BulkReadAuthorizationProvider.GlobalDecision.UNAVAILABLE) {
+            diagnostic.record(Stage.GLOBAL_AUTHORIZATION, global == null
+                    ? Reason.GLOBAL_DECISION_MISSING : Reason.GLOBAL_UNAVAILABLE, null);
             return Observation.state(State.GLOBAL_UNAVAILABLE);
+        }
         if (global == BulkReadAuthorizationProvider.GlobalDecision.DENIED)
             return Observation.state(State.GLOBAL_DENIED);
 
@@ -149,6 +168,7 @@ public final class BulkAuthorizedProposalReader {
         } catch (SQLException | RuntimeException failure) {
             // Until the complete target set is authorized, absence and protected corruption share
             // one non-enumerating result.
+            diagnostic.record(Stage.PROTECTED_AUTHORIZATION, Reason.EXCEPTION, failure);
             return Observation.state(State.NOT_FOUND_OR_DENIED);
         }
 
@@ -156,19 +176,27 @@ public final class BulkAuthorizedProposalReader {
         if (!expiresAt.isAfter(clock.instant())) return Observation.state(State.GONE);
         try {
             deadline.requireRemaining();
-            if (!evaluation.hasTypedEligibility()) return Observation.state(State.UNAVAILABLE);
+            if (!evaluation.hasTypedEligibility()) {
+                diagnostic.record(Stage.PROJECTION, Reason.ELIGIBILITY_UNTYPED, null);
+                return Observation.state(State.UNAVAILABLE);
+            }
             if (!resourceKey.equals(projection.resourceKey())
                     || !operationId.equals(projection.confirmationOperationId())
-                    || !projectionRevision.equals(projection.projectionRevision()))
+                    || !projectionRevision.equals(projection.projectionRevision())) {
+                diagnostic.record(Stage.PROJECTION, Reason.PROJECTION_BINDING_CHANGED, null);
                 return Observation.state(State.UNAVAILABLE);
+            }
             JsonNode redactedIntent = projection.projectRedactedIntent(evaluation);
-            if (redactedIntent == null || !redactedIntent.isObject() || redactedIntent.isEmpty())
+            if (redactedIntent == null || !redactedIntent.isObject() || redactedIntent.isEmpty()) {
+                diagnostic.record(Stage.PROJECTION, Reason.REDACTED_INTENT_INVALID, null);
                 return Observation.state(State.UNAVAILABLE);
+            }
             ProposalAggregate aggregate = aggregate(connection, evaluation, deadline);
             BulkProposal proposal = proposal(evaluation, redactedIntent, aggregate);
             deadline.requireRemaining();
             return Observation.complete(proposal, expiresAt);
         } catch (SQLException | RuntimeException failure) {
+            diagnostic.record(Stage.PROJECTION, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
     }

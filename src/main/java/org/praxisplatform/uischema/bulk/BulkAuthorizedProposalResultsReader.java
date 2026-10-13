@@ -1,5 +1,9 @@
 package org.praxisplatform.uischema.bulk;
 
+import static org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics.Reader.PROPOSAL_RESULTS;
+import org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics.Stage;
+import org.praxisplatform.uischema.bulk.BulkReadFailureDiagnostics.Reason;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreType;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -83,6 +87,13 @@ public final class BulkAuthorizedProposalResultsReader {
         if (pageSize < 1 || pageSize > 200)
             throw new IllegalArgumentException("Page size must be within 1..200");
 
+        var diagnostic = new BulkReadFailureDiagnostics.Capture(PROPOSAL_RESULTS);
+        try { return readProposalResultsObserved(authenticatedSubjectId, proposalId, pageSize, after, diagnostic); }
+        finally { diagnostic.emit(); }
+    }
+
+    private Observation readProposalResultsObserved(String authenticatedSubjectId, UUID proposalId,
+            int pageSize, String after, BulkReadFailureDiagnostics.Capture diagnostic) {
         Deadline deadline = Deadline.start(READ_BUDGET);
         BulkReadCursorCodec.Decoded decoded = null;
         if (after != null) {
@@ -90,8 +101,11 @@ public final class BulkAuthorizedProposalResultsReader {
                 decoded = cursorCodec.decode(after, BulkReadCursorCodec.Purpose.PROPOSAL_RESULTS);
                 deadline.requireRemaining();
             } catch (BulkReadCursorCodec.BulkReadCursorException invalid) {
-                return Observation.state(deadline.expired() ? State.UNAVAILABLE : State.INVALID_CURSOR);
+                boolean expired = deadline.expired();
+                if (expired) diagnostic.record(Stage.CURSOR_DECODE, Reason.DEADLINE_EXPIRED, invalid);
+                return Observation.state(expired ? State.UNAVAILABLE : State.INVALID_CURSOR);
             } catch (RuntimeException failure) {
+                diagnostic.record(Stage.CURSOR_DECODE, Reason.EXCEPTION, failure);
                 return Observation.state(State.UNAVAILABLE);
             }
         }
@@ -100,11 +114,15 @@ public final class BulkAuthorizedProposalResultsReader {
         Observation result;
         try {
             result = infrastructure.withConsistentRead(connection -> readSnapshot(connection,
-                    authenticatedSubjectId, proposalId, pageSize, continuation, deadline));
+                    authenticatedSubjectId, proposalId, pageSize, continuation, deadline, diagnostic));
         } catch (RuntimeException failure) {
+            diagnostic.record(Stage.SNAPSHOT_TRANSACTION, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
-        if (deadline.expired()) return Observation.state(State.UNAVAILABLE);
+        if (deadline.expired()) {
+            diagnostic.record(Stage.AFTER_TRANSACTION, Reason.DEADLINE_EXPIRED, null);
+            return Observation.state(State.UNAVAILABLE);
+        }
         if (continuation != null && result.state() == State.COMPLETE
                 && !continuation.claims().expiresAt().isAfter(clock.instant()))
             return Observation.state(State.PRECONDITION_FAILED);
@@ -113,17 +131,21 @@ public final class BulkAuthorizedProposalResultsReader {
 
     private Observation readSnapshot(Connection connection, String authenticatedSubjectId,
             UUID proposalId, int pageSize, BulkReadCursorCodec.Decoded continuation,
-            Deadline deadline) {
+            Deadline deadline, BulkReadFailureDiagnostics.Capture diagnostic) {
         var context = new BulkReadAuthorizationProvider.Context(infrastructure.namespace(),
                 resourceKey, operationId, authenticatedSubjectId);
         BulkReadAuthorizationProvider.GlobalDecision global;
         try {
             global = authorization.preAuthorize(context, deadline.remainingForProvider());
         } catch (RuntimeException failure) {
+            diagnostic.record(Stage.GLOBAL_AUTHORIZATION, Reason.EXCEPTION, failure);
             return Observation.state(State.GLOBAL_UNAVAILABLE);
         }
-        if (global == null || global == BulkReadAuthorizationProvider.GlobalDecision.UNAVAILABLE)
+        if (global == null || global == BulkReadAuthorizationProvider.GlobalDecision.UNAVAILABLE) {
+            diagnostic.record(Stage.GLOBAL_AUTHORIZATION, global == null
+                    ? Reason.GLOBAL_DECISION_MISSING : Reason.GLOBAL_UNAVAILABLE, null);
             return Observation.state(State.GLOBAL_UNAVAILABLE);
+        }
         if (global == BulkReadAuthorizationProvider.GlobalDecision.DENIED)
             return Observation.state(State.GLOBAL_DENIED);
 
@@ -158,8 +180,10 @@ public final class BulkAuthorizedProposalResultsReader {
         } catch (BulkProposalStorageException failure) {
             // No target-level authorization exists yet. Storage corruption and absence must not
             // become an oracle for a caller that passed only the global gate.
+            diagnostic.record(Stage.PROTECTED_AUTHORIZATION, Reason.EXCEPTION, failure);
             return Observation.state(State.NOT_FOUND_OR_DENIED);
         } catch (RuntimeException | SQLException failure) {
+            diagnostic.record(Stage.PROTECTED_AUTHORIZATION, Reason.EXCEPTION, failure);
             return Observation.state(State.NOT_FOUND_OR_DENIED);
         }
 
@@ -196,7 +220,11 @@ public final class BulkAuthorizedProposalResultsReader {
                     return Observation.state(State.PRECONDITION_FAILED);
                 return switch (page.kind()) {
                     case UNAVAILABLE, UNAVAILABLE_LEGACY -> Observation.state(State.PREVIEW_UNAVAILABLE);
-                    case ABSENT, NOT_EVALUATED -> Observation.state(State.UNAVAILABLE);
+                    case ABSENT, NOT_EVALUATED -> {
+                        diagnostic.record(Stage.PREVIEW, page.kind() == BulkPreviewPageReader.Kind.ABSENT
+                                ? Reason.PREVIEW_ABSENT : Reason.PREVIEW_NOT_EVALUATED, null);
+                        yield Observation.state(State.UNAVAILABLE);
+                    }
                     case COMPLETE -> throw new IllegalStateException("unreachable");
                 };
             }
@@ -216,8 +244,10 @@ public final class BulkAuthorizedProposalResultsReader {
             deadline.requireRemaining();
             return Observation.complete(new CursorPage<>(List.copyOf(content), next, null, pageSize));
         } catch (BulkProposalStorageException failure) {
+            diagnostic.record(Stage.PREVIEW, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         } catch (RuntimeException | SQLException failure) {
+            diagnostic.record(Stage.PREVIEW, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
     }
