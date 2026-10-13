@@ -221,7 +221,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -1058,7 +1058,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -1099,14 +1099,14 @@
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkCrudOperationalCapabilityHttpTest.java",
       "sha256": "e91f22d38e33e4602f063b562e1b9dd618fae2265b0bdb9ca63cc2abc947b63e",
       "kind": "excluded_outside_impact",
-      "reason": "O teste publica seis providers CRUD/command e verifica ambas capabilities contra a mesma fotografia, todos schema refs e ausência de fallback após drift. Composer/lifecycle alterados são chamadas diretas; suas quatro variantes SYNC e duas command não passam pelo novo capacity branch. Limit: Composição SYNC preservada nas unidades; publicação/READY com capacidade real e HTTP ASYNC same IDs, demais variantes SYNC intactas. Não exigir todos seis consumers históricos H2 para provar a nova família. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+      "reason": "Collection/item capability HTTP directly invokes the changed aggregator and compares six CRUD/command providers, schema references and drift denial. SYNC/command profiles and schema-link expectations remain bounded; this exclusion does not certify detached structural phases or current HTTP. Frozen discovery focals cover unlocked callbacks and final fences; exact consumer and mandatory Neon acceptance remain pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
       "className": "org.praxisplatform.uischema.bulk.BulkCrudOperationalCapabilityHttpTest",
       "fixtureGroup": "bulk_http_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "O teste publica seis providers CRUD/command e verifica ambas capabilities contra a mesma fotografia, todos schema refs e ausência de fallback após drift. Composer/lifecycle alterados são chamadas diretas; suas quatro variantes SYNC e duas command não passam pelo novo capacity branch. Limit: Composição SYNC preservada nas unidades; publicação/READY com capacidade real e HTTP ASYNC same IDs, demais variantes SYNC intactas. Não exigir todos seis consumers históricos H2 para provar a nova família. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+        "reason": "Collection/item capability HTTP directly invokes the changed aggregator and compares six CRUD/command providers, schema references and drift denial. SYNC/command profiles and schema-link expectations remain bounded; this exclusion does not certify detached structural phases or current HTTP. Frozen discovery focals cover unlocked callbacks and final fences; exact consumer and mandatory Neon acceptance remain pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
         "affectedSharedPathGroups": [],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Only entry-specific unchanged assertions described in the reason; changed discovery materialization is covered separately, with no whole legacy or remote PASS inferred.",
         "scopePaths": [
           "pom.xml"
         ],
@@ -1115,7 +1115,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -1179,7 +1179,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -1961,16 +1961,16 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkOperationStructuralCompilerTest.java",
-      "sha256": "4231ce018b161f138f21bb247bf12b35498a3e95ac7f7bb7403f10976bcb7d39",
+      "sha256": "e38f3c91c146b49816f2fefeba5ecf35c2b15cedccf7833d8bb879bdde40e614",
       "kind": "excluded_outside_impact",
-      "reason": "Mistura asserts puramente estruturais/fingerprint determinístico com EmbeddedPostgres em publicação CAS, scoped discovery, stale cold-node e provider removal. As chamadas compose/requireReady/publish são atingidas; digest SYNC é deliberadamente preservado pela ausência do novo campo capacity. Limit: Reusar unidades novas que afirmam SYNC/QUERY e fingerprint/codec; lifecycle batch físico no gate obrigatório e READY/capacidade no componente ASYNC. Não declarar os métodos EmbeddedPostgres inteiros superseded por um mock. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+      "reason": "Mixed structural/fingerprint and database lifecycle class; retain its existing exclusion and database-method limits. Only nonBulkCapabilityAvailabilityMayRequireAnotherReadyOperationOutsideTheDocumentScope is selected separately without DB: real lifecycle/compiler with JDBC seams checks nested requireReady, unlocked availability and following-read cleanup. Whole-source hash is current; neither that method nor discovery focals certify all embedded-Postgres methods or current Neon. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
       "className": "org.praxisplatform.uischema.bulk.BulkOperationStructuralCompilerTest",
       "fixtureGroup": "bulk_http_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Mistura asserts puramente estruturais/fingerprint determinístico com EmbeddedPostgres em publicação CAS, scoped discovery, stale cold-node e provider removal. As chamadas compose/requireReady/publish são atingidas; digest SYNC é deliberadamente preservado pela ausência do novo campo capacity. Limit: Reusar unidades novas que afirmam SYNC/QUERY e fingerprint/codec; lifecycle batch físico no gate obrigatório e READY/capacidade no componente ASYNC. Não declarar os métodos EmbeddedPostgres inteiros superseded por um mock. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+        "reason": "Mixed structural/fingerprint and database lifecycle class; retain its existing exclusion and database-method limits. Only nonBulkCapabilityAvailabilityMayRequireAnotherReadyOperationOutsideTheDocumentScope is selected separately without DB: real lifecycle/compiler with JDBC seams checks nested requireReady, unlocked availability and following-read cleanup. Whole-source hash is current; neither that method nor discovery focals certify all embedded-Postgres methods or current Neon. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
         "affectedSharedPathGroups": [],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Only entry-specific unchanged assertions described in the reason; changed discovery materialization is covered separately, with no whole legacy or remote PASS inferred.",
         "scopePaths": [
           "pom.xml"
         ],
@@ -1979,7 +1979,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -2633,14 +2633,14 @@
       "path": "src/test/java/org/praxisplatform/uischema/controller/base/AbstractResourceControllerJpaWriteIntegrationTest.java",
       "sha256": "20e9becfb2529afd58b8bba2445258df0a0723af855e56b77599085cbb263b1f",
       "kind": "excluded_outside_impact",
-      "reason": "Exercita CRUD/JPA, PATCH profile, links, schemas e collection/item capabilities do recurso Employee; não constrói BulkOperationLifecycle/descriptor/provider bulk. Controllers/resource mapper/surface resolver não estão no delta. Limit: Nenhuma prova nova desta fixture JPA; scope amplo deve ser renovado somente após revisão, sem alegar impacto de authority/catalog no CRUD genérico. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+      "reason": "Employee collection/item capabilities and schemas/surfaces directly consume the changed aggregation and surface services. CRUD/JPA, PATCH and mapper behavior are outside this delta; the former claim that the surface resolver is unchanged no longer applies. Focused discovery tests bound structural/callback/fence behavior; this legacy JPA class is not rerun or recertified and exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
       "className": "org.praxisplatform.uischema.controller.base.AbstractResourceControllerJpaWriteIntegrationTest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Exercita CRUD/JPA, PATCH profile, links, schemas e collection/item capabilities do recurso Employee; não constrói BulkOperationLifecycle/descriptor/provider bulk. Controllers/resource mapper/surface resolver não estão no delta. Limit: Nenhuma prova nova desta fixture JPA; scope amplo deve ser renovado somente após revisão, sem alegar impacto de authority/catalog no CRUD genérico. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+        "reason": "Employee collection/item capabilities and schemas/surfaces directly consume the changed aggregation and surface services. CRUD/JPA, PATCH and mapper behavior are outside this delta; the former claim that the surface resolver is unchanged no longer applies. Focused discovery tests bound structural/callback/fence behavior; this legacy JPA class is not rerun or recertified and exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
         "affectedSharedPathGroups": [],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Only entry-specific unchanged assertions described in the reason; changed discovery materialization is covered separately, with no whole legacy or remote PASS inferred.",
         "scopePaths": [
           "pom.xml"
         ],
@@ -2649,7 +2649,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -2833,14 +2833,14 @@
       "path": "src/test/java/org/praxisplatform/uischema/e2e/ActionCatalogE2ETest.java",
       "sha256": "00242ec23d1cf8165458ad2e83e8f2df2410a8c4bd65a65e1cad540e13b23d40",
       "kind": "excluded_outside_impact",
-      "reason": "Authorities/state controlam actions typedApprove/typedBulkApprove do Employee e separação collection/item; typed bulk aqui é workflow collection, não JdbcBulkDurableExecution/ASYNC governed. Limit: Nenhuma prova DB nova destes comandos typed; guard novo ASYNC continua nos testes próprios de composição/admissão. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+      "reason": "The schemas/surfaces request traverses changed surface materialization; action catalogs and action-state semantics are unchanged. Focused discovery tests cover related-child structural phases and final fences without DB. Preserve the legacy action assertions as bounded context, not whole-class or current HTTP acceptance; exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
       "className": "org.praxisplatform.uischema.e2e.ActionCatalogE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Authorities/state controlam actions typedApprove/typedBulkApprove do Employee e separação collection/item; typed bulk aqui é workflow collection, não JdbcBulkDurableExecution/ASYNC governed. Limit: Nenhuma prova DB nova destes comandos typed; guard novo ASYNC continua nos testes próprios de composição/admissão. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+        "reason": "The schemas/surfaces request traverses changed surface materialization; action catalogs and action-state semantics are unchanged. Focused discovery tests cover related-child structural phases and final fences without DB. Preserve the legacy action assertions as bounded context, not whole-class or current HTTP acceptance; exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
         "affectedSharedPathGroups": [],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Only entry-specific unchanged assertions described in the reason; changed discovery materialization is covered separately, with no whole legacy or remote PASS inferred.",
         "scopePaths": [
           "pom.xml"
         ],
@@ -2849,7 +2849,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -2872,7 +2872,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -2895,21 +2895,21 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/CapabilityConsistencyE2ETest.java",
       "sha256": "1a1f6de745ec3a24ef4a851eec2ea462300b7e5b72dbef56640cdad2420ad0d1",
       "kind": "excluded_outside_impact",
-      "reason": "Compara support/availability de stats/options/query/HATEOAS e surface/action snapshots Employee; não registra provider bulk. Agregadores genéricos não mudaram. Limit: Nenhuma nova prova de DB; HTTP ASYNC específico provará apenas a extensão bulk. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+      "reason": "Collection/item capability and schemas/surfaces comparisons directly traverse changed aggregation. Stats/options formulas and schema contracts are unchanged, but aggregate materialization is affected. Discovery focals cover detached structural phases, callbacks and fences; legacy HTTP consistency is not promoted to current PASS and exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
       "className": "org.praxisplatform.uischema.e2e.CapabilityConsistencyE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Compara support/availability de stats/options/query/HATEOAS e surface/action snapshots Employee; não registra provider bulk. Agregadores genéricos não mudaram. Limit: Nenhuma nova prova de DB; HTTP ASYNC específico provará apenas a extensão bulk. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+        "reason": "Collection/item capability and schemas/surfaces comparisons directly traverse changed aggregation. Stats/options formulas and schema contracts are unchanged, but aggregate materialization is affected. Discovery focals cover detached structural phases, callbacks and fences; legacy HTTP consistency is not promoted to current PASS and exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
         "affectedSharedPathGroups": [],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Only entry-specific unchanged assertions described in the reason; changed discovery materialization is covered separately, with no whole legacy or remote PASS inferred.",
         "scopePaths": [
           "pom.xml"
         ],
@@ -2918,21 +2918,21 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/CapabilityE2ETest.java",
       "sha256": "5cac5465853852697a3716166ead42d2061ec96bf99ae14bc185d1cd25c23ecc",
       "kind": "excluded_outside_impact",
-      "reason": "Collection/item capabilities e principal nominal/aggregateOnly são exercitados sem confirmação governada; estabilidade e 404 se referem ao Employee genérico. Limit: Nenhuma nova validação desta fixture por causa do delta bulk. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+      "reason": "Collection/item/state/availability capability requests directly traverse the changed aggregator and final fence. Existing authority/state expectations remain unchanged inputs; local photograph is never authority. Discovery focals cover unlocked callbacks, missing photograph, ambient transaction and generation drift; no whole legacy class or physical consumer acceptance is claimed and exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
       "className": "org.praxisplatform.uischema.e2e.CapabilityE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Collection/item capabilities e principal nominal/aggregateOnly são exercitados sem confirmação governada; estabilidade e 404 se referem ao Employee genérico. Limit: Nenhuma nova validação desta fixture por causa do delta bulk. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+        "reason": "Collection/item/state/availability capability requests directly traverse the changed aggregator and final fence. Existing authority/state expectations remain unchanged inputs; local photograph is never authority. Discovery focals cover unlocked callbacks, missing photograph, ambient transaction and generation drift; no whole legacy class or physical consumer acceptance is claimed and exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
         "affectedSharedPathGroups": [],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Only entry-specific unchanged assertions described in the reason; changed discovery materialization is covered separately, with no whole legacy or remote PASS inferred.",
         "scopePaths": [
           "pom.xml"
         ],
@@ -2941,7 +2941,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -2964,7 +2964,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -2993,21 +2993,21 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/HypermediaDiscoveryE2ETest.java",
       "sha256": "429aa5503a8c5365fa7c5c188c1456ccc3113b902c4587ea199208fd79db40c0",
       "kind": "excluded_outside_impact",
-      "reason": "Segue links de discovery/filter schema e verifica proxy headers/resource-local links, related-resource schema no grupo pai. Montagem genérica de URL/group é inalterada. Limit: ASYNC HTTP deve validar Location relativo próprio; os testes genéricos não são gate novo de authority. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+      "reason": "Following collection/item capability links and comparing surfaces/actions traverses changed aggregation. Generic link construction and proxy/group URL expectations are unchanged; related-resource materialization and final fence are affected. Focused discovery evidence is bounded to source-level behavior; legacy HTTP and exact current consumer/Neon acceptance remain pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
       "className": "org.praxisplatform.uischema.e2e.HypermediaDiscoveryE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Segue links de discovery/filter schema e verifica proxy headers/resource-local links, related-resource schema no grupo pai. Montagem genérica de URL/group é inalterada. Limit: ASYNC HTTP deve validar Location relativo próprio; os testes genéricos não são gate novo de authority. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+        "reason": "Following collection/item capability links and comparing surfaces/actions traverses changed aggregation. Generic link construction and proxy/group URL expectations are unchanged; related-resource materialization and final fence are affected. Focused discovery evidence is bounded to source-level behavior; legacy HTTP and exact current consumer/Neon acceptance remain pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
         "affectedSharedPathGroups": [],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Only entry-specific unchanged assertions described in the reason; changed discovery materialization is covered separately, with no whole legacy or remote PASS inferred.",
         "scopePaths": [
           "pom.xml"
         ],
@@ -3016,7 +3016,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3039,7 +3039,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3062,7 +3062,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3085,7 +3085,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3108,7 +3108,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3131,7 +3131,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3154,7 +3154,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3177,7 +3177,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3200,7 +3200,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3223,7 +3223,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3246,7 +3246,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3269,21 +3269,21 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/StatsE2ETest.java",
       "sha256": "41a41c1e821b40fc8a90b1b3ee6d2674d2bae0d79f72d29c33555d5a9a4beeb9",
       "kind": "excluded_outside_impact",
-      "reason": "Métricas COUNT/AVG/MIN/MAX/distinct/periodos e schema/catálogo stats/errors não executam kernel bulk nem authority. Limit: Nenhuma prova nova de DB destas agregações inalteradas. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+      "reason": "Stats discovery reads employees/capabilities through the changed aggregator. COUNT/AVG/MIN/MAX/distinct/period formulas and stats schemas are unchanged; the generic discovery endpoint path is affected. Discovery focals cover structural materialization/fences without certifying metric database execution or this whole legacy class; exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
       "className": "org.praxisplatform.uischema.e2e.StatsE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Métricas COUNT/AVG/MIN/MAX/distinct/periodos e schema/catálogo stats/errors não executam kernel bulk nem authority. Limit: Nenhuma prova nova de DB destas agregações inalteradas. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+        "reason": "Stats discovery reads employees/capabilities through the changed aggregator. COUNT/AVG/MIN/MAX/distinct/period formulas and stats schemas are unchanged; the generic discovery endpoint path is affected. Discovery focals cover structural materialization/fences without certifying metric database execution or this whole legacy class; exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
         "affectedSharedPathGroups": [],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Only entry-specific unchanged assertions described in the reason; changed discovery materialization is covered separately, with no whole legacy or remote PASS inferred.",
         "scopePaths": [
           "pom.xml"
         ],
@@ -3292,21 +3292,21 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/e2e/SurfaceCatalogE2ETest.java",
       "sha256": "28db1391c2ef3101df96094db6ea8e837fa32555ba4cd7dd987910857bac59b2",
       "kind": "excluded_outside_impact",
-      "reason": "Surfaces automáticas/explicit profile, authority+state e metadata tenantPresence usam catálogo genérico, não ReadyAdmission bulk. Limit: Nenhuma prova extra desta fixture; catálogo apresentação não concede autoridade ASYNC. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+      "reason": "Resource/group/item surfaces and contextual availability consume the changed surface service, including governed related-child projection. Plain surfaces without related documents retain their no-extra-read path; authority/state inputs are unchanged. Discovery focals cover entrypoints, callbacks, parent/child fences and legacy constructors; no whole H2 class or current HTTP acceptance is claimed and exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
       "className": "org.praxisplatform.uischema.e2e.SurfaceCatalogE2ETest",
       "fixtureGroup": "metadata_h2",
       "impactReview": {
         "diffBase": "64665a46d8743846b57306db3a7965ab2756ab69",
-        "reason": "Surfaces automáticas/explicit profile, authority+state e metadata tenantPresence usam catálogo genérico, não ReadyAdmission bulk. Limit: Nenhuma prova extra desta fixture; catálogo apresentação não concede autoridade ASYNC. Increment reviewed against public rc.165: only the two authorized proposal facades collect bounded private failure diagnostics and emit after their owned transaction/result decision. SQL, ACL, response states and deadlines are unchanged; BulkReadFailureDiagnosticsTest proves observer isolation in JDBC doubles. Historical evidence is not recertified for the new artifact; assigned Neon consumer observation remains pending before host adoption. Recovery increment reviewed against public rc.166: the fenced generation hint and project-version change leave this entry's invoked paths unchanged. Existing disposition/replacements remain scoped; new hint, published binary and host adoption are separately proved. Execution-diagnostic increment reviewed against public rc.168: this test call path does not invoke the changed execution-facade branches. Any existing proposal diagnostic uses unchanged Capture, graph and emission behavior; the helper delta only extends private enum values for execution readers. The broad reviewed source prefix nevertheless contains the diagnostic-only delta. Invoked structural/storage/migration/worker/proposal paths, public observations, SQL and budgets retain their earlier bounded dispositions; no rerun of this legacy class, whole-artifact equivalence or current execution-reader/remote PASS is claimed.",
+        "reason": "Resource/group/item surfaces and contextual availability consume the changed surface service, including governed related-child projection. Plain surfaces without related documents retain their no-extra-read path; authority/state inputs are unchanged. Discovery focals cover entrypoints, callbacks, parent/child fences and legacy constructors; no whole H2 class or current HTTP acceptance is claimed and exact consumer/Neon acceptance remains pending. Current peer custody proves 47 selected no-DB cases across six classes, including only the named mixed-class method; no physical consumer acceptance follows.",
         "affectedSharedPathGroups": [],
-        "unchangedGuarantee": "Entry-specific assertions and limits described above; no whole legacy PASS or current reader acceptance is inferred from an exclusion.",
+        "unchangedGuarantee": "Only entry-specific unchanged assertions described in the reason; changed discovery materialization is covered separately, with no whole legacy or remote PASS inferred.",
         "scopePaths": [
           "pom.xml"
         ],
@@ -3315,7 +3315,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -3338,7 +3338,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "c2ea531f4cf7b13c1d0a9250c37e49a946691ad7b0e2858e2e0accd0a074d36b"
+        "reviewedScopeDigest": "309a5e3b7cd834f7b32b640e02db9c7bf6efe540b1b72d1cf7a34e70c9de13ec"
       }
     },
     {
@@ -4146,6 +4146,13 @@
       "kind": "no_db",
       "className": "org.praxisplatform.uischema.bulk.BulkExecutionReadFailureDiagnosticsTest",
       "reason": "Real execution/status and execution-results facades plus Spring owned RR/RO boundary over JDBC doubles. Existing private summary-conversion/static correlation seams and real result header/items/cursor implementation; bounded stage/reason capture, inner plus commit failure, observer after close, expected denial/absence/cursor states and original Error preserved. No database, PostgreSQL MVCC/state-integrity or remote 503-cause claim."
+    },
+    {
+      "path": "src/test/java/org/praxisplatform/uischema/openapi/DiscoveryPublishedPhotographTest.java",
+      "sha256": "3544249a46001a1473ee2fc0edb4975ed16ba76ca9883e6a2963df576ac4dfc5",
+      "kind": "no_db",
+      "className": "org.praxisplatform.uischema.openapi.DiscoveryPublishedPhotographTest",
+      "reason": "Concrete cached published-document and capability/surface services with in-memory producer/guard/fence seams. Covers unlocked contextual callbacks, independent nested reads, suspension and same-byte republish, missing photograph, ambient-TX rejection, failure cleanup, related-child entrypoints and legacy constructors. No listener, database, host IAM, PostgreSQL or current remote acceptance claim. Exact frozen source is included in the current 47-case peer custody (13 cases in this class)."
     }
   ],
   "resources": [
