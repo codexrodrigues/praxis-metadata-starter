@@ -210,12 +210,24 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
             StatsSupportMode comparisonStatsSupportMode,
             Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts) {
+        return withCanonicalProjection(resourcePath, projection -> materializeCollectionCapabilities(
+                resourceKey, resourcePath, collectionExportSupported, collectionExportCapability,
+                statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode,
+                distributionStatsSupportMode, comparisonStatsSupportMode, bulkContracts, projection));
+    }
+
+    private CapabilitySnapshot materializeCollectionCapabilities(String resourceKey, String resourcePath,
+            boolean collectionExportSupported, CollectionExportCapability collectionExportCapability,
+            StatsFieldRegistry statsFieldRegistry, StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
+            StatsSupportMode comparisonStatsSupportMode,
+            Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts, CanonicalProjection projection) {
         ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
         if (structural != null) {
             collectionExportSupported = structural.export();
             collectionExportCapability = structural.exportCapability();
         }
-        Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
+        Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(projection.indicators());
         canonicalOperations.put("export", collectionExportSupported);
         if (structural == null) {
             applyStatsSupport(
@@ -242,7 +254,8 @@ public class DefaultCapabilityService implements CapabilityService {
                         collectionActions,
                         canonicalOperations,
                         collectionExportSupported,
-                        collectionExportCapability
+                        collectionExportCapability,
+                        projection
                 ),
                 collectionSurfaces,
                 collectionActions,
@@ -314,8 +327,18 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
             StatsSupportMode comparisonStatsSupportMode,
             Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts) {
+        return withCanonicalProjection(resourcePath, projection -> materializeItemCapabilities(
+                resourceKey, resourcePath, resourceId, statsFieldRegistry, groupByStatsSupportMode,
+                timeSeriesStatsSupportMode, distributionStatsSupportMode, comparisonStatsSupportMode, bulkContracts, projection));
+    }
+
+    private CapabilitySnapshot materializeItemCapabilities(String resourceKey, String resourcePath, Object resourceId,
+            StatsFieldRegistry statsFieldRegistry, StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
+            StatsSupportMode comparisonStatsSupportMode,
+            Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts, CanonicalProjection projection) {
         ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
-        Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(canonicalCapabilityResolver.resolve(resourcePath));
+        Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(projection.indicators());
         if (structural == null) {
             applyStatsSupport(
                     canonicalOperations,
@@ -336,7 +359,7 @@ public class DefaultCapabilityService implements CapabilityService {
                 group,
                 resourceId,
                 canonicalOperations,
-                resolveOperations(resourcePath, itemSurfaces, itemActions, canonicalOperations),
+                resolveOperations(resourcePath, itemSurfaces, itemActions, canonicalOperations, projection),
                 itemSurfaces,
                 itemActions,
                 structural != null ? structural.stats() : StatsCapability.from(
@@ -382,6 +405,51 @@ public class DefaultCapabilityService implements CapabilityService {
         canonicalOperations.computeIfPresent("statsTimeSeries", (key, present) -> present && supportsTimeSeries);
         canonicalOperations.computeIfPresent("statsDistribution", (key, present) -> present && supportsDistribution);
         canonicalOperations.computeIfPresent("statsComparison", (key, present) -> present && supportsComparison);
+    }
+
+    // Only structural resolvers run inside the photograph. Host rules and state loading run
+    // after it closes; the short final fence rejects drift even when a host caught a denial.
+    private <T> T withCanonicalProjection(String resourcePath,
+            java.util.function.Function<CanonicalProjection, T> consumer) {
+        if (openApiDocumentService.hasLocalPublishedBulkOpenApiPublication()
+                && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("Discovery projection must start outside operational transactions");
+        class Owner implements AutoCloseable {
+            CanonicalProjection projection;
+            @Override public void close() {
+                if (projection != null && projection.fence() != null) projection.fence().close();
+            }
+        }
+        try (var owner = new Owner()) {
+            CanonicalProjection projection = openApiDocumentService.withSchemaCacheReadLock(() -> {
+                // Presence selects the existing resolver overload, never supplies authority. The
+                // enclosing schema scope and final fence independently validate a governed tuple.
+                boolean published = openApiDocumentService.hasLocalPublishedBulkOpenApiPublication();
+                if (published && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+                    throw new IllegalStateException("Discovery projection must start outside operational transactions");
+                Map<String, Boolean> indicators;
+                Map<String, CapabilityOperation> operations;
+                if (published) {
+                    var document = openApiDocumentService.getDocumentForGroup(openApiDocumentService.resolveGroupFromPath(resourcePath));
+                    indicators = Map.copyOf(canonicalCapabilityResolver.resolve(document, resourcePath));
+                    operations = Map.copyOf(canonicalCapabilityResolver.resolveOperations(document, resourcePath));
+                } else {
+                    indicators = Map.copyOf(canonicalCapabilityResolver.resolve(resourcePath));
+                    operations = Map.copyOf(canonicalCapabilityResolver.resolveOperations(resourcePath));
+                }
+                owner.projection = new CanonicalProjection(indicators, operations,
+                        published ? openApiDocumentService.captureBulkLifecycleDocumentFence() : null);
+                return owner.projection;
+            });
+            T result = consumer.apply(projection);
+            if (projection.fence() != null) projection.fence().read(() -> null);
+            return result;
+        }
+    }
+
+    private record CanonicalProjection(Map<String, Boolean> indicators,
+            Map<String, CapabilityOperation> operations,
+            OpenApiDocumentService.BulkLifecycleDocumentFence fence) {
     }
 
     private ResourceStructuralCapabilities structuralCapabilities(String resourcePath) {
@@ -528,10 +596,11 @@ public class DefaultCapabilityService implements CapabilityService {
             List<ActionCatalogItem> actions,
             Map<String, Boolean> canonicalOperations,
             boolean collectionExportSupported,
-            CollectionExportCapability collectionExportCapability
+            CollectionExportCapability collectionExportCapability,
+            CanonicalProjection projection
     ) {
         Map<String, CapabilityOperation> operations = new LinkedHashMap<>(
-                resolveOperations(resourcePath, surfaces, actions, canonicalOperations)
+                resolveOperations(resourcePath, surfaces, actions, canonicalOperations, projection)
         );
         operations.put("export", exportOperation(collectionExportSupported, collectionExportCapability));
         return Map.copyOf(operations);
@@ -541,10 +610,11 @@ public class DefaultCapabilityService implements CapabilityService {
             String resourcePath,
             List<SurfaceCatalogItem> surfaces,
             List<ActionCatalogItem> actions,
-            Map<String, Boolean> canonicalOperations
+            Map<String, Boolean> canonicalOperations,
+            CanonicalProjection projection
     ) {
         Map<String, CapabilityOperation> operations = new LinkedHashMap<>(
-                canonicalCapabilityResolver.resolveOperations(resourcePath)
+                projection.operations()
         );
 
         reconcileSupportedOperations(operations, canonicalOperations);
