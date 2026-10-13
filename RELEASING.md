@@ -169,3 +169,31 @@ Checklist minima para esse caso:
   - Orçamento esgotado não cancela automaticamente um deployment; verificar a mesma coordenada quando houver evidência de propagação, sem novo upload. Esta prova não substitui `verify`/HTTP protegido do host nem migrations/deploy.
 - Assinaturas ausentes:
   - Confirme execução com `-P release -Dgpg.skip=false`; o job usa isso por padrão.
+
+### Preflight de custódia antes de criar a tag
+
+Antes do dispatch que cria a tag, audite as três seleções em uma árvore limpa do
+commit revisado. Use o SHA completo resolvido da fonte como `--base`, sua versão
+atual do POM como `--version`, e `--release --require-clean --print-selection`
+para `no_db`, `managed-owner` e `optional-policies`. Não passe a futura versão
+antes que o commit oficial de versão exista. Esse preflight não conecta ao banco,
+não cria tag e não substitui os testes e a assinatura obrigatórios da publicação.
+
+Uma alteração de teste exige renovar seu hash inventariado. Uma mudança no scope
+amplo de produção ou no POM exige revisão das exclusões e reutilizações, mesmo
+quando o caminho exercitado não mudou. Não atualizar hashes sem confrontar o diff,
+o comportamento coberto, as substituições obrigatórias e os recibos originais.
+A validação da tag compara essas closures contra o base pré-release; a alteração
+apenas da versão pelo dispatcher é verificada separadamente.
+
+No incremento de recuperação cold-node, foram revisados cinco scopes de exclusão
+(86 entradas) e três reutilizações históricas contra rc166. Apenas o hint de geração
+fenced e a versão do projeto mudaram nesses scopes; SQL, ACL, workers, callback,
+producer e dependências permanecem iguais. O teste de leitura tem 23 casos, dos
+quais dez cobrem o novo hint. Os ZIPs históricos, classificações e substituições
+permanecem intactos e não certificam o hint, os readers atuais ou a adoção pública.
+
+A tag rc167 foi criada pelo fluxo oficial, mas sua publicação pendente foi
+cancelada antes de executar por custódia desatualizada. Preserve a tag imutável e
+registre a correção; a próxima publicação deve usar uma versão livre. Não retag,
+substitua bytes públicos ou trate o cancelamento como publicação bem-sucedida.
