@@ -1827,9 +1827,9 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkLifecycleReadBatchTest.java",
-      "sha256": "e09e2de78268b23d30997b1704cf1de3f06e4f20825b17d50e1a420310d0d93c",
+      "sha256": "0b72c577b6d86e3b5028c0b5ae4c3ed05d8f50b6526bb87b6aa59e4dfb471e69",
       "kind": "no_db",
-      "reason": "Spring local transactions and mocked JDBC result collection/deadline/cardinality tests, with a static catalog-validator stand-in; no database setup. Root-reviewed 13 no-DB cases do not establish physical PostgreSQL or Neon attestation.",
+      "reason": "Spring local transactions and mocked JDBC result collection/deadline/cardinality tests, with a static catalog-validator stand-in; no database setup. Reviewed original 13 cases plus two fenced READY-generation hint cases (current match/absence/stale-generation and pre-JDBC ambient transaction/identity rejection). The hint does not capture or install documents or authorize reconcile. These 15 no-DB cases do not establish physical PostgreSQL or Neon attestation; the packaged five-boot Quickstart proof uses assigned remote Neon and real publisher SESSION separately.",
       "className": "org.praxisplatform.uischema.bulk.BulkLifecycleReadBatchTest"
     },
     {
