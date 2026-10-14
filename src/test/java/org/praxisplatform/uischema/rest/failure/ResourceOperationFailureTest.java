@@ -22,6 +22,15 @@ class ResourceOperationFailureTest {
     }
 
     @Test
+    void unavailableDerives503AndSystemCategoryFromTheCanonicalKind() {
+        ResourceOperationFailure failure = ResourceOperationFailure.of(
+                ResourceOperationFailureKind.UNAVAILABLE, "UNAVAILABLE", "Service temporarily unavailable.");
+        assertEquals(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, failure.kind().status());
+        assertEquals(org.praxisplatform.uischema.rest.exceptionhandler.ErrorCategory.SYSTEM, failure.kind().category());
+        org.junit.jupiter.api.Assertions.assertFalse(failure.kind().sanitizedInternalFailure());
+    }
+
+    @Test
     void shouldRejectControlCharactersInPublicCodeOrTarget() {
         assertThrows(IllegalArgumentException.class, () -> new ResourceOperationFailure(
                 ResourceOperationFailureKind.INVALID_INPUT,

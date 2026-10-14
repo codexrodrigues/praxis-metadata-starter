@@ -45,6 +45,11 @@ public class ResourceCommandHttpResponseAdapter {
             String message,
             ResourceCommandMessage commandMessage
     ) {
+        if (outcome == ResourceCommandOutcome.UNAVAILABLE) {
+            // Provider reasons, codes and field targets may contain infrastructure details.
+            message = ResourceCommandExecutionResult.UNAVAILABLE_PUBLIC_MESSAGE;
+            commandMessage = null;
+        }
         ResourceOperationFailure failure = resourceFailure(outcome, message, commandMessage);
         HttpStatus status = failure.kind().status();
         CustomProblemDetail problem = new CustomProblemDetail(failure.safeMessage());
@@ -70,6 +75,7 @@ public class ResourceCommandHttpResponseAdapter {
             case CONFLICT_DUPLICATE -> ResourceOperationFailureKind.CONFLICT_DUPLICATE;
             case CONFLICT_DEPENDENCY -> ResourceOperationFailureKind.CONFLICT_DEPENDENCY;
             case PRECONDITION_FAILED -> ResourceOperationFailureKind.PRECONDITION_FAILED;
+            case UNAVAILABLE -> ResourceOperationFailureKind.UNAVAILABLE;
             case SUCCESS, ACCEPTED, UNEXPECTED_SANITIZED -> ResourceOperationFailureKind.UNEXPECTED_SANITIZED;
         };
         String code = commandMessage == null ? outcome.name() : commandMessage.code();
@@ -85,6 +91,7 @@ public class ResourceCommandHttpResponseAdapter {
             case CONFLICT_DUPLICATE -> "Command conflicts with existing data";
             case CONFLICT_DEPENDENCY -> "Command conflicts with dependent data";
             case PRECONDITION_FAILED -> "Command precondition failed";
+            case UNAVAILABLE -> "Command is temporarily unavailable";
             case SUCCESS, ACCEPTED, UNEXPECTED_SANITIZED -> "Command execution failed";
         };
     }

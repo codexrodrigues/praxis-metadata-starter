@@ -18,6 +18,7 @@ public enum ResourceOperationFailureKind {
     CONFLICT_DUPLICATE(HttpStatus.CONFLICT, ErrorCategory.BUSINESS_LOGIC, "Conflict", "conflict"),
     CONFLICT_DEPENDENCY(HttpStatus.CONFLICT, ErrorCategory.BUSINESS_LOGIC, "Conflict", "conflict"),
     PRECONDITION_FAILED(HttpStatus.PRECONDITION_FAILED, ErrorCategory.VALIDATION, "Precondition failed", "precondition-failed"),
+    UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, ErrorCategory.SYSTEM, "Service unavailable", "service-unavailable"),
     UNEXPECTED_SANITIZED(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCategory.SYSTEM, "Internal server error", "internal-server-error");
 
     private final HttpStatus status;

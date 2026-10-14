@@ -15,6 +15,8 @@ public record ResourceCommandExecutionResult(
         Map<String, Object> evidence
 ) {
 
+    static final String UNAVAILABLE_PUBLIC_MESSAGE = "Command is temporarily unavailable.";
+
     public ResourceCommandExecutionResult {
         outcome = outcome == null ? ResourceCommandOutcome.UNEXPECTED_SANITIZED : outcome;
         responsePolicy = responsePolicy == null
@@ -100,7 +102,8 @@ public record ResourceCommandExecutionResult(
                 List.of(new ResourceCommandMessage(
                         resolvedOutcome.errorCategory(),
                         resolvedOutcome.name(),
-                        message == null ? "Command execution failed." : message,
+                        resolvedOutcome == ResourceCommandOutcome.UNAVAILABLE ? UNAVAILABLE_PUBLIC_MESSAGE
+                                : message == null ? "Command execution failed." : message,
                         null,
                         Map.of()
                 )),

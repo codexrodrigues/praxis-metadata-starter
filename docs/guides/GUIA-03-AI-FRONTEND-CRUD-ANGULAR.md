@@ -254,7 +254,14 @@ retornar, para que ausência de versão reverta domínio e versão juntos. O con
 também valida o resultado, mas sua checagem posterior ao commit não substitui esse
 guard transacional em implementações próprias do SPI. O mapper não aceita versão
 esperada do payload, e a entrada Java de dois argumentos permanece protegida por
-`428`. Em replay histórico de action, reutilize revisão historicamente capturada ou
+`428`. A implementação herdada de `AbstractBaseResourceService` rejeita essa entrada
+antes da leitura, dos hooks e do mapper quando o serviço implementa
+`VersionedCreateUpdateResourceService`; não exige override defensivo no host. Um
+override concreto próprio de dois argumentos continua responsável por preservar
+essa rejeição. Serviços não versionados mantêm o update de dois argumentos, e a
+implementação versionada de três argumentos executa seu próprio fluxo transacional
+com precondição, sem delegar ao overload sem precondição.
+Em replay histórico de action, reutilize revisão historicamente capturada ou
 omita ETag; nunca assine a versão atual para um corpo antigo. Esse par certifica a
 linha do recurso, não um snapshot de links, grants ou relações.
 
