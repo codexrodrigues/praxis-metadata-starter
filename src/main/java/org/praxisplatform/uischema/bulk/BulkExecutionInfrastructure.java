@@ -170,6 +170,7 @@ public final class BulkExecutionInfrastructure {
                                 DataSourceUtils.getTargetConnection(connection), dataSource)) {
                     throw new IllegalStateException("Snapshot must use the bound operational connection");
                 }
+                establishOwnedSnapshotTransaction(connection);
                 String previous = constrainSnapshotAttestationTimeouts(connection);
                 try {
                     BulkExecutionMigrator.validateLiveRuntimeRoleAccess(connection, roleConfiguration);
@@ -184,6 +185,16 @@ public final class BulkExecutionInfrastructure {
                 return result;
             });
         });
+    }
+
+    /** Materializes this owned transaction's existing contract before its first SDK SELECT. */
+    private void establishOwnedSnapshotTransaction(java.sql.Connection connection) throws java.sql.SQLException {
+        requireLifecycleTimeRemaining(dataSource);
+        try (var statement = connection.createStatement()) {
+            DataSourceUtils.applyTransactionTimeout(statement, dataSource);
+            statement.executeUpdate("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY");
+        }
+        requireLifecycleTimeRemaining(dataSource);
     }
 
     /** The read-only snapshot's state and lower-preserving clamp share one submission. */

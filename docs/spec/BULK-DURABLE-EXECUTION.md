@@ -564,3 +564,11 @@ it is not a SQL `READ ONLY` promise. A host retiring new SYNC admission can use 
 lookup for authorized historical replay instead of calling `reserve`, whose EXPLICIT
 path may create a reservation. Infrastructure uncertainty remains `UNAVAILABLE`;
 there is no automatic retry or fallback to admission. No HTTP shape changes here.
+
+### Características físicas do snapshot de leitura owned
+
+`BulkExecutionInfrastructure.withConsistentRead` suspende o caller e abre seu próprio snapshot `REQUIRES_NEW`, REPEATABLE READ, read-only, com o prazo original de três segundos. Na conexão bound, sua primeira submissão JDBC é `SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY`, com timeout derivado do holder corrente e checks de prazo antes/depois. O clamp, a guarda nativa de isolamento/read-only, a atestação de runtime, a restauração dos limites menores e os checks ao redor do callback continuam obrigatórios. Não depender de `SET SESSION` entre transações de um pooler nem renovar o prazo.
+
+Isso materializa o contrato da transação owned; não detecta universalmente SQL anterior. PostgreSQL permite SET idempotente em um snapshot já RR e permite RW→RO; uma tentativa de elevar um snapshot RC para RR deve recusar e provocar rollback, sem fallback ou retry. A transação ambient, suas flags, recursos e deadline devem ser retomados intactos após sucesso ou falha. Capture caller-owned RR/RW e instalador direto permanecem fronteiras distintas.
+
+A prova focal sem banco verifica ordem, TTL, falhas e suspensão/restauração, não comportamento físico do pooler. Um probe RR/on que não reproduz a recusa não identifica retroativamente a causa de um 503. A correção e o artefato atuais exigem prova Neon atribuída e jornada HTTP do consumidor, antes de alegar aceite remoto.
