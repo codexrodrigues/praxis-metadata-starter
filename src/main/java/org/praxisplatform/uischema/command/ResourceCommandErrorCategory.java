@@ -10,5 +10,6 @@ public enum ResourceCommandErrorCategory {
     CONFLICT_DUPLICATE,
     CONFLICT_DEPENDENCY,
     PRECONDITION,
+    UNAVAILABLE,
     UNEXPECTED_SANITIZED
 }

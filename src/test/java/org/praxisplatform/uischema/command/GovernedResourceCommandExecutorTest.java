@@ -185,6 +185,61 @@ class GovernedResourceCommandExecutorTest {
     }
 
     @Test
+    void preservesExpectedServiceUnavailabilityWithoutPublishingPrivateReason() {
+        String privateReason = "postgresql://runtime:private-password@internal/config policy SQL failed";
+        GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(request -> {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, privateReason,
+                    new IllegalStateException("private-config-cause"));
+        });
+        ResourceCommandExecutionResult result = executor.execute(ResourceCommandExecutionRequest.item(
+                "example.people", "/api/example/people", "approve", 42L, null,
+                ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT));
+
+        assertFalse(result.successful());
+        assertEquals("UNAVAILABLE", result.outcome().name());
+        assertEquals("Command is temporarily unavailable.", result.messages().getFirst().message());
+        assertEquals(503, result.evidence().get("status"));
+        assertFalse(result.toString().contains("private-password"));
+        assertFalse(result.toString().contains("private-config-cause"));
+    }
+
+    @Test
+    void mapsTypedUnavailableAndCommandExceptionWithoutPrivateMessagesOrCauses() {
+        var request = ResourceCommandExecutionRequest.item("example.people", "/api/example/people", "approve",
+                42L, null, ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT);
+        var typed = new org.praxisplatform.uischema.rest.failure.ResourceOperationFailureException(
+                org.praxisplatform.uischema.rest.failure.ResourceOperationFailure.of(
+                        org.praxisplatform.uischema.rest.failure.ResourceOperationFailureKind.UNAVAILABLE,
+                        "private-provider-code", "private provider reason"), new IllegalStateException("private-cause"));
+        var typedResult = new GovernedResourceCommandExecutor(ignored -> { throw typed; }).execute(request);
+        assertEquals(ResourceCommandOutcome.UNAVAILABLE, typedResult.outcome());
+        assertEquals("Command is temporarily unavailable.", typedResult.messages().getFirst().message());
+        assertFalse(typedResult.toString().contains("private"));
+        assertEquals("private-cause", typed.getCause().getMessage());
+
+        var commandResult = new GovernedResourceCommandExecutor(ignored -> {
+            throw new ResourceCommandExecutionException(ResourceCommandOutcome.UNAVAILABLE,
+                    "private provider reason", Map.of("password", "private"));
+        }).execute(request);
+        assertEquals(ResourceCommandOutcome.UNAVAILABLE, commandResult.outcome());
+        assertEquals(ResourceCommandErrorCategory.UNAVAILABLE, commandResult.messages().getFirst().category());
+        assertFalse(commandResult.toString().contains("private"));
+    }
+
+    @Test
+    void responseStatus500KeepsUnexpectedFailureAndSanitizesTheReason() {
+        var request = ResourceCommandExecutionRequest.item("example.people", "/api/example/people", "approve",
+                42L, null, ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT);
+        var result = new GovernedResourceCommandExecutor(ignored -> {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "private-provider-error");
+        }).execute(request);
+        assertEquals(ResourceCommandOutcome.UNEXPECTED_SANITIZED, result.outcome());
+        assertEquals("Command execution failed.", result.messages().getFirst().message());
+        assertEquals("UNEXPECTED_SANITIZED", result.messages().getFirst().code());
+        assertFalse(result.toString().contains("private-provider-error"));
+    }
+
+    @Test
     void mapsConcurrentJpaWriteToStablePreconditionFailure() {
         GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(request -> {
             throw new ObjectOptimisticLockingFailureException("PrivateAgreementEntity", 42L);

@@ -11,6 +11,10 @@ import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
  * <p>The implementation must lock/read the current persisted version and call
  * {@link ResourceVersionUpdatePrecondition#requireMatch(long)} inside the same transaction that
  * performs the update. This keeps ordinary non-versioned resources source compatible.</p>
+ *
+ * <p>The inherited two-argument update rejects a missing precondition in both this interface
+ * and {@link AbstractBaseResourceService}. A custom concrete override must preserve that
+ * rejection; it cannot use the ordinary update as a versioned mutation path.</p>
  */
 public interface VersionedCreateUpdateResourceService<
         ResponseDTO,

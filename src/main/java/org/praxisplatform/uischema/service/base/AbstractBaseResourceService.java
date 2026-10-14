@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.service.base;
 
 import jakarta.persistence.EntityManager;
+import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
@@ -67,9 +68,17 @@ public abstract class AbstractBaseResourceService<
         return new BaseResourceCommandService.SavedResult<>(extractId(saved), getResourceMapper().toResponse(saved));
     }
 
+    /**
+     * Updates an ordinary resource. Versioned services must use their three-argument update:
+     * this concrete method takes precedence over the versioned interface's default method,
+     * so it rejects a missing precondition before loading an entity or running any hook.
+     */
     @Override
     @Transactional
     public ResponseDTO update(ID id, UpdateDTO dto) {
+        if (this instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>) {
+            throw ResourceVersionPreconditionException.required();
+        }
         E existing = findEntityById(id);
         beforeUpdate(id, existing, dto);
         getResourceMapper().applyUpdate(existing, dto);

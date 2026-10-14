@@ -12,6 +12,7 @@ public enum ResourceCommandOutcome {
     CONFLICT_DUPLICATE(ResourceCommandErrorCategory.CONFLICT_DUPLICATE),
     CONFLICT_DEPENDENCY(ResourceCommandErrorCategory.CONFLICT_DEPENDENCY),
     PRECONDITION_FAILED(ResourceCommandErrorCategory.PRECONDITION),
+    UNAVAILABLE(ResourceCommandErrorCategory.UNAVAILABLE),
     UNEXPECTED_SANITIZED(ResourceCommandErrorCategory.UNEXPECTED_SANITIZED);
 
     private final ResourceCommandErrorCategory errorCategory;

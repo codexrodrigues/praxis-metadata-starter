@@ -12,6 +12,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class ResourceCommandHttpResponseAdapterTest {
 
@@ -135,6 +136,44 @@ class ResourceCommandHttpResponseAdapterTest {
         assertEquals(ErrorCategory.BUSINESS_LOGIC, problem.getCategory());
         assertEquals("CONFLICT_DUPLICATE", problem.getProperties().get("outcome"));
         assertEquals("CONFLICT_DUPLICATE", problem.getCode());
+    }
+
+    @Test
+    void mapsExpectedServiceUnavailabilityToSanitized503Envelope() {
+        GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(request -> {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "private SQL and credentials must not escape");
+        });
+        var request = ResourceCommandExecutionRequest.item("example.people", "/api/example/people", "approve",
+                42L, null, ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT);
+        ResponseEntity<?> response = adapter.toResponse(executor.execute(request));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+        RestApiResponse<?> body = assertInstanceOf(RestApiResponse.class, response.getBody());
+        assertEquals("failure", body.getStatus());
+        assertEquals("Command is temporarily unavailable.", body.getMessage());
+        CustomProblemDetail problem = body.getErrors().getFirst();
+        assertEquals(503, problem.getStatus());
+        assertEquals(ErrorCategory.SYSTEM, problem.getCategory());
+        assertEquals("UNAVAILABLE", problem.getCode());
+        assertEquals("UNAVAILABLE", problem.getProperties().get("outcome"));
+        assertFalse(problem.getMessage().contains("private"));
+    }
+
+    @Test
+    void sanitizesDirectUnavailableResultCodeTargetAndReason() {
+        var result = new ResourceCommandExecutionResult(ResourceCommandOutcome.UNAVAILABLE,
+                ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT, 42L, null,
+                java.util.List.of(new ResourceCommandMessage(ResourceCommandErrorCategory.UNAVAILABLE,
+                        "private\nprovider-code", "private provider reason", "private-password", Map.of())), Map.of());
+        var response = adapter.toResponse(result);
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
+        var body = assertInstanceOf(RestApiResponse.class, response.getBody());
+        var problem = ((RestApiResponse<?>) body).getErrors().getFirst();
+        assertEquals("Command is temporarily unavailable.", body.getMessage());
+        assertEquals("UNAVAILABLE", problem.getCode());
+        assertNull(problem.getTarget());
+        assertEquals("UNAVAILABLE", problem.getProperties().get("outcome"));
     }
 
     @Test

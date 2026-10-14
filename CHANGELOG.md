@@ -4,6 +4,26 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### Indisponibilidade de comando governado
+
+- Acrescenta `UNAVAILABLE` ao outcome/categoria de comando e ao kind canônico de
+  falha de recurso. O executor preserva indisponibilidade esperada em HTTP 503,
+  categoria `SYSTEM`, código/outcome `UNAVAILABLE` e mensagem pública fixa;
+  reason, código, target e causa privados do provider não chegam ao envelope.
+- O adapter sanitiza também resultados diretos `UNAVAILABLE`. Falhas genéricas e
+  status sem mapeamento permanecem 500 sanitizados; 503 não autoriza retry de
+  mutação. Fonte e candidato privado não equivalem à publicação ou adoção host.
+
+### Entrada Java de update versionado
+
+- `AbstractBaseResourceService.update(id, dto)` rejeita com `428 RESOURCE_VERSION_REQUIRED`
+  quando o serviço implementa `VersionedCreateUpdateResourceService`, antes de carregar
+  entidade, executar hooks ou aplicar mapper. Fecha a precedência do método concreto
+  sobre o default da interface sem depender de override defensivo no host.
+- Preserva o update de dois argumentos dos serviços não versionados e a implementação
+  explícita versionada de três argumentos. Overrides concretos próprios continuam
+  responsáveis por exigir a precondição; este corte não publica versão ou adoção host.
+
 ### Instalação de operações em lote por owner gerenciado
 
 - Corrige migrações e bootstrap para owner CREATEROLE sem SUPERUSER em PostgreSQL17+, distinguindo ADMIN, INHERIT e SET; exige proveniência administrativa exata e restaura privilégios temporários.
