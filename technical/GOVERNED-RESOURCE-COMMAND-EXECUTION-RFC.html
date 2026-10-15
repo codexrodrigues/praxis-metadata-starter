@@ -411,6 +411,7 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 <li><code>CONFLICT_DUPLICATE</code>;</li>
 <li><code>CONFLICT_DEPENDENCY</code>;</li>
 <li><code>PRECONDITION</code>;</li>
+<li><code>UNAVAILABLE</code>;</li>
 <li><code>UNEXPECTED_SANITIZED</code>.</li>
 </ul>
 <p>O executor ja integra com
@@ -438,8 +439,32 @@ governada:</p>
 <li><code>404</code> -&gt; <code>NOT_FOUND</code>;</li>
 <li><code>409</code> -&gt; <code>CONFLICT_DEPENDENCY</code>;</li>
 <li><code>412</code> -&gt; <code>PRECONDITION_FAILED</code>;</li>
+<li><code>503</code> -&gt; <code>UNAVAILABLE</code>;</li>
 <li>demais status -&gt; <code>UNEXPECTED_SANITIZED</code>.</li>
 </ul>
+<p><code>UNAVAILABLE</code> é uma falha esperada e sanitizada, distinta
+de erro inesperado. O outcome e a categoria de comando usam esse
+vocabulário; sua materialização deriva de
+<code>ResourceOperationFailureKind.UNAVAILABLE</code>: HTTP 503 e
+categoria ampla <code>SYSTEM</code>. O executor admite tanto
+<code>ResponseStatusException(503)</code> como uma falha canônica tipada
+com esse kind. O adapter publica código/outcome
+<code>UNAVAILABLE</code>, mensagem fixa
+<code>Command is temporarily unavailable.</code> e nenhum target. Não
+publica reason, código, cause ou target privados fornecidos pelo
+provider, inclusive quando este retorna um resultado
+<code>UNAVAILABLE</code> diretamente. Outros kinds funcionais ainda não
+possuem tradução automática nesse executor; esta extensão não altera
+suas classificações.</p>
+<p>Uma indisponibilidade não é concessão de autoridade nem instrução
+para repetir automaticamente uma mutação. O consumidor deve seguir o
+contrato de recuperação e idempotência da operação. Exceção genérica,
+inclusive <code>IllegalStateException</code>, continua sanitizada em
+500; um status sem mapeamento também não certifica seu reason como
+mensagem pública e permanece <code>UNEXPECTED_SANITIZED</code>. Este
+incremento é candidato de fonte: publicação e adoção HTTP do host são
+gates separados da prova MVC focal do starter, sem banco ou cadeia de
+segurança do host.</p>
 <p>Isso permite que services de dominio ja existentes migrem para
 <code>executeCollectionCommand</code>/<code>executeItemCommand</code>
 sem envolver cada fluxo em try/catch local apenas para preservar
@@ -455,8 +480,8 @@ envelope ad hoc;</li>
 envelope de sucesso carregando resultado publico ou job id;</li>
 <li><code>VALIDATION_FAILED</code>, <code>PERMISSION_DENIED</code>,
 <code>NOT_FOUND</code>, <code>CONFLICT_DUPLICATE</code>,
-<code>CONFLICT_DEPENDENCY</code>, <code>PRECONDITION_FAILED</code> e
-<code>UNEXPECTED_SANITIZED</code> -&gt;
+<code>CONFLICT_DEPENDENCY</code>, <code>PRECONDITION_FAILED</code>,
+<code>UNAVAILABLE</code> e <code>UNEXPECTED_SANITIZED</code> -&gt;
 <code>RestApiResponse.failure</code> com
 <code>CustomProblemDetail</code> publico.</li>
 </ul>

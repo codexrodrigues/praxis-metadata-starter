@@ -140,6 +140,7 @@ Categorias publicas de erro:
 - `CONFLICT_DUPLICATE`;
 - `CONFLICT_DEPENDENCY`;
 - `PRECONDITION`;
+- `UNAVAILABLE`;
 - `UNEXPECTED_SANITIZED`.
 
 O executor ja integra com `ResourceOperationAvailabilityProvider`: se a
@@ -164,7 +165,26 @@ tambem e tratada como falha publica governada:
 - `404` -> `NOT_FOUND`;
 - `409` -> `CONFLICT_DEPENDENCY`;
 - `412` -> `PRECONDITION_FAILED`;
+- `503` -> `UNAVAILABLE`;
 - demais status -> `UNEXPECTED_SANITIZED`.
+
+`UNAVAILABLE` é uma falha esperada e sanitizada, distinta de erro inesperado. O
+outcome e a categoria de comando usam esse vocabulário; sua materialização deriva
+de `ResourceOperationFailureKind.UNAVAILABLE`: HTTP 503 e categoria ampla `SYSTEM`.
+O executor admite tanto `ResponseStatusException(503)` como uma falha canônica
+tipada com esse kind. O adapter publica código/outcome `UNAVAILABLE`, mensagem fixa
+`Command is temporarily unavailable.` e nenhum target. Não publica reason, código,
+cause ou target privados fornecidos pelo provider, inclusive quando este retorna
+um resultado `UNAVAILABLE` diretamente. Outros kinds funcionais ainda não possuem
+tradução automática nesse executor; esta extensão não altera suas classificações.
+
+Uma indisponibilidade não é concessão de autoridade nem instrução para repetir
+automaticamente uma mutação. O consumidor deve seguir o contrato de recuperação
+e idempotência da operação. Exceção genérica, inclusive `IllegalStateException`,
+continua sanitizada em 500; um status sem mapeamento também não certifica seu reason
+como mensagem pública e permanece `UNEXPECTED_SANITIZED`.
+Este incremento é candidato de fonte: publicação e adoção HTTP do host são gates
+separados da prova MVC focal do starter, sem banco ou cadeia de segurança do host.
 
 Isso permite que services de dominio ja existentes migrem para
 `executeCollectionCommand`/`executeItemCommand` sem envolver cada fluxo em
@@ -179,7 +199,7 @@ o envelope HTTP canonico da plataforma:
 - `ACCEPTED_ASYNC` -> `202 Accepted` com envelope de sucesso carregando
   resultado publico ou job id;
 - `VALIDATION_FAILED`, `PERMISSION_DENIED`, `NOT_FOUND`,
-  `CONFLICT_DUPLICATE`, `CONFLICT_DEPENDENCY`, `PRECONDITION_FAILED` e
+  `CONFLICT_DUPLICATE`, `CONFLICT_DEPENDENCY`, `PRECONDITION_FAILED`, `UNAVAILABLE` e
   `UNEXPECTED_SANITIZED` -> `RestApiResponse.failure` com
   `CustomProblemDetail` publico.
 

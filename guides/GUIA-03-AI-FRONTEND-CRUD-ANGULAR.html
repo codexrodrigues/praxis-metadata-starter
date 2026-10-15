@@ -476,10 +476,19 @@ versão reverta domínio e versão juntos. O controller também valida o
 resultado, mas sua checagem posterior ao commit não substitui esse guard
 transacional em implementações próprias do SPI. O mapper não aceita
 versão esperada do payload, e a entrada Java de dois argumentos
-permanece protegida por <code>428</code>. Em replay histórico de action,
-reutilize revisão historicamente capturada ou omita ETag; nunca assine a
-versão atual para um corpo antigo. Esse par certifica a linha do
-recurso, não um snapshot de links, grants ou relações.</p>
+permanece protegida por <code>428</code>. A implementação herdada de
+<code>AbstractBaseResourceService</code> rejeita essa entrada antes da
+leitura, dos hooks e do mapper quando o serviço implementa
+<code>VersionedCreateUpdateResourceService</code>; não exige override
+defensivo no host. Um override concreto próprio de dois argumentos
+continua responsável por preservar essa rejeição. Serviços não
+versionados mantêm o update de dois argumentos, e a implementação
+versionada de três argumentos executa seu próprio fluxo transacional com
+precondição, sem delegar ao overload sem precondição. Em replay
+histórico de action, reutilize revisão historicamente capturada ou omita
+ETag; nunca assine a versão atual para um corpo antigo. Esse par
+certifica a linha do recurso, não um snapshot de links, grants ou
+relações.</p>
 <p>Antes de adotar o candidato, prove com PostgreSQL e barreiras entre
 projeção/header do GET e resultado/header do PUT: corpo/token pareados,
 token anterior rejeitado em <code>412</code>, token de DTO igual ao
