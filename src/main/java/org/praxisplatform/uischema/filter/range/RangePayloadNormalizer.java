@@ -18,8 +18,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.Temporal;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -32,6 +35,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Canonicaliza payloads de range para o formato de lista usado pelos FilterDTOs
@@ -47,6 +52,12 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
     );
     private static final String SCALAR_PAYLOAD_ERROR =
             "Scalar range payload is invalid. Use [min], [null,max], [min,max], or a canonical object.";
+    private static final Pattern YEAR_PERIOD_PATTERN =
+            Pattern.compile("^(?:FY)?(\\d{4})$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MONTH_PERIOD_PATTERN =
+            Pattern.compile("^(\\d{4})-(0[1-9]|1[0-2])$");
+    private static final Pattern QUARTER_PERIOD_PATTERN =
+            Pattern.compile("^(\\d{4})-Q([1-4])$", Pattern.CASE_INSENSITIVE);
 
     private static final List<String> LOWER_DATE_KEYS = RangeBoundAliasRegistry.lowerDateKeys();
     private static final List<String> UPPER_DATE_KEYS = RangeBoundAliasRegistry.upperDateKeys();
@@ -68,7 +79,7 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
             if (source == null) {
                 continue;
             }
-            ArrayNode normalized = normalizeRangeValue(source.raw(), metadata.kind());
+            ArrayNode normalized = normalizeRangeValue(source.raw(), metadata);
             if (normalized == null) {
                 if (hasExplicitContent(source.raw())) {
                     throw new InvalidFilterPayloadException(
@@ -105,14 +116,16 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
             String fieldName = field.getName();
             String relationAlias = resolveSimpleRelationAlias(filterable.relation());
             String fieldAlias = resolveFieldAlias(fieldName);
-            RangeKind kind = resolveKind(field);
+            Class<?> elementType = resolveElementType(field);
+            RangeKind kind = resolveKind(field, elementType);
             result.add(new RangeFieldMetadata(
                     fieldName,
                     relationAlias,
                     fieldAlias,
                     buildSplitBoundAliases(fieldAlias, relationAlias, kind, true),
                     buildSplitBoundAliases(fieldAlias, relationAlias, kind, false),
-                    kind
+                    kind,
+                    elementType
             ));
         }
         return result;
@@ -269,16 +282,18 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
         return fields;
     }
 
-    private RangeKind resolveKind(Field field) {
+    private RangeKind resolveKind(Field field, Class<?> elementType) {
         UISchema uiSchema = field.getAnnotation(UISchema.class);
         if (uiSchema != null && uiSchema.numericFormat() == NumericFormat.CURRENCY) {
             return RangeKind.MONETARY;
         }
 
-        Class<?> elementType = resolveElementType(field);
         if (elementType != null) {
             if (LocalDate.class.isAssignableFrom(elementType)) {
                 return RangeKind.DATE;
+            }
+            if (LocalTime.class.isAssignableFrom(elementType)) {
+                return RangeKind.TIME;
             }
             if (Temporal.class.isAssignableFrom(elementType) || Date.class.isAssignableFrom(elementType)) {
                 return RangeKind.DATE_TIME;
@@ -324,15 +339,15 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
                 || normalized.contains("amount");
     }
 
-    private ArrayNode normalizeRangeValue(JsonNode raw, RangeKind kind) {
+    private ArrayNode normalizeRangeValue(JsonNode raw, RangeFieldMetadata metadata) {
         if (raw == null || raw.isNull()) {
             return null;
         }
         if (raw.isArray()) {
-            return normalizeFromArray(raw, kind);
+            return normalizeFromArray(raw, metadata);
         }
         if (raw.isObject()) {
-            return normalizeFromObject((ObjectNode) raw, kind);
+            return normalizeFromObject((ObjectNode) raw, metadata);
         }
         if (isMeaningful(raw)) {
             throw new InvalidFilterPayloadException(SCALAR_PAYLOAD_ERROR);
@@ -340,11 +355,12 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
         return null;
     }
 
-    private ArrayNode normalizeFromArray(JsonNode arrayNode, RangeKind kind) {
+    private ArrayNode normalizeFromArray(JsonNode arrayNode, RangeFieldMetadata metadata) {
         if (arrayNode != null && arrayNode.size() > 2) {
             throw new InvalidFilterPayloadException("Range payload accepts at most two bounds.");
         }
 
+        RangeKind kind = metadata.kind();
         JsonNodeFactory factory = JsonNodeFactory.instance;
         JsonNode lower = arrayNode.size() > 0 ? sanitizeArrayBound(arrayNode.get(0)) : null;
         JsonNode upper = arrayNode.size() > 1 ? sanitizeArrayBound(arrayNode.get(1)) : null;
@@ -358,13 +374,13 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
 
             ArrayNode arr = factory.arrayNode();
             if (isMeaningful(lower)) {
-                arr.add(lower);
+                arr.add(coerceTemporalBound(lower, metadata, false));
             } else if (isMeaningful(upper)) {
                 // Preserva semântica de "apenas limite superior" como [null, upper].
                 arr.addNull();
             }
             if (isMeaningful(upper)) {
-                arr.add(upper);
+                arr.add(coerceTemporalBound(upper, metadata, true));
             }
             return arr.size() == 0 ? null : arr;
         }
@@ -387,16 +403,28 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
             arr.add(second);
             arr.add(first);
         }
+        if (arr.size() == 1) {
+            JsonNode first = coerceTemporalBound(arr.get(0), metadata, false);
+            arr.removeAll();
+            arr.add(first);
+        } else if (arr.size() == 2) {
+            JsonNode first = coerceTemporalBound(arr.get(0), metadata, false);
+            JsonNode second = coerceTemporalBound(arr.get(1), metadata, true);
+            arr.removeAll();
+            arr.add(first);
+            arr.add(second);
+        }
         return arr.size() == 0 ? null : arr;
     }
 
-    private ArrayNode normalizeFromObject(ObjectNode objectNode, RangeKind kind) {
+    private ArrayNode normalizeFromObject(ObjectNode objectNode, RangeFieldMetadata metadata) {
+        RangeKind kind = metadata.kind();
         JsonNodeFactory factory = JsonNodeFactory.instance;
         Map<String, JsonNode> lowerMap = lowercaseKeyMap(objectNode);
         JsonNode nestedBetween = lowerMap.get("between");
         if (nestedBetween != null) {
             if (nestedBetween.isArray() || nestedBetween.isObject() || isMeaningful(nestedBetween)) {
-                ArrayNode nested = normalizeRangeValue(nestedBetween, kind);
+                ArrayNode nested = normalizeRangeValue(nestedBetween, metadata);
                 if (nested != null) {
                     return nested;
                 }
@@ -415,25 +443,101 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
             return null;
         }
 
+        if (isMeaningful(lower) && isMeaningful(upper) && shouldSwap(kind, lower, upper)) {
+            JsonNode tmp = lower;
+            lower = upper;
+            upper = tmp;
+        }
+
         ArrayNode arr = factory.arrayNode();
         if (isMeaningful(lower)) {
-            arr.add(lower);
+            arr.add(coerceTemporalBound(lower, metadata, false));
         } else if (isMeaningful(upper)) {
             // Preserva semântica de "apenas limite superior" como [null, upper].
             arr.addNull();
         }
         if (isMeaningful(upper)) {
-            arr.add(upper);
-        }
-        if (arr.size() == 2 && isMeaningful(arr.get(0)) && isMeaningful(arr.get(1))
-                && shouldSwap(kind, arr.get(0), arr.get(1))) {
-            JsonNode first = arr.get(0);
-            JsonNode second = arr.get(1);
-            arr.removeAll();
-            arr.add(second);
-            arr.add(first);
+            arr.add(coerceTemporalBound(upper, metadata, true));
         }
         return arr.size() == 0 ? null : arr;
+    }
+
+    private JsonNode coerceTemporalBound(JsonNode bound, RangeFieldMetadata metadata, boolean isUpper) {
+        if (bound == null || bound.isNull() || !bound.isTextual() || metadata == null) {
+            return bound;
+        }
+        String text = bound.asText("").trim();
+        if (text.isEmpty()) {
+            return bound;
+        }
+        LocalDate periodDate = parsePeriodBoundToLocalDate(text, isUpper);
+        if (metadata.kind() == RangeKind.DATE) {
+            if (periodDate != null) {
+                return JsonNodeFactory.instance.textNode(periodDate.toString());
+            }
+            if (text.length() > 10 && (text.contains("T") || text.contains("t"))) {
+                LocalDate parsedDate = parseLocalDate(bound);
+                if (parsedDate != null) {
+                    return JsonNodeFactory.instance.textNode(parsedDate.toString());
+                }
+            }
+            return bound;
+        }
+        if (metadata.kind() == RangeKind.DATE_TIME) {
+            LocalDate localDate = periodDate;
+            if (localDate == null && text.length() == 10 && !text.contains("T") && !text.contains("t")) {
+                try {
+                    localDate = LocalDate.parse(text);
+                } catch (DateTimeParseException ignored) {
+                    localDate = null;
+                }
+            }
+            if (localDate != null) {
+                LocalDateTime targetDateTime = isUpper
+                        ? localDate.atTime(LocalTime.MAX)
+                        : localDate.atStartOfDay();
+                if (metadata.elementType() != null
+                        && LocalDateTime.class.isAssignableFrom(metadata.elementType())) {
+                    return JsonNodeFactory.instance.textNode(
+                            DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(targetDateTime)
+                    );
+                }
+                return JsonNodeFactory.instance.textNode(
+                        targetDateTime.toInstant(ZoneOffset.UTC).toString()
+                );
+            }
+        }
+        return bound;
+    }
+
+    private LocalDate parsePeriodBoundToLocalDate(String text, boolean isUpper) {
+        if (text == null || text.isEmpty()) {
+            return null;
+        }
+        Matcher yearMatcher = YEAR_PERIOD_PATTERN.matcher(text);
+        if (yearMatcher.matches()) {
+            int year = Integer.parseInt(yearMatcher.group(1));
+            return isUpper ? LocalDate.of(year, 12, 31) : LocalDate.of(year, 1, 1);
+        }
+        Matcher monthMatcher = MONTH_PERIOD_PATTERN.matcher(text);
+        if (monthMatcher.matches()) {
+            YearMonth ym = YearMonth.of(
+                    Integer.parseInt(monthMatcher.group(1)),
+                    Integer.parseInt(monthMatcher.group(2))
+            );
+            return isUpper ? ym.atEndOfMonth() : ym.atDay(1);
+        }
+        Matcher quarterMatcher = QUARTER_PERIOD_PATTERN.matcher(text);
+        if (quarterMatcher.matches()) {
+            int year = Integer.parseInt(quarterMatcher.group(1));
+            int quarter = Integer.parseInt(quarterMatcher.group(2));
+            int startMonth = (quarter - 1) * 3 + 1;
+            int endMonth = startMonth + 2;
+            return isUpper
+                    ? YearMonth.of(year, endMonth).atEndOfMonth()
+                    : YearMonth.of(year, startMonth).atDay(1);
+        }
+        return null;
     }
 
     private boolean hasRangeObjectSignal(Map<String, JsonNode> source, RangeKind kind) {
@@ -490,7 +594,7 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
 
     private List<String> lowerKeys(RangeKind kind) {
         return switch (kind) {
-            case DATE, DATE_TIME -> concat(LOWER_DATE_KEYS, LOWER_GENERIC_KEYS);
+            case DATE, DATE_TIME, TIME -> concat(LOWER_DATE_KEYS, LOWER_GENERIC_KEYS);
             case MONETARY -> concat(LOWER_MONEY_KEYS, LOWER_GENERIC_KEYS);
             default -> LOWER_GENERIC_KEYS;
         };
@@ -498,7 +602,7 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
 
     private List<String> upperKeys(RangeKind kind) {
         return switch (kind) {
-            case DATE, DATE_TIME -> concat(UPPER_DATE_KEYS, UPPER_GENERIC_KEYS);
+            case DATE, DATE_TIME, TIME -> concat(UPPER_DATE_KEYS, UPPER_GENERIC_KEYS);
             case MONETARY -> concat(UPPER_MONEY_KEYS, UPPER_GENERIC_KEYS);
             default -> UPPER_GENERIC_KEYS;
         };
@@ -525,6 +629,7 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
         return switch (kind) {
             case NUMERIC, MONETARY -> shouldSwapNumeric(lower, upper);
             case DATE -> shouldSwapDate(lower, upper);
+            case TIME -> shouldSwapTime(lower, upper);
             case DATE_TIME -> shouldSwapDateTime(lower, upper);
             default -> false;
         };
@@ -542,18 +647,54 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
         return l != null && u != null && l.isAfter(u);
     }
 
+    private boolean shouldSwapTime(JsonNode lower, JsonNode upper) {
+        LocalTime l = parseLocalTime(lower);
+        LocalTime u = parseLocalTime(upper);
+        return l != null && u != null && l.isAfter(u);
+    }
+
     private boolean shouldSwapDateTime(JsonNode lower, JsonNode upper) {
         Instant l = parseInstant(lower);
         Instant u = parseInstant(upper);
         return l != null && u != null && l.isAfter(u);
     }
 
-    private LocalDate parseLocalDate(JsonNode node) {
+    private LocalTime parseLocalTime(JsonNode node) {
         if (node == null || node.isNull()) return null;
         String text = node.asText("").trim();
         if (text.isEmpty()) return null;
         try {
+            return LocalTime.parse(text);
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
+    private LocalDate parseLocalDate(JsonNode node) {
+        if (node == null || node.isNull()) return null;
+        String text = node.asText("").trim();
+        if (text.isEmpty()) return null;
+        LocalDate periodDate = parsePeriodBoundToLocalDate(text, false);
+        if (periodDate != null) {
+            return periodDate;
+        }
+        try {
             return LocalDate.parse(text);
+        } catch (DateTimeParseException ignored) {
+            // fallback
+        }
+        try {
+            return OffsetDateTime.parse(text).toLocalDate();
+        } catch (DateTimeParseException ignored) {
+            // fallback
+        }
+        try {
+            return Instant.parse(text).atZone(ZoneOffset.UTC).toLocalDate();
+        } catch (DateTimeParseException ignored) {
+            // fallback
+        }
+        try {
+            return LocalDateTime.parse(text).toLocalDate();
         } catch (DateTimeParseException ignored) {
             return null;
         }
@@ -563,6 +704,10 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
         if (node == null || node.isNull()) return null;
         String text = node.asText("").trim();
         if (text.isEmpty()) return null;
+        LocalDate periodDate = parsePeriodBoundToLocalDate(text, false);
+        if (periodDate != null) {
+            return periodDate.atStartOfDay(ZoneOffset.UTC).toInstant();
+        }
         try {
             return Instant.parse(text);
         } catch (DateTimeParseException ignored) {
@@ -575,6 +720,11 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
         }
         try {
             return LocalDateTime.parse(text).toInstant(ZoneOffset.UTC);
+        } catch (DateTimeParseException ignored) {
+            // fallback
+        }
+        try {
+            return LocalDate.parse(text).atStartOfDay(ZoneOffset.UTC).toInstant();
         } catch (DateTimeParseException ignored) {
             return null;
         }
@@ -589,6 +739,7 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
 
     private enum RangeKind {
         DATE,
+        TIME,
         DATE_TIME,
         NUMERIC,
         MONETARY,
@@ -601,7 +752,8 @@ public class RangePayloadNormalizer implements FilterPayloadNormalizer {
             String fieldAlias,
             List<String> lowerSplitAliases,
             List<String> upperSplitAliases,
-            RangeKind kind
+            RangeKind kind,
+            Class<?> elementType
     ) {
     }
 

@@ -240,6 +240,28 @@ class GovernedResourceCommandExecutorTest {
     }
 
     @Test
+    void mapsEntityNotFoundExceptionToGovernedNotFoundOutcome() {
+        GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(request -> {
+            throw new jakarta.persistence.EntityNotFoundException("Registro nao encontrado");
+        });
+
+        ResourceCommandExecutionResult result = executor.execute(ResourceCommandExecutionRequest.item(
+                "example.people",
+                "/api/example/people",
+                "approve",
+                999L,
+                Map.of("reason", "manual"),
+                ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT
+        ));
+
+        assertFalse(result.successful());
+        assertEquals(ResourceCommandOutcome.NOT_FOUND, result.outcome());
+        assertEquals(ResourceCommandErrorCategory.NOT_FOUND, result.messages().getFirst().category());
+        assertEquals("Registro nao encontrado", result.messages().getFirst().message());
+        assertEquals(404, result.evidence().get("status"));
+    }
+
+    @Test
     void mapsConcurrentJpaWriteToStablePreconditionFailure() {
         GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(request -> {
             throw new ObjectOptimisticLockingFailureException("PrivateAgreementEntity", 42L);

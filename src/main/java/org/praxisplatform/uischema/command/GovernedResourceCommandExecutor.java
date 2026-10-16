@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.command;
 
+import jakarta.persistence.EntityNotFoundException;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.NoOpResourceOperationAvailabilityProvider;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
@@ -86,6 +87,13 @@ public class GovernedResourceCommandExecutor {
             // exact 400/412/428 status and stable public code. Converting it to a generic command
             // outcome would collapse distinct concurrency decisions into one HTTP response.
             throw ex;
+        } catch (EntityNotFoundException ex) {
+            return ResourceCommandExecutionResult.failure(
+                    request,
+                    ResourceCommandOutcome.NOT_FOUND,
+                    ex.getMessage() == null || ex.getMessage().isBlank() ? "Resource not found." : ex.getMessage(),
+                    Map.of("status", HttpStatus.NOT_FOUND.value())
+            );
         } catch (ResponseStatusException ex) {
             ResourceCommandOutcome outcome = outcomeFromStatus(ex.getStatusCode().value());
             if (outcome == ResourceCommandOutcome.UNEXPECTED_SANITIZED) {
