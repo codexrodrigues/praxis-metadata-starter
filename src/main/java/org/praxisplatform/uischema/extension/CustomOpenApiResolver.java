@@ -2007,7 +2007,9 @@ public class CustomOpenApiResolver extends ModelResolver {
 
     private boolean isCurrencyControlType(String controlType) {
         return FieldControlType.CURRENCY_INPUT.getValue().equals(controlType)
-                || FieldControlType.PRICE_RANGE.getValue().equals(controlType);
+                || FieldControlType.PRICE_RANGE.getValue().equals(controlType)
+                || FieldControlType.INLINE_CURRENCY.getValue().equals(controlType)
+                || FieldControlType.INLINE_CURRENCY_RANGE.getValue().equals(controlType);
     }
 
     private boolean isDateControlType(String controlType) {
@@ -2015,6 +2017,11 @@ public class CustomOpenApiResolver extends ModelResolver {
                 || "dateInput".equals(controlType)
                 || "date".equals(controlType)
                 || FieldControlType.DATE_RANGE.getValue().equals(controlType)
+                || FieldControlType.INLINE_DATE.getValue().equals(controlType)
+                || FieldControlType.INLINE_DATE_RANGE.getValue().equals(controlType)
+                || FieldControlType.INLINE_PERIOD_RANGE.getValue().equals(controlType)
+                || FieldControlType.INLINE_YEAR_RANGE.getValue().equals(controlType)
+                || FieldControlType.INLINE_MONTH_RANGE.getValue().equals(controlType)
                 || "month".equals(controlType)
                 || "week".equals(controlType)
                 || "year".equals(controlType);
@@ -2029,6 +2036,8 @@ public class CustomOpenApiResolver extends ModelResolver {
 
     private boolean isTimeControlType(String controlType) {
         return FieldControlType.TIME_PICKER.getValue().equals(controlType)
+                || FieldControlType.INLINE_TIME.getValue().equals(controlType)
+                || FieldControlType.INLINE_TIME_RANGE.getValue().equals(controlType)
                 || "time".equals(controlType)
                 || "timeRange".equals(controlType);
     }
@@ -2060,6 +2069,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                 || FieldControlType.CHECKBOX.getValue().equals(controlType)
                 || FieldControlType.TOGGLE.getValue().equals(controlType)
                 || FieldControlType.INLINE_INPUT.getValue().equals(controlType)
+                || FieldControlType.INLINE_PHONE.getValue().equals(controlType)
                 || FieldControlType.INLINE_NUMBER.getValue().equals(controlType)
                 || FieldControlType.INLINE_CURRENCY.getValue().equals(controlType)
                 || FieldControlType.INLINE_DATE.getValue().equals(controlType)
@@ -2074,6 +2084,7 @@ public class CustomOpenApiResolver extends ModelResolver {
 
         return FieldControlType.INPUT.getValue().equals(controlType)
                 || FieldControlType.INLINE_INPUT.getValue().equals(controlType)
+                || FieldControlType.INLINE_PHONE.getValue().equals(controlType)
                 || FieldControlType.TEXTAREA.getValue().equals(controlType)
                 || FieldControlType.SEARCH_INPUT.getValue().equals(controlType)
                 || FieldControlType.EMAIL_INPUT.getValue().equals(controlType)
@@ -2167,12 +2178,30 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (size != null) {
             visualization.put("size", size);
         }
+        String scaleScope = asTrimmedString(microViz.scaleScope());
+        if (scaleScope != null) {
+            visualization.put("scaleScope", scaleScope);
+        }
         if (!Double.isNaN(microViz.value())) {
             visualization.put("value", microViz.value());
         }
         String valueExpr = asTrimmedString(microViz.valueExpr());
         if (valueExpr != null) {
             visualization.put("valueExpr", valueExpr);
+        }
+        if (!Double.isNaN(microViz.min())) {
+            visualization.put("min", microViz.min());
+        }
+        String minExpr = asTrimmedString(microViz.minExpr());
+        if (minExpr != null) {
+            visualization.put("minExpr", minExpr);
+        }
+        if (!Double.isNaN(microViz.max())) {
+            visualization.put("max", microViz.max());
+        }
+        String maxExpr = asTrimmedString(microViz.maxExpr());
+        if (maxExpr != null) {
+            visualization.put("maxExpr", maxExpr);
         }
         if (!Double.isNaN(microViz.target())) {
             visualization.put("target", microViz.target());
@@ -2194,6 +2223,18 @@ public class CustomOpenApiResolver extends ModelResolver {
         String baselineExpr = asTrimmedString(microViz.baselineExpr());
         if (baselineExpr != null) {
             visualization.put("baselineExpr", baselineExpr);
+        }
+        String pointsExpr = asTrimmedString(microViz.pointsExpr());
+        if (pointsExpr != null) {
+            visualization.put("pointsExpr", pointsExpr);
+        }
+        String segmentsExpr = asTrimmedString(microViz.segmentsExpr());
+        if (segmentsExpr != null) {
+            visualization.put("segmentsExpr", segmentsExpr);
+        }
+        String itemsExpr = asTrimmedString(microViz.itemsExpr());
+        if (itemsExpr != null) {
+            visualization.put("itemsExpr", itemsExpr);
         }
         String tone = asTrimmedString(microViz.tone());
         if (tone != null) {
@@ -2247,16 +2288,36 @@ public class CustomOpenApiResolver extends ModelResolver {
                 visualization.put("thresholds", thresholdList);
             }
         }
+        String thresholdsExpr = asTrimmedString(microViz.thresholdsExpr());
+        if (thresholdsExpr != null) {
+            visualization.put("thresholdsExpr", thresholdsExpr);
+        }
+        String ariaLabel = asTrimmedString(microViz.ariaLabel());
+        if (ariaLabel != null) {
+            visualization.put("ariaLabel", ariaLabel);
+        }
+        String ariaLabelExpr = asTrimmedString(microViz.ariaLabelExpr());
+        if (ariaLabelExpr != null) {
+            visualization.put("ariaLabelExpr", ariaLabelExpr);
+        }
         String fallbackText = asTrimmedString(microViz.fallbackText());
         if (fallbackText != null) {
             visualization.put("fallbackText", fallbackText);
         }
+        String fallbackTextExpr = asTrimmedString(microViz.fallbackTextExpr());
+        if (fallbackTextExpr != null) {
+            visualization.put("fallbackTextExpr", fallbackTextExpr);
+        }
         if (microViz.compactValue()) {
             visualization.put("compactValue", true);
         }
-        String valueSuffix = asTrimmedString(microViz.valueSuffix());
-        if (valueSuffix != null) {
-            visualization.put("valueSuffix", valueSuffix);
+        String rawValueSuffix = microViz.valueSuffix();
+        if (rawValueSuffix != null && !rawValueSuffix.isBlank()) {
+            visualization.put("valueSuffix", rawValueSuffix);
+        }
+        String valueSuffixExpr = asTrimmedString(microViz.valueSuffixExpr());
+        if (valueSuffixExpr != null) {
+            visualization.put("valueSuffixExpr", valueSuffixExpr);
         }
 
         presentation.put("visualization", visualization);
@@ -2281,7 +2342,10 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (!(presentation.get("visualization") instanceof Map<?, ?> visualization)) {
             throw new IllegalArgumentException(path + ".visualization must be an object.");
         }
-        if (!(visualization.get("fallbackText") instanceof String fallback) || fallback.isBlank()) {
+        boolean hasFallbackText = visualization.get("fallbackText") instanceof String fallback && !fallback.isBlank();
+        boolean hasFallbackTextExpr = (visualization.get("fallbackTextExpr") instanceof String expr && !expr.isBlank())
+                || visualization.get("fallbackTextExpr") instanceof Map<?, ?>;
+        if (!hasFallbackText && !hasFallbackTextExpr) {
             throw new IllegalArgumentException(path + ".visualization.fallbackText must be a nonblank string.");
         }
     }

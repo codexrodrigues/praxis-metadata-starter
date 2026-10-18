@@ -62,6 +62,9 @@
         "inlineRange",
         "inlineDate",
         "inlineDateRange",
+        "inlinePeriodRange",
+        "inlineYearRange",
+        "inlineMonthRange",
         "inlineTime",
         "inlineTimeRange",
         "inlineTreeSelect",
@@ -72,6 +75,7 @@
         "inlineRelativePeriod",
         "inlineSentiment",
         "inlineColorLabel",
+        "inlinePhone",
         "multiSelect",
         "multiSelectTree",
         "selectionList",
@@ -167,6 +171,85 @@
     "iconClass": { "type": "string" },
     "iconStyle": { "type": "string" },
     "iconFontSize": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "prefixIcon": { "type": "string" },
+    "prefixIconColor": { "type": "string" },
+    "prefixIconTooltip": { "type": "string" },
+    "prefixIconAriaLabel": { "type": "string" },
+    "suffixIcon": { "type": "string" },
+    "suffixIconColor": { "type": "string" },
+    "suffixIconTooltip": { "type": "string" },
+    "suffixIconAriaLabel": { "type": "string" },
+    "clearIcon": { "type": "string" },
+    "clearIconColor": { "type": "string" },
+    "clearButtonTooltip": { "type": "string" },
+    "clearButtonAriaLabel": { "type": "string" },
+    "clearButton": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "object", "additionalProperties": true }
+      ]
+    },
+    "showQuickClear": { "type": "boolean" },
+    "searchable": { "type": "boolean" },
+    "selectAll": { "type": "boolean" },
+    "showSelectAll": { "type": "boolean" },
+    "maxSelections": { "type": "integer", "minimum": 1 },
+    "maxVisibleChips": { "type": "integer", "minimum": 1 },
+    "maxVisibleBadges": { "type": "integer", "minimum": 0 },
+    "inlineChipValuePresentation": {
+      "type": "string",
+      "enum": ["auto", "valueOnly", "labelAndValue"]
+    },
+    "inlineAutoSize": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "inlineTexts": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "selectionGrid": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "string", "enum": ["year", "month", "custom"] }
+      ]
+    },
+    "showSlider": { "type": "boolean" },
+    "showInputs": { "type": "boolean" },
+    "showTicks": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "string", "enum": ["auto"] }
+      ]
+    },
+    "discrete": { "type": "boolean" },
+    "step": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "minYear": { "oneOf": [ { "type": "integer" }, { "type": "string" } ] },
+    "maxYear": { "oneOf": [ { "type": "integer" }, { "type": "string" } ] },
+    "minPeriod": { "oneOf": [ { "type": "integer" }, { "type": "string" } ] },
+    "maxPeriod": { "oneOf": [ { "type": "integer" }, { "type": "string" } ] },
+    "periodMode": {
+      "type": "string",
+      "enum": ["month", "year", "quarter"]
+    },
+    "quickPresets": {
+      "oneOf": [
+        { "type": "array", "items": { "type": ["string", "object"] } },
+        { "type": "string" }
+      ]
+    },
+    "quickPresetsAuto": { "type": "boolean" },
+    "quickPresetsLabels": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "inlineDistribution": {
+      "oneOf": [
+        { "type": "array" },
+        { "type": "object", "additionalProperties": true },
+        { "type": "string" }
+      ]
+    },
 
     "endpoint": {
       "type": "string",
@@ -203,7 +286,7 @@
     },
     "inlineOverlay": {
       "$ref": "#/definitions/inlineOverlay",
-      "description": "Inline date-range overlay commit/action metadata. It controls UI materialization only; submitted filters still use startDate and endDate."
+      "description": "Inline overlay commit/action metadata. It controls UI materialization only; submitted filters still use their canonical value shape."
     },
     "optionGroups": {
       "type": "array",
@@ -371,7 +454,15 @@
         "value": {},
         "label": { "type": "string" },
         "disabled": { "type": "boolean" },
-        "group": { "type": "string" }
+        "group": { "type": "string" },
+        "icon": { "type": "string", "minLength": 1 },
+        "color": { "type": "string", "minLength": 1 },
+        "tone": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "badge": { "type": ["string", "number"] },
+        "emoji": { "type": "string" },
+        "weight": { "type": "number" }
       },
       "required": ["value", "label"]
     },
@@ -431,14 +522,15 @@
       "properties": {
         "applyMode": {
           "type": "string",
-          "enum": ["auto", "explicit"]
+          "enum": ["auto", "explicit", "immediate", "onDone", "confirm"]
         },
         "actions": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
             "apply": { "$ref": "#/definitions/inlineOverlayAction" },
-            "cancel": { "$ref": "#/definitions/inlineOverlayAction" }
+            "cancel": { "$ref": "#/definitions/inlineOverlayAction" },
+            "clear": { "$ref": "#/definitions/inlineOverlayAction" }
           }
         }
       }
@@ -449,6 +541,8 @@
       "properties": {
         "label": { "type": "string", "minLength": 1 },
         "ariaLabel": { "type": "string", "minLength": 1 },
+        "icon": { "type": "string", "minLength": 1 },
+        "visible": { "type": "boolean" },
         "appearance": {
           "type": "string",
           "enum": ["text", "outlined", "filled", "elevated"]
