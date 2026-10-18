@@ -243,6 +243,14 @@
       "type": "object",
       "additionalProperties": true
     },
+    "inlineVisualStyle": {
+      "type": "string",
+      "enum": ["compact", "graphic"]
+    },
+    "percentPresets": {
+      "type": "array",
+      "items": { "type": "number" }
+    },
     "inlineDistribution": {
       "oneOf": [
         { "type": "array" },
@@ -361,7 +369,187 @@
           "enum": ["plain", "soft", "outlined", "filled"]
         },
         "valuePresentation": { "$ref": "#/properties/valuePresentation" },
-        "visualization": { "type": "object", "additionalProperties": true },
+        "visualization": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "line",
+                "area",
+                "column",
+                "comparison",
+                "stackedBar",
+                "radial",
+                "harveyBall",
+                "bullet",
+                "delta",
+                "processFlow"
+              ],
+              "description": "Tipo canónico da micro visualização."
+            },
+            "surface": {
+              "type": "string",
+              "enum": [
+                "table-cell",
+                "list-item",
+                "object-header",
+                "card-summary",
+                "form-presentation"
+              ],
+              "description": "Superfície de renderização visada."
+            },
+            "size": {
+              "type": "string",
+              "enum": ["xs", "sm", "md", "lg", "responsive"],
+              "description": "Densidade visual da micro visualização."
+            },
+            "scaleScope": {
+              "type": "string",
+              "enum": ["row", "page"],
+              "description": "Escopo de normalização de escala para séries: 'row' (local por linha) ou 'page' (sincronizado na página visível)."
+            },
+            "tone": {
+              "type": "string",
+              "enum": ["neutral", "info", "success", "warning", "danger", "critical"]
+            },
+            "toneExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "fallbackText": { "type": "string", "minLength": 1 },
+            "fallbackTextExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "ariaLabel": { "type": "string", "minLength": 1 },
+            "ariaLabelExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "compactValue": { "type": "boolean" },
+            "value": { "type": ["number", "string", "boolean"] },
+            "valueExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "valueSuffix": { "type": "string" },
+            "valueSuffixExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "min": { "type": "number" },
+            "minExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "max": { "type": "number" },
+            "maxExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "total": { "type": "number" },
+            "totalExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "target": { "type": "number" },
+            "targetExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "baseline": { "type": "number" },
+            "baselineExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  { "type": "number" },
+                  {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "properties": {
+                      "value": { "type": "number" },
+                      "label": { "type": "string" }
+                    },
+                    "required": ["value"]
+                  }
+                ]
+              }
+            },
+            "pointsExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "segments": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+            "segmentsExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "thresholds": {
+              "type": "array",
+              "description": "Faixas e limiares semânticos declarativos (avaliados na ordem declarada).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "min": { "type": "number" },
+                  "max": { "type": "number" },
+                  "value": { "type": "number" },
+                  "equals": { "type": ["string", "number", "boolean"] },
+                  "tone": {
+                    "type": "string",
+                    "enum": ["neutral", "info", "success", "warning", "danger", "critical"]
+                  },
+                  "label": { "type": "string" }
+                }
+              }
+            },
+            "thresholdsExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "items": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+            "itemsExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "stepLabelWidth": { "type": ["number", "string"] },
+            "stepLabelLineClamp": { "type": "integer", "enum": [1, 2] }
+          }
+        },
         "interactions": {
           "type": "object",
           "additionalProperties": false,
