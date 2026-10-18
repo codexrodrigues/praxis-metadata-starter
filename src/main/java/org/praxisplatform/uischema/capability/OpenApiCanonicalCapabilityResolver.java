@@ -74,7 +74,8 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         capabilities.put("cursor", hasOperation(pathsNode, basePath + "/filter/cursor", "post"));
         // Export is service opt-in. The base mapping can exist for every resource,
         // so path presence alone must not advertise runtime availability.
-        capabilities.put("export", false);
+        capabilities.put("export", structural.export()
+                && hasOperation(pathsNode, basePath + "/export", "post"));
         capabilities.put("statsGroupBy", structural.statsGroupBy()
                 && hasOperation(pathsNode, basePath + "/stats/group-by", "post"));
         capabilities.put("statsTimeSeries", structural.statsTimeSeries()
@@ -167,7 +168,13 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 "option-sources"
         ));
 
-        operations.put("export", operation("export", false, "COLLECTION", null, "export"));
+        operations.put("export", collectionPostOperation(
+                "export",
+                pathsNode,
+                basePath + "/export",
+                "export",
+                structural.export()
+        ));
         operations.put("statsGroupBy", collectionPostOperation(
                 "statsGroupBy",
                 pathsNode,

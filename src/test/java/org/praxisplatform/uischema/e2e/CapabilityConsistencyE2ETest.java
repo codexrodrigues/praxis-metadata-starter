@@ -23,8 +23,15 @@ class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
         JsonNode schema = body(get(
                 "/schemas/filtered?path=%2Femployees%2Fall&operation=get&schemaType=response"
         ));
+        JsonNode catalog = body(get("/schemas/catalog?path=/employees"));
+        JsonNode domain = body(get("/schemas/domain?resource=human-resources.employees"));
+
         JsonNode schemaCapabilities = schema.path("x-ui").path("resource").path("capabilities");
         JsonNode snapshotCapabilities = snapshot.path("canonicalOperations");
+        JsonNode catalogCapabilities = catalog.path("endpoints").get(0).path("resourceCapabilities");
+        JsonNode domainConcept = findNodeByKey(domain.path("nodes"), "human-resources.employees");
+        assertNotNull(domainConcept);
+        JsonNode domainCapabilities = domainConcept.path("metadata").path("capabilities");
 
         for (String operation : java.util.List.of(
                 "options",
@@ -39,6 +46,16 @@ class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
                     snapshotCapabilities.path(operation).asBoolean(),
                     operation
             );
+            assertEquals(
+                    snapshotCapabilities.path(operation).asBoolean(),
+                    catalogCapabilities.path(operation).asBoolean(),
+                    "catalog." + operation
+            );
+            assertEquals(
+                    snapshotCapabilities.path(operation).asBoolean(),
+                    domainCapabilities.path(operation).asBoolean(),
+                    "domain." + operation
+            );
         }
         assertTrue(schemaCapabilities.path("options").asBoolean());
         assertTrue(schemaCapabilities.path("optionSources").asBoolean());
@@ -47,6 +64,19 @@ class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
         assertFalse(schemaCapabilities.path("statsDistribution").asBoolean());
         assertFalse(schemaCapabilities.path("statsComparison").asBoolean());
         assertTrue(snapshot.path("stats").path("fields").isEmpty());
+        for (JsonNode node : domain.path("nodes")) {
+            assertFalse("stats".equals(node.path("nodeType").asText()),
+                    "Structurally unsupported stats nodes must not be published in /schemas/domain");
+        }
+    }
+
+    private JsonNode findNodeByKey(JsonNode nodes, String nodeKey) {
+        for (JsonNode node : nodes) {
+            if (nodeKey.equals(node.path("nodeKey").asText())) {
+                return node;
+            }
+        }
+        return null;
     }
 
     @Test

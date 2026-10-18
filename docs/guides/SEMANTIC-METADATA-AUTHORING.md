@@ -87,6 +87,17 @@ Neste exemplo, `row.percentualAtendimento` e `target = 90` usam a mesma escala
 percentual de 0 a 100. `valueExpr` fornece o valor da linha; sem valor estático ou
 expressão, o renderer não recebe o valor do bullet e usa o fallback.
 
+### Escala comparativa (`scaleScope`), limites (`min`/`max`), sufixo (`valueSuffix`) e linhas de referência
+
+Em tabelas analíticas e KPIs corporativos, `@MicroVisualization` e `presentation.visualization` suportam diretamente (ou por override em `extraProperties`):
+
+- `scaleScope`: `'row'` (padrão, normaliza a série localmente por linha) ou `'page'` (sincroniza o domínio `min`/`max` entre todas as linhas visíveis da página atual na tabela para comparação justa de magnitude).
+- `min` / `minExpr` e `max` / `maxExpr`: limites explícitos ou dinâmicos por linha; quando definidos na linha, têm precedência sobre os limites sincronizados de página.
+- `valueSuffix` / `valueSuffixExpr`: unidade ou sufixo contextual (ex.: `"%"`, `" ms"`, `" R$"`) exibido nos HUDs e pílulas de inspeção sem alterar o valor numérico bruto.
+- `target` / `targetExpr`, `baseline` / `baselineExpr` e `pointsExpr`: além de `bullet`, `target` e `baseline` também projetam linhas horizontais tracejadas de meta/referência nas famílias canônicas de séries (`line`, `area`, `column`).
+- `segmentsExpr`, `itemsExpr`, `thresholdsExpr`, `ariaLabel`, `ariaLabelExpr` e `fallbackTextExpr`: permitem vincular segmentos de `stackedBar`, etapas de `processFlow`, faixas de `thresholds` e textos acessíveis diretamente a propriedades ou expressões da linha.
+
 O Angular consome esse contrato efetivo; não deve corrigir schemas inválidos com
 texto ou regras locais. A prova do resolver não substitui validação HTTP do host
 ou implantação do artefato público.
+

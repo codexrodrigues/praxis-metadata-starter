@@ -170,6 +170,52 @@ class SemanticDomainCatalogServiceTest {
                 });
     }
 
+    @Test
+    void omitsUnsupportedStatsAndPublishesCanonicalConceptCapabilitiesWhenResolverIsPresent() {
+        org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilityResolver =
+                new org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver(
+                        new StubOpenApiDocumentService(),
+                        ignored -> new org.praxisplatform.uischema.capability.ResourceStructuralCapabilities(
+                                true,
+                                true,
+                                true,
+                                false,
+                                false,
+                                false,
+                                false,
+                                org.praxisplatform.uischema.stats.StatsCapability.empty(),
+                                null
+                        )
+                );
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(),
+                optionSources(),
+                new StubOpenApiDocumentService(),
+                capabilityResolver,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart",
+                "Praxis API Quickstart",
+                "test"
+        );
+
+        DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
+
+        assertThat(response.nodes()).filteredOn(node -> "stats".equals(node.nodeType()))
+                .extracting(DomainCatalogResponse.DomainNodeItem::nodeKey)
+                .containsExactly("human-resources.folhas-pagamento.stats.group-by");
+        assertThat(response.nodes()).filteredOn(node -> "human-resources.folhas-pagamento".equals(node.nodeKey()))
+                .singleElement()
+                .satisfies(node -> {
+                    assertThat(node.metadata()).containsEntry("readOnly", true);
+                    @SuppressWarnings("unchecked")
+                    Map<String, Boolean> capabilities = (Map<String, Boolean>) node.metadata().get("capabilities");
+                    assertThat(capabilities)
+                            .containsEntry("statsGroupBy", true)
+                            .containsEntry("statsTimeSeries", false);
+                });
+    }
+
     private OptionSourceRegistry optionSources() {
         return OptionSourceRegistry.builder()
                 .add(TestResource.class, new OptionSourceDescriptor(

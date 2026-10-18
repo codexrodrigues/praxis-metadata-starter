@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
+import org.praxisplatform.uischema.schema.FilteredSchemaProjection;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +87,9 @@ public class DomainCatalogController {
     private SchemaReferenceResolver schemaReferenceResolver;
 
     @Autowired(required = false)
+    private CanonicalCapabilityResolver canonicalCapabilityResolver;
+
+    @Autowired(required = false)
     @Qualifier("requestMappingHandlerMapping")
     private RequestMappingHandlerMapping handlerMapping;
 
@@ -126,14 +131,21 @@ public class DomainCatalogController {
 
         JsonNode pathsNode = doc.path("paths");
         JsonNode components = doc.path("components").path("schemas");
+        FilteredSchemaProjection schemaProjection = objectMapper != null
+                ? new FilteredSchemaProjection(objectMapper)
+                : null;
         List<ResourceMetadata> resourceMetadata = resourceMetadata();
         Map<String, ResourceVisual> groupVisuals = groupVisuals(resourceMetadata);
+        Map<String, Map<String, Boolean>> capabilitiesByResourcePath = new LinkedHashMap<>();
         List<EndpointSummary> endpoints = new ArrayList<>();
 
         if (!pathsNode.isObject()) {
             LOGGER.warn("OpenAPI document has no paths object; returning empty catalog");
             return ResponseEntity.ok(new CatalogResponse(groupToUse, groupVisuals.get(groupToUse), endpoints));
         }
+
+        String normalizedPathFilter = StringUtils.hasText(pathFilter) ? normalizePath(pathFilter) : null;
+        boolean hasExactPathMatch = normalizedPathFilter != null && hasExactNormalizedPath(pathsNode, normalizedPathFilter);
 
         Iterator<Map.Entry<String, JsonNode>> pathIt = pathsNode.fields();
         while (pathIt.hasNext()) {
@@ -146,7 +158,7 @@ public class DomainCatalogController {
                 LOGGER.debug("Skipping excluded path from catalog: {}", path);
                 continue;
             }
-            if (StringUtils.hasText(pathFilter) && !normalizedPath.equals(normalizePath(pathFilter))) {
+            if (normalizedPathFilter != null && !matchesPathFilter(normalizedPath, normalizedPathFilter, hasExactPathMatch)) {
                 continue;
             }
 
@@ -175,12 +187,20 @@ public class DomainCatalogController {
                 }
 
                 try {
-                    SchemaRef request = extractRequestSchema(op, components);
-                    SchemaRef response = extractResponseSchema(op, components);
+                    SchemaRef request = extractRequestSchema(op, components, schemaProjection);
+                    SchemaRef response = extractResponseSchema(op, components, doc, rawMethod, path, schemaProjection);
                     String rawSummary = op.path("summary").asText(null);
                     String rawDescription = op.path("description").asText(null);
                     String resourceLabel = inferResourceLabel(path);
                     ResourceMetadata resource = resolveResourceMetadata(resourceMetadata, path);
+                    Map<String, Boolean> resourceCapabilities = resolveResourceCapabilities(
+                            doc,
+                            resource,
+                            capabilitiesByResourcePath
+                    );
+                    Boolean resourceReadOnly = resourceCapabilities != null && !resourceCapabilities.isEmpty()
+                            ? FilteredSchemaProjection.readOnly(null, resourceCapabilities)
+                            : null;
                     String summary = firstNonBlank(rawSummary, rawDescription, buildFallbackSummary(method, path, resourceLabel));
                     String description = StringUtils.hasText(rawDescription)
                             ? rawDescription
@@ -194,7 +214,10 @@ public class DomainCatalogController {
                             description,
                             op.path("operationId").asText(null),
                             resource != null ? resource.resourceKey() : null,
+                            resource != null ? resource.resourcePath() : null,
                             resource != null ? resource.visual() : null,
+                            resourceReadOnly,
+                            resourceCapabilities,
                             request,
                             response,
                             extractParameters(op),
@@ -212,6 +235,20 @@ public class DomainCatalogController {
         CatalogResponse response = new CatalogResponse(groupToUse, groupVisuals.get(groupToUse), endpoints);
 
         return ResponseEntity.ok(response);
+    }
+
+    private Map<String, Boolean> resolveResourceCapabilities(
+            JsonNode doc,
+            ResourceMetadata resource,
+            Map<String, Map<String, Boolean>> cache
+    ) {
+        if (resource == null || !StringUtils.hasText(resource.resourcePath()) || canonicalCapabilityResolver == null) {
+            return null;
+        }
+        return cache.computeIfAbsent(
+                resource.resourcePath(),
+                basePath -> canonicalCapabilityResolver.resolve(doc, basePath)
+        );
     }
 
     private String resolveGroup(String group, String pathFilter) {
@@ -490,21 +527,56 @@ public class DomainCatalogController {
         };
     }
 
-    private SchemaRef extractRequestSchema(JsonNode op, JsonNode components) {
+    private boolean hasExactNormalizedPath(JsonNode pathsNode, String normalizedPathFilter) {
+        Iterator<String> names = pathsNode.fieldNames();
+        while (names.hasNext()) {
+            if (normalizedPathFilter.equals(normalizePath(names.next()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean matchesPathFilter(String normalizedPath, String normalizedPathFilter, boolean hasExactPathMatch) {
+        if (normalizedPath.equals(normalizedPathFilter)) {
+            return true;
+        }
+        return !hasExactPathMatch && normalizedPath.startsWith(normalizedPathFilter + "/");
+    }
+
+    private SchemaRef extractRequestSchema(JsonNode op, JsonNode components, FilteredSchemaProjection schemaProjection) {
         JsonNode schema = openApiDocsSupport.selectPreferredContentNode(
                 op.path("requestBody").path("content")
         ).path("schema");
         if (schema.isMissingNode()) return null;
         if (schema.has("$ref")) {
             String name = extractRefName(schema.path("$ref").asText());
-            return new SchemaRef(name, null, openApiDocsSupport.inferMediaType(op.path("requestBody").path("content")), extractFieldsFromRef(name, components), extractRelationsFromRef(name, components));
+            JsonNode refSchema = name != null ? components.path(name) : null;
+            JsonNode unwrappedFilter = schemaProjection != null && refSchema != null && !refSchema.isMissingNode()
+                    ? schemaProjection.tryExtractFilterSchemaFromInline(refSchema, components)
+                    : null;
+            JsonNode targetSchema = unwrappedFilter != null ? unwrappedFilter : refSchema;
+            return new SchemaRef(
+                    name,
+                    null,
+                    openApiDocsSupport.inferMediaType(op.path("requestBody").path("content")),
+                    extractFields(targetSchema, components),
+                    extractRelations(targetSchema, components)
+            );
         }
-        return new SchemaRef(null, schema, openApiDocsSupport.inferMediaType(op.path("requestBody").path("content")), extractFields(schema, components), extractRelations(schema, components));
+        JsonNode unwrappedFilter = schemaProjection != null
+                ? schemaProjection.tryExtractFilterSchemaFromInline(schema, components)
+                : null;
+        JsonNode targetSchema = unwrappedFilter != null ? unwrappedFilter : schema;
+        return new SchemaRef(null, schema, openApiDocsSupport.inferMediaType(op.path("requestBody").path("content")), extractFields(targetSchema, components), extractRelations(targetSchema, components));
     }
 
-    private SchemaRef extractResponseSchema(JsonNode op, JsonNode components) {
+    private SchemaRef extractResponseSchema(JsonNode op, JsonNode components, JsonNode doc, String method, String path, FilteredSchemaProjection schemaProjection) {
         JsonNode responses = op.path("responses");
         if (responses.isMissingNode()) return null;
+        String projectedSchemaName = doc != null && schemaProjection != null
+                ? schemaProjection.findResponseSchema(op, doc, method, path)
+                : null;
         String[] preferred = {"200", "201", "default"};
         for (String code : preferred) {
             JsonNode r = responses.path(code);
@@ -514,9 +586,13 @@ public class DomainCatalogController {
                 if (schema.isMissingNode()) continue;
                 if (schema.has("$ref")) {
                     String name = extractRefName(schema.path("$ref").asText());
-                    return new SchemaRef(name, null, openApiDocsSupport.inferMediaType(content), extractFieldsFromRef(name, components), extractRelationsFromRef(name, components));
+                    String effectiveName = StringUtils.hasText(projectedSchemaName) ? projectedSchemaName : name;
+                    return new SchemaRef(name, null, openApiDocsSupport.inferMediaType(content), extractFieldsFromRef(effectiveName, components), extractRelationsFromRef(effectiveName, components));
                 }
-                return new SchemaRef(null, schema, openApiDocsSupport.inferMediaType(content), extractFields(schema, components), extractRelations(schema, components));
+                JsonNode targetSchema = StringUtils.hasText(projectedSchemaName) && !components.path(projectedSchemaName).isMissingNode()
+                        ? components.path(projectedSchemaName)
+                        : schema;
+                return new SchemaRef(null, schema, openApiDocsSupport.inferMediaType(content), extractFields(targetSchema, components), extractRelations(targetSchema, components));
             }
         }
         Iterator<Map.Entry<String, JsonNode>> it = responses.fields();
@@ -527,9 +603,13 @@ public class DomainCatalogController {
             if (schema.isMissingNode()) continue;
             if (schema.has("$ref")) {
                 String name = extractRefName(schema.path("$ref").asText());
-                return new SchemaRef(name, null, openApiDocsSupport.inferMediaType(content), extractFieldsFromRef(name, components), extractRelationsFromRef(name, components));
+                String effectiveName = StringUtils.hasText(projectedSchemaName) ? projectedSchemaName : name;
+                return new SchemaRef(name, null, openApiDocsSupport.inferMediaType(content), extractFieldsFromRef(effectiveName, components), extractRelationsFromRef(effectiveName, components));
             }
-            return new SchemaRef(null, schema, openApiDocsSupport.inferMediaType(content), extractFields(schema, components), extractRelations(schema, components));
+            JsonNode targetSchema = StringUtils.hasText(projectedSchemaName) && !components.path(projectedSchemaName).isMissingNode()
+                    ? components.path(projectedSchemaName)
+                    : schema;
+            return new SchemaRef(null, schema, openApiDocsSupport.inferMediaType(content), extractFields(targetSchema, components), extractRelations(targetSchema, components));
         }
         return null;
     }
@@ -549,25 +629,49 @@ public class DomainCatalogController {
     }
 
     private List<FieldSummary> extractFields(JsonNode schema, JsonNode components) {
-        List<FieldSummary> fields = new ArrayList<>();
-        if (schema == null || schema.isMissingNode()) {
-            return fields;
+        Map<String, FieldSummary> fieldsByName = new LinkedHashMap<>();
+        collectFields(schema, components, new java.util.LinkedHashSet<>(), fieldsByName);
+        return new ArrayList<>(fieldsByName.values());
+    }
+
+    private void collectFields(
+            JsonNode schema,
+            JsonNode components,
+            Set<String> visitedRefs,
+            Map<String, FieldSummary> out
+    ) {
+        if (schema == null || schema.isMissingNode() || schema.isNull()) {
+            return;
+        }
+        if (schema.has("$ref")) {
+            String refName = extractRefName(schema.path("$ref").asText());
+            if (StringUtils.hasText(refName) && visitedRefs.add(refName) && components != null) {
+                collectFields(components.path(refName), components, visitedRefs, out);
+            }
+            return;
         }
         if ("array".equals(schema.path("type").asText()) && schema.has("items")) {
-            return extractFields(schema.path("items"), components);
+            collectFields(schema.path("items"), components, visitedRefs, out);
+            return;
+        }
+        JsonNode allOf = schema.path("allOf");
+        if (allOf.isArray()) {
+            for (JsonNode child : allOf) {
+                collectFields(child, components, visitedRefs, out);
+            }
         }
         if (!schema.has("properties")) {
-            return fields;
+            return;
         }
         JsonNode props = schema.path("properties");
-        JsonNode required = schema.path("required");
+        Set<String> requiredNames = extractRequiredFieldNames(schema.path("required"));
         Iterator<Map.Entry<String, JsonNode>> it = props.fields();
         while (it.hasNext()) {
             Map.Entry<String, JsonNode> entry = it.next();
             String name = entry.getKey();
             JsonNode prop = entry.getValue();
-            boolean isRequired = required.isArray() && required.toString().contains("\"" + name + "\"");
-            fields.add(new FieldSummary(
+            boolean isRequired = requiredNames.contains(name);
+            out.put(name, new FieldSummary(
                     name,
                     prop.path("type").asText(null),
                     prop.path("format").asText(null),
@@ -581,19 +685,56 @@ public class DomainCatalogController {
                     prop.path("pattern").asText(null)
             ));
         }
-        return fields;
+    }
+
+    private Set<String> extractRequiredFieldNames(JsonNode requiredNode) {
+        if (requiredNode == null || !requiredNode.isArray() || requiredNode.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> names = new java.util.LinkedHashSet<>();
+        for (JsonNode item : requiredNode) {
+            String text = item.asText(null);
+            if (StringUtils.hasText(text)) {
+                names.add(text);
+            }
+        }
+        return names;
     }
 
     private List<RelationSummary> extractRelations(JsonNode schema, JsonNode components) {
-        List<RelationSummary> relations = new ArrayList<>();
-        if (schema == null || schema.isMissingNode()) {
-            return relations;
+        Map<String, RelationSummary> relationsByField = new LinkedHashMap<>();
+        collectRelations(schema, components, new java.util.LinkedHashSet<>(), relationsByField);
+        return new ArrayList<>(relationsByField.values());
+    }
+
+    private void collectRelations(
+            JsonNode schema,
+            JsonNode components,
+            Set<String> visitedRefs,
+            Map<String, RelationSummary> out
+    ) {
+        if (schema == null || schema.isMissingNode() || schema.isNull()) {
+            return;
+        }
+        if (schema.has("$ref")) {
+            String refName = extractRefName(schema.path("$ref").asText());
+            if (StringUtils.hasText(refName) && visitedRefs.add(refName) && components != null) {
+                collectRelations(components.path(refName), components, visitedRefs, out);
+            }
+            return;
         }
         if ("array".equals(schema.path("type").asText()) && schema.has("items")) {
-            return extractRelations(schema.path("items"), components);
+            collectRelations(schema.path("items"), components, visitedRefs, out);
+            return;
+        }
+        JsonNode allOf = schema.path("allOf");
+        if (allOf.isArray()) {
+            for (JsonNode child : allOf) {
+                collectRelations(child, components, visitedRefs, out);
+            }
         }
         if (!schema.has("properties")) {
-            return relations;
+            return;
         }
         JsonNode props = schema.path("properties");
         Iterator<Map.Entry<String, JsonNode>> it = props.fields();
@@ -603,10 +744,9 @@ public class DomainCatalogController {
             JsonNode prop = entry.getValue();
             RelationSummary rel = buildRelation(name, prop, components);
             if (rel != null) {
-                relations.add(rel);
+                out.put(name, rel);
             }
         }
-        return relations;
     }
 
     private RelationSummary buildRelation(String fieldName, JsonNode prop, JsonNode components) {
@@ -759,7 +899,10 @@ public class DomainCatalogController {
         private final String description;
         private final String operationId;
         private final String resourceKey;
+        private final String resourcePath;
         private final ResourceVisual resourceVisual;
+        private final Boolean resourceReadOnly;
+        private final Map<String, Boolean> resourceCapabilities;
         private final SchemaRef requestSchema;
         private final SchemaRef responseSchema;
         private final List<ParameterSummary> parameters;
@@ -772,6 +915,18 @@ public class DomainCatalogController {
                                List<ParameterSummary> parameters,
                                Map<String, Map<String, Object>> operationExamples,
                                SchemaLinks schemaLinks) {
+            this(path, method, tags, summary, description, operationId, resourceKey, null, resourceVisual,
+                    null, null, requestSchema, responseSchema, parameters, operationExamples, schemaLinks);
+        }
+
+        public EndpointSummary(String path, String method, List<String> tags, String summary, String description,
+                               String operationId, String resourceKey, String resourcePath,
+                               ResourceVisual resourceVisual, Boolean resourceReadOnly,
+                               Map<String, Boolean> resourceCapabilities,
+                               SchemaRef requestSchema, SchemaRef responseSchema,
+                               List<ParameterSummary> parameters,
+                               Map<String, Map<String, Object>> operationExamples,
+                               SchemaLinks schemaLinks) {
             this.path = path;
             this.method = method;
             this.tags = tags;
@@ -779,7 +934,12 @@ public class DomainCatalogController {
             this.description = description;
             this.operationId = operationId;
             this.resourceKey = resourceKey;
+            this.resourcePath = resourcePath;
             this.resourceVisual = resourceVisual;
+            this.resourceReadOnly = resourceReadOnly;
+            this.resourceCapabilities = resourceCapabilities != null && !resourceCapabilities.isEmpty()
+                    ? Map.copyOf(resourceCapabilities)
+                    : null;
             this.requestSchema = requestSchema;
             this.responseSchema = responseSchema;
             this.parameters = parameters;
@@ -815,8 +975,20 @@ public class DomainCatalogController {
             return resourceKey;
         }
 
+        public String getResourcePath() {
+            return resourcePath;
+        }
+
         public ResourceVisual getResourceVisual() {
             return resourceVisual != null && resourceVisual.isEmpty() ? null : resourceVisual;
+        }
+
+        public Boolean getResourceReadOnly() {
+            return resourceReadOnly;
+        }
+
+        public Map<String, Boolean> getResourceCapabilities() {
+            return resourceCapabilities;
         }
 
         public SchemaRef getRequestSchema() {

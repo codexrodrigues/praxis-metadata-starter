@@ -783,6 +783,7 @@ public class OpenApiUiSchemaAutoConfiguration {
             SurfaceDefinitionRegistry surfaceDefinitionRegistry,
             OptionSourceRegistry optionSourceRegistry,
             OpenApiDocumentService openApiDocumentService,
+            CanonicalCapabilityResolver canonicalCapabilityResolver,
             @Value("${spring.application.name:praxis-service}") String serviceKey,
             @Value("${praxis.metadata.domain.service-name:${spring.application.name:praxis-service}}") String serviceName,
             @Value("${praxis.metadata.domain.service-version:}") String serviceVersion
@@ -792,6 +793,7 @@ public class OpenApiUiSchemaAutoConfiguration {
                 surfaceDefinitionRegistry,
                 optionSourceRegistry,
                 openApiDocumentService,
+                canonicalCapabilityResolver,
                 Clock.systemUTC(),
                 serviceKey,
                 serviceName,

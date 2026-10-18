@@ -214,10 +214,12 @@ GET /schemas/domain?resource={resourceKey}
 
 Os nos `policy_hint` com binding `option_source` materializam os descriptors do
 resource owner, incluindo `key`, `type`, `resourcePath`, `dependsOn`,
-`dependencyFilterMap`, `filtering`, endpoints e politicas de reload/sort. O
-owner e resolvido pelo `resourceKey` canonico ja publicado por surfaces/actions
-para o mesmo `resourcePath`; a derivacao pelo path existe apenas como fallback
-para recursos legados.
+`dependencyFilterMap`, `filtering`, endpoints e politicas de reload/sort, e o
+no `concept` do recurso tambem agrega a colecao resumida em
+`metadata.optionSources` (em paridade com `metadata.readOnly` e
+`metadata.capabilities`). O owner e resolvido pelo `resourceKey` canonico ja
+publicado por surfaces/actions para o mesmo `resourcePath`; a derivacao pelo
+path existe apenas como fallback para recursos legados.
 
 Filtros obrigatorios sao aqueles com
 `filtering.availableFilters[].required=true`. Nao publique um segundo array

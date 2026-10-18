@@ -24,6 +24,13 @@ class CatalogDiscoveryE2ETest extends AbstractE2eH2Test {
         assertNotNull(createEmployeeEndpoint);
         assertEquals("POST", createEmployeeEndpoint.path("method").asText());
         assertEquals("human-resources.employees", createEmployeeEndpoint.path("resourceKey").asText());
+        assertEquals("/employees", createEmployeeEndpoint.path("resourcePath").asText());
+        assertFalse(createEmployeeEndpoint.path("resourceReadOnly").asBoolean());
+        assertTrue(createEmployeeEndpoint.path("resourceCapabilities").path("create").asBoolean());
+        assertTrue(createEmployeeEndpoint.path("resourceCapabilities").path("filter").asBoolean());
+        assertTrue(createEmployeeEndpoint.path("resourceCapabilities").path("options").asBoolean());
+        assertTrue(createEmployeeEndpoint.path("resourceCapabilities").path("optionSources").asBoolean());
+        assertFalse(createEmployeeEndpoint.path("resourceCapabilities").path("statsGroupBy").asBoolean());
         assertEquals("Employees", createEmployeeEndpoint.path("resourceVisual").path("title").asText());
         assertEquals("People and HR records governed by the host service.", createEmployeeEndpoint.path("resourceVisual").path("description").asText());
         assertEquals("groups", createEmployeeEndpoint.path("resourceVisual").path("icon").asText());
@@ -54,6 +61,11 @@ class CatalogDiscoveryE2ETest extends AbstractE2eH2Test {
         assertEquals("payroll-view", payrollCatalog.path("group").asText());
         JsonNode payrollByIdEndpoint = findEndpoint(payrollCatalog.path("endpoints"), "/payroll-view/{id}", "GET");
         assertNotNull(payrollByIdEndpoint);
+        assertEquals("/payroll-view", payrollByIdEndpoint.path("resourcePath").asText());
+        assertTrue(payrollByIdEndpoint.path("resourceReadOnly").asBoolean());
+        assertFalse(payrollByIdEndpoint.path("resourceCapabilities").path("create").asBoolean());
+        assertTrue(payrollByIdEndpoint.path("resourceCapabilities").path("byId").asBoolean());
+        assertTrue(payrollByIdEndpoint.path("resourceCapabilities").path("filter").asBoolean());
         assertFalse(payrollByIdEndpoint.hasNonNull("resourceVisual"));
         assertTrue(payrollByIdEndpoint.path("schemaLinks").hasNonNull("response"));
         assertResolvable(payrollByIdEndpoint.path("schemaLinks").path("response").asText());

@@ -909,6 +909,33 @@ class CustomOpenApiResolverTest {
                 fallbackText = "Robustez"
         )
         public Double robustezThresholds;
+
+        @MicroVisualization(
+                kind = MicroVisualizationKind.AREA,
+                scaleScope = "page",
+                min = 0.0,
+                minExpr = "row.minLatency",
+                max = 500.0,
+                maxExpr = "row.maxLatency",
+                target = 120.0,
+                baseline = 80.0,
+                pointsExpr = "row.latencyHistory",
+                valueSuffix = " ms",
+                valueSuffixExpr = "row.latencyUnit",
+                ariaLabel = "Serie de latencia",
+                ariaLabelExpr = "row.latencyAria",
+                fallbackText = "Historico de latencia"
+        )
+        public List<Double> historicoLatencia;
+
+        @MicroVisualization(
+                kind = MicroVisualizationKind.PROCESS_FLOW,
+                itemsExpr = "row.etapasProcesso",
+                segmentsExpr = "row.segmentosAlocacao",
+                thresholdsExpr = "row.faixasDinamicas",
+                fallbackTextExpr = "row.resumoEtapas"
+        )
+        public List<Object> fluxoEtapas;
     }
 
     @Test
@@ -1072,6 +1099,35 @@ class CustomOpenApiResolverTest {
         assertEquals(10.0, (Double) robustezThresholds.get(1).get("min"), 0.001);
         assertEquals("success", robustezThresholds.get(1).get("tone"));
         assertEquals("Valido", robustezThresholds.get(1).get("label"));
+
+        // 5. Series com scaleScope, min/max, pointsExpr, valueSuffixExpr e ariaLabel
+        Schema<?> latenciaSchema = (Schema<?>) dummySchema.getProperties().get("historicoLatencia");
+        assertNotNull(latenciaSchema);
+        Map<String, Object> latenciaViz = (Map<String, Object>) ((Map<String, Object>) getXui(latenciaSchema).get("presentation")).get("visualization");
+        assertEquals("area", latenciaViz.get("kind"));
+        assertEquals("page", latenciaViz.get("scaleScope"));
+        assertEquals(0.0, (Double) latenciaViz.get("min"), 0.001);
+        assertEquals("row.minLatency", latenciaViz.get("minExpr"));
+        assertEquals(500.0, (Double) latenciaViz.get("max"), 0.001);
+        assertEquals("row.maxLatency", latenciaViz.get("maxExpr"));
+        assertEquals(120.0, (Double) latenciaViz.get("target"), 0.001);
+        assertEquals(80.0, (Double) latenciaViz.get("baseline"), 0.001);
+        assertEquals("row.latencyHistory", latenciaViz.get("pointsExpr"));
+        assertEquals(" ms", latenciaViz.get("valueSuffix"));
+        assertEquals("row.latencyUnit", latenciaViz.get("valueSuffixExpr"));
+        assertEquals("Serie de latencia", latenciaViz.get("ariaLabel"));
+        assertEquals("row.latencyAria", latenciaViz.get("ariaLabelExpr"));
+        assertEquals("Historico de latencia", latenciaViz.get("fallbackText"));
+
+        // 6. Process flow com itemsExpr, segmentsExpr, thresholdsExpr e fallbackTextExpr
+        Schema<?> fluxoSchema = (Schema<?>) dummySchema.getProperties().get("fluxoEtapas");
+        assertNotNull(fluxoSchema);
+        Map<String, Object> fluxoViz = (Map<String, Object>) ((Map<String, Object>) getXui(fluxoSchema).get("presentation")).get("visualization");
+        assertEquals("processFlow", fluxoViz.get("kind"));
+        assertEquals("row.etapasProcesso", fluxoViz.get("itemsExpr"));
+        assertEquals("row.segmentosAlocacao", fluxoViz.get("segmentsExpr"));
+        assertEquals("row.faixasDinamicas", fluxoViz.get("thresholdsExpr"));
+        assertEquals("row.resumoEtapas", fluxoViz.get("fallbackTextExpr"));
     }
 
     @SuppressWarnings("unchecked")

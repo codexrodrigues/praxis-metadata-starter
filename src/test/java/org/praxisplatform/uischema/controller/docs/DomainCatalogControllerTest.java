@@ -248,6 +248,12 @@ class DomainCatalogControllerTest {
         DomainCatalogController.EndpointSummary endpoint = body.getEndpoints().get(0);
         assertEquals("RestApiResponseGroupByStatsResponse", endpoint.getResponseSchema().getName());
         assertEquals("application/json", endpoint.getResponseSchema().getMediaType());
+        assertEquals(
+                List.of("field", "buckets"),
+                endpoint.getResponseSchema().getFields().stream()
+                        .map(DomainCatalogController.FieldSummary::getName)
+                        .toList()
+        );
         assertEquals("/schemas/filtered?path=%2Fstats%2Fgroup-by&operation=post&schemaType=response", endpoint.getSchemaLinks().getResponse());
     }
 
@@ -404,5 +410,85 @@ class DomainCatalogControllerTest {
         assertNotNull(endpoint.getSchemaLinks());
         assertEquals("/schemas/filtered?path=%2Fstats%2Fdistribution&operation=post&schemaType=request", endpoint.getSchemaLinks().getRequest());
         assertNull(endpoint.getSchemaLinks().getResponse());
+    }
+
+    @Test
+    void getCatalogResolvesBaseResourcePathPrefixAndArrayItemsWithAllOf() {
+        when(openApiGroupResolver.resolveGroup("/payroll-view")).thenReturn("payroll");
+        String doc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/payroll-view/all\": {\n" +
+                "      \"get\": {\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\n" +
+                "                  \"type\": \"array\",\n" +
+                "                  \"items\": {\"$ref\": \"#/components/schemas/PayrollViewDTO\"}\n" +
+                "                }\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"/other-resource\": {\n" +
+                "      \"get\": {\n" +
+                "        \"responses\": {\"200\": {\"content\": {\"application/json\": {\"schema\": {\"type\": \"object\"}}}}}\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"BaseAuditDTO\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"required\": [\"id\"],\n" +
+                "        \"properties\": {\n" +
+                "          \"id\": {\"type\": \"integer\"}\n" +
+                "        }\n" +
+                "      },\n" +
+                "      \"PayrollViewDTO\": {\n" +
+                "        \"allOf\": [\n" +
+                "          {\"$ref\": \"#/components/schemas/BaseAuditDTO\"},\n" +
+                "          {\n" +
+                "            \"type\": \"object\",\n" +
+                "            \"properties\": {\n" +
+                "              \"employeeName\": {\"type\": \"string\"},\n" +
+                "              \"netAmount\": {\"type\": \"number\"}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        ]\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(requestTo("http://localhost/v3/api-docs/payroll"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getCatalog(null, "/payroll-view", null);
+        assertEquals(200, response.getStatusCodeValue());
+        DomainCatalogController.CatalogResponse body = response.getBody();
+        assertNotNull(body);
+        assertEquals("payroll", body.getGroup());
+        assertEquals(1, body.getEndpoints().size());
+
+        DomainCatalogController.EndpointSummary endpoint = body.getEndpoints().get(0);
+        assertEquals("/payroll-view/all", endpoint.getPath());
+        assertNotNull(endpoint.getResponseSchema());
+        assertEquals(
+                List.of("id", "employeeName", "netAmount"),
+                endpoint.getResponseSchema().getFields().stream()
+                        .map(DomainCatalogController.FieldSummary::getName)
+                        .toList()
+        );
+        assertTrue(endpoint.getResponseSchema().getFields().get(0).isRequired());
     }
 }

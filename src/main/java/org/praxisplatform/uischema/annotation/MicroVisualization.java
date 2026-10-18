@@ -97,9 +97,54 @@ public @interface MicroVisualization {
     boolean compactValue() default false;
 
     /**
+     * Escopo de normalizacao de escala para series: "row" (local por linha) ou "page" (sincronizado na pagina visivel).
+     */
+    String scaleScope() default "";
+
+    /**
+     * Limite minimo numerico explicito da escala (quando aplicavel).
+     */
+    double min() default Double.NaN;
+
+    /**
+     * Expressao dinamica para obter o limite minimo da escala na linha.
+     */
+    String minExpr() default "";
+
+    /**
+     * Limite maximo numerico explicito da escala (quando aplicavel).
+     */
+    double max() default Double.NaN;
+
+    /**
+     * Expressao dinamica para obter o limite maximo da escala na linha.
+     */
+    String maxExpr() default "";
+
+    /**
      * Sufixo do valor (ex: "%", " pts", " h").
      */
     String valueSuffix() default "";
+
+    /**
+     * Expressao dinamica para obter o sufixo do valor na linha.
+     */
+    String valueSuffixExpr() default "";
+
+    /**
+     * Expressao dinamica para obter a serie de pontos (line, area, column, comparison).
+     */
+    String pointsExpr() default "";
+
+    /**
+     * Expressao dinamica para obter os segmentos de barra empilhada (stackedBar).
+     */
+    String segmentsExpr() default "";
+
+    /**
+     * Expressao dinamica para obter as etapas do fluxo de processo (processFlow).
+     */
+    String itemsExpr() default "";
 
     /**
      * Expressao dinamica computada para obtencao do tom semantico (JsonLogic ou formula com prefixo "=").
@@ -110,4 +155,24 @@ public @interface MicroVisualization {
      * Conjunto ordenado de limiares / faixas semanticas declarativas para resolucao automatica de tom e bullets.
      */
     Threshold[] thresholds() default {};
+
+    /**
+     * Expressao dinamica para obter a lista de faixas semanticas (thresholds).
+     */
+    String thresholdsExpr() default "";
+
+    /**
+     * Rotulo acessivel estatico explicito (aria-label) para leitores de tela.
+     */
+    String ariaLabel() default "";
+
+    /**
+     * Expressao dinamica para obter o rotulo acessivel (aria-label) da linha.
+     */
+    String ariaLabelExpr() default "";
+
+    /**
+     * Expressao dinamica para obter o texto alternativo legivel (fallbackText) da linha.
+     */
+    String fallbackTextExpr() default "";
 }

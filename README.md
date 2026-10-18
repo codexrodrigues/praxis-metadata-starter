@@ -158,15 +158,16 @@ usuario, facts e decisoes aplicadas fora do schema publico. Veja
 `/schemas/catalog` nao substitui o contrato estrutural. Ele publica:
 
 - resumo de operacoes
+- `resourceKey`, `resourcePath`, `resourceVisual`, `resourceReadOnly` e `resourceCapabilities` (mapa canonico alinhado com `x-ui.resource.capabilities` e `GET /{resource}/capabilities`)
 - exemplos request/response
 - links canonicos para schemas estruturais
-- material para docs, tooling e RAG
+- material para docs, seletores inteligentes de recursos (`ResourceDiscoveryService`), tooling e RAG
 
 ### Semantic discovery
 
 O baseline atual adiciona discovery orientado a recurso:
 
-- `GET /schemas/domain`
+- `GET /schemas/domain` (incluindo `metadata.readOnly`, `metadata.capabilities` e `metadata.optionSources` nos nos `concept`, alem dos nos `policy_hint` com binding `option_source` e filtragem canonica de nos `stats.*` apenas para modos analiticos efetivamente suportados, incluindo `stats/comparison`)
 - `GET /schemas/surfaces`
 - `GET /schemas/actions`
 - `GET /{resource}/capabilities`

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.praxisplatform.uischema.action.ActionDefinition;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
+import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.hash.SchemaCanonicalizer;
 import org.praxisplatform.uischema.hash.SchemaHashUtil;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
@@ -12,6 +13,7 @@ import org.praxisplatform.uischema.options.LookupSelectionPolicy;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
+import org.praxisplatform.uischema.schema.FilteredSchemaProjection;
 import org.praxisplatform.uischema.surface.SurfaceDefinition;
 import org.praxisplatform.uischema.surface.SurfaceDefinitionRegistry;
 import org.springframework.util.StringUtils;
@@ -52,6 +54,7 @@ public class SemanticDomainCatalogService {
     private final SurfaceDefinitionRegistry surfaceDefinitionRegistry;
     private final OptionSourceRegistry optionSourceRegistry;
     private final OpenApiDocumentService openApiDocumentService;
+    private final CanonicalCapabilityResolver canonicalCapabilityResolver;
     private final Clock clock;
     private final String serviceKey;
     private final String serviceName;
@@ -68,10 +71,35 @@ public class SemanticDomainCatalogService {
             String serviceName,
             String serviceVersion
     ) {
+        this(
+                actionDefinitionRegistry,
+                surfaceDefinitionRegistry,
+                optionSourceRegistry,
+                openApiDocumentService,
+                null,
+                clock,
+                serviceKey,
+                serviceName,
+                serviceVersion
+        );
+    }
+
+    public SemanticDomainCatalogService(
+            ActionDefinitionRegistry actionDefinitionRegistry,
+            SurfaceDefinitionRegistry surfaceDefinitionRegistry,
+            OptionSourceRegistry optionSourceRegistry,
+            OpenApiDocumentService openApiDocumentService,
+            CanonicalCapabilityResolver canonicalCapabilityResolver,
+            Clock clock,
+            String serviceKey,
+            String serviceName,
+            String serviceVersion
+    ) {
         this.actionDefinitionRegistry = actionDefinitionRegistry;
         this.surfaceDefinitionRegistry = surfaceDefinitionRegistry;
         this.optionSourceRegistry = optionSourceRegistry == null ? OptionSourceRegistry.empty() : optionSourceRegistry;
         this.openApiDocumentService = openApiDocumentService;
+        this.canonicalCapabilityResolver = canonicalCapabilityResolver;
         this.clock = clock;
         this.serviceKey = serviceKey;
         this.serviceName = serviceName;
@@ -108,15 +136,17 @@ public class SemanticDomainCatalogService {
         Map<String, DomainCatalogResponse.DomainGovernanceItem> governance = new LinkedHashMap<>();
         Map<String, String> resourceDescriptions = resourceDescriptions(actions, surfaces);
         Map<String, String> canonicalResourceKeysByPath = canonicalResourceKeysByPath(actions, surfaces);
+        Map<String, Map<String, Boolean>> capabilitiesByResourcePath = new LinkedHashMap<>();
+        Set<String> analyticCapabilitiesAdded = new LinkedHashSet<>();
 
         for (ActionDefinition action : sortActions(actions)) {
             String resourceKey = action.resourceKey();
             String contextKey = contextKey(resourceKey, action.group());
             ensureContext(contexts, contextKey, action.group());
             ensureConcept(nodes, resourceKey, contextKey, action.resourcePath(), action.group(), action.tags(),
-                    resourceDescriptions.get(resourceKey));
+                    resourceDescriptions.get(resourceKey), capabilitiesByResourcePath);
             addAnalyticCapabilities(action.resourceKey(), contextKey, action.group(), action.resourcePath(),
-                    nodes, edges, bindings, evidence);
+                    nodes, edges, bindings, evidence, capabilitiesByResourcePath, analyticCapabilitiesAdded);
             addAction(action, contextKey, nodes, edges, bindings, evidence);
             addSchemaFields(action.resourceKey(), contextKey, action.group(), action.requestSchema(), "request",
                     nodes, edges, bindings, evidence, governance);
@@ -129,9 +159,9 @@ public class SemanticDomainCatalogService {
             String contextKey = contextKey(resourceKey, surface.group());
             ensureContext(contexts, contextKey, surface.group());
             ensureConcept(nodes, resourceKey, contextKey, surface.resourcePath(), surface.group(), surface.tags(),
-                    resourceDescriptions.get(resourceKey));
+                    resourceDescriptions.get(resourceKey), capabilitiesByResourcePath);
             addAnalyticCapabilities(surface.resourceKey(), contextKey, surface.group(), surface.resourcePath(),
-                    nodes, edges, bindings, evidence);
+                    nodes, edges, bindings, evidence, capabilitiesByResourcePath, analyticCapabilitiesAdded);
             addSurface(surface, contextKey, nodes, edges, bindings, evidence);
             addSchemaFields(surface.resourceKey(), contextKey, surface.group(), surface.schema(), surface.schemaType(),
                     nodes, edges, bindings, evidence, governance);
@@ -142,12 +172,18 @@ public class SemanticDomainCatalogService {
             if (!matchesRequestedScope(resourceKey, requestedResourceKey, requestedGroup)) {
                 continue;
             }
-            String contextKey = contextKey(resourceKey, requestedGroup);
-            ensureContext(contexts, contextKey, requestedGroup);
-            ensureConcept(nodes, resourceKey, contextKey, descriptor.resourcePath(), requestedGroup,
-                    List.of("option-source"), null);
-            addAnalyticCapabilities(resourceKey, contextKey, requestedGroup, descriptor.resourcePath(),
-                    nodes, edges, bindings, evidence);
+            String effectiveGroup = firstText(
+                    requestedGroup,
+                    openApiDocumentService != null
+                            ? openApiDocumentService.resolveGroupFromPath(descriptor.resourcePath())
+                            : null
+            );
+            String contextKey = contextKey(resourceKey, effectiveGroup);
+            ensureContext(contexts, contextKey, effectiveGroup);
+            ensureConcept(nodes, resourceKey, contextKey, descriptor.resourcePath(), effectiveGroup,
+                    List.of("option-source"), null, capabilitiesByResourcePath);
+            addAnalyticCapabilities(resourceKey, contextKey, effectiveGroup, descriptor.resourcePath(),
+                    nodes, edges, bindings, evidence, capabilitiesByResourcePath, analyticCapabilitiesAdded);
             addOptionSource(descriptor, resourceKey, contextKey, nodes, edges, bindings, evidence);
         }
 
@@ -399,21 +435,35 @@ public class SemanticDomainCatalogService {
             Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
             Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
             Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
-            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence
+            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence,
+            Map<String, Map<String, Boolean>> capabilitiesByResourcePath,
+            Set<String> analyticCapabilitiesAdded
     ) {
         if (!StringUtils.hasText(resourceKey) || !StringUtils.hasText(resourcePath) || openApiDocumentService == null) {
+            return;
+        }
+        String normalizedResourcePath = firstText(normalizeResourcePath(resourcePath), resourcePath.trim());
+        if (!analyticCapabilitiesAdded.add(resourceKey + "::" + normalizedResourcePath)) {
             return;
         }
         JsonNode paths = openApiPaths(group, resourcePath);
         if (paths == null || !paths.isObject()) {
             return;
         }
+        Map<String, Boolean> canonicalCapabilities = resolveResourceCapabilities(
+                group,
+                resourcePath,
+                capabilitiesByResourcePath
+        );
         Iterator<Map.Entry<String, JsonNode>> entries = paths.fields();
         while (entries.hasNext()) {
             Map.Entry<String, JsonNode> entry = entries.next();
             String path = entry.getKey();
             String capabilityKind = statsCapabilityKind(resourcePath, path);
             if (!StringUtils.hasText(capabilityKind)) {
+                continue;
+            }
+            if (!isStatsCapabilitySupported(canonicalCapabilities, capabilityKind)) {
                 continue;
             }
             String method = firstText(firstMethod(entry.getValue()), "POST");
@@ -778,7 +828,8 @@ public class SemanticDomainCatalogService {
             String resourcePath,
             String group,
             List<String> tags,
-            String description
+            String description,
+            Map<String, Map<String, Boolean>> capabilitiesByResourcePath
     ) {
         DomainCatalogResponse.DomainNodeItem existing = nodes.get(resourceKey);
         if (existing != null) {
@@ -805,6 +856,15 @@ public class SemanticDomainCatalogService {
             return;
         }
 
+        Map<String, Boolean> capabilities = resolveResourceCapabilities(
+                group,
+                resourcePath,
+                capabilitiesByResourcePath
+        );
+        Boolean readOnly = capabilities != null && !capabilities.isEmpty()
+                ? FilteredSchemaProjection.readOnly(null, capabilities)
+                : null;
+
         nodes.put(resourceKey, new DomainCatalogResponse.DomainNodeItem(
                 resourceKey,
                 contextKey,
@@ -817,7 +877,9 @@ public class SemanticDomainCatalogService {
                 mapOfNonNull(
                         "resourceKey", resourceKey,
                         "resourcePath", resourcePath,
-                        "group", group
+                        "group", group,
+                        "readOnly", readOnly,
+                        "capabilities", capabilities
                 ),
                 nonNullList(tags),
                 null,
@@ -1198,6 +1260,55 @@ public class SemanticDomainCatalogService {
         }
     }
 
+    private Map<String, Boolean> resolveResourceCapabilities(
+            String group,
+            String resourcePath,
+            Map<String, Map<String, Boolean>> cache
+    ) {
+        if (canonicalCapabilityResolver == null || !StringUtils.hasText(resourcePath)) {
+            return null;
+        }
+        String cacheKey = firstText(normalizeResourcePath(resourcePath), resourcePath.trim());
+        if (cache != null && cache.containsKey(cacheKey)) {
+            return cache.get(cacheKey);
+        }
+        try {
+            String resolvedGroup = StringUtils.hasText(group)
+                    ? group
+                    : openApiDocumentService != null ? openApiDocumentService.resolveGroupFromPath(resourcePath) : null;
+            JsonNode document = openApiDocumentService != null && StringUtils.hasText(resolvedGroup)
+                    ? openApiDocumentService.getDocumentForGroup(resolvedGroup)
+                    : null;
+            Map<String, Boolean> resolved = document != null
+                    ? canonicalCapabilityResolver.resolve(document, resourcePath)
+                    : canonicalCapabilityResolver.resolve(resourcePath);
+            Map<String, Boolean> normalized = resolved != null && !resolved.isEmpty() ? resolved : null;
+            if (cache != null) {
+                cache.put(cacheKey, normalized);
+            }
+            return normalized;
+        } catch (RuntimeException ex) {
+            if (cache != null) {
+                cache.put(cacheKey, null);
+            }
+            return null;
+        }
+    }
+
+    private boolean isStatsCapabilitySupported(Map<String, Boolean> canonicalCapabilities, String capabilityKind) {
+        if (canonicalCapabilities == null || canonicalCapabilities.isEmpty()) {
+            return true;
+        }
+        String operationKey = switch (capabilityKind) {
+            case "groupBy" -> "statsGroupBy";
+            case "timeSeries" -> "statsTimeSeries";
+            case "distribution" -> "statsDistribution";
+            case "comparison" -> "statsComparison";
+            default -> null;
+        };
+        return operationKey != null && Boolean.TRUE.equals(canonicalCapabilities.get(operationKey));
+    }
+
     private String statsCapabilityKind(String resourcePath, String path) {
         if (!StringUtils.hasText(resourcePath) || !StringUtils.hasText(path)) {
             return null;
@@ -1208,7 +1319,7 @@ public class SemanticDomainCatalogService {
             return null;
         }
         String suffix = normalizedPath.substring((normalizedResourcePath + "/stats/").length());
-        if (!List.of("group-by", "timeseries", "distribution").contains(suffix)) {
+        if (!List.of("group-by", "timeseries", "distribution", "comparison").contains(suffix)) {
             return null;
         }
         return switch (suffix) {

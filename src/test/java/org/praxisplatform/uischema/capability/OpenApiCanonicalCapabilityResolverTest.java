@@ -168,6 +168,35 @@ class OpenApiCanonicalCapabilityResolverTest {
     }
 
     @Test
+    void structuralExportOptInAdvertisesExportCapabilityAndOperation() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {
+                  "paths": {
+                    "/employees/export": { "post": {} }
+                  }
+                }
+                """);
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("human-resources", document),
+                ignored -> new ResourceStructuralCapabilities(
+                        false, false, false, false, false, false, true,
+                        StatsCapability.empty(), null
+                )
+        );
+
+        Map<String, Boolean> capabilities = resolver.resolve("/employees");
+        assertTrue(capabilities.get("export"));
+        assertOperation(
+                resolver.resolveOperations(document, "/employees"),
+                "export",
+                true,
+                "COLLECTION",
+                "POST",
+                "export"
+        );
+    }
+
+    @Test
     void resolvesReadOnlyCanonicalOperationsForQueryOnlyResource() throws Exception {
         JsonNode document = objectMapper.readTree("""
                 {
