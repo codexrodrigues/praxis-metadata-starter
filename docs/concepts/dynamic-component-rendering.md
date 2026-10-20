@@ -1,23 +1,24 @@
 # Dynamic Component Rendering
 
-## Definicao curta
+## Definição
 
-Renderizacao dinamica de componentes baseada em metadados de schema e tipo de
-controle.
+**Dynamic Component Rendering** é a capacidade do cliente de selecionar, instanciar e configurar componentes visuais em tempo de execução a partir de metadados abstratos do contrato (`controlType`, `type`, `valuePresentation`, `optionSource`), sem templates HTML estáticos acoplados a cada campo.
 
-## Onde aparece no Praxis
+## Como o `praxis-metadata-starter` suporta a renderização dinâmica
 
-- Frontend: `@praxisui/dynamic-fields`
-- Frontend: `@praxisui/table`
-- Backend: `praxis-metadata-starter`
+O starter publica em `/schemas/filtered` todos os sinais necessários para que qualquer runtime escolha o componente correto:
 
-## Como aplicar
+- **Controles de formulário (`FieldControlType`)**: mapeia intenções como `INPUT`, `TEXTAREA`, `SELECT`, `AUTOCOMPLETE`, `DATE_PICKER`, `DATE_TIME_PICKER`, `CURRENCY_INPUT`, `CPF_CNPJ_INPUT`, `SWITCH`, `CHECKBOX` e `FILE_UPLOAD`.
+- **Apresentação de leitura e células de tabela (`valuePresentation` e `presentation`)**: informa ao cliente como formatar valores read-only (moeda, data, booleano, texto mascarado) e como aplicar invólucros visuais (`badge`, `chip`, `status`, `iconValue`) sem alterar o valor bruto usado em ordenação ou filtro.
+- **Fontes dinâmicas de opções (`optionSource`)**: conecta campos de seleção e filtros a endpoints `/options/filter` e `/options/by-ids` ou a `OptionSourceProvider` dedicados, incluindo cascatas declarativas via `dependsOn`.
+- **Prova imediata no backend**: o **`/praxis/cockpit`** utiliza exatamente esses metadados para renderizar filtros, tabelas, formulários de criação/edição e diálogos de `@WorkflowAction` em tempo real.
 
-1. defina `FieldControlType` e metadados de campo
-2. mantenha um registro que mapeia tipo para componente
-3. resolva o componente em runtime a partir do contrato
+## Referências internas
 
-## Referencias publicas
+- [Conceito: `@UISchema` e metadados `x-ui`](ui-schema.md)
+- [Exemplos de DTOs e Filtros](../examples/DTO-FILTROS-EXEMPLOS.md)
 
-- repositório público: `https://github.com/codexrodrigues/praxis-ui-angular`
-- pacotes: `@praxisui/core`, `@praxisui/dynamic-fields`, `@praxisui/table`
+## Referências públicas
+
+- [Angular Dynamic Component Loader](https://angular.dev/guide/components/programmatic-rendering)
+- [Web Components Specification](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)

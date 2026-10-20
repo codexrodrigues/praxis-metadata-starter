@@ -1,25 +1,31 @@
 # Rules Engines and Specifications
 
-## Definicao curta
+## Definição
 
-Usar regras canônicas e materializações de runtime para expressar
-comportamento, visibilidade, validacao e efeitos visuais sem espalhar logica
-imperativa.
+O padrão **Specification** e motores de regras declarativas permitem expressar critérios de filtragem, visibilidade condicional, obrigatoriedade dinâmica e elegibilidade de ações como estruturas de dados composáveis e auditáveis, evitando ramificações `if/else` espalhadas entre frontend e backend.
 
-## Onde aparece no Praxis
+## Como o `praxis-metadata-starter` implementa
 
-- Frontend: contratos Json Logic em `@praxisui/core`
-- Frontend: `@praxisui/table`
-- Frontend: `@praxisui/visual-builder`
-- Backend: specifications no ecossistema Spring Data
+O starter aplica especificações e regras declarativas em três frentes complementares:
 
-## Referencias publicas
+1. **Consultas dinâmicas tipadas (`@Filterable` + `GenericSpecificationsBuilder`)**:
+   - Nos DTOs de filtro (`implements GenericFilterDTO`), `@Filterable(operation = ..., relation = ...)` declara o operador (`LIKE`, `EQUAL`, `IN`, `BETWEEN`, `GREATER_THAN`, etc.) e o caminho na entidade JPA.
+   - O `GenericSpecificationsBuilder` converte automaticamente o DTO recebido em `POST /{resource}/filter` ou `/options/filter` em uma `Specification<E>` do Spring Data JPA, com suporte a paginação, ordenação e projeções.
+2. **Condicionais declarativas em `x-ui` (Json Logic canônico)**:
+   - Propriedades como `conditionalDisplay`, `conditionalRequired` e `conditionalValidation[]` usam expressões **Json Logic** serializáveis em JSON.
+   - O backend valida precocemente operadores, aridade e estrutura antes de publicar o schema em `/schemas/filtered`, rejeitando DSLs textuais ambíguas.
+3. **Determinações reativas e governança de regras (`x-ui.reactiveDeterminations` + `praxis-config-starter`)**:
+   - O metadata starter publica os bindings estruturais em `x-ui.reactiveDeterminations` e a disponibilidade contextual de `@WorkflowAction` / capabilities.
+   - Regras versionadas por tenant, simulações e aprovações em Policy Studio são governadas pelo `praxis-config-starter` e consumidas pelo host de forma determinística.
 
-- repositório público: `https://github.com/codexrodrigues/praxis-ui-angular`
-- pacotes: `@praxisui/core`, `@praxisui/table`, `@praxisui/visual-builder`, `@praxisui/table-rule-builder`
+## Referências internas
 
-## Pacotes aposentados
+- [Conceito: `@UISchema` e metadados `x-ui`](ui-schema.md)
+- [Exemplos de DTOs e Filtros](../examples/DTO-FILTROS-EXEMPLOS.md)
+- [Visão geral da arquitetura](../architecture-overview.md)
 
-`@praxisui/specification` e `@praxisui/specification-core` foram removidos do
-inventario canônico do workspace Angular. Novas integrações devem usar Json
-Logic serializável e os runtimes/editores ativos.
+## Referências públicas
+
+- [Martin Fowler & Eric Evans — Specification Pattern](https://martinfowler.com/apsupp/spec.pdf)
+- [Spring Data JPA Specifications](https://docs.spring.io/spring-data/jpa/reference/jpa/specifications.html)
+- [JsonLogic](https://jsonlogic.com/)
