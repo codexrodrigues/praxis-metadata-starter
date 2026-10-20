@@ -151,6 +151,9 @@ Artefatos Derivados e Sincronizacao
   - `docs/index.md`
   - `docs/guides/**`
   - `docs/technical/**`
+- Governanca didatica das homes publicas (`README.md`, `docs/index.md` e `docs/README.md`):
+  - A abertura do `README.md` e do `docs/index.md` deve preservar sempre a piramide didatica de adocao: proposta de valor, Praxis Cockpit (`/praxis/cockpit`), tabela de superficies publicadas, Quickstart em 5 minutos, arquitetura `resource + surface + action + capability + HATEOAS` e fronteiras do ecossistema.
+  - E proibido inserir logs operacionais de candidatos internos, contagens brutas de testes de RCs ou checkpoints de PRs no topo do `README.md`, `docs/index.md` ou `docs/README.md`. Registros de candidatos de release e status incremental do Bulk SDK devem ser atualizados em `docs/technical/BULK-AND-RELEASE-CANDIDATES-STATUS.md` e no `CHANGELOG.md`, mantendo na Home apenas resumos executivos limpos e links para a especificacao.
 - Se a mudanca alterar semantica de `x-ui`, schemas ou exemplos publicados, revisar tambem:
   - `docs/spec/CONFORMANCE.md`
   - `docs/spec/*.schema.json`

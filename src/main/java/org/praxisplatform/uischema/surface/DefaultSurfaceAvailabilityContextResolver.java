@@ -129,7 +129,9 @@ public class DefaultSurfaceAvailabilityContextResolver implements SurfaceAvailab
         if (!StringUtils.hasText(resourceKey) || resourceId == null) {
             return null;
         }
-        return resourceStateSnapshotProvider.resolve(resourceKey, resourceId).orElse(null);
+        return org.praxisplatform.uischema.capability.ResourceStateSnapshotScope
+                .resolve(resourceStateSnapshotProvider, resourceKey, resourceId)
+                .orElse(null);
     }
 
     private Method findNoArgMethod(Class<?> type, String methodName) {

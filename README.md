@@ -1,907 +1,472 @@
 # Praxis Metadata Starter
 
-`praxis-metadata-starter` e a fonte canonica da semantica metadata-driven do backend Praxis.
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.15-6DB33F?logo=spring-boot)
+![Java](https://img.shields.io/badge/Java-21%2B-007396?logo=openjdk)
+[![Docs](https://img.shields.io/badge/Docs-GitHub%20Pages-0ea5e9)](https://codexrodrigues.github.io/praxis-metadata-starter/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-## Administração local de capacidade — candidato C0-04
+**Links Rápidos:**
+[Praxis Cockpit (Live Demo)](https://praxis-api-quickstart.onrender.com/praxis/cockpit) ·
+[Documentação (GitHub Pages)](https://codexrodrigues.github.io/praxis-metadata-starter/) ·
+[Guia 01: Nova Aplicação](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md) ·
+[Visão Arquitetural](docs/architecture-overview.md) ·
+[Javadoc Público](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/) ·
+[Host de Referência (Quickstart)](https://github.com/codexrodrigues/praxis-api-quickstart) ·
+[Runtime Angular (`@praxisui/*`)](https://github.com/codexrodrigues/praxis-ui-angular)
 
-A [entrada administrativa INSPECT/FENCE](docs/spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.md)
-permite observação e isolamento terminal local com credenciais OWNER explícitas,
-sem exigir acesso à autoridade D0. A fonte candidata passou 20 testes focais e
-revisão independente; o consumidor foi exercitado pelo JAR real do Quickstart
-contra coordenada privada. Código e documentação foram integrados pelo PR250; a prova do host pelo PR409
-e o guidance pelo PR710, sincronizado seletivamente. Publicação e adoção sem
-override permanecem marcos separados. Não há comando instalado em rc.154 nem certificação de sessões,
-cópias, custódia, continuidade/start/restore, C0/C2 integral ou Angular.
+---
 
-## Composição publicada em rc.152, captura EXPLICIT em rc.153 e QUERY em rc.154
+## O que é o `praxis-metadata-starter`?
 
-Metadata `8.0.0-rc.152` publica a composição e projeção `DOMAIN_COMMAND/ATOMIC`: ação e declaração bulk concordantes, provider e sete referências exatos, seleção EXPLICIT/SYNC, até 50 alvos e prazo agregado de até cinco segundos. O [registro técnico](docs/technical/BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md) preserva as provas e limites. O workflow oficial passou com 1.496 testes reportados, zero falhas/erros e três skips; POM/JAR estão no Maven Central. A publicação do SDK não fornece autorização, provider ou endpoint executável do host nem declara READY. Adoção sem override e provas do domínio permanecem gates separados.
+Em arquiteturas tradicionais, o backend e o frontend duplicam continuamente a semântica do domínio: tipos de campos, rótulos, máscaras, validações, filtros permitidos, combos relacionais, permissões de tela e fluxos de negócio precisam ser codificados duas vezes. Quando entra Inteligência Artificial no produto, essa fragmentação piora — agentes precisam adivinhar o que a API faz lendo código-fonte ou tentando payloads por tentativa e erro.
 
-Metadata `8.0.0-rc.153` publica a [captura EXPLICIT sob locks operacionais](docs/spec/BULK-PROPOSAL-STORAGE.md), com a V17 e participação na transação gravável do host. POM/JAR foram conferidos no Maven Central; a adoção EXPLICIT sem override no host foi integrada pelo PR387 e validada com 1.198 testes reportados, zero falhas/erros e 23 skips. Esse marco não inclui seleção QUERY no artefato público.
+O **`praxis-metadata-starter`** é a biblioteca Spring Boot canônica da plataforma Praxis que resolve esse problema na origem. Ele transforma recursos REST em **contratos autodescritivos (*self-describing APIs*)** que guiam tanto **UIs dinâmicas em tempo de execução** (como o `@praxisui/*` em Angular) quanto **agentes e fluxos de IA governados**, sem geração estática de código e sem acoplamento frágil.
 
-Metadata `8.0.0-rc.154` publica a seleção QUERY delimitada a `UNIFORM_UPDATE/SYNC/PER_ITEM`, com admissão opaca pelo lifecycle, captura transacional e reserva governada. O workflow oficial [37236119846](https://github.com/codexrodrigues/praxis-metadata-starter/actions/runs/37236119846) passou com 1.530 testes reportados, zero falhas/erros e três skips; POM/JAR foram conferidos no Maven Central. O host integrou a adoção das coordenadas públicas rc.154 e Config rc.158 sem override no [PR388](https://github.com/codexrodrigues/praxis-api-quickstart/pull/388), com aceite independente por composição. Seu verify integral histórico reportou 1.209 testes, uma falha, zero erros e 23 skips; o focal diagnóstico e uma sequência contextual de seis métodos distintos passaram depois, sem converter aquele verify em verde. As provas privadas anteriores (25 casos compostos no SDK, 49 no host e três métodos HTTP adicionais) não substituem o aceite de cada jornada. O teto de 200 alvos e o orçamento nominal de 8s são do consumidor; não há prova de confirmação de 200 alvos, IAM completo, READY geral, ASYNC ou jobs. Consulte o [guia público de composição de lote](docs/technical/BULK-COMPOSITION-GUIDE.md) para escolher modalidade e separar responsabilidades do starter e do host.
+Não é apenas um gerador de CRUD. O baseline atual da plataforma organiza cada recurso sobre cinco pilares:
 
-## Baseline da preparação rc.149
+- **`resource`** — operações HTTP tipadas, filtros dinâmicos JPA, paginação (offset e cursor), lookups e exportação
+- **`surface`** — descoberta semântica de experiências de UI (`@UiSurface`: formulários parciais, visões analíticas, sub-coleções)
+- **`action`** — comandos explícitos de negócio (`@WorkflowAction`: aprovar, rejeitar, executar em lote) com pré-condições e versão
+- **`capability`** — snapshot contextual em tempo real do que existe e do que está permitido agora para a coleção ou para o registro (`/{resource}/capabilities`)
+- **`HATEOAS`** — envelopes `RestApiResponse` com `_links` efetivos sincronizados com a disponibilidade real das operações
 
-Esta preparação usa Java 21, Spring Boot 3.5.15 e Springdoc 2.8.17. O BOM Boot
-passa a gerir Spring/Hibernate/Jackson; hosts devem conferir a árvore efetiva e
-usar `springdoc.api-docs.version=OPENAPI_3_0`. OAS 3.1 não está certificado neste
-corte. O construtor beta de `GenerationScopedGenericResponseService` recebe três
-argumentos; consumidores diretos do construtor anterior devem migrar.
+---
 
-A [prova privada de baseline](docs/technical/BOOT35-BASELINE-CANDIDATE.md) é
-histórica e não demonstra disponibilidade pública. A adoção exige POM/JAR no
-Maven Central e validação do host sem override. ATOMIC continua fora deste corte.
+## Veja Funcionando Agora (Sem Instalar Nada)
 
-Ele publica:
+Todo aplicativo Spring Boot que adiciona o `praxis-metadata-starter` ganha automaticamente o **Praxis Cockpit** em `/praxis/cockpit` (empacotado em `META-INF/resources/praxis/cockpit`, sem necessidade de copiar HTML ou assets para o seu projeto).
 
-- OpenAPI enriquecido com `x-ui`
-- `/schemas/filtered` como contrato estrutural consumido pelos runtimes
-- `/schemas/catalog` como catalogo documental e de discovery
-- `/schemas/domain` como catalogo semantico AI-operable de dominio, evidencias e governanca
-- `/schemas/surfaces` e `/schemas/actions` como discovery semantico
-- `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities` como snapshot agregado
-- `POST /{resource}/export` como operacao canonica de exportacao de colecao
-- `/praxis/cockpit` como cockpit automatico do host, derivado das superficies metadata-driven existentes
-- envelopes `RestApiResponse` com suporte efetivo a Spring HATEOAS
-- falhas publicas governadas de operacoes resource-oriented com `code`, `target`, categoria e
-  mensagem segura, sem expor causas privadas de persistencia ou integracao
+Explore a demonstração pública do nosso host de referência (`praxis-api-quickstart`):
+- **[Abrir o Praxis Cockpit ao vivo](https://praxis-api-quickstart.onrender.com/praxis/cockpit)**
 
-O contrato Java candidato B4-R1 pareia corpo e revisão persistida de um recurso para
-emitir ETag de GET/PUT sem reconsulta tardia. Veja [concorrência em recursos versionados](docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md#concorrencia-em-recursos-versionados).
-O candidato local passou 46 testes focais Metadata e 28 testes focais no host (13 com PostgreSQL (5 JPA/MockMvc e 8 receipt/replay), 1 unitário de providers e 14 TCP/H2); revisão final, integração, release e adoção sem override ainda são gates separados. Essa garantia não abrange links ou relações e não altera endpoints ou DTOs wire.
+No Cockpit você inspeciona visualmente tudo o que um backend Spring Boot publica para humanos, runtimes de UI e agentes de IA: áreas de negócio, recursos, endpoints, filtros, formulários dinâmicos, tabelas, gráficos analíticos, *workflow actions*, prontidão semântica e diagramas de relacionamento entre recursos, além de uma gaveta de auditoria com atalhos diretos para os contratos JSON publicados.
 
-Nao e apenas um gerador de CRUD. O baseline atual da plataforma e:
+---
 
-- `resource`
-- `surface`
-- `action`
-- `capability`
-- HATEOAS
+## O Que o Starter Publica Automaticamente
 
-## SDK de operações em lote em desenvolvimento
+Ao expor um recurso com `@ApiResource` e anotar seus DTOs com `@Schema`, `@UISchema`, `@Filterable` e Bean Validation, o starter passa a servir:
 
-A [fundação de entrada do protocolo](docs/spec/BULK-PROTOCOL-INPUT.md) fornece tipos Java, codecs de identidade e validação de SET/CLEAR. Os [tipos de resultado e fingerprint de intenção](docs/spec/BULK-PROTOCOL-RESULTS.md) complementam o SDK. Essa fundação não cria endpoints nem compõe sozinha a execução do protocolo.
+| Superfície / Endpoint | Papel na Arquitetura | Consumidor Principal |
+| --- | --- | --- |
+| `GET /v3/api-docs/{group}` | Documento OpenAPI 3.0 enriquecido com a extensão `x-ui` e resolvido automaticamente por grupo/path. | Springdoc, Swagger UI e resolvedores internos |
+| `GET /schemas/filtered` | **Contrato estrutural canônico** por operação (`request`/`response`), com `properties.*.x-ui`, `idField`, `ETag` e `X-Schema-Hash`. | Runtime Angular (`@praxisui/*`) e renderizadores dinâmicos |
+| `GET /schemas/catalog` | **Catálogo documental e de discovery**: resumo de operações, `resourceKey`, identidade visual, exemplos e links para schemas. | Portal de documentação, seletores de recursos e RAG |
+| `GET /schemas/domain` | **Catálogo semântico AI-operable**: vocabulário de domínio, conceitos, evidências, `optionSources` e governança (`@DomainGovernance`). | Agentes de IA, `praxis-config-starter` e auditoria |
+| `GET /schemas/surfaces` | **Discovery de experiências (`@UiSurface`)**: formulários parciais, detalhes especializados, gráficos e sub-coleções relacionadas. | Runtimes de UI, Cockpit e assistentes semânticos |
+| `GET /schemas/actions` | **Discovery de comandos de negócio (`@WorkflowAction`)**: interações, nível de risco, pré-condições (`If-Match`, `Idempotency-Key`) e escopo. | Runtimes de UI, Cockpit e orquestradores |
+| `GET /{resource}/capabilities`<br/>`GET /{resource}/{id}/capabilities` | **Snapshot agregado contextual**: combina suporte estrutural (`canonicalOperations`) com disponibilidade atual (`operations`, `surfaces`, `actions`, `stats`). | Frontend oficial, Cockpit e clientes semânticos |
+| `POST /{resource}/filter`<br/>`POST /{resource}/options/filter` | Consultas dinâmicas baseadas em `GenericFilterDTO` + `@Filterable` (Specifications JPA) e projeções leves `OptionDTO{id, label}` para selects. | Tabelas, listas, combos e autocompletes |
+| `POST /{resource}/export` | **Exportação canônica de coleção** (CSV, JSON, XLSX ou assíncrono `202 Accepted`) respeitando escopo, seleção, filtros e limites do servidor. | Componentes de Tabela e Lista (`@praxisui/table`) |
+| `POST /{resource}/stats/*` | Agregações analíticas governadas (`group-by`, `timeseries`, `distribution`, `comparison`) alimentadas por `StatsFieldRegistry`. | Dashboards e `@praxisui/charts` |
+| `GET /praxis/cockpit` | **Cockpit automático do host**, derivado das superfícies metadata-driven publicadas pelo próprio serviço. | Desenvolvedores, arquitetos, QA e produto |
 
-O [binding canônico de operações](docs/spec/CANONICAL-OPERATION-BINDING.md) valida ID explícito, recurso e método sobre o registro MVC e oferece vínculo com o tipo concreto do DTO @RequestBody. Essa fundação estrutural ainda não publica operações de lote.
+---
 
-A [infraestrutura transacional explícita](docs/spec/BULK-EXECUTION-INFRASTRUCTURE.md) permite ao adapter participar da transação JDBC/JPA do host, com provas PostgreSQL. O [armazenamento protegido](docs/spec/BULK-PROPOSAL-STORAGE.md) acrescentou persistência EXPLICIT/SYNC e migração PostgreSQL explícita; a rc.153 publicou sua captura sob locks. O [núcleo durável](docs/spec/BULK-DURABLE-EXECUTION.md) inclui reserva, receipts, ledger de capacidade V5, fencing e retenção controlada. O starter declara as cinco operações comuns em `@BulkResourceOperations`, liga avaliação/confirmação por `@BulkOperation` e compõe o descriptor estrutural das sete operações contra handlers MVC e OpenAPI reais. Essa fundação histórica não criava endpoint de protocolo ou adoção produtiva do host; a composição CRUD publicada depois tem seus próprios gates.
+## Começando em 5 Minutos (Quickstart)
 
-O SDK publicado em rc.154 acrescenta apenas `UNIFORM_UPDATE/SYNC/PER_ITEM/QUERY`, com filtro e exclusões na intenção e população congelada em manifesto protegido. `ReadyAdmission` opaca vem do lifecycle publicado da operação; o host retém grant e resolve a seleção na mesma captura transacional, sem refazer a consulta na confirmação. O consumidor de referência limita a seleção a 200 alvos e teve prova focal HTTP de captura nesse limite. A adoção das coordenadas públicas foi integrada pelo PR388 com aceite por composição; o verify integral histórico permaneceu vermelho. Confirmação de 200 alvos, IAM completo e READY geral não foram demonstrados. Veja [persistência](docs/spec/BULK-PROPOSAL-STORAGE.md), [evidência](docs/spec/BULK-EVALUATION-EVIDENCE.md), [reserva](docs/spec/BULK-DURABLE-EXECUTION.md), [lifecycle](docs/spec/BULK-OPERATION-LIFECYCLE.md) e [composição CRUD](docs/spec/BULK-CRUD-OPERATIONS.md).
-No candidato B3, `JdbcBulkDurableExecution.advance` compõe o avanço síncrono a partir de uma reserva interna protegida, com transação e orçamento por unidade. Replay de receipt/admission, inclusive ACK perdido após uma unidade intermediária, encerra a chamada sem despachar o sufixo; terminal, cancelamento e incerteza também interrompem. O host conserva o UUID para resultados pelo reader autorizado. A prova candidata passou 17 casos PostgreSQL focais únicos no kernel e 32 HTTP focais P1/P2. A fonte B3 foi integrada e publicada em rc.145; sua adoção sem override no host foi integrada pelo PR326, com 832 casos únicos na evidência composta (804 aprovados e 28 skips), após correção focal de fixture e empacotamento validado. O pareamento de resposta B4-R1 permanece um incremento separado. A API não autoriza o sujeito, cria endpoint ou declara `READY` por si.
-A migração V7 acrescenta o fence por geração/fingerprint/revisão às propostas e execuções e exige igualdade com o controle durável antes de nova mutação. Esse substrato não compõe handlers, providers ou schemas e não anuncia `READY`, action, capability ou endpoint de lote.
-O [read model protegido H1b](docs/spec/BULK-H1B-READ-MODEL.md) evolui o armazenamento por migrations explícitas: V8 grava o manifest imutável por ordinal; V9 persiste somente a projeção segura fornecida pelo provider; V10 acrescenta pedido de cancelamento, fence e reconciliação duráveis; V11 vincula checksum por item; V12 atesta o gate do reader; e V13 certifica a ordem temporal da execução. Cada cutover drena writers incompatíveis, valida estrutura e ACLs e falha fechado antes de reabrir admissão. A assinatura beta antiga de `JdbcBulkProposalStore.insertEvaluated` foi removida: o host passa obrigatoriamente `(evaluation, projection)`.
+### 1. Pré-requisitos e Instalação
 
-O núcleo Java oferece RS1–RS4 internos, codec AEAD de cursor e `JdbcBulkDurableExecution.requestCancel(...)`. A evolução G3b da fachada `BulkAuthorizedProposalResultsReader` publica páginas allowlisted e continuação vinculada ao solicitante, com autorização integral pelo provider do host no mesmo snapshot PostgreSQL `REPEATABLE READ READ ONLY`. O construtor exige `BulkReadCursorConfiguration` com chaves estáveis provisionadas e TTL positivo até15min; cada continuação preserva o vencimento original e o tamanho da página. O resultado é `CursorPage<BulkProposalItemResult<Object>>`, distinto do resultado de execução. Consulte [o contrato de leitura](docs/spec/BULK-H1B-READ-MODEL.md). A biblioteca não cria controller, action, capability ou READY; publicação do artefato, adoção do host e prova HTTP são gates separados. A composição G3c-a `BulkAuthorizedExecutionReader` acrescenta resumo autorizado de execução e observação de tombstone: reautoriza todos os alvos no mesmo snapshot, certifica o vínculo com a avaliação histórica e reserva `GONE` sem payload ao criador com grant global atual. A composição G3c-b acrescenta páginas `CursorPage<BulkItemResult<Object>>` com cursor EXECUTION_RESULTS, watermark fixo e reautorização integral em cada continuação. A fachada RS1 `BulkAuthorizedProposalReader` compõe o `BulkProposal` existente com `BulkProposalProjectionProvider` explícito do domínio, autorização integral e diagnósticos allowlisted persistidos na mesma fotografia. Propostas retidas expiradas retornam observação `GONE` após autorização; projeções incompatíveis ou indisponíveis não geram DTO fictício. A validação integral do preview usa páginas internas de até200 itens, prazo monotônico3s e orçamento agregado conservador20MiB. Esses limites podem tornar uma proposta indisponível e não constituem SLA. A biblioteca não cria endpoint RS1, publica artefato ou implanta o host automaticamente.
+O baseline atual utiliza **Java 21**, **Spring Boot 3.5.15** e **Springdoc 2.8.17** (configure `springdoc.api-docs.version=OPENAPI_3_0` quando necessário; OAS 3.1 não faz parte deste corte).
 
-O candidato R2 do [lifecycle governado](docs/spec/BULK-OPERATION-LIFECYCLE.md) captura a fotografia OpenAPI completa fora da transação, vincula a publicação global V14 e o descriptor de operação V15 na mesma transação e instala os bytes imutáveis somente após commit ou reconciliação exata. O registro Servlet oficial atende as leituras públicas pela mesma fotografia e valida a geração/digest duráveis; contexto frio, divergência ou suspensão falham fechado. O handler HTTP traduz indisponibilidade reconhecida pelo guard de leitura publicada em `503`/`GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE`, sem detalhes privados e sem recaptura ou retry de mutação implícito. A reconciliação explícita recaptura a fonte e exige o digest publicado, sem nova mutação. Ao ativá-lo, o host configura `springdoc.cache.disabled=true`, usa o produtor interno oficial sem override de origem e preserva o filtro após a cadeia de segurança Boot. O starter não concede autorização do domínio; prova HTTP do host, publicação do artefato e adoção sem override permanecem gates separados.
+Adicione a dependência no seu `pom.xml`:
 
-No discovery de lote, a resposta de actions e a capability de coleção reutilizam uma única composição estrutural. Availability mantém o principal/contexto original e reconsulta provider e controle durável; a montagem ocorre fora de locks de cache e transações mantidas pelo lifecycle. O fence efêmero confere época, transporte e prazo em reads curtos, é fechado ao terminar e não autoriza execução nem reutilização entre requisições. Falha depois do início da montagem não provoca retry silencioso.
+```xml
+<dependency>
+    <groupId>io.github.codexrodrigues</groupId>
+    <artifactId>praxis-metadata-starter</artifactId>
+    <version>8.0.0-rc.174</version>
+</dependency>
+```
 
+### 2. Modele os DTOs do Recurso (`Response`, `Create`, `Update` e `Filter`)
 
-A integração Spring MVC registra `GenerationScopedGenericResponseService` antes do builder padrão do Springdoc. O builder de respostas genéricas pertence à geração identificada pelo `Components`, evitando acumular handlers de erro a cada leitura fresca. O bean `modelResolver` declara prioridade explícita na lista de registro: como Springdoc prepende os converters, os adaptadores de envelopes executam antes do resolvedor terminal Praxis, independentemente da ordem de definição das autoconfigurações. O conteúdo dos schemas e dos erros permanece responsabilidade dos leitores Springdoc existentes; essa separação não cria cache de autoridade ou sinal `READY`. As auto-configurações registradas são excluídas do component scan pelo filtro padrão Boot e carregadas por `AutoConfiguration.imports`, preservando suas condições e ordem. As definições estáticas de grupos de `PraxisMetadataAutoConfiguration` precedem `SpringDocConfiguration`: o Springdoc precisa detectá-las para registrar o processor que atribui escopo prototype ao builder OpenAPI. Cada grupo possui seu builder e cache por locale; compartilhar um singleton entre grupos pode devolver o documento do primeiro grupo. A prova de integração usa o cache padrão habilitado e verifica tanto o escopo quanto os paths de cada grupo. O host pode substituir `GenericResponseService`, mas passa a ser responsável por provar isolamento e paridade de sua implementação. Em HTTP, os frames pertencem à request e são removidos no callback global após a geração de paths ou no término da request. No preload fora de HTTP, mantém-se no máximo um frame por thread até a conclusão observável ou a próxima geração; falhas de customizadores externos podem reter esse único frame. O callback global pode preceder customizadores específicos de grupo; reinvocar o builder depois da liberação, continuar entre threads e aninhar gerações não HTTP não são caminhos certificados.
+No padrão canônico Praxis, **não usamos um DTO único nem expomos a entidade JPA diretamente**. Separamos leitura (`ResponseDTO`), criação (`CreateDTO`), atualização (`UpdateDTO`) e filtro (`FilterDTO`):
 
-A [projeção S4c/P1](docs/spec/BULK-ACTION-PROJECTION.md) acrescenta `execution.bulk` à action `DOMAIN_COMMAND` apenas com descriptor corrente, referências UI materializáveis e linha `READY` estável. As sete referências preservam os schemas HTTP brutos separados das variantes de `/schemas/filtered`, com `idField`/`readOnly` por role. O catálogo continua descritivo; avaliação/confirmação precisam revalidar autorização e fence transacional. Não há `CapabilityOperation.bulk` de workflow nem adoção Angular neste corte.
+```java
+// 1. DTO de Criação (Request)
+public class CreateEmployeeDTO {
 
-A [evidência protegida de avaliação](docs/spec/BULK-EVALUATION-EVIDENCE.md) vincula fatos e plano de cada alvo à entrada, com gravação atômica e migração V2; não certifica READY ou autorização.
+    @NotBlank
+    @Size(max = 120)
+    @Schema(description = "Nome civil completo do colaborador registrado no contrato de trabalho.")
+    @UISchema(label = "Nome Completo", order = 10)
+    private String name;
 
-A [declaração de campos editáveis](docs/spec/BULK-EDITABLE-FIELDS.md) compila `@BulkEditable`, nomes Jackson e schema real em listas estruturais para SET/CLEAR. Ainda sem anúncio de capability ou executor.
+    @NotBlank
+    @Email
+    @Schema(description = "Endereço de e-mail corporativo principal para notificações e acesso.")
+    @UISchema(label = "E-mail Corporativo", order = 20)
+    private String email;
 
-A [composição estrutural CRUD P3b-S1](docs/spec/BULK-CRUD-STRUCTURE.md) vincula os dois modos de update bulk ao PUT real do recurso, ao DTO de update e ao `ObjectMapper` configurado. O recurso declara a identidade da fonte e os campos protegidos; a composição não concede autorização nem habilita execução bulk. A API Java beta de `BulkOperationLifecycle` recebe agora `ObjectMapper` no lugar de `TypeFactory`; callers explícitos precisam migrar.
+    @NotNull
+    @Schema(description = "Remuneração base mensal bruta contratada em moeda corrente.")
+    @DomainGovernance(
+        kind = DomainGovernanceKind.PRIVACY,
+        classification = DomainClassification.CONFIDENTIAL,
+        dataCategory = DomainDataCategory.FINANCIAL
+    )
+    @UISchema(
+        label = "Salário Base",
+        order = 30,
+        visibleForAuthorities = {"payroll.read", "payroll.admin"},
+        editableForAuthorities = {"payroll.admin"},
+        fieldAccessReason = "Dados salariais restritos por política corporativa."
+    )
+    private BigDecimal salary;
+    // getters e setters
+}
 
-O corte histórico [P3b-S2 de composição operacional CRUD](docs/spec/BULK-CRUD-OPERATIONS.md) materializou `bulk-update` e `bulk-update-items` em `CapabilityOperation.bulk` somente com provider e controle durável correntes, usando EXPLICIT/SYNC/PER_ITEM. A composição pública posterior também distingue as variantes ATOMIC. A rc.154 conserva a identidade `bulk-update` para QUERY e exige perfil QUERY publicado, sem estender `PER_ITEM_UPDATE` ou ATOMIC. A projeção referencia o PUT fonte e os campos elegíveis; o host continua responsável por autorização, avaliação e mutação real. A publicação do SDK e o aceite da adoção do host são gates separados.
+// 2. DTO de Filtro (implementa GenericFilterDTO)
+public class EmployeeFilterDTO implements GenericFilterDTO {
 
-A [leitura estrita do request canônico](docs/spec/CANONICAL-REQUEST-SCHEMA.md) fornece schema JSON resolvido e dialeto para compilação backend, preservando a projeção documental existente.
+    @Filterable(operation = Filterable.FilterOperation.LIKE)
+    @UISchema(label = "Buscar por nome")
+    private String name;
 
-## Public Documentation
+    @Filterable(operation = Filterable.FilterOperation.EQUAL)
+    @UISchema(label = "Ativo")
+    private Boolean active;
+    // getters e setters
+}
+```
 
-Use estes entry points primeiro:
+### 3. Conecte Repository, Mapper, Service e Controller
 
-- Home: [docs/index.md](docs/index.md)
-- Guides hub: [docs/guides/index.md](docs/guides/index.md)
-- Architecture overview: [docs/architecture-overview.md](docs/architecture-overview.md)
-- Java package overview: [docs/packages-overview.md](docs/packages-overview.md)
-- UI Schema concept: [docs/concepts/ui-schema.md](docs/concepts/ui-schema.md)
-- Conformance: [docs/spec/CONFORMANCE.md](docs/spec/CONFORMANCE.md)
-- Guide 01 - Application setup: [docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
-- Guide 02 - Canonical resource backend: [docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
-- Semantic metadata authoring: [docs/guides/SEMANTIC-METADATA-AUTHORING.md](docs/guides/SEMANTIC-METADATA-AUTHORING.md)
-- Options and option-sources: [docs/guides/OPTIONS-ENDPOINT.md](docs/guides/OPTIONS-ENDPOINT.md)
-- Reactive form determinations: [docs/spec/reactive-determinations.md](docs/spec/reactive-determinations.md)
-- Guide 04 - When to use resource, surface, action, capability: [docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
-- GitHub Pages site: [https://codexrodrigues.github.io/praxis-metadata-starter/](https://codexrodrigues.github.io/praxis-metadata-starter/)
-- Public Javadoc: [https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
-- Official cockpit demo: [https://praxis-api-quickstart.onrender.com/praxis/cockpit](https://praxis-api-quickstart.onrender.com/praxis/cockpit)
-- Assisted repository exploration (complementary, not normative): [CodeWiki](https://codewiki.google/github.com/codexrodrigues/praxis-metadata-starter/)
+```java
+// Repository JPA base
+public interface EmployeeRepository extends BaseCrudRepository<Employee, Long> {}
 
-## What The Starter Actually Publishes
+// Service resource-oriented
+@Service
+public class EmployeeService extends AbstractBaseResourceService<
+        Employee, EmployeeResponseDTO, Long, EmployeeFilterDTO, CreateEmployeeDTO, UpdateEmployeeDTO> {
 
-## Architecture at a glance
+    private final EmployeeMapper mapper;
+
+    public EmployeeService(EmployeeRepository repository, EmployeeMapper mapper) {
+        super(repository, Employee.class);
+        this.mapper = mapper;
+    }
+
+    @Override
+    protected ResourceMapper<Employee, EmployeeResponseDTO, CreateEmployeeDTO, UpdateEmployeeDTO, Long> getResourceMapper() {
+        return mapper;
+    }
+}
+
+// Controller canônico (não adicione @RestController junto com @ApiResource)
+@ApiResource(
+    value = "/api/human-resources/employees",
+    resourceKey = "human-resources.employees",
+    title = "Colaboradores",
+    description = "Gestão do quadro de colaboradores, vínculos e remuneração."
+)
+@ApiGroup("human-resources")
+public class EmployeeController extends AbstractResourceController<
+        EmployeeResponseDTO, Long, EmployeeFilterDTO, CreateEmployeeDTO, UpdateEmployeeDTO> {
+
+    private final EmployeeService service;
+
+    public EmployeeController(EmployeeService service) {
+        this.service = service;
+    }
+
+    @Override
+    protected EmployeeService getService() {
+        return service;
+    }
+
+    @Override
+    protected Long getResponseId(EmployeeResponseDTO dto) {
+        return dto.getId();
+    }
+}
+```
+
+### 4. Inspecione os Contratos Gerados
+
+Suba a aplicação Spring Boot e teste diretamente no navegador ou via `curl`:
+
+```bash
+# 1. Contrato estrutural de criação (usado pelo formulário dinâmico para renderizar inputs e validações)
+curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/employees&operation=post&schemaType=request"
+
+# 2. Snapshot de capacidades da coleção (operações suportadas, surfaces, actions e disponibilidade)
+curl -s "http://localhost:8080/api/human-resources/employees/capabilities"
+
+# 3. Catálogo semântico de domínio e governança para IA
+curl -s "http://localhost:8080/schemas/domain?resource=human-resources.employees"
+
+# 4. Abra no navegador o Cockpit automático do serviço:
+# http://localhost:8080/praxis/cockpit
+```
+
+> **Próximo passo prático**: Siga o [Guia 01 — Nova Aplicação Spring Boot](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md) e o [Guia 02 — Recurso Metadata-Driven Canônico](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md) para o passo a passo completo com código copiável.
+
+---
+
+## Arquitetura e Modelo Mental
 
 ```mermaid
 flowchart LR
-    dto["DTO + Bean Validation + @UISchema"] --> enrich["OpenAPI x-ui enrichment"]
-    enrich --> openapi["Canonical OpenAPI document"]
-    openapi --> filtered["/schemas/filtered\nstructural contract"]
-    openapi --> catalog["/schemas/catalog\ndocumentary catalog"]
-    annotations["@UiSurface + @WorkflowAction"] --> discovery["Semantic discovery"]
-    discovery --> capabilities["/{resource}/capabilities\ncontextual snapshot"]
-    filtered --> runtime["Metadata-driven runtime"]
+    dto["DTOs + Bean Validation + @UISchema\n+ @DomainGovernance + @Filterable"] --> enrich["Enriquecimento OpenAPI x-ui"]
+    registry["OptionSourceRegistry +\nStatsFieldRegistry"] --> enrich
+    enrich --> openapi["Documento OpenAPI Canônico\n(por grupo)"]
+    openapi --> filtered["/schemas/filtered\nContrato estrutural (UI Runtime)"]
+    openapi --> catalog["/schemas/catalog\nCatálogo documental e RAG"]
+    openapi --> domain["/schemas/domain\nCatálogo semântico e Governança IA"]
+    annotations["@ApiResource + @UiSurface\n+ @WorkflowAction"] --> discovery["Discovery Semântico\n(/schemas/surfaces e /schemas/actions)"]
+    discovery --> capabilities["/{resource}/capabilities\nSnapshot contextual agregado"]
+    filtered --> runtime["Runtime Angular (@praxisui/*)\n& Praxis Cockpit"]
+    capabilities --> runtime
+    domain --> ai["Agentes de IA &\npraxis-config-starter"]
 ```
 
-The diagram is deliberate: `x-ui` belongs to the structural schema path;
-surfaces, actions and capabilities add discovery around it but never replace
-`/schemas/filtered` as the canonical shape of a request or response.
+O diagrama acima reflete uma separação arquitetural deliberada:
+- **`/schemas/filtered` é a única fonte estrutural da verdade** para o formato de `request` e `response` e para os metadados `x-ui` de cada campo.
+- **`surfaces`, `actions`, `domain` e `capabilities` adicionam descoberta semântica e contexto** ao redor do recurso, referenciando os schemas canônicos sem nunca duplicar ou redefinir schemas inline.
 
-### Structural contract
+### O que `resourceKey` realmente significa (`resourcePath` vs `resourceKey`)
 
-`/schemas/filtered` continua sendo a superficie estrutural canonica.
+`resourceKey` é a **identidade semântica estável** do recurso na plataforma:
 
-Ela entrega:
+- **`path` / `resourcePath`** diz **onde** o endpoint vive no transporte HTTP (ex.: `/api/human-resources/employees`).
+- **`resourceKey`** diz **o que** o recurso é para descoberta, governança e agregação (ex.: `human-resources.employees`).
 
-- propriedades com `properties.*.x-ui`
-- `x-ui.resource.idField`
-- `x-ui.resource.readOnly`
-- `x-ui.resource.capabilities`
-- metadata de operacao
-- `ETag` e `X-Schema-Hash`
-- `x-ui.reactiveDeterminations` em request schemas exatos quando o host registra bindings
-  estruturais para capabilities backend POST
+Regra de plataforma:
+- O `path` pode mudar por reorganização de rotas, proxy, versionamento ou host.
+- O `resourceKey` **não deve mudar** apenas porque a URL mudou.
 
-Reactive Determinations sao bindings estaveis, nao regras de negocio serializadas. O starter
-resolve operationId, href e schemas; valida JSON Pointers, writers e ciclos; e mantem tenant,
-usuario, facts e decisoes aplicadas fora do schema publico. Veja
-[docs/spec/reactive-determinations.md](docs/spec/reactive-determinations.md).
+No starter, `resourceKey` é a chave que conecta:
+- `GET /schemas/domain?resource={resourceKey}`
+- `GET /schemas/surfaces?resource={resourceKey}`
+- `GET /schemas/actions?resource={resourceKey}`
+- `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`
+- Indexação de disponibilidade contextual de `surfaces` e `actions`
 
-### Documentary contract
+Opcionalmente, `@ApiResource` também publica identidade humana e visual (`title`, `description`, `icon`, `visualTone`) para explicar melhor o domínio em `/schemas/catalog` e `/praxis/cockpit`, sem codificar CSS nem regras de negócio.
 
-`/schemas/catalog` nao substitui o contrato estrutural. Ele publica:
+### Quando usar `Resource`, `ResourceIntent`, `UiSurface`, `WorkflowAction` e `Capabilities`
 
-- resumo de operacoes
-- `resourceKey`, `resourcePath`, `resourceVisual`, `resourceReadOnly` e `resourceCapabilities` (mapa canonico alinhado com `x-ui.resource.capabilities` e `GET /{resource}/capabilities`)
-- exemplos request/response
-- links canonicos para schemas estruturais
-- material para docs, seletores inteligentes de recursos (`ResourceDiscoveryService`), tooling e RAG
+| Conceito | Quando Usar | Exemplo Prático |
+| --- | --- | --- |
+| **`@ApiResource`** | Operações que fazem parte do ciclo de vida principal do recurso (leitura, listagem, filtro, criação, edição, exclusão, exportação, stats). | `GET /employees/{id}`, `POST /employees`, `POST /employees/filter` |
+| **`@ResourceIntent`** | Um `PATCH` ou operação tipada que continua sendo manutenção parcial do mesmo recurso, com DTO próprio, sem virar comando de workflow. | `PATCH /employees/{id}/contact-info` |
+| **`@UiSurface`** | Quando a UX precisa descobrir semanticamente uma experiência sobre uma operação real (formulário parcial, visão analítica `CHART`, sub-coleção). | Formulário de contato, histórico de folha ou gráfico de série temporal |
+| **`@WorkflowAction`** | Comandos explícitos de negócio (transições de estado, aprovações, ações destrutivas ou em lote) com regras e pré-condições próprias. | `POST /employees/{id}/actions/approve`, `POST /employees/actions/bulk-approve` |
+| **`Capabilities`** | Quando o cliente precisa saber em uma única chamada o que o recurso suporta estruturalmente e o que está permitido *agora* para o usuário/item. | `GET /employees/capabilities`, `GET /employees/{id}/capabilities` |
 
-### Semantic discovery
+> Consulte o [Guia 04 — Quando usar Resource, Surface, Action e Capability](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md) e o [Guia 05 — Do CRUD ao Contrato Semântico](docs/guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md).
 
-O baseline atual adiciona discovery orientado a recurso:
+### Hierarquia Canônica de Classes Base (Backend Resource-Oriented)
 
-- `GET /schemas/domain` (incluindo `metadata.readOnly`, `metadata.capabilities` e `metadata.optionSources` nos nos `concept`, alem dos nos `policy_hint` com binding `option_source` e filtragem canonica de nos `stats.*` apenas para modos analiticos efetivamente suportados, incluindo `stats/comparison`)
-- `GET /schemas/surfaces`
-- `GET /schemas/actions`
-- `GET /{resource}/capabilities`
-- `GET /{resource}/{id}/capabilities`
-- `POST /{resource}/export`
-- `GET /praxis/cockpit`
+Escolha a classe base de acordo com a semântica real de escrita e leitura do seu recurso:
 
-O cockpit e empacotado pelo starter em `META-INF/resources/praxis/cockpit`.
-Hosts com politica propria de Spring Security devem permitir `GET /praxis/cockpit`,
-`GET /praxis/cockpit/` e `GET /praxis/cockpit/**`; o `praxis-api-quickstart`
-e a referencia operacional dessa exposicao.
+- **Mutável completo**: `AbstractResourceController` + `AbstractBaseResourceService` + `ResourceMapper`
+- **Apenas criação (sem update/delete)**: `AbstractCreateResourceController` + `BaseCreateResourceService`
+- **Criação e atualização (sem delete)**: `AbstractCreateUpdateResourceController` + `BaseCreateUpdateResourceService`
+- **Delete unitário sem delete em lote**: `AbstractUnitDeleteResourceController` + `BaseUnitDeleteResourceService` (publica `DELETE /{id}` sem `DELETE /batch`)
+- **Somente leitura (Views / Consultas)**: `AbstractReadOnlyResourceController` + `AbstractReadOnlyResourceService` (marca `x-ui.resource.readOnly=true` e mantém HATEOAS/discovery coerentes)
+- **Escrita delegada a adaptador/legado**: `AbstractLegacyBackedResourceController` + `LegacyBackedResourceService`
+- **Rascunho duplicável (`duplicate-draft`)**: `AbstractDuplicateDraftLegacyBackedResourceController` + `DuplicateDraftLegacyBackedResourceService` (somente quando o recurso publicar `POST /{resource}/{id}/duplicate-draft` como rascunho não mutante, usando `DraftDTO` quando necessário)
 
-Na referencia publica do Quickstart, o cockpit mostra o que um host Spring Boot
-ja publica para humanos, runtimes e IA: areas de dominio, recursos, endpoints,
-filtros, formularios, tabelas, graficos, workflow actions, readiness semantica e
-relacionamentos entre recursos. A URL publica fica em
-[https://praxis-api-quickstart.onrender.com/praxis/cockpit](https://praxis-api-quickstart.onrender.com/praxis/cockpit).
-Use essa URL canonica em README, landing pages e materiais publicos. Parametros
-como `release`, `published` e `qa` sao apenas cache-busters temporarios de validacao;
-o cockpit mostra no topo o release solicitado e o `build.time` real do host para
-diagnosticar rollout sem transformar links de QA em links permanentes.
+**Hooks de Ciclo de Vida e Relacionamentos JPA**:
+- `AbstractBaseResourceService` oferece hooks protegidos para `create`, `update`, `delete` individual e `delete` em lote — use-os para validações e efeitos de domínio dentro da transação canônica sem sobrescrever o método inteiro.
+- Para updates com relacionamentos JPA, utilize os helpers protegidos `relatedReference`, `relatedReferences`, `relatedReferenceSet` e `replaceRelationshipCollection` para resolver referências por ID e substituir coleções mutáveis com segurança.
 
-No detalhe de cada recurso, o cockpit tambem oferece uma gaveta de contratos
-publicados para auditoria tecnica. Ela organiza os atalhos por intencao de uso:
-explorar a API no Swagger, auditar contratos tecnicos em OpenAPI/catalogo/schema
-e entender a semantica em `/schemas/domain`, `/schemas/surfaces`,
-`/schemas/actions` e `/{resource}/capabilities`. Quando o `swagger-config`
-publica granularidade por grupo ou recurso, o cockpit aponta para o JSON mais
-especifico disponivel. Esses links nao criam fonte paralela de verdade; apenas
-abrem as superficies canonicas que o cockpit ja usa para explicar o host.
+---
 
-Quando uma dimensao categorica declara key e label distintos no
-`StatsFieldRegistry`, `POST /{resource}/stats/group-by` devolve ambos no mesmo
-bucket. O cockpit usa `key` para selecao e cross-filter, e `label` somente para
-apresentacao. Para dimensoes sem label governado, um `x-ui.optionSource` com
-`byIdsEndpoint` ainda pode hidratar valores relacionais de forma explicita;
-isso e fallback de materializacao, nao a fonte primaria de identidade do bucket.
+## Capacidades Detalhadas da Plataforma
 
-Para hosts em `8.0.0-rc.52+`, o cockpit nao precisa tentar campos aleatorios para
-descobrir charts. `GET /{resource}/capabilities` publica `stats.fields`, uma
-projecao do `StatsFieldRegistry` do servico com:
+### 1. Contrato Estrutural (`/schemas/filtered`) e Determinações Reativas
 
-- `field` e `keyAndLabelDistinct`, sem expor paths internos do executor
-- `label`, como rotulo sugerido quando `/schemas/filtered` nao tiver um titulo melhor
-- `metrics`, como `COUNT`, `SUM`, `AVG`, `MIN`, `MAX` ou `DISTINCT_COUNT`
-- `modes`, como `GROUP_BY`, `TIME_SERIES`, `DISTRIBUTION_TERMS`, `DISTRIBUTION_HISTOGRAM` e `METRIC_FIELD`
-- flags booleanas de elegibilidade para consumidores que preferem leitura direta
+`/schemas/filtered` é a superfície estrutural canônica consumida pelo runtime de UI. Ela entrega:
+- Propriedades enriquecidas com `properties.*.x-ui` (tipos, controles, máscaras, validações Jakarta convertidas em `x-ui.validation`, apresentações visuais)
+- `x-ui.resource.idField`, `x-ui.resource.readOnly` e `x-ui.resource.capabilities`
+- Metadata da operação e headers de cache/revalidação condicional (`ETag` e `X-Schema-Hash`)
+- `x-ui.reactiveDeterminations` em schemas de request exatos quando o host registra bindings estruturais para capabilities backend `POST`
 
-`GET /{resource}/stats/capabilities` oferece a projeção `StatsCapability` do
-mesmo snapshot contextual usado pela capability da coleção. A coleção publica
-`_links.stats` para essa rota quando há campos estatísticos declarados e o serviço
-de capabilities está composto. O link e o inventário não autorizam uma consulta:
-cada operação estatística continua aplicando sua própria elegibilidade e política.
-Essa rota descobre metadados; ela não é um endpoint `GET /{resource}/stats` para
-calcular agregações.
+**Reactive Determinations** são bindings estáveis e neutros de tenant, não regras de negócio serializadas no schema. O starter resolve `operationId`, `href` e schemas, valida JSON Pointers, writers e ciclos, e mantém tenant, usuário, fatos e decisões aplicadas fora do schema público. Veja [docs/spec/reactive-determinations.md](docs/spec/reactive-determinations.md).
 
-`StatsFieldRegistry` e `StatsSupportMode` continuam sendo a fonte canonica da
-elegibilidade; `capabilities.stats` e apenas discovery publico. Endpoints `/stats/*`
-herdados pelo controller nao bastam para anunciar analytics: `canonicalOperations.stats*`
-so fica habilitado quando o service publica modo diferente de `DISABLED` e registry
-com campo elegivel para aquele modo. O schema estrutural, labels ricas e
-`x-ui.optionSource` continuam em `/schemas/filtered`, e o cockpit cruza ambos por
-`field` antes de hidratar labels relacionais. Em cenarios corporativos isso evita
-tentativa e erro, reduz consultas invalidas e deixa dashboards auditaveis antes da
-execucao de stats.
+### 2. Catálogo Documental (`/schemas/catalog`) e Descoberta Semântica
 
-Nos schemas de request de `/{resource}/stats/group-by`, `timeseries`, `distribution`
-e `comparison`, a propriedade `filter` materializa o mesmo `FilterDTO` concreto
-publicado pelo endpoint `/{resource}/filter`. Essa projeção corrige apenas a perda do
-tipo genérico no OpenAPI; não cria uma segunda definição de filtro. Assim, runtimes e
-agentes podem verificar em `/schemas/filtered` se cada campo de cross-filter é aceito
-pela operação analítica antes de executá-la.
+`/schemas/catalog` complementa (mas nunca substitui) `/schemas/filtered`, publicando:
+- Resumo de operações, exemplos `request`/`response` e links canônicos para os schemas estruturais
+- `resourceKey`, `resourcePath`, `resourceVisual`, `resourceReadOnly` e `resourceCapabilities` (alinhado com `x-ui.resource.capabilities` e `GET /{resource}/capabilities`)
+- Material estruturado para documentação, seletores inteligentes de recursos (`ResourceDiscoveryService`), tooling e ingestão RAG
 
-Projections `x-ui.analytics` que dependem de uma politica de dominio podem
-publicar `governance.policyRefs[]` com identidade e versao, papel, campo de
-resultado e atestacao opcional. O bloco e discovery de provenance: nao carrega
-thresholds, nao executa a policy e nao concede acesso a dados ou surfaces.
+Já o discovery semântico orientado a recurso expõe:
+- `GET /schemas/domain` (incluindo `metadata.readOnly`, `metadata.capabilities` e `metadata.optionSources` nos nós `concept`, nós `policy_hint` com binding `option_source` e filtragem canônica de nós `stats.*` apenas para modos analíticos efetivamente suportados, incluindo `stats/comparison`)
+- `GET /schemas/surfaces` e `GET /{resource}/{id}/surfaces`
+- `GET /schemas/actions` e `GET /{resource}/{id}/actions`
+- `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`
 
-Quando uma projection publica `interactions.crossFilter=true`,
-`bindings.primaryDimension.keyFilterField` declara qual campo publico do request
-recebe `bucket.key`. O binding nunca publica `keyPropertyPath`/`labelPropertyPath`
-internos e elimina inferencias por label, sufixo ou nome parecido. Consumidores
-devem confirmar tipo e cardinalidade no schema request de `/schemas/filtered`
-antes de executar o filtro; projection sem o binding falha fechado na publicacao.
+> **Nota de segurança para o Cockpit (`GET /praxis/cockpit`)**: Hosts com política própria de Spring Security devem permitir `GET /praxis/cockpit`, `GET /praxis/cockpit/` e `GET /praxis/cockpit/**`. Na referência pública (`https://praxis-api-quickstart.onrender.com/praxis/cockpit`), parâmetros como `release`, `published` e `qa` são apenas cache-busters temporários de validação; use sempre a URL canônica sem query params em materiais públicos.
 
-Quando uma linha nominal da projection deve abrir uma surface de outro recurso,
-`interactions.recordOpen` publica `sourceIdentityField` e a referencia estavel
-`target.resourceKey + target.surfaceId`. O consumidor resolve a surface real em
-`/schemas/surfaces`, confirma scope e availability e passa o valor do campo como
-`resourceId` ao adapter canonico. O bloco nao publica URL, widget, presentation
-nem permissao; `drillDown=true` isolado nunca autoriza inferir target ou usar
-`${item.id}`.
+### 3. Analytics, Estatísticas e Gráficos Metadata-Driven (`/{resource}/stats/*`)
 
-Para `POST /{resource}/stats/comparison`, o host tambem deve manter limites
-operacionais explicitos: `praxis.stats.max-comparison-candidates` limita a
-cardinalidade de grupos lida em cada janela (padrao `1000`) e
-`praxis.stats.max-comparison-period-days` limita a janela solicitada (padrao
-`366`). `preset` e intervalo customizado (`from` + `to`) sao mutuamente
-exclusivos; a API retorna `400` para uma solicitacao ambigua. Esses limites sao
-guardrails de capacidade, nao uma forma de truncamento silencioso.
+O starter fornece descoberta e execução governada para gráficos e painéis analíticos:
 
-Regras importantes:
+- **Elegibilidade Canônica (`StatsFieldRegistry` + `StatsSupportMode`)**: Endpoints `/stats/*` herdados pelo controller não bastam para anunciar analytics; `canonicalOperations.stats*` só fica habilitado quando o service publica modo diferente de `DISABLED` e registry com campo elegível para aquele modo (`GROUP_BY`, `TIME_SERIES`, `DISTRIBUTION_TERMS`, `DISTRIBUTION_HISTOGRAM`, `METRIC_FIELD`) e métricas (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, `DISTINCT_COUNT`).
+- **Descoberta em Capabilities (`stats.fields` e `GET /{resource}/stats/capabilities`)**: `GET /{resource}/capabilities` e `GET /{resource}/stats/capabilities` (referenciada por `_links.stats` na coleção) publicam os campos estatísticos elegíveis (`field`, `keyAndLabelDistinct`, `label`, `metrics`, `modes` e flags booleanas) sem expor paths internos do executor. O runtime cruza esses metadados com `/schemas/filtered` para montar gráficos auditáveis sem tentativa e erro.
+- **Identidade de Bucket (`key` vs `label`)**: Quando uma dimensão categórica declara `key` e `label` distintos no `StatsFieldRegistry`, `POST /{resource}/stats/group-by` devolve ambos no mesmo bucket. O runtime usa `key` para seleção e *cross-filter*, e `label` apenas para apresentação (com fallback explícito para `x-ui.optionSource.byIdsEndpoint` quando necessário).
+- **Filtro Tipado nos Requests de Stats**: Nos schemas de request de `/{resource}/stats/group-by`, `timeseries`, `distribution` e `comparison`, a propriedade `filter` materializa o mesmo `FilterDTO` concreto publicado por `/{resource}/filter`.
+- **Projeções `x-ui.analytics` Governadas**:
+  - `governance.policyRefs[]`: publica identidade, versão, papel, campo de resultado e atestação opcional de políticas de domínio (discovery de proveniência, sem expor thresholds internos).
+  - `interactions.crossFilter=true`: exige `bindings.primaryDimension.keyFilterField` declarando qual campo público do request recebe `bucket.key` (projeção sem binding falha fechado na publicação).
+  - `interactions.recordOpen`: publica `sourceIdentityField` e a referência estável `target.resourceKey + target.surfaceId` para abrir uma surface de outro recurso (resolvida via `/schemas/surfaces`; `drillDown=true` isolado nunca autoriza inferir target ou `${item.id}`).
+- **Guardrails Operacionais em `stats/comparison`**: `praxis.stats.max-comparison-candidates` limita a cardinalidade de grupos lida em cada janela (padrão `1000`) e `praxis.stats.max-comparison-period-days` limita a janela solicitada (padrão `366`). `preset` e intervalo customizado (`from` + `to`) são mutuamente exclusivos (retorna `400` se ambíguo).
 
-- `surfaces` e `actions` sao catalogos semanticos; nao redefinem schema inline
-- surfaces relacionadas podem publicar `relatedResource` para explicitar colecao filha, binding com o item pai, selecao e operacoes da colecao filha
-- `domain` agrega vocabulario, aliases, evidencias e governanca derivados de fontes canonicas
-- `capabilities` agrega o que existe agora sem virar uma segunda fonte de verdade do contrato
-- ausencia em `actions` e `capabilities` nao tem a mesma semantica
-- exportacao e uma operacao de colecao; o request preserva escopo, selecao, filtros, ordenacao, campos e limites
+### 4. Governança de Domínio, Segurança de Campo e Authoring Semântico
 
-### Governanca semantica de dominio
-
-`@DomainGovernance` declara classificacao semantica e politica de uso por IA em
-campos de DTOs publicados pelo starter.
-
-Fluxo canonico:
-
-- o codigo-fonte declara `@DomainGovernance`
-- o resolver OpenAPI materializa `x-domain-governance` no schema do campo
-- `/schemas/domain` republica a governanca como item auditavel ligado ao campo
-
-O contrato Java usa enums publicos para evitar drift de tokens:
-
+#### `@DomainGovernance`
+Declara classificação semântica e política de uso por IA em campos de DTOs, materializando `x-domain-governance` no OpenAPI e republicando no catálogo `/schemas/domain`:
 - `DomainGovernanceKind`: `privacy`, `security`, `compliance`
 - `DomainClassification`: `public`, `internal`, `confidential`, `restricted`
 - `DomainDataCategory`: `credential`, `sensitive_personal`, `personal`, `financial`, `operational`, `legal`
 - `AiUsageMode`: `allow`, `deny`, `mask`, `review_required`, `summarize_only`
 
-Quando a anotacao nao existir, o catalogo pode aplicar heuristicas de fallback.
-Para hosts e exemplos self-describing, a declaracao explicita deve ser preferida.
-
-### Acesso contextual em nivel de campo
-
-`@UISchema` pode publicar `x-ui.fieldAccess` para declarar authorities requeridas
-para leitura ou edicao de campos corporativos. Essas authorities usam o mesmo
-vocabulario declarativo das surfaces/actions; elas nao sao automaticamente iguais
-ao bloco `capabilities` de runtime, a menos que o host publique esse mapeamento de
-forma explicita.
-
-Exemplo:
-
-```java
-@UISchema(
-    visibleForAuthorities = {"payroll.read", "payroll.admin"},
-    editableForAuthorities = {"payroll.admin"},
-    fieldAccessReason = "Dados salariais restritos por politica corporativa."
-)
-private BigDecimal salario;
-```
-
-Esse bloco orienta runtimes metadata-driven e assistentes de IA sobre a politica
-esperada, mas nao substitui a autorizacao do host. O backend consumidor deve aplicar
-a mesma politica em services, validators ou filtros de seguranca antes de retornar ou
-persistir dados sensiveis. `fieldAccessReason` explica a politica para auditoria e
-UX, mas nao define acesso sozinho; ao menos uma lista de authorities deve existir
-quando `x-ui.fieldAccess` for publicado.
-
-### Authoring semantico de metadata
-
-`@UISchema(preset = ...)` acelera metadados repetitivos de apresentacao, como codigo,
-status, valor monetario, booleano, documento legal, tenant e timestamp de auditoria.
-
-O preset:
-
-- publica `x-ui.presentationPreset`
-- pode preencher `type`, `controlType`, `width`, `icon`, `numericFormat` e metadados visuais similares
-- nao gera `@Schema(description=...)`
-- nao substitui `@DomainGovernance`
-- nao corrige fronteira errada entre DTO publico, comando, filtro ou contexto privado
-
-Use `SemanticMetadataReviewer` em testes, IDEs ou agentes para listar campos que ainda precisam de
-documentacao humana de dominio. O reviewer aponta descricoes ausentes, descricoes copiadas do label,
-texto derivado de camelCase e campos como `tenantId`, `userId` ou `sessionId` publicados sem governanca.
-
-### `capabilities.operations` como semantica minima canonica
-
-Para o baseline novo de CRUD inferido no frontend oficial, `capabilities` precisa expor um bloco operacional minimo por acao canonica.
-
-Shape esperado por operacao:
-
-- `supported`
-- `scope`
-- `preferredMethod`
-- `preferredRel`
-- `availability`
-
-Affordances canonicas preservadas para runtimes CRUD:
-
-- `create`
-- `view`
-- `edit`
-- `delete`
-- `duplicate-draft`, quando o recurso publicar suporte explicito para preparar rascunho editavel sem persistir dados
-
-Operacoes executaveis publicadas adicionalmente pelo resolvedor canonico, que
-intersecta a presenca no OpenAPI com o suporte estrutural real do resource/service:
-
-- `byId` e `update`, como operacoes HTTP canonicas correspondentes a `view` e `edit`
-- `all`, `filter` e `cursor`
-- `options` e `optionSources`
-- `statsGroupBy`, `statsTimeSeries`, `statsDistribution` e `statsComparison`
-- `export`, governado pelo opt-in real do service e nao apenas pela presenca do mapping base
-
-Mappings herdados de `AbstractResourceQueryController` nao constituem prova de suporte. Options,
-option sources, stats e export somente sao publicados quando o service declara infraestrutura
-executavel por `ResourceStructuralCapabilities`. Availability por principal continua sendo
-aplicada depois, em `operations.*.availability`.
-
-Entity Lookups preservam códigos de estado canônicos para seleção e regras de negócio. Quando a
-experiência precisar de rótulos localizados, `display.statusLabelMap` governa somente a
-apresentação, evitando heurísticas de tradução no consumidor.
-
-`filterExpression` permanece uma capability estrutural em `canonicalOperations`: ela nao vira
-`CapabilityOperation` enquanto nao existir um endpoint executavel proprio. Novas chaves de
-`operations` sao aditivas; consumidores devem preservar IDs desconhecidos em vez de validar um
-conjunto fechado.
-
-Papel de cada camada:
-
-- `canonicalOperations` informa presenca/suporte estrutural e nunca deve ser usado como autorizacao
-- `capabilities.operations` combina suporte estrutural com availability atual por principal/contexto
-- `capabilities.stats.fields` governa quais dimensoes e metricas estatisticas podem alimentar charts reais quando o service tambem habilita `StatsSupportMode`
-- `/schemas/filtered` continua sendo a fonte estrutural de request/response schema
-- `surfaces` e `actions` continuam sendo discovery semantico rico quando publicados
-- `_links` entram como camada operacional/contextual para escolher o target real de execucao
-- actions devem apontar para request/response schema canonicos; respostas HATEOAS de actions devem manter esses links quando houver contrato estrutural associado
-- `ResourceOperationAvailabilityProvider` permite ao host aplicar disponibilidade dinamica de operacoes canonicas sem vazar guards legados, tenant, sessao ou permissao privada
-- `SecurityFilterChain` continua sendo a barreira executavel; availability e discovery governado e nao substitui enforcement
-
-Para adocao corporativa, use
-[`docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md`](docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md).
-Esse guia define quando a decisao pertence a `ResourceOperationAvailabilityProvider`,
-`ActionAvailabilityRule`, `SurfaceAvailabilityRule` ou `ResourceStateSnapshotProvider`,
-como publicar metadata segura de denial e quais testes provam consistencia entre
-`_links`, `/capabilities`, `/actions` e `/surfaces`.
-
-Em outras palavras:
-
-- `capabilities` nao substitui schema
-- `capabilities` nao deve carregar schema inline
-- `capabilities` governa operacao; schema continua vindo do contrato estrutural e dos catalogos semanticos
-- `_links` devem permanecer coerentes com `capabilities.operations.*.availability`
-
-### Regras de delete canonico
-
-`delete` canÃ´nico do recurso precisa permanecer semanticamente separado de outros usos de HTTP `DELETE`.
-
-Regras de plataforma:
-
-- `operations.delete` representa delete canÃ´nico item-level do recurso
-- `DELETE /batch` nao deve promover `operations.delete` item-level
-- workflow actions de negocio com verbo HTTP `DELETE` nao devem contaminar o delete canÃ´nico
-- `delete` canÃ´nico normalmente nao exige schema; ele exige suporte, escopo e target operacional validos
-
-Isso evita que clientes metadata-driven confundam:
-
-- exclusao de um item do recurso
-- comando destrutivo de negocio
-- operacao em lote
-
-### Exportacao canonica de colecao
-
-`POST /{resource}/export` e a superficie backend canonica consumida por componentes como Table e List.
-
-O request publica o estado de colecao necessario para uma exportacao correta:
-
-- `format`: `csv`, `json`, `excel`, `pdf` ou `print`
-- `scope`: `auto`, `selected`, `filtered`, `currentPage` ou `all`
-- `selection`: chaves selecionadas, chave identificadora, selecao de todos os resultados e exclusoes
-- `filters`, `sort`, `pagination` e `query`
-- `fields`, `includeHeaders`, `applyFormatting`, `maxRows` e `fileName`
-- `formatOptions` e `localization` para materializacao governada por formato/locale
-
-A base `AbstractResourceQueryController` publica o endpoint e delega para
-`BaseResourceQueryService.exportCollection(...)`. A implementacao padrao retorna `501 Not Implemented`;
-recursos que suportam exportacao devem sobrescrever o metodo no servico e retornar `CollectionExportResult`
-com `status`, `format`, `scope` e o artefato produzido. Para exportacoes pequenas, `status=completed`
-retorna bytes inline com nome de arquivo, content type e, opcionalmente, `rowCount`. Para exportacoes
-corporativas grandes, `status=deferred` retorna `202 Accepted` em JSON com `downloadUrl`, `jobId`,
-`warnings` e `metadata` para filas, retencao e governanca do host.
-
-Limites publicados em `CollectionExportCapability` devem ser tratados como politica do servidor, nao
-como preferencia do cliente. Quando uma exportacao inline for limitada ou truncada, o controller pode
-propagar metadados operacionais em headers como `X-Export-Truncated`, `X-Export-Max-Rows`,
-`X-Export-Candidate-Row-Count` e `X-Export-Warnings`. Campos solicitados que nao pertencem ao allowlist
-exportavel do recurso devem falhar com erro claro, em vez de cair silenciosamente para todos os campos
-padrao.
-
-Quando um recurso suportar exportacao, ele pode publicar `CollectionExportCapability` no servico. O snapshot
-`GET /{resource}/capabilities` entao preenche `operations.export` com os formatos, escopos, limites e modo
-sincrono/assincrono realmente disponiveis:
-
-```json
-{
-  "operations": {
-    "export": {
-      "supported": true,
-      "scope": "COLLECTION",
-      "preferredMethod": "POST",
-      "preferredRel": "export",
-      "formats": ["csv", "json"],
-      "scopes": ["auto", "selected", "filtered", "currentPage", "all"],
-      "maxRows": {
-        "csv": 500,
-        "json": 500
-      },
-      "async": false
-    }
-  }
-}
-```
-
-O starter tambem publica uma SPI reutilizavel para recursos que querem manter a responsabilidade
-local apenas sobre consulta, permissao e campos:
-
-- `CollectionExportExecutor`: resolve o engine pelo `format` solicitado e monta o `CollectionExportResult`
-- `CollectionExportEngine`: contrato de serializacao por formato
-- `CsvCollectionExportEngine`: engine padrao para CSV com headers opcionais e protecao contra formula injection
-- `JsonCollectionExportEngine`: engine padrao para JSON tabular preservando a ordem dos campos
-- `ExcelCollectionExportEngine`: engine padrao para XLSX tabular, com headers, ordem de campos,
-  protecao contra formula injection e opcoes de aba/celulas para volumes governados por `maxRows`
-- `CollectionExportValueResolver`: funcao do recurso para mapear linha + campo em valor exportavel
-
-`applyFormatting=true` usa a apresentacao serializavel declarada em
-`CollectionExportFieldPresentation` e o contexto de `localization`. Para CSV
-compativel com Excel, use `formatOptions.csv` com delimitador `;`, UTF-8/BOM e
-CRLF quando o consumidor alvo exigir esse dialeto. Isso continua sendo CSV; o
-formato `excel` deve aparecer em capabilities apenas quando o recurso tambem
-publicar politica de exportacao XLSX real.
-
-O starter registra engines CSV, JSON e XLSX por padrao. Os formatos `pdf` e `print`
-permanecem no contrato publico para que consumidores possam expressar a intencao,
-mas exigem engine registrado pelo host ou por versao futura do starter. Na ausencia
-de engine, o executor rejeita o formato com `400 Bad Request` pela mesma trilha de
-validacao do endpoint base.
-
-## Canonical Backend Baseline
-
-O baseline canonico para recursos metadata-driven e:
-
-- `AbstractResourceController`
-- `AbstractCreateResourceController`, quando o recurso publica create sem update/delete
-- `AbstractCreateUpdateResourceController`, quando o recurso publica create/update sem delete
-- `AbstractUnitDeleteResourceController`, quando o recurso publica create/update e `DELETE /{id}` sem `DELETE /batch`
-- `AbstractLegacyBackedResourceController`, quando a escrita for delegada a backend legado mantendo contrato publico resource-oriented
-- `AbstractDuplicateDraftLegacyBackedResourceController`, somente quando o recurso realmente publicar `POST /{resource}/{id}/duplicate-draft` como rascunho nao mutante
-- `AbstractReadOnlyResourceController`
-- `AbstractBaseResourceService`
-- `AbstractReadOnlyResourceService`
-- `BaseCreateResourceService`, quando a porta de comando publica create sem update/delete
-- `BaseCreateUpdateResourceService`, quando a porta de comando publica create/update sem delete
-- `BaseUnitDeleteResourceService`, quando a porta de comando publica create/update e delete individual sem delete em lote
-- `LegacyBackedResourceService`, quando create/update/delete forem executados por porta/adaptador do host
-- `DuplicateDraftLegacyBackedResourceService`, quando `duplicate-draft` preparar um DTO editavel para posterior `POST`
-- `ResourceMapper`
-- `@ApiResource(value = ..., resourceKey = ...)`
-
-`AbstractBaseResourceService` publica hooks protegidos de lifecycle para create,
-update, delete individual e delete em lote. Use esses hooks para validacoes,
-normalizacoes e efeitos de dominio que precisam participar do fluxo transacional
-canonico sem sobrescrever `create`, `update` ou `deleteById` por inteiro.
-
-Para updates com relacionamentos JPA, `AbstractBaseResourceService` tambem oferece
-helpers protegidos para resolver referencias relacionadas por ID (`relatedReference`,
-`relatedReferences`, `relatedReferenceSet`) e substituir colecoes mutaveis
-(`replaceRelationshipCollection`). Esses helpers reduzem boilerplate sem inferir
-automaticamente a semantica do aggregate: o service continua decidindo quais IDs
-do DTO representam relacoes validas e como back-references/orphan removal devem ser tratados.
-
-Adote DTOs separados:
-
-- `ResponseDTO`
-- `CreateDTO`
-- `UpdateDTO`
-- `DraftDTO`, quando `duplicate-draft` precisar retornar um rascunho diferente do `ResponseDTO`
-- `FilterDTO`
-
-Use `@UiSurface` quando a UX precisa descobrir semanticamente uma experiencia real.
-
-Para colecoes relacionadas ao item atual, publique uma surface `ITEM` sobre a operacao real e preencha
-os campos `related*` da anotacao:
-
-- `relatedChildResourceKey`
-- `relatedChildResourcePath`
-- `relatedChildParentField`
-- `relatedSelectable`
-- `relatedSelectionKeyField`
-- `relatedChildOperations`
-
-O starter materializa esses campos em `relatedResource` dentro de `/schemas/surfaces` e de
-`GET /{resource}/{id}/surfaces`. Isso permite que o runtime monte listas filhas, selecao e comandos
-da colecao relacionada sem mapa local de frontend. O payload continua vindo da operacao HTTP real e o
-schema continua resolvido por `/schemas/filtered`.
-
-`relatedResource` e um bloco atomico: quando uma surface publicar metadado de colecao filha, ela deve
-informar `relatedChildResourceKey`, `relatedChildResourcePath` e `relatedChildParentField`. Liste em
-`relatedChildOperations` apenas operacoes com endpoint HTTP real no recurso filho ou no controller
-relacionado; o starter nao deve anunciar CREATE/DELETE apenas como desejo de UX.
-
-Use `@WorkflowAction` quando a operacao for um comando de negocio explicito.
-
-Além de apontar para a operação e para os schemas canônicos, a action publica um bloco
-`execution` em `/schemas/actions` e `/capabilities`. Esse bloco informa ao runtime a interação
-governada, risco e confirmação, requisitos de idempotência/correlação/versão, bindings de seleção,
-semântica do outcome e projections que precisam ser atualizadas. O endpoint real continua sendo a
-fonte de enforcement; metadata não substitui autorização, transação nem comparação de versão.
-
-Para comandos de item, `resourceVersionTransport = IF_MATCH` identifica o ETag de versão
-persistida e `resourceVersionField` informa qual campo da projeção de linha contém essa versão
-quando tabelas ou listas materializam o comando. Para comandos de coleção, `SELECTION_MAP` exige um `selectionVersionsField` no request.
-Uma collection action que protege um recurso externo pode usar `IF_MATCH` somente quando declara
-`resourceVersionTargetResourceKey` e `resourceVersionTargetIdField`. O primeiro identifica o owner
-semântico da versão; o segundo liga essa identidade a um campo do request. O endpoint continua
-responsável por validar o header contra o recurso bloqueado na mesma fronteira transacional.
-ETag de schema não pode ser usado como versão do registro.
-
-### Related Resource Controllers
-
-Recursos relacionados podem ser publicados por controller customizado quando a experiencia nao deve virar
-um recurso raiz artificial. Nesse caso, o controller precisa declarar a identidade documental usada pelos
-grupos OpenAPI do starter:
-
-- `@ApiGroup("<grupo-do-dominio>")`
-- `@RequestMapping("<path-base-do-recurso-pai>")`
-- mappings de metodo relativos ao recurso pai, como `@PostMapping("/{parentId}/certifications")`
-
-Exemplo:
-
-```java
-@RestController
-@ApiGroup("human-resources")
-@RequestMapping("/api/hr/employees")
-class EmployeeCertificationController {
-
-    @PostMapping("/{employeeId}/certifications")
-    ResponseEntity<RestApiResponse<CertificationDTO>> create(
-            @PathVariable Long employeeId,
-            @Valid @RequestBody CertificationCommandDTO command
-    ) {
-        // ...
-    }
-}
-```
-
-Com essa modelagem, o path relacionado entra no documento de grupo correto e continua resolvivel por
-`/schemas/filtered?path=/api/hr/employees/{employeeId}/certifications&operation=post&schemaType=request`.
-Nao crie endpoint raiz apenas para satisfazer discovery de schema.
-
-## What `resourceKey` Actually Means
-
-`resourceKey` e a identidade semantica estavel do recurso na plataforma.
-
-Diferenca pratica:
-
-- `path` ou `resourcePath` diz onde o endpoint vive, por exemplo `/api/human-resources/employees`
-- `resourceKey` diz o que o recurso e para discovery e agregacao, por exemplo `human-resources.employees`
-
-Regra de plataforma:
-
-- o `path` pode mudar por reorganizacao de URL, proxy, versionamento ou host
-- o `resourceKey` nao deve mudar apenas porque a URL mudou
-
-No starter, `resourceKey` e usado para:
-
-- resolver `GET /schemas/surfaces?resource={resourceKey}`
-- resolver `GET /schemas/actions?resource={resourceKey}`
-- agregar `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`
-- indexar availability contextual de surfaces e actions
-
-Por isso, `@ApiResource(value = ..., resourceKey = ...)` nao e so decoracao. Ele define:
-
-- a URL operacional do recurso
-- a identidade semantica que o restante da plataforma usa para discovery
-
-Opcionalmente, `@ApiResource` tambem pode publicar identidade humana para
-superficies de discovery e cockpit:
-
-- `title`: nome humano preferencial do recurso
-- `description`: significado operacional do recurso
-- `icon`: token semantico de icone, materializado pelo runtime consumidor
-- `visualTone`: token de tom visual para agrupamento ou acento de dominio
-
-Esses campos nao authoram CSS nem regras de negocio. Eles ajudam o starter a
-explicar melhor o dominio em `/schemas/catalog` e `/praxis/cockpit`, preservando
-`resourceKey` como identidade canonica.
-
-## Spring HATEOAS Is Part Of The Contract
-
-O starter usa HATEOAS de forma efetiva, nao ornamental.
-
-Isso aparece em:
-
-- `_links` no envelope `RestApiResponse`
-- links para self e operacoes canonicas nos controllers base
-- discovery contextual em recursos item-level
-- integracao entre semantica de recurso e navegacao HTTP
-
-Quando `praxis.hateoas.enabled=false`, a semantica de links e suprimida do envelope, mas o contrato estrutural de schema continua existindo.
-
-Em hosts atras de proxy, ingress ou dev-server Angular, o starter registra suporte
-padrao a headers `Forwarded` e `X-Forwarded-*`. Assim, links absolutos
-materializados por Spring HATEOAS preservam origem, protocolo e porta
-encaminhados, sem exigir que cada App Host reescreva URLs de capabilities,
-actions ou discovery localmente. O host ainda pode substituir esse filtro com um
-bean proprio quando precisar de politica operacional especifica.
-
-### Related projections preserve the child resource contract
-
-Uma `@UiSurface` pai que retorna registros de outro recurso deve preservar a representação
-canônica do filho. Injete `ResourceRepresentationMaterializer` no controller pai e materialize a
-coleção pelo `relatedChildResourceKey` declarado:
-
-```java
-List<RestApiResource<MissionParticipantDto>> participants =
-    representationMaterializer.materializeAll(
-        "operations.mission-participants",
-        participantService.findByMissionId(id)
-    );
-```
-
-O host não monta `_links`, não infere paths e não decide availability. O registry resolve o
-controller resource-oriented proprietário do `resourceKey` e reutiliza sua materialização de
-`self`, actions, surfaces e capabilities. Resource keys ausentes, duplicados ou DTOs de outro
-recurso falham explicitamente. Não injete o controller filho no controller pai.
-
-O tipo de retorno do endpoint deve declarar concretamente
-`RestApiResource<ChildDto>`. O starter usa o tipo genérico do `HandlerMethod` para registrar
-`ChildDto` no grupo OpenAPI pai e publicar o componente flatten `ChildDto + _links`; tipos
-genéricos não resolvidos não são inferidos por nome. Assim, `/schemas/filtered` continua retornando
-o schema de domínio, enquanto o payload HTTP preserva hypermedia por item.
-
-## Quick Mental Model
-
-```mermaid
-flowchart LR
-  dto["DTOs + validation + resource annotations"] --> openapi["OpenAPI enriched with x-ui"]
-  registry["OptionSourceRegistry"] --> filtered
-  registry --> domain["/schemas/domain"]
-  openapi --> filtered["/schemas/filtered"]
-  openapi --> catalog["/schemas/catalog"]
-  openapi --> surfaces["/schemas/surfaces"]
-  openapi --> actions["/schemas/actions"]
-  surfaces --> caps["/{resource}/capabilities"]
-  actions --> caps
-  filtered --> runtime["praxis-ui-angular runtime"]
-  catalog --> docs["docs, examples, RAG"]
-  domain --> clients
-  caps --> clients["semantic clients and assistants"]
-```
-
-## First Steps
-
-1. Adicione a dependencia Maven.
-2. Siga [docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md).
-3. Modele o primeiro recurso com `@ApiResource(value = ..., resourceKey = ...)`.
-4. Valide `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`.
-5. Se o recurso publicar `OptionSourceRegistry`, valide tambem `POST /{resource}/option-sources/{sourceKey}/options/filter`, `GET /{resource}/option-sources/{sourceKey}/options/by-ids`, `POST /{resource}/option-sources/{sourceKey}/options/by-ids` quando a source depender de contexto e `GET /schemas/domain?resource={resourceKey}` para o catalogo completo do resource owner.
-6. Integre o host oficial com `praxis-ui-angular`.
-
-Dependencia minima:
-
-```xml
-<dependency>
-  <groupId>io.github.codexrodrigues</groupId>
-  <artifactId>praxis-metadata-starter</artifactId>
-  <version>8.0.0-rc.126</version>
-</dependency>
-```
-
-## Public Endpoints To Validate
-
-Para um recurso mutavel no baseline atual, valide no minimo:
-
-- `GET /v3/api-docs/{group}`
-- `GET /schemas/filtered`
-- `GET /schemas/catalog`
-- `GET /schemas/domain?resource={resourceKey}`
-- `GET /schemas/surfaces?resource={resourceKey}`
-- `GET /schemas/actions?resource={resourceKey}` quando houver `@WorkflowAction`
-- `GET /{resource}/capabilities`
-- `GET /{resource}/{id}/capabilities`
-- `POST /{resource}/export` quando o recurso suportar exportacao
-
-Quando o frontend oficial for consumir CRUD inferido, valide tambem no payload de `capabilities`:
-
-- `operations.create.supported`
-- `operations.create.scope`
-- `operations.create.preferredMethod`
-- `operations.create.preferredRel`
-- `operations.view.supported`
-- `operations.edit.supported`
-- `operations.delete.supported`
-- `operations.delete.scope`
-- `operations.delete.preferredMethod`
-
-Para `delete`, confira explicitamente:
-
-- item-level real publica `operations.delete.scope = ITEM`
-- recursos baseados em `AbstractUnitDeleteResourceController` publicam `DELETE /{id}` sem anunciar `DELETE /batch`
-- um endpoint `DELETE /batch` isolado nao promove `operations.delete`
-- workflow `DELETE` continua em `actions`, nao redefine `operations.delete`
-
-Quando houver discovery `ITEM`, valide tambem:
-
-- `GET /{resource}/{id}/surfaces`
-- `GET /{resource}/{id}/actions`
-- `responseCardinality` das surfaces de leitura item-level, especialmente quando a operacao
-  projeta colecoes relacionadas como historicos, eventos, participantes ou linhas analiticas
-- `relatedResource.childResourceKey`, `childResourcePath`, `childParentField`, `selectable`,
-  `selectionKeyField` e `childOperations` quando a surface publicar uma colecao filha relacionada
-
-Quando o recurso publicar `OptionSourceRegistry`, valide tambem:
-
-- `POST /{resource}/option-sources/{sourceKey}/options/filter`
-- `GET /{resource}/option-sources/{sourceKey}/options/by-ids`
-- `POST /{resource}/option-sources/{sourceKey}/options/by-ids` para selected-value reload contextual com `filter`
-- `x-ui.optionSource` em `/schemas/filtered` para os campos governados por essa source
-- a metadata da source em `/schemas/domain?resource={resourceKey}` quando o registry do resource owner tambem hospedar catalogos que nao correspondem a propriedades do DTO/filter
-- `filterEndpoint`, `byIdsEndpoint`, `selectedReloadPolicy` e `invalidSortPolicy` no metadata emitido
-- `sourceKey` URL-safe, usando letras, numeros, ponto, underscore ou hifen, porque ele compoe endpoints publicos de runtime
-- quando `RESOURCE_ENTITY` publicar `filtering`, valide tambem `availableFilters`, `defaultFilters`, `sortOptions` e `defaultSort` no schema emitido
-- filtros obrigatorios por `filtering.availableFilters[].required`; nao derive nem duplique um array `requiredFilters`
-- ausencia de `executionMode`, provider, SQL, datasource e contexto do host nas superficies publicas
-
-Para lookups corporativos provider-backed, prefira `GovernedOptionSourceCatalog.providerBackedLookup(...)`
-em vez de remontar manualmente `OptionSourceDescriptor` em cada service. O builder preserva o registry
-canonico existente e apenas materializa endpoints, dependency mapping, reload por IDs e politica de sort
-como contrato publico de runtime.
-Em `POST /{resource}/option-sources/{sourceKey}/options/filter`, dependencias publicas declaradas por
-`dependsOn`/`dependencyFilterMap` podem ser enviadas em `filter` para fontes `PROVIDER_REQUIRED` mesmo
-quando nao existem no `FilterDTO` do recurso host; fontes JPA continuam tratando essas dependencias como
-parte do filtro estrutural do recurso.
-Em `POST /{resource}/option-sources/{sourceKey}/options/by-ids`, o mesmo filtro estrutural e usado para
-reidratar valores selecionados de sources dependentes sem devolver IDs validos apenas em outro contexto.
-Quando o `FilterDTO` tiver campos chamados `search`, `sort`, `filters` ou `includeIds`, use o envelope
-explicito (`{ "filter": { ... }, "search": "..." }`) para diferenciar filtro estrutural de metadados de
-execucao da option-source.
-
-Para row scope JPA, sobrescreva `normalizeOptionSourceFilter(...)` no service owner. O hook governa
-`filter`, `includeIds` e GET/POST `by-ids`, inclusive requests com IDs vazios, antes da `Specification` ser
-executada. Providers externos devem resolver o mesmo escopo pelo `OptionSourceExecutionContext` privado;
-payloads publicos de filtro e IDs nunca substituem autorizacao server-side.
-
-Para o filtro do proprio recurso (`POST /{resource}/filter`), sobrescreva
-`resolveResourceFilterAccessScope()` no service owner e retorne explicitamente
-`ResourceFilterAccessScope.unrestricted()`, `.denied()` ou `.restricted(specification)`. A base compoe o
-escopo server-side com o `FilterDTO` funcional e reaplica o mesmo escopo ao carregar `includeIds`; assim,
-um selecionado autorizado pode ser reidratado mesmo fora do filtro funcional, mas um ID fora do row scope
-nunca e materializado. O hook vale igualmente para `AbstractBaseResourceService` e
-`AbstractReadOnlyResourceService` e tambem limita `/options/filter`, que reutiliza a consulta filtrada.
-
-O escopo de resource filter nao autoriza implicitamente endpoints independentes como `/by-ids`, `/all`,
-`/filter/cursor`, `/locate` ou stats. Esses caminhos continuam sob seus contratos e mecanismos de
-enforcement proprios; o host deve aplica-los explicitamente quando os publicar. Nunca derive o escopo de
-acesso de `FilterDTO`, `includeIds`, aliases, palavras-chave ou outro payload controlado pelo cliente.
-
-## Internal OpenAPI Base Resolution
-
-A resolução de origem abaixo aplica-se às leituras convencionais sem lifecycle governado. No candidato R2, publicação/reconciliação de lote exigem o produtor local atestado e recusam `app.openapi.internal-base-url`; prewarm não instala uma publicação durável nem concede readiness.
-
-### Optional OpenAPI document prewarm
-
-Hosts that present a semantic catalog or cockpit on their first screen can enable
-`praxis.openapi.prewarm.enabled=true`. After `ApplicationReadyEvent`, the starter warms the
-published OpenAPI groups on a dedicated thread. Startup and HTTP routes stay available during the
-work, and failure for one group is logged without blocking the remaining groups. The default is
-`false`, so hosts that do not need this behaviour do not assume extra bootstrap work.
-
-Os endpoints internos que consultam o SpringDoc, como `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces` e `/schemas/actions`, resolvem a base do OpenAPI nesta ordem:
-
-1. `app.openapi.internal-base-url`
-2. contexto HTTP atual
-
-Use isso quando a aplicacao estiver atras de proxy ou numa plataforma em que a URL publica nao coincide com a origem interna do processo Java.
-
-Exemplo:
-
-```properties
-app.openapi.internal-base-url=http://localhost:4003
-```
-
-The official internal HTTP client uses positive `Duration` values for
-`praxis.openapi.http.connect-timeout` (default `1s`) and
-`praxis.openapi.http.read-timeout` (default `10s`). The latter limits the complete
-HTTP response wait, including headers and body. Governed bulk composition also
-uses `praxis.openapi.bulk-composition-timeout` (default `60s`) for preparation and
-admission, including lock waits. Candidate R2 captures the whole producer photograph
-outside the public cache write lock and transaction; normal governed reads use the
-installed immutable photograph and its durable generation/digest guard.
-The client does not follow redirects. A custom RestTemplate/request factory does
-not automatically prove fresh bounded bulk composition. See the
-[lifecycle limits](docs/spec/BULK-OPERATION-LIFECYCLE.md)
-for epoch fencing, cold-node reconciliation, custom code and server cancellation limits.
-
-
-## Read-only Resources
-
-Read-only continua sendo um caso de primeira classe:
-
-- controller: `AbstractReadOnlyResourceController`
-- service: `AbstractReadOnlyResourceService`
-- `x-ui.resource.readOnly=true`
-- HATEOAS e discovery coerentes com o contrato publicado
-
-Nao crie um contrato paralelo de read-only para contornar o baseline canonico.
-
-## Documentation Positioning
-
-Este README descreve apenas a superficie publica atual do starter.
-
-Para onboarding, modelagem e validacao, siga os entry points documentados neste arquivo e em `docs/`.
-
-## References
-
-- Architecture overview: [docs/architecture-overview.md](docs/architecture-overview.md)
-- Package map: [docs/packages-overview.md](docs/packages-overview.md)
-- Guides hub: [docs/guides/index.md](docs/guides/index.md)
-- Conformance: [docs/spec/CONFORMANCE.md](docs/spec/CONFORMANCE.md)
-
-## Política de CI e publicação
-
-Validação local durante desenvolvimento; Actions apenas no fechamento necessário de versões. Consulte [ACTIONS-RELEASE-POLICY.md](ACTIONS-RELEASE-POLICY.md) para gatilhos, gates e recuperação.
-
-- [Composição explícita do worker — candidato B5b.3](docs/technical/BULK-WORKER-EXPLICIT-COMPOSITION.md): vínculo canônico e callbacks por unidade; provas focais e consumidor JAR privado executados, revisão/integração e publicação pendentes, sem ingresso HTTP ASYNC.
-
-### Microvisualizações declarativas
-
-`@MicroVisualization` materializa `x-ui.presentation` após os presets;
-`@UISchema.extraProperties` conserva a precedência final. Um presenter efetivo
-`microVisualization` nesses campos anotados exige `visualization.fallbackText`
-textual não vazio, fornecido
-pela anotação ou por override. Consulte [o guia de authoring semântico](docs/guides/SEMANTIC-METADATA-AUTHORING.md#microvisualization-e-precedência-efetiva)
-para composição, acessibilidade e substituição explícita do presenter.
-
-## Adoção de storage bulk por owner gerenciado — candidato
-
-A correção em desenvolvimento estabelece PostgreSQL 17 como baseline do storage opcional de execução bulk e das provas de instalação por owner sem SUPERUSER. As evidências históricas em 14.22 permanecem registradas; não certificam esta nova adoção. A superfície REST/schema geral e a base Config têm fronteiras próprias. O [plano de adoção](docs/spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.md) registra os prefixos históricos admitidos, a rejeição de estados inseguros e os gates pendentes. Compilação/unit não equivale a publicação, adoção pública ou backend READY.
+#### Acesso Contextual em Nível de Campo (`x-ui.fieldAccess`)
+`@UISchema` pode declarar `visibleForAuthorities`, `editableForAuthorities` e `fieldAccessReason` para orientar runtimes e assistentes de IA sobre políticas corporativas de visibilidade e edição (ao menos uma lista de authorities deve existir quando `x-ui.fieldAccess` for publicado). O backend consumidor continua responsável por aplicar o enforcement real em services/filtros de segurança.
+
+#### Presets de Apresentação, `@MicroVisualization` e `SemanticMetadataReviewer`
+- `@UISchema(preset = ...)` acelera metadados visuais repetitivos (código, status, valor monetário, booleano, documento legal, tenant, timestamp), publicando `x-ui.presentationPreset` sem substituir `@Schema(description=...)` nem `@DomainGovernance`.
+- `@MicroVisualization` materializa `x-ui.presentation` após os presets (preservando a precedência final de `@UISchema.extraProperties`) e exige `visualization.fallbackText` textual não vazio para acessibilidade. Veja o [Guia de Authoring Semântico](docs/guides/SEMANTIC-METADATA-AUTHORING.md).
+- Use `SemanticMetadataReviewer` em testes ou pipelines para detectar descrições ausentes, textos copiados de `label` ou derivados de *camelCase*, e campos sensíveis (`tenantId`, `userId`, `sessionId`) sem governança explícita.
+
+### 5. `capabilities.operations`, Disponibilidade Contextual e Delete Canônico
+
+Para que o frontend oficial e agentes consumam recursos sem adivinhar rotas, `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities` publicam `capabilities.operations` com `supported`, `scope`, `preferredMethod`, `preferredRel` e `availability`:
+
+- **Affordances canônicas de CRUD**: `create`, `view`, `edit`, `delete` e `duplicate-draft` (quando suportado).
+- **Operações HTTP executáveis resolvidas por interseção entre OpenAPI e `ResourceStructuralCapabilities`**: `byId`, `update`, `all`, `filter`, `cursor`, `options`, `optionSources`, `statsGroupBy`, `statsTimeSeries`, `statsDistribution`, `statsComparison` e `export`.
+- **Separação entre suporte estrutural e permissão atual**:
+  - `canonicalOperations` informa suporte estrutural (nunca autorização).
+  - `capabilities.operations` combina suporte estrutural com disponibilidade contextual por principal/estado via `ResourceOperationAvailabilityProvider`.
+  - `_links` permanecem sincronizados com `capabilities.operations.*.availability`.
+  - Para adoção corporativa completa (`ResourceOperationAvailabilityProvider`, `ActionAvailabilityRule`, `SurfaceAvailabilityRule` e `ResourceStateSnapshotProvider`), siga [Enterprise Availability Adoption](docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md).
+- **Regras de Delete Canônico**:
+  - `operations.delete` representa exclusivamente o delete item-level (`DELETE /{id}`, `scope = ITEM`).
+  - `DELETE /batch` isolado não promove `operations.delete` item-level.
+  - Workflow actions com verbo HTTP `DELETE` permanecem em `actions` e nunca contaminam o `delete` canônico.
+
+### 6. Exportação Canônica de Coleção (`POST /{resource}/export`)
+
+Consumida diretamente por tabelas e listas corporativas, `POST /{resource}/export` recebe o estado completo da coleção (`format`: `csv|json|excel|pdf|print`, `scope`: `auto|selected|filtered|currentPage|all`, `selection`, `filters`, `sort`, `pagination`, `query`, `fields`, `includeHeaders`, `applyFormatting`, `maxRows`, `fileName`, `formatOptions` e `localization`).
+
+- `AbstractResourceQueryController` delega para `BaseResourceQueryService.exportCollection(...)` (padrão `501 Not Implemented`).
+- Recursos que habilitam exportação publicam `CollectionExportCapability` (exposto em `capabilities.operations.export`) e retornam `CollectionExportResult`:
+  - `status=completed`: entrega bytes inline com headers operacionais (`X-Export-Row-Count`, `X-Export-Truncated`, `X-Export-Max-Rows`, `X-Export-Candidate-Row-Count`, `X-Export-Warnings`).
+  - `status=deferred`: retorna `202 Accepted` em JSON com `downloadUrl`, `jobId`, `warnings` e `metadata`.
+- O starter registra por padrão a SPI `CollectionExportExecutor` com engines seguros contra *formula injection*: `CsvCollectionExportEngine`, `JsonCollectionExportEngine` e `ExcelCollectionExportEngine` (XLSX). Veja [Exportação de Coleções](docs/guides/COLLECTION-EXPORT.md).
+
+### 7. Lookups, `OptionSourceRegistry` e Escopo de Linha (Row Scope JPA)
+
+Para campos de seleção remota, autocompletes em cascata e *Entity Lookups* corporativos:
+- Use `GovernedOptionSourceCatalog.providerBackedLookup(...)` ou registre fontes no `OptionSourceRegistry` do recurso dono. O starter publica `x-ui.optionSource` em `/schemas/filtered` e expõe `POST /{resource}/option-sources/{sourceKey}/options/filter` e `GET/POST .../options/by-ids`.
+- Em *Entity Lookups*, códigos de estado canônicos são preservados para seleção e regras de negócio, enquanto `display.statusLabelMap` governa rótulos localizados apenas na apresentação.
+- **Row Scope Server-Side**:
+  - Para option sources JPA, sobrescreva `normalizeOptionSourceFilter(...)` no service dono (governa `filter`, `includeIds` e `by-ids`).
+  - Para o filtro do próprio recurso (`POST /{resource}/filter` e `/options/filter`), sobrescreva `resolveResourceFilterAccessScope()` retornando `ResourceFilterAccessScope.unrestricted()`, `.denied()` ou `.restricted(specification)`. Endpoints independentes (`/by-ids`, `/all`, `/filter/cursor`, `/locate`, `stats`) mantêm seus próprios mecanismos de enforcement. Veja [Options e Option-Sources](docs/guides/OPTIONS-ENDPOINT.md).
+
+### 8. Recursos Relacionados, Sub-coleções e Spring HATEOAS
+
+- **Sub-coleções em `@UiSurface` (`relatedResource`)**: Uma surface `ITEM` pode declarar o bloco atômico `relatedChildResourceKey`, `relatedChildResourcePath` e `relatedChildParentField` (além de `relatedSelectable`, `relatedSelectionKeyField` e `relatedChildOperations` apenas para operações HTTP reais). O starter materializa `relatedResource` em `/schemas/surfaces` e `GET /{resource}/{id}/surfaces`.
+- **Materialização de Representação Filha (`ResourceRepresentationMaterializer`)**: Quando uma surface pai retorna itens de outro recurso, injete `ResourceRepresentationMaterializer` e chame `materializeAll("child.resource-key", items)` com tipo de retorno concreto `RestApiResource<ChildDto>`. Isso preserva `_links.self`, actions e capabilities do recurso filho sem acoplamento entre controllers.
+- **Controllers de Recursos Relacionados**: Quando um sub-recurso não deve virar recurso raiz artificial, anote o controller com `@RestController`, `@ApiGroup("<grupo>")` e `@RequestMapping("<path-base-do-recurso-pai>")`.
+- **Spring HATEOAS e Proxy Headers**: `RestApiResponse` publica `_links` efetivos (desativável via `praxis.hateoas.enabled=false`). O starter registra suporte padrão a headers `Forwarded` e `X-Forwarded-*` para preservar origem, protocolo e porta em links HATEOAS atrás de proxies/gateways.
+
+### 9. Concorrência em Recursos Versionados, Workflow Actions e Operações em Lote (Bulk SDK)
+
+- **Workflow Actions e Controle de Versão (`If-Match`)**: Toda `@WorkflowAction` publica um bloco `execution` em `/schemas/actions` e `/capabilities` com modo de interação (`DIRECT`, `CONFIRM`, `FORM`), risco, pré-condições (`Idempotency-Key`, `X-Correlation-ID`, versão persistida), bindings de seleção, outcome e projections a atualizar.
+  - Para comandos de item, `resourceVersionTransport = IF_MATCH` e `resourceVersionField` indicam o ETag da revisão persistida (nunca confunda ETag de schema com versão do registro).
+  - Para comandos de coleção, `SELECTION_MAP` exige `selectionVersionsField` no request; já `IF_MATCH` em ação de coleção que protege um recurso externo exige o par atômico `resourceVersionTargetResourceKey` + `resourceVersionTargetIdField`.
+  - O contrato candidato `B4-R1` pareia corpo e revisão persistida para emitir ETag de `GET`/`PUT` sem reconsulta tardia ([detalhes no Guia 03](docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md#concorrencia-em-recursos-versionados)).
+- **SDK de Operações em Lote (Bulk) e Lifecycle Governado**:
+  - O starter fornece fundação tipada e infraestrutura transacional PostgreSQL para operações em lote (`@BulkResourceOperations`, `@BulkOperation`), cobrindo composição `DOMAIN_COMMAND/ATOMIC` (`EXPLICIT/SYNC`), captura transacional `EXPLICIT` sob locks ([BULK-PROPOSAL-STORAGE](docs/spec/BULK-PROPOSAL-STORAGE.md)), seleção `QUERY` delimitada a `UNIFORM_UPDATE/SYNC/PER_ITEM` com `ReadyAdmission` ([BULK-COMPOSITION-GUIDE](docs/technical/BULK-COMPOSITION-GUIDE.md)), núcleo durável com reservas/receipts/fencing ([BULK-DURABLE-EXECUTION](docs/spec/BULK-DURABLE-EXECUTION.md)), read model protegido `H1b` com cursores autenticados AEAD ([BULK-H1B-READ-MODEL](docs/spec/BULK-H1B-READ-MODEL.md)), projeção de actions bulk ([BULK-ACTION-PROJECTION](docs/spec/BULK-ACTION-PROJECTION.md)), composição CRUD ([BULK-CRUD-STRUCTURE](docs/spec/BULK-CRUD-STRUCTURE.md), [BULK-CRUD-OPERATIONS](docs/spec/BULK-CRUD-OPERATIONS.md)) e fotografia imutável de OpenAPI no [Lifecycle Governado](docs/spec/BULK-OPERATION-LIFECYCLE.md).
+  - Para o histórico detalhado de cada release candidate (`rc.149`, `rc.152`, `rc.153`, `rc.154`), candidatos de capacidade/workers (`C0-04`, `B3`, `B4-R1`, `B5b.*`, `C1a`) e limites operacionais, consulte [Status Técnico do SDK Bulk e Candidatos de Release](docs/technical/BULK-AND-RELEASE-CANDIDATES-STATUS.md).
+
+### 10. Resolução Interna de OpenAPI, Isolamento de Grupos e Prewarm
+
+- **Isolamento por Grupo (`prototype`)**: `PraxisMetadataAutoConfiguration` precede `SpringDocConfiguration` e registra `GenerationScopedGenericResponseService` e builders OpenAPI com escopo `prototype` e cache isolado por grupo e locale, evitando vazamento de schemas ou acúmulo de handlers entre grupos.
+- **Prewarm Opcional (`praxis.openapi.prewarm.enabled=true`)**: Aquece os grupos OpenAPI em background após `ApplicationReadyEvent` (padrão `false`), ideal para hosts que exibem o Cockpit ou catálogo semântico logo na primeira tela.
+- **Base Interna e Timeouts**: Os resolvedores internos (`/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`) consultam `app.openapi.internal-base-url` (quando a aplicação roda atrás de proxy/container com porta interna distinta, ex.: `http://localhost:4003`) ou o contexto HTTP atual, respeitando `praxis.openapi.http.connect-timeout` (padrão `1s`), `praxis.openapi.http.read-timeout` (padrão `10s`) e `praxis.openapi.bulk-composition-timeout` (padrão `60s`). No modo de lifecycle governado (`R2`), a publicação exige o produtor local atestado e `springdoc.cache.disabled=true`.
+
+---
+
+## Fronteiras no Ecossistema Praxis
+
+O `praxis-metadata-starter` atua em conjunto com os demais módulos da plataforma, mantendo responsabilidades bem delimitadas:
+
+| Preocupação / Responsabilidade | Dono Canônico |
+| --- | --- |
+| Semântica de recursos backend, vocabulário `x-ui`, `/schemas/filtered`, `/schemas/domain`, discovery (`surfaces`/`actions`), `capabilities`, exportação e `/praxis/cockpit` | **`praxis-metadata-starter`** (este repositório) |
+| Persistência de configuração de UI (`ui_user_config`), `ai_registry`, `api_metadata`, `/api/praxis/config/**`, `/api/praxis/runtime/**`, regras de domínio e authoring por IA | [`praxis-config-starter`](https://github.com/codexrodrigues/praxis-config-starter) |
+| Renderização de componentes dinâmicos em Angular, tabelas, formulários, gráficos, editores e integração de runtime (`@praxisui/*`) | [`praxis-ui-angular`](https://github.com/codexrodrigues/praxis-ui-angular) |
+| Host operacional de referência com PostgreSQL, segurança, domínio completo de demonstração e provas HTTP ponta a ponta | [`praxis-api-quickstart`](https://github.com/codexrodrigues/praxis-api-quickstart) |
+| Site oficial público, documentação da plataforma, exemplos interativos e playgrounds | [praxisui.dev](https://praxisui.dev/) |
+
+---
+
+## Mapa da Documentação (Comece por Objetivo)
+
+### Quero entender a arquitetura e os conceitos
+- [Home da Documentação (`docs/index.md`)](docs/index.md)
+- [Visão Geral Funcional (`docs/overview/VISAO-GERAL.md`)](docs/overview/VISAO-GERAL.md)
+- [Visão Arquitetural (`docs/architecture-overview.md`)](docs/architecture-overview.md)
+- [Mapa de Pacotes Java (`docs/packages-overview.md`)](docs/packages-overview.md)
+- [Conceito de `@UISchema` e `x-ui` (`docs/concepts/ui-schema.md`)](docs/concepts/ui-schema.md)
+
+### Quero criar ou evoluir um backend Spring Boot
+1. [Guia 01 — Criar Aplicação Nova do Zero](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
+2. [Guia 02 — Adicionar Recurso Metadata-Driven Canônico](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
+3. [Guia 04 — Quando usar Resource, Surface, Action e Capability](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
+4. [Guia 05 — Do CRUD ao Contrato Semântico](docs/guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
+5. [Guia 06 — Redação Semântica de Annotations para IA](docs/guides/GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.md)
+6. [Authoring Semântico, Presets e Microvisualizações](docs/guides/SEMANTIC-METADATA-AUTHORING.md)
+
+### Quero recursos avançados de plataforma
+- [Options e Option-Sources Governadas](docs/guides/OPTIONS-ENDPOINT.md)
+- [Exportação de Coleções (CSV, JSON, XLSX, Async)](docs/guides/COLLECTION-EXPORT.md)
+- [Disponibilidade Contextual Corporativa (Enterprise Availability)](docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md)
+- [Determinações Reativas de Formulário](docs/spec/reactive-determinations.md)
+- [Guia de Composição de Operações em Lote (Bulk)](docs/technical/BULK-COMPOSITION-GUIDE.md)
+- [Status Técnico do SDK Bulk e Candidatos de Release](docs/technical/BULK-AND-RELEASE-CANDIDATES-STATUS.md)
+
+### Quero integrar o Frontend Angular e validar conformidade
+- [Guia 03 — Frontend Angular CRUD Completo](docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
+- [Checklist de Validação](docs/guides/CHECKLIST-VALIDACAO-IA.md)
+- [Especificação e Conformidade (`CONFORMANCE.md`)](docs/spec/CONFORMANCE.md)
+- [Javadoc Público](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/) · [Exploração complementar no CodeWiki](https://codewiki.google/github.com/codexrodrigues/praxis-metadata-starter/)
+
+---
+
+## Checklist de Endpoints Públicos para Validação
+
+Ao publicar ou validar um recurso mutável no baseline atual, confira no mínimo:
+
+1. **Superfícies Base**:
+   - `GET /v3/api-docs/{group}`
+   - `GET /schemas/filtered` (`ETag`, `X-Schema-Hash`, `x-ui.resource.idField`)
+   - `GET /schemas/catalog`
+   - `GET /schemas/domain?resource={resourceKey}`
+   - `GET /schemas/surfaces?resource={resourceKey}` e `GET /{resource}/{id}/surfaces` (incluindo `responseCardinality` e `relatedResource` quando houver sub-coleção)
+   - `GET /schemas/actions?resource={resourceKey}` e `GET /{resource}/{id}/actions` (quando houver `@WorkflowAction`)
+   - `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities`
+   - `POST /{resource}/export` (quando o recurso declarar suporte a exportação)
+2. **Bloco `capabilities.operations` (para consumo pelo runtime Angular)**:
+   - `operations.create` (`supported`, `scope`, `preferredMethod`, `preferredRel`)
+   - `operations.view.supported` e `operations.edit.supported`
+   - `operations.delete` (`supported`, `scope = ITEM`, `preferredMethod = DELETE`, garantindo que `DELETE /batch` ou workflows `DELETE` não contaminem o delete item-level)
+3. **Fontes de Opções (`OptionSourceRegistry`)**:
+   - `POST /{resource}/option-sources/{sourceKey}/options/filter`
+   - `GET /{resource}/option-sources/{sourceKey}/options/by-ids` e `POST .../by-ids` (para reload contextual com `filter`)
+   - Presença de `x-ui.optionSource` em `/schemas/filtered` (`filterEndpoint`, `byIdsEndpoint`, `selectedReloadPolicy`, `invalidSortPolicy` e `sourceKey` URL-safe) e ausência de detalhes privados (`executionMode`, SQL, datasource)
+
+---
+
+## Política de CI e Publicação
+
+Durante o desenvolvimento, execute validações focais localmente com Maven (`mvn test`); os workflows do GitHub Actions são reservados exclusivamente para o fechamento autorizado de versões e publicação no Maven Central. Consulte [ACTIONS-RELEASE-POLICY.md](ACTIONS-RELEASE-POLICY.md) e [RELEASING.md](RELEASING.md) para os gates de release, assinatura e verificação.

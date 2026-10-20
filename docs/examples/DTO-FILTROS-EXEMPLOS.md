@@ -9,12 +9,13 @@ Este exemplo demonstra um único DTO contendo campos anotados com `@Filterable` 
 package com.example.demo.filtros;
 
 import org.praxisplatform.uischema.filter.annotation.Filterable;
+import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-public class ExemploFilterDTO {
+public class ExemploFilterDTO implements GenericFilterDTO {
 
   // 1) Correlação direta em atributos simples (String)
   @Filterable(operation = Filterable.FilterOperation.EQUAL)

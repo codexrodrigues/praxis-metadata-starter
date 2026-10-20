@@ -52,9 +52,9 @@ public class PessoaDTO {
 
     <h2>Dicas</h2>
     <ul>
-      - <li>Combine Bean Validation com <code>@UISchema</code> para enriquecer o contrato (labels, tipos, placeholders, máscaras etc.).</li>
-      - <li>Use enums e constantes para manter consistência de rótulos e opções.</li>
-      - <li>Tipos especiais (<code>DATE</code>, <code>NUMBER</code>, <code>BOOLEAN</code>) comunicam ao frontend a melhor experiência por padrão.</li>
+      <li>Combine <code>@Schema(description = ...)</code>, Bean Validation e <code>@UISchema</code> para enriquecer o contrato (labels, tipos, placeholders, máscaras etc.).</li>
+      <li>Declare <code>@DomainGovernance</code> em campos sensíveis, financeiros ou pessoais para orientar o catálogo <code>/schemas/domain</code> e agentes de IA.</li>
+      <li>Tipos especiais (<code>DATE</code>, <code>NUMBER</code>, <code>BOOLEAN</code>) comunicam ao frontend a melhor experiência por padrão.</li>
     </ul>
 
     <div class="card">

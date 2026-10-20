@@ -9,16 +9,22 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Associa o path canonico ao controller resource-oriented e consulta o service que realmente
  * executa as operacoes opcionais.
  */
+@SuppressWarnings("rawtypes")
 public final class AnnotationDrivenResourceStructuralCapabilityResolver
         implements ResourceStructuralCapabilityResolver {
 
     private final RequestMappingHandlerMapping handlerMapping;
     private final ApplicationContext applicationContext;
+    private final Map<String, Optional<AbstractResourceQueryController>> controllerByPathCache =
+            new ConcurrentHashMap<>();
 
     public AnnotationDrivenResourceStructuralCapabilityResolver(
             RequestMappingHandlerMapping handlerMapping,
@@ -31,6 +37,14 @@ public final class AnnotationDrivenResourceStructuralCapabilityResolver
     @Override
     public ResourceStructuralCapabilities resolve(String resourcePath) {
         String expectedPath = normalize(resourcePath);
+        Optional<AbstractResourceQueryController> controller =
+                controllerByPathCache.computeIfAbsent(expectedPath, this::findControllerForPath);
+        return controller
+                .map(AbstractResourceQueryController::getStructuralCapabilities)
+                .orElseGet(ResourceStructuralCapabilities::unsupported);
+    }
+
+    private Optional<AbstractResourceQueryController> findControllerForPath(String expectedPath) {
         List<AbstractResourceQueryController> controllers = handlerMapping.getHandlerMethods().values().stream()
                 .filter(handler -> matches(handler, expectedPath))
                 .map(this::resolveControllerBean)
@@ -43,9 +57,7 @@ public final class AnnotationDrivenResourceStructuralCapabilityResolver
                     "Multiple canonical resource controllers publish structural capabilities for " + expectedPath
             );
         }
-        return controllers.isEmpty()
-                ? ResourceStructuralCapabilities.unsupported()
-                : controllers.getFirst().getStructuralCapabilities();
+        return controllers.isEmpty() ? Optional.empty() : Optional.of(controllers.getFirst());
     }
 
     private boolean matches(HandlerMethod handlerMethod, String expectedPath) {

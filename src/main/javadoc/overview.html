@@ -2,9 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Praxis Metadata Starter - Visao Geral</title>
+  <title>Praxis Metadata Starter - Visão Geral</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Praxis Metadata Starter - biblioteca canonica para contratos metadata-driven, x-ui e /schemas/filtered." />
+  <meta name="description" content="Praxis Metadata Starter - biblioteca canônica para contratos metadata-driven, x-ui, /schemas/filtered, discovery semântico e capabilities." />
   <meta name="robots" content="index, follow" />
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif; line-height: 1.55; padding: 1.2rem; }
@@ -22,79 +22,83 @@
 <body>
   <h1>Praxis Metadata Starter</h1>
   <p>
-    Biblioteca canonica da plataforma Praxis para publicar contratos metadata-driven no backend. O starter enriquece o OpenAPI
-    com <code>x-ui</code>, expõe superficies como <code>/schemas/filtered</code> e fornece infraestrutura base para CRUD,
-    filtros, options, documentacao filtrada e consumo por runtimes e LLMs.
+    Biblioteca canônica da plataforma Praxis para publicar contratos metadata-driven no backend Spring Boot. O starter enriquece o OpenAPI
+    com <code>x-ui</code>, expõe superfícies estruturais (<code>/schemas/filtered</code>) e semânticas (<code>/schemas/domain</code>,
+    <code>/schemas/surfaces</code>, <code>/schemas/actions</code>, <code>/{resource}/capabilities</code>), empacota o
+    <strong>Praxis Cockpit</strong> (<code>/praxis/cockpit</code>) e fornece infraestrutura base para recursos REST, filtros JPA,
+    option sources, estatísticas, exportação de coleções e consumo por runtimes Angular e agentes de IA.
   </p>
 
   <div class="cta-grid" aria-label="Entradas principais">
     <a class="cta" href="doc-files/exemplos-modelando-dto.html#modelando-dto-com-uischema-heading">
       <div class="title">Modelando DTO com @UISchema</div>
-      <p class="desc">Labels, tipos, validacoes e dicas refletidas no OpenAPI.</p>
+      <p class="desc">Labels, tipos, validações, governança e dicas refletidas no OpenAPI.</p>
     </a>
     <a class="cta" href="doc-files/exemplos-expondo-controller.html#expondo-controller-com-apiresource-heading">
       <div class="title">Expondo controller com @ApiResource</div>
-      <p class="desc">Controllers base com endpoints prontos e documentacao filtrada.</p>
+      <p class="desc">Controllers resource-oriented com capabilities, HATEOAS e discovery.</p>
     </a>
     <a class="cta" href="doc-files/exemplos-consumindo-contrato.html#consumindo-o-contrato-heading">
       <div class="title">Consumindo /schemas/filtered</div>
-      <p class="desc">Schemas de request e response com ETag para UIs estaveis.</p>
+      <p class="desc">Schemas de request e response com ETag e X-Schema-Hash para UIs estáveis.</p>
+    </a>
+    <a class="cta" href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener noreferrer">
+      <div class="title">Praxis Cockpit (Live Demo)</div>
+      <p class="desc">Inspecione recursos, surfaces, actions, charts e contratos publicados ao vivo.</p>
     </a>
     <a class="cta" href="doc-files/faq.html#faq">
       <div class="title">FAQ</div>
       <p class="desc">Perguntas frequentes sobre grupos, cache, filtros e runtime Angular.</p>
     </a>
-    <a class="cta" href="doc-files/ecosystem.html#ecosystem">
-      <div class="title">Ecossistema</div>
-      <p class="desc">Node, gerador x-ui, runtime Angular oficial e outros projetos publicos.</p>
-    </a>
     <a class="cta" href="https://github.com/codexrodrigues/praxis-ui-angular" target="_blank" rel="noopener noreferrer">
       <div class="title">Runtime Angular Oficial</div>
-      <p class="desc">Bibliotecas publicas @praxisui para consumir /schemas/filtered e x-ui.</p>
+      <p class="desc">Bibliotecas públicas @praxisui para consumir /schemas/filtered, capabilities e x-ui.</p>
     </a>
   </div>
 
   <div class="card">
-    <strong>Uploads e arquivos:</strong> este starter trata de metadados de UI, contrato e documentacao. Gestao de arquivos
-    pertence ao modulo dedicado do ecossistema.
+    <strong>Fronteiras do Ecossistema:</strong> este starter é o dono canônico da semântica de recursos, <code>x-ui</code>,
+    <code>/schemas/filtered</code> e discovery. Persistência de configurações de UI, AI registry e authoring governado pertencem ao
+    <code>praxis-config-starter</code>.
   </div>
 
-  <h2>Fluxo recomendado de implementacao</h2>
+  <h2>Fluxo recomendado de implementação</h2>
   <ul>
-    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html" target="_blank" rel="noopener noreferrer">Guia 01 - Backend - Aplicacao Nova</a></li>
-    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html" target="_blank" rel="noopener noreferrer">Guia 02 - Backend - CRUD Metadata-Driven</a></li>
+    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html" target="_blank" rel="noopener noreferrer">Guia 01 - Backend - Aplicação Nova</a></li>
+    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html" target="_blank" rel="noopener noreferrer">Guia 02 - Backend - Recurso Metadata-Driven</a></li>
+    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html" target="_blank" rel="noopener noreferrer">Guia 04 - Quando usar Resource, Surface, Action e Capability</a></li>
+    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html" target="_blank" rel="noopener noreferrer">Guia 05 - Do CRUD ao Contrato Semântico</a></li>
     <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html" target="_blank" rel="noopener noreferrer">Guia 03 - Frontend - Angular CRUD Completo</a></li>
-    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/CHECKLIST-VALIDACAO-IA.html" target="_blank" rel="noopener noreferrer">Checklist de Validacao</a></li>
+    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/CHECKLIST-VALIDACAO-IA.html" target="_blank" rel="noopener noreferrer">Checklist de Validação</a></li>
   </ul>
 
   <h2>O que este starter entrega</h2>
   <ul>
-    <li>Controllers base com endpoints de CRUD, filtros, options e schemas.</li>
-    <li>Contrato enriquecido com <code>x-ui</code> a partir de anotações Java e Bean Validation.</li>
-    <li>Suporte a grupos OpenAPI e leitura filtrada por <code>/schemas/filtered</code>.</li>
-    <li>Filtros metadata-driven com <code>@Filterable</code> e Specifications JPA.</li>
-    <li>Read-only views com <code>AbstractReadOnlyResourceController</code> e <code>AbstractReadOnlyResourceService</code>.</li>
-    <li>Headers de cache e ETag para revalidacao condicional de schemas.</li>
+    <li>Hierarquia canônica resource-oriented (<code>AbstractResourceController</code>, <code>AbstractReadOnlyResourceController</code>, <code>AbstractBaseResourceService</code>, <code>ResourceMapper</code>).</li>
+    <li>Contrato estrutural enriquecido com <code>x-ui</code> via <code>/schemas/filtered</code> com <code>ETag</code> e <code>X-Schema-Hash</code>.</li>
+    <li>Descoberta semântica e governança para IA: <code>/schemas/catalog</code>, <code>/schemas/domain</code>, <code>/schemas/surfaces</code>, <code>/schemas/actions</code> e <code>/{resource}/capabilities</code>.</li>
+    <li>Filtros dinâmicos com <code>@Filterable</code>, lookups governados com <code>OptionSourceRegistry</code>, analytics (<code>/{resource}/stats/*</code>) e exportação de coleções (<code>POST /{resource}/export</code>).</li>
+    <li>Cockpit automático do host em <code>GET /praxis/cockpit</code> e respostas padronizadas em <code>RestApiResponse</code> com Spring HATEOAS (<code>_links</code>).</li>
   </ul>
 
-  <h2>Como comecar</h2>
+  <h2>Como começar</h2>
   <pre><code>&lt;dependency&gt;
   &lt;groupId&gt;io.github.codexrodrigues&lt;/groupId&gt;
   &lt;artifactId&gt;praxis-metadata-starter&lt;/artifactId&gt;
-  &lt;version&gt;5.0.0-rc.2&lt;/version&gt;
+  &lt;version&gt;8.0.0-rc.174&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
   <p>
-    Depois, anote DTOs com <code>@UISchema</code>, exponha controllers com <code>@ApiResource</code> e siga os guias publicados
-    no GitHub Pages para fechar o fluxo completo.
+    Depois, anote seus DTOs separados com <code>@Schema</code>, <code>@UISchema</code> e <code>@DomainGovernance</code>,
+    exponha controllers com <code>@ApiResource(value = ..., resourceKey = ...)</code> e siga os guias publicados no GitHub Pages.
   </p>
 
-  <h2>Referencias importantes</h2>
+  <h2>Referências importantes</h2>
   <ul>
     <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/" target="_blank" rel="noopener noreferrer">GitHub Pages / Docs</a></li>
     <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html" target="_blank" rel="noopener noreferrer">Hub dos guias</a></li>
     <li><a href="doc-files/faq.html#faq">FAQ</a></li>
     <li><a href="doc-files/ecosystem.html#ecosystem">Ecossistema</a></li>
-    <li><a href="https://github.com/codexrodrigues/praxis-ui-angular" target="_blank" rel="noopener noreferrer">Repositorio publico do runtime Angular oficial</a></li>
+    <li><a href="https://github.com/codexrodrigues/praxis-ui-angular" target="_blank" rel="noopener noreferrer">Repositório público do runtime Angular oficial</a></li>
   </ul>
 </body>
 </html>

@@ -181,10 +181,11 @@ public class SurfaceCatalogService {
             return related;
         }
 
+        ChildCapabilities childCapabilities = children != null
+                ? children.get(related.childResourcePath())
+                : resolveDirectChildCapabilities(related.childResourcePath());
         List<RelatedResourceChildOperation> supportedOperations = related.childOperations().stream()
-                .filter(operation -> children == null
-                        ? isChildOperationSupported(related.childResourcePath(), operation)
-                        : isChildOperationSupported(children.get(related.childResourcePath()), operation))
+                .filter(operation -> isChildOperationSupported(childCapabilities, operation))
                 .toList();
         List<RelatedResourceChildOperation> removedOperations = related.childOperations().stream()
                 .filter(operation -> !supportedOperations.contains(operation))
@@ -238,9 +239,15 @@ public class SurfaceCatalogService {
                 for (var definition : definitions) {
                     var child = definition.relatedResource();
                     if (child == null) continue;
-                    if (published && child.present() && canonicalCapabilityResolver != null)
-                        children.computeIfAbsent(child.childResourcePath(), this::resolveChildCapabilities);
-                    related.put(definition, published ? resolveRelatedResource(definition, children) : resolveRelatedResource(definition));
+                    if (child.present() && canonicalCapabilityResolver != null) {
+                        children.computeIfAbsent(
+                                child.childResourcePath(),
+                                path -> published
+                                        ? resolveChildCapabilities(path)
+                                        : resolveDirectChildCapabilities(path)
+                        );
+                    }
+                    related.put(definition, resolveRelatedResource(definition, children));
                 }
                 owner.projection = new RelatedProjection(Map.copyOf(related),
                         published ? documents.captureBulkLifecycleDocumentFence() : null);
@@ -265,6 +272,30 @@ public class SurfaceCatalogService {
         }
     }
 
+    private ChildCapabilities resolveDirectChildCapabilities(String childResourcePath) {
+        if (!StringUtils.hasText(childResourcePath) || canonicalCapabilityResolver == null) {
+            return new ChildCapabilities(Map.of(), Map.of());
+        }
+        try {
+            Map<String, Boolean> capabilities = canonicalCapabilityResolver.resolve(childResourcePath);
+            Map<String, CapabilityOperation> crudOperations = canonicalCapabilityResolver.resolveCrudOperations(childResourcePath);
+            return new ChildCapabilities(
+                    capabilities == null ? Map.of() : Map.copyOf(capabilities),
+                    crudOperations == null ? Map.of() : Map.copyOf(crudOperations)
+            );
+        } catch (GovernedOpenApiPublicationUnavailableException unavailable) {
+            throw unavailable;
+        } catch (RuntimeException ex) {
+            logger.warn(
+                    "Failed to resolve child capabilities for related childResourcePath {}. "
+                            + "The child operations will not be published.",
+                    childResourcePath,
+                    ex
+            );
+            return new ChildCapabilities(Map.of(), Map.of());
+        }
+    }
+
     private boolean isChildOperationSupported(ChildCapabilities child, RelatedResourceChildOperation operation) {
         if (child == null || operation == null) return false;
         return switch (operation) {
@@ -280,36 +311,6 @@ public class SurfaceCatalogService {
     private record ChildCapabilities(Map<String, Boolean> indicators, Map<String, CapabilityOperation> operations) {}
     private record RelatedProjection(Map<SurfaceDefinition, RelatedResourceSurface> related,
             OpenApiDocumentService.BulkLifecycleDocumentFence fence) {}
-
-    private boolean isChildOperationSupported(String childResourcePath, RelatedResourceChildOperation operation) {
-        if (!StringUtils.hasText(childResourcePath) || operation == null) {
-            return false;
-        }
-        try {
-            Map<String, Boolean> capabilities = canonicalCapabilityResolver.resolve(childResourcePath);
-            Map<String, CapabilityOperation> crudOperations = canonicalCapabilityResolver.resolveCrudOperations(childResourcePath);
-            return switch (operation) {
-                case LIST -> Boolean.TRUE.equals(capabilities.get("all"))
-                        || Boolean.TRUE.equals(capabilities.get("filter"));
-                case FILTER -> Boolean.TRUE.equals(capabilities.get("filter"));
-                case CREATE -> supported(crudOperations, "create");
-                case UPDATE -> supported(crudOperations, "edit");
-                case DELETE -> supported(crudOperations, "delete");
-                case DUPLICATE_DRAFT -> supported(crudOperations, "duplicate-draft");
-            };
-        } catch (GovernedOpenApiPublicationUnavailableException unavailable) {
-            throw unavailable;
-        } catch (RuntimeException ex) {
-            logger.warn(
-                    "Failed to resolve child capability {} for related childResourcePath {}. "
-                            + "The child operation will not be published.",
-                    operation,
-                    childResourcePath,
-                    ex
-            );
-            return false;
-        }
-    }
 
     private boolean supported(Map<String, CapabilityOperation> operations, String operationId) {
         CapabilityOperation operation = operations == null ? null : operations.get(operationId);

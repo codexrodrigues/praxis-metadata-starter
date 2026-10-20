@@ -337,40 +337,44 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
             StatsSupportMode comparisonStatsSupportMode,
             Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts, CanonicalProjection projection) {
-        ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
-        Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(projection.indicators());
-        if (structural == null) {
-            applyStatsSupport(
-                    canonicalOperations,
-                    statsFieldRegistry,
-                    groupByStatsSupportMode,
-                    timeSeriesStatsSupportMode,
-                    distributionStatsSupportMode,
-                    comparisonStatsSupportMode
-            );
-        }
-        List<SurfaceCatalogItem> itemSurfaces = itemSurfaces(resourceKey, resourceId);
-        List<ActionCatalogItem> itemActions = itemActions(resourceKey, resourceId);
-        String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
-        ResourceStateSnapshot stateSnapshot = resourceStateSnapshotProvider.resolve(resourceKey, resourceId).orElse(null);
-        CapabilitySnapshot snapshot = new CapabilitySnapshot(
-                resourceKey,
-                resourcePath,
-                group,
-                resourceId,
-                canonicalOperations,
-                resolveOperations(resourcePath, itemSurfaces, itemActions, canonicalOperations, projection),
-                itemSurfaces,
-                itemActions,
-                structural != null ? structural.stats() : StatsCapability.from(
+        try (var ignored = ResourceStateSnapshotScope.open()) {
+            ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
+            Map<String, Boolean> canonicalOperations = new LinkedHashMap<>(projection.indicators());
+            if (structural == null) {
+                applyStatsSupport(
+                        canonicalOperations,
                         statsFieldRegistry,
                         groupByStatsSupportMode,
                         timeSeriesStatsSupportMode,
-                        distributionStatsSupportMode
-                )
-        );
-        return snapshot.withOperations(applyItemAvailability(withBulkOperations(snapshot.operations(), bulkContracts),
-                resourceKey, resourcePath, resourceId, stateSnapshot));
+                        distributionStatsSupportMode,
+                        comparisonStatsSupportMode
+                );
+            }
+            List<SurfaceCatalogItem> itemSurfaces = itemSurfaces(resourceKey, resourceId);
+            List<ActionCatalogItem> itemActions = itemActions(resourceKey, resourceId);
+            String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
+            ResourceStateSnapshot stateSnapshot = ResourceStateSnapshotScope
+                    .resolve(resourceStateSnapshotProvider, resourceKey, resourceId)
+                    .orElse(null);
+            CapabilitySnapshot snapshot = new CapabilitySnapshot(
+                    resourceKey,
+                    resourcePath,
+                    group,
+                    resourceId,
+                    canonicalOperations,
+                    resolveOperations(resourcePath, itemSurfaces, itemActions, canonicalOperations, projection),
+                    itemSurfaces,
+                    itemActions,
+                    structural != null ? structural.stats() : StatsCapability.from(
+                            statsFieldRegistry,
+                            groupByStatsSupportMode,
+                            timeSeriesStatsSupportMode,
+                            distributionStatsSupportMode
+                    )
+            );
+            return snapshot.withOperations(applyItemAvailability(withBulkOperations(snapshot.operations(), bulkContracts),
+                    resourceKey, resourcePath, resourceId, stateSnapshot));
+        }
     }
 
     private Map<String, CapabilityOperation> withBulkOperations(Map<String, CapabilityOperation> ordinary,
@@ -489,7 +493,9 @@ public class DefaultCapabilityService implements CapabilityService {
             String operationId,
             Object resourceId
     ) {
-        ResourceStateSnapshot stateSnapshot = resourceStateSnapshotProvider.resolve(resourceKey, resourceId).orElse(null);
+        ResourceStateSnapshot stateSnapshot = ResourceStateSnapshotScope
+                .resolve(resourceStateSnapshotProvider, resourceKey, resourceId)
+                .orElse(null);
         return evaluateAvailability(ResourceOperationAvailabilityContext.item(
                 resourceKey,
                 resourcePath,

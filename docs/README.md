@@ -1,40 +1,40 @@
-# Documentacao Praxis Metadata Starter
+# Documentação do Praxis Metadata Starter
 
-Este diretorio contem a documentacao principal do `praxis-metadata-starter`.
+Este diretório reúne a documentação oficial do `praxis-metadata-starter` para desenvolvedores, arquitetos e assistentes de IA (LLMs).
 
-A rc.154 pública inclui a seleção QUERY delimitada a `UNIFORM_UPDATE/SYNC/PER_ITEM`, com `ReadyAdmission`, captura protegida e reserva governada; consulte [armazenamento](spec/BULK-PROPOSAL-STORAGE.md), [lifecycle](spec/BULK-OPERATION-LIFECYCLE.md) e [execução](spec/BULK-DURABLE-EXECUTION.md). O workflow oficial 37236119846 passou com 1.530 testes, zero falhas/erros e três skips, e POM/JAR estão verificados no Maven Central. O verify e o aceite de adoção do host rc.154 ainda estão em curso.
+## Estrutura das Pastas
 
-## Estrutura resumida
+- [`overview/`](overview/VISAO-GERAL.md) — visão geral funcional e executiva para quem está conhecendo o projeto
+- [`guides/`](guides/README.md) — trilha principal passo a passo (do primeiro serviço Spring Boot ao consumo Angular e governança para IA)
+- [`concepts/`](concepts/index.md) — conceitos fundamentais (`@UISchema`, *self-describing APIs*, *schema-driven UI*)
+- [`examples/`](examples/README.md) — exemplos práticos de filtros, integração Spring Boot e estatísticas
+- [`spec/`](spec/CONFORMANCE.md) — especificações normativas, JSON Schemas de `x-ui`, determinações reativas e protocolo de operações em lote (Bulk)
+- [`technical/`](technical/README.md) — arquitetura interna de auto-configuração, RFCs, checklists de piloto e histórico técnico de release candidates
 
-- `guides/` - trilha principal para LLMs e implementacao passo a passo
-- `overview/` - visao geral funcional para novos usuarios
-- `concepts/` - conceitos e semantica do contrato metadata-driven
-- `examples/` - exemplos complementares
-- `technical/` - referencia tecnica adicional
+## Ponto de Entrada por Objetivo
 
-## Ponto de entrada por objetivo
+- **Visão geral rápida:** [overview/VISAO-GERAL.md](overview/VISAO-GERAL.md)
+- **Arquitetura e fluxo de enriquecimento:** [architecture-overview.md](architecture-overview.md)
+- **Responsabilidade de cada pacote Java:** [packages-overview.md](packages-overview.md)
+- **Trilha principal de implementação (Pessoas e LLMs):** [guides/README.md](guides/README.md)
+- **Conceito de anotações Java para metadata de UI (`@UISchema`):** [concepts/ui-schema.md](concepts/ui-schema.md)
+- **Contrato de exportação de coleções:** [guides/COLLECTION-EXPORT.md](guides/COLLECTION-EXPORT.md)
+- **Disponibilidade contextual corporativa:** [guides/ENTERPRISE-AVAILABILITY-ADOPTION.md](guides/ENTERPRISE-AVAILABILITY-ADOPTION.md)
+- **Status do SDK Bulk (`rc.154` e candidatos):** [technical/BULK-AND-RELEASE-CANDIDATES-STATUS.md](technical/BULK-AND-RELEASE-CANDIDATES-STATUS.md), [armazenamento](spec/BULK-PROPOSAL-STORAGE.md), [lifecycle](spec/BULK-OPERATION-LIFECYCLE.md) e [execução durável](spec/BULK-DURABLE-EXECUTION.md)
+- **Prova operacional dos guias:** [guides/ai-proof/README.md](guides/ai-proof/README.md)
+- **Exemplos complementares:** [examples/README.md](examples/README.md)
+- **Referência técnica pública complementar:** [GitHub Pages / Javadoc](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
 
-- trilha principal para LLM: [guides/README.md](guides/README.md)
-- visao geral funcional: [overview/VISAO-GERAL.md](overview/VISAO-GERAL.md)
-- arquitetura e fluxo de enriquecimento: [architecture-overview.md](architecture-overview.md)
-- responsabilidade de cada pacote Java: [packages-overview.md](packages-overview.md)
-- conceito de anotacoes Java para metadata de UI: [concepts/ui-schema.md](concepts/ui-schema.md)
-- contrato de exportacao de colecoes: [guides/COLLECTION-EXPORT.md](guides/COLLECTION-EXPORT.md)
-- prova operacional dos guias: [guides/ai-proof/README.md](guides/ai-proof/README.md)
-- exemplos complementares: [examples/README.md](examples/README.md)
-- referencia tecnica publica complementar: [GitHub Pages / apidocs](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
+## Hierarquia Canônica da Documentação
 
-## Hierarquia canonica
+1. [`README.md` (raiz)](../README.md) e [`architecture-overview.md`](architecture-overview.md) apresentam a proposta de valor e as fronteiras da plataforma.
+2. [`guides/`](guides/README.md) define a trilha principal de implementação passo a passo.
+3. [`spec/CONFORMANCE.md`](spec/CONFORMANCE.md) valida a conformidade técnica dos contratos gerados.
+4. [`technical/`](technical/README.md) e `apidocs/` oferecem suporte de engenharia aprofundado.
 
-- `guides/` define a trilha principal de leitura para execucao por LLM
-- `guides/ai-proof/` define como provar que os guias sao suficientes
-- `apidocs/` e apoio tecnico fino, nao a trilha principal
-- `examples/`, `concepts/` e `technical/` aprofundam temas especificos
+## Critério de Qualidade
 
-## Criterio de qualidade
-
-Esta documentacao deve permanecer aderente a:
-
-- codigo canonico do `praxis-metadata-starter`
-- contrato realmente consumido pelo runtime Angular oficial da plataforma
-- protocolo de prova publicado em `docs/guides/ai-proof/`
+Esta documentação permanece estritamente aderente ao:
+- código canônico do `praxis-metadata-starter`
+- contrato consumido pelo runtime Angular oficial (`@praxisui/*`) e pelo Praxis Cockpit
+- protocolo de prova publicado em [`docs/guides/ai-proof/`](guides/ai-proof/README.md)

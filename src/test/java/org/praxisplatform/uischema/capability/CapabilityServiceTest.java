@@ -645,6 +645,98 @@ class CapabilityServiceTest {
         assertEquals("create", snapshot.operations().get("create").availability().metadata().get("operationId"));
     }
 
+    @Test
+    void itemCapabilitiesDeduplicatesSharedResourceStateSnapshotProviderAcrossSurfacesActionsAndOperations() {
+        AtomicInteger stateCalls = new AtomicInteger();
+        ResourceStateSnapshotProvider sharedProvider = (resourceKey, resourceId) -> {
+            stateCalls.incrementAndGet();
+            return java.util.Optional.of(ResourceStateSnapshot.of("ACTIVE"));
+        };
+        org.praxisplatform.uischema.surface.SurfaceDefinition surfaceDefinition =
+                new org.praxisplatform.uischema.surface.SurfaceDefinition(
+                        "detail",
+                        "human-resources.employees",
+                        "/employees",
+                        "human-resources",
+                        SurfaceKind.VIEW,
+                        SurfaceScope.ITEM,
+                        "Detail",
+                        "",
+                        "detail",
+                        "response",
+                        SurfaceResponseCardinality.OBJECT,
+                        new org.praxisplatform.uischema.openapi.CanonicalOperationRef("human-resources", "getById", "/employees/{id}", "GET"),
+                        new org.praxisplatform.uischema.schema.CanonicalSchemaRef("schema-detail", "response", "/schemas/filtered?path=/employees/{id}"),
+                        10,
+                        List.of(),
+                        List.of("ACTIVE"),
+                        List.of()
+                );
+        org.praxisplatform.uischema.action.ActionDefinition actionDefinition =
+                new org.praxisplatform.uischema.action.ActionDefinition(
+                        "approve",
+                        "human-resources.employees",
+                        "/employees",
+                        "human-resources",
+                        ActionScope.ITEM,
+                        "Approve",
+                        "",
+                        new org.praxisplatform.uischema.openapi.CanonicalOperationRef("human-resources", "approveEmployee", "/employees/{id}/actions/approve", "POST"),
+                        null,
+                        new org.praxisplatform.uischema.schema.CanonicalSchemaRef("schema-approve", "response", "/schemas/filtered?path=/employees/{id}/actions/approve"),
+                        10,
+                        "ok",
+                        List.of(),
+                        List.of("ACTIVE"),
+                        List.of(),
+                        org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
+                );
+        SurfaceCatalogService surfaceCatalogService = new SurfaceCatalogService(
+                new org.praxisplatform.uischema.surface.SurfaceDefinitionRegistry() {
+                    @Override
+                    public List<org.praxisplatform.uischema.surface.SurfaceDefinition> findByResourceKey(String resourceKey) {
+                        return List.of(surfaceDefinition);
+                    }
+
+                    @Override
+                    public List<org.praxisplatform.uischema.surface.SurfaceDefinition> findByGroup(String group) {
+                        return List.of(surfaceDefinition);
+                    }
+                },
+                (def, ctx) -> AvailabilityDecision.allowAll(),
+                new org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityContextResolver(sharedProvider)
+        );
+        ActionCatalogService actionCatalogService = new ActionCatalogService(
+                new org.praxisplatform.uischema.action.ActionDefinitionRegistry() {
+                    @Override
+                    public List<org.praxisplatform.uischema.action.ActionDefinition> findByResourceKey(String resourceKey) {
+                        return List.of(actionDefinition);
+                    }
+
+                    @Override
+                    public List<org.praxisplatform.uischema.action.ActionDefinition> findByGroup(String group) {
+                        return List.of(actionDefinition);
+                    }
+                },
+                (def, ctx) -> AvailabilityDecision.allowAll(),
+                new org.praxisplatform.uischema.action.DefaultActionAvailabilityContextResolver(sharedProvider)
+        );
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of("byId", true, "update", true)),
+                surfaceCatalogService,
+                actionCatalogService,
+                new StaticOpenApiDocumentService("human-resources"),
+                context -> AvailabilityDecision.allowAll(),
+                sharedProvider
+        );
+
+        CapabilitySnapshot snapshot = service.itemCapabilities("human-resources.employees", "/employees", 42L);
+
+        assertEquals(1, stateCalls.get());
+        assertEquals(List.of("detail"), snapshot.surfaces().stream().map(SurfaceCatalogItem::id).toList());
+        assertEquals(List.of("approve"), snapshot.actions().stream().map(ActionCatalogItem::id).toList());
+    }
+
     private SurfaceCatalogItem surface(String id, SurfaceScope scope) {
         return new SurfaceCatalogItem(
                 id,

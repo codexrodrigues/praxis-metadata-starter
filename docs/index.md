@@ -1,116 +1,101 @@
-# Praxis Metadata Starter Docs
+# Praxis Metadata Starter — Documentação Oficial
 
-Documentacao publica do `praxis-metadata-starter`.
+Bem-vindo à documentação pública do **`praxis-metadata-starter`**, a biblioteca Spring Boot canônica da plataforma Praxis para publicação de **contratos autodescritivos (*self-describing APIs*)**, enriquecimento OpenAPI com `x-ui`, descoberta semântica (`domain`, `surfaces`, `actions`, `capabilities`) e governança de metadados para UIs dinâmicas e agentes de IA.
 
-Esta home orienta pessoas, LLMs e indexadores para a semantica atual da
-plataforma.
+- **Demonstração ao vivo (Zero Install):** [Abrir o Praxis Cockpit](https://praxis-api-quickstart.onrender.com/praxis/cockpit)
+- **Repositório no GitHub:** [codexrodrigues/praxis-metadata-starter](https://github.com/codexrodrigues/praxis-metadata-starter)
+- **Javadoc Público:** [Referência de API Java](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
 
-## O que este site publica
+---
 
-- a trilha principal do backend canonico resource-oriented
-- o contrato estrutural e documental publicado pelo starter
-- a semantica de `domain`, `surfaces`, `actions` e `capabilities`
-- a operacao canonica de exportacao de colecao
-- referencia tecnica complementar em Javadoc
+## O que este starter publica
 
-## SDK em desenvolvimento
+O baseline canônico atual da plataforma organiza cada recurso sobre cinco pilares (**`resource` + `surface` + `action` + `capability` + `HATEOAS`**):
 
-- [Autoridade de capacidade candidata B5b.1a](spec/BULK-CAPACITY-AUTHORITY.html): núcleo com 42 provas focais de direitos globais e migração; banco dedicado é pré-requisito de provisionamento; não integra a rc.154 nem aceita jobs, ASYNC ou HTTP202.
-- [Instalação local candidata B5b.1b.A](spec/BULK-CAPACITY-INSTALLATION.html): atestado e direitos reais com 97 casos PostgreSQL compostos; runtime sem history/latch SELECT, bootstrap durável sem healing e quatro processos owner. Sem ocupação/jobs, ASYNC/202/READY, restore-safe, adoção na rc.154 ou Angular.
+- **`/schemas/filtered`** — contrato estrutural canônico consumido pelos runtimes para renderização de formulários, filtros e tabelas, com `properties.*.x-ui`, `idField`, `ETag` e `X-Schema-Hash`
+- **`/schemas/catalog`** — catálogo documental com resumos, identidade visual, exemplos e links canônicos para os schemas estruturais
+- **`/schemas/domain`** — catálogo semântico *AI-operable* com vocabulário de domínio, aliases, evidências, governança (`@DomainGovernance`) e `optionSources` registry-wide
+- **`/schemas/surfaces` e `/schemas/actions`** — descoberta semântica de experiências de UI (`@UiSurface`) e comandos explícitos de negócio (`@WorkflowAction`)
+- **`/{resource}/capabilities` e `/{resource}/{id}/capabilities`** — snapshot agregado contextual que combina suporte estrutural (`canonicalOperations`) com disponibilidade real (`operations`, `surfaces`, `actions` e `stats.fields`)
+- **`POST /{resource}/export`** — operação canônica de exportação de coleção (CSV, JSON, XLSX inline com headers `X-Export-*` ou assíncrono `202 Accepted` com `status=deferred`, `downloadUrl` e `jobId`)
+- **`GET /praxis/cockpit`** — cockpit automático empacotado pelo próprio starter para inspeção visual do domínio e auditoria dos contratos publicados
 
-- [Lifecycle governado candidato R2](spec/BULK-OPERATION-LIFECYCLE.html): fotografia OpenAPI imutável, publicação global/operação V14/V15 e reconciliação explícita; prova HTTP do host e adoção pública são gates separados.
+---
 
-- [Ocupação local protegida B5b.1b.B e caracterização de clone C1a](spec/BULK-CAPACITY-OCCUPANCY.html): slots, histórico, QUEUED/claim e lifecycle no ledger existente. Fonte interna integrada pelos PR242/243, com provas de capacidade global, quatro JVMs de runtime e cópia real do banco. C1a demonstra uma limitação: cercar a origem não impede a cópia de executar. Retirada controlada43 e quarentena externa autenticada C0-02 acrescentam provas delimitadas (HBA reload/JVM restart, cópia TEMPLATE e credenciais distintas); C0-03 acrescenta interlock privado cooperativo, três crashes e CAS entre duas JVMs; não fecha custódia monotônica. Essas provas não fecham proteção integral de clone/restore, continuidade externa, worker ou composição operacional. Esse núcleo não integra o artefato público rc.154 e não certifica ASYNC público, HTTP202, adoção do host, backend completo ou Angular.
-- [Núcleo durável de execução](spec/BULK-DURABLE-EXECUTION.html): reserva, unidade transacional, ledger de capacidade V5, retenção/tombstones e recuperação; fundação sem exposição HTTP nem adoção completa no host.
-- [Evidência protegida da avaliação](spec/BULK-EVALUATION-EVIDENCE.html): fatos/plano por alvo vinculados à proposta, sem decisão de elegibilidade.
-- [Decisão H1b de leitura](spec/BULK-H1B-READ-MODEL.html): manifest privado V8, projeção física segura V9, reader autorizado de resultados de proposta e continuação G3b, resumo autorizado de execução e tombstone G3c-a, composição paginada RS4 G3c-b e proposta RS1 com projeção explícita do domínio; a biblioteca não cria endpoint HTTP.
+## Comece por Objetivo
 
-- [Projeção P1 de action bulk](spec/BULK-ACTION-PROJECTION.html): sete referências UI por role, composição única e fence READY; não concede execução/autorização.
-- [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html): API Java, sem runtime executável ou integração de discovery neste incremento.
+### 1. Quero entender a arquitetura e os conceitos da plataforma
 
-- [Propostas, resultados e fingerprint de intenção](spec/BULK-PROTOCOL-RESULTS.html): snapshots e schemas de SDK, sem execução durável.
+- [Visão Geral Funcional](overview/VISAO-GERAL.html)
+- [Visão Arquitetural](architecture-overview.html)
+- [Mapa de Pacotes Java](packages-overview.html)
+- [Conceito de `@UISchema` e `x-ui`](concepts/ui-schema.html)
+- [Hub de Conceitos](concepts/index.html)
+- [Conformidade da Especificação (`CONFORMANCE`)](spec/CONFORMANCE.html)
 
-- [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html): unicidade, vínculo operação/recurso/método e DTO de request concreto do handler MVC.
+### 2. Quero criar uma aplicação nova ou modelar recursos no backend
 
-- [Leitura estrita de request](spec/CANONICAL-REQUEST-SCHEMA.html): schema da operação, dialeto e limites da composição backend.
-- [Persistência protegida de propostas](spec/BULK-PROPOSAL-STORAGE.html): captura EXPLICIT/SYNC publicada na rc.153 e captura QUERY sob admissão opaca na rc.154, restrita a `UNIFORM_UPDATE/SYNC/PER_ITEM` com teto de até 200; o SDK não cria endpoint nem autoriza o domínio do host.
-- [Infraestrutura transacional de lote](spec/BULK-EXECUTION-INFRASTRUCTURE.html): vínculo JDBC/JPA explícito, sem store ou DDL.
+1. [Guia 01 — Backend: Aplicação Nova com Core Canônico](guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html)
+2. [Guia 02 — Backend: Recurso Metadata-Driven](guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html)
+3. [Guia 04 — Quando usar Resource, Surface, Action e Capability](guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html)
+4. [Guia 05 — Do CRUD ao Contrato Semântico](guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
+5. [Guia 06 — Redação Semântica de Annotations para IA](guides/GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html)
+6. [Authoring Semântico de Metadata (`@UISchema` Presets e `@MicroVisualization`)](guides/SEMANTIC-METADATA-AUTHORING.html)
+7. [Hub Completo de Guias](guides/index.html)
 
-- [Campos editáveis em lote](spec/BULK-EDITABLE-FIELDS.html): annotation e compilação estrutural de SET/CLEAR.
-- [Composição estrutural CRUD](spec/BULK-CRUD-STRUCTURE.html): fonte PUT e DTO reais, campos protegidos e allowlists; sem disponibilidade operacional de update bulk.
-- [Composição operacional CRUD](spec/BULK-CRUD-OPERATIONS.html): quatro identidades UPDATE por modo/atomicidade no SDK público; a rc.154 publica QUERY somente para `UNIFORM_UPDATE/SYNC/PER_ITEM`, mantendo `bulk-update`. `PER_ITEM_UPDATE`, ATOMIC e ASYNC não recebem QUERY; autorização e mutação continuam no host.
-- [Guia de composição de lote](technical/BULK-COMPOSITION-GUIDE.html): escolha de modalidade, fronteira Metadata/Config/host, sequência de composição e limites comprovados da rc.154.
+### 3. Quero adotar capacidades avançadas (Lookups, Exportação, Disponibilidade, Reatividade)
 
-## Comece por objetivo
+- [Options e Option-Sources Governadas](guides/OPTIONS-ENDPOINT.html) · [RFC `x-ui.optionSource`](spec/x-ui-option-source-rfc.html)
+- [Exportação Canônica de Coleções](guides/COLLECTION-EXPORT.html)
+- [Disponibilidade Contextual Corporativa (Enterprise Availability)](guides/ENTERPRISE-AVAILABILITY-ADOPTION.html)
+- [Determinações Reativas de Formulário](spec/reactive-determinations.html)
+- [Filtros e Paginação](guides/FILTROS-E-PAGINACAO.html) · [Views Somente Leitura](guides/READ-ONLY-VIEWS.html) · [Erros e Respostas](guides/ERROS-E-RESPOSTAS.html)
+- [RFC — GraphQL Support](technical/GRAPHQL-SUPPORT-RFC.html)
 
-### Quero adotar o baseline atual
+### 4. Quero integrar um runtime Angular
 
-- [Guides hub](guides/index.html)
-- [Architecture overview](architecture-overview.html)
-- [Java package overview](packages-overview.html)
-- [UI Schema concept](concepts/ui-schema.html)
-- [Conformance](spec/CONFORMANCE.html)
-- [Options e option-sources](guides/OPTIONS-ENDPOINT.html)
-- [RFC - x-ui.optionSource](spec/x-ui-option-source-rfc.html)
-- [Exportacao de colecoes](guides/COLLECTION-EXPORT.html)
-- [RFC - GraphQL Support](technical/GRAPHQL-SUPPORT-RFC.html)
+- [Guia 03 — Frontend: Angular CRUD Completo](guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html)
+- [Checklist de Validação Ponta a Ponta](guides/CHECKLIST-VALIDACAO-IA.html)
 
-### Quero gerar uma aplicacao nova
+### 5. Quero referência técnica Java e especificações do SDK de Operações em Lote (Bulk)
 
-1. [Guia 01 - Backend - Aplicacao Nova](guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html)
-2. [Guia 02 - Backend - Recurso Metadata-Driven](guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html)
-3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html)
-4. [Guia 05 - Do CRUD ao Contrato Semantico](guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
-5. [Guia 06 - Redacao Semantica de Annotations para IA](guides/GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html)
-6. [Semantic Metadata Authoring](guides/SEMANTIC-METADATA-AUTHORING.html)
+- [Javadoc Público](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/) · [Índice Humano do Javadoc](api/index.html)
+- [Hub de Documentação Técnica](technical/index.html)
+- [Status Consolidado do SDK Bulk e Candidatos de Release](technical/BULK-AND-RELEASE-CANDIDATES-STATUS.html)
+- [Guia de Composição de Lote (`BULK-COMPOSITION-GUIDE`)](technical/BULK-COMPOSITION-GUIDE.html)
 
-### Quero integrar um runtime Angular
+#### Especificações Técnicas do Protocolo de Lote (Bulk SDK) e Lifecycle Governado
 
-- [Guia 03 - Frontend - Angular CRUD Completo](guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html)
-- [Checklist de Validacao](guides/CHECKLIST-VALIDACAO-IA.html)
+- **Protocolo, Binding e Contratos CRUD Bulk**:
+  - [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html)
+  - [Propostas, resultados e fingerprint de intenção](spec/BULK-PROTOCOL-RESULTS.html)
+  - [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html)
+  - [Leitura estrita de request](spec/CANONICAL-REQUEST-SCHEMA.html)
+  - [Campos editáveis em lote (`@BulkEditable`)](spec/BULK-EDITABLE-FIELDS.html)
+  - [Composição estrutural CRUD](spec/BULK-CRUD-STRUCTURE.html)
+  - [Composição operacional CRUD (`UNIFORM_UPDATE` / `PER_ITEM_UPDATE`)](spec/BULK-CRUD-OPERATIONS.html)
+  - [Projeção P1 de action bulk (`execution.bulk`)](spec/BULK-ACTION-PROJECTION.html)
+- **Persistência, Execução Durável, Read Model e Lifecycle OpenAPI**:
+  - [Infraestrutura transacional de lote](spec/BULK-EXECUTION-INFRASTRUCTURE.html)
+  - [Persistência protegida de propostas (`EXPLICIT` e `QUERY`)](spec/BULK-PROPOSAL-STORAGE.html)
+  - [Evidência protegida da avaliação](spec/BULK-EVALUATION-EVIDENCE.html)
+  - [Núcleo durável de execução](spec/BULK-DURABLE-EXECUTION.html)
+  - [Decisão H1b de leitura (`RS1–RS4`, cursores AEAD)](spec/BULK-H1B-READ-MODEL.html)
+  - [Lifecycle governado de publicação OpenAPI](spec/BULK-OPERATION-LIFECYCLE.html)
+- **Capacidade, Administração Local, Workers e Owner Gerenciado**:
+  - [Autoridade de capacidade candidata B5b.1a](spec/BULK-CAPACITY-AUTHORITY.html)
+  - [Instalação local candidata B5b.1b.A](spec/BULK-CAPACITY-INSTALLATION.html)
+  - [Ocupação local protegida B5b.1b.B e caracterização de clone C1a](spec/BULK-CAPACITY-OCCUPANCY.html)
+  - [Administração local de capacidade (candidato C0-04)](spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.html)
+  - [Estado do worker durável B5b.2](technical/BULK-DURABLE-WORKER-B5B2-STATUS.html) · [Migração owner e cutover B5b.2](technical/BULK-DURABLE-WORKER-OWNER-UPGRADE.html)
+  - [Composição explícita do worker — candidato B5b.3](technical/BULK-WORKER-EXPLICIT-COMPOSITION.html)
+  - [Adoção de operações em lote por owner gerenciado (PostgreSQL 17+)](spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.html)
 
-### Quero referencia tecnica Java
+---
 
-- [Javadoc publico](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
-- [Indice humano do Javadoc](api/index.html)
-- [Documentacao tecnica](technical/index.html)
+## Regra de Leitura
 
-## Baseline Atual
-
-O baseline canonico atual do starter e:
-
-- `resource`
-- `surface`
-- `action`
-- `capability`
-- HATEOAS
-
-Isso significa:
-
-- `/schemas/filtered` segue como contrato estrutural
-- `/schemas/catalog` segue como catalogo documental
-- `/schemas/domain` publica vocabulario, aliases, evidencias, governanca AI-operable e option sources registry-wide que nao possuem campo estrutural correspondente
-- `/schemas/surfaces` e `/schemas/actions` publicam discovery semantico
-- `/{resource}/capabilities` agrega as capacidades do recurso sem redefinir o contrato estrutural
-- `canonicalOperations` descreve suporte estrutural; `operations` materializa CRUD, query, options, stats e export com availability contextual
-- `/{resource}/capabilities` tambem publica `stats.fields` quando o service declara `StatsFieldRegistry` e habilita `StatsSupportMode`, permitindo que runtimes escolham dimensoes e metricas de charts antes de executar stats
-- `POST /{resource}/export` executa exportacao de colecao a partir de escopo, selecao, filtros, ordenacao e campos; o resultado pode ser binario inline ou `202 Accepted` com `status=deferred`, `downloadUrl` e `jobId`
-- detalhes de exportacao em `/capabilities` sao derivados do suporte real do service e podem publicar `formats`, `scopes`, `maxRows` e `async`
-- resultados inline podem publicar headers de linhas, truncamento, limite efetivo e warnings para UI corporativa
-
-## Regra De Leitura
-
-Quando houver duvida sobre a superficie publicada:
-
-- priorize os guias desta home
-- priorize `architecture-overview`
-- use a trilha desta home como referencia principal do baseline atual
-
-- [Administração local de capacidade (candidato C0-04)](spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.html): INSPECT/FENCE com OWNER e vínculo explícitos; provas privadas não são publicação ou adoção produtiva.
-- [Estado do worker durável B5b.2](technical/BULK-DURABLE-WORKER-B5B2-STATUS.html): candidato privado com primeira bateria aceita; matriz de fila, composição pública e fechamento do backend ainda pendentes.
-
-- [Migração owner e cutover do worker durável — candidato privado B5b.2](technical/BULK-DURABLE-WORKER-OWNER-UPGRADE.html).
-
-- [Composição explícita do worker — candidato B5b.3](technical/BULK-WORKER-EXPLICIT-COMPOSITION.html): vínculo canônico e callbacks por unidade; provas focais e consumidor JAR privado executados, revisão/integração e publicação pendentes, sem ingresso HTTP ASYNC.
-
-- [Adoção de operações em lote por owner gerenciado](spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.html): candidato PostgreSQL17+, linhagem imutável, bootstrap transacional e provas focais; publicação e adoção hospedada pendentes.
+Quando houver dúvida sobre a superfície publicada:
+1. Priorize os guias principais desta home (`Guia 01` a `Guia 06`) e a [Visão Arquitetural](architecture-overview.html).
+2. Trate `/schemas/filtered` como a única fonte estrutural de request/response e `/capabilities` como o snapshot agregado de disponibilidade.
+3. Consulte o [Status Consolidado do SDK Bulk e Candidatos de Release](technical/BULK-AND-RELEASE-CANDIDATES-STATUS.html) para distinguir capacidades já publicadas no Maven Central de candidatos internos em validação.

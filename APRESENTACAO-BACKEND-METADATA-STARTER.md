@@ -1,85 +1,114 @@
-# Praxis Metadata Starter: APIs que se descrevem sozinhas e contratos que guiam a UI
+# Praxis Metadata Starter: APIs Autodescritivas e Contratos que Guiam a UI e a IA
 
-Em muitos times, a camada de apresentação sofre com telas rígidas e divergência de regras entre back e front. O Praxis Metadata Starter nasceu para atacar a causa: publicar um contrato rico e auto‑descritivo (OpenAPI + `x-ui`) que a UI interpreta em tempo de execução — sem gerar código e sem acoplamento frágil.
+Em muitos times, a camada de apresentação sofre com telas rígidas e divergência constante de regras entre backend e frontend. O **Praxis Metadata Starter** resolve esse problema na origem: publica um contrato rico e autodescritivo (OpenAPI + `x-ui` + discovery semântico) que runtimes de UI (`@praxisui/*`) e agentes de IA interpretam em tempo de execução — sem gerar código estático e sem acoplamento frágil.
 
-Resultado prático: menos boilerplate, regras consistentes ponta‑a‑ponta e evolução contínua com segurança.
+Resultado prático: menos boilerplate, regras consistentes ponta a ponta, governança explícita de domínio e evolução contínua com segurança.
 
 ---
 
 ## O que o Starter entrega, na prática
 
-- Anotação `@UISchema` para declarar metadados de UI diretamente nos DTOs/entidades.
-- Enriquecimento automático do OpenAPI com a extensão `x-ui` (validações, controles, hints).
-- Endpoint self‑describing `/schemas/filtered` (via `ApiDocsController`) com ETag, idField e merge inteligente.
-- Detecção de grupos OpenAPI por path (OpenApiGroupResolver) e cache de documentos.
-- Infra resource-oriented base (`AbstractResourceController`, `AbstractBaseResourceService`, `ResourceMapper`), HATEOAS e `RestApiResponse` consistente.
-- Integração com Bean Validation (Jakarta): `@NotBlank`, `@Size`, etc. viram `x-ui.validation` consumível no front.
+- **Anotações de Contrato e Governança (`@UISchema`, `@DomainGovernance`, `@Filterable`)**: declare metadados de apresentação, validações, permissões de campo (`fieldAccess`) e políticas de IA diretamente nos DTOs.
+- **Enriquecimento Automático do OpenAPI (`x-ui`)**: converte tipos, formatos e restrições Jakarta Bean Validation (`@NotBlank`, `@Size`, etc.) em `x-ui` e `x-ui.validation`.
+- **Contrato Estrutural Versionado (`/schemas/filtered`)**: entrega o schema exato da operação (`request` ou `response`) com `x-ui.resource.idField`, `ETag` e `X-Schema-Hash` para revalidação condicional (`304 Not Modified`).
+- **Descoberta Semântica Além do CRUD**:
+  - `/schemas/catalog` (catálogo documental e exemplos)
+  - `/schemas/domain` (vocabulário de domínio, evidências e governança para IA)
+  - `/schemas/surfaces` (`@UiSurface`: formulários parciais, visões analíticas e sub-coleções)
+  - `/schemas/actions` (`@WorkflowAction`: comandos explícitos de negócio com pré-condições e versão)
+  - `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities` (snapshot agregado do que existe e do que está permitido agora)
+- **Praxis Cockpit Embutido (`GET /praxis/cockpit`)**: inventário visual automático do serviço com recursos, filtros, tabelas, formulários, gráficos, actions e gaveta de auditoria de contratos.
+- **Infraestrutura Resource-Oriented Base**: `AbstractResourceController`, `AbstractReadOnlyResourceController`, `AbstractBaseResourceService`, `ResourceMapper`, exportação canônica (`POST /{resource}/export`), estatísticas (`POST /{resource}/stats/*`), lookups (`OptionSourceRegistry`) e `RestApiResponse` com Spring HATEOAS (`_links`).
 
 ```mermaid
 sequenceDiagram
   autonumber
-  participant Dev as Dev (DTO + @UISchema)
-  participant OAS as OpenAPI + x-ui
-  participant DOCS as /schemas/filtered (ApiDocsController)
-  participant UI as Frontend
-  Dev->>OAS: Compila + enriquece (detecção + valores @UISchema)
-  UI->>DOCS: GET /schemas/filtered?path=/api/... (If-None-Match: "hash")
+  participant Dev as Dev (DTOs + @ApiResource)
+  participant OAS as OpenAPI + x-ui + Discovery
+  participant DOCS as /schemas/filtered & /capabilities
+  participant UI as Frontend (@praxisui/*) / IA
+  Dev->>OAS: Modela DTOs separados + @UISchema + @DomainGovernance
+  UI->>DOCS: GET /schemas/filtered?path=/api/... (If-None-Match: "<etag>")
   DOCS-->>UI: 200/304 (schema + x-ui + idField)
-  UI->>API: Opera dados (filter/getAll/options/cursor)
+  UI->>DOCS: GET /api/{resource}/capabilities
+  DOCS-->>UI: Operações suportadas, surfaces, actions e availability
+  UI->>OAS: Executa operações (filter, options, CRUD, stats, export, actions)
 ```
 
 ---
 
 ## Como modelar: do DTO ao contrato
 
-1) Modele DTOs com Bean Validation e `@UISchema`:
+1) **Modele DTOs separados (`ResponseDTO`, `CreateDTO`, `UpdateDTO`, `FilterDTO`) com Bean Validation e `@UISchema`**:
 
 ```java
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.FieldDataType;
 
-public class ValorParametroInstituicaoItemDTO {
-  @UISchema(label = "Parâmetro")
-  @NotBlank @Size(max = 80)
-  private String parametro;
+public class CreateValorParametroInstituicaoDTO {
 
-  @UISchema(type = FieldDataType.NUMBER, controlType = FieldControlType.INPUT, label = "Instituição (ID)")
-  @NotNull
-  private Short instituicaoId;
+    @NotBlank
+    @Size(max = 80)
+    @Schema(description = "Código identificador do parâmetro institucional.")
+    @UISchema(label = "Parâmetro", order = 10)
+    private String parametro;
 
-  @UISchema(label = "Valor")
-  @NotBlank
-  private String valor;
+    @NotNull
+    @Schema(description = "Identificador da instituição à qual o parâmetro se aplica.")
+    @UISchema(type = FieldDataType.NUMBER, controlType = FieldControlType.INPUT, label = "Instituição (ID)", order = 20)
+    private Short instituicaoId;
+
+    @NotBlank
+    @Schema(description = "Valor configurado para o parâmetro na instituição selecionada.")
+    @UISchema(label = "Valor", order = 30)
+    private String valor;
 }
 ```
 
-2) Exponha recursos com `@ApiResource`/`@ApiGroup`:
+2) **Exponha recursos no baseline canônico com `@ApiResource` e `@ApiGroup`**:
 
 ```java
-@ApiResource(ApiPaths.HumanResources.VALORES_PARAMETRO_INSTITUICAO)
+@ApiResource(
+    value = ApiPaths.HumanResources.VALORES_PARAMETRO_INSTITUICAO,
+    resourceKey = "human-resources.valores-parametro-instituicao"
+)
 @ApiGroup("human-resources")
-public class ValorparametroinstituicaoController extends AbstractResourceController<
-    Valorparametroinstituicao,
-    ValorparametroinstituicaoResponseDTO,
-    ValorparametroinstituicaoCreateDTO,
-    ValorparametroinstituicaoUpdateDTO,
-    Short,
-    ValorparametroinstituicaoFilterDTO> {
+public class ValorParametroInstituicaoController extends AbstractResourceController<
+        ValorParametroInstituicaoResponseDTO,
+        Short,
+        ValorParametroInstituicaoFilterDTO,
+        CreateValorParametroInstituicaoDTO,
+        UpdateValorParametroInstituicaoDTO> {
+
+    private final ValorParametroInstituicaoService service;
+
+    public ValorParametroInstituicaoController(ValorParametroInstituicaoService service) {
+        this.service = service;
+    }
+
+    @Override
+    protected ValorParametroInstituicaoService getService() {
+        return service;
+    }
+
+    @Override
+    protected Short getResponseId(ValorParametroInstituicaoResponseDTO dto) {
+        return dto.getId();
+    }
 }
 ```
 
-3) Services resource-oriented podem sobrescrever `getOptionMapper()` para populacoes remotas (selects):
+3) **Personalize projeções de opções (`OptionDTO`) no Service quando necessário**:
 
 ```java
 @Override
-public OptionMapper<Valorparametroinstituicao, Short> getOptionMapper() {
-  return entity -> OptionDTO.of(entity.getId(), entity.getValor());
+public OptionMapper<ValorParametroInstituicao, Short> getOptionMapper() {
+    return entity -> OptionDTO.of(entity.getId(), entity.getValor());
 }
 ```
-
-4) (Opcional) Agrupe documentação via `GroupedOpenApi` — o `ApiDocsController` seleciona o grupo automaticamente por path.
 
 ---
 
@@ -87,90 +116,40 @@ public OptionMapper<Valorparametroinstituicao, Short> getOptionMapper() {
 
 1. Padrões do `@UISchema` (defaults)
 2. Detecção automática por tipo/format do OpenAPI (ex.: `string:date` → `DATE_PICKER`)
-3. Valores explícitos de `@UISchema` (sobrescrevem detecção)
-4. Bean Validation (vira `x-ui.validation`)
-5. `extraProperties` (propriedades livres para a UI)
-
-Ex.: forçar TEXTAREA e aumentar `maxLength`:
-
-```java
-@UISchema(controlType = FieldControlType.TEXTAREA, maxLength = 1000)
-private String observacoes;
-```
+3. Valores explícitos de `@UISchema` e presets (`@UISchema(preset = ...)`)
+4. Bean Validation (convertido em `x-ui.validation`)
+5. `@MicroVisualization` e `extraProperties` (precedência final para customizações avançadas)
 
 ---
 
-## /schemas/filtered: contrato público e versionado
+## `/schemas/filtered`: contrato público e versionado
 
-O endpoint filtra e mescla metadados para a operação correta (request/response), inclui `x-ui.resource.idField` e responde com ETag.
-
-- Headers
-  - `ETag` (resposta): hash do schema.
-  - `If-None-Match` (requisição): revalidação condicional (304 quando não mudou).
-  - `X-Data-Version` (opcional): versão lógica de dados quando há mudanças semânticas.
-
-- Exemplos
+O endpoint filtra e mescla metadados para a operação exata (`request` ou `response`), inclui `x-ui.resource.idField` e responde com `ETag` e `X-Schema-Hash`.
 
 ```bash
-# Response schema (grid)
+# Response schema (usado para colunas de tabela/grid)
 curl -i "http://localhost:8080/schemas/filtered?path=/api/valores-parametro-instituicao/all&operation=get&schemaType=response"
 
-# Request schema (filtro)
+# Request schema (usado para montar barra de filtro dinâmico)
 curl -i "http://localhost:8080/schemas/filtered?path=/api/valores-parametro-instituicao/filter&operation=post&schemaType=request"
 ```
-
-- Evolução de contrato
-  - Non‑breaking: novos labels/hints/extraProperties → incrementa ETag.
-  - Breaking: renomeio/required/tipo -> ajuste a fonte canonica do contrato, use versao logica quando necessario e comunique no CHANGELOG.
-
----
-
-## Integrações que vêm no pacote
-
-- Recursos base com paginacao/ordenacao, HATEOAS e `RestApiResponse` consistente.
-- Detecção automática de grupos via `OpenApiGroupResolver` (menos parâmetros, menos dor).
-- Cache de documentos OpenAPI por grupo, com 97%+ de redução em payload em cenários reais.
 
 ---
 
 ## Testabilidade do contrato
 
-- Spring (MockMvc):
-
 ```java
 mockMvc.perform(get("/schemas/filtered")
-    .param("path", "/api/valores-parametro-instituicao/all")
-    .param("operation", "get")
-    .param("schemaType", "response"))
-  .andExpect(status().isOk())
-  .andExpect(jsonPath("$.['x-ui']").exists())
-  .andExpect(header().exists("ETag"));
+        .param("path", "/api/valores-parametro-instituicao/all")
+        .param("operation", "get")
+        .param("schemaType", "response"))
+    .andExpect(status().isOk())
+    .andExpect(jsonPath("$.['x-ui']").exists())
+    .andExpect(header().exists("ETag"));
 ```
-
-- Snapshot de `x-ui` em CI: congele trechos críticos (idField, validações chave) para detectar regressões.
-
----
-
-## Dicas e troubleshooting
-
-- Enum atualizado: use `FieldDataType.TEXT` (não `STRING`).
-- Use `getOptionMapper()` em services base quando o label de options precisar de regra explicita.
-- Labels, placeholders e ajuda devem viver no `@UISchema` — evite duplicar no front.
-
----
-
-## Por que adotar
-
-- Contrato único que guia a UI e reduz divergência.
-- Evolução segura (ETag/versão) e cache inteligente.
-- Menos boilerplate e mais foco em domínio.
 
 ---
 
 ## Próximo passo
 
-Quais DTOs do seu serviço podem ganhar `@UISchema` hoje? Que telas no front poderiam nascer direto do contrato amanhã? Se quiser discutir boas práticas, comente e vamos aprofundar — o Praxis Metadata Starter está evoluindo com a comunidade.
-
----
-
-> Nota: Este artigo vive no repositório (APRESENTACAO-BACKEND-METADATA-STARTER.md) e será atualizado conforme novas capacidades forem incorporadas ao starter.
+Consulte o [README principal](README.md), o [Guia 01 — Nova Aplicação](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md) e explore o [Praxis Cockpit ao vivo](https://praxis-api-quickstart.onrender.com/praxis/cockpit).

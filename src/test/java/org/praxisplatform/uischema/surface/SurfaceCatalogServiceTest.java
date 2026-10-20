@@ -161,6 +161,8 @@ class SurfaceCatalogServiceTest {
                 Map.of("example.purchase-orders", List.of(related)),
                 Map.of()
         );
+        AtomicInteger resolveCalls = new AtomicInteger();
+        AtomicInteger crudCalls = new AtomicInteger();
         CanonicalCapabilityResolver childCapabilities = new StaticCanonicalCapabilityResolver(
                 Map.of(
                         "all", true,
@@ -172,7 +174,19 @@ class SurfaceCatalogServiceTest {
                         "delete", operation("delete", false),
                         "duplicate-draft", operation("duplicate-draft", false)
                 )
-        );
+        ) {
+            @Override
+            public Map<String, Boolean> resolve(String resourcePath) {
+                resolveCalls.incrementAndGet();
+                return super.resolve(resourcePath);
+            }
+
+            @Override
+            public Map<String, CapabilityOperation> resolveCrudOperations(String resourcePath) {
+                crudCalls.incrementAndGet();
+                return super.resolveCrudOperations(resourcePath);
+            }
+        };
         SurfaceCatalogService service = new SurfaceCatalogService(
                 registry,
                 allowAllEvaluator(),
@@ -183,6 +197,8 @@ class SurfaceCatalogServiceTest {
         SurfaceCatalogItem item = service.findItemSurfaces("example.purchase-orders", 7L).surfaces().get(0);
 
         assertEquals(List.of(RelatedResourceChildOperation.LIST), item.relatedResource().childOperations());
+        assertEquals(1, resolveCalls.get());
+        assertEquals(1, crudCalls.get());
     }
 
     @Test
@@ -345,10 +361,18 @@ class SurfaceCatalogServiceTest {
         }
     }
 
-    private record StaticCanonicalCapabilityResolver(
-            Map<String, Boolean> capabilities,
-            Map<String, CapabilityOperation> operations
-    ) implements CanonicalCapabilityResolver {
+    private static class StaticCanonicalCapabilityResolver implements CanonicalCapabilityResolver {
+
+        private final Map<String, Boolean> capabilities;
+        private final Map<String, CapabilityOperation> operations;
+
+        private StaticCanonicalCapabilityResolver(
+                Map<String, Boolean> capabilities,
+                Map<String, CapabilityOperation> operations
+        ) {
+            this.capabilities = capabilities;
+            this.operations = operations;
+        }
 
         @Override
         public Map<String, Boolean> resolve(String resourcePath) {

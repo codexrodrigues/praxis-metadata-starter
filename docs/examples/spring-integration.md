@@ -1,34 +1,45 @@
-# Integracao Spring Boot ponta a ponta
+# Integração Spring Boot Ponta a Ponta
 
-Este exemplo mostra uma integracao minima entre uma aplicacao Spring Boot e o
-`praxis-metadata-starter`.
+Este exemplo mostra uma integração mínima e compilável entre uma aplicação Spring Boot e o `praxis-metadata-starter`.
 
 ## Objetivo
 
 Demonstrar um caminho autocontido para:
 
-- subir a aplicacao
-- expor um controller de exemplo
+- subir a aplicação
+- expor um controller read-only ou mutável no baseline canônico atual
 - publicar `OpenAPI + x-ui`
-- responder `/schemas/filtered`
+- responder `/schemas/filtered`, `/schemas/domain`, `/{resource}/capabilities` e `/praxis/cockpit`
 
 ## Regras
 
-- use `@ApiResource` e `@ApiGroup`
-- publique um DTO com `@UISchema`
-- use o core resource-oriented canonico
-- mantenha o contrato consumivel por `praxis-ui-angular`
+- use `@ApiResource(value = ..., resourceKey = ...)` e `@ApiGroup` (não combine `@RestController` com `@ApiResource`)
+- publique DTOs separados com `@Schema` e `@UISchema`
+- use o core *resource-oriented* canônico (`AbstractResourceController` ou `AbstractReadOnlyResourceController`)
+- mantenha o contrato consumível por `praxis-ui-angular`
 
-## Exemplo minimo
+## Exemplo mínimo (Read-Only)
 
 ```java
 @ApiResource(value = ApiPaths.Catalog.CATEGORIAS, resourceKey = "catalog.categorias")
 @ApiGroup("catalog")
 public class CategoriaController
-    extends AbstractReadOnlyResourceController<Categoria, CategoriaResponseDTO, Integer, CategoriaFilterDTO> {
+    extends AbstractReadOnlyResourceController<CategoriaResponseDTO, Integer, CategoriaFilterDTO> {
+
+    private final CategoriaService service;
 
     public CategoriaController(CategoriaService service) {
-        super(service);
+        this.service = service;
+    }
+
+    @Override
+    protected CategoriaService getService() {
+        return service;
+    }
+
+    @Override
+    protected Integer getResponseId(CategoriaResponseDTO dto) {
+        return dto.getId();
     }
 }
 ```
@@ -38,8 +49,16 @@ public class CategoriaController
 public class CategoriaService
     extends AbstractReadOnlyResourceService<Categoria, CategoriaResponseDTO, Integer, CategoriaFilterDTO> {
 
+    private final CategoriaMapper mapper;
+
     public CategoriaService(CategoriaRepository repository, CategoriaMapper mapper) {
-        super(repository, Categoria.class, mapper);
+        super(repository, Categoria.class);
+        this.mapper = mapper;
+    }
+
+    @Override
+    protected ResourceMapper<Categoria, CategoriaResponseDTO, ?, ?, Integer> getResourceMapper() {
+        return mapper;
     }
 }
 ```
@@ -48,13 +67,35 @@ public class CategoriaService
 
 ```java
 public class CategoriaResponseDTO {
-  @UISchema(label = "Nome")
-  private String nome;
+
+    @UISchema(label = "ID", hidden = true)
+    private Integer id;
+
+    @Schema(description = "Nome oficial da categoria exibido em catálogos e listagens.")
+    @UISchema(label = "Nome")
+    private String nome;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getNome() {
+        return nome;
+    }
+
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
 }
 ```
 
 ## Resultado esperado
 
-- `GET /v3/api-docs` responde
-- `GET /api/catalog/categorias/schemas` responde
-- `/schemas/filtered` resolve request e response
+- `GET /v3/api-docs/catalog` responde com o documento do grupo enriquecido com `x-ui`
+- `GET /schemas/filtered?path=/api/catalog/categorias/all&operation=get&schemaType=response` resolve o contrato estrutural
+- `GET /api/catalog/categorias/capabilities` publica o snapshot contextual com `readOnly=true`
+- `GET /praxis/cockpit` exibe o recurso no cockpit automático do host

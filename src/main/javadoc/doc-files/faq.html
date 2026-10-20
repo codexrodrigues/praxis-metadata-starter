@@ -20,123 +20,138 @@
 <body>
   <a id="faq"></a>
   <h1>FAQ - Praxis Metadata Starter</h1>
-  <p class="muted">Perguntas frequentes sobre contrato metadata-driven, /schemas/filtered, runtime Angular oficial e trilha publica de guias.</p>
+  <p class="muted">Perguntas frequentes sobre contrato metadata-driven, <code>/schemas/filtered</code>, discovery semântico, Praxis Cockpit e runtime Angular oficial.</p>
 
   <div class="card">
-    <h2>Indice rapido</h2>
+    <h2>Índice rápido</h2>
     <ul>
-      <li><a href="#o-que-e">O que e o Praxis Metadata Starter?</a></li>
-      <li><a href="#como-comecar">Como comecar do jeito canonico?</a></li>
-      <li><a href="#schemas-filtered">Como usar /schemas/filtered?</a></li>
-      <li><a href="#groups">Como os grupos OpenAPI sao resolvidos?</a></li>
-      <li><a href="#options">Quando usar /options/filter e /options/by-ids?</a></li>
+      <li><a href="#o-que-e">O que é o Praxis Metadata Starter?</a></li>
+      <li><a href="#como-comecar">Como começar do jeito canônico?</a></li>
+      <li><a href="#cockpit">O que é o Praxis Cockpit (/praxis/cockpit)?</a></li>
+      <li><a href="#schemas-filtered">Qual a diferença entre /schemas/filtered, /schemas/catalog e /schemas/domain?</a></li>
+      <li><a href="#surfaces-actions-capabilities">Quando usar Resource, Surface, Action e Capability?</a></li>
+      <li><a href="#groups">Como os grupos OpenAPI são resolvidos?</a></li>
+      <li><a href="#options">Quando usar /options/filter, /options/by-ids e OptionSourceRegistry?</a></li>
       <li><a href="#filters">Como modelar filtros com @Filterable?</a></li>
       <li><a href="#readonly">Como expor views e recursos read-only?</a></li>
       <li><a href="#runtime-angular">Existe um runtime Angular oficial?</a></li>
       <li><a href="#cache-etag">Como funciona cache e ETag em /schemas/filtered?</a></li>
-      <li><a href="#javadoc-custom">Como personalizar e publicar o Javadoc?</a></li>
-      <li><a href="#ecosystem">Quais projetos publicos fazem parte do ecossistema?</a></li>
+      <li><a href="#ecosystem">Quais projetos públicos fazem parte do ecossistema?</a></li>
     </ul>
   </div>
 
   <a id="o-que-e"></a>
-  <h2>O que e o Praxis Metadata Starter?</h2>
+  <h2>O que é o Praxis Metadata Starter?</h2>
   <p>
-    E o modulo canonico da plataforma Praxis para publicar contratos metadata-driven no backend. Ele enriquece o OpenAPI com
-    <code>x-ui</code>, expõe superficies como <code>/schemas/filtered</code> e fornece controllers, services e repositorios base
-    para CRUD, filtros, options e documentacao.
+    É o módulo canônico da plataforma Praxis para publicar contratos metadata-driven no backend Spring Boot. Ele enriquece o OpenAPI com
+    <code>x-ui</code>, expõe superfícies estruturais (<code>/schemas/filtered</code>) e semânticas (<code>/schemas/domain</code>,
+    <code>/schemas/surfaces</code>, <code>/schemas/actions</code>, <code>/{resource}/capabilities</code>), empacota o Praxis Cockpit
+    (<code>/praxis/cockpit</code>) e fornece controllers, services e repositórios base para recursos REST, filtros, option sources,
+    estatísticas e exportação de coleções.
   </p>
 
   <a id="como-comecar"></a>
-  <h2>Como comecar do jeito canonico?</h2>
+  <h2>Como começar do jeito canônico?</h2>
   <p>
-    A trilha principal de implementacao esta publicada no GitHub Pages e deve ser a primeira referencia para pessoas e LLMs:
+    A trilha principal de implementação está publicada no GitHub Pages e deve ser a primeira referência para pessoas e LLMs:
   </p>
   <ul>
-    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html" target="_blank" rel="noopener noreferrer">Guia 01 - Backend - Aplicacao Nova</a></li>
-    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html" target="_blank" rel="noopener noreferrer">Guia 02 - Backend - CRUD Metadata-Driven</a></li>
+    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html" target="_blank" rel="noopener noreferrer">Guia 01 - Backend - Aplicação Nova</a></li>
+    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html" target="_blank" rel="noopener noreferrer">Guia 02 - Backend - Recurso Metadata-Driven</a></li>
+    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html" target="_blank" rel="noopener noreferrer">Guia 04 - Quando usar Resource, Surface, Action e Capability</a></li>
     <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html" target="_blank" rel="noopener noreferrer">Guia 03 - Frontend - Angular CRUD Completo</a></li>
-    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/CHECKLIST-VALIDACAO-IA.html" target="_blank" rel="noopener noreferrer">Checklist de Validacao</a></li>
+    <li><a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/CHECKLIST-VALIDACAO-IA.html" target="_blank" rel="noopener noreferrer">Checklist de Validação</a></li>
   </ul>
 
-  <a id="schemas-filtered"></a>
-  <h2>Como usar /schemas/filtered?</h2>
+  <a id="cockpit"></a>
+  <h2>O que é o Praxis Cockpit (/praxis/cockpit)?</h2>
   <p>
-    Use <code>GET /schemas/filtered</code> com <code>path</code>, <code>operation</code> e <code>schemaType</code> para obter o schema
-    de request ou response enriquecido com <code>x-ui</code>.
+    O starter empacota automaticamente um cockpit visual em <code>GET /praxis/cockpit</code> (servido a partir de
+    <code>META-INF/resources/praxis/cockpit</code>). Ele exibe o inventário navegável do serviço — áreas de domínio, recursos,
+    endpoints, filtros, formulários, tabelas, gráficos, workflow actions e relacionamentos — além de uma gaveta de auditoria para os contratos JSON.
+    Veja a demonstração ao vivo em <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener noreferrer">praxis-api-quickstart.onrender.com/praxis/cockpit</a>.
   </p>
+
+  <a id="schemas-filtered"></a>
+  <h2>Qual a diferença entre /schemas/filtered, /schemas/catalog e /schemas/domain?</h2>
+  <ul>
+    <li><code>GET /schemas/filtered</code>: é a <strong>superfície estrutural canônica</strong> para obter o schema de <code>request</code> ou <code>response</code> enriquecido com <code>x-ui</code>, <code>idField</code>, <code>ETag</code> e <code>X-Schema-Hash</code>.</li>
+    <li><code>GET /schemas/catalog</code>: catálogo documental com resumos de operações, identidade visual, exemplos e links canônicos para os schemas estruturais.</li>
+    <li><code>GET /schemas/domain</code>: catálogo semântico <em>AI-operable</em> com vocabulário de domínio, evidências, <code>optionSources</code> e governança (<code>@DomainGovernance</code>).</li>
+  </ul>
   <pre><code>curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/all&amp;operation=get&amp;schemaType=response"
 
 curl -i "http://localhost:8080/schemas/filtered?path=/api/human-resources/pessoas/filter&amp;operation=post&amp;schemaType=request"</code></pre>
-  <p>Referencia de API: <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a>.</p>
+  <p>Referência de API: <a href="../org/praxisplatform/uischema/controller/docs/ApiDocsController.html">ApiDocsController</a> e <a href="../org/praxisplatform/uischema/controller/docs/DomainCatalogController.html">DomainCatalogController</a>.</p>
+
+  <a id="surfaces-actions-capabilities"></a>
+  <h2>Quando usar Resource, Surface, Action e Capability?</h2>
+  <ul>
+    <li><strong>Resource (<code>@ApiResource</code>)</strong>: operações principais do ciclo de vida do recurso (leitura, filtro, criação, atualização, exclusão, stats, exportação).</li>
+    <li><strong>Surface (<code>@UiSurface</code>)</strong>: descoberta semântica de uma experiência de UI (formulário parcial, visão analítica, sub-coleção relacionada) apontando para uma operação real.</li>
+    <li><strong>Action (<code>@WorkflowAction</code>)</strong>: comandos explícitos de negócio (aprovar, rejeitar, cancelar, executar em lote) com pré-condições e versão.</li>
+    <li><strong>Capability (<code>GET /{resource}/capabilities</code>)</strong>: snapshot agregado do que o recurso suporta estruturalmente e do que está permitido <em>agora</em>.</li>
+  </ul>
 
   <a id="groups"></a>
-  <h2>Como os grupos OpenAPI sao resolvidos?</h2>
+  <h2>Como os grupos OpenAPI são resolvidos?</h2>
   <p>
-    O starter combina grupos individuais por recurso, grupos agregados por contexto e um fallback <code>application</code>.
-    A resolucao automatica por path usa o <em>best match</em> mais especifico disponivel.
+    O starter combina grupos individuais por recurso, grupos agregados por contexto (<code>@ApiGroup</code>) e um fallback <code>application</code>.
+    A resolução automática por path usa o <em>best match</em> mais específico disponível, com isolamento por grupo em escopo <code>prototype</code>.
   </p>
-  <p>Referencias: <a href="../org/praxisplatform/uischema/configuration/DynamicSwaggerConfig.html">DynamicSwaggerConfig</a> e <a href="../org/praxisplatform/uischema/util/OpenApiGroupResolver.html">OpenApiGroupResolver</a>.</p>
+  <p>Referências: <a href="../org/praxisplatform/uischema/configuration/DynamicSwaggerConfig.html">DynamicSwaggerConfig</a> e <a href="../org/praxisplatform/uischema/util/OpenApiGroupResolver.html">OpenApiGroupResolver</a>.</p>
 
   <a id="options"></a>
-  <h2>Quando usar /options/filter e /options/by-ids?</h2>
+  <h2>Quando usar /options/filter, /options/by-ids e OptionSourceRegistry?</h2>
   <ul>
-    <li><code>POST /options/filter</code>: para popular combos e autocomplete com busca paginada.</li>
-    <li><code>GET /options/by-ids</code>: para reidratar labels de valores ja selecionados, preservando a ordem dos IDs.</li>
+    <li><code>POST /{resource}/options/filter</code>: para popular combos e autocomplete com busca paginada leve (<code>OptionDTO{id, label}</code>).</li>
+    <li><code>GET /{resource}/options/by-ids</code>: para reidratar labels de valores já selecionados, preservando a ordem dos IDs.</li>
+    <li><code>OptionSourceRegistry</code> (<code>/{resource}/option-sources/{sourceKey}/options/*</code>): para fontes remotas governadas, lookups de entidades corporativas (<code>RESOURCE_ENTITY</code>) e cascatas declarativas (<code>dependsOn</code>).</li>
   </ul>
-  <p>Referencias: <a href="../org/praxisplatform/uischema/dto/OptionDTO.html">OptionDTO</a> e <a href="../org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html">Endpoints Overview</a>.</p>
+  <p>Referências: <a href="../org/praxisplatform/uischema/dto/OptionDTO.html">OptionDTO</a> e <a href="../org/praxisplatform/uischema/controller/base/doc-files/endpoints-overview.html">Endpoints Overview</a>.</p>
 
   <a id="filters"></a>
   <h2>Como modelar filtros com @Filterable?</h2>
   <p>
-    Crie um DTO de filtro e anote os campos com <code>@Filterable</code>, informando a operacao e, quando necessario, a relacao no formato
-    <code>"a.b.campo"</code>. O builder converte o DTO em <em>Specifications</em> JPA.
+    Crie um DTO de filtro implementando <code>GenericFilterDTO</code> e anote os campos com <code>@Filterable</code>, informando a operação e, quando necessário, a relação no formato
+    <code>"a.b.campo"</code>. O builder converte o DTO em <em>Specifications</em> JPA automaticamente.
   </p>
-  <p>Referencias: <a href="../org/praxisplatform/uischema/filter/annotation/Filterable.html">Filterable</a> e <a href="../org/praxisplatform/uischema/filter/specification/doc-files/filters-overview.html">filters-overview</a>.</p>
+  <p>Referências: <a href="../org/praxisplatform/uischema/filter/annotation/Filterable.html">Filterable</a> e <a href="../org/praxisplatform/uischema/filter/specification/doc-files/filters-overview.html">filters-overview</a>.</p>
 
   <a id="readonly"></a>
   <h2>Como expor views e recursos read-only?</h2>
   <p>
-    Use <code>AbstractReadOnlyResourceService</code> e <code>AbstractReadOnlyResourceController</code>. Os endpoints de leitura, filtros, options e locate
-    continuam disponiveis; escritas retornam <code>405 Method Not Allowed</code> por design.
+    Use <code>AbstractReadOnlyResourceService</code> e <code>AbstractReadOnlyResourceController</code>. Os endpoints de leitura, filtros, options, capabilities e locate
+    continuam disponíveis com <code>x-ui.resource.readOnly=true</code>; escritas retornam <code>405 Method Not Allowed</code> por design.
   </p>
-  <p>Guia publico: <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/READ-ONLY-VIEWS.html" target="_blank" rel="noopener noreferrer">READ-ONLY-VIEWS</a>.</p>
+  <p>Guia público: <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/READ-ONLY-VIEWS.html" target="_blank" rel="noopener noreferrer">READ-ONLY-VIEWS</a>.</p>
 
   <a id="runtime-angular"></a>
   <h2>Existe um runtime Angular oficial?</h2>
   <p>
-    Sim. O repositorio publico <a href="https://github.com/codexrodrigues/praxis-ui-angular" target="_blank" rel="noopener noreferrer">praxis-ui-angular</a>
-    publica as bibliotecas <code>@praxisui/*</code> usadas para consumir <code>/schemas/filtered</code> e renderizar formularios e tabelas
-    a partir do vocabulario <code>x-ui</code>.
+    Sim. O repositório público <a href="https://github.com/codexrodrigues/praxis-ui-angular" target="_blank" rel="noopener noreferrer">praxis-ui-angular</a>
+    publica as bibliotecas <code>@praxisui/*</code> usadas para consumir <code>/schemas/filtered</code> e <code>/{resource}/capabilities</code>, renderizando formulários, tabelas, gráficos e ações a partir do vocabulário <code>x-ui</code>.
   </p>
   <pre><code># exemplo de instalacao em um host Angular novo
 npm install @praxisui/core @praxisui/table @praxisui/dynamic-form @praxisui/crud</code></pre>
-  <p>Guia publico: <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html" target="_blank" rel="noopener noreferrer">Guia 03 - Frontend - Angular CRUD Completo</a>.</p>
+  <p>Guia público: <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html" target="_blank" rel="noopener noreferrer">Guia 03 - Frontend - Angular CRUD Completo</a>.</p>
 
   <a id="cache-etag"></a>
   <h2>Como funciona cache e ETag em /schemas/filtered?</h2>
   <p>
-    O starter expõe <code>ETag</code> e <code>X-Schema-Hash</code> para revalidacao condicional via <code>If-None-Match</code>.
-    Quando nada muda, o endpoint pode responder <code>304 Not Modified</code> sem corpo.
+    O starter expõe <code>ETag</code> e <code>X-Schema-Hash</code> para revalidação condicional via <code>If-None-Match</code>.
+    Quando nada muda estruturalmente, o endpoint responde <code>304 Not Modified</code> sem trafegar o corpo novamente.
   </p>
-  <p>Referencias: <a href="../org/praxisplatform/uischema/http/IfNoneMatchUtils.html">IfNoneMatchUtils</a> e <a href="../org/praxisplatform/uischema/id/SchemaIdBuilder.html">SchemaIdBuilder</a>.</p>
-
-  <a id="javadoc-custom"></a>
-  <h2>Como personalizar e publicar o Javadoc?</h2>
-  <p>
-    Edite <code>src/main/javadoc/overview.html</code> e os arquivos em <code>src/main/javadoc/doc-files/</code>. A publicacao no GitHub Pages
-    e feita pelo workflow <code>.github/workflows/docs.yml</code>, que gera o Javadoc, converte os arquivos Markdown de <code>docs/</code>
-    em HTML e publica tudo junto.
-  </p>
+  <p>Referências: <a href="../org/praxisplatform/uischema/http/IfNoneMatchUtils.html">IfNoneMatchUtils</a> e <a href="../org/praxisplatform/uischema/id/SchemaIdBuilder.html">SchemaIdBuilder</a>.</p>
 
   <a id="ecosystem"></a>
-  <h2>Quais projetos publicos fazem parte do ecossistema?</h2>
+  <h2>Quais projetos públicos fazem parte do ecossistema?</h2>
   <ul>
-    <li><a href="https://github.com/codexrodrigues/praxis-node" target="_blank" rel="noopener noreferrer">praxis-node</a></li>
-    <li><a href="https://github.com/codexrodrigues/praxis-openapi-ui-schema-generator" target="_blank" rel="noopener noreferrer">praxis-openapi-ui-schema-generator</a></li>
-    <li><a href="https://github.com/codexrodrigues/praxis-backend-seed-app" target="_blank" rel="noopener noreferrer">praxis-backend-seed-app</a></li>
-    <li><a href="https://github.com/codexrodrigues/praxis-ui-angular" target="_blank" rel="noopener noreferrer">praxis-ui-angular</a></li>
-    <li><a href="https://github.com/codexrodrigues/praxis-file-management" target="_blank" rel="noopener noreferrer">praxis-file-management</a></li>
+    <li><a href="https://github.com/codexrodrigues/praxis-config-starter" target="_blank" rel="noopener noreferrer">praxis-config-starter</a> — Persistência de configurações de UI, AI registry, catálogo de APIs, regras de domínio e authoring governado.</li>
+    <li><a href="https://github.com/codexrodrigues/praxis-api-quickstart" target="_blank" rel="noopener noreferrer">praxis-api-quickstart</a> — Host operacional de referência com PostgreSQL, segurança e demonstração pública do Praxis Cockpit.</li>
+    <li><a href="https://github.com/codexrodrigues/praxis-ui-angular" target="_blank" rel="noopener noreferrer">praxis-ui-angular</a> — Runtime oficial Angular (<code>@praxisui/*</code>).</li>
+    <li><a href="https://praxisui.dev/" target="_blank" rel="noopener noreferrer">praxisui.dev</a> — Site oficial de exemplos, playgrounds e documentação da plataforma.</li>
+    <li><a href="https://github.com/codexrodrigues/praxis-backend-seed-app" target="_blank" rel="noopener noreferrer">praxis-backend-seed-app</a> — Projeto esqueleto para iniciar um novo serviço Spring Boot.</li>
   </ul>
 </body>
 </html>

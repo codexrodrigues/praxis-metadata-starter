@@ -93,7 +93,7 @@ Exemplo base:
 <dependency>
   <groupId>io.github.codexrodrigues</groupId>
   <artifactId>praxis-metadata-starter</artifactId>
-  <version>5.0.0-rc.2</version>
+  <version>8.0.0-rc.174</version>
 </dependency>
 
 <dependency>

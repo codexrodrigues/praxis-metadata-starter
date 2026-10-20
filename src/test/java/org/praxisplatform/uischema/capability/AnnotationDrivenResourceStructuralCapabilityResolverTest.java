@@ -17,6 +17,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AnnotationDrivenResourceStructuralCapabilityResolverTest {
@@ -47,7 +49,12 @@ class AnnotationDrivenResourceStructuralCapabilityResolverTest {
 
         assertTrue(resolver.resolve("employees/").options());
         assertFalse(resolver.resolve("/employees").optionSources());
+        assertTrue(resolver.resolve("//employees//").options());
+        verify(handlerMapping, times(1)).getHandlerMethods();
+
         assertFalse(resolver.resolve("/unknown").options());
+        assertFalse(resolver.resolve("unknown/").options());
+        verify(handlerMapping, times(2)).getHandlerMethods();
     }
 
     @ApiResource(value = "/employees", resourceKey = "test.employees")

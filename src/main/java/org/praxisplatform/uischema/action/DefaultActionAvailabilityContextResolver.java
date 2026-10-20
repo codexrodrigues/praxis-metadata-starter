@@ -123,7 +123,8 @@ public class DefaultActionAvailabilityContextResolver implements ActionAvailabil
         if (!StringUtils.hasText(resourceKey) || resourceId == null) {
             return null;
         }
-        Optional<ResourceStateSnapshot> resolved = resourceStateSnapshotProvider.resolve(resourceKey, resourceId);
+        Optional<ResourceStateSnapshot> resolved = org.praxisplatform.uischema.capability.ResourceStateSnapshotScope
+                .resolve(resourceStateSnapshotProvider, resourceKey, resourceId);
         return resolved.orElse(null);
     }
 

@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PublicDocumentationEntryPointsTest {
@@ -16,8 +17,11 @@ class PublicDocumentationEntryPointsTest {
     @Test
     void publicEntryPointsMentionSemanticDiscoverySurfaces() throws IOException {
         String readme = readNormalized("README.md");
+        String docsIndex = readNormalized("docs/index.md");
         String changelog = readNormalized("CHANGELOG.md");
         String conformance = readNormalized("docs/spec/CONFORMANCE.md");
+        String guia01 = readNormalized("docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md");
+        String javadocOverview = readNormalized("src/main/javadoc/overview.html");
 
         assertAll(
                 () -> assertTrue(
@@ -31,6 +35,30 @@ class PublicDocumentationEntryPointsTest {
                 () -> assertTrue(
                         readme.contains("/schemas/domain"),
                         "README.md should mention /schemas/domain"
+                ),
+                () -> assertTrue(
+                        readme.contains("/praxis/cockpit"),
+                        "README.md should highlight the embedded /praxis/cockpit"
+                ),
+                () -> assertTrue(
+                        readme.contains("quickstart") && readme.contains("docs/technical/bulk-and-release-candidates-status.md"),
+                        "README.md should include the didactic quickstart and reference the consolidated technical status doc"
+                ),
+                () -> assertTrue(
+                        readme.indexOf("o que é o `praxis-metadata-starter`") < readme.indexOf("docs/technical/bulk-and-release-candidates-status.md"),
+                        "README.md must introduce the project value proposition before technical release candidate logs"
+                ),
+                () -> assertTrue(
+                        docsIndex.contains("comece por objetivo") && docsIndex.contains("technical/bulk-and-release-candidates-status.html"),
+                        "docs/index.md should organize entry points by goal and link to the consolidated technical status page"
+                ),
+                () -> assertFalse(
+                        guia01.contains("<version>5.0.0-"),
+                        "GUIA-01 must not reference outdated 5.0.0-* Maven versions"
+                ),
+                () -> assertFalse(
+                        javadocOverview.contains("5.0.0-"),
+                        "Javadoc overview.html must not reference outdated 5.0.0-* Maven versions"
                 ),
                 () -> assertTrue(
                         changelog.contains("uisurface") || changelog.contains("/schemas/surfaces"),
