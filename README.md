@@ -39,9 +39,9 @@ Todo aplicativo Spring Boot que adiciona o `praxis-metadata-starter` ganha autom
 
 Explore a demonstração pública do nosso host de referência (`praxis-api-quickstart`):
 - **[Abrir o Praxis Cockpit ao vivo](https://praxis-api-quickstart.onrender.com/praxis/cockpit)**
-- **[Assistir ao vídeo Full HD (1080p) — Do Contrato Backend ao CRUD Studio Zero-Deploy](https://praxisui.dev/media/crud-studio-zero-deploy-demo.mp4)** · **[Dynamic Page Studio (MP4)](https://praxisui.dev/media/dynamic-page-studio-real-use.mp4)**
+- **[Assistir ao vídeo Full HD (1080p) — Do Contrato Backend ao CRUD Studio Zero-Deploy](https://raw.githubusercontent.com/codexrodrigues/praxis-metadata-starter/main/docs/assets/crud-studio-zero-deploy-demo.mp4)** · **[Dynamic Page Studio (MP4)](https://praxisui.dev/media/dynamic-page-studio-real-use.mp4)**
 
-[![Demonstração — Do Contrato Semântico Backend ao CRUD Studio Zero-Deploy](https://praxisui.dev/media/crud-studio-zero-deploy-demo.gif)](https://praxisui.dev/media/crud-studio-zero-deploy-demo.mp4)
+[![Demonstração — Do Contrato Semântico Backend ao CRUD Studio Zero-Deploy](docs/assets/crud-studio-zero-deploy-demo.gif)](https://raw.githubusercontent.com/codexrodrigues/praxis-metadata-starter/main/docs/assets/crud-studio-zero-deploy-demo.mp4)
 
 > *Acima: um recurso publicado pelo `praxis-metadata-starter` (`@ApiResource`, `/schemas/filtered`, `/{resource}/capabilities` e `/stats/group-by`) sendo descoberto e materializado ao vivo em uma tela corporativa completa (KPI Band, filtros inline, quick chips, tabela rica e dossiê modal em 2 colunas) com persistência Zero-Deploy.*
 
