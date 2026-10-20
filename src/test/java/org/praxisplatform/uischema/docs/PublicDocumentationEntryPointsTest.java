@@ -41,6 +41,14 @@ class PublicDocumentationEntryPointsTest {
                         "README.md should highlight the embedded /praxis/cockpit"
                 ),
                 () -> assertTrue(
+                        readme.contains("crud-studio-zero-deploy-demo.gif") && readme.contains("crud-studio-zero-deploy-demo.mp4"),
+                        "README.md should embed the CRUD Studio Zero-Deploy video demonstration"
+                ),
+                () -> assertTrue(
+                        docsIndex.contains("crud-studio-zero-deploy-demo.mp4"),
+                        "docs/index.md should embed the CRUD Studio Zero-Deploy video demonstration"
+                ),
+                () -> assertTrue(
                         readme.contains("quickstart") && readme.contains("docs/technical/bulk-and-release-candidates-status.md"),
                         "README.md should include the didactic quickstart and reference the consolidated technical status doc"
                 ),
