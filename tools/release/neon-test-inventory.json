@@ -221,7 +221,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -1058,7 +1058,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -1115,7 +1115,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -1179,7 +1179,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -1979,7 +1979,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -2466,14 +2466,14 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/capability/AnnotationDrivenResourceStructuralCapabilityResolverTest.java",
-      "sha256": "69f943a47d325927c12abb2d91ccfac8658e25ccfbfbf67a1d42515d64a55210",
+      "sha256": "027f92bc750348a25e686695adef66060eb02a866eefa103fe1fbc17bd8c439d",
       "kind": "no_db",
       "reason": "Pure JUnit/Mockito/serialization/source contract; no datasource or local database fixture found.",
       "className": "org.praxisplatform.uischema.capability.AnnotationDrivenResourceStructuralCapabilityResolverTest"
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/capability/CapabilityServiceTest.java",
-      "sha256": "c29528665dd2437e204d9ccaeb5ca84d797a5a5960c4c46527a35f46535746c3",
+      "sha256": "0466e59de77eab856353692aeaa279352936d8dba335106c342cb70cbc76c6f9",
       "kind": "no_db",
       "reason": "Pure JUnit/Mockito/serialization/source contract; no datasource or local database fixture found.",
       "className": "org.praxisplatform.uischema.capability.CapabilityServiceTest"
@@ -2649,7 +2649,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -2818,7 +2818,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/docs/PublicDocumentationEntryPointsTest.java",
-      "sha256": "d5c7094151690c05a5664166eaf03d4029c7fce2956e7eb8d4ed4cd19caba1c5",
+      "sha256": "7bcd7c46494ec2a6652b34d08691b525e5920ce808c559b363cfb0961ed48bc2",
       "kind": "no_db",
       "reason": "Pure JUnit/Mockito/serialization/source contract; no datasource or local database fixture found.",
       "className": "org.praxisplatform.uischema.docs.PublicDocumentationEntryPointsTest"
@@ -2856,7 +2856,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -2879,7 +2879,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -2902,7 +2902,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -2925,7 +2925,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -2948,7 +2948,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -2971,7 +2971,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3000,7 +3000,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3023,7 +3023,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3046,7 +3046,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3069,7 +3069,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3092,7 +3092,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3115,7 +3115,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3138,7 +3138,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3161,7 +3161,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3184,7 +3184,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3207,7 +3207,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3230,7 +3230,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3253,7 +3253,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3276,7 +3276,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3299,7 +3299,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3322,7 +3322,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3345,7 +3345,7 @@
           "src/test/java/org/praxisplatform/dummy/",
           "src/test/resources/"
         ],
-        "reviewedScopeDigest": "3010cd66552e751c744a2f8f6b20ac17f0016a0d51559464023b58101a471c59"
+        "reviewedScopeDigest": "9308e6ccac959d1a940b2f4dce96fa9bb7be7c724b4472cc63aa62c53ed65089"
       }
     },
     {
@@ -3958,7 +3958,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/surface/SurfaceCatalogServiceTest.java",
-      "sha256": "14a5da1feffcfe8b720b5826ba0c3197d1bf73c9fe988065a0ea41b40baf7a18",
+      "sha256": "706b73c39d02b930162f6ddbf591c3d8d4e0c89355d266df694b0cca16c859ae",
       "kind": "no_db",
       "reason": "Pure JUnit/Mockito/serialization/source contract; no datasource or local database fixture found.",
       "className": "org.praxisplatform.uischema.surface.SurfaceCatalogServiceTest"
