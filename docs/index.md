@@ -3,14 +3,8 @@
 Bem-vindo à documentação pública do **`praxis-metadata-starter`**, a biblioteca Spring Boot canônica da plataforma Praxis para publicação de **contratos autodescritivos (*self-describing APIs*)**, enriquecimento OpenAPI com `x-ui`, descoberta semântica (`domain`, `surfaces`, `actions`, `capabilities`) e governança de metadados para UIs dinâmicas e agentes de IA.
 
 - **Demonstração ao vivo (Zero Install):** [Abrir o Praxis Cockpit](https://praxis-api-quickstart.onrender.com/praxis/cockpit)
-- **Vídeo em Alta Definição (1080p):** [CRUD Studio Zero-Deploy (MP4)](https://raw.githubusercontent.com/codexrodrigues/praxis-metadata-starter/main/docs/assets/crud-studio-zero-deploy-demo.mp4) · [Dynamic Page Studio (MP4)](https://praxisui.dev/media/dynamic-page-studio-real-use.mp4)
 - **Repositório no GitHub:** [codexrodrigues/praxis-metadata-starter](https://github.com/codexrodrigues/praxis-metadata-starter)
 - **Javadoc Público:** [Referência de API Java](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/)
-
-<video controls preload="metadata" poster="assets/crud-studio-zero-deploy-demo.gif" style="width:100%;max-width:960px;border-radius:12px;margin:1rem 0;border:1px solid rgba(128,128,128,0.25);">
-  <source src="https://raw.githubusercontent.com/codexrodrigues/praxis-metadata-starter/main/docs/assets/crud-studio-zero-deploy-demo.mp4" type="video/mp4" />
-  <a href="https://raw.githubusercontent.com/codexrodrigues/praxis-metadata-starter/main/docs/assets/crud-studio-zero-deploy-demo.mp4">Assistir ao vídeo de demonstração (MP4)</a>
-</video>
 
 ---
 
