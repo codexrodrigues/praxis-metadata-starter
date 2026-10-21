@@ -288,7 +288,7 @@ class DiscoveryPublishedPhotographTest {
             assertThat(snapshot.canonicalOperations().get("all")).isTrue();
             assertThat(snapshot.surfaces().getFirst().relatedResource().childOperations()).hasSize(2);
             assertThat(callbacks.get()).isPositive();
-            assertThat(reads).hasValue(14); // existing two parent + two per requested child operation
+            assertThat(reads).hasValue(4); // two parent reads plus one capability/CRUD pair per distinct child path
         }
     }
 
@@ -330,7 +330,7 @@ class DiscoveryPublishedPhotographTest {
             } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
         }
         assertThat(callbacks).hasValue(4);
-        assertThat(reads).hasValue(12);
+        assertThat(reads).hasValue(2); // one capability/CRUD pair for the child path; ambient boundary is preserved
     }
 
     @Test

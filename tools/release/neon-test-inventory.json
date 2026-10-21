@@ -4163,10 +4163,10 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/openapi/DiscoveryPublishedPhotographTest.java",
-      "sha256": "3544249a46001a1473ee2fc0edb4975ed16ba76ca9883e6a2963df576ac4dfc5",
+      "sha256": "ff967868a2ae0b83f033483d151a38241717807475f5e9566ba0b09dcd88178d",
       "kind": "no_db",
       "className": "org.praxisplatform.uischema.openapi.DiscoveryPublishedPhotographTest",
-      "reason": "Concrete cached published-document and capability/surface services with in-memory producer/guard/fence seams. Covers unlocked contextual callbacks, independent nested reads, suspension and same-byte republish, missing photograph, ambient-TX rejection, failure cleanup, related-child entrypoints and legacy constructors. No listener, database, host IAM, PostgreSQL or current remote acceptance claim. Exact frozen source is included in the current 47-case peer custody (13 cases in this class)."
+      "reason": "Pure governed/legacy discovery photograph tests without database. Read-count expectations follow distinct-child capability deduplication integrated in 0626a0757f; ambient transaction assertions and operation semantics remain enforced."
     }
   ],
   "resources": [
