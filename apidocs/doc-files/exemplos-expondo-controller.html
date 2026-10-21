@@ -31,33 +31,59 @@
   <div class="flex-content">
     <a id="expondo-controller-com-apiresource-heading"></a>
     <h1>Expondo controller com @ApiResource</h1>
-    <p class="muted">Ganhe até <strong>18 endpoints</strong> por recurso ao estender as bases do starter. Read-only tambem e suportado.</p>
+    <p class="muted">Ganhe endpoints padronizados de CRUD, filtros, options, capabilities, estatísticas e exportação ao estender as bases canônicas do starter. Recursos read-only também são de primeira classe.</p>
 
     <div class="card">
-      <h2>Exemplo recomendado</h2>
+      <h2>Exemplo recomendado (Baseline Resource-Oriented)</h2>
       <pre><code>import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.controller.base.AbstractResourceController;
 
-@ApiResource(ApiPaths.HumanResources.PESSOAS)
+@ApiResource(value = ApiPaths.HumanResources.PESSOAS, resourceKey = "human-resources.pessoas")
 @ApiGroup("human-resources")
-public class PessoaController extends AbstractResourceController&lt;Pessoa, PessoaResponseDTO, PessoaCreateDTO, PessoaUpdateDTO, Long, PessoaFilterDTO&gt; {
-  // injete service/repository conforme a arquitetura da aplicacao
-}
-      </code></pre>
-      <p><code>@ApiResource</code> ja incorpora <code>@RestController</code> e <code>@RequestMapping</code>; nao e necessario declarar <code>@RestController</code> separadamente.</p>
-      <p>Prefira constantes de path no projeto da aplicacao e use <code>@ApiGroup</code> para organizar a documentacao OpenAPI por contexto.</p>
+public class PessoaController extends AbstractResourceController&lt;
+        PessoaResponseDTO,
+        Long,
+        PessoaFilterDTO,
+        CreatePessoaDTO,
+        UpdatePessoaDTO&gt; {
+
+    private final PessoaService service;
+
+    public PessoaController(PessoaService service) {
+        this.service = service;
+    }
+
+    @Override
+    protected PessoaService getService() {
+        return service;
+    }
+
+    @Override
+    protected Long getResponseId(PessoaResponseDTO dto) {
+        return dto.getId();
+    }
+}</code></pre>
+      <p><code>@ApiResource</code> já incorpora <code>@RestController</code> e <code>@RequestMapping</code>; não declare <code>@RestController</code> separadamente.</p>
+      <p>Defina sempre <code>resourceKey</code> como a identidade semântica estável do recurso e use <code>@ApiGroup</code> para organizar a documentação OpenAPI por contexto.</p>
     </div>
 
-    <h2>Endpoints prontos</h2>
+    <h2>Endpoints prontos no recurso</h2>
     <div class="ep-grid">
       <div class="ep"><span class="badge method get">GET</span> <code>/{id}</code></div>
       <div class="ep"><span class="badge method get">GET</span> <code>/all</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/filter</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/filter/cursor</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/locate</code></div>
+      <div class="ep"><span class="badge method get">GET</span> <code>/capabilities</code></div>
+      <div class="ep"><span class="badge method get">GET</span> <code>/{id}/capabilities</code></div>
+      <div class="ep"><span class="badge method get">GET</span> <code>/{id}/surfaces</code></div>
+      <div class="ep"><span class="badge method get">GET</span> <code>/{id}/actions</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/export</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/stats/group-by</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/stats/timeseries</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/stats/distribution</code></div>
+      <div class="ep"><span class="badge method post">POST</span> <code>/stats/comparison</code></div>
       <div class="ep"><span class="badge method get">GET</span> <code>/by-ids</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/options/filter</code></div>
       <div class="ep"><span class="badge method post">POST</span> <code>/option-sources/{sourceKey}/options/filter</code></div>
@@ -73,17 +99,18 @@ public class PessoaController extends AbstractResourceController&lt;Pessoa, Pess
     <div class="card">
       <h3>O que o contrato atual entrega</h3>
       <ul>
-        <li>CRUD completo com deteccao automatica do base path via <code>@ApiResource</code>/<code>@RequestMapping</code>.</li>
-        <li>Endpoints de options padrao e tambem <code>option-sources</code> para fontes canonicas registradas.</li>
-        <li>Endpoints estatisticos para <code>group-by</code>, <code>timeseries</code> e <code>distribution</code>.</li>
-        <li>Superficie de schema x-ui em <code>/schemas</code> integrada ao <code>/schemas/filtered</code>.</li>
+        <li>CRUD e discovery resource-oriented com detecção automática do base path via <code>@ApiResource</code>.</li>
+        <li>Snapshot contextual em <code>/capabilities</code> e <code>/{id}/capabilities</code> combinando suporte estrutural e disponibilidade atual.</li>
+        <li>Endpoints de options padrão e <code>option-sources</code> para fontes governadas no <code>OptionSourceRegistry</code>.</li>
+        <li>Endpoints estatísticos (<code>group-by</code>, <code>timeseries</code>, <code>distribution</code>, <code>comparison</code>) e exportação de coleções (<code>/export</code>).</li>
+        <li>Superfície de schema <code>x-ui</code> integrada a <code>/schemas/filtered</code>, <code>/schemas/catalog</code> e <code>/schemas/domain</code>.</li>
       </ul>
     </div>
 
     <h2>Read-only (Views/@Immutable)</h2>
     <div class="card">
-      <p>Use <code>AbstractReadOnlyResourceController</code> para manter os endpoints de leitura e responder <code>405 Method Not Allowed</code> nas operacoes de escrita.</p>
-      <p>O recurso continua com leitura, filtros, options, option-sources e schema x-ui, sem precisar duplicar controller.</p>
+      <p>Use <code>AbstractReadOnlyResourceController</code> e <code>AbstractReadOnlyResourceService</code> para expor recursos somente leitura com <code>x-ui.resource.readOnly=true</code>.</p>
+      <p>O recurso continua com leitura, filtros, options, option-sources, capabilities e schema <code>x-ui</code> coerentes.</p>
     </div>
 
     <h2>Ver também</h2>

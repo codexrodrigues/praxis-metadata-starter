@@ -60,6 +60,10 @@
     img {
       max-width: 100%;
     }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
     h1, h2, h3, h4, h5, h6 {
       margin-top: 1.4em;
     }
@@ -103,8 +107,8 @@
      overflow: visible;
     }
     hr {
-      background-color: #1a1a1a;
       border: none;
+      border-top: 1px solid #1a1a1a;
       height: 1px;
       margin: 1em 0;
     }
@@ -163,26 +167,132 @@
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
 </head>
 <body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
 <header id="title-block-header">
 <h1 class="title">Technical Docs</h1>
 </header>
 <h1 id="technical-docs">Technical Docs</h1>
-<p>Esta area concentra apenas referencia tecnica ainda viva do
-<code>praxis-metadata-starter</code>. Ela nao e onboarding
+<p>Esta área concentra a referência técnica de engenharia do
+<code>praxis-metadata-starter</code>. Ela não é o onboarding
 principal.</p>
-<p>Para onboarding e narrativa publica atual, use primeiro:</p>
+<p>Para onboarding e narrativa pública atual, use primeiro:</p>
 <ul>
-<li><a href="../README.md">README principal</a></li>
-<li><a href="../guides/">Hub dos guias</a></li>
-<li><a href="../architecture-overview.md">Visao arquitetural
-publica</a></li>
+<li><a href="../../README.md">README principal</a></li>
+<li><a href="../guides/README.md">Hub dos guias</a></li>
+<li><a href="../architecture-overview.md">Visão arquitetural
+pública</a></li>
 </ul>
 <h2 id="o-que-permanece-aqui">O que permanece aqui</h2>
-<h3 id="referencias-tecnicas-atuais">Referencias tecnicas atuais</h3>
+<h3 id="referências-técnicas-atuais">Referências técnicas atuais</h3>
 <ul>
-<li><a href="AUTO-CONFIGURACAO.md">Auto-configuracao</a></li>
+<li><a href="AUTO-CONFIGURACAO.md">Auto-configuração</a></li>
+<li><a href="BULK-COMPOSITION-GUIDE.md">Guia de composição de operações
+em lote (Bulk)</a></li>
+<li><a href="BULK-AND-RELEASE-CANDIDATES-STATUS.md">Status consolidado
+do SDK Bulk e candidatos de release</a></li>
 <li><a href="ESTUDO-MERCADO-ROADMAP-METADATA-STARTER.md">Estudo de
 mercado e roadmap competitivo</a></li>
 <li><a href="ESTUDO-PRAXIS-UI-ANGULAR-METADATA-DRIVEN.md">Estudo
@@ -191,49 +301,74 @@ complementar - Praxis UI Angular metadata-driven</a></li>
 de Skills Java e Praxis</a></li>
 <li><a href="FILTROS-ROADMAP.md">Roadmap de filtros - lotes 2 e
 3</a></li>
+<li><a href="GRAPHQL-SUPPORT-RFC.md">RFC - GraphQL Support</a></li>
 <li><a href="GOVERNED-RESOURCE-COMMAND-EXECUTION-RFC.md">RFC - Governed
 Resource Command Execution</a></li>
 </ul>
-<h3 id="registros-tecnicos-de-rollout-e-piloto">Registros tecnicos de
+<h3 id="registros-técnicos-de-rollout-e-piloto">Registros técnicos de
 rollout e piloto</h3>
 <ul>
 <li><a href="SEMANTIC-HOST-COCKPIT-PLAN.md">Plano do Semantic Host
 Cockpit</a></li>
 <li><a href="SEMANTIC-HOST-COCKPIT-COMPOSITION-SPIKE.md">Spike de
-composicao do Semantic Host Cockpit</a></li>
-<li><a href="SEMANTIC-HOST-COCKPIT-DIAGNOSTICS-CATALOG.md">Catalogo
+composição do Semantic Host Cockpit</a></li>
+<li><a href="SEMANTIC-HOST-COCKPIT-DIAGNOSTICS-CATALOG.md">Catálogo
 experimental de diagnostics do Semantic Host Cockpit</a></li>
-<li><a href="PILOT-READINESS-CHECKLIST.md">Checklist de prontidao do
+<li><a href="PILOT-READINESS-CHECKLIST.md">Checklist de prontidão do
 piloto</a></li>
 <li><a href="ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.md">Rollback e
 observabilidade do piloto</a></li>
+<li><a href="BULK-DURABLE-WORKER-B5B2-STATUS.md">Estado do worker
+durável B5b.2</a></li>
+<li><a href="BULK-DURABLE-WORKER-OWNER-UPGRADE.md">Migração owner e
+cutover do worker durável — B5b.2</a></li>
+<li><a href="BULK-WORKER-EXPLICIT-COMPOSITION.md">Composição explícita
+do worker — candidato B5b.3</a></li>
 </ul>
 <h2 id="regras-de-leitura">Regras de leitura</h2>
 <ul>
-<li>O baseline canonico do starter e
+<li>O baseline canônico do starter é
 <code>resource + surfaces + actions + capabilities + HATEOAS</code>.</li>
-<li>Quando houver duvida de contrato publico, a prioridade e:
+<li>Quando houver dúvida de contrato público, a prioridade é:
 <ol type="1">
 <li><code>README.md</code></li>
 <li><code>docs/architecture-overview.md</code></li>
 <li><code>docs/guides/**</code></li>
 <li><code>docs/spec/**</code></li>
-<li>esta area tecnica</li>
+<li>esta área técnica</li>
 </ol></li>
-<li>Materiais de piloto, rollout e revalidacao tecnica nao redefinem a
-narrativa publica principal.</li>
+<li>Materiais de piloto, rollout e revalidação técnica não redefinem a
+narrativa pública principal.</li>
 </ul>
-<h2 id="referencias-relacionadas">Referencias relacionadas</h2>
+<h2 id="referências-relacionadas">Referências relacionadas</h2>
 <ul>
-<li><a href="../guides/">Hub dos guias</a></li>
-<li><a href="../examples/">Examples</a></li>
+<li><a href="../guides/README.md">Hub dos guias</a></li>
+<li><a href="../examples/README.md">Examples</a></li>
 <li><a href="../spec/CONFORMANCE.md">Conformance</a></li>
 <li><a href="../architecture-overview.md">Architecture overview</a></li>
-<li><a href="../concepts/CONTROLTYPE-HEURISTICA.md">Heuristica de
+<li><a href="../concepts/CONTROLTYPE-HEURISTICA.md">Heurística de
 control type</a></li>
 <li>Javadoc publicado: <a
 href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">GitHub
 Pages</a></li>
 </ul>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
 </body>
 </html>

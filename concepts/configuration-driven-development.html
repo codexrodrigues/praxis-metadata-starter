@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Configuration-driven development</title>
+  <title>Configuration-driven Development</title>
   <style>
     html {
       color: #1a1a1a;
@@ -60,6 +60,10 @@
     img {
       max-width: 100%;
     }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
     h1, h2, h3, h4, h5, h6 {
       margin-top: 1.4em;
     }
@@ -103,8 +107,8 @@
      overflow: visible;
     }
     hr {
-      background-color: #1a1a1a;
       border: none;
+      border-top: 1px solid #1a1a1a;
       height: 1px;
       margin: 1em 0;
     }
@@ -163,40 +167,201 @@
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
 </head>
 <body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
 <header id="title-block-header">
-<h1 class="title">Configuration-driven development</h1>
+<h1 class="title">Configuration-driven Development</h1>
 </header>
 <h1 id="configuration-driven-development">Configuration-driven
-development</h1>
-<h2 id="definicao-curta">Definicao curta</h2>
-<p>Evoluir funcionalidades atraves de configuracao e metadados, em vez
-de escrever novo codigo para cada variacao.</p>
-<h2 id="onde-aparece-no-praxis">Onde aparece no Praxis</h2>
+Development</h1>
+<h2 id="definição">Definição</h2>
+<p><strong>Configuration-driven Development</strong> permite adaptar
+comportamento, apresentação, layouts e regras operacionais por ambiente,
+tenant ou perfil de usuário por meio de configurações governadas e
+versionadas, sem recompilar o código-fonte do domínio base.</p>
+<h2 id="como-a-plataforma-praxis-separa-código-vs-configuração">Como a
+plataforma Praxis separa Código vs Configuração</h2>
+<p>Na arquitetura Praxis, existe uma fronteira canônica estrita entre o
+que nasce no código do recurso e o que é configurado em runtime:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Camada</th>
+<th style="text-align: left;">Módulo Canônico</th>
+<th style="text-align: left;">O que governa</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Contrato base e semântica do
+recurso</strong></td>
+<td style="text-align: left;"><code>praxis-metadata-starter</code></td>
+<td style="text-align: left;">Recursos (<code>@ApiResource</code>),
+DTOs, <code>@Schema</code>, <code>@UISchema</code>,
+<code>@Filterable</code>, <code>@UiSurface</code>,
+<code>@WorkflowAction</code>, <code>/schemas/filtered</code>,
+<code>/schemas/domain</code>, capabilities e propriedades
+<code>praxis.*</code> do Spring Boot.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Configuração persistida,
+personalização e IA governada</strong></td>
+<td style="text-align: left;"><code>praxis-config-starter</code></td>
+<td style="text-align: left;">Estado persistido por
+tenant/usuário/ambiente (<code>ui_user_config</code> com ETag forte),
+catálogo de componentes (<code>ai_registry</code>), ingestão de catálogo
+(<code>api_metadata</code>), regras de domínio
+(<code>domain-rules</code>) e fluxos de authoring assistido por IA em
+<code>/api/praxis/config/**</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Essa separação garante que: 1. O host Spring Boot funcione
+imediatamente apenas com <code>praxis-metadata-starter</code> (zero
+configuração persistida obrigatória). 2. Quando
+<code>praxis-config-starter</code> está presente, personalizações de
+layout, variantes por tenant e decisões governadas por IA se sobreponham
+de forma auditável sobre a base semântica publicada pelo metadata
+starter.</p>
+<h2 id="referências-internas">Referências internas</h2>
 <ul>
-<li>Frontend: <code>@praxisui/core</code> para defaults e configuracoes
-globais</li>
-<li>Frontend: <code>@praxisui/settings-panel</code> para editores e
-persistencia de ajustes</li>
-<li>Frontend: <code>@praxisui/table</code> para comportamentos de tabela
-configuraveis</li>
-<li>Backend: <code>praxis-metadata-starter</code> para <code>x-ui</code>
-e contrato declarativo</li>
+<li><a href="../architecture-overview.md">Visão geral da
+arquitetura</a></li>
+<li><a href="ui-schema.md">Conceito: <code>@UISchema</code> e metadados
+<code>x-ui</code></a></li>
 </ul>
-<h2 id="como-aplicar">Como aplicar</h2>
-<ol type="1">
-<li>defina defaults em configuracao global</li>
-<li>publique contratos <code>x-ui</code> ricos no backend</li>
-<li>use editores e painéis de configuracao em vez de forks de
-componente</li>
-</ol>
-<h2 id="referencias-publicas">Referencias publicas</h2>
+<h2 id="referências-públicas">Referências públicas</h2>
 <ul>
-<li>repositório público:
-<code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
-<li>pacotes: <code>@praxisui/core</code>,
-<code>@praxisui/settings-panel</code>, <code>@praxisui/table</code></li>
+<li><a href="https://12factor.net/config">The Twelve-Factor App —
+Config</a></li>
+<li><a
+href="https://docs.spring.io/spring-boot/reference/features/external-config.html">Spring
+Boot Externalized Configuration</a></li>
 </ul>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
 </body>
 </html>

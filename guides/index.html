@@ -60,6 +60,10 @@
     img {
       max-width: 100%;
     }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
     h1, h2, h3, h4, h5, h6 {
       margin-top: 1.4em;
     }
@@ -103,8 +107,8 @@
      overflow: visible;
     }
     hr {
-      background-color: #1a1a1a;
       border: none;
+      border-top: 1px solid #1a1a1a;
       height: 1px;
       margin: 1em 0;
     }
@@ -163,61 +167,188 @@
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
 </head>
 <body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
 <header id="title-block-header">
 <h1 class="title">Guides</h1>
 </header>
 <h1 id="guides">Guides</h1>
-<p>Esta e a trilha principal de leitura para uma LLM ou para uma pessoa
-que queira seguir o fluxo canonico atual da plataforma.</p>
+<p>Esta é a trilha principal de leitura para uma pessoa ou uma LLM que
+queira seguir o fluxo canônico atual da plataforma.</p>
 <h2 id="ordem-recomendada">Ordem recomendada</h2>
 <ol type="1">
 <li><a href="GUIA-01-AI-BACKEND-APLICACAO-NOVA.html">Guia 01 - Backend -
-Aplicacao Nova</a></li>
+Aplicação Nova</a></li>
 <li><a href="GUIA-02-AI-BACKEND-CRUD-METADATA.html">Guia 02 - Backend -
 Recurso Metadata-Driven</a></li>
 <li><a
 href="GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html">Guia
 04 - Quando usar Resource, Surface, Action e Capability</a></li>
 <li><a href="GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html">Guia 05 - Do
-CRUD ao Contrato Semantico</a></li>
+CRUD ao Contrato Semântico</a></li>
 <li><a href="GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html">Guia
-06 - Redacao Semantica de Annotations para IA</a></li>
+06 - Redação Semântica de Annotations para IA</a></li>
+<li><a href="ENTERPRISE-AVAILABILITY-ADOPTION.html">Enterprise
+Availability Adoption</a></li>
 <li><a href="GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html">Guia 03 - Frontend -
 Angular CRUD Completo</a></li>
 <li><a href="CHECKLIST-VALIDACAO-IA.html">Checklist de
-Validacao</a></li>
+Validação</a></li>
 </ol>
-<h2 id="guias-de-adequacao-especifica">Guias de adequacao
-especifica</h2>
+<h2 id="guias-de-adequação-específica">Guias de adequação
+específica</h2>
 <ul>
-<li><a href="GUIA-03-ADOCAO-CONSUMIDOR-PILOTO.html">Guia 03 - Adocao do
+<li><a href="GUIA-03-ADOCAO-CONSUMIDOR-PILOTO.html">Guia 03 - Adoção do
 Consumidor Piloto</a></li>
 </ul>
 <h2 id="nota-de-leitura">Nota de leitura</h2>
 <p>O nome do arquivo <code>GUIA-02-AI-BACKEND-CRUD-METADATA</code>
-permanece estavel para links publicados, mas o guia ja descreve o
-baseline canônico atual, resource-oriented, com DTOs separados e
-discovery semantico.</p>
+permanece estável para links publicados, mas o guia já descreve o
+baseline canônico atual, <em>resource-oriented</em>, com DTOs separados
+e discovery semântico.</p>
 <h2 id="apoio">Apoio</h2>
 <ul>
 <li><a href="GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html">Do CRUD ao
-Contrato Semantico</a></li>
+Contrato Semântico</a></li>
 <li><a
-href="GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html">Redacao
-Semantica de Annotations para IA</a></li>
+href="GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html">Redação
+Semântica de Annotations para IA</a></li>
 <li><a href="SEMANTIC-METADATA-AUTHORING.html">Semantic Metadata
 Authoring</a></li>
-<li><a href="OPTIONS-ENDPOINT.html">Options</a></li>
-<li><a href="COLLECTION-EXPORT.html">Exportacao de Colecoes</a></li>
-<li><a href="FILTROS-E-PAGINACAO.html">Filtros e Paginacao</a></li>
-<li><a href="READ-ONLY-VIEWS.html">Views read-only</a></li>
+<li><a href="ENTERPRISE-AVAILABILITY-ADOPTION.html">Enterprise
+Availability Adoption</a></li>
+<li><a href="OPTIONS-ENDPOINT.html">Options e Option-Sources</a></li>
+<li><a href="OPTION-SOURCE-PROVIDER-SPI.html">Implementando
+OptionSourceProvider externo</a></li>
+<li><a href="COLLECTION-EXPORT.html">Exportação de Coleções</a></li>
+<li><a href="FILTROS-E-PAGINACAO.html">Filtros e Paginação</a></li>
+<li><a href="ORDEM-PADRAO.html">Ordenação Padrão</a></li>
+<li><a href="READ-ONLY-VIEWS.html">Views Somente Leitura</a></li>
 <li><a href="ERROS-E-RESPOSTAS.html">Erros e Respostas</a></li>
 </ul>
-<h2 id="registros-de-validacao">Registros de validacao</h2>
+<h2 id="registros-de-validação">Registros de validação</h2>
 <ul>
 <li><a href="ai-proof/index.html">Prova operacional dos guias</a></li>
 </ul>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
 </body>
 </html>

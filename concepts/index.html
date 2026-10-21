@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Concepts</title>
+  <title>Conceitos Fundamentais da Plataforma Praxis</title>
   <style>
     html {
       color: #1a1a1a;
@@ -60,6 +60,10 @@
     img {
       max-width: 100%;
     }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
     h1, h2, h3, h4, h5, h6 {
       margin-top: 1.4em;
     }
@@ -103,8 +107,8 @@
      overflow: visible;
     }
     hr {
-      background-color: #1a1a1a;
       border: none;
+      border-top: 1px solid #1a1a1a;
       height: 1px;
       margin: 1em 0;
     }
@@ -163,44 +167,247 @@
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
 </head>
 <body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
 <header id="title-block-header">
-<h1 class="title">Concepts</h1>
+<h1 class="title">Conceitos Fundamentais da Plataforma Praxis</h1>
 </header>
-<h1 id="concepts">Concepts</h1>
-<p>Conceitos fundamentais da plataforma e do contrato
-metadata-driven.</p>
-<h2 id="navegacao">Navegacao</h2>
+<h1 id="conceitos-fundamentais-da-plataforma-praxis">Conceitos
+Fundamentais da Plataforma Praxis</h1>
+<p>Conceitos arquiteturais que sustentam o contrato metadata-driven e a
+fronteira entre recursos semânticos de backend, configuração governada e
+renderização dinâmica de UI.</p>
+<h2 id="navegação">Navegação</h2>
 <ul>
-<li><a href="../index.html">Home da documentacao</a></li>
-<li><a href="../guides/index.html">Hub dos guias</a></li>
-<li><a href="../overview/index.html">Visao geral funcional</a></li>
+<li><a href="../index.html">Home da documentação</a></li>
+<li><a href="../overview/index.html">Visão geral funcional</a></li>
+<li><a href="../architecture-overview.html">Arquitetura e
+pacotes</a></li>
+<li><a href="../guides/index.html">Hub dos guias operacionais</a></li>
 </ul>
-<h2 id="topicos">Topicos</h2>
+<h2 id="tópicos-conceituais">Tópicos Conceituais</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Conceito</th>
+<th style="text-align: left;">O que esclarece</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><a href="ui-schema.html">UI Schema
+(<code>@UISchema</code> e <code>x-ui</code>)</a></td>
+<td style="text-align: left;">Vocabulário <code>x-ui</code>, precedência
+do <code>CustomOpenApiResolver</code>, validações e
+<code>valuePresentation</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="ui-schema-vs-data-schema.html">UI
+Schema vs Data Schema</a></td>
+<td style="text-align: left;">Separação entre contrato de
+dados/transporte e intenção de apresentação, edição e descoberta.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a
+href="self-describing-apis.html">Self-describing APIs</a></td>
+<td style="text-align: left;">Como o backend publica estrutura
+(<code>/schemas/filtered</code>), semântica
+(<code>/schemas/domain</code>), surfaces, actions, capabilities e
+HATEOAS.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a
+href="schema-driven-ui.html">Schema-driven UI</a></td>
+<td style="text-align: left;">Geração e materialização de tabelas,
+formulários, filtros, diálogos de comando e gráficos a partir de
+contratos publicados.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a
+href="metadata-driven-backend-agnostic.html">Metadata-driven e
+Backend-agnostic</a></td>
+<td style="text-align: left;">Desacoplamento entre a semântica publicada
+em OpenAPI + <code>x-ui</code> e o runtime consumidor
+(<code>@praxisui/*</code>, cockpit ou agentes de IA).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="declarative-ui.html">Declarative
+UI</a></td>
+<td style="text-align: left;">Declaração de intenção
+(<code>@UISchema</code>, <code>@UiSurface</code>,
+<code>@WorkflowAction</code>) em vez de código imperativo repetitivo por
+tela.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a
+href="configuration-driven-development.html">Configuration-driven
+Development</a></td>
+<td style="text-align: left;">Fronteira entre metadados canônicos de
+código (<code>praxis-metadata-starter</code>) e variações governadas por
+tenant/usuário (<code>praxis-config-starter</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a
+href="dynamic-component-rendering.html">Dynamic Component
+Rendering</a></td>
+<td style="text-align: left;">Resolução em runtime de
+<code>controlType</code>, <code>valuePresentation</code>,
+<code>optionSource</code> e surfaces semânticas no cliente e no
+<code>/praxis/cockpit</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a
+href="headless-ui-and-design-systems.html">Headless UI and Design
+Systems</a></td>
+<td style="text-align: left;">Separação entre comportamento/semântica do
+contrato (<code>x-ui</code>) e identidade visual/componentes
+corporativos.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a
+href="rules-engines-and-specifications.html">Rules Engines and
+Specifications</a></td>
+<td style="text-align: left;">Filtros dinâmicos
+(<code>@Filterable</code> + <code>GenericSpecificationsBuilder</code>),
+Json Logic canônico e determinações reativas.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="quando-consultar-esta-seção">Quando consultar esta seção</h2>
 <ul>
-<li><a href="ui-schema.html">UI Schema</a></li>
-<li><a href="ui-schema-vs-data-schema.html">UI Schema vs Data
-Schema</a></li>
-<li><a href="self-describing-apis.html">Self-describing APIs</a></li>
-<li><a href="schema-driven-ui.html">Schema-driven UI</a></li>
-<li><a href="metadata-driven-backend-agnostic.html">Metadata-driven
-backend-agnostic</a></li>
-<li><a href="declarative-ui.html">Declarative UI</a></li>
-<li><a href="configuration-driven-development.html">Configuration-driven
-development</a></li>
-<li><a href="dynamic-component-rendering.html">Dynamic Component
-Rendering</a></li>
-<li><a href="headless-ui-and-design-systems.html">Headless UI and Design
-Systems</a></li>
-<li><a href="rules-engines-and-specifications.html">Rules Engines and
-Specifications</a></li>
+<li>Para alinhar o vocabulário arquitetural da plataforma antes de
+modelar um novo domínio.</li>
+<li>Para decidir se uma regra pertence ao contrato estrutural
+(<code>praxis-metadata-starter</code>), à configuração governada
+(<code>praxis-config-starter</code>) ou ao runtime visual
+(<code>@praxisui/*</code>).</li>
+<li>Para complementar a árvore de decisão prática em <a
+href="../guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html">Quando
+usar Resource, Surface, Action e Capability</a>.</li>
 </ul>
-<h2 id="quando-usar-esta-area">Quando usar esta area</h2>
-<ul>
-<li>para entender vocabulario e semantica do contrato</li>
-<li>para revisar o modelo mental antes de implementar</li>
-<li>para apoiar troubleshooting conceitual</li>
-</ul>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
 </body>
 </html>

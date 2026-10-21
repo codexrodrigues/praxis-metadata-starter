@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Status Técnico do SDK de Operações em Lote (Bulk) e Candidatos de Release</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Status Técnico do SDK de Operações em Lote (Bulk) e
+Candidatos de Release</h1>
+</header>
+<h1
+id="status-técnico-do-sdk-de-operações-em-lote-bulk-e-candidatos-de-release">Status
+Técnico do SDK de Operações em Lote (Bulk) e Candidatos de Release</h1>
+<p>Este documento consolida o estado técnico, as provas de integração,
+os limites operacionais e o histórico de incrementos do <strong>SDK de
+Operações em Lote (Bulk)</strong>, do <strong>Lifecycle Governado de
+OpenAPI</strong> e da <strong>Concorrência de Recursos
+Versionados</strong> no <code>praxis-metadata-starter</code>.</p>
+<blockquote>
+<p><strong>Nota de posicionamento</strong>: Para a visão geral didática
+do starter, arquitetura principal e guia de início rápido, consulte o <a
+href="../../README.md">README principal</a>, a <a
+href="../architecture-overview.md">Visão Arquitetural</a> e o <a
+href="../guides/index.md">Hub de Guias</a>.</p>
+</blockquote>
+<hr />
+<h2 id="visão-consolidada-dos-cortes-publicados-e-candidatos">1. Visão
+Consolidada dos Cortes Publicados e Candidatos</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Marco / Corte</th>
+<th>Escopo Principal</th>
+<th>Especificação / Registro Técnico</th>
+<th>Estado de Publicação e Adoção</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Preparação <code>8.0.0-rc.149</code></strong></td>
+<td>Baseline Java 21, Spring Boot 3.5.15 e Springdoc 2.8.17
+(<code>OPENAPI_3_0</code>)</td>
+<td><a
+href="BOOT35-BASELINE-CANDIDATE.md">BOOT35-BASELINE-CANDIDATE</a></td>
+<td>Publicado no Maven Central. OAS 3.1 fora deste corte.</td>
+</tr>
+<tr>
+<td><strong>Release <code>8.0.0-rc.152</code></strong></td>
+<td>Composição e projeção <code>DOMAIN_COMMAND/ATOMIC</code>
+(<code>EXPLICIT/SYNC</code>, até 50 alvos, 5s)</td>
+<td><a
+href="BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md">BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE</a></td>
+<td>Publicado no Maven Central (1.496 testes, 0 falhas).</td>
+</tr>
+<tr>
+<td><strong>Release <code>8.0.0-rc.153</code></strong></td>
+<td>Captura <code>EXPLICIT</code> sob locks operacionais (migração V17 e
+transação gravável do host)</td>
+<td><a
+href="../spec/BULK-PROPOSAL-STORAGE.md">BULK-PROPOSAL-STORAGE</a></td>
+<td>Publicado no Maven Central; adotado no host pelo PR387 (1.198
+testes, 0 falhas).</td>
+</tr>
+<tr>
+<td><strong>Release <code>8.0.0-rc.154</code></strong></td>
+<td>Seleção <code>QUERY</code> delimitada a
+<code>UNIFORM_UPDATE/SYNC/PER_ITEM</code> com
+<code>ReadyAdmission</code></td>
+<td><a href="BULK-COMPOSITION-GUIDE.md">BULK-COMPOSITION-GUIDE</a></td>
+<td>Publicado no Maven Central (1.530 testes, 0 falhas); adotado por
+composição no PR388.</td>
+</tr>
+<tr>
+<td><strong>Candidato <code>B4-R1</code></strong></td>
+<td>Pareamento de corpo e revisão persistida para emitir ETag de
+<code>GET</code>/<code>PUT</code> sem reconsulta tardia</td>
+<td><a
+href="../guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md#concorrencia-em-recursos-versionados">Concorrência
+em recursos versionados</a></td>
+<td>Candidato local validado (46 testes Metadata, 28 no host).</td>
+</tr>
+<tr>
+<td><strong>Candidato <code>C0-04</code></strong></td>
+<td>Administração local de capacidade
+(<code>INSPECT</code>/<code>FENCE</code>) com credenciais
+<code>OWNER</code> explícitas</td>
+<td><a
+href="../spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.md">BULK-CAPACITY-LOCAL-ADMINISTRATION</a></td>
+<td>Integrado via PR250/PR409/PR710; publicação sem override permanece
+marco separado.</td>
+</tr>
+<tr>
+<td><strong>Candidatos <code>B5b.1a</code> / <code>B5b.1b</code> /
+<code>C1a</code></strong></td>
+<td>Autoridade de capacidade, instalação local e ocupação protegida /
+caracterização de clone</td>
+<td><a
+href="../spec/BULK-CAPACITY-AUTHORITY.md">BULK-CAPACITY-AUTHORITY</a>,
+<a href="../spec/BULK-CAPACITY-INSTALLATION.md">INSTALLATION</a>, <a
+href="../spec/BULK-CAPACITY-OCCUPANCY.md">OCCUPANCY</a></td>
+<td>Núcleos internos validados com PostgreSQL; fora do artefato público
+<code>rc.154</code>.</td>
+</tr>
+<tr>
+<td><strong>Candidatos <code>B5b.2</code> /
+<code>B5b.3</code></strong></td>
+<td>Worker durável, migração owner/cutover e composição explícita do
+worker</td>
+<td><a href="BULK-DURABLE-WORKER-B5B2-STATUS.md">B5B2-STATUS</a>, <a
+href="BULK-DURABLE-WORKER-OWNER-UPGRADE.md">OWNER-UPGRADE</a>, <a
+href="BULK-WORKER-EXPLICIT-COMPOSITION.md">EXPLICIT-COMPOSITION</a></td>
+<td>Candidatos privados com provas focais; sem ingresso HTTP
+<code>ASYNC</code> público.</td>
+</tr>
+<tr>
+<td><strong>Owner Gerenciado (PG 17+)</strong></td>
+<td>Baseline PostgreSQL 17 para storage opcional de execução bulk e
+instalação por owner sem <code>SUPERUSER</code></td>
+<td><a
+href="../spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.md">BULK-MANAGED-OWNER-ADOPTION-PLAN</a></td>
+<td>Em desenvolvimento; evidências históricas em PG 14.22 permanecem
+registradas.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="detalhamento-dos-incrementos-e-provas-técnicas">2. Detalhamento
+dos Incrementos e Provas Técnicas</h2>
+<h3 id="administração-local-de-capacidade-candidato-c0-04">2.1.
+Administração Local de Capacidade — Candidato <code>C0-04</code></h3>
+<p>A <a href="../spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.md">entrada
+administrativa INSPECT/FENCE</a> permite observação e isolamento
+terminal local com credenciais <code>OWNER</code> explícitas, sem exigir
+acesso à autoridade <code>D0</code>. A fonte candidata passou 20 testes
+focais e revisão independente; o consumidor foi exercitado pelo JAR real
+do Quickstart contra coordenada privada. Código e documentação foram
+integrados pelo PR250; a prova do host pelo PR409 e o guidance pelo
+PR710, sincronizado seletivamente. Publicação e adoção sem override
+permanecem marcos separados. Não há comando instalado em
+<code>rc.154</code> nem certificação de sessões, cópias, custódia,
+continuidade/start/restore, C0/C2 integral ou Angular.</p>
+<h3
+id="composição-publicada-em-rc.152-captura-explicit-em-rc.153-e-query-em-rc.154">2.2.
+Composição Publicada em <code>rc.152</code>, Captura
+<code>EXPLICIT</code> em <code>rc.153</code> e <code>QUERY</code> em
+<code>rc.154</code></h3>
+<ul>
+<li><strong>Metadata <code>8.0.0-rc.152</code></strong>: publica a
+composição e projeção <code>DOMAIN_COMMAND/ATOMIC</code>: ação e
+declaração bulk concordantes, provider e sete referências exatos,
+seleção <code>EXPLICIT/SYNC</code>, até 50 alvos e prazo agregado de até
+cinco segundos. O <a
+href="BULK-ATOMIC-DOMAIN-COMMAND-CANDIDATE.md">registro técnico</a>
+preserva as provas e limites. O workflow oficial passou com 1.496 testes
+reportados, zero falhas/erros e três skips; POM/JAR estão no Maven
+Central. A publicação do SDK não fornece autorização, provider ou
+endpoint executável do host nem declara <code>READY</code>. Adoção sem
+override e provas do domínio permanecem gates separados.</li>
+<li><strong>Metadata <code>8.0.0-rc.153</code></strong>: publica a <a
+href="../spec/BULK-PROPOSAL-STORAGE.md">captura EXPLICIT sob locks
+operacionais</a>, com a V17 e participação na transação gravável do
+host. POM/JAR foram conferidos no Maven Central; a adoção
+<code>EXPLICIT</code> sem override no host foi integrada pelo PR387 e
+validada com 1.198 testes reportados, zero falhas/erros e 23 skips. Esse
+marco não inclui seleção <code>QUERY</code> no artefato público.</li>
+<li><strong>Metadata <code>8.0.0-rc.154</code></strong>: publica a
+seleção <code>QUERY</code> delimitada a
+<code>UNIFORM_UPDATE/SYNC/PER_ITEM</code>, com admissão opaca pelo
+lifecycle, captura transacional e reserva governada. O workflow oficial
+<a
+href="https://github.com/codexrodrigues/praxis-metadata-starter/actions/runs/37236119846">37236119846</a>
+passou com 1.530 testes reportados, zero falhas/erros e três skips;
+POM/JAR foram conferidos no Maven Central. O host integrou a adoção das
+coordenadas públicas <code>rc.154</code> e Config <code>rc.158</code>
+sem override no <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/pull/388">PR388</a>,
+com aceite independente por composição. Seu verify integral histórico
+reportou 1.209 testes, uma falha, zero erros e 23 skips; o focal
+diagnóstico e uma sequência contextual de seis métodos distintos
+passaram depois, sem converter aquele verify em verde. As provas
+privadas anteriores (25 casos compostos no SDK, 49 no host e três
+métodos HTTP adicionais) não substituem o aceite de cada jornada. O teto
+de 200 alvos e o orçamento nominal de 8s são do consumidor; não há prova
+de confirmação de 200 alvos, IAM completo, <code>READY</code> geral,
+<code>ASYNC</code> ou jobs. Consulte o <a
+href="BULK-COMPOSITION-GUIDE.md">guia público de composição de lote</a>
+para escolher modalidade e separar responsabilidades do starter e do
+host.</li>
+</ul>
+<h3
+id="baseline-da-preparação-rc.149-e-isolamento-de-geração-openapi">2.3.
+Baseline da Preparação <code>rc.149</code> e Isolamento de Geração
+OpenAPI</h3>
+<p>A preparação <code>rc.149</code> estabeleceu Java 21, Spring Boot
+3.5.15 e Springdoc 2.8.17. O BOM Boot gere Spring/Hibernate/Jackson;
+hosts devem conferir a árvore efetiva e usar
+<code>springdoc.api-docs.version=OPENAPI_3_0</code> (OAS 3.1 não está
+certificado neste corte). O construtor beta de
+<code>GenerationScopedGenericResponseService</code> recebe três
+argumentos; consumidores diretos do construtor anterior devem migrar. A
+<a href="BOOT35-BASELINE-CANDIDATE.md">prova privada de baseline</a> é
+histórica.</p>
+<p>A integração Spring MVC registra
+<code>GenerationScopedGenericResponseService</code> antes do builder
+padrão do Springdoc. O builder de respostas genéricas pertence à geração
+identificada pelo <code>Components</code>, evitando acumular handlers de
+erro a cada leitura fresca. O bean <code>modelResolver</code> declara
+prioridade explícita na lista de registro: como o Springdoc prepende os
+converters, os adaptadores de envelopes executam antes do resolvedor
+terminal Praxis, independentemente da ordem de definição das
+autoconfigurações. O conteúdo dos schemas e dos erros permanece
+responsabilidade dos leitores Springdoc existentes; essa separação não
+cria cache de autoridade ou sinal <code>READY</code>. As
+auto-configurações registradas são excluídas do component scan pelo
+filtro padrão Boot e carregadas por
+<code>AutoConfiguration.imports</code>, preservando suas condições e
+ordem. As definições estáticas de grupos de
+<code>PraxisMetadataAutoConfiguration</code> precedem
+<code>SpringDocConfiguration</code>: o Springdoc precisa detectá-las
+para registrar o processor que atribui escopo <code>prototype</code> ao
+builder OpenAPI. Cada grupo possui seu builder e cache por locale;
+compartilhar um singleton entre grupos pode devolver o documento do
+primeiro grupo. Em HTTP, os frames pertencem à request e são removidos
+no callback global após a geração de paths ou no término da request. No
+preload fora de HTTP, mantém-se no máximo um frame por thread até a
+conclusão observável ou a próxima geração.</p>
+<h3 id="concorrência-otimista-candidato-b4-r1">2.4. Concorrência
+Otimista — Candidato <code>B4-R1</code></h3>
+<p>O contrato Java candidato <code>B4-R1</code> pareia corpo e revisão
+persistida de um recurso para emitir ETag de
+<code>GET</code>/<code>PUT</code> sem reconsulta tardia. Veja <a
+href="../guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md#concorrencia-em-recursos-versionados">concorrência
+em recursos versionados</a>. O candidato local passou 46 testes focais
+Metadata e 28 testes focais no host (13 com PostgreSQL — 5 JPA/MockMvc e
+8 receipt/replay —, 1 unitário de providers e 14 TCP/H2); revisão final,
+integração, release e adoção sem override ainda são gates separados.
+Essa garantia não abrange links ou relações e não altera endpoints ou
+DTOs wire.</p>
+<h3 id="arquitetura-interna-do-sdk-de-operações-em-lote">2.5.
+Arquitetura Interna do SDK de Operações em Lote</h3>
+<ul>
+<li><strong>Fundação de Entrada e Resultados</strong>: A <a
+href="../spec/BULK-PROTOCOL-INPUT.md">fundação de entrada do
+protocolo</a> fornece tipos Java, codecs de identidade e validação de
+<code>SET</code>/<code>CLEAR</code>. Os <a
+href="../spec/BULK-PROTOCOL-RESULTS.md">tipos de resultado e fingerprint
+de intenção</a> complementam o SDK.</li>
+<li><strong>Binding Canônico e Schema Estrito</strong>: O <a
+href="../spec/CANONICAL-OPERATION-BINDING.md">binding canônico de
+operações</a> valida ID explícito, recurso e método sobre o registro MVC
+e oferece vínculo com o tipo concreto do DTO <code>@RequestBody</code>.
+A <a href="../spec/CANONICAL-REQUEST-SCHEMA.md">leitura estrita do
+request canônico</a> fornece schema JSON resolvido e dialeto para
+compilação backend, preservando a projeção documental existente.</li>
+<li><strong>Infraestrutura Transacional, Armazenamento e Núcleo
+Durável</strong>: A <a
+href="../spec/BULK-EXECUTION-INFRASTRUCTURE.md">infraestrutura
+transacional explícita</a> permite ao adapter participar da transação
+JDBC/JPA do host, com provas PostgreSQL. O <a
+href="../spec/BULK-PROPOSAL-STORAGE.md">armazenamento protegido</a>
+acrescentou persistência <code>EXPLICIT/SYNC</code> e migração
+PostgreSQL explícita; a <code>rc.153</code> publicou sua captura sob
+locks. O <a href="../spec/BULK-DURABLE-EXECUTION.md">núcleo durável</a>
+inclui reserva, receipts, ledger de capacidade V5, fencing e retenção
+controlada. O starter declara as cinco operações comuns em
+<code>@BulkResourceOperations</code>, liga avaliação/confirmação por
+<code>@BulkOperation</code> e compõe o descriptor estrutural das sete
+operações contra handlers MVC e OpenAPI reais.</li>
+<li><strong>Avanço Síncrono (<code>B3</code>) e Fencing
+(<code>V7</code>)</strong>: No candidato <code>B3</code> (integrado e
+publicado em <code>rc.145</code>, adotado no host pelo PR326),
+<code>JdbcBulkDurableExecution.advance</code> compõe o avanço síncrono a
+partir de uma reserva interna protegida, com transação e orçamento por
+unidade. Replay de receipt/admission, inclusive ACK perdido após uma
+unidade intermediária, encerra a chamada sem despachar o sufixo;
+terminal, cancelamento e incerteza também interrompem. A migração V7
+acrescenta o fence por geração/fingerprint/revisão às propostas e
+execuções e exige igualdade com o controle durável antes de nova
+mutação.</li>
+<li><strong>Read Model Protegido (<code>H1b</code>) e Readers
+Autorizados (<code>RS1–RS4</code>, <code>G3b</code>,
+<code>G3c-a/b</code>)</strong>: O <a
+href="../spec/BULK-H1B-READ-MODEL.md">read model protegido H1b</a>
+evolui o armazenamento por migrations explícitas: V8 grava o manifest
+imutável por ordinal; V9 persiste somente a projeção segura fornecida
+pelo provider; V10 acrescenta pedido de cancelamento, fence e
+reconciliação duráveis; V11 vincula checksum por item; V12 atesta o gate
+do reader; e V13 certifica a ordem temporal da execução. A evolução
+<code>G3b</code> da fachada
+<code>BulkAuthorizedProposalResultsReader</code> publica páginas
+allowlisted
+(<code>CursorPage&lt;BulkProposalItemResult&lt;Object&gt;&gt;</code>) e
+continuação vinculada ao solicitante com
+<code>BulkReadCursorConfiguration</code> (TTL positivo até 15min).
+<code>BulkAuthorizedExecutionReader</code> (<code>G3c-a</code> e
+<code>G3c-b</code>) acrescenta resumo autorizado de execução, observação
+de tombstone (<code>GONE</code>) e páginas
+<code>CursorPage&lt;BulkItemResult&lt;Object&gt;&gt;</code> com cursor
+<code>EXECUTION_RESULTS</code>. A fachada <code>RS1</code>
+<code>BulkAuthorizedProposalReader</code> compõe o
+<code>BulkProposal</code> existente com
+<code>BulkProposalProjectionProvider</code> explícito do domínio,
+páginas internas de até 200 itens, prazo monotônico 3s e orçamento
+agregado conservador 20MiB.</li>
+<li><strong>Lifecycle Governado de OpenAPI (<code>R2</code>,
+<code>V14</code>/<code>V15</code>)</strong>: O candidato <code>R2</code>
+do <a href="../spec/BULK-OPERATION-LIFECYCLE.md">lifecycle governado</a>
+captura a fotografia OpenAPI completa fora da transação, vincula a
+publicação global V14 e o descriptor de operação V15 na mesma transação
+e instala os bytes imutáveis somente após commit ou reconciliação exata.
+O handler HTTP traduz indisponibilidade reconhecida pelo guard de
+leitura publicada em
+<code>503</code>/<code>GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE</code>.
+Ao ativá-lo, o host configura
+<code>springdoc.cache.disabled=true</code>, usa o produtor interno
+oficial sem override de origem e preserva o filtro após a cadeia de
+segurança Boot.</li>
+<li><strong>Projeção de Actions e Composição CRUD (<code>S4c/P1</code>,
+<code>P3b-S1</code>, <code>P3b-S2</code>)</strong>:
+<ul>
+<li><a href="../spec/BULK-ACTION-PROJECTION.md">Projeção S4c/P1</a>:
+acrescenta <code>execution.bulk</code> à action
+<code>DOMAIN_COMMAND</code> apenas com descriptor corrente, sete
+referências UI materializáveis e linha <code>READY</code> estável.</li>
+<li><a href="../spec/BULK-EVALUATION-EVIDENCE.md">Evidência protegida de
+avaliação</a>: vincula fatos e plano de cada alvo à entrada, com
+gravação atômica e migração V2.</li>
+<li><a href="../spec/BULK-EDITABLE-FIELDS.md">Declaração de campos
+editáveis</a>: compila <code>@BulkEditable</code>, nomes Jackson e
+schema real em listas estruturais para
+<code>SET</code>/<code>CLEAR</code>.</li>
+<li><a href="../spec/BULK-CRUD-STRUCTURE.md">Composição estrutural CRUD
+P3b-S1</a> e <a href="../spec/BULK-CRUD-OPERATIONS.md">Composição
+operacional CRUD P3b-S2</a>: vinculam <code>bulk-update</code> e
+<code>bulk-update-items</code> ao <code>PUT</code> real do recurso, ao
+DTO de update e ao <code>ObjectMapper</code> configurado.</li>
+</ul></li>
+<li><strong>Capacidade Global, Ocupação Local e Workers
+(<code>B5b.1a</code>, <code>B5b.1b.A</code>, <code>B5b.1b.B</code>,
+<code>C1a</code>, <code>B5b.2</code>, <code>B5b.3</code>)</strong>:
+<ul>
+<li><a href="../spec/BULK-CAPACITY-AUTHORITY.md">Autoridade de
+capacidade candidata B5b.1a</a></li>
+<li><a href="../spec/BULK-CAPACITY-INSTALLATION.md">Instalação local
+candidata B5b.1b.A</a></li>
+<li><a href="../spec/BULK-CAPACITY-OCCUPANCY.md">Ocupação local
+protegida B5b.1b.B e caracterização de clone C1a</a></li>
+<li><a href="BULK-DURABLE-WORKER-B5B2-STATUS.md">Estado do worker
+durável B5b.2</a></li>
+<li><a href="BULK-DURABLE-WORKER-OWNER-UPGRADE.md">Migração owner e
+cutover do worker durável — candidato privado B5b.2</a></li>
+<li><a href="BULK-WORKER-EXPLICIT-COMPOSITION.md">Composição explícita
+do worker — candidato B5b.3</a></li>
+<li><a href="../spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.md">Adoção de
+operações em lote por owner gerenciado (PostgreSQL 17+)</a></li>
+</ul></li>
+</ul>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

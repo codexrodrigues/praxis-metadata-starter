@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Visao Geral - Praxis Metadata Starter</title>
+  <title>Visão Geral — Praxis Metadata Starter</title>
   <style>
     html {
       color: #1a1a1a;
@@ -60,6 +60,10 @@
     img {
       max-width: 100%;
     }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
     h1, h2, h3, h4, h5, h6 {
       margin-top: 1.4em;
     }
@@ -103,8 +107,8 @@
      overflow: visible;
     }
     hr {
-      background-color: #1a1a1a;
       border: none;
+      border-top: 1px solid #1a1a1a;
       height: 1px;
       margin: 1em 0;
     }
@@ -163,81 +167,236 @@
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
 </head>
 <body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
 <header id="title-block-header">
-<h1 class="title">Visao Geral - Praxis Metadata Starter</h1>
+<h1 class="title">Visão Geral — Praxis Metadata Starter</h1>
 </header>
-<h1 id="visao-geral---praxis-metadata-starter">Visao Geral - Praxis
+<h1 id="visão-geral-praxis-metadata-starter">Visão Geral — Praxis
 Metadata Starter</h1>
-<p>O <code>praxis-metadata-starter</code> publica o contrato canonico
-metadata-driven do backend Praxis.</p>
-<p>Hoje esse contrato nao deve mais ser entendido apenas como “DTO
-anotado + CRUD”. O baseline atual da plataforma combina:</p>
+<p>O <code>praxis-metadata-starter</code> publica o contrato canônico
+metadata-driven do backend Praxis para aplicações Spring Boot.</p>
+<p>Hoje esse contrato vai muito além de “DTO anotado + CRUD”. O baseline
+atual da plataforma combina cinco pilares
+(<code>resource + surface + action + capability + HATEOAS</code>) e
+expõe:</p>
 <ul>
-<li>OpenAPI enriquecido com <code>x-ui</code></li>
-<li><code>/schemas/filtered</code> como contrato estrutural</li>
-<li><code>/schemas/catalog</code> como superficie documental</li>
-<li><code>/schemas/surfaces</code> e <code>/schemas/actions</code> como
-discovery semantico</li>
-<li><code>GET /{resource}/capabilities</code> e
-<code>GET /{resource}/{id}/capabilities</code></li>
-<li><code>RestApiResponse</code> com HATEOAS efetivo</li>
+<li><strong>OpenAPI enriquecido com <code>x-ui</code></strong> resolvido
+por grupo e path</li>
+<li><strong><code>/schemas/filtered</code></strong> como contrato
+estrutural canônico consumido pelo runtime de UI</li>
+<li><strong><code>/schemas/catalog</code></strong> como superfície
+documental, de exemplos e discovery</li>
+<li><strong><code>/schemas/domain</code></strong> como catálogo
+semântico <em>AI-operable</em> (vocabulário, conceitos, evidências e
+<code>@DomainGovernance</code>)</li>
+<li><strong><code>/schemas/surfaces</code> e
+<code>/schemas/actions</code></strong> como discovery semântico de
+experiências (<code>@UiSurface</code>) e comandos de negócio
+(<code>@WorkflowAction</code>)</li>
+<li><strong><code>GET /{resource}/capabilities</code> e
+<code>GET /{resource}/{id}/capabilities</code></strong> como snapshot
+contextual agregado (incluindo <code>operations</code>,
+<code>stats.fields</code> e <code>export</code>)</li>
+<li><strong><code>POST /{resource}/export</code></strong> como operação
+canônica de exportação de coleções (CSV, JSON, XLSX e modo
+assíncrono)</li>
+<li><strong><code>GET /praxis/cockpit</code></strong> como cockpit
+visual automático empacotado pelo próprio starter</li>
+<li><strong><code>RestApiResponse</code></strong> com suporte efetivo a
+Spring HATEOAS (<code>_links</code>)</li>
 </ul>
 <h2 id="problema-que-resolvemos">Problema que resolvemos</h2>
 <ul>
-<li>duplicacao de semantica entre back e front</li>
-<li>contratos rigidos e dificeis de evoluir</li>
-<li>descoberta pobre do que o recurso pode fazer agora</li>
-<li>excesso de convencoes implícitas no onboarding</li>
+<li>Duplicação constante de regras, tipos, máscaras, validações e
+filtros entre backend e frontend</li>
+<li>Contratos rígidos que exigem retrabalho manual na UI a cada evolução
+do modelo</li>
+<li>Descoberta pobre do que o recurso suporta estruturalmente vs. o que
+está permitido <em>agora</em> para o usuário ou registro</li>
+<li>Dificuldade para agentes de IA compreenderem o domínio e operarem
+APIs corporativas com segurança sem ler código-fonte</li>
 </ul>
 <h2 id="abordagem">Abordagem</h2>
 <ul>
-<li>self-describing APIs: o backend publica o contrato com extensoes
-<code>x-ui</code></li>
-<li>resource-oriented backend: o recurso define payload e schema
-canonicos</li>
-<li>semantic discovery: surfaces, actions e capabilities ficam
-explicitos</li>
-<li>schema-driven UI: o runtime consome o contrato estrutural sem DSL
-paralelo</li>
+<li><strong>Self-describing APIs</strong>: o backend publica o contrato
+estrutural com extensões <code>x-ui</code> e validações
+sincronizadas</li>
+<li><strong>Resource-oriented backend</strong>: o recurso define payload
+e schema canônicos com DTOs separados (<code>ResponseDTO</code>,
+<code>CreateDTO</code>, <code>UpdateDTO</code>,
+<code>FilterDTO</code>)</li>
+<li><strong>Semantic discovery</strong>: <code>surfaces</code>,
+<code>actions</code>, <code>domain</code> e <code>capabilities</code>
+ficam explícitos e auditáveis</li>
+<li><strong>Schema-driven UI &amp; AI grounding</strong>: o runtime
+Angular (<code>@praxisui/*</code>), o Praxis Cockpit e agentes de IA
+consomem os contratos publicados sem DSL paralelo</li>
 </ul>
-<h2 id="como-funciona">Como funciona</h2>
+<h2 id="como-funciona-na-prática">Como funciona na prática</h2>
 <ol type="1">
-<li>o backend publica o recurso canonico com
-<code>@ApiResource(value = ..., resourceKey = ...)</code></li>
-<li>o starter enriquece o OpenAPI e resolve grupos por
-<code>path</code></li>
-<li>o runtime consome <code>/schemas/filtered</code></li>
-<li>clientes semanticos podem consumir <code>/schemas/surfaces</code>,
-<code>/schemas/actions</code> e
-<code>/{resource}/capabilities</code></li>
+<li>O backend modela DTOs separados com <code>@Schema</code>,
+<code>@UISchema</code>, <code>@Filterable</code>,
+<code>@DomainGovernance</code> e Bean Validation.</li>
+<li>O controller expõe o recurso canônico com
+<code>@ApiResource(value = ..., resourceKey = ...)</code> e
+<code>@ApiGroup</code>.</li>
+<li>O starter enriquece o OpenAPI e publica
+<code>/schemas/filtered</code>, <code>/schemas/catalog</code> e
+<code>/schemas/domain</code>.</li>
+<li>O runtime Angular consome <code>/schemas/filtered</code> (com
+<code>ETag</code> e <code>X-Schema-Hash</code>) e
+<code>/{resource}/capabilities</code> para renderizar tabelas, filtros,
+formulários, gráficos e ações.</li>
+<li>Desenvolvedores e agentes inspecionam tudo visualmente em
+<code>/praxis/cockpit</code>.</li>
 </ol>
-<h2 id="beneficios-praticos">Beneficios praticos</h2>
-<ul>
-<li>menos boilerplate estrutural</li>
-<li>fronteira mais clara entre contrato estrutural e discovery
-semantico</li>
-<li>evolucao de schema com <code>ETag</code> e
-<code>X-Schema-Hash</code></li>
-<li>semantica de recurso, acao e UX publicada de forma governada</li>
-</ul>
-<h2 id="passos-rapidos">Passos rapidos</h2>
+<h2 id="passos-rápidos">Passos rápidos</h2>
 <ol type="1">
-<li>siga
-<code>docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
-<li>modele o primeiro recurso no baseline resource-oriented</li>
-<li>valide <code>/schemas/filtered</code>,
-<code>/schemas/catalog</code>, <code>/schemas/surfaces</code>,
-<code>/schemas/actions</code> e capabilities resource-scoped</li>
-<li>integre o host Angular oficial com o contrato publicado</li>
+<li>Siga o <a href="../guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md">Guia
+01 — Aplicação Nova</a>.</li>
+<li>Modele o primeiro recurso seguindo o <a
+href="../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md">Guia 02 — Recurso
+Metadata-Driven</a>.</li>
+<li>Valide <code>/schemas/filtered</code>,
+<code>/schemas/catalog</code>, <code>/schemas/domain</code>,
+<code>/schemas/surfaces</code>, <code>/schemas/actions</code>,
+<code>/{resource}/capabilities</code> e
+<code>/praxis/cockpit</code>.</li>
+<li>Integre o frontend Angular oficial seguindo o <a
+href="../guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md">Guia 03 — Angular
+CRUD Completo</a>.</li>
 </ol>
 <h2 id="leitura-recomendada">Leitura recomendada</h2>
 <ul>
-<li><code>../architecture-overview.md</code></li>
-<li><code>../guides/README.md</code></li>
-<li><code>../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
-<li><code>../guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md</code></li>
+<li><a href="../architecture-overview.md">Visão Arquitetural</a></li>
+<li><a href="../packages-overview.md">Mapa de Pacotes Java</a></li>
+<li><a href="../guides/README.md">Hub dos Guias</a></li>
+<li><a
+href="../guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md">Guia
+04 — Quando usar Resource, Surface, Action e Capability</a></li>
+<li><a href="../guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md">Guia 05
+— Do CRUD ao Contrato Semântico</a></li>
 </ul>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
 </body>
 </html>

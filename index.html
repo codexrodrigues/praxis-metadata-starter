@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Praxis Metadata Starter Docs</title>
+  <title>Praxis Metadata Starter — Documentação Oficial</title>
   <style>
     html {
       color: #1a1a1a;
@@ -60,6 +60,10 @@
     img {
       max-width: 100%;
     }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
     h1, h2, h3, h4, h5, h6 {
       margin-top: 1.4em;
     }
@@ -103,8 +107,8 @@
      overflow: visible;
     }
     hr {
-      background-color: #1a1a1a;
       border: none;
+      border-top: 1px solid #1a1a1a;
       height: 1px;
       margin: 1em 0;
     }
@@ -163,225 +167,338 @@
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
 </head>
 <body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
 <header id="title-block-header">
-<h1 class="title">Praxis Metadata Starter Docs</h1>
+<h1 class="title">Praxis Metadata Starter — Documentação Oficial</h1>
 </header>
-<h1 id="praxis-metadata-starter-docs">Praxis Metadata Starter Docs</h1>
-<p>Documentacao publica do <code>praxis-metadata-starter</code>.</p>
-<p>Esta home orienta pessoas, LLMs e indexadores para a semantica atual
-da plataforma.</p>
-<h2 id="o-que-este-site-publica">O que este site publica</h2>
+<h1 id="praxis-metadata-starter-documentação-oficial">Praxis Metadata
+Starter — Documentação Oficial</h1>
+<p>Bem-vindo à documentação pública do
+<strong><code>praxis-metadata-starter</code></strong>, a biblioteca
+Spring Boot canônica da plataforma Praxis para publicação de
+<strong>contratos autodescritivos (<em>self-describing
+APIs</em>)</strong>, enriquecimento OpenAPI com <code>x-ui</code>,
+descoberta semântica (<code>domain</code>, <code>surfaces</code>,
+<code>actions</code>, <code>capabilities</code>) e governança de
+metadados para UIs dinâmicas e agentes de IA.</p>
 <ul>
-<li>a trilha principal do backend canonico resource-oriented</li>
-<li>o contrato estrutural e documental publicado pelo starter</li>
-<li>a semantica de <code>domain</code>, <code>surfaces</code>,
-<code>actions</code> e <code>capabilities</code></li>
-<li>a operacao canonica de exportacao de colecao</li>
-<li>referencia tecnica complementar em Javadoc</li>
+<li><strong>Demonstração ao vivo (Zero Install):</strong> <a
+href="https://praxis-api-quickstart.onrender.com/praxis/cockpit">Abrir o
+Praxis Cockpit</a></li>
+<li><strong>Repositório no GitHub:</strong> <a
+href="https://github.com/codexrodrigues/praxis-metadata-starter">codexrodrigues/praxis-metadata-starter</a></li>
+<li><strong>Javadoc Público:</strong> <a
+href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Referência
+de API Java</a></li>
 </ul>
-<h2 id="sdk-em-desenvolvimento">SDK em desenvolvimento</h2>
+<hr />
+<h2 id="o-que-este-starter-publica">O que este starter publica</h2>
+<p>O baseline canônico atual da plataforma organiza cada recurso sobre
+cinco pilares (<strong><code>resource</code> + <code>surface</code> +
+<code>action</code> + <code>capability</code> +
+<code>HATEOAS</code></strong>):</p>
 <ul>
-<li><p><a href="spec/BULK-CAPACITY-AUTHORITY.html">Autoridade de
-capacidade candidata B5b.1a</a>: núcleo com 42 provas focais de direitos
-globais e migração; banco dedicado é pré-requisito de provisionamento;
-não integra a rc.154 nem aceita jobs, ASYNC ou HTTP202.</p></li>
-<li><p><a href="spec/BULK-CAPACITY-INSTALLATION.html">Instalação local
-candidata B5b.1b.A</a>: atestado e direitos reais com 97 casos
-PostgreSQL compostos; runtime sem history/latch SELECT, bootstrap
-durável sem healing e quatro processos owner. Sem ocupação/jobs,
-ASYNC/202/READY, restore-safe, adoção na rc.154 ou Angular.</p></li>
-<li><p><a href="spec/BULK-OPERATION-LIFECYCLE.html">Lifecycle governado
-candidato R2</a>: fotografia OpenAPI imutável, publicação
-global/operação V14/V15 e reconciliação explícita; prova HTTP do host e
-adoção pública são gates separados.</p></li>
-<li><p><a href="spec/BULK-CAPACITY-OCCUPANCY.html">Ocupação local
-protegida B5b.1b.B e caracterização de clone C1a</a>: slots, histórico,
-QUEUED/claim e lifecycle no ledger existente. Fonte interna integrada
-pelos PR242/243, com provas de capacidade global, quatro JVMs de runtime
-e cópia real do banco. C1a demonstra uma limitação: cercar a origem não
-impede a cópia de executar. Retirada controlada43 e quarentena externa
-autenticada C0-02 acrescentam provas delimitadas (HBA reload/JVM
-restart, cópia TEMPLATE e credenciais distintas); C0-03 acrescenta
-interlock privado cooperativo, três crashes e CAS entre duas JVMs; não
-fecha custódia monotônica. Essas provas não fecham proteção integral de
-clone/restore, continuidade externa, worker ou composição operacional.
-Esse núcleo não integra o artefato público rc.154 e não certifica ASYNC
-público, HTTP202, adoção do host, backend completo ou Angular.</p></li>
-<li><p><a href="spec/BULK-DURABLE-EXECUTION.html">Núcleo durável de
-execução</a>: reserva, unidade transacional, ledger de capacidade V5,
-retenção/tombstones e recuperação; fundação sem exposição HTTP nem
-adoção completa no host.</p></li>
-<li><p><a href="spec/BULK-EVALUATION-EVIDENCE.html">Evidência protegida
-da avaliação</a>: fatos/plano por alvo vinculados à proposta, sem
-decisão de elegibilidade.</p></li>
-<li><p><a href="spec/BULK-H1B-READ-MODEL.html">Decisão H1b de
-leitura</a>: manifest privado V8, projeção física segura V9, reader
-autorizado de resultados de proposta e continuação G3b, resumo
-autorizado de execução e tombstone G3c-a, composição paginada RS4 G3c-b
-e proposta RS1 com projeção explícita do domínio; a biblioteca não cria
-endpoint HTTP.</p></li>
-<li><p><a href="spec/BULK-ACTION-PROJECTION.html">Projeção P1 de action
-bulk</a>: sete referências UI por role, composição única e fence READY;
-não concede execução/autorização.</p></li>
-<li><p><a href="spec/BULK-PROTOCOL-INPUT.html">Entrada do protocolo de
-operações em lote</a>: API Java, sem runtime executável ou integração de
-discovery neste incremento.</p></li>
-<li><p><a href="spec/BULK-PROTOCOL-RESULTS.html">Propostas, resultados e
-fingerprint de intenção</a>: snapshots e schemas de SDK, sem execução
-durável.</p></li>
-<li><p><a href="spec/CANONICAL-OPERATION-BINDING.html">Binding canônico
-de operações</a>: unicidade, vínculo operação/recurso/método e DTO de
-request concreto do handler MVC.</p></li>
-<li><p><a href="spec/CANONICAL-REQUEST-SCHEMA.html">Leitura estrita de
-request</a>: schema da operação, dialeto e limites da composição
-backend.</p></li>
-<li><p><a href="spec/BULK-PROPOSAL-STORAGE.html">Persistência protegida
-de propostas</a>: captura EXPLICIT/SYNC publicada na rc.153 e captura
-QUERY sob admissão opaca na rc.154, restrita a
-<code>UNIFORM_UPDATE/SYNC/PER_ITEM</code> com teto de até 200; o SDK não
-cria endpoint nem autoriza o domínio do host.</p></li>
-<li><p><a href="spec/BULK-EXECUTION-INFRASTRUCTURE.html">Infraestrutura
-transacional de lote</a>: vínculo JDBC/JPA explícito, sem store ou
-DDL.</p></li>
-<li><p><a href="spec/BULK-EDITABLE-FIELDS.html">Campos editáveis em
-lote</a>: annotation e compilação estrutural de SET/CLEAR.</p></li>
-<li><p><a href="spec/BULK-CRUD-STRUCTURE.html">Composição estrutural
-CRUD</a>: fonte PUT e DTO reais, campos protegidos e allowlists; sem
-disponibilidade operacional de update bulk.</p></li>
-<li><p><a href="spec/BULK-CRUD-OPERATIONS.html">Composição operacional
-CRUD</a>: quatro identidades UPDATE por modo/atomicidade no SDK público;
-a rc.154 publica QUERY somente para
-<code>UNIFORM_UPDATE/SYNC/PER_ITEM</code>, mantendo
-<code>bulk-update</code>. <code>PER_ITEM_UPDATE</code>, ATOMIC e ASYNC
-não recebem QUERY; autorização e mutação continuam no host.</p></li>
-<li><p><a href="technical/BULK-COMPOSITION-GUIDE.html">Guia de
-composição de lote</a>: escolha de modalidade, fronteira
-Metadata/Config/host, sequência de composição e limites comprovados da
-rc.154.</p></li>
+<li><strong><code>/schemas/filtered</code></strong> — contrato
+estrutural canônico consumido pelos runtimes para renderização de
+formulários, filtros e tabelas, com <code>properties.*.x-ui</code>,
+<code>idField</code>, <code>ETag</code> e
+<code>X-Schema-Hash</code></li>
+<li><strong><code>/schemas/catalog</code></strong> — catálogo documental
+com resumos, identidade visual, exemplos e links canônicos para os
+schemas estruturais</li>
+<li><strong><code>/schemas/domain</code></strong> — catálogo semântico
+<em>AI-operable</em> com vocabulário de domínio, aliases, evidências,
+governança (<code>@DomainGovernance</code>) e <code>optionSources</code>
+registry-wide</li>
+<li><strong><code>/schemas/surfaces</code> e
+<code>/schemas/actions</code></strong> — descoberta semântica de
+experiências de UI (<code>@UiSurface</code>) e comandos explícitos de
+negócio (<code>@WorkflowAction</code>)</li>
+<li><strong><code>/{resource}/capabilities</code> e
+<code>/{resource}/{id}/capabilities</code></strong> — snapshot agregado
+contextual que combina suporte estrutural
+(<code>canonicalOperations</code>) com disponibilidade real
+(<code>operations</code>, <code>surfaces</code>, <code>actions</code> e
+<code>stats.fields</code>)</li>
+<li><strong><code>POST /{resource}/export</code></strong> — operação
+canônica de exportação de coleção (CSV, JSON, XLSX inline com headers
+<code>X-Export-*</code> ou assíncrono <code>202 Accepted</code> com
+<code>status=deferred</code>, <code>downloadUrl</code> e
+<code>jobId</code>)</li>
+<li><strong><code>GET /praxis/cockpit</code></strong> — cockpit
+automático empacotado pelo próprio starter para inspeção visual do
+domínio e auditoria dos contratos publicados</li>
 </ul>
-<h2 id="comece-por-objetivo">Comece por objetivo</h2>
-<h3 id="quero-adotar-o-baseline-atual">Quero adotar o baseline
-atual</h3>
+<hr />
+<h2 id="comece-por-objetivo">Comece por Objetivo</h2>
+<h3 id="quero-entender-a-arquitetura-e-os-conceitos-da-plataforma">1.
+Quero entender a arquitetura e os conceitos da plataforma</h3>
 <ul>
-<li><a href="guides/index.html">Guides hub</a></li>
-<li><a href="architecture-overview.html">Architecture overview</a></li>
-<li><a href="packages-overview.html">Java package overview</a></li>
-<li><a href="concepts/ui-schema.html">UI Schema concept</a></li>
-<li><a href="spec/CONFORMANCE.html">Conformance</a></li>
-<li><a href="guides/OPTIONS-ENDPOINT.html">Options e
-option-sources</a></li>
-<li><a href="spec/x-ui-option-source-rfc.html">RFC -
-x-ui.optionSource</a></li>
-<li><a href="guides/COLLECTION-EXPORT.html">Exportacao de
-colecoes</a></li>
-<li><a href="technical/GRAPHQL-SUPPORT-RFC.html">RFC - GraphQL
-Support</a></li>
+<li><a href="overview/VISAO-GERAL.html">Visão Geral Funcional</a></li>
+<li><a href="architecture-overview.html">Visão Arquitetural</a></li>
+<li><a href="packages-overview.html">Mapa de Pacotes Java</a></li>
+<li><a href="concepts/ui-schema.html">Conceito de <code>@UISchema</code>
+e <code>x-ui</code></a></li>
+<li><a href="concepts/index.html">Hub de Conceitos</a></li>
+<li><a href="spec/CONFORMANCE.html">Conformidade da Especificação
+(<code>CONFORMANCE</code>)</a></li>
 </ul>
-<h3 id="quero-gerar-uma-aplicacao-nova">Quero gerar uma aplicacao
-nova</h3>
+<h3
+id="quero-criar-uma-aplicação-nova-ou-modelar-recursos-no-backend">2.
+Quero criar uma aplicação nova ou modelar recursos no backend</h3>
 <ol type="1">
-<li><a href="guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html">Guia 01 -
-Backend - Aplicacao Nova</a></li>
-<li><a href="guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html">Guia 02 -
-Backend - Recurso Metadata-Driven</a></li>
+<li><a href="guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html">Guia 01 —
+Backend: Aplicação Nova com Core Canônico</a></li>
+<li><a href="guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html">Guia 02 —
+Backend: Recurso Metadata-Driven</a></li>
 <li><a
 href="guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html">Guia
-04 - Quando usar Resource, Surface, Action e Capability</a></li>
+04 — Quando usar Resource, Surface, Action e Capability</a></li>
 <li><a href="guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html">Guia 05
-- Do CRUD ao Contrato Semantico</a></li>
+— Do CRUD ao Contrato Semântico</a></li>
 <li><a
 href="guides/GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html">Guia
-06 - Redacao Semantica de Annotations para IA</a></li>
-<li><a href="guides/SEMANTIC-METADATA-AUTHORING.html">Semantic Metadata
-Authoring</a></li>
+06 — Redação Semântica de Annotations para IA</a></li>
+<li><a href="guides/SEMANTIC-METADATA-AUTHORING.html">Authoring
+Semântico de Metadata (<code>@UISchema</code> Presets e
+<code>@MicroVisualization</code>)</a></li>
+<li><a href="guides/index.html">Hub Completo de Guias</a></li>
 </ol>
-<h3 id="quero-integrar-um-runtime-angular">Quero integrar um runtime
+<h3
+id="quero-adotar-capacidades-avançadas-lookups-exportação-disponibilidade-reatividade">3.
+Quero adotar capacidades avançadas (Lookups, Exportação,
+Disponibilidade, Reatividade)</h3>
+<ul>
+<li><a href="guides/OPTIONS-ENDPOINT.html">Options e Option-Sources
+Governadas</a> · <a href="spec/x-ui-option-source-rfc.html">RFC
+<code>x-ui.optionSource</code></a></li>
+<li><a href="guides/COLLECTION-EXPORT.html">Exportação Canônica de
+Coleções</a></li>
+<li><a
+href="guides/ENTERPRISE-AVAILABILITY-ADOPTION.html">Disponibilidade
+Contextual Corporativa (Enterprise Availability)</a></li>
+<li><a href="spec/reactive-determinations.html">Determinações Reativas
+de Formulário</a></li>
+<li><a href="guides/FILTROS-E-PAGINACAO.html">Filtros e Paginação</a> ·
+<a href="guides/READ-ONLY-VIEWS.html">Views Somente Leitura</a> · <a
+href="guides/ERROS-E-RESPOSTAS.html">Erros e Respostas</a></li>
+<li><a href="technical/GRAPHQL-SUPPORT-RFC.html">RFC — GraphQL
+Support</a></li>
+</ul>
+<h3 id="quero-integrar-um-runtime-angular">4. Quero integrar um runtime
 Angular</h3>
 <ul>
-<li><a href="guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html">Guia 03 -
-Frontend - Angular CRUD Completo</a></li>
-<li><a href="guides/CHECKLIST-VALIDACAO-IA.html">Checklist de
-Validacao</a></li>
+<li><a href="guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html">Guia 03 —
+Frontend: Angular CRUD Completo</a></li>
+<li><a href="guides/CHECKLIST-VALIDACAO-IA.html">Checklist de Validação
+Ponta a Ponta</a></li>
 </ul>
-<h3 id="quero-referencia-tecnica-java">Quero referencia tecnica
-Java</h3>
+<h3
+id="quero-referência-técnica-java-e-especificações-do-sdk-de-operações-em-lote-bulk">5.
+Quero referência técnica Java e especificações do SDK de Operações em
+Lote (Bulk)</h3>
 <ul>
 <li><a
 href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc
-publico</a></li>
-<li><a href="api/index.html">Indice humano do Javadoc</a></li>
-<li><a href="technical/index.html">Documentacao tecnica</a></li>
+Público</a> · <a href="api/index.html">Índice Humano do Javadoc</a></li>
+<li><a href="technical/index.html">Hub de Documentação Técnica</a></li>
+<li><a href="technical/BULK-AND-RELEASE-CANDIDATES-STATUS.html">Status
+Consolidado do SDK Bulk e Candidatos de Release</a></li>
+<li><a href="technical/BULK-COMPOSITION-GUIDE.html">Guia de Composição
+de Lote (<code>BULK-COMPOSITION-GUIDE</code>)</a></li>
 </ul>
-<h2 id="baseline-atual">Baseline Atual</h2>
-<p>O baseline canonico atual do starter e:</p>
+<h4
+id="especificações-técnicas-do-protocolo-de-lote-bulk-sdk-e-lifecycle-governado">Especificações
+Técnicas do Protocolo de Lote (Bulk SDK) e Lifecycle Governado</h4>
 <ul>
-<li><code>resource</code></li>
-<li><code>surface</code></li>
-<li><code>action</code></li>
-<li><code>capability</code></li>
-<li>HATEOAS</li>
-</ul>
-<p>Isso significa:</p>
+<li><strong>Protocolo, Binding e Contratos CRUD Bulk</strong>:
 <ul>
-<li><code>/schemas/filtered</code> segue como contrato estrutural</li>
-<li><code>/schemas/catalog</code> segue como catalogo documental</li>
-<li><code>/schemas/domain</code> publica vocabulario, aliases,
-evidencias, governanca AI-operable e option sources registry-wide que
-nao possuem campo estrutural correspondente</li>
-<li><code>/schemas/surfaces</code> e <code>/schemas/actions</code>
-publicam discovery semantico</li>
-<li><code>/{resource}/capabilities</code> agrega as capacidades do
-recurso sem redefinir o contrato estrutural</li>
-<li><code>canonicalOperations</code> descreve suporte estrutural;
-<code>operations</code> materializa CRUD, query, options, stats e export
-com availability contextual</li>
-<li><code>/{resource}/capabilities</code> tambem publica
-<code>stats.fields</code> quando o service declara
-<code>StatsFieldRegistry</code> e habilita
-<code>StatsSupportMode</code>, permitindo que runtimes escolham
-dimensoes e metricas de charts antes de executar stats</li>
-<li><code>POST /{resource}/export</code> executa exportacao de colecao a
-partir de escopo, selecao, filtros, ordenacao e campos; o resultado pode
-ser binario inline ou <code>202 Accepted</code> com
-<code>status=deferred</code>, <code>downloadUrl</code> e
-<code>jobId</code></li>
-<li>detalhes de exportacao em <code>/capabilities</code> sao derivados
-do suporte real do service e podem publicar <code>formats</code>,
-<code>scopes</code>, <code>maxRows</code> e <code>async</code></li>
-<li>resultados inline podem publicar headers de linhas, truncamento,
-limite efetivo e warnings para UI corporativa</li>
-</ul>
-<h2 id="regra-de-leitura">Regra De Leitura</h2>
-<p>Quando houver duvida sobre a superficie publicada:</p>
+<li><a href="spec/BULK-PROTOCOL-INPUT.html">Entrada do protocolo de
+operações em lote</a></li>
+<li><a href="spec/BULK-PROTOCOL-RESULTS.html">Propostas, resultados e
+fingerprint de intenção</a></li>
+<li><a href="spec/CANONICAL-OPERATION-BINDING.html">Binding canônico de
+operações</a></li>
+<li><a href="spec/CANONICAL-REQUEST-SCHEMA.html">Leitura estrita de
+request</a></li>
+<li><a href="spec/BULK-EDITABLE-FIELDS.html">Campos editáveis em lote
+(<code>@BulkEditable</code>)</a></li>
+<li><a href="spec/BULK-CRUD-STRUCTURE.html">Composição estrutural
+CRUD</a></li>
+<li><a href="spec/BULK-CRUD-OPERATIONS.html">Composição operacional CRUD
+(<code>UNIFORM_UPDATE</code> / <code>PER_ITEM_UPDATE</code>)</a></li>
+<li><a href="spec/BULK-ACTION-PROJECTION.html">Projeção P1 de action
+bulk (<code>execution.bulk</code>)</a></li>
+</ul></li>
+<li><strong>Persistência, Execução Durável, Read Model e Lifecycle
+OpenAPI</strong>:
 <ul>
-<li><p>priorize os guias desta home</p></li>
-<li><p>priorize <code>architecture-overview</code></p></li>
-<li><p>use a trilha desta home como referencia principal do baseline
-atual</p></li>
-<li><p><a
-href="spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.html">Administração local
-de capacidade (candidato C0-04)</a>: INSPECT/FENCE com OWNER e vínculo
-explícitos; provas privadas não são publicação ou adoção
-produtiva.</p></li>
-<li><p><a href="technical/BULK-DURABLE-WORKER-B5B2-STATUS.html">Estado
-do worker durável B5b.2</a>: candidato privado com primeira bateria
-aceita; matriz de fila, composição pública e fechamento do backend ainda
-pendentes.</p></li>
-<li><p><a
+<li><a href="spec/BULK-EXECUTION-INFRASTRUCTURE.html">Infraestrutura
+transacional de lote</a></li>
+<li><a href="spec/BULK-PROPOSAL-STORAGE.html">Persistência protegida de
+propostas (<code>EXPLICIT</code> e <code>QUERY</code>)</a></li>
+<li><a href="spec/BULK-EVALUATION-EVIDENCE.html">Evidência protegida da
+avaliação</a></li>
+<li><a href="spec/BULK-DURABLE-EXECUTION.html">Núcleo durável de
+execução</a></li>
+<li><a href="spec/BULK-H1B-READ-MODEL.html">Decisão H1b de leitura
+(<code>RS1–RS4</code>, cursores AEAD)</a></li>
+<li><a href="spec/BULK-OPERATION-LIFECYCLE.html">Lifecycle governado de
+publicação OpenAPI</a></li>
+</ul></li>
+<li><strong>Capacidade, Administração Local, Workers e Owner
+Gerenciado</strong>:
+<ul>
+<li><a href="spec/BULK-CAPACITY-AUTHORITY.html">Autoridade de capacidade
+candidata B5b.1a</a></li>
+<li><a href="spec/BULK-CAPACITY-INSTALLATION.html">Instalação local
+candidata B5b.1b.A</a></li>
+<li><a href="spec/BULK-CAPACITY-OCCUPANCY.html">Ocupação local protegida
+B5b.1b.B e caracterização de clone C1a</a></li>
+<li><a href="spec/BULK-CAPACITY-LOCAL-ADMINISTRATION.html">Administração
+local de capacidade (candidato C0-04)</a></li>
+<li><a href="technical/BULK-DURABLE-WORKER-B5B2-STATUS.html">Estado do
+worker durável B5b.2</a> · <a
 href="technical/BULK-DURABLE-WORKER-OWNER-UPGRADE.html">Migração owner e
-cutover do worker durável — candidato privado B5b.2</a>.</p></li>
-<li><p><a
-href="technical/BULK-WORKER-EXPLICIT-COMPOSITION.html">Composição
-explícita do worker — candidato B5b.3</a>: vínculo canônico e callbacks
-por unidade; provas focais e consumidor JAR privado executados,
-revisão/integração e publicação pendentes, sem ingresso HTTP
-ASYNC.</p></li>
-<li><p><a href="spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.html">Adoção de
-operações em lote por owner gerenciado</a>: candidato PostgreSQL17+,
-linhagem imutável, bootstrap transacional e provas focais; publicação e
-adoção hospedada pendentes.</p></li>
+cutover B5b.2</a></li>
+<li><a href="technical/BULK-WORKER-EXPLICIT-COMPOSITION.html">Composição
+explícita do worker — candidato B5b.3</a></li>
+<li><a href="spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.html">Adoção de
+operações em lote por owner gerenciado (PostgreSQL 17+)</a></li>
+</ul></li>
 </ul>
+<hr />
+<h2 id="regra-de-leitura">Regra de Leitura</h2>
+<p>Quando houver dúvida sobre a superfície publicada: 1. Priorize os
+guias principais desta home (<code>Guia 01</code> a
+<code>Guia 06</code>) e a <a href="architecture-overview.html">Visão
+Arquitetural</a>. 2. Trate <code>/schemas/filtered</code> como a única
+fonte estrutural de request/response e <code>/capabilities</code> como o
+snapshot agregado de disponibilidade. 3. Consulte o <a
+href="technical/BULK-AND-RELEASE-CANDIDATES-STATUS.html">Status
+Consolidado do SDK Bulk e Candidatos de Release</a> para distinguir
+capacidades já publicadas no Maven Central de candidatos internos em
+validação.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
 </body>
 </html>

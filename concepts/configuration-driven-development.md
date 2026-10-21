@@ -1,24 +1,28 @@
-# Configuration-driven development
+# Configuration-driven Development
 
-## Definicao curta
+## Definição
 
-Evoluir funcionalidades atraves de configuracao e metadados, em vez de escrever
-novo codigo para cada variacao.
+**Configuration-driven Development** permite adaptar comportamento, apresentação, layouts e regras operacionais por ambiente, tenant ou perfil de usuário por meio de configurações governadas e versionadas, sem recompilar o código-fonte do domínio base.
 
-## Onde aparece no Praxis
+## Como a plataforma Praxis separa Código vs Configuração
 
-- Frontend: `@praxisui/core` para defaults e configuracoes globais
-- Frontend: `@praxisui/settings-panel` para editores e persistencia de ajustes
-- Frontend: `@praxisui/table` para comportamentos de tabela configuraveis
-- Backend: `praxis-metadata-starter` para `x-ui` e contrato declarativo
+Na arquitetura Praxis, existe uma fronteira canônica estrita entre o que nasce no código do recurso e o que é configurado em runtime:
 
-## Como aplicar
+| Camada | Módulo Canônico | O que governa |
+| :--- | :--- | :--- |
+| **Contrato base e semântica do recurso** | `praxis-metadata-starter` | Recursos (`@ApiResource`), DTOs, `@Schema`, `@UISchema`, `@Filterable`, `@UiSurface`, `@WorkflowAction`, `/schemas/filtered`, `/schemas/domain`, capabilities e propriedades `praxis.*` do Spring Boot. |
+| **Configuração persistida, personalização e IA governada** | `praxis-config-starter` | Estado persistido por tenant/usuário/ambiente (`ui_user_config` com ETag forte), catálogo de componentes (`ai_registry`), ingestão de catálogo (`api_metadata`), regras de domínio (`domain-rules`) e fluxos de authoring assistido por IA em `/api/praxis/config/**`. |
 
-1. defina defaults em configuracao global
-2. publique contratos `x-ui` ricos no backend
-3. use editores e painéis de configuracao em vez de forks de componente
+Essa separação garante que:
+1. O host Spring Boot funcione imediatamente apenas com `praxis-metadata-starter` (zero configuração persistida obrigatória).
+2. Quando `praxis-config-starter` está presente, personalizações de layout, variantes por tenant e decisões governadas por IA se sobreponham de forma auditável sobre a base semântica publicada pelo metadata starter.
 
-## Referencias publicas
+## Referências internas
 
-- repositório público: `https://github.com/codexrodrigues/praxis-ui-angular`
-- pacotes: `@praxisui/core`, `@praxisui/settings-panel`, `@praxisui/table`
+- [Visão geral da arquitetura](../architecture-overview.md)
+- [Conceito: `@UISchema` e metadados `x-ui`](ui-schema.md)
+
+## Referências públicas
+
+- [The Twelve-Factor App — Config](https://12factor.net/config)
+- [Spring Boot Externalized Configuration](https://docs.spring.io/spring-boot/reference/features/external-config.html)

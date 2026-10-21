@@ -1,17 +1,19 @@
 # Technical Docs
 
-Material tecnico ainda vivo do `praxis-metadata-starter`.
+Material técnico e de engenharia do `praxis-metadata-starter`.
 
-## Navegacao rapida
+## Navegação rápida
 
-- [Home da documentacao](../index.html)
+- [Home da documentação](../index.html)
 - [Hub dos guias](../guides/index.html)
-- [Referencia de API Java](../api/index.html)
+- [Referência de API Java](../api/index.html)
 
-## Referencias tecnicas atuais
+## Referências técnicas atuais
 
-- [Hub tecnico](README.html)
-- [Auto-configuracao](AUTO-CONFIGURACAO.html)
+- [Hub técnico](README.html)
+- [Auto-configuração](AUTO-CONFIGURACAO.html)
+- [Guia de composição de operações em lote (Bulk)](BULK-COMPOSITION-GUIDE.html)
+- [Status consolidado do SDK Bulk e candidatos de release](BULK-AND-RELEASE-CANDIDATES-STATUS.html)
 - [Estudo de mercado e roadmap competitivo](ESTUDO-MERCADO-ROADMAP-METADATA-STARTER.html)
 - [Estudo complementar - Praxis UI Angular metadata-driven](ESTUDO-PRAXIS-UI-ANGULAR-METADATA-DRIVEN.html)
 - [Roadmap reconciliado de Skills Java e Praxis](CODEX-SKILLS-JAVA-PRAXIS-ROADMAP.html)
@@ -21,12 +23,15 @@ Material tecnico ainda vivo do `praxis-metadata-starter`.
 
 ## Registros de rollout e piloto
 
-- [Checklist de prontidao do piloto](PILOT-READINESS-CHECKLIST.html)
+- [Checklist de prontidão do piloto](PILOT-READINESS-CHECKLIST.html)
 - [Rollback e observabilidade do piloto](ROLLBACK-E-OBSERVABILIDADE-DO-PILOTO.html)
+- [Estado do worker durável B5b.2](BULK-DURABLE-WORKER-B5B2-STATUS.html)
+- [Migração owner e cutover do worker durável — B5b.2](BULK-DURABLE-WORKER-OWNER-UPGRADE.html)
+- [Composição explícita do worker — candidato B5b.3](BULK-WORKER-EXPLICIT-COMPOSITION.html)
 
-## Como interpretar esta area
+## Como interpretar esta área
 
-- nao use esta area como onboarding principal
-- use os guias e a visao arquitetural publica para o baseline atual
-- trate esta area como referencia de engenharia complementar
-- trate registros de piloto e rollout como evidencias tecnicas complementares
+- Não use esta área como onboarding principal
+- Use os guias e a visão arquitetural pública para o baseline atual
+- Trate esta área como referência de engenharia complementar
+- Trate registros de piloto e rollout como evidências técnicas complementares
