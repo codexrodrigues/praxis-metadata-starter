@@ -2820,7 +2820,7 @@
       "path": "src/test/java/org/praxisplatform/uischema/docs/PublicDocumentationEntryPointsTest.java",
       "sha256": "7bcd7c46494ec2a6652b34d08691b525e5920ce808c559b363cfb0961ed48bc2",
       "kind": "no_db",
-      "reason": "Pure JUnit/Mockito/serialization/source contract; no datasource or local database fixture found.",
+      "reason": "Pure documentation entry-point contract without database. Reconciled with main 9440056188 removal of demo media; semantic discovery and cockpit assertions remain covered.",
       "className": "org.praxisplatform.uischema.docs.PublicDocumentationEntryPointsTest"
     },
     {
