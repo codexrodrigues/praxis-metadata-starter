@@ -105,6 +105,75 @@ class UiAnalyticsSpecContractTest {
         assertFalse(recordOpen.path("properties").has("presentation"));
     }
 
+    @Test
+    void multiDimensionalProjectionWithExtractionsAndCycleOccurrenceMetricIsSchemaValid() throws Exception {
+        JsonNode schemaDocument = objectMapper.readTree(
+                Path.of("docs/spec/x-ui-analytics.schema.json").toFile());
+        JsonSchema schema = JsonSchemaFactory
+                .getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(schemaDocument);
+
+        JsonNode matrixExample = objectMapper.readTree("""
+                {
+                  "projections": [
+                    {
+                      "id": "operational-rhythm-matrix",
+                      "intent": "distribution",
+                      "source": {
+                        "kind": "praxis.stats",
+                        "resource": "/api/human-resources/employees",
+                        "operation": "group-by"
+                      },
+                      "bindings": {
+                        "primaryDimension": {
+                          "field": "lastCheckInAt",
+                          "extraction": "DAY_OF_WEEK",
+                          "alias": "weekday",
+                          "role": "time-cycle",
+                          "label": "Dia da semana",
+                          "keyFilterField": "checkInWeekday"
+                        },
+                        "secondaryDimension": {
+                          "field": "lastCheckInAt",
+                          "extraction": "HOUR_OF_DAY",
+                          "alias": "hour",
+                          "role": "time-cycle",
+                          "label": "Hora do dia",
+                          "keyFilterField": "checkInHour"
+                        },
+                        "primaryMetrics": [
+                          {
+                            "field": "id",
+                            "aggregation": "count",
+                            "label": "Volume"
+                          },
+                          {
+                            "field": "id",
+                            "aggregation": "avg-per-cycle-occurrence",
+                            "label": "Media por ocorrencia do ciclo"
+                          }
+                        ]
+                      },
+                      "defaults": {
+                        "timezone": "America/Sao_Paulo",
+                        "periodPreset": "LAST_30_DAYS",
+                        "fillGaps": true,
+                        "limit": 168
+                      },
+                      "presentationHints": {
+                        "preferredFamilies": ["chart", "analytic-table"]
+                      },
+                      "interactions": {
+                        "crossFilter": true
+                      }
+                    }
+                  ]
+                }
+                """);
+
+        assertTrue(schema.validate(matrixExample).isEmpty());
+    }
+
     private Set<String> requiredFields(JsonNode definition) {
         return objectMapper.convertValue(
                 definition.path("required"),

@@ -153,10 +153,10 @@ public final class BulkAuthorizedProposalResultsReader {
         byte[] effectiveFingerprint;
         try {
             deadline.requireRemaining();
-            deadline.constrain(connection);
             BulkProtectedProposalReader.Observation protectedRead =
                     BulkProtectedProposalReader.readForAuthorizedComposition(connection,
-                            infrastructure.namespace(), resourceKey, operationId, proposalId);
+                            infrastructure.namespace(), resourceKey, operationId, proposalId,
+                            deadline.remainingMillis());
             if (protectedRead.kind() != BulkProtectedProposalReader.Kind.EVALUATED
                     || !protectedRead.evaluation().hasTypedEligibility())
                 return Observation.state(State.NOT_FOUND_OR_DENIED);
@@ -206,12 +206,11 @@ public final class BulkAuthorizedProposalResultsReader {
 
         try {
             deadline.requireRemaining();
-            deadline.constrain(connection);
             int lastOrdinal = continuation == null ? -1 : continuation.claims().lastOrdinalExclusive();
             int watermark = continuation == null
                     ? evaluation.targets().size() : continuation.claims().watermarkExclusive();
             BulkPreviewPageReader.Page page = preview.read(connection, storedContext,
-                    proposalId, lastOrdinal, watermark, pageSize);
+                    proposalId, lastOrdinal, watermark, pageSize, deadline.remainingMillis());
             deadline.requireRemaining();
             if (page.kind() != BulkPreviewPageReader.Kind.COMPLETE) {
                 if (continuation != null
@@ -356,20 +355,10 @@ public final class BulkAuthorizedProposalResultsReader {
         void requireRemaining() {
             if (expired()) throw new IllegalStateException("Bulk read deadline exceeded");
         }
-        void constrain(Connection connection) throws SQLException {
+        int remainingMillis() {
             long remainingMillis = TimeUnit.NANOSECONDS.toMillis(expiresAtNanos - System.nanoTime());
             if (remainingMillis <= 0) throw new IllegalStateException("Bulk read deadline exceeded");
-            try (var statement = connection.prepareStatement("""
-                    select set_config('statement_timeout',
-                        case when current_setting('statement_timeout') = '0'
-                                  or current_setting('statement_timeout')::interval > (? * interval '1 millisecond')
-                             then ? || 'ms' else current_setting('statement_timeout') end, true)
-                    """)) {
-                int bounded = Math.toIntExact(Math.min(Integer.MAX_VALUE, Math.max(1, remainingMillis)));
-                statement.setInt(1, bounded);
-                statement.setInt(2, bounded);
-                statement.execute();
-            }
+            return Math.toIntExact(Math.min(Integer.MAX_VALUE, remainingMillis));
         }
         boolean expired() { return expiresAtNanos - System.nanoTime() <= 0; }
     }

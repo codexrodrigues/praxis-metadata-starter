@@ -19,6 +19,10 @@ public @interface AnalyticsProjection {
 
     AnalyticsDimensionBinding primaryDimension() default @AnalyticsDimensionBinding(field = "");
 
+    AnalyticsDimensionBinding secondaryDimension() default @AnalyticsDimensionBinding(field = "");
+
+    AnalyticsDimensionBinding[] dimensions() default {};
+
     AnalyticsComparisonPeriodBinding comparisonPeriod() default @AnalyticsComparisonPeriodBinding(field = "", timezone = "");
 
     AnalyticsMetricBinding[] primaryMetrics();
@@ -32,6 +36,12 @@ public @interface AnalyticsProjection {
     int defaultLimit() default -1;
 
     AnalyticsGranularity defaultGranularity() default AnalyticsGranularity.UNSPECIFIED;
+
+    String defaultTimezone() default "";
+
+    String defaultPeriodPreset() default "";
+
+    boolean defaultFillGaps() default false;
 
     AnalyticsPresentationFamily[] preferredFamilies() default {};
 

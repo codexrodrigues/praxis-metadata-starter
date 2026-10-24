@@ -156,3 +156,104 @@ In this phase:
   ]
 }
 ```
+
+## Multi-Dimensional Cross-Tab (2D) & Temporal Extractions in `group-by`
+
+`POST /{resource}/stats/group-by` also supports `dimensions[]` (up to `maxDimensions`, default `2`),
+canonical dimension extractions (`NONE`, cyclic `HOUR_OF_DAY`, `DAY_OF_WEEK`, `DAY_OF_MONTH`,
+`MONTH_OF_YEAR`, `QUARTER_OF_YEAR`, and linear `HOUR`, `DAY`, `WEEK`, `MONTH`, `QUARTER`, `YEAR`),
+`timezone`, `periodPreset` / `from` / `to`, `fillGaps`, and `AVG_PER_CYCLE_OCCURRENCE`.
+
+### Request (2D Cyclic Operational Rhythm `7 × 24 = 168`)
+
+```json
+{
+  "filter": {
+    "status": "ATIVO"
+  },
+  "dimensions": [
+    {
+      "field": "lastCheckInAt",
+      "extraction": "DAY_OF_WEEK",
+      "alias": "weekday"
+    },
+    {
+      "field": "lastCheckInAt",
+      "extraction": "HOUR_OF_DAY",
+      "alias": "hour"
+    }
+  ],
+  "timezone": "America/Sao_Paulo",
+  "periodPreset": "LAST_30_DAYS",
+  "fillGaps": true,
+  "limit": 168,
+  "metrics": [
+    {
+      "operation": "COUNT",
+      "alias": "count"
+    },
+    {
+      "operation": "AVG_PER_CYCLE_OCCURRENCE",
+      "alias": "avgCountPerSlot"
+    }
+  ],
+  "orderBy": "KEY_ASC"
+}
+```
+
+### Response
+
+```json
+{
+  "field": "lastCheckInAt",
+  "dimensions": [
+    {
+      "field": "lastCheckInAt",
+      "extraction": "DAY_OF_WEEK",
+      "alias": "weekday"
+    },
+    {
+      "field": "lastCheckInAt",
+      "extraction": "HOUR_OF_DAY",
+      "alias": "hour"
+    }
+  ],
+  "window": {
+    "from": "2024-03-04",
+    "to": "2024-03-17",
+    "timezone": "America/Sao_Paulo"
+  },
+  "metric": {
+    "operation": "COUNT",
+    "alias": "count"
+  },
+  "metrics": [
+    {
+      "operation": "COUNT",
+      "alias": "count"
+    },
+    {
+      "operation": "AVG_PER_CYCLE_OCCURRENCE",
+      "alias": "avgCountPerSlot"
+    }
+  ],
+  "buckets": [
+    {
+      "key": "1|9",
+      "label": "Mon | 09:00",
+      "keys": [1, 9],
+      "labels": ["Mon", "09:00"],
+      "coordinates": {
+        "weekday": 1,
+        "hour": 9
+      },
+      "value": 3,
+      "count": 3,
+      "values": {
+        "count": 3,
+        "avgCountPerSlot": 1.5
+      }
+    }
+  ]
+}
+```

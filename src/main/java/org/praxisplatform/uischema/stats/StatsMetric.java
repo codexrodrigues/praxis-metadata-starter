@@ -9,5 +9,10 @@ public enum StatsMetric {
     SUM,
     AVG,
     MIN,
-    MAX
+    MAX,
+    /**
+     * Media normalizada pelo numero real de ocorrencias do bucket temporal dentro da janela
+     * resolvida {@code [from, to]} na {@code timezone} declarada.
+     */
+    AVG_PER_CYCLE_OCCURRENCE
 }

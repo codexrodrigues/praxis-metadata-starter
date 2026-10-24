@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.stats.service;
 
 import jakarta.persistence.EntityManager;
 import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
+import org.praxisplatform.uischema.stats.dto.ComparisonPeriodWindow;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
@@ -23,6 +24,28 @@ public interface StatsQueryExecutor {
             GroupByStatsRequest<?> request,
             int maxBuckets
     );
+
+    default <E> GroupByStatsResponse executeGroupBy(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            List<ResolvedStatsDimension> dimensions,
+            List<ResolvedStatsMetric> resolvedMetrics,
+            GroupByStatsRequest<?> request,
+            ComparisonPeriodWindow window,
+            int maxBuckets,
+            int maxCells
+    ) {
+        return executeGroupBy(
+                entityManager,
+                entityClass,
+                specification,
+                dimensions.get(0).descriptor(),
+                resolvedMetrics,
+                request,
+                maxBuckets
+        );
+    }
 
     <E> TimeSeriesStatsResponse executeTimeSeries(
             EntityManager entityManager,

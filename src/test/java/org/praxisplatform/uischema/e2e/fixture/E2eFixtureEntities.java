@@ -15,6 +15,7 @@ import org.praxisplatform.uischema.service.base.annotation.DefaultSortColumn;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 
 enum EmployeeStatus {
@@ -95,6 +96,8 @@ class EmployeeEntity {
 
     private LocalDate admissionDate;
 
+    private Instant lastCheckInAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id", nullable = false)
     private DepartmentEntity department;
@@ -169,6 +172,14 @@ class EmployeeEntity {
 
     public void setAdmissionDate(LocalDate admissionDate) {
         this.admissionDate = admissionDate;
+    }
+
+    public Instant getLastCheckInAt() {
+        return lastCheckInAt;
+    }
+
+    public void setLastCheckInAt(Instant lastCheckInAt) {
+        this.lastCheckInAt = lastCheckInAt;
     }
 
     public DepartmentEntity getDepartment() {

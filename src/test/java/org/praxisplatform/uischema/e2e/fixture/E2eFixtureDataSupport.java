@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -36,12 +37,96 @@ public class E2eFixtureDataSupport {
         DepartmentEntity ops = departmentRepository.save(new DepartmentEntity("Operations", "OPS"));
 
         Map<String, Long> employeeIdsByName = new LinkedHashMap<>();
-        employeeIdsByName.put("Alice", createEmployee("Alice", "HR-001", "Executive", "EXEC", "0-10%", EmployeeStatus.ACTIVE, new BigDecimal("7200.00"), LocalDate.of(2023, 1, 10), hr).getId());
-        employeeIdsByName.put("Bob", createEmployee("Bob", "OPS-001", "Operational", "OPS", "0-10%", EmployeeStatus.ACTIVE, new BigDecimal("6800.00"), LocalDate.of(2023, 2, 15), ops).getId());
-        employeeIdsByName.put("Carol", createEmployee("Carol", "HR-002", "Executive", "EXEC", "20%+", EmployeeStatus.INACTIVE, new BigDecimal("5300.00"), LocalDate.of(2022, 11, 5), hr).getId());
-        employeeIdsByName.put("Diana", createEmployee("Diana", "OPS-002", "Lead", "LEAD", "10-20%", EmployeeStatus.ACTIVE, new BigDecimal("9100.00"), LocalDate.of(2021, 7, 20), ops).getId());
-        employeeIdsByName.put("Eve", createEmployee("Eve", "HR-003", "Specialist", "SPEC", "10-20%", EmployeeStatus.ACTIVE, new BigDecimal("6050.00"), LocalDate.of(2024, 3, 3), hr).getId());
-        employeeIdsByName.put("Frank", createEmployee("Frank", "OPS-003", "Operational", "OPS", "20%+", EmployeeStatus.LEAVE, new BigDecimal("4950.00"), LocalDate.of(2020, 9, 14), ops).getId());
+        employeeIdsByName.put(
+                "Alice",
+                createEmployee(
+                        "Alice",
+                        "HR-001",
+                        "Executive",
+                        "EXEC",
+                        "0-10%",
+                        EmployeeStatus.ACTIVE,
+                        new BigDecimal("7200.00"),
+                        LocalDate.of(2023, 1, 10),
+                        Instant.parse("2024-03-04T12:15:00Z"),
+                        hr
+                ).getId()
+        );
+        employeeIdsByName.put(
+                "Bob",
+                createEmployee(
+                        "Bob",
+                        "OPS-001",
+                        "Operational",
+                        "OPS",
+                        "0-10%",
+                        EmployeeStatus.ACTIVE,
+                        new BigDecimal("6800.00"),
+                        LocalDate.of(2023, 2, 15),
+                        Instant.parse("2024-03-04T12:45:00Z"),
+                        ops
+                ).getId()
+        );
+        employeeIdsByName.put(
+                "Carol",
+                createEmployee(
+                        "Carol",
+                        "HR-002",
+                        "Executive",
+                        "EXEC",
+                        "20%+",
+                        EmployeeStatus.INACTIVE,
+                        new BigDecimal("5300.00"),
+                        LocalDate.of(2022, 11, 5),
+                        Instant.parse("2024-03-04T01:30:00Z"),
+                        hr
+                ).getId()
+        );
+        employeeIdsByName.put(
+                "Diana",
+                createEmployee(
+                        "Diana",
+                        "OPS-002",
+                        "Lead",
+                        "LEAD",
+                        "10-20%",
+                        EmployeeStatus.ACTIVE,
+                        new BigDecimal("9100.00"),
+                        LocalDate.of(2021, 7, 20),
+                        Instant.parse("2024-03-11T12:20:00Z"),
+                        ops
+                ).getId()
+        );
+        employeeIdsByName.put(
+                "Eve",
+                createEmployee(
+                        "Eve",
+                        "HR-003",
+                        "Specialist",
+                        "SPEC",
+                        "10-20%",
+                        EmployeeStatus.ACTIVE,
+                        new BigDecimal("6050.00"),
+                        LocalDate.of(2024, 3, 3),
+                        Instant.parse("2024-03-06T17:10:00Z"),
+                        hr
+                ).getId()
+        );
+        employeeIdsByName.put(
+                "Frank",
+                createEmployee(
+                        "Frank",
+                        "OPS-003",
+                        "Operational",
+                        "OPS",
+                        "20%+",
+                        EmployeeStatus.LEAVE,
+                        new BigDecimal("4950.00"),
+                        LocalDate.of(2020, 9, 14),
+                        Instant.parse("2024-03-08T21:00:00Z"),
+                        ops
+                ).getId()
+        );
 
         Map<String, Long> payrollIdsByEmployee = new LinkedHashMap<>();
         payrollIdsByEmployee.put("Alice", payrollViewRepository.save(new PayrollViewEntity("Alice", "Human Resources", new BigDecimal("6300.00"), "CLOSED")).getId());
@@ -74,6 +159,7 @@ public class E2eFixtureDataSupport {
             EmployeeStatus status,
             BigDecimal salario,
             LocalDate admissionDate,
+            Instant lastCheckInAt,
             DepartmentEntity department
     ) {
         EmployeeEntity entity = new EmployeeEntity();
@@ -85,6 +171,7 @@ public class E2eFixtureDataSupport {
         entity.setStatus(status);
         entity.setSalario(salario);
         entity.setAdmissionDate(admissionDate);
+        entity.setLastCheckInAt(lastCheckInAt);
         entity.setDepartment(department);
         return employeeRepository.save(entity);
     }

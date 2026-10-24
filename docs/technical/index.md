@@ -20,6 +20,7 @@ Material técnico e de engenharia do `praxis-metadata-starter`.
 - [Roadmap de filtros](FILTROS-ROADMAP.html)
 - [RFC - GraphQL Support](GRAPHQL-SUPPORT-RFC.html)
 - [RFC - Governed Resource Command Execution](GOVERNED-RESOURCE-COMMAND-EXECUTION-RFC.html)
+- [RFC - Stats Multidimensional Cross-Tab and Temporal Extractions](STATS-MULTIDIMENSIONAL-AND-TEMPORAL-EXTRACTION-RFC.html)
 
 ## Registros de rollout e piloto
 

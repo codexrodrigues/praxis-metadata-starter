@@ -51,7 +51,10 @@ public class UiAnalyticsAnnotationMapper {
         Map<String, Object> defaults = buildDefaults(
                 projection.defaultSort(),
                 projection.defaultLimit(),
-                projection.defaultGranularity()
+                projection.defaultGranularity(),
+                projection.defaultTimezone(),
+                projection.defaultPeriodPreset(),
+                projection.defaultFillGaps()
         );
         if (!defaults.isEmpty()) {
             result.put("defaults", defaults);
@@ -141,6 +144,14 @@ public class UiAnalyticsAnnotationMapper {
         if (!primaryDimension.isEmpty()) {
             bindings.put("primaryDimension", primaryDimension);
         }
+        Map<String, Object> secondaryDimension = buildDimension(projection.secondaryDimension());
+        if (!secondaryDimension.isEmpty()) {
+            bindings.put("secondaryDimension", secondaryDimension);
+        }
+        List<Map<String, Object>> dimensions = buildDimensions(projection.dimensions());
+        if (!dimensions.isEmpty()) {
+            bindings.put("dimensions", dimensions);
+        }
         bindings.put("primaryMetrics", buildMetrics(projection.primaryMetrics()));
 
         List<Map<String, Object>> secondaryMetrics = buildMetrics(projection.secondaryMetrics());
@@ -151,6 +162,20 @@ public class UiAnalyticsAnnotationMapper {
             bindings.put("comparisonPeriod", buildComparisonPeriod(projection.comparisonPeriod()));
         }
         return bindings;
+    }
+
+    private List<Map<String, Object>> buildDimensions(AnalyticsDimensionBinding[] bindings) {
+        if (bindings == null || bindings.length == 0) {
+            return List.of();
+        }
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (AnalyticsDimensionBinding binding : bindings) {
+            Map<String, Object> built = buildDimension(binding);
+            if (!built.isEmpty()) {
+                result.add(built);
+            }
+        }
+        return result;
     }
 
     private Map<String, Object> buildComparisonPeriod(AnalyticsComparisonPeriodBinding binding) {
@@ -171,6 +196,12 @@ public class UiAnalyticsAnnotationMapper {
             return dimension;
         }
         dimension.put("field", binding.field());
+        if (!binding.extraction().isBlank()) {
+            dimension.put("extraction", binding.extraction().trim());
+        }
+        if (!binding.alias().isBlank()) {
+            dimension.put("alias", binding.alias().trim());
+        }
         if (!binding.role().isBlank()) {
             dimension.put("role", binding.role());
         }
@@ -184,19 +215,48 @@ public class UiAnalyticsAnnotationMapper {
     }
 
     private void validateDimensionFilterBinding(AnalyticsProjection projection) {
-        AnalyticsDimensionBinding dimension = projection.primaryDimension();
+        AnalyticsDimensionBinding primary = projection.primaryDimension();
+        AnalyticsDimensionBinding secondary = projection.secondaryDimension();
+        AnalyticsDimensionBinding[] multiDimensions = projection.dimensions();
+        validateSingleDimensionFilterBinding(primary, "primaryDimension");
+        validateSingleDimensionFilterBinding(secondary, "secondaryDimension");
+        if (multiDimensions != null) {
+            for (AnalyticsDimensionBinding item : multiDimensions) {
+                validateSingleDimensionFilterBinding(item, "dimensions[]");
+            }
+        }
+        if (!projection.crossFilter()) {
+            return;
+        }
+        boolean hasMultiDimensions = multiDimensions != null && multiDimensions.length > 0;
+        if (hasMultiDimensions) {
+            for (AnalyticsDimensionBinding item : multiDimensions) {
+                if (item == null || item.field().isBlank() || item.keyFilterField().isBlank()) {
+                    throw new IllegalArgumentException(
+                            "Analytics projections with crossFilter=true require field and keyFilterField on every declared dimension."
+                    );
+                }
+            }
+            return;
+        }
+        if (primary == null
+                || primary.field().isBlank()
+                || primary.keyFilterField().isBlank()) {
+            throw new IllegalArgumentException(
+                    "Analytics projections with crossFilter=true require primaryDimension.field and primaryDimension.keyFilterField.");
+        }
+        if (secondary != null && !secondary.field().isBlank() && secondary.keyFilterField().isBlank()) {
+            throw new IllegalArgumentException(
+                    "Analytics projections with crossFilter=true and secondaryDimension require secondaryDimension.keyFilterField.");
+        }
+    }
+
+    private void validateSingleDimensionFilterBinding(AnalyticsDimensionBinding dimension, String location) {
         if (dimension != null
                 && !dimension.keyFilterField().isEmpty()
                 && dimension.keyFilterField().isBlank()) {
             throw new IllegalArgumentException(
-                    "Analytics primaryDimension.keyFilterField must name a public request field when declared.");
-        }
-        if (projection.crossFilter()
-                && (dimension == null
-                || dimension.field().isBlank()
-                || dimension.keyFilterField().isBlank())) {
-            throw new IllegalArgumentException(
-                    "Analytics projections with crossFilter=true require primaryDimension.field and primaryDimension.keyFilterField.");
+                    "Analytics " + location + ".keyFilterField must name a public request field when declared.");
         }
     }
 
@@ -223,7 +283,10 @@ public class UiAnalyticsAnnotationMapper {
     private Map<String, Object> buildDefaults(
             AnalyticsSort[] defaultSort,
             int defaultLimit,
-            AnalyticsGranularity defaultGranularity
+            AnalyticsGranularity defaultGranularity,
+            String defaultTimezone,
+            String defaultPeriodPreset,
+            boolean defaultFillGaps
     ) {
         Map<String, Object> defaults = new LinkedHashMap<>();
         if (defaultSort != null && defaultSort.length > 0) {
@@ -241,6 +304,15 @@ public class UiAnalyticsAnnotationMapper {
         }
         if (defaultGranularity != null && !defaultGranularity.wireValue().isBlank()) {
             defaults.put("granularity", defaultGranularity.wireValue());
+        }
+        if (defaultTimezone != null && !defaultTimezone.isBlank()) {
+            defaults.put("timezone", defaultTimezone.trim());
+        }
+        if (defaultPeriodPreset != null && !defaultPeriodPreset.isBlank()) {
+            defaults.put("periodPreset", defaultPeriodPreset.trim());
+        }
+        if (defaultFillGaps) {
+            defaults.put("fillGaps", true);
         }
         return defaults;
     }

@@ -1,27 +1,48 @@
 package org.praxisplatform.uischema.stats.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.util.List;
 
 /**
- * Contrato canonico de resposta para agregacoes {@code group-by}.
+ * Contrato canonico de resposta para agregacoes {@code group-by} (1D ou multidimensional 2D/ND).
  *
  * <p>
- * A resposta informa o campo agrupado, a metrica principal e a colecao de buckets retornados.
- * Quando a operacao roda em modo multi-metrica, {@code metrics} carrega a lista completa de
- * metricas efetivamente aplicadas.
+ * A resposta informa o campo agrupado primario ({@code field}), a metrica principal e a colecao de
+ * buckets retornados. Quando a operacao roda em modo multi-metrica, {@code metrics} carrega a lista
+ * completa de metricas aplicadas. Quando executada com {@code dimensions[]} ou janela temporal,
+ * publica tambem os descritores de dimensao em {@code dimensions} e a janela resolvida em
+ * {@code window}.
  * </p>
  */
 public record GroupByStatsResponse(
         String field,
         StatsMetricRequest metric,
         List<GroupByBucket> buckets,
-        List<StatsMetricRequest> metrics
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        List<StatsMetricRequest> metrics,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        List<StatsDimensionRequest> dimensions,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        ComparisonPeriodWindow window
 ) {
     /**
-     * Construtor para respostas de metrica unica.
+     * Construtor para respostas de metrica unica 1D.
      */
     public GroupByStatsResponse(String field, StatsMetricRequest metric, List<GroupByBucket> buckets) {
-        this(field, metric, buckets, null);
+        this(field, metric, buckets, null, null, null);
+    }
+
+    /**
+     * Construtor para respostas 1D com suporte a multi-metrica.
+     */
+    public GroupByStatsResponse(
+            String field,
+            StatsMetricRequest metric,
+            List<GroupByBucket> buckets,
+            List<StatsMetricRequest> metrics
+    ) {
+        this(field, metric, buckets, metrics, null, null);
     }
 
     /**

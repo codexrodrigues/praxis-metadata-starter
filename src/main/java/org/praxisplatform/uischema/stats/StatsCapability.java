@@ -13,17 +13,30 @@ import java.util.Set;
  * </p>
  *
  * @param fields campos estatisticos elegiveis no recurso
+ * @param maxDimensions numero maximo de dimensoes simultaneas suportadas em group-by
+ * @param maxCells numero maximo de celulas (buckets) suportadas em consultas multidimensionais/densificadas
  */
 public record StatsCapability(
-        List<StatsFieldCapability> fields
+        List<StatsFieldCapability> fields,
+        int maxDimensions,
+        int maxCells
 ) {
+
+    public static final int DEFAULT_MAX_DIMENSIONS = 2;
+    public static final int DEFAULT_MAX_CELLS = 500;
 
     public StatsCapability {
         fields = fields == null ? List.of() : List.copyOf(fields);
+        maxDimensions = maxDimensions <= 0 ? DEFAULT_MAX_DIMENSIONS : maxDimensions;
+        maxCells = maxCells <= 0 ? DEFAULT_MAX_CELLS : maxCells;
+    }
+
+    public StatsCapability(List<StatsFieldCapability> fields) {
+        this(fields, DEFAULT_MAX_DIMENSIONS, DEFAULT_MAX_CELLS);
     }
 
     public static StatsCapability empty() {
-        return new StatsCapability(List.of());
+        return new StatsCapability(List.of(), DEFAULT_MAX_DIMENSIONS, DEFAULT_MAX_CELLS);
     }
 
     public static StatsCapability from(StatsFieldRegistry registry) {
@@ -33,7 +46,9 @@ public record StatsCapability(
         return new StatsCapability(
                 registry.descriptors().stream()
                         .map(StatsFieldCapability::from)
-                        .toList()
+                        .toList(),
+                DEFAULT_MAX_DIMENSIONS,
+                DEFAULT_MAX_CELLS
         );
     }
 
@@ -43,14 +58,32 @@ public record StatsCapability(
             StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode
     ) {
+        return from(
+                registry,
+                groupByStatsSupportMode,
+                timeSeriesStatsSupportMode,
+                distributionStatsSupportMode,
+                DEFAULT_MAX_DIMENSIONS,
+                DEFAULT_MAX_CELLS
+        );
+    }
+
+    public static StatsCapability from(
+            StatsFieldRegistry registry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode,
+            int maxDimensions,
+            int maxCells
+    ) {
         if (registry == null || registry.isEmpty()) {
-            return empty();
+            return new StatsCapability(List.of(), maxDimensions, maxCells);
         }
         boolean groupByEnabled = groupByStatsSupportMode != StatsSupportMode.DISABLED;
         boolean timeSeriesEnabled = timeSeriesStatsSupportMode != StatsSupportMode.DISABLED;
         boolean distributionEnabled = distributionStatsSupportMode != StatsSupportMode.DISABLED;
         if (!groupByEnabled && !timeSeriesEnabled && !distributionEnabled) {
-            return empty();
+            return new StatsCapability(List.of(), maxDimensions, maxCells);
         }
         return new StatsCapability(
                 registry.descriptors().stream()
@@ -66,7 +99,9 @@ public record StatsCapability(
                                 || descriptor.distributionHistogramEligible()
                                 || descriptor.metricFieldEligible())
                         .map(StatsFieldCapability::from)
-                        .toList()
+                        .toList(),
+                maxDimensions,
+                maxCells
         );
     }
 

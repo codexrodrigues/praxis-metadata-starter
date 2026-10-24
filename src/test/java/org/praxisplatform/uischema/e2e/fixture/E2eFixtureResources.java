@@ -403,6 +403,7 @@ class EmployeeService extends AbstractBaseResourceService<
             .temporalTimeSeriesField("admissionDate", "admissionDate")
             .distinctCountField("payrollProfile", "payrollProfile")
             .numericHistogramMeasureField("salario", "salario")
+            .temporalTimeSeriesField("lastCheckInAt", "lastCheckInAt")
             .build();
 
     private final EmployeeResourceMapper mapper;

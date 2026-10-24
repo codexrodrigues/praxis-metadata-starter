@@ -27,11 +27,13 @@ import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.stats.StatsProperties;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
+import org.praxisplatform.uischema.stats.ComparisonPeriodMode;
 import org.praxisplatform.uischema.stats.ComparisonPeriodResolver;
 import org.praxisplatform.uischema.stats.StatsBucketOrder;
 import org.praxisplatform.uischema.stats.StatsCapability;
 import org.praxisplatform.uischema.stats.dto.ComparisonBucket;
 import org.praxisplatform.uischema.stats.dto.ComparisonMetricValue;
+import org.praxisplatform.uischema.stats.dto.ComparisonPeriodRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsResponse;
 import org.praxisplatform.uischema.stats.dto.ComparisonPeriodWindow;
@@ -44,6 +46,7 @@ import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
 import org.praxisplatform.uischema.stats.dto.StatsMetricRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
+import org.praxisplatform.uischema.stats.service.ResolvedStatsDimension;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsMetric;
 import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
 import org.praxisplatform.uischema.capability.ResourceStructuralCapabilities;
@@ -131,7 +134,9 @@ public abstract class AbstractBaseQueryResourceService<
                                 registry,
                                 groupBy ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
                                 timeSeries ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
-                                distribution ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED
+                                distribution ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
+                                properties.maxDimensions(),
+                                properties.maxCells()
                         )
                         : StatsCapability.empty(),
                 getCollectionExportCapability().orElse(null)
@@ -506,22 +511,86 @@ public abstract class AbstractBaseQueryResourceService<
             throw new UnsupportedOperationException("Group-by stats not implemented");
         }
 
-        StatsFieldDescriptor descriptor = statsEligibility.validateGroupBy(
+        List<ResolvedStatsDimension> dimensions = statsEligibility.validateGroupByDimensions(
                 request,
                 getStatsFieldRegistry(),
-                properties.maxBuckets()
+                properties.maxBuckets(),
+                properties.maxDimensions(),
+                properties.maxCells(),
+                properties.maxComparisonPeriodDays()
         );
         List<ResolvedStatsMetric> resolvedMetrics = resolveMetrics(request.effectiveMetrics(), "group-by");
-        GenericSpecification<E> specification = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
+        Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged()).effectiveSpecification();
+        ComparisonPeriodWindow window = resolveGroupByWindow(request, dimensions, properties.maxComparisonPeriodDays());
+        if (window != null) {
+            StatsFieldDescriptor periodDescriptor = resolveGroupByPeriodDescriptor(request, dimensions);
+            specification = specification.and(ComparisonPeriodSpecifications.forPeriod(
+                    periodDescriptor.keyPropertyPath(),
+                    window.from(),
+                    window.to(),
+                    window.timezone()
+            ));
+        }
         return statsQueryExecutor.executeGroupBy(
                 entityManager,
                 entityClass,
-                specification.spec(),
-                descriptor,
+                specification,
+                dimensions,
                 resolvedMetrics,
                 request,
-                properties.maxBuckets()
+                window,
+                properties.maxBuckets(),
+                properties.maxCells()
         );
+    }
+
+    private ComparisonPeriodWindow resolveGroupByWindow(
+            GroupByStatsRequest<FilterDTO> request,
+            List<ResolvedStatsDimension> dimensions,
+            int maxPeriodDays
+    ) {
+        if (!request.hasTemporalWindow()) {
+            return null;
+        }
+        if (request.periodPreset() != null) {
+            ResolvedComparisonPeriod resolved = new ComparisonPeriodResolver(
+                    statsClock == null ? Clock.systemUTC() : statsClock
+            ).resolve(new ComparisonPeriodRequest(
+                    request.periodPreset(),
+                    null,
+                    null,
+                    request.timezone(),
+                    ComparisonPeriodMode.PREVIOUS_ALIGNED
+            ));
+            long days = java.time.temporal.ChronoUnit.DAYS.between(resolved.currentFrom(), resolved.currentTo()) + 1;
+            if (days > maxPeriodDays) {
+                throw new IllegalArgumentException("Maximum stats period exceeded: " + maxPeriodDays + " days.");
+            }
+            return new ComparisonPeriodWindow(resolved.currentFrom(), resolved.currentTo(), resolved.timezone());
+        }
+        java.time.ZoneId zone = java.time.ZoneId.of(request.timezone().trim());
+        long days = java.time.temporal.ChronoUnit.DAYS.between(request.from(), request.to()) + 1;
+        if (days > maxPeriodDays) {
+            throw new IllegalArgumentException("Maximum stats period exceeded: " + maxPeriodDays + " days.");
+        }
+        return new ComparisonPeriodWindow(request.from(), request.to(), zone.getId());
+    }
+
+    private StatsFieldDescriptor resolveGroupByPeriodDescriptor(
+            GroupByStatsRequest<FilterDTO> request,
+            List<ResolvedStatsDimension> dimensions
+    ) {
+        if (request.periodField() != null && !request.periodField().isBlank()) {
+            return getStatsFieldRegistry().resolve(request.periodField().trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Stats period field is not allowed: " + request.periodField()));
+        }
+        return dimensions.stream()
+                .map(ResolvedStatsDimension::descriptor)
+                .filter(StatsFieldDescriptor::timeSeriesEligible)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Stats group-by with temporal window requires a temporal dimension or explicit periodField."
+                ));
     }
 
     @Override
@@ -539,11 +608,11 @@ public abstract class AbstractBaseQueryResourceService<
                 properties.maxSeriesPoints()
         );
         List<ResolvedStatsMetric> resolvedMetrics = resolveMetrics(request.effectiveMetrics(), "time-series");
-        GenericSpecification<E> specification = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
+        Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged()).effectiveSpecification();
         return statsQueryExecutor.executeTimeSeries(
                 entityManager,
                 entityClass,
-                specification.spec(),
+                specification,
                 descriptor,
                 resolvedMetrics,
                 request,
@@ -568,11 +637,11 @@ public abstract class AbstractBaseQueryResourceService<
         StatsFieldDescriptor metricDescriptor = request.mode() == org.praxisplatform.uischema.stats.DistributionMode.TERMS
                 ? statsEligibility.resolveMetricField(request.metric(), getStatsFieldRegistry(), "distribution")
                 : null;
-        GenericSpecification<E> specification = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
+        Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged()).effectiveSpecification();
         return statsQueryExecutor.executeDistribution(
                 entityManager,
                 entityClass,
-                specification.spec(),
+                specification,
                 descriptor,
                 metricDescriptor,
                 request,
@@ -596,17 +665,17 @@ public abstract class AbstractBaseQueryResourceService<
             throw new IllegalArgumentException("Maximum comparison period exceeded: " + properties.maxComparisonPeriodDays() + " days.");
         }
         List<ResolvedStatsMetric> metrics = resolveMetrics(request.metrics(), "comparison");
-        GenericSpecification<E> base = getSpecificationsBuilder().buildSpecification(request.filter(), Pageable.unpaged());
+        Specification<E> baseSpec = resolveResourceFilterQuery(request.filter(), Pageable.unpaged()).effectiveSpecification();
         int candidateLimit = properties.maxComparisonCandidates();
         GroupByStatsRequest<FilterDTO> groupRequest = new GroupByStatsRequest<>(
                 request.filter(), request.field(), request.metrics().get(0), candidateLimit + 1,
                 StatsBucketOrder.KEY_ASC, request.metrics()
         );
         GroupByStatsResponse current = statsQueryExecutor.executeGroupBy(entityManager, entityClass,
-                base.spec().and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.currentFrom(), period.currentTo(), period.timezone())),
+                baseSpec.and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.currentFrom(), period.currentTo(), period.timezone())),
                 descriptor, metrics, groupRequest, candidateLimit + 1);
         GroupByStatsResponse previous = statsQueryExecutor.executeGroupBy(entityManager, entityClass,
-                base.spec().and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.previousFrom(), period.previousTo(), period.timezone())),
+                baseSpec.and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.previousFrom(), period.previousTo(), period.timezone())),
                 descriptor, metrics, groupRequest, candidateLimit + 1);
         if (current.buckets().size() > candidateLimit || previous.buckets().size() > candidateLimit) {
             throw new IllegalArgumentException("Comparison candidate limit exceeded: " + candidateLimit);
@@ -800,7 +869,7 @@ public abstract class AbstractBaseQueryResourceService<
 
     private ResourceFilterQuery<E> resolveResourceFilterQuery(FilterDTO filter, Pageable pageable) {
         Pageable sortedPageable = pageable;
-        if (!pageable.getSort().isSorted()) {
+        if (pageable.isPaged() && !pageable.getSort().isSorted()) {
             sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), getDefaultSort());
         }
 

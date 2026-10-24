@@ -17,6 +17,7 @@ import java.util.List;
  * @param distributionTermsEligible indica se o campo pode ser bucket de distribuicao por termos
  * @param distributionHistogramEligible indica se o campo pode ser histograma
  * @param metricFieldEligible indica se o campo pode ser metric.field
+ * @param supportedExtractions extracoes de dimensao aceitas para o campo em group-by
  */
 public record StatsFieldCapability(
         String field,
@@ -28,12 +29,43 @@ public record StatsFieldCapability(
         boolean timeSeriesEligible,
         boolean distributionTermsEligible,
         boolean distributionHistogramEligible,
-        boolean metricFieldEligible
+        boolean metricFieldEligible,
+        List<String> supportedExtractions
 ) {
 
     public StatsFieldCapability {
         metrics = metrics == null ? List.of() : List.copyOf(metrics);
         modes = modes == null ? List.of() : List.copyOf(modes);
+        supportedExtractions = supportedExtractions == null
+                ? defaultExtractions(groupByEligible, timeSeriesEligible)
+                : List.copyOf(supportedExtractions);
+    }
+
+    public StatsFieldCapability(
+            String field,
+            String label,
+            boolean keyAndLabelDistinct,
+            List<String> metrics,
+            List<String> modes,
+            boolean groupByEligible,
+            boolean timeSeriesEligible,
+            boolean distributionTermsEligible,
+            boolean distributionHistogramEligible,
+            boolean metricFieldEligible
+    ) {
+        this(
+                field,
+                label,
+                keyAndLabelDistinct,
+                metrics,
+                modes,
+                groupByEligible,
+                timeSeriesEligible,
+                distributionTermsEligible,
+                distributionHistogramEligible,
+                metricFieldEligible,
+                defaultExtractions(groupByEligible, timeSeriesEligible)
+        );
     }
 
     public static StatsFieldCapability from(StatsFieldDescriptor descriptor) {
@@ -53,8 +85,20 @@ public record StatsFieldCapability(
                 descriptor.timeSeriesEligible(),
                 descriptor.distributionTermsEligible(),
                 descriptor.distributionHistogramEligible(),
-                descriptor.metricFieldEligible()
+                descriptor.metricFieldEligible(),
+                defaultExtractions(descriptor.groupByEligible(), descriptor.timeSeriesEligible())
         );
+    }
+
+    private static List<String> defaultExtractions(boolean groupByEligible, boolean timeSeriesEligible) {
+        List<String> extractions = new ArrayList<>();
+        if (groupByEligible) {
+            extractions.add(StatsDimensionExtraction.NONE.name());
+        }
+        if (timeSeriesEligible) {
+            extractions.addAll(StatsDimensionExtraction.allTemporalExtractionNames());
+        }
+        return List.copyOf(extractions);
     }
 
     private static List<String> modes(StatsFieldDescriptor descriptor) {

@@ -260,6 +260,51 @@ class UiAnalyticsOpenApiCustomizerTest {
         );
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void mapsMultiDimensionalCrossTabProjectionWithExtractionsAndDefaults() throws Exception {
+        UiAnalytics annotation = MultiDimensionalMatrixController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+
+        Map<String, Object> analytics = new UiAnalyticsAnnotationMapper()
+                .toXUiAnalytics(annotation, "/reports/stats/group-by");
+        Map<String, Object> projection = ((java.util.List<Map<String, Object>>) analytics.get("projections")).get(0);
+        Map<String, Object> bindings = (Map<String, Object>) projection.get("bindings");
+        Map<String, Object> primaryDim = (Map<String, Object>) bindings.get("primaryDimension");
+        Map<String, Object> secondaryDim = (Map<String, Object>) bindings.get("secondaryDimension");
+        Map<String, Object> defaults = (Map<String, Object>) projection.get("defaults");
+
+        assertEquals("occurredAt", primaryDim.get("field"));
+        assertEquals("DAY_OF_WEEK", primaryDim.get("extraction"));
+        assertEquals("weekday", primaryDim.get("alias"));
+        assertEquals("occurredWeekday", primaryDim.get("keyFilterField"));
+
+        assertEquals("occurredAt", secondaryDim.get("field"));
+        assertEquals("HOUR_OF_DAY", secondaryDim.get("extraction"));
+        assertEquals("hour", secondaryDim.get("alias"));
+        assertEquals("occurredHour", secondaryDim.get("keyFilterField"));
+
+        assertEquals("America/Sao_Paulo", defaults.get("timezone"));
+        assertEquals("LAST_30_DAYS", defaults.get("periodPreset"));
+        assertEquals(true, defaults.get("fillGaps"));
+        assertEquals(168, defaults.get("limit"));
+    }
+
+    @Test
+    void rejectsCrossFilterWhenSecondaryDimensionMissesKeyFilterField() throws Exception {
+        UiAnalytics annotation = InvalidSecondaryCrossFilterController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(annotation, "/reports/stats/group-by")
+        );
+        assertEquals(
+                "Analytics projections with crossFilter=true and secondaryDimension require secondaryDimension.keyFilterField.",
+                error.getMessage()
+        );
+    }
+
     static class SampleController {
 
         @PostMapping("/reports/stats/group-by")
@@ -539,6 +584,68 @@ class UiAnalyticsOpenApiCustomizerTest {
                 }
         )
         public void comparison() {
+        }
+    }
+
+    static class MultiDimensionalMatrixController {
+
+        @PostMapping("/reports/stats/group-by")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "operational-rhythm-matrix",
+                        intent = AnalyticsIntent.DISTRIBUTION,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(
+                                field = "occurredAt",
+                                extraction = "DAY_OF_WEEK",
+                                alias = "weekday",
+                                role = "time-cycle",
+                                label = "Dia da semana",
+                                keyFilterField = "occurredWeekday"
+                        ),
+                        secondaryDimension = @AnalyticsDimensionBinding(
+                                field = "occurredAt",
+                                extraction = "HOUR_OF_DAY",
+                                alias = "hour",
+                                role = "time-cycle",
+                                label = "Hora do dia",
+                                keyFilterField = "occurredHour"
+                        ),
+                        primaryMetrics = {
+                                @AnalyticsMetricBinding(field = "id", aggregation = "count", label = "Volume"),
+                                @AnalyticsMetricBinding(field = "id", aggregation = "avg-per-cycle-occurrence", label = "Media por ciclo")
+                        },
+                        defaultTimezone = "America/Sao_Paulo",
+                        defaultPeriodPreset = "LAST_30_DAYS",
+                        defaultFillGaps = true,
+                        defaultLimit = 168,
+                        crossFilter = true
+                )
+        )
+        public void groupBy() {
+        }
+    }
+
+    static class InvalidSecondaryCrossFilterController {
+
+        @PostMapping("/reports/stats/group-by")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "invalid-secondary-cross-filter",
+                        intent = AnalyticsIntent.DISTRIBUTION,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(
+                                field = "department",
+                                keyFilterField = "departmentId"
+                        ),
+                        secondaryDimension = @AnalyticsDimensionBinding(
+                                field = "status"
+                        ),
+                        primaryMetrics = @AnalyticsMetricBinding(field = "id", aggregation = "count"),
+                        crossFilter = true
+                )
+        )
+        public void groupBy() {
         }
     }
 }
