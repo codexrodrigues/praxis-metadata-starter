@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.springframework.web.server.ResponseStatusException;
@@ -62,6 +64,45 @@ class FilteredSchemaProjectionTest {
         var changed = resolve(document, "/items/{id}/preview", "get", "response", null, null);
         assertEquals(first.reference(), changed.reference());
         assertNotEquals(first.evidence(), changed.evidence(), "UI selection evidence, not just its URL, must be fingerprinted");
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "\"string\"|itemCode", "[\"null\",\"string\"]|itemCode",
+            "[\"integer\",\"string\"]|id", "[\"null\"]|id",
+            "[]|id", "[\"string\",3]|id"
+    })
+    void canonicalSnapshotIdentifierUsesOnlyOneNonNullScalarType(String typeJson, String expectedId) throws Exception {
+        JsonNode document = document();
+        JsonNode type = mapper.readTree(typeJson);
+        ((ObjectNode) document.at("/components/schemas/Item/properties/itemCode")).set("type", type);
+
+        var resolved = resolve(document, "/items/{id}", "get", "response", null, null);
+
+        assertEquals(references.resolve("/items/{id}", "get", "response", false,
+                null, null, expectedId, false), resolved.reference());
+        assertEquals(type, resolved.evidence().at("/schema/properties/itemCode/type"));
+        assertEquals(type, document.at("/components/schemas/Item/properties/itemCode/type"));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {"\"array\"", "[\"array\"]", "[\"null\",\"array\"]"})
+    void wrappedCollectionSelectionPreservesTheOriginalDialectAndDomainComponent(String typeJson) throws Exception {
+        JsonNode document = document();
+        JsonNode type = mapper.readTree(typeJson);
+        ObjectNode data = (ObjectNode) document.at("/components/schemas/RestApiResponseItem/properties/data");
+        data.remove("$ref");
+        data.set("type", type);
+        data.putObject("items").put("$ref", "#/components/schemas/Item");
+
+        var selected = projection.select(document, "/items/{id}", "get", "response");
+        var resolved = resolve(document, "/items/{id}", "get", "response", null, null);
+
+        assertEquals("Item", selected.schemaName());
+        assertEquals(document.at("/components/schemas/Item"), selected.schema());
+        assertEquals(selected.schema(), resolved.evidence().path("schema"));
+        assertEquals(type, data.path("type"));
+        assertEquals("#/components/schemas/Item", data.at("/items/$ref").asText());
     }
 
     private FilteredSchemaProjection.Resolved resolve(JsonNode document, String path, String method, String type,

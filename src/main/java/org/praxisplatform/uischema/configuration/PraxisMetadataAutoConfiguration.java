@@ -293,21 +293,39 @@ public class PraxisMetadataAutoConfiguration {
         schemas.put("RestApiLinks", linksSchema);
     }
 
+    /** Reads a unique non-null type without coupling customizers to Swagger's concrete schema classes. */
+    private String singleNonNullSchemaType(Schema<?> schema) {
+        if (schema == null) return null;
+        String legacyType = schema.getType();
+        Set<String> types = schema.getTypes();
+        if (types == null || types.isEmpty()) {
+            return legacyType == null || legacyType.isBlank() || "null".equals(legacyType) ? null : legacyType;
+        }
+        String resolved = null;
+        for (String type : types) {
+            if (type == null || type.isBlank()) return null;
+            if ("null".equals(type)) continue;
+            if (resolved != null && !resolved.equals(type)) return null;
+            resolved = type;
+        }
+        if (resolved == null || (legacyType != null && !legacyType.isBlank()
+                && !"null".equals(legacyType) && !legacyType.equals(resolved))) return null;
+        return resolved;
+    }
+
     private void applyDefaultDecimalFormat(Schema<?> schema, Set<Schema<?>> visited) {
         if (schema == null || !visited.add(schema)) {
             return;
         }
 
-        if ("number".equals(schema.getType()) && (schema.getFormat() == null || schema.getFormat().isBlank())) {
+        if ("number".equals(singleNonNullSchemaType(schema)) && (schema.getFormat() == null || schema.getFormat().isBlank())) {
             schema.setFormat("decimal");
         }
 
         if (schema.getProperties() != null) {
             schema.getProperties().values().forEach(property -> applyDefaultDecimalFormat(property, visited));
         }
-        if (schema instanceof ArraySchema arraySchema) {
-            applyDefaultDecimalFormat(arraySchema.getItems(), visited);
-        }
+        applyDefaultDecimalFormat(schema.getItems(), visited);
         Object additionalProperties = schema.getAdditionalProperties();
         if (additionalProperties instanceof Schema<?> additionalPropertiesSchema) {
             applyDefaultDecimalFormat(additionalPropertiesSchema, visited);
@@ -338,17 +356,17 @@ public class PraxisMetadataAutoConfiguration {
         }
 
         Schema<?> resolvedArray = dereferenceSchema(schemas, arrayCandidate);
-        if (!(resolvedArray instanceof ArraySchema arraySchema) || arraySchema.getItems() == null) {
+        if (!"array".equals(singleNonNullSchemaType(resolvedArray)) || resolvedArray.getItems() == null) {
             return;
         }
 
-        Schema<?> resolvedItems = dereferenceSchema(schemas, arraySchema.getItems());
-        if (!isGenericRestApiResourceRef(arraySchema.getItems(), resolvedItems)) {
+        Schema<?> resolvedItems = dereferenceSchema(schemas, resolvedArray.getItems());
+        if (!isGenericRestApiResourceRef(resolvedArray.getItems(), resolvedItems)) {
             return;
         }
 
         String resourceSchemaName = ensureConcreteRestApiResourceSchema(schemas, dtoSchemaName);
-        arraySchema.setItems(refSchema(resourceSchemaName));
+        resolvedArray.setItems(refSchema(resourceSchemaName));
     }
 
     private Schema<?> dereferenceSchema(Map<String, Schema> schemas, Schema<?> schema) {

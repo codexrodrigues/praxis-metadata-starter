@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.schema;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -215,14 +216,32 @@ public final class FilteredSchemaProjection {
         return candidate;
     }
 
+    /** Reads one non-null type from either OpenAPI dialect without rewriting the published value. */
+    private String singleNonNullSchemaType(Object typeValue) {
+        if (typeValue instanceof JsonNode node) {
+            return singleNonNullSchemaType(objectMapper.convertValue(node, Object.class));
+        }
+        if (typeValue instanceof String type) {
+            return type.isBlank() || "null".equals(type) ? null : type;
+        }
+        if (!(typeValue instanceof Collection<?> types)) {
+            return null;
+        }
+        String resolved = null;
+        for (Object value : types) {
+            if (!(value instanceof String type) || type.isBlank()) return null;
+            if ("null".equals(type)) continue;
+            if (resolved != null && !resolved.equals(type)) return null;
+            resolved = type;
+        }
+        return resolved;
+    }
+
     private boolean isScalarIdentifierProperty(Object propertyValue) {
         if (!(propertyValue instanceof Map<?, ?> property)) {
             return false;
         }
-        Object typeValue = property.get("type");
-        if (!(typeValue instanceof String type)) {
-            return false;
-        }
+        String type = singleNonNullSchemaType(property.get("type"));
         return "integer".equals(type) || "number".equals(type) || "string".equals(type);
     }
 
@@ -392,7 +411,7 @@ public final class FilteredSchemaProjection {
         JsonNode dataSchema = wrapperSchema.path("properties").path("data");
 
         // Verifica se data e um array
-        if (dataSchema.has("type") && "array".equals(dataSchema.path("type").asText()) && dataSchema.has("items") && dataSchema.path("items").has("$ref")) {
+        if (dataSchema.has("type") && "array".equals(singleNonNullSchemaType(dataSchema.path("type"))) && dataSchema.has("items") && dataSchema.path("items").has("$ref")) {
             // E um array, extrai o tipo dos items
             return extractSchemaNameFromRef(dataSchema.path("items").path("$ref").asText());
         }
@@ -409,7 +428,7 @@ public final class FilteredSchemaProjection {
             // Verifica se data e um objeto ou array
             if (!dataProperty.isMissingNode()) {
                 // Se data e um array
-                if (dataProperty.has("type") && "array".equals(dataProperty.path("type").asText())) {
+                if (dataProperty.has("type") && "array".equals(singleNonNullSchemaType(dataProperty.path("type")))) {
                     // Verifica se o array tem referencia para o tipo dos itens
                     if (dataProperty.has("items") && dataProperty.path("items").has("$ref")) {
                         String itemRef = dataProperty.path("items").path("$ref").asText();

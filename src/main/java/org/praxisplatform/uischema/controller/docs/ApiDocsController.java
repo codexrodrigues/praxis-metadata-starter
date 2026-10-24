@@ -950,12 +950,32 @@ public class ApiDocsController {
         return new FilteredSchemaProjection(objectMapper).hasSchemaProperty(schemaMap, prop);
     }
 
+    /** Reads one non-null type from either OpenAPI dialect without rewriting the published value. */
+    private String singleNonNullSchemaType(Object typeValue) {
+        if (typeValue instanceof JsonNode node) {
+            return singleNonNullSchemaType(objectMapper.convertValue(node, Object.class));
+        }
+        if (typeValue instanceof String type) {
+            return type.isBlank() || "null".equals(type) ? null : type;
+        }
+        if (!(typeValue instanceof Collection<?> types)) {
+            return null;
+        }
+        String resolved = null;
+        for (Object value : types) {
+            if (!(value instanceof String type) || type.isBlank()) return null;
+            if ("null".equals(type)) continue;
+            if (resolved != null && !resolved.equals(type)) return null;
+            resolved = type;
+        }
+        return resolved;
+    }
+
     private void normalizeEmptyObjectProperties(Map<String, Object> schemaMap) {
         if (schemaMap == null || schemaMap.containsKey(PROPERTIES)) {
             return;
         }
-        Object type = schemaMap.get("type");
-        if ("object".equals(type)) {
+        if ("object".equals(singleNonNullSchemaType(schemaMap.get("type")))) {
             schemaMap.put(PROPERTIES, new LinkedHashMap<>());
         }
     }
@@ -1128,7 +1148,9 @@ public class ApiDocsController {
         }
 
         Map<String, Object> itemSchema = new LinkedHashMap<>();
-        itemSchema.put("type", componentSchema.path("type").asText("object"));
+        itemSchema.put("type", componentSchema.has("type")
+                ? objectMapper.convertValue(componentSchema.get("type"), Object.class)
+                : "object");
         itemSchema.put("fields", fields);
         return itemSchema;
     }
@@ -1493,7 +1515,7 @@ public class ApiDocsController {
         if (schemaNode instanceof Map<?, ?> rawSchemaNode) {
             Map<String, Object> propSchema = (Map<String, Object>) rawSchemaNode;
 
-            String type = (String) propSchema.get("type");
+            String type = singleNonNullSchemaType(propSchema.get("type"));
             if ("array".equals(type)) {
                 Object rawItems = propSchema.get(ITEMS);
                 if (rawItems instanceof Map<?, ?> itemsSchemaMap) {

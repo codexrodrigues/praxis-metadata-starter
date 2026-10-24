@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(
         name = "EmptyWorkflowActionRequest",
+        type = "object",
+        types = {"object"},
         description = "Comando sem campos de entrada; a action usa apenas o contexto canonico do path, como o identificador do recurso."
 )
 public class EmptyWorkflowActionRequest {
