@@ -211,6 +211,35 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    void getFilteredSchemaMaterializesEmptyObjectWithoutInventedInputFields() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String emptyRequestDocument = openApiDoc.replace(
+                "\"properties\": {\"name\": {\"type\": \"string\"}}", "\"description\": \"No input fields\"");
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(emptyRequestDocument, MediaType.APPLICATION_JSON));
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        try {
+            Map<String, Object> body = controller.getFilteredSchema(
+                    "/users", "post", false, "request", null, null, java.util.Locale.ENGLISH
+            ).getBody();
+
+            assertNotNull(body);
+            assertEquals("object", body.get("type"));
+            assertEquals(Map.of(), body.get("properties"));
+            assertFalse(body.containsKey("required"));
+            assertFalse(body.containsKey("additionalProperties"));
+            server.verify();
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    @Test
     void getFilteredSchemaPublishesOnlyCompilerResolvedReactiveDeterminations() throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
         ReactiveDeterminationMetadataCompiler compiler = mock(ReactiveDeterminationMetadataCompiler.class);

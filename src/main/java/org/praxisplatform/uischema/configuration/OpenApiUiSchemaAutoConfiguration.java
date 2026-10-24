@@ -105,6 +105,7 @@ import org.springframework.aop.support.AopUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springdoc.core.models.GroupedOpenApi;
+import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.praxisplatform.uischema.validation.ExpressionValidationProperties;
 import org.praxisplatform.uischema.validation.PraxisExpressionStaticValidator;
 import org.praxisplatform.uischema.validation.PraxisExpressionValidationOpenApiCustomizer;
@@ -170,8 +171,11 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean
     // Springdoc prepends converters: register this terminal resolver before its decorators.
     @Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
-    public CustomOpenApiResolver modelResolver(ObjectMapper mapper) {
-        return new CustomOpenApiResolver(mapper);
+    public CustomOpenApiResolver modelResolver(
+            ObjectMapper mapper, ObjectProvider<SpringDocConfigProperties> springDocConfigProperties) {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(mapper);
+        springDocConfigProperties.ifAvailable(properties -> resolver.setOpenapi31(properties.isOpenapi31()));
+        return resolver;
     }
 
     @Bean

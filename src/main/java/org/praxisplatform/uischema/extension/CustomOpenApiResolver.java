@@ -73,7 +73,11 @@ public class CustomOpenApiResolver extends ModelResolver {
     @Override
     public Schema resolve(io.swagger.v3.core.converter.AnnotatedType type, io.swagger.v3.core.converter.ModelConverterContext context, java.util.Iterator<io.swagger.v3.core.converter.ModelConverter> next) {
         Schema schema = super.resolve(type, context, next);
-        propagateOptionsInSchema(schema, context, java.util.Collections.newSetFromMap(new IdentityHashMap<>()));
+        // Swagger applies property-level schema siblings after resolving this intermediate type.
+        // Propagate from the final model instead, so an eventual union cannot inherit an array control.
+        if (!type.isSchemaProperty()) {
+            propagateOptionsInSchema(schema, context, java.util.Collections.newSetFromMap(new IdentityHashMap<>()));
+        }
         return schema;
     }
 
@@ -125,10 +129,18 @@ public class CustomOpenApiResolver extends ModelResolver {
             return;
         }
 
-        if (schema instanceof ArraySchema arraySchema) {
-            Schema<?> items = arraySchema.getItems();
+        String schemaRef = schema.get$ref();
+        String localPrefix = "#/components/schemas/";
+        if (schemaRef != null && schemaRef.startsWith(localPrefix) && context != null
+                && context.getDefinedModels() != null) {
+            Schema<?> defined = context.getDefinedModels().get(schemaRef.substring(localPrefix.length()));
+            propagateOptionsInSchema(defined, context, visited);
+        }
+
+        if ("array".equals(schemaType(schema))) {
+            Schema<?> items = schema.getItems();
             if (items != null) {
-                Map<String, Object> parentUi = getExistingUIExtensionMap(arraySchema);
+                Map<String, Object> parentUi = getExistingUIExtensionMap(schema);
                 if (parentUi == null) {
                     parentUi = java.util.Collections.emptyMap();
                 }
@@ -151,13 +163,13 @@ public class CustomOpenApiResolver extends ModelResolver {
                         enumValues = targetSchema.getEnum();
                     }
                     if (enumValues != null) {
-                        parentUi = getUIExtensionMap(arraySchema);
+                        parentUi = getUIExtensionMap(schema);
                         OpenApiUiUtils.populateUiOptionsFromEnum(parentUi, enumValues, this._mapper);
                         applyArrayEnumUiContract(parentUi, enumOptionCount(enumValues));
                     } else {
                         Map<String, Object> childUi = getExistingUIExtensionMap(targetSchema);
                         if (childUi != null && childUi.containsKey("options")) {
-                            parentUi = getUIExtensionMap(arraySchema);
+                            parentUi = getUIExtensionMap(schema);
                             parentUi.put("options", childUi.get("options"));
                         }
                     }
@@ -196,7 +208,7 @@ public class CustomOpenApiResolver extends ModelResolver {
 
             // Se o pai for um array e o filho (este schema de item) tiver opções geradas,
             // propaga as opções para o pai para que componentes como multiselect tenham acesso.
-            if (parent instanceof ArraySchema) {
+            if ("array".equals(schemaType(parent))) {
                 Map<String, Object> parentUi = getUIExtensionMap(parent);
                 Map<String, Object> childUi = getUIExtensionMap(property);
                 if (childUi.containsKey("options") && !parentUi.containsKey("options")) {
@@ -416,7 +428,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             OpenApiUiUtils.populateUiReadOnly(uiExtension, property.getReadOnly()); // Already uses util, ensures it uses updated one
 
             // ControlType e DataType baseados no OpenAPI Schema - priorizar sobre valores padrão da anotação
-            String openApiType = property.getType();
+            String openApiType = schemaType(property);
             String openApiFormat = property.getFormat();
             boolean hasEnum = property.getEnum() != null && !property.getEnum().isEmpty();
 
@@ -543,7 +555,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             }
             // Adicionar NUMERIC_FORMAT se o formato for "percent"
             // This specific logic might remain if not covered by a general numeric format population
-            if ("number".equals(property.getType()) && "percent".equals(property.getFormat())) {
+            if ("number".equals(schemaType(property)) && "percent".equals(property.getFormat())) {
                 if (!uiExtension.containsKey(FieldConfigProperties.NUMERIC_FORMAT.getValue())) {
                     uiExtension.put(FieldConfigProperties.NUMERIC_FORMAT.getValue(), NumberFormatStyle.PERCENT.getValue());
                 }
@@ -997,6 +1009,29 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
     }
 
+    /** Reads one effective non-null type without rewriting either OpenAPI dialect. */
+    private String schemaType(Schema<?> schema) {
+        if (schema == null) return null;
+        String legacyType = asTrimmedString(schema.getType());
+        Set<String> types = schema.getTypes();
+        if (types == null || types.isEmpty()) {
+            return "null".equals(legacyType) ? null : legacyType;
+        }
+        String effectiveType = null;
+        for (String type : types) {
+            String candidate = asTrimmedString(type);
+            if (candidate == null) return null;
+            if ("null".equals(candidate)) continue;
+            if (effectiveType != null && !effectiveType.equals(candidate)) return null;
+            effectiveType = candidate;
+        }
+        if (effectiveType == null || (legacyType != null && !"null".equals(legacyType)
+                && !legacyType.equals(effectiveType))) {
+            return null;
+        }
+        return effectiveType;
+    }
+
     /**
      * ETAPA 2: Detecção AUTOMÁTICA baseada no OpenAPI Schema
      * Esta é nossa lógica principal de detecção inteligente
@@ -1006,7 +1041,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             Map<String, Object> uiExtension,
             String fieldName,
             Annotation[] annotations) {
-        String openApiType = property.getType();
+        String openApiType = schemaType(property);
         String openApiFormat = property.getFormat();
         boolean hasEnum = property.getEnum() != null && !property.getEnum().isEmpty();
 
@@ -1124,7 +1159,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                 && isRangeOperation(filterable.operation())
                 && "array".equals(openApiType)
                 && property.getItems() != null) {
-            String itemType = property.getItems().getType();
+            String itemType = schemaType(property.getItems());
             String itemFormat = property.getItems().getFormat();
             if ("string".equals(itemType)) {
                 if ("date".equals(itemFormat)) {
@@ -1196,7 +1231,7 @@ public class CustomOpenApiResolver extends ModelResolver {
 
     @SuppressWarnings("unchecked")
     private void publishArrayContract(Schema<?> property, Map<String, Object> uiExtension) {
-        if (property == null || !"array".equals(property.getType())) {
+        if (property == null || !"array".equals(schemaType(property))) {
             return;
         }
 
@@ -1237,7 +1272,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             return false;
         }
         Schema<?> items = property.getItems();
-        return "object".equals(items.getType()) || itemSchemaRef(property) != null;
+        return "object".equals(schemaType(items)) || itemSchemaRef(property) != null;
     }
 
     private String itemSchemaRef(Schema<?> property) {
@@ -1280,10 +1315,12 @@ public class CustomOpenApiResolver extends ModelResolver {
         boolean requireTwoBounds = operation == Filterable.FilterOperation.BETWEEN_EXCLUSIVE;
 
         ArraySchema arrayVariant = new ArraySchema();
+        inheritGeneratedSchemaDialect(arrayVariant, property, "array");
         Schema<?> arrayItem = copyRangeItemSchema(property.getItems());
         applyArrayRangeBoundContract(arrayVariant, arrayItem, requireTwoBounds);
 
         ObjectSchema objectVariant = new ObjectSchema();
+        inheritGeneratedSchemaDialect(objectVariant, property, "object");
         Map<String, Schema> properties = new LinkedHashMap<>();
         Schema<?> lowerBoundSchema;
         Schema<?> upperBoundSchema;
@@ -1292,8 +1329,10 @@ public class CustomOpenApiResolver extends ModelResolver {
 
         if (isDateLike) {
             StringSchema lower = new StringSchema();
+            inheritGeneratedSchemaDialect(lower, property.getItems(), "string");
             lower.setFormat(itemFormat);
             StringSchema upper = new StringSchema();
+            inheritGeneratedSchemaDialect(upper, property.getItems(), "string");
             upper.setFormat(itemFormat);
             markRangeBoundNullable(lower, !requireTwoBounds);
             markRangeBoundNullable(upper, !requireTwoBounds);
@@ -1314,7 +1353,9 @@ public class CustomOpenApiResolver extends ModelResolver {
                 upperBoundName = "maxPrice";
                 properties.put(lowerBoundName, lower);
                 properties.put(upperBoundName, upper);
-                properties.put("currency", new StringSchema());
+                StringSchema currency = new StringSchema();
+                inheritGeneratedSchemaDialect(currency, property, "string");
+                properties.put("currency", currency);
             } else {
                 lowerBoundName = "min";
                 upperBoundName = "max";
@@ -1341,6 +1382,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         property.setOneOf(oneOf);
         // Remove tipo base fixo para que o oneOf permita array e objeto no mesmo contrato.
         property.setType(null);
+        property.setTypes(null);
         property.setFormat(null);
         property.setItems(null);
     }
@@ -1351,6 +1393,10 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
         Schema<?> copy = new Schema<>();
         copy.setType(source.getType());
+        copy.setSpecVersion(source.getSpecVersion());
+        if (source.getTypes() != null) {
+            copy.setTypes(new java.util.LinkedHashSet<>(source.getTypes()));
+        }
         copy.setFormat(source.getFormat());
         copy.setPattern(source.getPattern());
         copy.setMinimum(source.getMinimum());
@@ -1365,6 +1411,20 @@ public class CustomOpenApiResolver extends ModelResolver {
             return;
         }
         schema.setNullable(allowNull);
+        if (schema.getSpecVersion() == io.swagger.v3.oas.models.SpecVersion.V31 && schema.getTypes() != null) {
+            Set<String> types = new java.util.LinkedHashSet<>(schema.getTypes());
+            if (allowNull) types.add("null");
+            else types.remove("null");
+            schema.setTypes(types);
+        }
+    }
+
+    /** Generated range variants retain the source dialect, never coerce its input to legacy type. */
+    private void inheritGeneratedSchemaDialect(Schema<?> target, Schema<?> source, String type) {
+        target.setSpecVersion(source.getSpecVersion());
+        if (source.getSpecVersion() == io.swagger.v3.oas.models.SpecVersion.V31) {
+            target.setTypes(new java.util.LinkedHashSet<>(Set.of(type)));
+        }
     }
 
     private void applyArrayRangeBoundContract(
@@ -1392,6 +1452,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         arrayVariant.setMaxItems(2);
 
         ArraySchema oneNonNullBound = new ArraySchema();
+        inheritGeneratedSchemaDialect(oneNonNullBound, arrayVariant, "array");
         Schema<?> oneNonNullItem = copyRangeItemSchema(arrayItem);
         markRangeBoundNullable(oneNonNullItem, false);
         oneNonNullBound.setItems(oneNonNullItem);
@@ -1399,6 +1460,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         oneNonNullBound.setMaxItems(1);
 
         ArraySchema twoBounds = new ArraySchema();
+        inheritGeneratedSchemaDialect(twoBounds, arrayVariant, "array");
         Schema<?> twoBoundsItem = copyRangeItemSchema(arrayItem);
         markRangeBoundNullable(twoBoundsItem, true);
         twoBounds.setItems(twoBoundsItem);
@@ -1406,6 +1468,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         twoBounds.setMaxItems(2);
 
         ArraySchema allNullTwoBounds = new ArraySchema();
+        inheritGeneratedSchemaDialect(allNullTwoBounds, arrayVariant, "array");
         Schema<?> allNullItem = copyRangeItemSchema(arrayItem);
         markRangeBoundNullable(allNullItem, true);
         allNullTwoBounds.setItems(allNullItem);
@@ -1438,6 +1501,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         objectVariant.setMinProperties(1);
 
         ObjectSchema requiresLower = new ObjectSchema();
+        inheritGeneratedSchemaDialect(requiresLower, objectVariant, "object");
         Map<String, Schema> lowerProperties = new LinkedHashMap<>();
         Schema<?> nonNullLower = copyRangeItemSchema(lowerBoundSchema);
         markRangeBoundNullable(nonNullLower, false);
@@ -1446,6 +1510,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         requiresLower.setRequired(List.of(lowerBoundName));
 
         ObjectSchema requiresUpper = new ObjectSchema();
+        inheritGeneratedSchemaDialect(requiresUpper, objectVariant, "object");
         Map<String, Schema> upperProperties = new LinkedHashMap<>();
         Schema<?> nonNullUpper = copyRangeItemSchema(upperBoundSchema);
         markRangeBoundNullable(nonNullUpper, false);
@@ -1923,7 +1988,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             return null;
         }
 
-        String openApiType = property != null ? asTrimmedString(property.getType()) : null;
+        String openApiType = schemaType(property);
         if ("array".equalsIgnoreCase(openApiType) || "object".equalsIgnoreCase(openApiType)) {
             return null;
         }
