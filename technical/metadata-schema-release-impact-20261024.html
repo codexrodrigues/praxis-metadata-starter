@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Schema release impact: 28 shared metadata exclusions</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Schema release impact: 28 shared metadata
+exclusions</h1>
+</header>
+<h1 id="schema-release-impact-28-shared-metadata-exclusions">Schema
+release impact: 28 shared metadata exclusions</h1>
+<p>Read-only review against official178 and the six-runtime schema
+delta. No legacy suite PASS claimed.</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 23%" />
+<col style="width: 30%" />
+<col style="width: 23%" />
+<col style="width: 23%" />
+</colgroup>
+<thead>
+<tr>
+<th>Class</th>
+<th style="text-align: right;">Cases</th>
+<th>Concrete oracles and disposition</th>
+<th>Supporting proof / remaining gap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BulkActionSchemaProjectionHttpTest</td>
+<td style="text-align: right;">2</td>
+<td>Seven role-specific DTOs, request/bodyless roles, wrapper removal,
+canonical schema IDs/readOnly, resourceCode/explicit +ID, dynamic
+structural hashes and304. Mode30;
+ProposalView/ExecutionView/OrdinaryView use String IDs, scalar required
+resourceCode, Evaluation List<String>. No empty-action DTO, nullable
+type list or ambiguous enum collection in these local DTOs. Filtered
+projection string-type branch and explicit dimensions are
+unchanged.</td>
+<td>ApiDocsControllerUnionTypeTest; FilteredSchemaProjectionTest;
+ApiDocsControllerSchemaHashTest; Current-source real Quickstart Neon
+HTTP/boot/schema proof before release remains pending; do not mark
+legacy cases PASS.</td>
+</tr>
+<tr>
+<td>BulkConsumerArtifactIntegrationTest</td>
+<td style="text-align: right;">2</td>
+<td>Fresh committed Maven artifact identity, independent classpath,
+ordinary/runtime publication, seven bulk schema routes,
+HTTP/OpenAPI/action catalog and evidence hashes. Nested consumer
+explicitly forces OPENAPI_3_0 (ArtifactConsumerHttpTest:322), uses
+scalar/record and List<String> command payloads, no
+EmptyWorkflowActionRequest/enum collections. Artifact source/JAR hashes
+intentionally change dynamically; source custody and public source
+compatibility remain separate obligations, not claimed PASS by this
+exclusion.</td>
+<td>Staged artifact custody I plus new real Quickstart Neon HTTP before
+release; no formal replacement of the independent Maven consumer;
+Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS. Independent
+Maven-consumer execution is not supplied by staged-JAR custody I.</td>
+</tr>
+<tr>
+<td>BulkCrudOperationalCapabilityHttpTest</td>
+<td style="text-align: right;">1</td>
+<td>READY published snapshot reuse, CRUD/domain-command identities,
+exact writable/clearable fields, four modes, authorization, all seven UI
+references, live protocol and structural hash/304. Mode30; Update
+nullable String(note), Boolean(active), Integer(count); Selection.mode
+is a scalar enum, targets/changes are object arrays, not enum
+collections. New effective-type reads preserve legacy scalar branch; no
+options post-propagation change is selected by these DTOs.
+Runtime/publication/ACL/deadline code untouched.</td>
+<td>Factory/pipeline30; controller/schema hash; structural snapshot
+helpers; same-commit real host HTTP remains required separately;
+Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>BulkCrudStructuralOpenApiHttpTest</td>
+<td style="text-align: right;">1</td>
+<td>Inherited/overridden update binding, snake_case body properties,
+writable and clearable sets, filtered references/hashes/304 and PUT
+response. Mode30; <span class="citation"
+data-cites="Schema">@Schema</span>(nullable=true) is on String
+displayName; Boolean/Integer/Long scalar fields and List<String>
+evaluation. No31 type union or enum-array. Annotation/inheritance/name
+mapping and legacy nullable body contract are untouched.</td>
+<td>CustomOpenApiResolverSwaggerPipelineTest30;
+FilteredSchemaProjectionTest; controller/hash tests; Current-source real
+Quickstart Neon HTTP/boot/schema proof before release remains pending;
+do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>BulkOperationStructuralCompilerTest</td>
+<td style="text-align: right;">35</td>
+<td>All
+compiler/lifecycle/provider/publication/locking/defensive-copy/digest/schema-binding
+negatives and seven roles; mixed local JDBC fixtures retain their
+original nonexecuted disposition. No SpringBoot/ModelConverters
+bootstrap: context registers only MvcConfiguration and local
+controllers. Documents are supplied TestDocuments/LifecycleDocuments;
+effective-type reads observe legacy string object/scalar/array,
+scalar/explicit ID fallback. Nullable displayName union is schema
+content for snapshot hashing, not the candidate ID or wrapper type being
+inferred. New runtime branches (31 generation/enum final
+propagation/empty DTO) are not invoked.</td>
+<td>FilteredSchemaProjectionTest scalar/union cases; existing structural
+compiler unit coverage outside DB; not a replacement of lifecycle DB
+cases; Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>AbstractResourceControllerJpaWriteIntegrationTest</td>
+<td style="text-align: right;">21</td>
+<td>21 create/update/patch/delete/read/links/DTO/structured errors,
+flattened collection docs, exact request DTOs, filtered schemas,
+surfaces and capabilities. Mode30 from application.yaml. Local Employee
+DTOs have Long/String IDs and named fields, no
+EmptyWorkflowActionRequest or enum collection. Concrete ArraySchema30
+rewriting/decimal recursion preserve original behavior. Writes, version
+capture, JPA, availability and links are outside the source delta.</td>
+<td>CollectionDialectTest30; FilteredSchemaProjectionTest; factory/order
+tests; real host filtered/collection HTTP; Current-source real
+Quickstart Neon HTTP/boot/schema proof before release remains pending;
+do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>ActionCatalogE2ETest</td>
+<td style="text-align: right;">12</td>
+<td>Action metadata/scope, authority/state availability,
+unknown-ID/query failures, typed approve and bulk-approve mutation.
+Mode30; catalog and availability implementations unchanged, typed
+request DTOs carry scalar reason and List<Long> IDs; no empty-action or
+enum-array input. Schema URL construction remains unchanged.</td>
+<td>Action catalog units unchanged; factory/order tests address boot
+path without claiming this class ran; Current-source real Quickstart
+Neon HTTP/boot/schema proof before release remains pending; do not mark
+legacy cases PASS.</td>
+</tr>
+<tr>
+<td>BulkResourceOperationOpenApiHttpTest</td>
+<td style="text-align: right;">1</td>
+<td>Five lifecycle operation identities resolve to actual grouped paths
+and response schemas; binding identity is stable. Mode30; local
+lifecycle handlers return void/String-path IDs, not
+EmptyWorkflowActionRequest. Operation identity/annotation and generic
+lifecycle schema binding code is unchanged; no union/enum inference is
+selected.</td>
+<td>OpenApiCanonicalOperationResolverTest; factory/order tests;
+Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>CanonicalRequestSchemaHttpIntegrationTest</td>
+<td style="text-align: right;">2</td>
+<td>Real PUT handler/body binding, writable/clearable display-name,
+explicit V30 assertion, protected version, defensive cached document,
+filtered fields/ETag/hash. Test explicitly asserts SpecVersion.V30.
+UpdateBody contains nullable String and Integer version; string nullable
+declaration and property naming remain unchanged. No ambiguous
+enum-array declaration or empty-action command.</td>
+<td>ModelResolver factory30; pipeline30; filtered union
+scalar/controller/hash tests; real host request binding HTTP;
+Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>CapabilityConsistencyE2ETest</td>
+<td style="text-align: right;">6</td>
+<td>Dedicated catalogs, schema/capability structural support, readOnly
+resources, aggregate/item availability and HATEOAS consistency. Mode30;
+Employee/Payroll DTOs use scalar IDs and ordinary object/collection
+wrappers. Capability/catalog/availability business logic untouched; type
+representation fed to filtered projection is legacy string.</td>
+<td>FilteredSchemaProjectionTest; collection30; canonical capability
+units; real host HTTP; Current-source real Quickstart Neon
+HTTP/boot/schema proof before release remains pending; do not mark
+legacy cases PASS.</td>
+</tr>
+<tr>
+<td>CapabilityE2ETest</td>
+<td style="text-align: right;">7</td>
+<td>Capabilities/operations/scope/authorities/state/readOnly, nominal
+versus aggregate principal, unknown ID, repeat stability. Mode30;
+capability authority/state decision paths untouched; no affected DTO
+union or enum-array. ObjectProvider factory explicitly selects the same
+false mode; startup covered separately, not presumed.</td>
+<td>Canonical capability units and factory/order tests; Current-source
+real Quickstart Neon HTTP/boot/schema proof before release remains
+pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>CatalogDiscoveryE2ETest</td>
+<td style="text-align: right;">1</td>
+<td>Catalog resource keys/groups/endpoints and following every published
+schema URL. Mode30; catalog production unchanged. Following schemas uses
+scalar IDs/nonempty Employee/Department/Payroll DTOs and concrete
+ArraySchema30; none selects the new31/empty/enum-array branches.</td>
+<td>Controller/hash/projection scalar tests; actual host schema-link
+HTTP remains separate; Current-source real Quickstart Neon
+HTTP/boot/schema proof before release remains pending; do not mark
+legacy cases PASS.</td>
+</tr>
+<tr>
+<td>HateoasAndPayloadSizeE2ETest</td>
+<td style="text-align: right;">3</td>
+<td>HATEOAS toggle removes/preserves top-level and item links, read-only
+resource write-rel exclusions. Link generation and payload toggle code
+untouched. No schema-generation/filtered response body assertion; mode30
+bootstrap authority documented by effective properties and focused
+context tests.</td>
+<td>Factory/order tests plus unchanged link units; no replacement
+claimed; Current-source real Quickstart Neon HTTP/boot/schema proof
+before release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>HypermediaDiscoveryE2ETest</td>
+<td style="text-align: right;">5</td>
+<td>Follow collection/item/readOnly rels, proxy-safe links, related
+resource schema in parent group, UI variant references. Mode30;
+related-resource/document customizer and concreteArraySchema30 branch
+yield same domain item shapes; IDs are scalar. No ambiguous/nullable
+type list or enum collection. Proxy/link/availability paths
+unchanged.</td>
+<td>RelatedResourceResponseSchemaCustomizerTest;
+CollectionDialectTest30; controller/projection/hash tests; actual host
+related/collection HTTP; Current-source real Quickstart Neon
+HTTP/boot/schema proof before release remains pending; do not mark
+legacy cases PASS.</td>
+</tr>
+<tr>
+<td>LimitsAndErrorsE2ETest</td>
+<td style="text-align: right;">1</td>
+<td>HTTP400/404/413/422 limits, malformed schema query/resource errors,
+canonical reasons and no stack traces. Validation/error handlers and
+limit configuration untouched. Filtered invalid-schemaType and
+missing-path checks precede type materialization; effective mode30 boot
+proved by source/config and context tests.</td>
+<td>Controller negative-path tests; unchanged error-contract units;
+Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>MutableResourceLifecycleE2ETest</td>
+<td style="text-align: right;">2</td>
+<td>Create/read/update/delete roundtrip, Location/data version,
+validation failure and field errors. JPA/business
+validation/controllers/service/versioning untouched. DTO fields are
+scalar String/Long; no filtered schema oracle selects changed
+materialization paths. Mode30 bootstrap remains an explicit separate
+assurance.</td>
+<td>Factory/order tests plus unchanged resource-service/controller
+units; Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>NonJpaOptionSourceProviderE2ETest</td>
+<td style="text-align: right;">16</td>
+<td>16 custom-provider requests, declared dependencies/null/search
+strategy, field/operator negatives before provider, byIds/page/sort
+policies, stable FILTER schema and discovery. Provider/filter/dependency
+policy code untouched. Published filter DTO contains strings, long IDs
+and scalar status; no array-enum or31type-list. REQUEST schema/option
+metadata reads remain legacy30.</td>
+<td>Option-source provider units unchanged; controller/pipeline30 and
+lookup grounding pipeline; actual host FILTER HTTP; Current-source real
+Quickstart Neon HTTP/boot/schema proof before release remains pending;
+do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>OpenApiGroupRegistrationE2ETest</td>
+<td style="text-align: right;">1</td>
+<td>Prototype OpenAPI builder/isolated response service, strict group
+membership/cache isolation, all collection references reach
+matricula/netAmount. Mode30 documents; factory keeps <span
+class="citation" data-cites="Order/decorators">@Order/decorators</span>.
+Collection customizer still sees concreteArraySchema30 and scalar refs;
+group scoping and response-generation service untouched. No union or
+enum-array selected.</td>
+<td>OpenApiModelConverterOrderingTest (both registration orders);
+CollectionDialectTest30; related-resource customizer units; real grouped
+HTTP; Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>OpenApiGroupResolutionE2ETest</td>
+<td style="text-align: right;">1</td>
+<td>Action route resolves to the owning employees OpenAPI group.
+Resolver/group-path ownership unchanged; method only checks owning group
+resolution, not schema inference or new DTO. Mode30 bootstrap
+separate.</td>
+<td>OpenApiCanonicalOperationResolverTest and factory/order tests;
+Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>OptionsAndOptionSourcesE2ETest</td>
+<td style="text-align: right;">2</td>
+<td>Standard options, derived/named options, relation/scoped JPA
+filtering, search/size validation, FILTER option-source x-ui with
+private metadata stripped. Option source business/access policy code
+untouched. EmployeeFilter has scalar EmployeeStatus and payrollProfile
+String, not List<Enum>. Source enum option count/null exclusion
+already178 and unchanged; mode30 types remain scalar strings.</td>
+<td>EnumInferenceTest/NullableEnumSchemaTest unchanged; lookup and
+pipeline30; real host options/FILTER HTTP; Current-source real
+Quickstart Neon HTTP/boot/schema proof before release remains pending;
+do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>ReadOnlyResourceE2ETest</td>
+<td style="text-align: right;">1</td>
+<td>ReadOnly capabilities/links, schema resource.readOnly and absence of
+write affordances. ReadOnly availability/links untouched. Mode30 object
+rows/arrays and scalar IDs select equivalent legacy type branch; no
+empty command/enum union.</td>
+<td>Filtered projection scalar/collection30 and unchanged readonly
+units; Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>ResourceQuerySurfaceE2ETest</td>
+<td style="text-align: right;">5</td>
+<td>Filtering, default sort/includeIds, cursor/locate, byIds order and
+scoped access boundaries on mutable/readOnly resources. Query execution
+and access-scope code untouched; method bodies do not materialize new
+schemas. Boot mode30 explicitly equal; not a claim of current remote
+data-path PASS.</td>
+<td>Factory/order tests only for shared boot; prior bounded query
+disposition retained; Current-source real Quickstart Neon
+HTTP/boot/schema proof before release remains pending; do not mark
+legacy cases PASS.</td>
+</tr>
+<tr>
+<td>SchemaDiscoveryE2ETest</td>
+<td style="text-align: right;">1</td>
+<td>Create/update/FILTER/collection schemas, string fields, ID/readOnly,
+refs vs expansion, decimal format/descriptions, schema redirect,
+ETag/304. Mode30 exactly asserted by string JSON types; scalar ID and
+BigDecimal number branch unchanged. Generated concreteArraySchema30,
+reference expansion and canonical hash code untouched. No
+EmptyWorkflowActionRequest or enum collection input.</td>
+<td>ControllerUnionTypeTest legacy-string cases;
+CollectionDialectTest30/decimal; controller/hash/projection tests;
+actual host schema HTTP; Current-source real Quickstart Neon
+HTTP/boot/schema proof before release remains pending; do not mark
+legacy cases PASS.</td>
+</tr>
+<tr>
+<td>SchemaHashE2eTest</td>
+<td style="text-align: right;">1</td>
+<td>Real DTO schema200, content/cache headers, conditional304 and ETag
+variation for expanded nested refs. TestApplication inherits
+OPENAPI_3_0. E2eTestController DTOs are String/Integer + ordinary nested
+object refs with UISchema labels. No enums, empty request or
+nullable31lists; schema bytes follow equivalent legacy branches. Hash
+algorithm/cache/header code unchanged.</td>
+<td>ApiDocsControllerSchemaHashTest; pipeline labels30; real host
+ETag/304 HTTP; Current-source real Quickstart Neon HTTP/boot/schema
+proof before release remains pending; do not mark legacy cases
+PASS.</td>
+</tr>
+<tr>
+<td>StarterBootstrapE2ETest</td>
+<td style="text-align: right;">1</td>
+<td>Actual no-manual-wiring starter bootstrap, exact executor/provider
+beans, seeded resource rows, canonical schema/ETag, options and profile
+mutation. This is the explicit startup obligation, not presumed
+unchanged: optional existing properties provider + same mode30 reviewed
+and current4factory/ordering tests passed by root. No business
+provider/autoconfig beans added/removed. Nonempty scalar DTOs avoid
+new31/empty/enum branches. Still require current-source real Quickstart
+Neon HTTP before release to close actual-host boot/adoption
+obligation.</td>
+<td>Four factory context cases + OpenApiModelConverterOrderingTest
+support only; real Quickstart Neon HTTP is the remaining integration
+proof; Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>StatsE2ETest</td>
+<td style="text-align: right;">8</td>
+<td>Stats fields/capability authority,
+aggregates/periods/count/avg/min/max/distinct, errors, POST
+request/response schemas/catalog and private metadata exclusions. Stats
+business/query/security paths untouched. Mode30 stats DTOs are ordinary
+numeric/string fields/object arrays with no EmptyWorkflowActionRequest
+or enum collection. Canonical decimal number format remains same legacy
+branch; catalog derived union support is not newly claimed.</td>
+<td>CollectionDialectTest decimal30; controller/projection/hash tests;
+unchanged stats units; actual host schema HTTP; Current-source real
+Quickstart Neon HTTP/boot/schema proof before release remains pending;
+do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>SurfaceCatalogE2ETest</td>
+<td style="text-align: right;">11</td>
+<td>Automatic/explicit surfaces, scope/resource/item IDs,
+authority/state availability, tenant presence, missing/ambiguous target
+negatives. Surface registry/availability/context code unchanged; schema
+URL identities use existing dimensions, not a new31type inference. No
+changed DTO branch. Mode30 boot assurance is explicit and separate.</td>
+<td>Surface availability/registry units unchanged; factory/order tests;
+Current-source real Quickstart Neon HTTP/boot/schema proof before
+release remains pending; do not mark legacy cases PASS.</td>
+</tr>
+<tr>
+<td>WorkflowNegativePathsE2ETest</td>
+<td style="text-align: right;">4</td>
+<td>Typed approve/bulk-approve validation/unknown IDs, no partial
+mutation and stable employee state. Approve reason and List<Long> IDs
+are nonempty legacy30 DTOs, not EmptyWorkflowActionRequest. Typed
+command validation/transaction and business state mutation are
+unchanged.</td>
+<td>Factory/order tests and unchanged typed workflow/error units; no new
+remote mutation PASS claimed; Current-source real Quickstart Neon
+HTTP/boot/schema proof before release remains pending; do not mark
+legacy cases PASS.</td>
+</tr>
+</tbody>
+</table>
+<p>The coordinator retains the detailed testcase/line inventory with the
+private qualification evidence. This document records the reviewable
+class-level scope; it does not claim that the excluded suites were
+executed.</p>
+<p>{“classes”: 28, “testMethods”: 154, “fixtureKinds”: {“profile-h2”: 3,
+“nested-embedded”: 1, “profile-plus-hidden-embedded”: 1, “mixed-local”:
+1, “inline-h2”: 1, “shared-base-h2”: 20, “global-h2”: 1}}</p>
+<p>Formal replacement guard: superseded requires at least one exact
+neon_required testcase in requiredImpactGroups B-H; no_db is not
+accepted as a formal replacement; I alone is insufficient. No guard
+change or replacement fiction proposed.</p>
+<p>Remote boundary: Use the current staged main178+delta SDK in the real
+Quickstart assigned-Neon host before release. Prove actual startup and
+real OpenAPI/filtered DTO label/entity lookup, empty command object,
+FILTER with nullable range, list/page/cursor flattening and scalar IDs
+plus ETag/hash/304. Preserve existing host assertions. Record
+source/JAR/dependency/branch identities.</p>
+<p>Migration limits: {“notNeededByReflex”: “No wholesale28-fixture
+migration is proposed solely from a broad scope digest change.”,
+“ifExactLegacyExecutionIsRequired”: “26 SpringBoot classes are
+present.24 use e2e-h2 profile (20 inherit one AbstractE2eH2Test,3 direct
+bulk HTTP,1 StarterBootstrap). JpaWrite has inline H2 properties;
+SchemaHash inherits global application.yaml H2. A single profile-only
+override reaches24 but does not eliminate hidden EmbeddedPostgres in
+CrudOperational.”, “ordinaryJpaCompatibility”: “Common entities use JPA
+mappings and repository seeding/deletes, no H2-specific raw SQL found in
+shared fixture; create-drop and SQL owner/runtime/grant/cleanup still
+require assigned-Neon ownership protocol, not URL substitution.”,
+“blockers”: [{“class”: “BulkCrudOperationalCapabilityHttpTest”,
+“source”: “Configuration.bulkStore -&gt; new
+BulkCrudOperationalLifecyclePostgresTest.Store -&gt; EmbeddedPostgres at
+Store:589-590”, “limitation”: “Profile change is insufficient; separate
+operational owner/runtime/control fixture lifecycle must be migrated
+before executing this exact class remotely.”}, {“class”:
+“BulkOperationStructuralCompilerTest”, “source”: “Multiple
+EmbeddedPostgres.builder paths, internal H2 JdbcDataSource in
+lifecycleFixture and mixed pure-JUnit methods”, “limitation”:
+“Datasource profile cannot reach these programmatic fixtures. Whole
+class migration is a distinct bounded test-infra task, not needed as a
+reflex for unchanged supplied-document branches.”}, {“class”:
+“BulkConsumerArtifactIntegrationTest”, “source”: “Nested
+ArtifactConsumerHttpTest opens EmbeddedPostgres and injects its URL into
+a separate SpringApplication/Maven consumer”, “limitation”: “Outer
+datasource properties do not replace its inner DB. Independent
+artifact-custody tests and SQL identities must be preserved if
+migrated.”}], “avoid”: “No H2/local fallback, no fake no_db
+classification, no timeout extension or broad skip, no helper/role
+bypass. No fixture changes made by this audit.”}</p>
+<p>Enum boundary: Local fixture DTOs do not declare ambiguous array
+unions/enum-array overrides. Canonical API objects may contain
+unambiguous enum collections,
+e.g. BulkExecutionContract.selectionModes/executionModes; this audit
+does not claim their universal absence. Unambiguous array30 used
+ArraySchema before and effective array afterward. Current pipeline tests
+preserve exact values/labels and chipInput/multiselect5/6 both inline
+and resolveAsRef(true). Scalar nullable-enum30 implementation and
+null-excluding count remain byte-identical. Changed negative is final
+ambiguous property type, absent from these local source fixtures.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>
