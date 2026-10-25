@@ -53,6 +53,9 @@ final class BulkCanonicalJson {
             return result;
         }
         if (node.isTextual()) unicode(node.textValue());
+        if (node.isIntegralNumber()) {
+            return JsonNodeFactory.instance.numberNode(node.bigIntegerValue());
+        }
         if (node.isFloatingPointNumber()) {
             var decimal = node.decimalValue().stripTrailingZeros();
             // Stripping a valid 10e256 yields 1e257 (scale -257). Keep the tree

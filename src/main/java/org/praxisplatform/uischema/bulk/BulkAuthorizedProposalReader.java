@@ -93,16 +93,20 @@ public final class BulkAuthorizedProposalReader {
 
     private Observation readProposalObserved(String authenticatedSubjectId, UUID proposalId,
             BulkReadFailureDiagnostics.Capture diagnostic) {
-        Deadline deadline = Deadline.start(READ_BUDGET);
+        boolean[] expiredRef = new boolean[1];
         Observation result;
         try {
-            result = infrastructure.withConsistentRead(connection -> readSnapshot(connection,
-                    authenticatedSubjectId, proposalId, deadline, diagnostic));
+            result = infrastructure.withConsistentRead(connection -> {
+                Deadline deadline = Deadline.start(READ_BUDGET);
+                Observation snapshot = readSnapshot(connection, authenticatedSubjectId, proposalId, deadline, diagnostic);
+                expiredRef[0] = deadline.expired();
+                return snapshot;
+            });
         } catch (RuntimeException failure) {
             diagnostic.record(Stage.SNAPSHOT_TRANSACTION, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
-        if (deadline.expired()) {
+        if (expiredRef[0]) {
             diagnostic.record(Stage.AFTER_TRANSACTION, Reason.DEADLINE_EXPIRED, null);
             return Observation.state(State.UNAVAILABLE);
         }

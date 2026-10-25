@@ -158,6 +158,15 @@ public interface OpenApiDocumentService {
     /** Local presence only, not authority; any following scope must still validate the durable tuple. */
     default boolean hasLocalPublishedBulkOpenApiPublication() { return false; }
     /**
+     * Returns an opaque identity token for the currently installed local published photograph,
+     * or {@code null} when none is installed. Presence of this token is not authority; callers may
+     * use reference equality only to detect whether the local published photograph changed after a
+     * previously guarded composition.
+     */
+    default Object localPublishedBulkOpenApiPublicationToken() {
+        return hasLocalPublishedBulkOpenApiPublication() ? Boolean.TRUE : null;
+    }
+    /**
      * Structural composition against the locally installed, durably validated photograph; no HTTP.
      * Group getters return defensive copies of the requested group only. Bound operational reads
      * must validate the photograph before and after composition without acquiring cache locks;

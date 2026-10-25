@@ -111,15 +111,21 @@ public final class BulkAuthorizedExecutionResultsReader {
             }
         }
         BulkReadCursorCodec.Decoded continuation = decoded;
+        boolean[] expiredRef = new boolean[1];
         Observation result;
         try {
-            result = infrastructure.withConsistentRead(connection -> readSnapshot(connection,
-                    authenticatedSubjectId, executionId, pageSize, continuation, deadline, diagnostic));
+            result = infrastructure.withConsistentRead(connection -> {
+                Deadline snapshotDeadline = Deadline.start(READ_BUDGET);
+                Observation snapshot = readSnapshot(connection,
+                        authenticatedSubjectId, executionId, pageSize, continuation, snapshotDeadline, diagnostic);
+                expiredRef[0] = snapshotDeadline.expired();
+                return snapshot;
+            });
         } catch (RuntimeException failure) {
             diagnostic.record(Stage.SNAPSHOT_TRANSACTION, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
-        if (deadline.expired()) {
+        if (expiredRef[0]) {
             diagnostic.record(Stage.AFTER_TRANSACTION, Reason.DEADLINE_EXPIRED, null);
             return Observation.state(State.UNAVAILABLE);
         }
@@ -218,7 +224,6 @@ public final class BulkAuthorizedExecutionResultsReader {
 
         try {
             deadline.requireRemaining();
-            deadline.constrain(connection);
             int lastOrdinal = continuation == null ? -1 : continuation.claims().lastOrdinalExclusive();
             BulkExecutionResultsReader.Page page = continuation == null
                     ? results.read(connection, storedContext, executionId, lastOrdinal, pageSize)

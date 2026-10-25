@@ -479,6 +479,11 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     }
 
     @Override
+    public Object localPublishedBulkOpenApiPublicationToken() {
+        return publishedSnapshot;
+    }
+
+    @Override
     public <T> T withPublishedBulkOpenApiPublication(java.util.function.BiFunction<OpenApiPublicationCandidate, Long, T> composition) {
         java.util.Objects.requireNonNull(composition, "composition");
         if (lifecycleSnapshot.get() != null || publishedScope.get() != null

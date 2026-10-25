@@ -92,23 +92,27 @@ final class BulkOrdinalManifest {
                 """)) {
             statement.setObject(1, evaluation.proposal().id());
             try (var rows = statement.executeQuery()) {
-                for (int ordinal = 0; ordinal < evaluation.targets().size(); ordinal++) {
-                    if (!rows.next()) throw invalid();
-                    var target = evaluation.targets().get(ordinal).target();
-                    var wire = target.id() instanceof Integer number ? JsonNodeFactory.instance.numberNode(number)
-                            : JsonNodeFactory.instance.textNode((String) target.id());
-                    byte[] identity = BulkSnapshotStorageCodec.json(wire);
-                    if (rows.getInt(1) != ordinal || !evaluation.fingerprint().equals(rows.getString(2))
-                            || !Arrays.equals(identity, rows.getBytes(3))
-                            || !BulkTargetDigest.wireIdentity(identity).equals(rows.getString(4))
-                            || !Arrays.equals(target.expectedVersion().getBytes(StandardCharsets.UTF_8), rows.getBytes(5))
-                            || rows.getInt(6) != evaluation.targets().size()
-                            || !BulkTargetDigest.of(evaluation.fingerprint(), ordinal, target.id(),
-                                    target.expectedVersion()).equals(rows.getString(7))) throw invalid();
-                }
-                if (rows.next()) throw invalid();
+                validateRows(rows, evaluation);
             }
         }
+    }
+
+    static void validateRows(java.sql.ResultSet rows, BulkEvaluationSnapshot evaluation) throws SQLException {
+        for (int ordinal = 0; ordinal < evaluation.targets().size(); ordinal++) {
+            if (!rows.next()) throw invalid();
+            var target = evaluation.targets().get(ordinal).target();
+            var wire = target.id() instanceof Integer number ? JsonNodeFactory.instance.numberNode(number)
+                    : JsonNodeFactory.instance.textNode((String) target.id());
+            byte[] identity = BulkSnapshotStorageCodec.json(wire);
+            if (rows.getInt(1) != ordinal || !evaluation.fingerprint().equals(rows.getString(2))
+                    || !Arrays.equals(identity, rows.getBytes(3))
+                    || !BulkTargetDigest.wireIdentity(identity).equals(rows.getString(4))
+                    || !Arrays.equals(target.expectedVersion().getBytes(StandardCharsets.UTF_8), rows.getBytes(5))
+                    || rows.getInt(6) != evaluation.targets().size()
+                    || !BulkTargetDigest.of(evaluation.fingerprint(), ordinal, target.id(),
+                            target.expectedVersion()).equals(rows.getString(7))) throw invalid();
+        }
+        if (rows.next()) throw invalid();
     }
 
     private static int count(Connection connection, UUID id) throws SQLException {
