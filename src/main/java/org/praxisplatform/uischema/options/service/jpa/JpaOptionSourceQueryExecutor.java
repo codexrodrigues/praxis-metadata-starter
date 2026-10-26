@@ -272,6 +272,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     ) {
         Class<?> javaType = path.getJavaType();
         if (javaType != null && javaType != String.class) {
+            Expression<String> text = cb.lower(cb.concat(path.as(String.class), ""));
             return switch (descriptor.policy().searchMode()) {
                 case "none" -> null;
                 case "exact" -> {
@@ -282,17 +283,17 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                         yield null;
                     }
                 }
-                case "starts-with" -> cb.like(cb.concat(path.as(String.class), ""), lowered + "%");
+                case "starts-with" -> cb.like(text, lowered + "%");
                 default -> {
                     try {
                         Object coerced = coerceValue(lowered, javaType);
                         if (coerced != null) {
-                            yield cb.or(cb.equal(path, coerced), cb.like(cb.concat(path.as(String.class), ""), "%" + lowered + "%"));
+                            yield cb.or(cb.equal(path, coerced), cb.like(text, "%" + lowered + "%"));
                         }
                     } catch (RuntimeException ignored) {
                         // Fall through to string concat comparison when the search token is not a full literal of javaType.
                     }
-                    yield cb.like(cb.concat(path.as(String.class), ""), "%" + lowered + "%");
+                    yield cb.like(text, "%" + lowered + "%");
                 }
             };
         }
