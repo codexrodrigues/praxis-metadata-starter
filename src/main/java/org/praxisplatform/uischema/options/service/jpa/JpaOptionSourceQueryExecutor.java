@@ -270,6 +270,32 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             OptionSourceDescriptor descriptor,
             String lowered
     ) {
+        Class<?> javaType = path.getJavaType();
+        if (javaType != null && javaType != String.class) {
+            return switch (descriptor.policy().searchMode()) {
+                case "none" -> null;
+                case "exact" -> {
+                    try {
+                        Object coerced = coerceValue(lowered, javaType);
+                        yield coerced == null ? null : cb.equal(path, coerced);
+                    } catch (RuntimeException ignored) {
+                        yield null;
+                    }
+                }
+                case "starts-with" -> cb.like(cb.concat(path.as(String.class), ""), lowered + "%");
+                default -> {
+                    try {
+                        Object coerced = coerceValue(lowered, javaType);
+                        if (coerced != null) {
+                            yield cb.or(cb.equal(path, coerced), cb.like(cb.concat(path.as(String.class), ""), "%" + lowered + "%"));
+                        }
+                    } catch (RuntimeException ignored) {
+                        // Fall through to string concat comparison when the search token is not a full literal of javaType.
+                    }
+                    yield cb.like(cb.concat(path.as(String.class), ""), "%" + lowered + "%");
+                }
+            };
+        }
         Expression<String> text = cb.lower(path.as(String.class));
         return switch (descriptor.policy().searchMode()) {
             case "none" -> null;
