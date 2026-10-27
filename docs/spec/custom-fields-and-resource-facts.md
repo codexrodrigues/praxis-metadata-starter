@@ -42,6 +42,26 @@ opções, elegibilidade de filtro/ordenação/exportação e governança. A chav
 `[a-zA-Z][a-zA-Z0-9_]{0,63}`. Tipos disponíveis: `STRING`, `INTEGER`, `DECIMAL`,
 `BOOLEAN`, `DATE`, `DATE_TIME`, `ENUM` e `ARRAY`.
 
+São reservadas, com comparação exata e sensível a maiúsculas, as chaves
+`constructor`, `prototype`, `hasOwnProperty`, `isPrototypeOf`,
+`propertyIsEnumerable`, `toLocaleString`, `toString` e `valueOf`. Elas colidem com
+propriedades herdadas de objetos JavaScript ou com caminhos bloqueados no runtime
+oficial. `__proto__` e outros nomes iniciados por `_` já são rejeitados pelo
+formato acima. O descriptor e a spec `x-ui-field.schema.json` aplicam a mesma
+política, sem aliases nem normalização silenciosa. Hosts com definições antigas
+nesses nomes precisam migrar explicitamente as chaves, os dados e suas referências
+antes de construir os descriptors deste candidato beta.
+
+`controlType: AUTO` (também o default Java quando omitido) é uma sentinela de
+authoring, não um controle enviado ao Angular. A projeção usa a inferência básica
+compartilhada de tipo/formato do starter: texto → `input`, números →
+`numericTextBox`, booleanos → `checkbox`, data → `date`, data-hora → `dateTime`,
+enumeração → `select` e array livre → `chipInput`. Um controle explícito é
+preservado; a resolução não consulta palavras do nome ou label. Em filtros, AUTO
+segue o tipo do operando: `IN` materializa coleção (`chipInput` ou `multiSelect`
+para itens enumerados), e `IS_NULL` usa booleano, sem confundir o operando com o
+valor armazenado.
+
 Um bean `CustomFieldDefinitionProvider` substitui o provider padrão vazio.
 Retorne somente definições ativas do recurso/tenant solicitado. `schemaType` recebe
 `request` ou `response` na projeção estrutural, `request` na validação de escrita,
@@ -84,8 +104,12 @@ seu contrato HTTP continua independente daquele de `/schemas/filtered`.
 `properties.customFields` recebe `type: object`, `additionalProperties: false`,
 `x-ui.customFieldsContainer: true`, propriedades tipadas e a lista `required`.
 Quando houver filhos efetivamente obrigatórios, a raiz também exige `customFields`.
-Na escrita, campos `readOnly` não entram nessa obrigatoriedade; na resposta, podem
-ser obrigatórios. Assim, omitir o container de uma escrita com campo editável
+Na escrita, campos `readOnly` são excluídos das `properties` e de `required`; na
+resposta continuam publicados e podem ser obrigatórios. Quando a operação é um
+filtro, campos readonly elegíveis a busca continuam disponíveis como operandos,
+sem a restrição de edição. Se nenhum filho permanecer na projeção, o container e
+sua exigência na raiz são removidos, preservando os demais campos obrigatórios.
+Assim, omitir o container de uma escrita com campo editável
 obrigatório é inválido tanto no schema quanto no serviço.
 Sem definições ativas, o container é omitido para evitar um controle vazio.
 

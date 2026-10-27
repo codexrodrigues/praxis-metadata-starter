@@ -15,6 +15,67 @@ import static org.junit.jupiter.api.Assertions.*;
 class CustomFieldSchemaProjectionTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
+    @Test void writeProjectionExcludesReadOnlyValuesButResponsesAndEligibleFiltersRetainThem() {
+        var calculated = descriptor("calculated", CustomFieldDataType.INTEGER, FilterOperation.EQUAL, List.of(), true, true, true);
+        var writable = descriptor("writable", CustomFieldDataType.INTEGER, FilterOperation.EQUAL, List.of(), true, false, true);
+        var definitions = List.of(calculated, writable);
+        var request = project(definitions, "request", false);
+        var response = mapper.valueToTree(project(definitions, "response", false));
+        var filter = mapper.valueToTree(project(definitions, "request", true));
+
+        assertTrue(mapper.valueToTree(request).at("/properties/customFields/properties/calculated").isMissingNode());
+        assertEquals(mapper.createArrayNode().add("writable"), mapper.valueToTree(request).at("/properties/customFields/required"));
+        assertAccepted(contract(request), Map.of("customFields", Map.of("writable", 20)));
+        assertRejected(contract(request), Map.of("customFields", Map.of("writable", 20, "calculated", 30)));
+        assertTrue(response.at("/properties/customFields/properties/calculated/readOnly").asBoolean());
+        assertTrue(response.at("/properties/customFields/required").toString().contains("calculated"));
+        assertFalse(filter.at("/properties/customFields/properties/calculated").isMissingNode());
+        assertFalse(filter.at("/properties/customFields/properties/calculated/x-ui/readOnly").asBoolean());
+        assertDoesNotThrow(() -> new CustomFieldValidator((r,t,s) -> definitions)
+                .validateValues(Map.of("writable", 20), definitions));
+    }
+
+    @Test void readOnlyOnlyWritesRemoveTheEntireContainerAndItsRootRequirement() {
+        var calculated = descriptor("calculated", CustomFieldDataType.INTEGER, FilterOperation.EQUAL, List.of(), true, true, true);
+        Map<String,Object> schema = new LinkedHashMap<>(); schema.put("required", List.of("name", "customFields"));
+        new CustomFieldSchemaEnricher((r,t,s) -> List.of(calculated), mapper).enrich(schema, "people", "a", "request");
+        assertEquals(List.of("name"), schema.get("required"));
+        assertFalse(schema.containsKey("properties"));
+        assertTrue(mapper.valueToTree(schema).at("/properties/customFields").isMissingNode());
+    }
+
+    @Test void duplicateReadOnlyDefinitionsRemainInvalidEvenWhenWritesDoNotPublishThem() {
+        var calculated = descriptor("calculated", CustomFieldDataType.INTEGER, FilterOperation.EQUAL, List.of(), true, true, true);
+        assertThrows(IllegalArgumentException.class, () -> project(List.of(calculated, calculated), "request", false));
+    }
+
+    @Test void autoIsResolvedFromCanonicalTypesAndExplicitControlsArePreserved() {
+        Map<CustomFieldDataType,String> expected = Map.of(
+                CustomFieldDataType.STRING, "input", CustomFieldDataType.INTEGER, "numericTextBox",
+                CustomFieldDataType.DECIMAL, "numericTextBox", CustomFieldDataType.BOOLEAN, "checkbox",
+                CustomFieldDataType.DATE, "date", CustomFieldDataType.DATE_TIME, "dateTime",
+                CustomFieldDataType.ENUM, "select", CustomFieldDataType.ARRAY, "chipInput");
+        expected.forEach((type, control) -> {
+            var definition = descriptor("value", type, FilterOperation.EQUAL,
+                    type == CustomFieldDataType.ENUM ? List.of("active") : List.of(), false, false, true);
+            assertEquals(control, mapper.valueToTree(project(List.of(definition), "request", false))
+                    .at("/properties/customFields/properties/value/x-ui/controlType").asText());
+        });
+        var explicit = new CustomFieldDescriptor("value", "Value", null, CustomFieldDataType.STRING,
+                org.praxisplatform.uischema.FieldControlType.TEXTAREA, null, 0, false, false, true, false, true,
+                null, null, null, null, null, null, null, null, List.of(), List.of(), null, FilterOperation.EQUAL, Map.of());
+        assertEquals("textarea", mapper.valueToTree(project(List.of(explicit), "request", false))
+                .at("/properties/customFields/properties/value/x-ui/controlType").asText());
+    }
+
+    @Test void autoFilterControlsFollowTheOperandShapeRatherThanTheStoredScalarShape() {
+        var in = descriptor("sizes", CustomFieldDataType.INTEGER, FilterOperation.IN, List.of(), false, false, true);
+        var enums = descriptor("statuses", CustomFieldDataType.ENUM, FilterOperation.IN, List.of("active"), false, false, true);
+        var tree = mapper.valueToTree(project(List.of(in, enums), "request", true));
+        assertEquals("chipInput", tree.at("/properties/customFields/properties/sizes/x-ui/controlType").asText());
+        assertEquals("multiSelect", tree.at("/properties/customFields/properties/statuses/x-ui/controlType").asText());
+    }
+
     @Test void filterProjectsOperationOperandsWithoutWriteConstraintsOrRequiredContainer() {
         var in = descriptor("sizes", CustomFieldDataType.INTEGER, FilterOperation.IN, List.of(), true, true, true);
         var isNull = descriptor("missing", CustomFieldDataType.INTEGER, FilterOperation.IS_NULL, List.of(), true, false, true);

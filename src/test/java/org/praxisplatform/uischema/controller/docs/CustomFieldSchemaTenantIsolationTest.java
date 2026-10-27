@@ -9,13 +9,49 @@ import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
 import org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class CustomFieldSchemaTenantIsolationTest {
     private final ObjectMapper mapper = new ObjectMapper();
     private static final String PATH = "/api/hr/people";
+
+    @Test void httpSchemaContractExcludesWriteReadOnlyFieldsAndRevalidatesTheActualTenantRepresentation() throws Exception {
+        var readOnly = new CustomFieldDescriptor("calculated", "Calculated", "Server value", CustomFieldDataType.STRING,
+                null, null, 0, true, true, false, false, true, null, null, null, null, null,
+                null, null, null, null, null, null, null, Map.of());
+        var controller = controller((resource, tenant, role) -> List.of(readOnly, field("writable_" + tenant)),
+                new RequestHeaderResourceTenantContextResolver(), false);
+        var mvc = MockMvcBuilders.standaloneSetup(controller).build();
+        var write = mvc.perform(MockMvcRequestBuilders.get("/schemas/filtered").param("path", PATH).param("operation", "post")
+                        .param("schemaType", "request").header("X-Tenant", "a"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.properties.customFields.properties.calculated").doesNotExist())
+                .andExpect(jsonPath("$.properties.customFields.properties.writable_a['x-ui'].controlType").value("input"))
+                .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("private")))
+                .andReturn().getResponse();
+        var response = mvc.perform(MockMvcRequestBuilders.get("/schemas/filtered").param("path", PATH).param("operation", "post")
+                        .param("schemaType", "response").header("X-Tenant", "a"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.properties.customFields.properties.calculated.readOnly").value(true))
+                .andExpect(jsonPath("$.properties.customFields.required[0]").value("calculated"))
+                .andReturn().getResponse();
+        assertThat(response.getHeader("ETag")).isNotEqualTo(write.getHeader("ETag"));
+        mvc.perform(MockMvcRequestBuilders.get("/schemas/filtered").param("path", PATH).param("operation", "post")
+                        .param("schemaType", "request").header("X-Tenant", "a").header("If-None-Match", write.getHeader("ETag")))
+                .andExpect(status().isNotModified())
+                .andExpect(header().string("ETag", write.getHeader("ETag")))
+                .andExpect(header().string("Vary", org.hamcrest.Matchers.containsString("X-Tenant")));
+        mvc.perform(MockMvcRequestBuilders.get("/schemas/filtered").param("path", PATH).param("operation", "post")
+                        .param("schemaType", "request").header("X-Tenant", "b").header("If-None-Match", write.getHeader("ETag")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.properties.customFields.properties.writable_a").doesNotExist())
+                .andExpect(jsonPath("$.properties.customFields.properties.writable_b").exists());
+    }
 
     @Test void authenticatedResolverWithoutHeadersIsPrivateAndIsolatesConditionalRequests() {
         AtomicReference<String> authenticatedTenant = new AtomicReference<>("a");
@@ -69,7 +105,7 @@ class CustomFieldSchemaTenantIsolationTest {
         assertThat(tree.path("required").toString()).doesNotContain("customFields");
     }
 
-    @Test void readOnlyRequiredFieldIsRequiredOnlyInResponseProjection() {
+    @Test void readOnlyRequiredFieldIsAbsentFromWritesAndPresentInResponseProjection() {
         var descriptor = new CustomFieldDescriptor("calculated", "Calculated", "Server value", CustomFieldDataType.STRING,
                 null, null, 0, true, true, false, false, true, null, null, null, null, null,
                 null, null, null, null, null, null, null, Map.of());
@@ -78,9 +114,7 @@ class CustomFieldSchemaTenantIsolationTest {
                 .at("/properties/customFields");
         var response = mapper.valueToTree(get(controller, "response", null, null).getBody())
                 .at("/properties/customFields");
-        assertThat(request.path("required").isMissingNode()).isTrue();
-        assertThat(request.at("/properties/calculated/x-ui/required").booleanValue()).isFalse();
-        assertThat(request.at("/properties/calculated/readOnly").booleanValue()).isTrue();
+        assertThat(request.isMissingNode()).isTrue();
         assertThat(mapper.valueToTree(get(controller, "request", null, null).getBody()).has("required")).isFalse();
         assertThat(mapper.valueToTree(get(controller, "response", null, null).getBody()).path("required"))
                 .isEqualTo(mapper.createArrayNode().add("customFields"));
@@ -140,9 +174,7 @@ class CustomFieldSchemaTenantIsolationTest {
                 assertThat(field.has("default")).isFalse();
                 assertThat(field.has("readOnly")).isFalse();
             } else {
-                assertThat(field.path("type").asText()).isEqualTo("integer");
-                assertThat(field.path("readOnly").asBoolean()).isTrue();
-                assertThat(field.has("minimum")).isTrue();
+                assertThat(field.isMissingNode()).isTrue();
             }
             assertThat(roles).containsExactly("request");
         }

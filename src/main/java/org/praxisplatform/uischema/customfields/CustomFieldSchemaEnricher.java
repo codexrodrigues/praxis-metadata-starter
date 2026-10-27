@@ -2,6 +2,8 @@ package org.praxisplatform.uischema.customfields;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.praxisplatform.uischema.hash.SchemaHashUtil;
+import org.praxisplatform.uischema.FieldControlType;
+import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import java.util.*;
 
 /** Projects one immutable provider snapshot into the canonical structural schema. */
@@ -30,23 +32,26 @@ public final class CustomFieldSchemaEnricher {
             throw new IllegalArgumentException("Filter projection requires a request schema");
         List<CustomFieldDescriptor> definitions = resourceKey == null || resourceKey.isBlank()
                 ? List.of() : List.copyOf(provider.findDefinitions(resourceKey, tenant, role));
+        Set<String> definitionKeys = new HashSet<>();
+        for (CustomFieldDescriptor definition : definitions) {
+            if (!definitionKeys.add(definition.key()))
+                throw new IllegalArgumentException("Duplicate custom field definition: " + definition.key());
+        }
         if (filterRequest) definitions = definitions.stream().filter(CustomFieldDescriptor::filterable).toList();
-        if (definitions.isEmpty() && (!(schema.get("properties") instanceof Map<?, ?> existing)
-                || !existing.containsKey("customFields"))) return "";
-        Map<String, Object> properties = (Map<String, Object>) schema.computeIfAbsent("properties", ignored -> new LinkedHashMap<>());
+        else if ("request".equals(role)) definitions = definitions.stream().filter(d -> !d.readOnly()).toList();
         if (definitions.isEmpty()) {
-            properties.remove("customFields");
-            requireContainer(schema, false);
+            boolean hadContainer = schema.get("properties") instanceof Map<?, ?> existing && existing.containsKey("customFields");
+            if (hadContainer) ((Map<String, Object>) schema.get("properties")).remove("customFields");
+            boolean requiredContainer = schema.get("required") instanceof Collection<?> required && required.contains("customFields");
+            if (hadContainer || requiredContainer) requireContainer(schema, false);
             return "";
         }
+        Map<String, Object> properties = (Map<String, Object>) schema.computeIfAbsent("properties", ignored -> new LinkedHashMap<>());
         Map<String, Object> fields = new LinkedHashMap<>();
         List<String> required = new ArrayList<>();
         for (CustomFieldDescriptor descriptor : definitions.stream()
                 .sorted(Comparator.comparingInt(CustomFieldDescriptor::order).thenComparing(CustomFieldDescriptor::key)).toList()) {
             Map<String, Object> projected = filterRequest ? filterSchema(descriptor) : fieldSchema(descriptor);
-            if ("request".equals(role) && descriptor.readOnly() && !filterRequest) {
-                ((Map<String, Object>) projected.get("x-ui")).put("required", false);
-            }
             if (fields.putIfAbsent(descriptor.key(), projected) != null) {
                 throw new IllegalArgumentException("Duplicate custom field definition: " + descriptor.key());
             }
@@ -113,6 +118,8 @@ public final class CustomFieldSchemaEnricher {
                 projected.put("enum", nullableValues);
             }
         }
+        if (value != null && d.controlType() == FieldControlType.AUTO)
+            ui.put("controlType", inferredControlType(value));
         return projected;
     }
 
@@ -137,7 +144,8 @@ public final class CustomFieldSchemaEnricher {
         Map<String, Object> ui = new LinkedHashMap<>();
         ui.put("customField", true); ui.put("customFieldKey", d.key()); ui.put("customFieldScope", "tenant");
         put(ui, "label", d.label()); put(ui, "description", d.description());
-        if (d.controlType() != null) ui.put("controlType", d.controlType().getValue());
+        ui.put("controlType", d.controlType() == FieldControlType.AUTO
+                ? inferredControlType(field) : d.controlType().getValue());
         put(ui, "group", d.group()); ui.put("order", d.order()); ui.put("required", d.required());
         ui.put("readOnly", d.readOnly()); ui.put("filterable", d.filterable());
         ui.put("sortable", d.sortable()); ui.put("exportable", d.exportable());
@@ -150,6 +158,15 @@ public final class CustomFieldSchemaEnricher {
         if (!d.governance().isEmpty()) field.put("x-domain-governance", d.governance());
         field.put("x-ui", ui);
         return field;
+    }
+
+    private static String inferredControlType(Map<String, Object> schema) {
+        Object items = schema.get("items");
+        boolean itemEnum = items instanceof Map<?, ?> item && item.get("enum") instanceof Collection<?> values
+                && !values.isEmpty();
+        return OpenApiUiUtils.determineBasicControlType((String) schema.get("type"),
+                (String) schema.get("format"), schema.get("enum") instanceof Collection<?> values && !values.isEmpty(),
+                (Integer) schema.get("maxLength"), "array".equals(schema.get("type")), itemEnum);
     }
 
     private static void put(Map<String, Object> target, String key, Object value) {

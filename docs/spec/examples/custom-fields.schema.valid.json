@@ -11,7 +11,7 @@
       "readOnly": false,
       "x-ui": {
         "label": "Shoe size",
-        "controlType": "auto",
+        "controlType": "numericTextBox",
         "group": "Uniform",
         "order": 1,
         "required": true,

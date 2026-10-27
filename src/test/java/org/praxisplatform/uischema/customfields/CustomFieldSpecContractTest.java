@@ -51,6 +51,25 @@ class CustomFieldSpecContractTest {
         assertTrue(spec.validate(invalid).isEmpty());
     }
 
+    @Test
+    void definitionAndPublishedSpecRejectTheSameConsumerReservedKeysWithoutAliases() throws Exception {
+        JsonSchema spec = fieldSpec();
+        List<String> reserved = List.of("constructor", "prototype", "hasOwnProperty", "isPrototypeOf",
+                "propertyIsEnumerable", "toLocaleString", "toString", "valueOf");
+        JsonNode reservedSpec = mapper.readTree(Path.of("docs/spec/x-ui-field.schema.json").toFile())
+                .at("/properties/customFieldKey/not/enum");
+        assertEquals(mapper.valueToTree(reserved), reservedSpec);
+        for (String key : reserved) {
+            assertThrows(IllegalArgumentException.class, () -> CustomFieldFixtures.field(key, CustomFieldDataType.STRING), key);
+            assertFalse(spec.validate(mapper.createObjectNode().put("customField", true)
+                    .put("customFieldKey", key).put("customFieldScope", "tenant")).isEmpty(), key);
+        }
+        for (String key : List.of("Constructor", "prototype_value", "toStringValue", "a", "A_0")) {
+            assertDoesNotThrow(() -> CustomFieldFixtures.field(key, CustomFieldDataType.STRING), key);
+            assertTrue(spec.validate(mapper.createObjectNode().put("customFieldKey", key)).isEmpty(), key);
+        }
+    }
+
     private JsonSchema fieldSpec() throws Exception {
         return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
                 .getSchema(mapper.readTree(Path.of("docs/spec/x-ui-field.schema.json").toFile()));

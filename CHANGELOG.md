@@ -5,6 +5,9 @@ All notable changes to this module will be documented in this file.
 ## [Unreleased] — candidatos de capacidade
 
 ### Correções da revisão do candidato #303
+- Schemas de escrita deixam de publicar custom fields readonly; schemas de resposta e filtros elegíveis preservam suas projeções próprias.
+- Chaves reservadas pelos consumidores JavaScript são rejeitadas no descriptor e na spec, sem aliases; hosts precisam migrar definições/dados antigos incompatíveis.
+- `AUTO` materializa controles concretos pela inferência básica de tipo/formato já existente, incluindo operandos de filtro, sem heurística por nome.
 - Preservação de campos customizados readonly em atualizações e regressões com mapper de substituição.
 - Schema de filtro derivado do tipo MVC, obrigatoriedade do container, enumeração coerente e normalização de schemaType.
 - Discovery de fatos com proxies Spring, defaults temporais no catálogo e fidelidade de reason/confidence.

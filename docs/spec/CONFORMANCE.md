@@ -61,6 +61,15 @@
 - O container `properties.customFields` usa `x-ui.customFieldsContainer: true`.
 - Cada chave declarada publica `customField: true`, `customFieldKey` seguro e
   `customFieldScope: tenant` no seu `x-ui`; `exportable` é metadata para a allowlist do host.
+- As chaves seguem `[a-zA-Z][a-zA-Z0-9_]{0,63}` e rejeitam exatamente
+  `constructor`, `prototype`, `hasOwnProperty`, `isPrototypeOf`,
+  `propertyIsEnumerable`, `toLocaleString`, `toString` e `valueOf`, tanto no
+  descriptor Java quanto na spec. Não há aliases para chaves reservadas.
+- Schemas de escrita excluem filhos readonly; schemas de resposta os conservam.
+  Filtros ainda podem publicar esses campos quando declarados `filterable`.
+  Uma projeção sem filhos remove o container e sua obrigatoriedade.
+- `AUTO` é resolvido antes da publicação pela inferência básica compartilhada
+  de tipo/formato, preservando controles explícitos e o tipo dos operandos de filtro.
 - Valide o `x-ui` do container e de cada propriedade contra `x-ui-field.schema.json`.
   O arquivo `examples/custom-fields.schema.valid.json` contém a projeção estrutural
   completa, portanto não deve ser passado integralmente como se fosse um bloco `x-ui`.

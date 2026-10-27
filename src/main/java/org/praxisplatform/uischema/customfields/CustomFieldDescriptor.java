@@ -16,6 +16,9 @@ public record CustomFieldDescriptor(
         String pattern, String patternMessage, String requiredMessage, List<String> enumValues,
         List<Map<String, Object>> options, OptionSourceDescriptor optionSource,
         Filterable.FilterOperation filterOperation, Map<String, Object> governance) {
+    private static final Set<String> RESERVED_KEYS = Set.of(
+            "constructor", "prototype", "hasOwnProperty", "isPrototypeOf",
+            "propertyIsEnumerable", "toLocaleString", "toString", "valueOf");
     public CustomFieldDescriptor {
         requireSafeKey(key);
         Objects.requireNonNull(dataType, "dataType");
@@ -37,7 +40,7 @@ public record CustomFieldDescriptor(
         defaultValue = immutableValue(defaultValue);
     }
     public static void requireSafeKey(String key) {
-        if (key == null || !key.matches("[a-zA-Z][a-zA-Z0-9_]{0,63}"))
+        if (key == null || !key.matches("[a-zA-Z][a-zA-Z0-9_]{0,63}") || RESERVED_KEYS.contains(key))
             throw new IllegalArgumentException("Invalid custom field key");
     }
     private static Map<String, Object> immutableMap(Map<String, Object> value) {

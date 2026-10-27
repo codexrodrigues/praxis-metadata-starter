@@ -309,3 +309,63 @@ mesmo conteúdo, enquanto a obrigatoriedade da raiz é comprovada nos testes de
 payload completo. Corpus HTTP/landing/recipes e runtimes externos mantêm o limite
 de adoção descrito acima. Esta entrega é correção dos PRs candidatos, não aprovação
 de release, UI, host Quickstart ou revisão arquitetural humana.
+
+## Interoperabilidade com o runtime Angular — 27/10/2026
+
+Baseline backend: `368d96266b6bcafdd1a5048f8922fe75122ffd37`, branch existente
+`feat/custom-fields-and-resource-facts` / PR #304. Janela de escrita e `target/`
+exclusiva atribuída ao trabalhador `review_core657` pelo coordenador após conferir
+o trabalho paralelo de adoção. Nenhum commit, merge, publish ou instalação Maven
+compartilhada foi executado pelo trabalhador.
+
+Classificação: `contrato-publico` / `transversal`, corretiva no candidato beta.
+Inventário: o tipo, formato, readonly e enumeração já estavam declarados pelos
+descriptors; as lacunas eram de projeção/materialização. A política de chave já
+existia, mas seu alfabeto aceitava membros incompatíveis com objetos JavaScript
+e caminhos bloqueados nos consumidores. Não foi criado contrato paralelo.
+
+Decisões e alterações:
+- Schemas de escrita excluem filhos readonly; resposta mantém esses filhos e sua
+  obrigatoriedade. Filtros continuam publicando readonly quando `filterable`.
+  Projeção vazia remove propriedade e `required` do container, inclusive quando o
+  schema original só declarava `required` e não possuía `properties`.
+- A política Java/spec rejeita exatamente `constructor`, `prototype`,
+  `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `toLocaleString`,
+  `toString` e `valueOf`, além dos nomes já inválidos pelo regex. Migração de dados
+  e referências incompatíveis é responsabilidade explícita do host; não há aliases.
+- AUTO usa `OpenApiUiUtils.determineBasicControlType`, aproveitando tipo/formato e
+  forma do operando de filtro. Controles explícitos são preservados; nomes/labels
+  não decidem o controle. O exemplo publicado agora mostra `numericTextBox`.
+
+Impacto: `CustomFieldDescriptor`, `CustomFieldSchemaEnricher`, JSON Schema `x-ui`,
+exemplo, conformance, spec e changelog. Runtime Angular e adoção Quickstart são
+consumidores diretos coordenados separadamente. README/índice já apontam à spec;
+não foram adicionados logs operacionais às homes. A extensão beta restringe chaves
+antes aceitas: hosts precisam migrar definições antigas antes da adoção.
+
+Validações sem banco, JDK 21.0.10 / Maven 3.9.15:
+
+```bash
+mvn -Dtest=CustomFieldSchemaProjectionTest,CustomFieldSpecContractTest,CustomFieldSchemaTenantIsolationTest,CustomFieldValidatorTest,RequestHeaderResourceTenantContextResolverTest,CustomFieldResourceLifecycleTest,CustomFieldJpaCriteriaSupportTest test
+# 65 testes, zero falhas/erros/skips
+mvn -Dtest=ResourceFactAndCustomFieldDomainCatalogTest,CustomFieldAutoConfigurationTest,CustomFieldCollectionExportTest test
+# 22 testes, zero falhas/erros/skips
+```
+
+Evidência bruta: `/tmp/praxis-304-angular-contract-unit.log` e
+`/tmp/praxis-304-angular-contract-consumers.log`, com resultados por classe em
+`target/surefire-reports`. São **87 testes distintos**. O caso MockMvc despacha
+requisições pela infraestrutura MVC real ao `ApiDocsController`, verificando
+request/response, readonly, tenant, ETag, 304, `private` e `Vary`. Ele não inicia
+servidor de rede, contexto JPA, banco local/embutido ou conexão Neon; não comprova
+persistência nem cadeia de segurança do host.
+
+SHA-256 do patch de `src/main`, `src/test` e `docs/spec` contra esse baseline:
+`bd0d7fb3a9c5d51cfc3a1b3407d77c95816fbbf70110292af9ca8a88fa53c066`.
+Revisão independente pelo coordenador concluída: confrontou o diff de produção,
+as projeções de escrita/resposta/filtro, as specs e a evidência das duas execuções.
+O early return com required sem properties foi corrigido antes dos testes finais;
+sem achado acionável restante nesse recorte.
+Skills: `atualizar-existente`; o incremento do PR #868 pertence ao outro chat e
+não foi editado nesta janela. Adoção HTTP/Neon no Quickstart tem atribuição própria
+na coordenação; esta rodada não usa nem certifica a branch Neon desse ensaio.
