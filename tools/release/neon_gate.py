@@ -339,7 +339,7 @@ def reports(directory):
     return suites, cases
 
 
-def verify_neon_reports(manifest, neon_dirs):
+def verify_neon_reports(manifest, neon_dirs, resource_contracts_log):
     verify_neon_matrix_definition(manifest)
     if set(neon_dirs) != set(NEON_PHASES):
         raise GateError("Neon reports require all three named phases")
@@ -356,11 +356,22 @@ def verify_neon_reports(manifest, neon_dirs):
             if any(lines.count(marker) != 1 for marker in CAPTURE_MARKERS):
                 raise GateError("missing/duplicate P4 capture oracle marker")
         if phase == "resource-contracts":
-            for cls, label in zip(RESOURCE_CONTRACT_CASES, ("custom-fields", "composite-id")):
-                root = ET.parse(suites[cls]).getroot()
-                lines = "\n".join(node.text or "" for node in root.iter("system-out")).splitlines()
-                if lines.count(f"NEON_RESOURCE_FIXTURE={label},PG17,ordinary-runtime,OID-cleanup,PASS") != 1:
-                    raise GateError("missing/duplicate resource fixture cleanup marker")
+            required_cases = {(case["className"], case["testcaseName"])
+                              for case in manifest["requiredResourceContractCases"]}
+            if set(cases) != required_cases:
+                raise GateError("resource-contract JUnit case set differs from required six cases")
+            # Spring afterTestClass runs after Surefire captures testcase system-out.
+            # Its cleanup witness belongs to the raw phase log, never fabricated XML.
+            log = Path(resource_contracts_log) if resource_contracts_log else None
+            if log is None or not log.is_file() or not log.stat().st_size:
+                raise GateError("missing/empty raw resource-contracts Maven log")
+            observed = Counter(line for line in log.read_text().splitlines()
+                               if line.startswith("NEON_RESOURCE_FIXTURE="))
+            expected_markers = Counter(
+                f"NEON_RESOURCE_FIXTURE={label},PG17,ordinary-runtime,OID-cleanup,PASS"
+                for label in ("custom-fields", "composite-id"))
+            if observed != expected_markers:
+                raise GateError("missing/duplicate/unexpected resource fixture cleanup marker in raw log")
         neon_cases.update(cases)
     if any(count != 1 for count in neon_cases.values()):
         raise GateError("duplicate JUnit testcase identity across Neon phases")
@@ -375,12 +386,12 @@ def verify_neon_reports(manifest, neon_dirs):
             raise GateError(f"missing/duplicate resource-contract JUnit case: {identity}")
 
 
-def verify_reports(manifest, no_db_dir, neon_dirs):
+def verify_reports(manifest, no_db_dir, neon_dirs, resource_contracts_log):
     no_db_suites, _ = reports(no_db_dir)
     expected_no_db = set(selected_classes(manifest, "no_db"))
     if set(no_db_suites) != expected_no_db:
         raise GateError("no-DB Surefire report set differs from inventory")
-    verify_neon_reports(manifest, neon_dirs)
+    verify_neon_reports(manifest, neon_dirs, resource_contracts_log)
 
 
 def snapshot_classes(directory):
@@ -579,7 +590,7 @@ def main():
         if args.no_db_reports:
             if not args.release:
                 raise GateError("report acceptance requires release-ready inventory")
-            verify_reports(manifest, args.no_db_reports, neon_dirs)
+            verify_reports(manifest, args.no_db_reports, neon_dirs, args.neon_resource_contracts_log)
         if args.write_snapshot:
             if not args.classes_dir:
                 raise GateError("classes directory required for snapshot")

@@ -271,8 +271,8 @@ target scope must receive NOT_FOUND_OR_DENIED, no execution and no further batch
 Only after all those assertions does P4 emit the new exact
 `NEON_PROOF_AUTHORIZED_EXECUTION_BATCH` marker. The common gate requires it exactly
 once in P4 XML for both source proof and official release; missing/duplicated/failed
-or skipped proof blocks publication. This source is prepared, not yet a current native
-PASS. Original P4 deadline, rollback, fencing and transport oracles remain intact.
+or skipped proof blocks publication. The later source run 40603124711 supplies the current native assertions, as
+recorded below; its receipt-packaging failure remains separately identified. Original P4 deadline, rollback, fencing and transport oracles remain intact.
 
 ## Validation and acceptance state
 
@@ -302,7 +302,7 @@ PASS. Original P4 deadline, rollback, fencing and transport oracles remain intac
   new current authorized batch still require the exact-source CI proof and official
   release workflow before publication.
 - No release dispatch, commit, push or publication was executed by this author.
-- The current inventory remains `impact_review_pending` until the required current P4
+- At the initial source cut, the inventory remained `impact_review_pending` until the required current P4
   authorized-batch execution and independent acceptance close. Shared causal dispositions
   and the three historical raw ZIP hashes have been reviewed; they are not that execution. A working-tree consistency
   check is not committed-tree `audited_inventory --release` acceptance.
@@ -354,3 +354,43 @@ source is tested once through that matrix, preserving the previous failure.
 No ad hoc workflow or weakened gate is introduced. The existing operational-proof
 skill's release-gate guidance remains adequate for this harness-only correction;
 the pending canonical skill increment still documents the new resource phase.
+
+### Source proof 40603124711: functional pass, receipt packaging failure
+
+The [second official run](https://github.com/codexrodrigues/praxis-metadata-starter/actions/runs/40603124711)
+executed commit `548a0f10b5b4668cb5367d8c65027f94917ce781`. All eight required JUnit
+cases passed with zero failures, errors or skips: managed-owner (167.2 s), P4
+(60.62 s), five custom-field HTTP cases (11.46 s) and the composite HTTP case
+(2.806 s). P4 recorded 2147 ms pre-policy reserve, checkpoints 7/28/34/35/38,
+39 executes, `COMPLETED`, one effect/receipt, no admissions, replay without a
+callback and grant revocation without a second write. This qualifies that run's
+positive profile; it does not establish that observer isolation caused the timing
+difference from the previous runner.
+
+The workflow still failed: the receipt verifier incorrectly searched the resource
+cleanup markers in Surefire XML. The after-class listener emits those markers in
+the phase log after Surefire closes the test reports. Both exact cleanup markers
+occur once in `resource-contracts.log`, and postflight confirms zero resource
+fixture databases, roles and connections. P4 retains its separate database and
+two logins with zero connections. Production/test snapshots before and after are
+present. The correction must require the closed XML case set and the exact raw-log
+cleanup markers together; it must not manufacture XML or relabel this workflow
+as successful. Official release validation and artifact custody remain required.
+
+### Independent source-impact acceptance
+
+Reviewer `review_quickstart_adoption` accepted the eight raw Neon cases, all 13
+P4 markers, both exact cleanup markers and the corrected parser. Its read-only
+`verify_neon_reports` and `verify_source_matrix` checks accepted the unchanged
+20 evidence-file hashes and matching 961 production/1314 test class snapshots.
+The [bounded review projection](../evidence/resource-contract-neon-20261027/source-proof-40603124711.json)
+records the original failed workflow without manufacturing a successful receipt.
+The parser-only delta leaves Java, Maven dependencies and workflow unchanged from
+548a0f10b5. The two main commits through 51b0e69f77 change documentation only.
+
+The reviewer approved `release_ready_impact_reviewed` and code integration without
+a redundant third diagnostic source run, subject to repository protections. This
+is source-impact acceptance, not release approval. The authorized official release
+will execute all 204 no-DB classes, the complete Neon matrix and signing/staged
+artifact gates afresh. Public Quickstart adoption still requires actual Central
+bytes and the complete private/sanitized host verification.

@@ -14,7 +14,8 @@ from neon_gate import (GateError, NEON_PHASES, audited_inventory, run_git, selec
 
 def verify_source_matrix(manifest, evidence, repo):
     verify_neon_matrix_definition(manifest)
-    verify_neon_reports(manifest, {phase: evidence / 'reports' / phase for phase in NEON_PHASES})
+    verify_neon_reports(manifest, {phase: evidence / 'reports' / phase for phase in NEON_PHASES},
+                        evidence / 'resource-contracts.log')
     for phase in NEON_PHASES:
         log = evidence / f'{phase}.log'
         if not log.is_file() or not log.stat().st_size:

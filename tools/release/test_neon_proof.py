@@ -5,7 +5,7 @@ from pathlib import Path
 
 from neon_gate import RESOURCE_CONTRACT_CASES, CAPTURE_MARKERS, GateError, sha256
 from neon_proof import scan_fixture, scan_resource_fixture, source_coverage, verify_source_matrix
-from test_neon_gate import resource_reports
+from test_neon_gate import resource_reports, resource_cleanup_log
 
 
 BCH = 'org.praxisplatform.uischema.bulk.BulkManagedOwnerNeonGateTest'
@@ -95,7 +95,22 @@ class SourceProofTest(unittest.TestCase):
                 },
             }
             resource_reports(manifest, evidence / "reports/resource-contracts")
-            (evidence / "resource-contracts.log").write_text("resource-contracts PASS")
+            resource_log = evidence / "resource-contracts.log"
+            resource_log.write_text(resource_cleanup_log())
+            self.assertEqual(verify_source_matrix(manifest, evidence, root), compiled)
+            # Real Surefire testcase XML has no afterTestClass cleanup output.
+            for xml in (evidence / "reports/resource-contracts").glob("TEST-*.xml"):
+                self.assertNotIn("NEON_RESOURCE_FIXTURE=", xml.read_text())
+            original_resource_log = resource_log.read_text()
+            for bad in ("", "[INFO] six tests passed but no cleanup witness\n",
+                        original_resource_log + original_resource_log):
+                resource_log.write_text(bad)
+                with self.assertRaises(GateError):
+                    verify_source_matrix(manifest, evidence, root)
+            resource_log.unlink()
+            with self.assertRaisesRegex(GateError, "raw resource-contracts Maven log"):
+                verify_source_matrix(manifest, evidence, root)
+            resource_log.write_text(original_resource_log)
             self.assertEqual(verify_source_matrix(manifest, evidence, root), compiled)
             xml = evidence / 'reports/optional-policies' / f'TEST-{P4}.xml'
             original = xml.read_text()

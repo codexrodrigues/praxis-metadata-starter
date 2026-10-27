@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "548a0f10b5b4668cb5367d8c65027f94917ce781",
+  "workflowRun": 40603124711,
+  "workflowConclusion": "failure",
+  "failureStage": "receipt packaging: after-class cleanup markers incorrectly expected in Surefire XML",
+  "artifact": "neon-source-proof-40603124711-1",
+  "project": "dark-mountain-25788969",
+  "branch": "br-polished-tooth-adtrqgy7",
+  "functionalCases": [
+    {
+      "class": "org.praxisplatform.uischema.bulk.BulkManagedOwnerNeonGateTest",
+      "method": "managedOwnerRetentionRecoveryAndHistoricalPrefixes",
+      "seconds": "167.172",
+      "outcome": "PASS"
+    },
+    {
+      "class": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
+      "method": "emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutation",
+      "seconds": "60.605",
+      "outcome": "PASS"
+    },
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "exportsCanonicalCustomFieldPathsInCsvAndJson",
+      "seconds": "1.016",
+      "outcome": "PASS"
+    },
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "tenantSchemasHaveIndependentHashesAndConditionalRequests",
+      "seconds": "1.353",
+      "outcome": "PASS"
+    },
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "publishedFilterAndWriteSchemasMatchRealHttpPayloads",
+      "seconds": "0.321",
+      "outcome": "PASS"
+    },
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "recordDtosRoundTripValidateBeforeWritingAndFilterNativeJsonb",
+      "seconds": "0.479",
+      "outcome": "PASS"
+    },
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "updatePreservesServerOwnedValuesAndRejectsAssignments",
+      "seconds": "0.117",
+      "outcome": "PASS"
+    },
+    {
+      "class": "org.praxisplatform.uischema.id.e2e.CompositeIdResourceE2ETest",
+      "method": "supportsFullCrudFilterOptionsStatsLookupAndOpenApiForCompositeIdResources",
+      "seconds": "1.26",
+      "outcome": "PASS"
+    }
+  ],
+  "productionSnapshotEntries": 961,
+  "testSnapshotEntries": 1314,
+  "snapshotsEqualBeforeAfter": true,
+  "resourceCleanup": {
+    "databases": 0,
+    "roles": 0,
+    "connections": 0,
+    "source": "coordinator read-only postflight after workflow"
+  },
+  "p4RetainedDiagnosticState": {
+    "databases": 1,
+    "roles": 2,
+    "connections": 0
+  },
+  "rawFilesSha256": {
+    "assignment-public.json": "e081bef02480bf438ba5ff58556f4965072bd2cd4b1f82ebca7c38799adc1921",
+    "classpath.txt": "6477962b88729d13cf1b2a3b020288546251cbd77cb9ecd290e857068a71bbf6",
+    "dependencies.log": "51a787c6468a49ea770ebe49329540d9898c454a4c3b81c5044af5aa077441ee",
+    "java-version.txt": "5b4412738541184e84f6b2d7520d4f4a7c2a455f60650491464c61adcbbbdeb0",
+    "managed-owner.log": "3d6cd996d60b7f9fce8c008cb069d91808fe7f7d2cf148a5d035dcb8c5474397",
+    "maven-version.txt": "418f094b342e7da1cb77729e9dad99575e53e890e664506a284c6fc9a9af6082",
+    "optional-policies.log": "fccac4c626970f06f7749d87d977a181b1acbf668a7a5a46d5da2a6e8f1698b6",
+    "production-after.json": "faf679356c5ebab04243d07735ee442b0d37f8119981438d38900e0d3e4e0008",
+    "production-before.json": "faf679356c5ebab04243d07735ee442b0d37f8119981438d38900e0d3e4e0008",
+    "reports/managed-owner/TEST-org.praxisplatform.uischema.bulk.BulkManagedOwnerNeonGateTest.xml": "ad75568e2eb3299b8217ce40a7f09c55686102ddf344e01ada618f0e89cce20b",
+    "reports/managed-owner/org.praxisplatform.uischema.bulk.BulkManagedOwnerNeonGateTest.txt": "7532ccd6cf10d85ea123d21eac21d313632685535ae246515d15a2ceb82418e9",
+    "reports/optional-policies/TEST-org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest.xml": "3a6ebe27317541534da12df3f88c66020949eb2bf94a9c0e6d2c2f7e06a4c055",
+    "reports/optional-policies/org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest.txt": "e3783d05305067d7ba5bf3823a0f58da3f36a9a0bce3c6c3c8fa4ef279ae2997",
+    "reports/resource-contracts/TEST-org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest.xml": "152daafaac23752c7a618118d4b6a525563b093b639d610984bf4ad8fdd5913b",
+    "reports/resource-contracts/TEST-org.praxisplatform.uischema.id.e2e.CompositeIdResourceE2ETest.xml": "bf852339250adbcd2df5e70d7fe3757d115638a80c471c9157a0c7f18e674714",
+    "reports/resource-contracts/org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest.txt": "00d8608d1bea435d59a04d5dd99aa28746cfd8ee83de6dcc02f0014d6fdde220",
+    "reports/resource-contracts/org.praxisplatform.uischema.id.e2e.CompositeIdResourceE2ETest.txt": "0f62b6d842a3b0b55deb44d48358dd67455dd1b47af89c91f8cb6d9a6c7e33e7",
+    "resource-contracts.log": "da9a9012ab9254bf754bcae94af34078f9f330797b314deb0f4d055b80d6a5c0",
+    "test-after.json": "0c333a8cd89da4edb9fc013781949f63cef7681136c855aacc45b55f87d7b725",
+    "test-before.json": "0c333a8cd89da4edb9fc013781949f63cef7681136c855aacc45b55f87d7b725"
+  },
+  "limits": [
+    "Not an official successful workflow receipt.",
+    "Does not qualify published SDK adoption or staged release artifact custody.",
+    "Corrected verifier reads original raw XML and phase log without altering them.",
+    "Official release must still execute all mandatory gates."
+  ]
+}
