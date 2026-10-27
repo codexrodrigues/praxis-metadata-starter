@@ -398,7 +398,7 @@ Fingerprint final `src/main + src/test`:
 O freeze anterior de 24 casos foi reconstruído exatamente; depois dele apenas a
 ordem de grants da fixture histórica e seu novo teste offline mudaram. Os dois
 casos offline passaram, contando a proveniência repetida uma única vez.
-A documentação e seis recibos JSON sanitizados no PR preservam esses vínculos;
+A documentação e os recibos JSON sanitizados no PR preservam esses vínculos;
 logs brutos estão em `/tmp/praxis-303-adoption`.
 
 **Três pilotos históricos não estão aprovados.** EventosFolha apresentou 11 erros
