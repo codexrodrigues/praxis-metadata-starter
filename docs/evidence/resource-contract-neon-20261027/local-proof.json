@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "scope": "source diagnostic, not public SDK adoption or release approval",
+  "source": {
+    "algorithm": "sorted path NUL bytes NUL",
+    "fileCount": 1016,
+    "sha256": "7416bbad65f95aa77d3f1f546b6b43aeb4ac555308eb80f6a8472d972c3eac0b",
+    "scope": [
+      "src/main",
+      "src/test"
+    ]
+  },
+  "sourceBaseCommit": "c5aaebaa35667d013fb303e708b6d8186ff39260",
+  "java": "21.0.10",
+  "mavenGoal": "test",
+  "selectedClasses": [
+    "ResourceContractNeonFixtureTest",
+    "CustomFieldsResourceE2ETest",
+    "CompositeIdResourceE2ETest"
+  ],
+  "neon": {
+    "project": "dark-mountain-25788969",
+    "branch": "br-wandering-bird-ad8qj4ae",
+    "parent": "br-solitary-thunder-ads5cf7r",
+    "endpoint": "ep-holy-flower-ad6mr8k6",
+    "postgres": "17.11",
+    "tls": "verify-full, channelBinding=require, client peer verified",
+    "runtime": "ordinary, no administrative attributes or outgoing memberships, schema-local USAGE/CREATE"
+  },
+  "tests": [
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "exportsCanonicalCustomFieldPathsInCsvAndJson",
+      "status": "passed"
+    },
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "tenantSchemasHaveIndependentHashesAndConditionalRequests",
+      "status": "passed"
+    },
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "publishedFilterAndWriteSchemasMatchRealHttpPayloads",
+      "status": "passed"
+    },
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "recordDtosRoundTripValidateBeforeWritingAndFilterNativeJsonb",
+      "status": "passed"
+    },
+    {
+      "class": "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest",
+      "method": "updatePreservesServerOwnedValuesAndRejectsAssignments",
+      "status": "passed"
+    },
+    {
+      "class": "org.praxisplatform.uischema.id.e2e.CompositeIdResourceE2ETest",
+      "method": "supportsFullCrudFilterOptionsStatsLookupAndOpenApiForCompositeIdResources",
+      "status": "passed"
+    },
+    {
+      "class": "org.praxisplatform.uischema.testsupport.ResourceContractNeonFixtureTest",
+      "method": "cleanupRunsAfterSpringClosesItsContextAndDoesNotAccessAnInactiveContext",
+      "status": "passed"
+    },
+    {
+      "class": "org.praxisplatform.uischema.testsupport.ResourceContractNeonFixtureTest",
+      "method": "privateFilesRejectRelativePathsPermissionsAndSymlinks",
+      "status": "passed"
+    },
+    {
+      "class": "org.praxisplatform.uischema.testsupport.ResourceContractNeonFixtureTest",
+      "method": "cleanupRequiresAnObservedUnchangedObjectOid",
+      "status": "passed"
+    }
+  ],
+  "rawReports": [
+    {
+      "name": "TEST-org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest.xml",
+      "sha256": "848abe90aec4cb0f30ce500f2c0d3b4a8bdbeb3bce670aab393ecf05d4a062f9"
+    },
+    {
+      "name": "TEST-org.praxisplatform.uischema.id.e2e.CompositeIdResourceE2ETest.xml",
+      "sha256": "15079f23ac3deeef5bf77344d2b879f6f4efe9f3a541cc929054e2dbdec623f1"
+    },
+    {
+      "name": "TEST-org.praxisplatform.uischema.testsupport.ResourceContractNeonFixtureTest.xml",
+      "sha256": "ee88e119ce39256f23f884722978cf126b1d393f47de89dac526ba565adf9006"
+    }
+  ],
+  "cleanup": {
+    "fixtureDatabases": 0,
+    "fixtureRoles": 0,
+    "fixtureConnections": 0,
+    "sdkRoles": 0,
+    "observedAt": "2026-10-27T22:15:19.148047+00:00",
+    "destruction": "owned database/runtime OIDs checked by fixture; postflight observer counted remaining resources"
+  },
+  "failedDiagnostics": [
+    {
+      "round": "01",
+      "result": "pre-schema SQLState42501, 2 offline passed; cleanup completed"
+    },
+    {
+      "round": "02",
+      "result": "six functional assertions passed but two Spring after-class errors; not accepted"
+    },
+    {
+      "round": "03",
+      "result": "testCompile failed at Mockito generic stubbing; no database test ran"
+    }
+  ],
+  "pending": [
+    "same-source managed-owner/P4 CI proof",
+    "release-ready inventory independent review",
+    "official SDK release and public-byte verification",
+    "Quickstart public dependency adoption and integral verify"
+  ],
+  "sourceIncludesUncommittedFixtureChanges": true,
+  "toolingCustody": "tools/release and workflow are outside this source fingerprint; their exact committed source requires the separate CI source proof"
+}

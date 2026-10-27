@@ -6,7 +6,7 @@ name: CI and Release Java Starter (praxis-metadata-starter)
   workflow_dispatch:
     inputs:
       create_tag:
-        description: True creates a release tag from main; false runs the reviewed B-H source matrix without publication.
+        description: True creates a release tag from main; false runs the reviewed B-H and resource-contract source matrix without publication.
         required: false
         default: true
         type: boolean
@@ -211,7 +211,7 @@ jobs:
           TAG: ${{ steps.compute_version.outputs.resolved_tag }}
     timeout-minutes: 10
   neon_source_proof:
-    name: B-H source matrix on assigned Neon child (no publication)
+    name: B-H and resource-contract source matrix on assigned Neon child (no publication)
     if: github.event_name == 'workflow_dispatch' && !inputs.create_tag
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -248,13 +248,15 @@ jobs:
             --github-output "$GITHUB_OUTPUT" \
             --public-projection "$RUNNER_TEMP/neon-proof-evidence/assignment-public.json"
           python3 -c 'from tools.release.neon_gate import verify_checkout_clean; from pathlib import Path; verify_checkout_clean(Path.cwd())'
-      - name: Run reviewed B-H source matrix, managed owner before optional policies
+      - name: Run reviewed B-H and resource-contract source matrix, managed owner before optional policies
         env:
           PROOF_ASSIGNMENT_SHA: ${{ steps.proof_assignment.outputs.assignment_sha256 }}
           PRAXIS_BULK_NEON_CONNECTION_FILE: ${{ runner.temp }}/neon-proof/owner-uri
           PRAXIS_BULK_NEON_EXPECTED_HOST: ${{ steps.proof_assignment.outputs.expected_host }}
           PRAXIS_BULK_NEON_EXPECTED_OWNER: ${{ steps.proof_assignment.outputs.expected_owner }}
           PRAXIS_BULK_NEON_FIXTURE_CREDENTIALS_FILE: ${{ runner.temp }}/neon-proof/fixture.properties
+          PRAXIS_METADATA_NEON_EXPECTED_BRANCH: ${{ steps.proof_assignment.outputs.branch_id }}
+          PRAXIS_METADATA_NEON_FIXTURE_CREDENTIALS_FILE: ${{ runner.temp }}/neon-proof/resource-fixture.properties
         run: |
           set -euo pipefail
           java -version > "$RUNNER_TEMP/neon-proof-evidence/java-version.txt" 2>&1
@@ -263,8 +265,10 @@ jobs:
             > "$RUNNER_TEMP/neon-proof/managed-owner.selection"
           python3 tools/release/neon_proof.py --source "$GITHUB_SHA" --print-selection optional-policies \
             > "$RUNNER_TEMP/neon-proof/optional-policies.selection"
-          [[ -s "$RUNNER_TEMP/neon-proof/managed-owner.selection" && -s "$RUNNER_TEMP/neon-proof/optional-policies.selection" ]] || \
-            { echo '::error::Reviewed B-H source matrix selection is incomplete.'; exit 1; }
+          python3 tools/release/neon_proof.py --source "$GITHUB_SHA" --print-selection resource-contracts \
+            > "$RUNNER_TEMP/neon-proof/resource-contracts.selection"
+          [[ -s "$RUNNER_TEMP/neon-proof/managed-owner.selection" && -s "$RUNNER_TEMP/neon-proof/optional-policies.selection" && -s "$RUNNER_TEMP/neon-proof/resource-contracts.selection" ]] || \
+            { echo '::error::Reviewed B-H and resource-contract source matrix selection is incomplete.'; exit 1; }
           [[ ! -e "$PRAXIS_BULK_NEON_FIXTURE_CREDENTIALS_FILE" ]] || \
             { echo '::error::P4 fixture credential path must be absent before the source proof.'; exit 1; }
           MANAGED_OWNER_SELECTION="$(cat "$RUNNER_TEMP/neon-proof/managed-owner.selection")"
@@ -289,6 +293,12 @@ jobs:
             -Dpraxis.release.reportsDirectory="$RUNNER_TEMP/neon-proof-evidence/reports/optional-policies" \
             -Dtest="$OPTIONAL_SELECTION" test \
             > "$RUNNER_TEMP/neon-proof-evidence/optional-policies.log" 2>&1
+          [[ ! -e "$PRAXIS_METADATA_NEON_FIXTURE_CREDENTIALS_FILE" ]] || exit 1
+          RESOURCE_SELECTION="$(cat "$RUNNER_TEMP/neon-proof/resource-contracts.selection")"
+          bash ./mvnw -B -P release-neon-gate \
+            -Dpraxis.release.reportsDirectory="$RUNNER_TEMP/neon-proof-evidence/reports/resource-contracts" \
+            -Dtest="$RESOURCE_SELECTION" test \
+            > "$RUNNER_TEMP/neon-proof-evidence/resource-contracts.log" 2>&1
           python3 tools/release/neon_gate.py --classes-dir target/classes \
             --write-snapshot "$RUNNER_TEMP/neon-proof-evidence/production-after.json"
           python3 tools/release/neon_gate.py --classes-dir target/test-classes \
@@ -300,6 +310,7 @@ jobs:
             --evidence "$RUNNER_TEMP/neon-proof-evidence" \
             --owner-uri-file "$RUNNER_TEMP/neon-proof/owner-uri" \
             --fixture-credentials-file "$RUNNER_TEMP/neon-proof/fixture.properties" \
+            --resource-fixture-credentials-file "$RUNNER_TEMP/neon-proof/resource-fixture.properties" \
             --assignment-public "$RUNNER_TEMP/neon-proof-evidence/assignment-public.json" \
             --dependency-classpath "$RUNNER_TEMP/neon-proof-evidence/classpath.txt"
       - name: Scan proof custody before upload, including failure
@@ -309,7 +320,8 @@ jobs:
           python3 tools/release/neon_proof.py --scan-only --source "$GITHUB_SHA" \
             --evidence "$RUNNER_TEMP/neon-proof-evidence" \
             --owner-uri-file "$RUNNER_TEMP/neon-proof/owner-uri" \
-            --fixture-credentials-file "$RUNNER_TEMP/neon-proof/fixture.properties"
+            --fixture-credentials-file "$RUNNER_TEMP/neon-proof/fixture.properties" \
+            --resource-fixture-credentials-file "$RUNNER_TEMP/neon-proof/resource-fixture.properties"
       - uses: actions/upload-artifact@v4
         if: always() && steps.proof_scan.outcome == 'success'
         with:
@@ -439,7 +451,9 @@ jobs:
             --version "$RELEASE_VERSION" --print-selection managed-owner > "$RUNNER_TEMP/praxis-metadata-neon/managed-owner.selection"
           python3 tools/release/neon_gate.py --release --require-clean --base "$REVIEWED_BASE" \
             --version "$RELEASE_VERSION" --print-selection optional-policies > "$RUNNER_TEMP/praxis-metadata-neon/optional-policies.selection"
-          for phase in no-db managed-owner optional-policies; do
+          python3 tools/release/neon_gate.py --release --require-clean --base "$REVIEWED_BASE" \
+            --version "$RELEASE_VERSION" --print-selection resource-contracts > "$RUNNER_TEMP/praxis-metadata-neon/resource-contracts.selection"
+          for phase in no-db managed-owner optional-policies resource-contracts; do
             [[ -s "$RUNNER_TEMP/praxis-metadata-neon/$phase.selection" ]] || { echo "::error::Release $phase test selection is empty."; exit 1; }
           done
       - name: Test the complete audited no-database selection
@@ -468,6 +482,8 @@ jobs:
           PRAXIS_BULK_NEON_EXPECTED_HOST: ${{ steps.neon_assignment.outputs.expected_host }}
           PRAXIS_BULK_NEON_EXPECTED_OWNER: ${{ steps.neon_assignment.outputs.expected_owner }}
           PRAXIS_BULK_NEON_FIXTURE_CREDENTIALS_FILE: ${{ runner.temp }}/praxis-metadata-neon/fixture.properties
+          PRAXIS_METADATA_NEON_EXPECTED_BRANCH: ${{ steps.neon_assignment.outputs.branch_id }}
+          PRAXIS_METADATA_NEON_FIXTURE_CREDENTIALS_FILE: ${{ runner.temp }}/praxis-metadata-neon/resource-fixture.properties
         run: |
           set -euo pipefail
           python3 tools/release/neon_assignment.py \
@@ -479,7 +495,7 @@ jobs:
           grep -Fx "assignment_sha256=${ASSIGNMENT_SHA}" \
             "$RUNNER_TEMP/praxis-metadata-neon/revalidation.output" >/dev/null || \
             { echo '::error::Neon assignment changed since the no-database phase.'; exit 1; }
-          [[ ! -e target/release-evidence/managed-owner && ! -e target/release-evidence/optional-policies ]] || \
+          [[ ! -e target/release-evidence/managed-owner && ! -e target/release-evidence/optional-policies && ! -e target/release-evidence/resource-contracts ]] || \
             { echo '::error::Neon report directories must be absent before their phases.'; exit 1; }
           MANAGED_OWNER_SELECTION="$(cat "$RUNNER_TEMP/praxis-metadata-neon/managed-owner.selection")"
           bash ./mvnw -B -P release-neon-gate \
@@ -494,6 +510,12 @@ jobs:
             -Dpraxis.release.reportsDirectory="$PWD/target/release-evidence/optional-policies" \
             -Dtest="$OPTIONAL_SELECTION" verify \
             > "$RUNNER_TEMP/praxis-metadata-neon/optional-policies.log" 2>&1
+          [[ ! -e "$PRAXIS_METADATA_NEON_FIXTURE_CREDENTIALS_FILE" ]] || exit 1
+          RESOURCE_SELECTION="$(cat "$RUNNER_TEMP/praxis-metadata-neon/resource-contracts.selection")"
+          bash ./mvnw -B -P release-neon-gate \
+            -Dpraxis.release.reportsDirectory="$PWD/target/release-evidence/resource-contracts" \
+            -Dtest="$RESOURCE_SELECTION" test \
+            > "$RUNNER_TEMP/praxis-metadata-neon/resource-contracts.log" 2>&1
           mkdir -p target/release-evidence/custody target/central-publication/neon-gate
           cp "$RUNNER_TEMP/praxis-metadata-neon/assignment-public.json" \
             target/central-publication/neon-gate/assignment-public.json
@@ -527,14 +549,17 @@ jobs:
             --no-db-reports target/release-evidence/no-db \
             --neon-managed-owner-reports target/release-evidence/managed-owner \
             --neon-optional-policies-reports target/release-evidence/optional-policies \
+            --neon-resource-contracts-reports target/release-evidence/resource-contracts \
             --no-db-log "$RUNNER_TEMP/praxis-metadata-neon/no-db.log" \
             --neon-managed-owner-log "$RUNNER_TEMP/praxis-metadata-neon/managed-owner.log" \
             --neon-optional-policies-log "$RUNNER_TEMP/praxis-metadata-neon/optional-policies.log" \
+            --neon-resource-contracts-log "$RUNNER_TEMP/praxis-metadata-neon/resource-contracts.log" \
             --before-snapshot target/release-evidence/tested-production-before.json \
             --after-snapshot target/release-evidence/tested-production-after.json \
             --test-before-snapshot target/release-evidence/tested-test-before.json \
             --test-after-snapshot target/release-evidence/tested-test-after.json \
             --fixture-credentials-file "$PRAXIS_BULK_NEON_FIXTURE_CREDENTIALS_FILE" \
+            --resource-fixture-credentials-file "$PRAXIS_METADATA_NEON_FIXTURE_CREDENTIALS_FILE" \
             --jar "target/praxis-metadata-starter-${RELEASE_VERSION}.jar" \
             --assignment-sha "$ASSIGNMENT_SHA" \
             --assignment-public target/central-publication/neon-gate/assignment-public.json \
@@ -553,13 +578,15 @@ jobs:
           python3 tools/release/neon_gate.py --scan-private \
             --owner-uri-file "$RUNNER_TEMP/praxis-metadata-neon/owner-uri" \
             --fixture-credentials-file "$RUNNER_TEMP/praxis-metadata-neon/fixture.properties" \
+            --resource-fixture-credentials-file "$RUNNER_TEMP/praxis-metadata-neon/resource-fixture.properties" \
             --scan-root "$RUNNER_TEMP/praxis-metadata-neon/no-db.log" \
             --scan-root "$RUNNER_TEMP/praxis-metadata-neon/managed-owner.log" \
             --scan-root "$RUNNER_TEMP/praxis-metadata-neon/optional-policies.log" \
+            --scan-root "$RUNNER_TEMP/praxis-metadata-neon/resource-contracts.log" \
             --scan-root target/release-evidence \
             --scan-root target/central-publication/neon-gate
           mkdir -p target/central-publication/neon-gate
-          for phase in no-db managed-owner optional-policies; do
+          for phase in no-db managed-owner optional-policies resource-contracts; do
             if [[ -f "$RUNNER_TEMP/praxis-metadata-neon/$phase.log" ]]; then
               cp "$RUNNER_TEMP/praxis-metadata-neon/$phase.log" "target/central-publication/neon-gate/$phase.log"
             fi
@@ -595,6 +622,7 @@ jobs:
           python3 tools/release/neon_gate.py --scan-private \
             --owner-uri-file "$RUNNER_TEMP/praxis-metadata-neon/owner-uri" \
             --fixture-credentials-file "$RUNNER_TEMP/praxis-metadata-neon/fixture.properties" \
+            --resource-fixture-credentials-file "$RUNNER_TEMP/praxis-metadata-neon/resource-fixture.properties" \
             --scan-root target/central-publication
       - name: Preserve publication custody on success or failure
         if: always() && steps.evidence_scan.outcome == 'success' && steps.final_custody_scan.outcome == 'success'

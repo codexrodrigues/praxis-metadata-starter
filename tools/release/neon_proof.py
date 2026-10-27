@@ -30,6 +30,14 @@ def verify_source_matrix(manifest, evidence, repo):
     return snapshots
 
 
+def source_coverage(manifest):
+    """The receipt names the complete required matrix, including resource HTTP methods."""
+    verify_neon_matrix_definition(manifest)
+    cases = [case for group in manifest['requiredImpactGroups'].values() for case in group]
+    cases.extend(manifest['requiredResourceContractCases'])
+    return sorted({case['className'] + '#' + case['testcaseName'] for case in cases})
+
+
 def scan_fixture(paths, credential_file):
     if not credential_file.exists():
         return
@@ -51,6 +59,31 @@ def scan_fixture(paths, credential_file):
                 raise GateError('private fixture material in evidence')
 
 
+def scan_resource_fixture(paths, credential_file, require_complete=False):
+    """Generated ordinary resource-role passwords remain in a separate private file."""
+    if not credential_file.exists():
+        if require_complete:
+            raise GateError('resource fixture credentials absent')
+        return
+    if (credential_file.is_symlink() or not credential_file.is_file()
+            or credential_file.stat().st_mode & 0o777 != 0o600):
+        raise GateError('resource fixture credential file must be private and regular')
+    expected = {'resourcePassword.custom-fields', 'resourcePassword.composite-id'}
+    values = {}
+    for line in credential_file.read_text().splitlines():
+        key, sep, value = line.partition('=')
+        if not sep or key not in expected or key in values or len(value) != 64 or any(c not in '0123456789abcdef' for c in value):
+            raise GateError('resource fixture credential entry invalid')
+        values[key] = value.encode()
+    if not values or require_complete and set(values) != expected:
+        raise GateError('resource fixture credential file incomplete')
+    for root in paths:
+        candidates = root.rglob('*') if root.is_dir() else [root]
+        for path in candidates:
+            if path.is_file() and any(secret in path.read_bytes() for secret in values.values()):
+                raise GateError('private resource fixture material in evidence')
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--repo', type=Path, default=Path.cwd())
@@ -58,6 +91,7 @@ def main():
     p.add_argument('--evidence', type=Path)
     p.add_argument('--owner-uri-file', type=Path)
     p.add_argument('--fixture-credentials-file', type=Path)
+    p.add_argument('--resource-fixture-credentials-file', type=Path)
     p.add_argument('--assignment-public', type=Path)
     p.add_argument('--dependency-classpath', type=Path)
     p.add_argument('--scan-only', action='store_true')
@@ -76,6 +110,11 @@ def main():
             raise GateError('proof evidence and private credential paths required')
         verify_no_known_secrets([a.evidence], a.owner_uri_file)
         scan_fixture([a.evidence], a.fixture_credentials_file)
+        if a.resource_fixture_credentials_file:
+            scan_resource_fixture([a.evidence], a.resource_fixture_credentials_file,
+                                  require_complete=not a.scan_only)
+        elif not a.scan_only:
+            raise GateError('resource fixture credential path required')
         if a.scan_only:
             return 0
         verify_checkout_clean(a.repo)
@@ -94,10 +133,9 @@ def main():
         for path in run_git(a.repo, 'ls-tree', '-r', '--name-only', 'HEAD').splitlines():
             if path.startswith(('src/', '.mvn/', 'tools/release/')) or path == 'pom.xml':
                 source_hashes[path] = sha256((a.repo / path).read_bytes())
-        coverage = sorted({case['className'] + '#' + case['testcaseName']
-                           for cases in manifest['requiredImpactGroups'].values() for case in cases})
+        coverage = source_coverage(manifest)
         receipt = {
-            'schemaVersion': 2, 'purpose': 'proof', 'status': 'B_H_SOURCE_MATRIX_PASSED',
+            'schemaVersion': 2, 'purpose': 'proof', 'status': 'B_H_AND_RESOURCE_CONTRACTS_SOURCE_MATRIX_PASSED',
             'releaseApproved': False, 'sourceCommit': a.source,
             'coverage': coverage,
             'limits': ['No full no-database selection or last-tag impact closure in this job',

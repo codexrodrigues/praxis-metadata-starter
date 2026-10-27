@@ -3,8 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from neon_gate import CAPTURE_MARKERS, GateError, sha256
-from neon_proof import scan_fixture, verify_source_matrix
+from neon_gate import RESOURCE_CONTRACT_CASES, CAPTURE_MARKERS, GateError, sha256
+from neon_proof import scan_fixture, scan_resource_fixture, source_coverage, verify_source_matrix
+from test_neon_gate import resource_reports
 
 
 BCH = 'org.praxisplatform.uischema.bulk.BulkManagedOwnerNeonGateTest'
@@ -14,6 +15,52 @@ P4_CASE = 'emptyPoliciesPersistAndExecuteButRevokedHostAuthorityStillStopsMutati
 
 
 class SourceProofTest(unittest.TestCase):
+    def test_source_receipt_coverage_contains_all_six_resource_methods(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = {
+                'files': [
+                    {'kind': 'neon_required', 'className': BCH, 'neonPhase': 'managed-owner'},
+                    {'kind': 'neon_required', 'className': P4, 'neonPhase': 'optional-policies'}],
+                'requiredImpactGroups': {key: [{'className': BCH if key in 'BCH' else P4,
+                                              'testcaseName': BCH_CASE if key in 'BCH' else P4_CASE,
+                                              'assertion': key + ' reviewed assertion'}] for key in 'BCDEFGH'}}
+            resource_reports(manifest, Path(tmp) / 'resource-contracts')
+            expected = {BCH + '#' + BCH_CASE, P4 + '#' + P4_CASE}
+            expected.update(cls + '#' + case for cls, cases in RESOURCE_CONTRACT_CASES.items() for case in cases)
+            self.assertEqual(set(source_coverage(manifest)), expected)
+            self.assertEqual(len(source_coverage(manifest)), 8)
+            manifest['requiredResourceContractCases'].pop()
+            with self.assertRaisesRegex(GateError, 'testcase matrix'):
+                source_coverage(manifest)
+
+    def test_resource_passwords_are_separate_complete_private_and_scanned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            credentials = root / 'resource.properties'
+            raw = root / 'raw.log'
+            raw.write_text('safe resource counts')
+            with self.assertRaisesRegex(GateError, 'absent'):
+                scan_resource_fixture([raw], credentials, require_complete=True)
+            credentials.write_text('resourcePassword.custom-fields=' + 'a' * 64 + '\n')
+            credentials.chmod(0o600)
+            scan_resource_fixture([raw], credentials)
+            with self.assertRaisesRegex(GateError, 'incomplete'):
+                scan_resource_fixture([raw], credentials, require_complete=True)
+            credentials.write_text(credentials.read_text() + 'resourcePassword.composite-id=' + 'b' * 64 + '\n')
+            scan_resource_fixture([raw], credentials, require_complete=True)
+            for secret in ('a' * 64, 'b' * 64):
+                raw.write_text('connection failure ' + secret)
+                with self.assertRaisesRegex(GateError, 'private resource'):
+                    scan_resource_fixture([raw], credentials)
+            raw.write_text('safe resource counts')
+            credentials.chmod(0o644)
+            with self.assertRaisesRegex(GateError, 'private and regular'):
+                scan_resource_fixture([raw], credentials)
+            credentials.chmod(0o600)
+            credentials.write_text(credentials.read_text() + 'resourcePassword.custom-fields=' + 'c' * 64 + '\n')
+            with self.assertRaisesRegex(GateError, 'entry invalid'):
+                scan_resource_fixture([raw], credentials)
+
     def test_both_named_phases_and_unchanged_compiled_bytes_are_required(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -47,6 +94,8 @@ class SourceProofTest(unittest.TestCase):
                     for key in 'BCDEFGH'
                 },
             }
+            resource_reports(manifest, evidence / "reports/resource-contracts")
+            (evidence / "resource-contracts.log").write_text("resource-contracts PASS")
             self.assertEqual(verify_source_matrix(manifest, evidence, root), compiled)
             xml = evidence / 'reports/optional-policies' / f'TEST-{P4}.xml'
             original = xml.read_text()

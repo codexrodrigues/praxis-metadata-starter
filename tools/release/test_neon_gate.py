@@ -8,11 +8,26 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from neon_gate import (CAPTURE_MARKERS, GateError, audited_inventory, sha256, verify_reports,
+from neon_gate import (RESOURCE_CONTRACT_CASES, CAPTURE_MARKERS, GateError, audited_inventory, sha256, verify_reports,
                        verify_staged_jar, verify_tag_derivation, reviewed_scope_digest,
                        validate_superseded, verify_checkout_clean,
                        snapshot_dependency_classpath, verify_no_known_secrets,
                        evidence_receipt, verify_test_class_snapshots)
+
+
+def resource_reports(manifest, directory):
+    directory.mkdir(parents=True, exist_ok=True)
+    manifest["requiredResourceContractCases"] = []
+    for (cls, cases), label in zip(RESOURCE_CONTRACT_CASES.items(), ("custom-fields", "composite-id")):
+        manifest["files"].append({"kind": "neon_required", "className": cls, "neonPhase": "resource-contracts"})
+        manifest["requiredResourceContractCases"].extend(
+            {"className": cls, "testcaseName": case, "assertion": "Reviewed HTTP resource contract"} for case in cases)
+        output = f"NEON_RESOURCE_FIXTURE={label},PG17,ordinary-runtime,OID-cleanup,PASS"
+        body = ''.join(f'<testcase classname="{cls}" name="{case}"/>' for case in cases)
+        (directory / f"TEST-{cls}.xml").write_text(
+            f'<testsuite name="{cls}" tests="{len(cases)}" errors="0" failures="0" skipped="0">'
+            f'{body}<system-out>{output}</system-out></testsuite>')
+    return directory
 
 
 class NeonGateOfflineTest(unittest.TestCase):
@@ -210,9 +225,10 @@ class NeonGateOfflineTest(unittest.TestCase):
         self._report(no_db, "example.PureTest")
         self._report(neon, "example.NeonTest", "retention[1]")
         self._report(optional, "example.OptionalTest", "optional")
-        phases = {"managed-owner": neon, "optional-policies": optional}
+        phases = {"managed-owner": neon, "optional-policies": optional,
+                  "resource-contracts": resource_reports(manifest, self.root / "resource-contracts")}
         verify_reports(manifest, no_db, phases)
-        with self.assertRaisesRegex(GateError, "both named phases"):
+        with self.assertRaisesRegex(GateError, "all three named phases"):
             verify_reports(manifest, no_db, {"managed-owner": neon})
         self._report(optional, "example.NeonTest", "retention[1]")
         with self.assertRaisesRegex(GateError, "report set differs"):
@@ -281,6 +297,7 @@ class NeonGateOfflineTest(unittest.TestCase):
             "requiredImpactGroups": {key: [{"className": "example.NeonTest", "testcaseName": "works[1]",
                                              "assertion": "reviewed assertion"}] for key in "BCDEFGH"}}
         phases = {phase: self.root / phase for phase in ("managed-owner", "optional-policies")}
+        phases["resource-contracts"] = resource_reports(manifest, self.root / "resource-contracts")
         self._report(phases["managed-owner"], "example.NeonTest")
         self._report(phases["optional-policies"], "example.OptionalTest")
         xml = phases["optional-policies"] / "TEST-example.OptionalTest.xml"
@@ -292,6 +309,39 @@ class NeonGateOfflineTest(unittest.TestCase):
                 with self.assertRaisesRegex(GateError, "capture oracle marker"):
                     verify_neon_reports(manifest, phases)
         xml.write_text(original)
+
+    def test_resource_contract_cases_cleanup_and_class_set_are_required(self):
+        from neon_gate import verify_neon_reports
+        manifest = {"files": [
+            {"kind": "neon_required", "className": "example.NeonTest", "neonPhase": "managed-owner"},
+            {"kind": "neon_required", "className": "example.OptionalTest", "neonPhase": "optional-policies"}],
+            "requiredImpactGroups": {key: [{"className": "example.NeonTest", "testcaseName": "works[1]",
+                                             "assertion": "reviewed assertion"}] for key in "BCDEFGH"}}
+        phases = {phase: self.root / phase for phase in ("managed-owner", "optional-policies")}
+        self._report(phases["managed-owner"], "example.NeonTest")
+        self._report(phases["optional-policies"], "example.OptionalTest")
+        phases["resource-contracts"] = resource_reports(manifest, self.root / "resource-contracts")
+        verify_neon_reports(manifest, phases)
+        required = manifest["requiredResourceContractCases"].pop()
+        with self.assertRaisesRegex(GateError, "testcase matrix"):
+            verify_neon_reports(manifest, phases)
+        manifest["requiredResourceContractCases"].append(required)
+        cls, cases = next(iter(RESOURCE_CONTRACT_CASES.items()))
+        xml = phases["resource-contracts"] / f"TEST-{cls}.xml"
+        original = xml.read_text()
+        marker = "NEON_RESOURCE_FIXTURE=custom-fields,PG17,ordinary-runtime,OID-cleanup,PASS"
+        for changed in (original.replace(marker, ""), original.replace(marker, marker + "\n" + marker)):
+            xml.write_text(changed)
+            with self.assertRaisesRegex(GateError, "cleanup marker"):
+                verify_neon_reports(manifest, phases)
+        xml.write_text(original.replace(f'<testcase classname="{cls}" name="{cases[0]}"/>', "")
+                       .replace('tests="5"', 'tests="4"'))
+        with self.assertRaisesRegex(GateError, "resource-contract JUnit case"):
+            verify_neon_reports(manifest, phases)
+        xml.write_text(original)
+        self._report(phases["resource-contracts"], "example.UnreviewedTest")
+        with self.assertRaisesRegex(GateError, "report set differs"):
+            verify_neon_reports(manifest, phases)
 
     def test_raw_evidence_rejects_known_credentials(self):
         owner = self.root / "owner-uri"
@@ -324,6 +374,9 @@ class NeonGateOfflineTest(unittest.TestCase):
         self._report(no_db, "example.NoDbTest")
         self._report(neon, "example.NeonTest")
         self._report(optional, "example.OptionalTest")
+        resource = resource_reports(manifest, self.root / "resource-contracts")
+        resource_log = self.root / "resource-contracts.log"
+        resource_log.write_text("resource-contracts pass")
         no_db_log = self.root / "no-db.log"
         neon_log = self.root / "neon.log"
         optional_log = self.root / "optional.log"
@@ -342,15 +395,15 @@ class NeonGateOfflineTest(unittest.TestCase):
                             else f"{name} evidence")
             custody[name] = path
         inputs = (self.root, manifest_path, base, "1.0.0", assignment_sha,
-                  no_db, {"managed-owner": neon, "optional-policies": optional},
-                  no_db_log, {"managed-owner": neon_log, "optional-policies": optional_log},
+                  no_db, {"managed-owner": neon, "optional-policies": optional, "resource-contracts": resource},
+                  no_db_log, {"managed-owner": neon_log, "optional-policies": optional_log, "resource-contracts": resource_log},
                   {"A": "hash"}, {"A": "hash"},
                   jar, public, 123, 2, custody)
         receipt = evidence_receipt(*inputs)
         self.assertEqual(receipt["githubRunAttempt"], 2)
         self.assertIn("dependencySnapshot", receipt["buildCustodySha256"])
         self.assertEqual(receipt["testedTestClasses"], {"example/NeonTest.class": "digest"})
-        self.assertEqual(set(receipt["surefireXml"]), {"noDb", "managed-owner", "optional-policies"})
+        self.assertEqual(set(receipt["surefireXml"]), {"noDb", "managed-owner", "optional-policies", "resource-contracts"})
         public.write_text(json.dumps({"assignmentSha256": assignment_sha,
                                       "baseCommit": base, "expectedTag": "v1.0.0",
                                       "runAttempt": 1}))

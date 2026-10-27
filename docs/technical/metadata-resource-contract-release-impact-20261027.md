@@ -1,0 +1,315 @@
+# Release inventory reconciliation — resource contracts, 2026-10-27
+
+This record reviews the inventory delta from `376e3fdc739b6c3ef3a7f128fda8e0e085ea6280`
+(last inventory change, PR #301) to merged `main`
+`c5aaebaa35667d013fb303e708b6d8186ff39260` (PR #304), and the explicitly
+identified release-infrastructure changes in this branch. The original inventory
+baseline `64665a46d8743846b57306db3a7965ab2756ab69` remains unchanged.
+Earlier RC/dialect and historical evidence statements describe their named source
+revisions. They are not an assertion that the current broad scopes remain unchanged.
+
+Classification: `transversal` release custody/test infrastructure. No product source,
+public runtime contract, production migration or fixture business oracle is modified.
+The inventory is an adoption artifact derived from the actual source and executable
+gate, not permission to omit affected tests. No H2/local database proof is accepted.
+
+## Exact source reconciliation
+
+The failed `unknown or missing test source` check was correct: 16 Java files and one
+resource were added after the last inventory review. Seven existing Java hashes also
+changed. The current correction adds four test infrastructure sources of its own (fixture, guard test, cleanup listener and lifecycle annotation).
+Nested standalone fixture files have no delta and retain all 13 existing hashes.
+
+New entries (the hash binds the final reviewed bytes; later fixture corrections must
+renew only their own entries before the committed-tree gate):
+
+| Source under `src/test/java/org/praxisplatform/uischema/` | Disposition | Causal boundary |
+| --- | --- | --- |
+| `configuration/CustomFieldAutoConfigurationTest.java` | `no_db` | ApplicationContextRunner without datasource: default and host-overridden tenant/definition/fact beans and MVC identity resolver registration; no persistence or remote claim. |
+| `controller/docs/CustomFieldSchemaTenantIsolationTest.java` | `no_db` | Standalone MockMvc and in-memory schema documents/providers prove requested schema roles, authenticated/header tenant isolation, ETag/Vary/private caching and conditional requests; no database. |
+| `customfields/CustomFieldFixtures.java` | `support` | Descriptor factory shared by pure custom-field tests; support only, no executable suite or database. |
+| `customfields/CustomFieldJpaCriteriaSupportTest.java` | `no_db` | Mockito Criteria/Root/JpaExpression tests prove declared keys/operators, typed casts, null/IN/LIKE and invalid operand rejection before query execution; no SQL execution or database. |
+| `customfields/CustomFieldResourceLifecycleTest.java` | `no_db` | Mock repository/resource mapper and real generic service test validate creation/update/filter custom-field validation, hook order and read-only preservation; no JPA/database execution. |
+| `customfields/CustomFieldSchemaProjectionTest.java` | `no_db` | Pure schema projection, definition snapshot and runtime-validator comparisons for write/response/filter roles, controls/requirements, typed operands and reserved keys; no datasource. |
+| `customfields/CustomFieldSpecContractTest.java` | `no_db` | In-memory JSON Schema validation of the committed FieldSpec and custom-fields example, including reserved-key rejection; no database. |
+| `customfields/CustomFieldValidatorTest.java` | `no_db` | Pure reflective DTO/record validation of provider tenant/resource scope, strict typed constraints, readonly/required/null/container semantics and defensive descriptor metadata; no database. |
+| `customfields/H2JsonbFunctionsTest.java` | `no_db` | Despite the compatibility-helper name, invokes only the pure JSON scalar extraction function on strings/bytes/maps. Opens neither H2 nor another database. |
+| `customfields/RequestHeaderResourceTenantContextResolverTest.java` | `no_db` | Mock servlet request context validates canonical tenant headers, absent context, ambiguity and malformed values; no database. |
+| `customfields/e2e/CustomFieldsResourceE2ETest.java` | `neon_required` | Five required real HTTP/PG17 JSONB tenant/schema/CRUD/filter/export/server-owned-value cases on its own ordinary-runtime assigned-child fixture. |
+| `domain/ResourceFactAndCustomFieldDomainCatalogTest.java` | `no_db` | Pure domain catalog generation and standalone MockMvc prove declared facts/bindings/governance, tenant cache isolation, provider drift and annotation discovery without domain bean initialization; no database. |
+| `exporting/CustomFieldCollectionExportTest.java` | `no_db` | In-memory CSV/JSON/Excel export of nested record/maps plus existing host value-resolver authority; no JPA/database access. |
+| `fact/AnnotationResourceFactCatalogProviderTest.java` | `no_db` | Spring bean-definition/proxy/factory metadata inspection tests prove lazy declaration discovery, concrete type recovery and ambiguity rejection without creating domain service beans or a datasource. |
+| `id/CompositeIdSupportTest.java` | `no_db` | Pure composite wire-ID/Jackson/Spring converter/sort/export/bulk codec tests for records/classes/escaped components and embedded-value distinction; no database. |
+| `id/e2e/CompositeIdResourceE2ETest.java` | `neon_required` | One complete required real HTTP/PG17 composite-ID CRUD/filter/options/lookup/stats/OpenAPI oracle. Migrated from H2 without changing business assertions; owns a separate ordinary-runtime fixture. |
+| `testsupport/ResourceContractNeonFixture.java` | `support` | Support only. Provisions one assigned-child database and isolated ordinary runtime per resource-contract class, verifies PG17/client TLS/identities before Hibernate DDL and cleans only recorded object OIDs. Never selected as no_db or as a standalone database suite. |
+| `testsupport/ResourceContractNeonFixtureTest.java` | `no_db` | Offline filesystem and OID guards: absolute private nonsymlink files and refusal of missing/changed/unobserved cleanup OIDs. Does not open a database or certify actual PostgreSQL cleanup. |
+
+| `testsupport/ResourceContractNeonSpringCleanupListener.java` | `support` | Runs after Spring DirtiesContext context closure (reverse after-class order 2999); cleanup does not fetch an inactive ApplicationContext. |
+| `testsupport/ResourceContractNeonTest.java` | `support` | Binds DirtiesContext AFTER_CLASS and the cleanup listener to the remote resource classes. |
+
+Existing changed hashes:
+
+| Source | Previous SHA-256 | Reviewed SHA-256 | Cause |
+| --- | --- | --- | --- |
+| `extension/CustomOpenApiResolverTest.java` | `e6c728153a7ccdcf159fe1417489477809440d479c89378b9d8b68bd0ebbcb06` | `2fc258f9ebade61432b1396391e784ad38ac0741fcf6c61242c1f8e11b68cf40` | Current source adds the quick-view curation and ResourceReference serialization oracle; existing in-memory ModelConverters assertions retained. |
+| `extension/DateFieldUISchemaTest.java` | `e57628eb2818157c5b01f349baf258307413d5dcda1b31ae5e32d0cd5a5cd41e` | `21d45e4f1f73296ac339833c06a6b79aff637ecd7a48a17bb7c5bcea85a81efe` | Anonymous UISchema test declaration implements new quickViewVisible=false and quickViewOrder=0 defaults; date-field oracle unchanged. |
+| `extension/FilterableBetweenListDetectionTest.java` | `c725f36343f3ab4891ea1241d7dcd7c9878458bf21af505be9e553522ffab0fd` | `e864397f1c8d2f18f0afad8a685f496f3d3bc9db20ed600373068a3ca52bdf7e` | Anonymous UISchema declaration implements new quick-view defaults; BETWEEN list detection oracle unchanged. |
+| `extension/TestUISchemaDefaults.java` | `2a9ec2308036bd4e7a3b7937449f8f0a6c8ceef5b49b63a82f989d47c9f95158` | `fbe4de683271044ca852b1ba94aebe55d484a302652a8e604e0b3c6678af95be` | Shared annotation stub gains only quickViewVisible=false/quickViewOrder=0; remains support, not an executable test. |
+| `openapi/OpenApiCanonicalOperationResolverTest.java` | `2af4c61a50cb701864ef8ab2816d6ba7512a0a6fae57e53a15235db863d5e660` | `365f2a9ea36c0e7c3b5bc9bdef30c62106c14f5c572eaef573bc4435eda71f5e` | Adds inherited generic request-body MVC lookup and missing/ambiguous handler rejection tests, without a database. |
+| `options/OptionSourceDescriptorTest.java` | `1d7fe1473b9db58dd5caacd9344591cd1a58061bd73a4983358bee954ec9a81d` | `0e96ba5989a6e4ba1237a58a57d6472921ef68f84245bf69b28693cdbd7ae141` | Existing metadata serialization assertion now includes explicit detail.resourceKey and previewSurfaceId; no query/database execution. |
+| `schema/ApiResourceIdentityResolverTest.java` | `eaa45c92dd9bdb79fbe832b1c291927b69fe7f31d0b0d3bf2660952679c4c315` | `b626b4a09b351f4ebb074639a82c5005ebdd1c9407f0dfb715da029eb9a52194` | Adds projected related-child identity/icon/key precedence, optional visual metadata and key-only fallback tests over mocked canonical MVC mappings; no database. |
+
+The additional `application-e2e-neon.yml` enables PostgreSQL dialect/create-drop only;
+all JDBC credentials and isolated schema are bound before application refresh by the
+assigned fixture. Global/H2 profiles are not selected by either new DB class.
+`H2JsonbFunctionsTest` calls a pure scalar extraction function directly; its name is
+not a database classification. Neither it nor mocked Criteria tests certify SQL.
+
+## Required resource-contract phase
+
+The new `resource-contracts` phase is serial and independent of the existing
+`managed-owner` and `optional-policies` phases. It requires exactly both reviewed
+classes and all six named JUnit methods in `requiredResourceContractCases`.
+The gate rejects a missing/extra class, missing method, skip, failure, duplicate
+identity, missing raw phase log or missing/duplicate completed-fixture marker.
+The complete no-database selection remains mandatory; fixture support is never
+selected as an executable class.
+
+`CustomFieldsResourceE2ETest` retains all five actual HTTP/JSONB/schema/cache/export
+and server-owned-value oracles. `CompositeIdResourceE2ETest` retains its entire
+CRUD/filter/options/lookup/stats/OpenAPI method, changing only database setup/reset
+and cleanup from H2 to the remote assigned fixture. Assertions are not weakened.
+
+Each class creates a unique database using `template0` and a unique ordinary LOGIN
+role on the externally reviewed child. The privileged setup owner is not the HTTP
+identity. Setup verifies PG17, `current_user=session_user`, non-SUPERUSER and the
+necessary CREATEDB/CREATEROLE profile. The setup owner owns the isolated schema and
+grants the ordinary runtime only CONNECT plus schema USAGE/CREATE; Hibernate owns
+its own tables. Before Hibernate DDL, runtime preflight verifies its exact database,
+schema OID/owner, PG17, session identity, all privileged role flags denied and zero
+outgoing memberships. Client TLS is `verify-full`, default Java trust verification,
+required channel binding and an actual valid TLS 1.2/1.3 driver socket witness.
+`pg_stat_ssl` behind Neon's proxy is not used as a frontend TLS witness.
+
+The `@ResourceContractNeonTest` lifecycle lets Spring finish its after-class listeners and DirtiesContext close the cached context; the lower-order cleanup listener then drops its database and role. Every
+drop rechecks recorded database/schema/role OIDs and ownership. A private append-only
+journal records intended names and observed OIDs. An unknown CREATE outcome refuses
+cleanup and emits no PASS: the coordinator must reconcile actual OIDs before retry.
+Fresh 64-hex runtime passwords are generated into a separate absolute, regular,
+mode-0600 credentials file; they are never reused from P4 or uploaded. The scanner
+checks both resource passwords recursively, including failure logs and final bundle
+custody. A successful initialization preflight and OID cleanup are both required for
+the success marker; failed initialization can report cleanup CLOSED separately.
+
+Workflow custody includes the resource phase in source proof and signed release:
+exact source, assignment, separate raw XML/logs, before/after compiled source/test
+snapshots, resolved dependencies, staged JAR comparison and credential scans.
+Signing in P4 does not exempt the subsequent resource phase; receipt construction
+and publication remain blocked until that phase also succeeds on unchanged bytes.
+
+## Shared production scope review
+
+This delta also includes earlier changes not covered by the inventory's old schema-
+dialect wording. `c05879156f` changed four authorized readers, canonical numeric node
+normalization, ordinal-manifest validation extraction and durable execution reads.
+`d57244ad51` introduced composite IDs across query/options/stats/bulk identity.
+PR #304 added custom fields, resource facts, related resource identity and schema
+projection. The POM is byte-identical between the last inventory change and current
+main; it is incorrect to call these deltas a root-version-only change.
+
+### Metadata closure: 28 excluded classes
+
+The existing 28-class/154-oracle inventory in
+[the prior dialect review](metadata-schema-release-impact-20261024.md) remains the
+list of historical oracles. Its statements that query/business/registry code was
+unchanged apply only to that earlier delta. The current causal branches are:
+
+| Family | Current shared source delta and retained branch | Current bounded assurance |
+| --- | --- | --- |
+| JPA CRUD/query/read-only/workflow | Generic service now discovers embedded IDs, expands composite sorts, uses tenant-aware specification building, and validates/restores annotated custom fields. Legacy scalar-ID DTOs without `@CustomFields` select ordinary root paths and empty custom validation/protection. Access specifications still intersect functional filters. | Existing no-DB base service/Criteria units plus required real scalar/JSONB custom-field and composite resource HTTP. No excluded legacy class PASS. |
+| Options/providers/bootstrap | JPA executor now expands composite value selections and delegates scalar/composite predicates; non-string search uses explicit text concat before lower. Default extension beans are new; host overrides remain canonical. | Auto-configuration/descriptor/registry units and required composite options/by-IDs/lookup plus scalar custom resource boot. Old exact bootstrap bean-count obligations remain in the excluded source. |
+| Schemas/discovery/identity/HATEOAS | ApiDocsController resolves actual handler body roles, enriches tenant schemas only for declared containers, and derives projected resource identities. Resolver adds quick-view/reference metadata. No-op definitions and scalar IDs retain ordinary generated schemas; related identities use declared child path/key. | New tenant-isolation/fact/identity/MVC units and required real HTTP schema/304/CRUD envelope proof. Collection link generation and availability decisions are not replaced by a local schema map. |
+| Stats | JPA path navigation now distinguishes associations from embedded values/IDs and expands composite grouping/sorts. Scalar metrics retain their original predicates/aggregates. | Existing formula/eligibility units and the full required composite stats HTTP oracle. This does not claim that every legacy stats query ran. |
+| Surfaces/actions | Registry/item definitions add declared child-operation identity fields; absent annotations/default values keep existing typed surface/action identity and availability contracts. | Existing registry/availability units plus current related-identity tests. No claim that the registry source is unchanged. |
+| Four bulk HTTP classes and nested consumer | Broad metadata closure also contains the reader/durable changes below; supplied scalar fixtures do not introduce composite/tenant field intent. | Structural/identity/schema units and the fresh required gates support the declared branches. Neither resource-contract phase substitutes for specialized bulk execution, nested artifact or capacity proofs. |
+
+### Bulk closures and historical reuse
+
+The 58 bulk entries (50 exclusions and eight superseded entries) retain their named
+specialized oracles and formal replacements. They must be reviewed by the invoked
+branch, not refreshed merely because a broad digest differs. Entry-specific current reasons and closure digests are bound in the JSON inventory. The class-to-causal-family map is recorded below. No earlier blanket unchanged-source statement authorizes the current source.
+
+Three historical public ZIPs remain byte-identical. They are bounded historical
+component observations and never current whole-artifact equivalence:
+
+| Historical class | Invoked current branch and scope change | Limits/required current proof |
+| --- | --- | --- |
+| BulkCapacityAuthorityManagedNeonTest | Migrator/infrastructure and `JdbcBulkCapacityIssuer.CapacityReader`; none of the eight changed reader/durable methods or new composite codec is called. New Neon YAML is not loaded by this plain JUnit fixture. | Retain migration/ACL/definer claims and original ZIP. No new current managed-authority run is asserted. |
+| BulkAsyncPublicAdmissionNeonTest | Consumer capture/enqueue and worker ordered execution; terminal observation is direct fixture SQL. No authorized reader, `inspectConsistent` or summary facade. `findScopedRow` extracts the same scoped SELECT then unchanged snapshot mapping; added row timestamps are consumed by read inspection. Canonical integral JSON serialization retains the same decimal bytes. | Historical capture/authority/two-worker claims retained. Current canonical/storage units and fresh P4 reserve/advance/receipt are mandatory; no new reader-batch or current ASYNC execution claim. |
+| BulkCapacityGlobalOccupancyNeonTest | Shared fixture uses enqueue/claim for serial 8/80 storage observation. No authorized reader or consistent summary. Same scoped-row extraction/canonical numeric-byte reasoning as above; capacity migrations/occupancy SQL unchanged. New profile unused. | Historical serial/quiescent storage claim retained, not throughput/HTTP/SLA or current installation. Current A/P4 gates remain mandatory. |
+
+The dependency-scope resource delta is only the additional Neon profile (subsequently
+bound by this branch's reviewed assigned fixture). None of these three plain JUnit
+historical fixtures starts a Spring application with that profile. Original raw ZIP
+paths/hashes and all bounded acceptance claims are preserved; scope/dependency digest
+renewal must cite these branches instead of root-version-only wording.
+
+### Class-specific legacy disposition map
+
+All 86 existing disposition paths remain present. The parity source's exact closure
+has no delta and retains its digest. The other digests bind the reviewed current
+source/resource closure; each entry now states its changed and preserved branches.
+This map does not convert an exclusion or historical observation into a suite PASS.
+
+| Legacy class | Reviewed causal family |
+| --- | --- |
+| `EmbeddedPostgresColdStartTest` | `bulk-structure-migration` |
+| `BulkActionSchemaProjectionHttpTest` | `BulkMetadata` |
+| `BulkAtomicExecutionPostgresTest` | `consistent-inspection` |
+| `BulkAtomicProposalJsonConstraintPostgresTest` | `bulk-structure-migration` |
+| `BulkAuthorizedExecutionReaderPostgresTest` | `authorized-read` |
+| `BulkAuthorizedExecutionResultsReaderPostgresTest` | `authorized-read` |
+| `BulkAuthorizedProposalReaderPostgresTest` | `authorized-read` |
+| `BulkAuthorizedProposalResultsCapacityPostgresTest` | `authorized-read` |
+| `BulkAuthorizedProposalResultsContinuationPostgresTest` | `authorized-read` |
+| `BulkCapacityAttestationPostgresTest` | `capacity` |
+| `BulkCapacityAuthorityMigrationPostgresTest` | `capacity` |
+| `BulkCapacityAuthorityRollbackPostgresTest` | `capacity` |
+| `BulkCapacityCloneBaselinePostgresTest` | `capacity` |
+| `BulkCapacityControlledWithdrawalPostgresTest` | `capacity` |
+| `BulkCapacityExternalQuarantinePostgresTest` | `capacity` |
+| `BulkCapacityGlobalOccupancyPostgresTest` | `capacity` |
+| `BulkCapacityLocalAdministrationPostgresTest` | `capacity` |
+| `BulkCapacityLocalInstallationPostgresTest` | `capacity` |
+| `BulkCapacityOccupancyCatalogPostgresTest` | `capacity` |
+| `BulkCapacityOccupancyCutoverPostgresTest` | `capacity` |
+| `BulkCapacityOccupancyPostgresTest` | `consistent-inspection` |
+| `BulkCapacityOccupancyProcessesPostgresTest` | `capacity` |
+| `BulkCapacityProvisioningInterlockPostgresTest` | `capacity` |
+| `BulkCapacityTwoClusterQuarantinePostgresTest` | `capacity` |
+| `BulkConsumerArtifactIntegrationTest` | `BulkMetadata` |
+| `BulkControlPlaneInfrastructurePostgresTest` | `bulk-structure-migration` |
+| `BulkCrudOperationalCapabilityHttpTest` | `BulkMetadata` |
+| `BulkCrudOperationalLifecyclePostgresTest` | `bulk-structure-migration` |
+| `BulkCrudStructuralOpenApiHttpTest` | `BulkMetadata` |
+| `BulkDurableExecutionPostgresTest` | `consistent-inspection` |
+| `BulkDurableMigrationPostgresTest` | `bulk-structure-migration` |
+| `BulkDurableWorkerActiveCapacityPostgresTest` | `worker` |
+| `BulkDurableWorkerCallbackScopePostgresTest` | `worker` |
+| `BulkDurableWorkerHandlerIdentityPostgresTest` | `worker` |
+| `BulkDurableWorkerLifecyclePostgresTest` | `worker` |
+| `BulkDurableWorkerNamespacePostgresTest` | `worker` |
+| `BulkDurableWorkerOperationHeadPostgresTest` | `worker` |
+| `BulkDurableWorkerPostgresTest` | `worker` |
+| `BulkDurableWorkerProcessesPostgresTest` | `worker` |
+| `BulkDurableWorkerQueueBoundariesPostgresTest` | `worker` |
+| `BulkDurableWorkerQueuePlanPostgresTest` | `worker` |
+| `BulkDurableWorkerSuspendedQueuePostgresTest` | `worker` |
+| `BulkEvaluationStorePostgresTest` | `bulk-structure-migration` |
+| `BulkExecutionInfrastructurePostgresTest` | `bulk-structure-migration` |
+| `BulkHistoricalInterruptedPrefix14PostgresTest` | `bulk-structure-migration` |
+| `BulkHistoricalPre14ProvisionedUpgradePostgresTest` | `bulk-structure-migration` |
+| `BulkHistoricalPre14UpgradePostgresTest` | `bulk-structure-migration` |
+| `BulkHistoricalPublicationIdentityMissingPostgresTest` | `bulk-structure-migration` |
+| `BulkManagedOwnerPostgresTest` | `bulk-structure-migration` |
+| `BulkOpenApiPublicationPostgresTest` | `bulk-structure-migration` |
+| `BulkOperationPublicationFencePostgresTest` | `bulk-structure-migration` |
+| `BulkOperationStructuralCompilerTest` | `BulkMetadata` |
+| `BulkOwnerMigrationResourcesPostgresTest` | `bulk-structure-migration` |
+| `BulkPreviewPageReaderPostgresTest` | `authorized-read` |
+| `BulkProtectedProposalReaderPostgresTest` | `bulk-structure-migration` |
+| `BulkPublicationCreationPostgresTest` | `bulk-structure-migration` |
+| `BulkReadCapacityPostgresTest` | `bulk-structure-migration` |
+| `BulkWorkerQueueIndexPostgresTest` | `bulk-structure-migration` |
+| `JdbcBulkCapacityIssuerPostgresTest` | `capacity` |
+| `JdbcBulkProposalCapturePostgresTest` | `bulk-structure-migration` |
+| `JdbcBulkProposalStorePostgresTest` | `bulk-structure-migration` |
+| `JdbcBulkUniformQueryPostgresTest` | `bulk-structure-migration` |
+| `AbstractResourceControllerJpaWriteIntegrationTest` | `JpaWrite` |
+| `ActionCatalogE2ETest` | `SurfacesActions` |
+| `BulkResourceOperationOpenApiHttpTest` | `BulkMetadata` |
+| `CanonicalRequestSchemaHttpIntegrationTest` | `Discovery` |
+| `CapabilityConsistencyE2ETest` | `Discovery` |
+| `CapabilityE2ETest` | `Discovery` |
+| `CatalogDiscoveryE2ETest` | `Discovery` |
+| `HateoasAndPayloadSizeE2ETest` | `Discovery` |
+| `HypermediaDiscoveryE2ETest` | `Discovery` |
+| `LimitsAndErrorsE2ETest` | `Discovery` |
+| `MutableResourceLifecycleE2ETest` | `JpaWrite` |
+| `NonJpaOptionSourceProviderE2ETest` | `OptionsBootstrap` |
+| `OpenApiGroupRegistrationE2ETest` | `Discovery` |
+| `OpenApiGroupResolutionE2ETest` | `Discovery` |
+| `OptionsAndOptionSourcesE2ETest` | `OptionsBootstrap` |
+| `ReadOnlyResourceE2ETest` | `JpaWrite` |
+| `ResourceQuerySurfaceE2ETest` | `JpaWrite` |
+| `SchemaDiscoveryE2ETest` | `Discovery` |
+| `SchemaHashE2eTest` | `Discovery` |
+| `StarterBootstrapE2ETest` | `OptionsBootstrap` |
+| `StatsE2ETest` | `Stats` |
+| `SurfaceCatalogE2ETest` | `SurfacesActions` |
+| `WorkflowNegativePathsE2ETest` | `JpaWrite` |
+| `JsonLogicExpressionValidatorParityTest` | `external-unchanged` |
+
+### Fresh P4 proof for the changed authorized read
+
+No current receipt in the tracked evidence was found to certify the new default
+`BulkAuthorizedExecutionReader` nonnull-verified-evaluation path. Old callback
+byte-identity/H1-H5/native6 arguments cannot close six newly composed PostgreSQL
+SELECTs, twelve bindings and multiple typed ResultSet transitions.
+
+The existing required P4 JUnit method now performs a current public authorized read
+immediately after real reserve/advance has committed a completed one-target execution
+and receipt. Its fixture authorization provider reads the current grant and full
+protected target set in the exact runtime-bound RR/RO snapshot; it proves both provider
+calls use one backend PID. The public observation must be COMPLETE, execution status
+COMPLETED, targetCount=1, confirmed=1, pending/unchanged/failures=0 and no diagnostics.
+A JDBC wrapper records exactly one actual execute from `readInspectionBatch` and
+checks its six SELECTs/twelve placeholders. This is an execute-count witness, not a
+network roundtrip/SLA assertion. A separately globally granted requester with reduced
+target scope must receive NOT_FOUND_OR_DENIED, no execution and no further batch.
+
+Only after all those assertions does P4 emit the new exact
+`NEON_PROOF_AUTHORIZED_EXECUTION_BATCH` marker. The common gate requires it exactly
+once in P4 XML for both source proof and official release; missing/duplicated/failed
+or skipped proof blocks publication. This source is prepared, not yet a current native
+PASS. Original P4 deadline, rollback, fencing and transport oracles remain intact.
+
+## Validation and acceptance state
+
+- Offline Python packaging/gate/assignment/proof regression suite: 64 tests passed after final
+  inventory reconciliation. Ruby parsed the workflow YAML and `bash -n` accepted all
+  23 shell blocks. New negatives cover missing resource cases/classes,
+  skipped/failed identities, cleanup markers and separate credential custody.
+- Coordinator-only initial Java compilation passed; fixture guard units passed two
+  cases in Neon attempt 01. Both resource applications then failed before Hibernate
+  at privileged CREATE SCHEMA AUTHORIZATION runtime (SQLState 42501). Journal stages
+  reached DATABASE_CREATED then OID-bound CLOSED. This is failed evidence, not PASS.
+- Coordinator resource attempt 02 passed all five custom-field and the composite business
+  oracles but failed both class lifecycles: manually closing the context in `@AfterAll`
+  preceded Spring's remaining after-class listeners. Attempt 03 stopped at Java
+  compilation on a Mockito wildcard capture; it opened no database. The final lifecycle
+  uses DirtiesContext AFTER_CLASS plus the 2999 cleanup listener, and the guard uses
+  `doReturn` for the wildcard Class value.
+- Coordinator resource attempt 04 passed all nine cases: three offline fixture guard
+  methods, five custom-field HTTP cases and the complete composite HTTP method, zero
+  failures/errors/skips, with both cleanup markers. This is current remote resource
+  evidence, not the complete release gate or public adoption. The coordinator records
+  [the bounded local diagnostic](../evidence/resource-contract-neon-20261027/local-proof.json),
+  with source hash `7416bbad65f95aa77d3f1f546b6b43aeb4ac555308eb80f6a8472d972c3eac0b`
+  for its 1,016 source/test files, XML hashes and postflight zero databases, roles,
+  connections and SDK roles. Gate/workflow/docs are outside that source fingerprint.
+- No database/Maven execution was performed by the inventory author. Full P4 and the
+  new current authorized batch still require the exact-source CI proof and official
+  release workflow before publication.
+- No release dispatch, commit, push or publication was executed by this author.
+- The current inventory remains `impact_review_pending` until the required current P4
+  authorized-batch execution and independent acceptance close. Shared causal dispositions
+  and the three historical raw ZIP hashes have been reviewed; they are not that execution. A working-tree consistency
+  check is not committed-tree `audited_inventory --release` acceptance.
+
+Skills: `atualizar-existente`. The canonical
+`praxis-api-quickstart-operational-proof/SKILL.md` formerly taught “all three
+selections”; the new gate has four selections. The coordinator owns the small
+canonical correction in the separate skill repository, its independent review,
+validation/publication and selective local synchronization. No installed mirror is
+edited by this inventory author; integration status belongs in the coordinator record.

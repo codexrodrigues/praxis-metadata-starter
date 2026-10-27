@@ -202,6 +202,7 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(ownerSql.queryForObject("select writes from public.bulk_optional_domain where id=1", Integer.class)).isEqualTo(1);
         assertThat(ownerSql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class, admitted.executionId())).isEqualTo(1);
         assertThat(ownerSql.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, admitted.executionId())).isEqualTo("COMPLETED");
+        assertAuthorizedExecutionReadBatch(infrastructure, runtime, ownerSql, admitted.executionId());
         assertDomainReceiptRollback(tx, store, kernel, admission, runtime, ownerSql);
         assertExpiredAdmissionCannotMutate(tx, store, kernel, runtime, ownerSql);
         assertExpiredMutationCannotPersist(tx, store, kernel, runtime, ownerSql);
@@ -227,6 +228,70 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(ownerSql.queryForObject("select terminal_reason_code from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, revoked.executionId())).isEqualTo("AUTHORIZATION_REVOKED");
         System.out.println("NEON_PROOF_EXECUTION=one-domain-write-and-receipt,replay-without-callback,revocation-zero-write-and-receipt");
         }
+    }
+
+    /** Current public reader reaches the verified-evaluation six-result JDBC batch on real PG17. */
+    private static void assertAuthorizedExecutionReadBatch(BulkExecutionInfrastructure infrastructure,
+            MeasuredPool runtime, JdbcTemplate ownerSql, UUID executionId) throws Exception {
+        String reducedSubject = "fixture-read-scope-reduced";
+        ownerSql.update("insert into public.bulk_optional_grant values (?,true,1)", reducedSubject);
+        var readSql = new JdbcTemplate(runtime);
+        var backendPids = new java.util.ArrayList<Integer>();
+        BulkReadAuthorizationProvider provider = new BulkReadAuthorizationProvider() {
+            @Override public String confirmationOperationId() { return OPERATION; }
+            @Override public BulkExecutionInfrastructure executionInfrastructure() { return infrastructure; }
+            private void requireOwnedSnapshot(Context context) {
+                assertThat(context.namespaceId()).isEqualTo(NAMESPACE);
+                assertThat(context.resourceKey()).isEqualTo(CONTEXT.resourceKey());
+                assertThat(context.operationId()).isEqualTo(OPERATION);
+                assertThat(readSql.queryForObject("select current_setting('transaction_read_only')='on' and current_setting('transaction_isolation')='repeatable read'", Boolean.class)).isTrue();
+                backendPids.add(readSql.queryForObject("select pg_backend_pid()", Integer.class));
+            }
+            @Override public GlobalDecision preAuthorize(Context context, Duration remainingBudget) {
+                requireOwnedSnapshot(context);
+                return Boolean.TRUE.equals(readSql.queryForObject(
+                        "select exists(select 1 from public.bulk_optional_grant where subject=? and allowed and revision=1)",
+                        Boolean.class, context.requesterSubjectId())) ? GlobalDecision.ALLOWED : GlobalDecision.DENIED;
+            }
+            @Override public ScopeDecision authorize(Context context, String creatorSubjectId,
+                    List<Target> targets, Duration remainingBudget) {
+                requireOwnedSnapshot(context);
+                if (!context.requesterSubjectId().equals(creatorSubjectId)) return ScopeDecision.denied();
+                assertThat(creatorSubjectId).isEqualTo(CONTEXT.subjectId());
+                assertThat(targets).hasSize(1);
+                assertThat(targets.getFirst().ordinal()).isZero();
+                assertThat(targets.getFirst().wireIdentity()).isEqualTo(1);
+                assertThat(readSql.queryForObject("select exists(select 1 from public.bulk_optional_domain where id=?)",
+                        Boolean.class, targets.getFirst().wireIdentity())).isTrue();
+                try {
+                    return ScopeDecision.authorized(java.security.MessageDigest.getInstance("SHA-256").digest(
+                            (context.namespaceId() + ":" + creatorSubjectId + ":revision1:target1").getBytes(StandardCharsets.UTF_8)));
+                } catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+            }
+        };
+        var reader = new BulkAuthorizedExecutionReader(infrastructure, CONTEXT.resourceKey(), provider);
+        runtime.recorder.authorizedInspectionBatches.set(0);
+        var observation = reader.readExecution(CONTEXT.subjectId(), executionId);
+        assertThat(observation.state()).isEqualTo(BulkAuthorizedExecutionReader.State.COMPLETE);
+        assertThat(observation.execution().executionId()).isEqualTo(executionId.toString());
+        assertThat(observation.execution().status()).isEqualTo(BulkExecutionStatus.COMPLETED);
+        assertThat(observation.execution().totals().targetCount()).isEqualTo(1);
+        assertThat(observation.execution().totals().confirmed()).isEqualTo(1);
+        assertThat(observation.execution().totals().pending()).isZero();
+        assertThat(observation.execution().totals().unchanged()).isZero();
+        assertThat(observation.execution().totals().failures()).isZero();
+        assertThat(observation.execution().diagnostics()).isEmpty();
+        assertThat(runtime.recorder.authorizedInspectionBatches).hasValue(1);
+        assertThat(backendPids).hasSize(2);
+        assertThat(backendPids.get(0)).isEqualTo(backendPids.get(1));
+        backendPids.clear();
+        var denied = reader.readExecution(reducedSubject, executionId);
+        assertThat(denied.state()).isEqualTo(BulkAuthorizedExecutionReader.State.NOT_FOUND_OR_DENIED);
+        assertThat(denied.execution()).isNull();
+        assertThat(backendPids).hasSize(2);
+        assertThat(backendPids.get(0)).isEqualTo(backendPids.get(1));
+        assertThat(runtime.recorder.authorizedInspectionBatches).hasValue(1);
+        System.out.println("NEON_PROOF_AUTHORIZED_EXECUTION_BATCH=COMPLETE,COMPLETED,target1-confirmed1-pending0,one-jdbc-execute,six-selects-twelve-bindings,scope-denied-no-projection");
     }
 
     /** Exact production SQL on the already attested ordinary runtime; only transaction-local GUCs. */
@@ -935,6 +1000,7 @@ class BulkOptionalPoliciesNeonTest {
         private final Map<String, long[]> counts = new TreeMap<>();
         private final AtomicInteger successfulReceiptInserts = new AtomicInteger();
         private final AtomicInteger deferredReceiptCommitFailures = new AtomicInteger();
+        private final AtomicInteger authorizedInspectionBatches = new AtomicInteger();
         private boolean unitProfile, unitWindow, applyEntered;
         private long unitExecutes, unitJdbcNanos, unitImposedNanos;
         private String unitSqlState;
@@ -1001,6 +1067,13 @@ class BulkOptionalPoliciesNeonTest {
                                     long started = System.nanoTime();
                                     try {
                                         Object executed = called.invoke(statement, values);
+                                        if (StackWalker.getInstance().walk(frames -> frames.anyMatch(frame ->
+                                                frame.getClassName().equals(JdbcBulkDurableExecution.class.getName())
+                                                        && frame.getMethodName().equals("readInspectionBatch")))) {
+                                            assertThat(sql.split(";", -1)).hasSize(6);
+                                            assertThat(sql.chars().filter(c -> c == '?').count()).isEqualTo(12);
+                                            authorizedInspectionBatches.incrementAndGet();
+                                        }
                                         // The canonical insert begins with the receipt_clock CTE, not INSERT.
                                         // COMMIT PZ001 below independently proves a receipt row existed in this transaction.
                                         if (sql.contains("insert into praxis_bulk.praxis_bulk_item_receipt\n")) successfulReceiptInserts.incrementAndGet();
