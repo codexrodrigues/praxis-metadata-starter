@@ -1984,11 +1984,18 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkOptionalPoliciesNeonTest.java",
-      "sha256": "59759e88486c90aab77f5d3978eb7fa4104f2be0b5d7e0a8e6e589677eea589c",
+      "sha256": "37a0a0b6d25baec7a45fdb0f93d8acfa879bac4a797d1c9c72715b50ef488e92",
       "kind": "neon_required",
-      "reason": "Fresh remote owner/runtime/control and durable optional-policy evidence on assigned child. Includes four finite capture oracles in the same required P4 case; no third phase. Includes shared unit/control SQL GUC, expiry/no-renewal/rollback and post-admission five-second expiry oracles in the same P4 method; full ATOMIC execution remains outside this narrow proof. Ordered PER_ITEM apply, post-admission and receipt/pending batches require four new physical markers for post-mutation expiry/rollback, changed recovery epoch/publication fences, two-unit nonempty prefix/replay and finite 100ms transport profile through real commit/readback. Physical success is mandatory before publication; no ASYNC fleet or full ATOMIC acceptance. Current c058 closure also requires native public authorized COMPLETE/COMPLETED projection with exact totals, one six-SELECT/twelve-binding readInspectionBatch JDBC execution and reduced-scope denial. The new exact CAPTURE_MARKER is mandatory; ordinary P4 success without it is rejected.",
+      "reason": "Fresh remote owner/runtime/control and durable optional-policy evidence on assigned child. Includes four finite capture oracles in the same required P4 case; no third phase. Includes shared unit/control SQL GUC, expiry/no-renewal/rollback and post-admission five-second expiry oracles in the same P4 method; full ATOMIC execution remains outside this narrow proof. Ordered PER_ITEM apply, post-admission and receipt/pending batches require four new physical markers for post-mutation expiry/rollback, changed recovery epoch/publication fences, two-unit nonempty prefix/replay and finite 100ms transport profile through real commit/readback. Physical success is mandatory before publication; no ASYNC fleet or full ATOMIC acceptance. Current c058 closure also requires native public authorized COMPLETE/COMPLETED projection with exact totals, one six-SELECT/twelve-binding readInspectionBatch JDBC execution and reduced-scope denial. The new exact CAPTURE_MARKER is mandatory; ordinary P4 success without it is rejected. Observer-isolation correction after CI proof 40595715126: stack-origin inspection is armed only around the authorized COMPLETE/denied read proof, and closes on failure; unrelated SQL and the ordered transport profile never invoke it. Five-second budget, 100ms floor, strict >2100ms reserve, exact execute counts, positive effect/receipt and replay remain unchanged. In-memory entry/pre-policy checkpoints only diagnose timing and print after the unit. That failed run preserved STOPPED/zero effects/zero receipts, but does not certify the positive transport profile; fresh assigned Neon P4 remains mandatory.",
       "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesNeonTest",
       "neonPhase": "optional-policies"
+    },
+    {
+      "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkOptionalPoliciesRecorderTest.java",
+      "sha256": "cd24274a2d8c274cd97716436a3a4386593e9bd4f5f73c2f8a4226e0932b8727",
+      "kind": "no_db",
+      "reason": "Three offline JDBC-double tests prove the authorized-reader observer is never invoked for unrelated or floored SQL, still validates canonical-origin six-SELECT/twelve-binding batches only in scope, rejects malformed shape, and disarms after assertion failure. The real 100ms recorder floor remains exercised; no database, five-second performance qualification or remote PASS is claimed.",
+      "className": "org.praxisplatform.uischema.bulk.BulkOptionalPoliciesRecorderTest"
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/bulk/BulkOwnerMigrationResourcesPostgresTest.java",

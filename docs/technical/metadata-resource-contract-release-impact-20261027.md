@@ -298,7 +298,7 @@ PASS. Original P4 deadline, rollback, fencing and transport oracles remain intac
   with source hash `7416bbad65f95aa77d3f1f546b6b43aeb4ac555308eb80f6a8472d972c3eac0b`
   for its 1,016 source/test files, XML hashes and postflight zero databases, roles,
   connections and SDK roles. Gate/workflow/docs are outside that source fingerprint.
-- No database/Maven execution was performed by the inventory author. Full P4 and the
+- At the initial inventory cut, no database/Maven execution was performed by the inventory author. The later observer correction was compiled and its three offline Maven regressions passed; the author did not execute database tests. Full P4 and the
   new current authorized batch still require the exact-source CI proof and official
   release workflow before publication.
 - No release dispatch, commit, push or publication was executed by this author.
@@ -313,3 +313,44 @@ selections”; the new gate has four selections. The coordinator owns the small
 canonical correction in the separate skill repository, its independent review,
 validation/publication and selective local synchronization. No installed mirror is
 edited by this inventory author; integration status belongs in the coordinator record.
+
+### Failed source proof 40595715126
+
+The official source proof for commit `60556d07f5c652c219192682b8248727e01ceb0c`
+([run](https://github.com/codexrodrigues/praxis-metadata-starter/actions/runs/40595715126))
+failed on 2026-10-27. The managed-owner case passed in 2209.123 seconds with all
+nine required scenario markers. P4 failed after 484.084 seconds: its synthetic 100 ms transport profile, with
+unchanged thresholds and query-count expectations, observed 2098 ms before policy admission,
+while the existing guard requires more than 2100 ms within the original five-second
+unit deadline. Independent durable readback was `STOPPED`, with zero domain
+effects, receipts and admissions; no SQL exception was recorded.
+
+The new authorized-reader batch assertions and marker executed before that
+failure. They do not make the whole P4 case pass. The remaining transport-profile
+assertions, final grant-revocation assertions and the six resource-contract cases
+did not execute. Final source snapshots and a successful proof receipt are absent.
+The uploaded failure artifact preserves the raw XML and logs. Postflight found
+one retained P4 database and two fixture logins with zero connections; this is
+retained diagnostic state, not a zero-resource cleanup claim. No release is
+approved by this run. Diagnosis must preserve the five-second deadline, transport
+floor and pre-policy reserve rather than lower the thresholds to obtain a pass.
+
+The subsequent harness correction scopes stack-origin inspection to the two
+public authorized reads and disarms it on exceptional exits. Three offline
+recorder regressions prove isolation from unrelated/floored statements, batch
+shape checks and exceptional cleanup. Entry/pre-policy timing checkpoints are
+collected only in memory and printed after the unit. No product deadline,
+transport floor, reserve threshold, query-count expectation or positive outcome
+oracle changes. The inventory now contains 334 Java sources and 204 `no_db`
+classes. This removes a candidate measurement interference; it does not establish
+the cause of the failed timing result or qualify the positive Neon profile.
+The earlier nine-case local receipt remains bound to its original source hash.
+
+A read-only local probe on the newly assigned child measured ten `SELECT 1`
+round trips at 143.5–150.0 ms (mean 144.7 ms). This environment is unsuitable for
+qualifying this 100 ms-floor positive profile. The official remote workflow has
+only the closed managed-owner/P4/resource-contract matrix, so the next reviewed
+source is tested once through that matrix, preserving the previous failure.
+No ad hoc workflow or weakened gate is introduced. The existing operational-proof
+skill's release-gate guidance remains adequate for this harness-only correction;
+the pending canonical skill increment still documents the new resource phase.

@@ -211,7 +211,9 @@ substitua bytes públicos ou trate o cancelamento como publicação bem-sucedida
 O [registro causal](docs/technical/metadata-resource-contract-release-impact-20261027.md)
 explica as novas fontes, hashes e perfis, as 86 disposições legadas e os três reusos
 históricos. O status `impact_review_pending` admite a prova focal de fonte, que não
-publica; bloqueia a preparação oficial da release até o aceite independente da nova
-prova P4. Não substituir esse estado por hashes renovados sem a análise das chamadas.
+publica; bloqueia o gate de publicação até o aceite independente da nova prova P4.
+O job de criação da tag não executa esse gate: antes de dispará-lo, o coordenador
+deve executar o preflight do inventário na fonte revisada e confirmar o aceite.
+Não substituir esse estado por hashes renovados sem a análise das chamadas.
 O recibo focal enumera B–H e os seis casos de recurso, com
 `releaseApproved=false`; P4 ou recurso ausente, skip ou marcador divergente falha.

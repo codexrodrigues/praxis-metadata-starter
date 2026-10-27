@@ -270,27 +270,28 @@ class BulkOptionalPoliciesNeonTest {
             }
         };
         var reader = new BulkAuthorizedExecutionReader(infrastructure, CONTEXT.resourceKey(), provider);
-        runtime.recorder.authorizedInspectionBatches.set(0);
-        var observation = reader.readExecution(CONTEXT.subjectId(), executionId);
-        assertThat(observation.state()).isEqualTo(BulkAuthorizedExecutionReader.State.COMPLETE);
-        assertThat(observation.execution().executionId()).isEqualTo(executionId.toString());
-        assertThat(observation.execution().status()).isEqualTo(BulkExecutionStatus.COMPLETED);
-        assertThat(observation.execution().totals().targetCount()).isEqualTo(1);
-        assertThat(observation.execution().totals().confirmed()).isEqualTo(1);
-        assertThat(observation.execution().totals().pending()).isZero();
-        assertThat(observation.execution().totals().unchanged()).isZero();
-        assertThat(observation.execution().totals().failures()).isZero();
-        assertThat(observation.execution().diagnostics()).isEmpty();
-        assertThat(runtime.recorder.authorizedInspectionBatches).hasValue(1);
-        assertThat(backendPids).hasSize(2);
-        assertThat(backendPids.get(0)).isEqualTo(backendPids.get(1));
-        backendPids.clear();
-        var denied = reader.readExecution(reducedSubject, executionId);
-        assertThat(denied.state()).isEqualTo(BulkAuthorizedExecutionReader.State.NOT_FOUND_OR_DENIED);
-        assertThat(denied.execution()).isNull();
-        assertThat(backendPids).hasSize(2);
-        assertThat(backendPids.get(0)).isEqualTo(backendPids.get(1));
-        assertThat(runtime.recorder.authorizedInspectionBatches).hasValue(1);
+        try (var ignored = runtime.recorder.observeAuthorizedInspection()) {
+            var observation = reader.readExecution(CONTEXT.subjectId(), executionId);
+            assertThat(observation.state()).isEqualTo(BulkAuthorizedExecutionReader.State.COMPLETE);
+            assertThat(observation.execution().executionId()).isEqualTo(executionId.toString());
+            assertThat(observation.execution().status()).isEqualTo(BulkExecutionStatus.COMPLETED);
+            assertThat(observation.execution().totals().targetCount()).isEqualTo(1);
+            assertThat(observation.execution().totals().confirmed()).isEqualTo(1);
+            assertThat(observation.execution().totals().pending()).isZero();
+            assertThat(observation.execution().totals().unchanged()).isZero();
+            assertThat(observation.execution().totals().failures()).isZero();
+            assertThat(observation.execution().diagnostics()).isEmpty();
+            assertThat(runtime.recorder.authorizedInspectionBatches).hasValue(1);
+            assertThat(backendPids).hasSize(2);
+            assertThat(backendPids.get(0)).isEqualTo(backendPids.get(1));
+            backendPids.clear();
+            var denied = reader.readExecution(reducedSubject, executionId);
+            assertThat(denied.state()).isEqualTo(BulkAuthorizedExecutionReader.State.NOT_FOUND_OR_DENIED);
+            assertThat(denied.execution()).isNull();
+            assertThat(backendPids).hasSize(2);
+            assertThat(backendPids.get(0)).isEqualTo(backendPids.get(1));
+            assertThat(runtime.recorder.authorizedInspectionBatches).hasValue(1);
+        }
         System.out.println("NEON_PROOF_AUTHORIZED_EXECUTION_BATCH=COMPLETE,COMPLETED,target1-confirmed1-pending0,one-jdbc-execute,six-selects-twelve-bindings,scope-denied-no-projection");
     }
 
@@ -785,6 +786,7 @@ class BulkOptionalPoliciesNeonTest {
         var mutations = new AtomicInteger();
         long[] balances = new long[] {-1, -1, -1};
         long[] executes = new long[] {-1, -1, -1, -1, -1};
+        long[] transportCheckpoints = new long[] {-1, -1, -1, -1, -1};
         var runtimeSql = new JdbcTemplate(runtime);
         runtime.recorder.beginUnitFloor();
         Throwable executionFailure = null;
@@ -792,11 +794,16 @@ class BulkOptionalPoliciesNeonTest {
             kernel.advance(reservation, unit -> {
                 calls.incrementAndGet();
                 executes[0] = runtime.recorder.unitExecutes;
+                transportCheckpoints[0] = unit.remainingBudget().toMillis();
+                transportCheckpoints[1] = runtime.recorder.unitJdbcNanos;
+                transportCheckpoints[2] = runtime.recorder.unitImposedNanos;
                 // Entry clamp(1), publication guards(10), grant(1), protected lock/read graph(9).
                 // These are explicitly synthetic reads on the real bound connection, not authority.
                 syntheticReads(runtimeSql, 21);
                 executes[1] = runtime.recorder.unitExecutes;
                 balances[0] = unit.remainingBudget().toMillis();
+                transportCheckpoints[3] = runtime.recorder.unitJdbcNanos;
+                transportCheckpoints[4] = runtime.recorder.unitImposedNanos;
                 if (balances[0] <= 2100)
                     return BulkUnitAdmission.stop(BulkUnitReasonCode.COMMON_GOVERNANCE_UNAVAILABLE);
                 syntheticReads(runtimeSql, 6); // policy(1), recheck(2), prepared entity/active check(3).
@@ -822,6 +829,9 @@ class BulkOptionalPoliciesNeonTest {
                     + ",policyRemainingMillis=" + balances[0] + ",admittedRemainingMillis=" + balances[1]
                     + ",mutationRemainingMillis=" + balances[2]
                     + ",checkpointExecutes=" + java.util.Arrays.toString(executes) + ",sqlState=" + runtime.recorder.unitSqlState);
+            System.out.println("NEON_ORDERED_TRANSPORT_CHECKPOINTS=entryRemainingMillis=" + transportCheckpoints[0]
+                    + ",entryJdbcNanos=" + transportCheckpoints[1] + ",entryImposedNanos=" + transportCheckpoints[2]
+                    + ",prePolicyJdbcNanos=" + transportCheckpoints[3] + ",prePolicyImposedNanos=" + transportCheckpoints[4]);
         }
         String state = owner.queryForObject("select status from praxis_bulk.praxis_bulk_execution where execution_id=?", String.class, reservation.executionId());
         int effects = owner.queryForObject("select writes from public.bulk_optional_domain where id=1", Integer.class) - before;
@@ -996,22 +1006,43 @@ class BulkOptionalPoliciesNeonTest {
     @FunctionalInterface private interface CheckedAction { void run() throws Exception; }
 
     /** Counts JDBC execute calls and SQL time, never SQL text/parameters or product telemetry. */
-    private static final class MeasuredDataSource extends DelegatingDataSource {
+    static final class MeasuredDataSource extends DelegatingDataSource {
         private final Map<String, long[]> counts = new TreeMap<>();
         private final AtomicInteger successfulReceiptInserts = new AtomicInteger();
         private final AtomicInteger deferredReceiptCommitFailures = new AtomicInteger();
         private final AtomicInteger authorizedInspectionBatches = new AtomicInteger();
+        private final java.util.function.BooleanSupplier inspectionOrigin;
+        private boolean observingAuthorizedInspection;
         private boolean unitProfile, unitWindow, applyEntered;
         private long unitExecutes, unitJdbcNanos, unitImposedNanos;
         private String unitSqlState;
         void beginUnitFloor() {
             assertThat(unitProfile).isFalse();
+            assertThat(observingAuthorizedInspection).isFalse();
             unitProfile=true; unitWindow=false; applyEntered=false;
             unitExecutes=0; unitJdbcNanos=0; unitImposedNanos=0; unitSqlState=null;
         }
         void endUnitFloor() { unitProfile=false; unitWindow=false; applyEntered=false; }
 
-        MeasuredDataSource(DataSource delegate) { super(delegate); }
+        MeasuredDataSource(DataSource delegate) {
+            this(delegate, () -> StackWalker.getInstance().walk(frames -> frames.anyMatch(frame ->
+                    frame.getClassName().equals(JdbcBulkDurableExecution.class.getName())
+                            && frame.getMethodName().equals("readInspectionBatch"))));
+        }
+        MeasuredDataSource(DataSource delegate, java.util.function.BooleanSupplier inspectionOrigin) {
+            super(delegate);
+            this.inspectionOrigin = inspectionOrigin;
+        }
+        AutoCloseable observeAuthorizedInspection() {
+            assertThat(observingAuthorizedInspection).isFalse();
+            assertThat(unitProfile).isFalse();
+            authorizedInspectionBatches.set(0);
+            observingAuthorizedInspection = true;
+            return () -> observingAuthorizedInspection = false;
+        }
+        int authorizedInspectionBatches() { return authorizedInspectionBatches.get(); }
+        long unitExecutes() { return unitExecutes; }
+        long unitElapsedNanos() { return unitJdbcNanos + unitImposedNanos; }
         void measure(String label, CheckedAction action) throws Exception {
             counts.clear();
             long started = System.nanoTime();
@@ -1067,9 +1098,9 @@ class BulkOptionalPoliciesNeonTest {
                                     long started = System.nanoTime();
                                     try {
                                         Object executed = called.invoke(statement, values);
-                                        if (StackWalker.getInstance().walk(frames -> frames.anyMatch(frame ->
-                                                frame.getClassName().equals(JdbcBulkDurableExecution.class.getName())
-                                                        && frame.getMethodName().equals("readInspectionBatch")))) {
+                                        // The reader observer belongs only to its focal proof, never the
+                                        // independently timed unit/transport profile or unrelated migration SQL.
+                                        if (observingAuthorizedInspection && inspectionOrigin.getAsBoolean()) {
                                             assertThat(sql.split(";", -1)).hasSize(6);
                                             assertThat(sql.chars().filter(c -> c == '?').count()).isEqualTo(12);
                                             authorizedInspectionBatches.incrementAndGet();
