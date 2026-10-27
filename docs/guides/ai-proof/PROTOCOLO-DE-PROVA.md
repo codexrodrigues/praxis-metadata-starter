@@ -80,13 +80,13 @@ Para backend:
 
 - `mvn clean package`
 - aplicacao sobe
-- `GET /v3/api-docs`
-- `GET /{resource}/schemas`
-- schemas filtrados de request e response
+- `GET /v3/api-docs` (`200 OK`, liberado no `SecurityFilterChain` para permitir resolucao de `/schemas/filtered` via loopback HTTP)
+- `GET /{resource}/schemas` (`302 Found` redirecionando para `/schemas/filtered?path=...`)
+- `GET /schemas/filtered` de request e response (`200 OK`)
 - `POST /{resource}`
 - `POST /{resource}/filter`
 - options quando houver select remoto
-- `ETag` e `X-Schema-Hash` nos schemas filtrados
+- `ETag` e `X-Schema-Hash` nos schemas filtrados (`GET /schemas/filtered`)
 
 Para frontend:
 

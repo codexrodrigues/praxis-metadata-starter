@@ -241,6 +241,8 @@ praxis:
   query:
     by-ids:
       max: 200
+  stats:
+    enabled: true
   resource-version:
     etag:
       secret: ${PRAXIS_RESOURCE_VERSION_ETAG_SECRET:praxis-dev-etag-secret-change-in-production-32bytes}
@@ -993,7 +995,9 @@ Regras importantes:
 - esquecer `@OptionLabel` na entidade (degradando `/options/filter` e `/options/by-ids`)
 - esquecer `extends BaseCrudRepository<Entidade, ID>` no repository
 - gerar `ResourceMapper` sem `extractId`, inverter `applyUpdate(E entity, UpdateDTO dto)` ou sobrescrever `entity.setId(...)` no update
-- gerar `Service` sem sobrescrever `getResourceMapper()`, `getDatasetVersion()`, `getStatsFieldRegistry()` e `StatsSupportMode.AUTO`
+- gerar `Service` sem sobrescrever `getResourceMapper()`, `getDatasetVersion()`, `getStatsFieldRegistry()` e `StatsSupportMode.AUTO` (ou esquecer `praxis.stats.enabled: true` no `application.yml`)
+- em bancos PostgreSQL com `spring.jpa.hibernate.ddl-auto=validate`, mapear colunas `CHAR(n)` (`character(1)` / `character(2)` / `bpchar`) como `String` sem `@JdbcTypeCode(SqlTypes.CHAR)`
+- em testes `@SpringBootTest` que validam `/schemas/filtered`, esquecer `webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT` + `request.setServerPort(port)` no MockMvc ou bloquear `/v3/api-docs/**` no `SecurityFilterChain` (pois `/schemas/filtered` consulta `/v3/api-docs` por loopback HTTP)
 - gerar `Controller` sem sobrescrever `getService()` e `getResponseId()`
 - tratar `resourceKey` como copia cega do path
 - gerar workflow generico sem `@WorkflowAction`
