@@ -123,6 +123,10 @@ resolva a semantica do recurso: quais campos pertencem a leitura, criacao,
 atualizacao, filtros e discovery. Depois disso, use mapper ou MapStruct para
 materializar a fronteira entre persistencia e contrato.
 
+> **Regra de Profundidade Funcional (Proibido Mutilar o Dominio):**
+> "Nao derivar mecanicamente da entidade" significa **organizar semanticamente os campos por grupos de UX (`@UISchema(group = ...)`), ocultar colunas secundarias na grade principal (`tableHidden = true` mantendo-as no formulario/ficha), proteger atributos controlados por transicoes de estado (`readOnly = true` no `ResponseDTO` e fora do `UpdateDTO` generico) e aplicar `@DomainGovernance`**.
+> **Jamais ampute 70%–80% das colunas de negocio de uma entidade corporativa nem gere `FilterDTO`s timidos com apenas 2 ou 3 campos!** O recurso Praxis deve entregar capacidade cadastral, analitica, de filtragem (`@Filterable` cobrindo texto, exato, multi-selecao `IN`/`NOT_IN`, faixas `BETWEEN`, datas relativas `IN_LAST_DAYS`/`IN_NEXT_DAYS`, nulidade `IS_NULL`/`IS_NOT_NULL`, booleanos `IS_TRUE` e relacoes aninhadas), `@QuickFilter`, `@ResourceIntent` (manutencao parcial com `@UiSurface(kind = SurfaceKind.PARTIAL_FORM)`), `@WorkflowAction`, `@ResourceFact` e invariantes de negocio **superior ao sistema legado**.
+
 ## Repository minimo
 
 ```java
@@ -448,7 +452,7 @@ public ResourceRepresentationResult<EmployeeResponseDTO> update(
     if (currentVersion.isEmpty()) {
         throw ResourceVersionPreconditionException.missingState();
     }
-    precondition.requireMatch(id, currentVersion.getAsLong());
+    precondition.requireMatch(currentVersion.getAsLong());
     beforeUpdate(id, entity, dto);
     var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(entity, readOnlyKeys);
     mapper.applyUpdate(entity, dto);
@@ -463,7 +467,7 @@ public ResourceRepresentationResult<EmployeeResponseDTO> update(
 ## Extensibilidade Dinâmica Multi-Tenant (`@CustomFields`) e Fatos de Domínio (`@ResourceFact`)
 
 1. **Campos Customizados (`@CustomFields` + `CustomFieldDefinitionProvider`):**
-   - Na entidade JPA PostgreSQL, mapeie a coluna JSONB com `@JdbcTypeCode(SqlTypes.JSON)` e `@Column(name = "custom_fields", columnDefinition = "jsonb") private Map<String, Object> customFields = new LinkedHashMap<>();`.
+   - Na entidade JPA PostgreSQL, mapeie a coluna JSONB com `@JdbcTypeCode(SqlTypes.JSON)`, `@Column(name = "custom_fields", columnDefinition = "jsonb")` **e** `@CustomFields(resourceKey = "human-resources.employees") private Map<String, Object> customFields = new LinkedHashMap<>();` (a anotacao na entidade e obrigatoria para que `GenericSpecificationsBuilder` resolva predicados JSONB em `/filter`).
    - Em `ResponseDTO`, `CreateDTO`, `UpdateDTO` e `FilterDTO`, declare `@CustomFields(resourceKey = "human-resources.employees") private Map<String, Object> customFields = new LinkedHashMap<>();` (mantendo `customFields` aninhado no JSON, sem `@JsonAnyGetter`/`@JsonAnySetter`).
    - Registre um bean `@Component` implementando `CustomFieldDefinitionProvider` (consultando `custom_field_definitions`) para que `/schemas/filtered`, validação server-side, filtros JSONB em `/filter`, exportação e `/schemas/domain` projetem automaticamente os campos ativos do órgão/tenant.
 2. **Catálogo de Fatos de Domínio (`@ResourceFact` + `ResourceFactCatalogProvider`):**
