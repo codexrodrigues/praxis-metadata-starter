@@ -439,16 +439,22 @@ public ResourceRepresentationResult<EmployeeResponseDTO> update(
         Long id,
         UpdateEmployeeDTO dto,
         ResourceVersionUpdatePrecondition<Long> precondition) {
+    if (precondition == null) {
+        throw ResourceVersionPreconditionException.required();
+    }
+    Set<String> readOnlyKeys = validateCustomFields(dto, "request");
     Employee entity = findEntityById(id);
     OptionalLong currentVersion = getEntityResourceVersion(entity);
-    if (precondition != null) {
-        if (currentVersion.isEmpty()) {
-            throw ResourceVersionPreconditionException.missingState();
-        }
-        precondition.requireMatch(id, currentVersion.getAsLong());
+    if (currentVersion.isEmpty()) {
+        throw ResourceVersionPreconditionException.missingState();
     }
+    precondition.requireMatch(id, currentVersion.getAsLong());
+    beforeUpdate(id, entity, dto);
+    var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(entity, readOnlyKeys);
     mapper.applyUpdate(entity, dto);
+    org.praxisplatform.uischema.customfields.CustomFieldSupport.restoreReadOnlyValues(entity, readOnlyKeys, readOnlyValues);
     Employee saved = getRepository().save(entity);
+    afterUpdate(id, saved, dto);
     entityManager.flush();
     return toResourceRepresentation(saved);
 }
