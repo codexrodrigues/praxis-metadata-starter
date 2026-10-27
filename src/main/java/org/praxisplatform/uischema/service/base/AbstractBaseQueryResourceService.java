@@ -189,6 +189,24 @@ public abstract class AbstractBaseQueryResourceService<
         this(repository, new GenericSpecificationsBuilder<>(), entityClass);
     }
 
+    private org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider customFieldDefinitions =
+            new org.praxisplatform.uischema.customfields.NoOpCustomFieldDefinitionProvider();
+    private org.praxisplatform.uischema.customfields.ResourceTenantContextResolver customFieldTenant = java.util.Optional::empty;
+
+    @Autowired(required = false)
+    public void configureCustomFieldFiltering(
+            org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider definitions,
+            org.praxisplatform.uischema.customfields.ResourceTenantContextResolver tenant) {
+        this.customFieldDefinitions = java.util.Objects.requireNonNull(definitions);
+        this.customFieldTenant = java.util.Objects.requireNonNull(tenant);
+    }
+
+    /** Stable semantic key; override when the service is not itself annotated. */
+    protected String resolveResourceKey() {
+        return org.praxisplatform.uischema.customfields.CustomFieldSupport.resourceKey(getClass(),
+                org.praxisplatform.uischema.customfields.CustomFieldSupport.resourceKey(entityClass, entityClass.getSimpleName()));
+    }
+
     protected abstract ResourceMapper<E, ResponseDTO, ?, ?, ID> getResourceMapper();
 
     public BaseCrudRepository<E, ID> getRepository() {
@@ -427,7 +445,7 @@ public abstract class AbstractBaseQueryResourceService<
         );
         GenericSpecification<E> specification = effectiveFilter == null
                 ? null
-                : getSpecificationsBuilder().buildSpecification(effectiveFilter, pageable);
+                : buildResourceSpecification(effectiveFilter, pageable);
         return optionSourceQueryExecutor.filterOptions(
                 entityManager,
                 entityClass,
@@ -454,7 +472,7 @@ public abstract class AbstractBaseQueryResourceService<
         FilterDTO effectiveFilter = normalizeOptionSourceFilter(descriptor, OptionSourceOperation.BY_IDS, null);
         GenericSpecification<E> specification = effectiveFilter == null
                 ? null
-                : getSpecificationsBuilder().buildSpecification(effectiveFilter, Pageable.unpaged());
+                : buildResourceSpecification(effectiveFilter, Pageable.unpaged());
         return optionSourceQueryExecutor.byIdsOptions(
                 entityManager,
                 entityClass,
@@ -494,7 +512,7 @@ public abstract class AbstractBaseQueryResourceService<
         );
         GenericSpecification<E> specification = effectiveFilter == null
                 ? null
-                : getSpecificationsBuilder().buildSpecification(effectiveFilter, Pageable.unpaged());
+                : buildResourceSpecification(effectiveFilter, Pageable.unpaged());
         return optionSourceQueryExecutor.byIdsOptions(
                 entityManager,
                 entityClass,
@@ -871,13 +889,17 @@ public abstract class AbstractBaseQueryResourceService<
         return new PageImpl<>(merged, pageable, page.getTotalElements());
     }
 
+    private GenericSpecification<E> buildResourceSpecification(FilterDTO filter, Pageable pageable) {
+        return getSpecificationsBuilder().buildSpecification(filter, pageable, customFieldDefinitions, customFieldTenant, resolveResourceKey());
+    }
+
     private ResourceFilterQuery<E> resolveResourceFilterQuery(FilterDTO filter, Pageable pageable) {
         Pageable sortedPageable = pageable;
         if (pageable.isPaged() && !pageable.getSort().isSorted()) {
             sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), getDefaultSort());
         }
 
-        GenericSpecification<E> functional = getSpecificationsBuilder().buildSpecification(filter, sortedPageable);
+        GenericSpecification<E> functional = buildResourceSpecification(filter, sortedPageable);
         Pageable effectivePageable = functional.pageable();
         if (effectivePageable != null && effectivePageable.isPaged() && effectivePageable.getSort().isSorted()) {
             Sort expandedSort = JpaCriteriaPathSupport.expandCompositeSort(getEntityClass(), effectivePageable.getSort());

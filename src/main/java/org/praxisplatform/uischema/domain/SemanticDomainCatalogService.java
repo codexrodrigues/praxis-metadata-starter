@@ -2,6 +2,11 @@ package org.praxisplatform.uischema.domain;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.praxisplatform.uischema.customfields.CustomFieldDescriptor;
+import org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider;
+import org.praxisplatform.uischema.customfields.ResourceTenantContextResolver;
+import org.praxisplatform.uischema.fact.ResourceFactCatalogProvider;
+import org.praxisplatform.uischema.fact.ResourceFactDescriptor;
 import org.praxisplatform.uischema.action.ActionDefinition;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
@@ -55,6 +60,9 @@ public class SemanticDomainCatalogService {
     private final OptionSourceRegistry optionSourceRegistry;
     private final OpenApiDocumentService openApiDocumentService;
     private final CanonicalCapabilityResolver canonicalCapabilityResolver;
+    private final CustomFieldDefinitionProvider customFieldDefinitionProvider;
+    private final ResourceFactCatalogProvider resourceFactCatalogProvider;
+    private final ResourceTenantContextResolver tenantContextResolver;
     private final Clock clock;
     private final String serviceKey;
     private final String serviceName;
@@ -95,6 +103,22 @@ public class SemanticDomainCatalogService {
             String serviceName,
             String serviceVersion
     ) {
+        this(actionDefinitionRegistry, surfaceDefinitionRegistry, optionSourceRegistry, openApiDocumentService,
+                canonicalCapabilityResolver, clock, serviceKey, serviceName, serviceVersion, null, null, null);
+    }
+
+    public SemanticDomainCatalogService(
+            ActionDefinitionRegistry actionDefinitionRegistry, SurfaceDefinitionRegistry surfaceDefinitionRegistry,
+            OptionSourceRegistry optionSourceRegistry, OpenApiDocumentService openApiDocumentService,
+            CanonicalCapabilityResolver canonicalCapabilityResolver, Clock clock,
+            String serviceKey, String serviceName, String serviceVersion,
+            CustomFieldDefinitionProvider customFieldDefinitionProvider,
+            ResourceFactCatalogProvider resourceFactCatalogProvider,
+            ResourceTenantContextResolver tenantContextResolver
+    ) {
+        this.customFieldDefinitionProvider = customFieldDefinitionProvider;
+        this.resourceFactCatalogProvider = resourceFactCatalogProvider;
+        this.tenantContextResolver = tenantContextResolver;
         this.actionDefinitionRegistry = actionDefinitionRegistry;
         this.surfaceDefinitionRegistry = surfaceDefinitionRegistry;
         this.optionSourceRegistry = optionSourceRegistry == null ? OptionSourceRegistry.empty() : optionSourceRegistry;
@@ -107,26 +131,64 @@ public class SemanticDomainCatalogService {
     }
 
     public DomainCatalogResponse findByResourceKey(String resourceKey) {
-        return catalogCache.computeIfAbsent("resource:" + firstText(resourceKey, ""), ignored -> {
-            List<ActionDefinition> actions = safe(actionDefinitionRegistry.findByResourceKey(resourceKey));
-            List<SurfaceDefinition> surfaces = safe(surfaceDefinitionRegistry.findByResourceKey(resourceKey));
-            return build(resourceKey, null, actions, surfaces);
-        });
+        return findCatalog(resourceKey, null);
     }
 
     public DomainCatalogResponse findByGroup(String group) {
-        return catalogCache.computeIfAbsent("group:" + firstText(group, ""), ignored -> {
-            List<ActionDefinition> actions = safe(actionDefinitionRegistry.findByGroup(group));
-            List<SurfaceDefinition> surfaces = safe(surfaceDefinitionRegistry.findByGroup(group));
-            return build(null, group, actions, surfaces);
-        });
+        return findCatalog(null, group);
+    }
+
+    private DomainCatalogResponse findCatalog(String resourceKey, String group) {
+        String tenant = tenantContextResolver == null ? null : tenantContextResolver.resolveTenant().orElse(null);
+        String baseKey = resourceKey != null ? "resource:" + resourceKey : "group:" + firstText(group, "");
+        if (tenant == null && customFieldDefinitionProvider == null && resourceFactCatalogProvider == null) {
+            return catalogCache.computeIfAbsent(baseKey, ignored -> build(resourceKey, group,
+                    resourceKey != null ? safe(actionDefinitionRegistry.findByResourceKey(resourceKey)) : safe(actionDefinitionRegistry.findByGroup(group)),
+                    resourceKey != null ? safe(surfaceDefinitionRegistry.findByResourceKey(resourceKey)) : safe(surfaceDefinitionRegistry.findByGroup(group)),
+                    Map.of(), Map.of()));
+        }
+        List<ActionDefinition> actions = resourceKey != null ? safe(actionDefinitionRegistry.findByResourceKey(resourceKey)) : safe(actionDefinitionRegistry.findByGroup(group));
+        List<SurfaceDefinition> surfaces = resourceKey != null ? safe(surfaceDefinitionRegistry.findByResourceKey(resourceKey)) : safe(surfaceDefinitionRegistry.findByGroup(group));
+        Set<String> resources = new java.util.TreeSet<>();
+        if (StringUtils.hasText(resourceKey)) resources.add(resourceKey);
+        actions.forEach(a -> resources.add(a.resourceKey()));
+        surfaces.forEach(s -> resources.add(s.resourceKey()));
+        Map<String, List<CustomFieldDescriptor>> fields = new LinkedHashMap<>();
+        Map<String, List<ResourceFactDescriptor>> facts = new LinkedHashMap<>();
+        for (String resource : resources) {
+            if (customFieldDefinitionProvider != null) {
+                List<CustomFieldDescriptor> definitions = safe(customFieldDefinitionProvider.findDefinitions(resource, tenant));
+                Set<String> keys = new LinkedHashSet<>();
+                for (CustomFieldDescriptor field : definitions) {
+                    if (!keys.add(field.key())) throw new IllegalStateException("Duplicate custom field for resource " + resource);
+                }
+                if (!definitions.isEmpty()) fields.put(resource, definitions.stream().sorted(Comparator.comparing(CustomFieldDescriptor::key)).toList());
+            }
+            if (resourceFactCatalogProvider != null) {
+                List<ResourceFactDescriptor> definitions = safe(resourceFactCatalogProvider.findFacts(resource, tenant));
+                Set<String> keys = new LinkedHashSet<>();
+                for (ResourceFactDescriptor fact : definitions) {
+                    if (!resource.equals(fact.resourceKey()) || !keys.add(fact.key()))
+                        throw new IllegalStateException("Invalid or duplicate fact for resource " + resource);
+                }
+                if (!definitions.isEmpty()) facts.put(resource, definitions.stream().sorted(Comparator.comparing(ResourceFactDescriptor::key)).toList());
+            }
+        }
+        String cacheKey = baseKey;
+        if (StringUtils.hasText(tenant) || !fields.isEmpty() || !facts.isEmpty()) {
+            cacheKey += ":extensions:" + SchemaHashUtil.sha256Hex(HASH_CANONICALIZER.canonicalize(
+                    HASH_OBJECT_MAPPER.valueToTree(mapOfNonNull("tenant", tenant, "fields", fields, "facts", facts))));
+        }
+        return catalogCache.computeIfAbsent(cacheKey, ignored -> build(resourceKey, group, actions, surfaces, fields, facts));
     }
 
     private DomainCatalogResponse build(
             String requestedResourceKey,
             String requestedGroup,
             List<ActionDefinition> actions,
-            List<SurfaceDefinition> surfaces
+            List<SurfaceDefinition> surfaces,
+            Map<String, List<CustomFieldDescriptor>> customFields,
+            Map<String, List<ResourceFactDescriptor>> resourceFacts
     ) {
         Map<String, DomainCatalogResponse.DomainContextItem> contexts = new LinkedHashMap<>();
         Map<String, DomainCatalogResponse.DomainNodeItem> nodes = new LinkedHashMap<>();
@@ -187,6 +249,30 @@ public class SemanticDomainCatalogService {
             addOptionSource(descriptor, resourceKey, contextKey, nodes, edges, bindings, evidence);
         }
 
+        Set<String> extendedResources = new LinkedHashSet<>(customFields.keySet());
+        extendedResources.addAll(resourceFacts.keySet());
+        for (String resource : extendedResources) {
+            String context = nodes.containsKey(resource) ? nodes.get(resource).contextKey() : contextKey(resource, requestedGroup);
+            ensureContext(contexts, context, requestedGroup);
+            ensureConcept(nodes, resource, context, null, requestedGroup, List.of(), null, capabilitiesByResourcePath);
+            for (CustomFieldDescriptor field : customFields.getOrDefault(resource, List.of())) {
+                String fieldName = "customFields." + field.key();
+                addExtension(resource, context, resource + ".field." + fieldName, "field", "custom_field",
+                        firstText(field.label(), field.key()), field.description(),
+                        mapOfNonNull("fieldName", fieldName, "resourceKey", resource, "dataType", field.dataType(),
+                                "required", field.required(), "readOnly", field.readOnly(), "filterable", field.filterable(),
+                                "sortable", field.sortable(), "exportable", field.exportable()),
+                        field.governance(), nodes, edges, bindings, evidence, governance);
+            }
+            for (ResourceFactDescriptor fact : resourceFacts.getOrDefault(resource, List.of())) {
+                addExtension(resource, context, resource + ".fact." + fact.key(), "fact", "resource_fact",
+                        firstText(fact.label(), fact.key()), fact.description(),
+                        mapOfNonNull("resourceKey", resource, "factPath", "facts." + fact.key(), "dataType", fact.dataType(),
+                                "unit", fact.unit(), "parameters", fact.parameters(), "deterministic", fact.deterministic(),
+                                "sourceKind", fact.sourceKind()), fact.governance(), nodes, edges, bindings, evidence, governance);
+            }
+        }
+
         List<DomainCatalogResponse.DomainContextItem> contextItems = List.copyOf(contexts.values());
         List<DomainCatalogResponse.DomainNodeItem> nodeItems = List.copyOf(nodes.values());
         List<DomainCatalogResponse.DomainEdgeItem> edgeItems = List.copyOf(edges.values());
@@ -223,6 +309,34 @@ public class SemanticDomainCatalogService {
                 evidenceItems,
                 governanceItems
         );
+    }
+
+    private void addExtension(String resource, String context, String nodeKey, String type, String source,
+            String label, String description, Map<String, Object> metadata, Map<String, Object> definitionGovernance,
+            Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
+            Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
+            Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
+            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence,
+            Map<String, DomainCatalogResponse.DomainGovernanceItem> governance) {
+        String evidenceKey = "evidence:" + nodeKey + ":" + source;
+        metadata.put("sourceType", source);
+        nodes.put(nodeKey, new DomainCatalogResponse.DomainNodeItem(nodeKey, context, type, label, description,
+                "active", source, 1.0, metadata, List.of(source), null, context, "active",
+                glossary(label, description, List.of(source)), resolution(nodeKey, List.of(label), "exact-key"), List.of(evidenceKey)));
+        putEdge(edges, resource + "." + type + ":" + nodeKey, resource, nodeKey,
+                "fact".equals(type) ? "provides_fact" : "has_field", label, 1.0, List.of(evidenceKey));
+        bindings.put("binding:" + nodeKey, new DomainCatalogResponse.DomainBindingItem("binding:" + nodeKey,
+                nodeKey, "fact".equals(type) ? "resource_fact" : "dto_field", metadata, List.of(), List.of(evidenceKey)));
+        evidence.put(evidenceKey, evidence(evidenceKey, source,
+                mapOfNonNull("resourceKey", resource, "kind", source), description, 1.0));
+        JsonNode g = HASH_OBJECT_MAPPER.valueToTree(definitionGovernance == null ? Map.of() : definitionGovernance);
+        Map<String, Object> aiUsage = g.path("aiUsage").isObject()
+                ? HASH_OBJECT_MAPPER.convertValue(g.path("aiUsage"), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}) : Map.of();
+        governance.put("governance:" + nodeKey, new DomainCatalogResponse.DomainGovernanceItem(
+                "governance:" + nodeKey, nodeKey, g.path("annotationType").asText(null),
+                g.path("classification").asText(null), g.path("dataCategory").asText(null),
+                textValues(g.path("complianceTags")), g.path("owner").asText(null), g.path("steward").asText(null),
+                g.path("retentionPolicy").asText(null), aiUsage, source, 1.0));
     }
 
     private void addAction(
@@ -886,7 +1000,7 @@ public class SemanticDomainCatalogService {
                 contextKey,
                 "active",
                 glossary(labelFromKey(lastSegment(resourceKey)), blankToNull(description), tags),
-                resolution(resourceKey, List.of(resourceKey, resourcePath, lastSegment(resourceKey)), "exact-key-or-alias"),
+                resolution(resourceKey, java.util.stream.Stream.of(resourceKey, resourcePath, lastSegment(resourceKey)).filter(Objects::nonNull).toList(), "exact-key-or-alias"),
                 List.of()
         ));
     }

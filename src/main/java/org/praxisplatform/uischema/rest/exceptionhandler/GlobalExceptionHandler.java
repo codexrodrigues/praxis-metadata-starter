@@ -75,6 +75,24 @@ public class GlobalExceptionHandler {
     private static final String ERROR_CODE_INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR";
     private static final String ERROR_CODE_ENTITY_NOT_FOUND = "RESOURCE_NOT_FOUND";
 
+    @ExceptionHandler(org.praxisplatform.uischema.customfields.CustomFieldValidationException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleCustomFieldValidation(
+            org.praxisplatform.uischema.customfields.CustomFieldValidationException ex, WebRequest request) {
+        List<CustomProblemDetail> details = ex.getFieldErrors().stream().map(error -> {
+            CustomProblemDetail detail = new CustomProblemDetail(error.getDefaultMessage());
+            detail.setStatus(HttpStatus.BAD_REQUEST);
+            detail.setTitle(error.getField());
+            detail.setType(URI.create("https://example.com/probs/validation-error"));
+            detail.setInstance(instanceUri(request));
+            detail.setCategory(ErrorCategory.VALIDATION);
+            detail.setTarget(error.getField());
+            enrichErrorDetails(detail, request, ERROR_CODE_INVALID_PARAMETER);
+            return detail;
+        }).toList();
+        return ResponseEntity.badRequest().body(RestApiResponse.builder().status(RestApiResponseStatus.FAILURE)
+                .message("Validation error.").errors(details).build());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<RestApiResponse<Object>> handleValidationExceptions(MethodArgumentNotValidException ex, WebRequest request) {
         List<CustomProblemDetail> customProblemDetails = ex.getBindingResult().getFieldErrors()

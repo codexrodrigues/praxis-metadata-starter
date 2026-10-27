@@ -1,6 +1,8 @@
 package org.praxisplatform.uischema.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.praxisplatform.uischema.customfields.*;
+import org.praxisplatform.uischema.fact.*;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.capability.AnnotationDrivenResourceStructuralCapabilityResolver;
@@ -810,6 +812,45 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(name = "requestMappingHandlerMapping")
+    @ConditionalOnMissingBean(org.praxisplatform.uischema.schema.ApiResourceIdentityResolver.class)
+    public org.praxisplatform.uischema.schema.ApiResourceIdentityResolver apiResourceIdentityResolver(
+            @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
+            org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping handlerMapping) {
+        return new org.praxisplatform.uischema.schema.ApiResourceIdentityResolver(handlerMapping);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ResourceTenantContextResolver.class)
+    public ResourceTenantContextResolver resourceTenantContextResolver() {
+        return new RequestHeaderResourceTenantContextResolver();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(CustomFieldDefinitionProvider.class)
+    public CustomFieldDefinitionProvider customFieldDefinitionProvider() {
+        return new NoOpCustomFieldDefinitionProvider();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public CustomFieldValidator customFieldValidator(CustomFieldDefinitionProvider definitions) {
+        return new CustomFieldValidator(definitions);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public CustomFieldSchemaEnricher customFieldSchemaEnricher(CustomFieldDefinitionProvider definitions, ObjectMapper mapper) {
+        return new CustomFieldSchemaEnricher(definitions, mapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ResourceFactCatalogProvider.class)
+    public ResourceFactCatalogProvider resourceFactCatalogProvider(org.springframework.beans.factory.ListableBeanFactory beanFactory) {
+        return new AnnotationResourceFactCatalogProvider(beanFactory);
+    }
+
+    @Bean
     @ConditionalOnBean({ActionDefinitionRegistry.class, SurfaceDefinitionRegistry.class})
     @ConditionalOnMissingBean
     public SemanticDomainCatalogService semanticDomainCatalogService(
@@ -820,7 +861,10 @@ public class OpenApiUiSchemaAutoConfiguration {
             CanonicalCapabilityResolver canonicalCapabilityResolver,
             @Value("${spring.application.name:praxis-service}") String serviceKey,
             @Value("${praxis.metadata.domain.service-name:${spring.application.name:praxis-service}}") String serviceName,
-            @Value("${praxis.metadata.domain.service-version:}") String serviceVersion
+            @Value("${praxis.metadata.domain.service-version:}") String serviceVersion,
+            CustomFieldDefinitionProvider customFieldDefinitions,
+            ResourceFactCatalogProvider resourceFacts,
+            ResourceTenantContextResolver tenantResolver
     ) {
         return new SemanticDomainCatalogService(
                 actionDefinitionRegistry,
@@ -831,7 +875,10 @@ public class OpenApiUiSchemaAutoConfiguration {
                 Clock.systemUTC(),
                 serviceKey,
                 serviceName,
-                serviceVersion
+                serviceVersion,
+                customFieldDefinitions,
+                resourceFacts,
+                tenantResolver
         );
     }
 

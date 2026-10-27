@@ -40,6 +40,20 @@ public abstract class AbstractBaseResourceService<
 > extends AbstractBaseQueryResourceService<E, ResponseDTO, ID, FilterDTO>
         implements BaseResourceService<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> {
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.praxisplatform.uischema.customfields.CustomFieldValidator customFieldValidator;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.praxisplatform.uischema.customfields.ResourceTenantContextResolver resourceTenantContextResolver;
+
+    protected void validateCustomFields(Object dto, String schemaType) {
+        if (customFieldValidator != null && dto != null
+                && org.praxisplatform.uischema.customfields.CustomFieldSupport.property(dto.getClass()).isPresent()) {
+            customFieldValidator.validate(dto, resolveResourceKey(),
+                    resourceTenantContextResolver == null ? null : resourceTenantContextResolver.resolveTenant().orElse(null), schemaType);
+        }
+    }
+
     protected AbstractBaseResourceService(
             BaseCrudRepository<E, ID> repository,
             GenericSpecificationsBuilder<E> specificationsBuilder,
@@ -61,6 +75,7 @@ public abstract class AbstractBaseResourceService<
     @Override
     @Transactional
     public BaseResourceCommandService.SavedResult<ID, ResponseDTO> create(CreateDTO dto) {
+        validateCustomFields(dto, "request");
         E entity = getResourceMapper().newEntity(dto);
         beforeCreate(dto, entity);
         E saved = refreshManaged(getRepository().save(entity));
@@ -79,6 +94,7 @@ public abstract class AbstractBaseResourceService<
         if (this instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>) {
             throw ResourceVersionPreconditionException.required();
         }
+        validateCustomFields(dto, "request");
         E existing = findEntityById(id);
         beforeUpdate(id, existing, dto);
         getResourceMapper().applyUpdate(existing, dto);

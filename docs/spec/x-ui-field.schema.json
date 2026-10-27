@@ -8,6 +8,11 @@
     "^custom\\.": {}
   },
   "properties": {
+    "customFieldsContainer": { "type": "boolean" },
+    "customField": { "type": "boolean" },
+    "customFieldKey": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,63}$" },
+    "customFieldScope": { "type": "string", "const": "tenant" },
+    "exportable": { "type": "boolean" },
     "label": { "type": "string" },
     "name": { "type": "string" },
     "description": { "type": "string" },

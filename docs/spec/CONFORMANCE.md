@@ -56,6 +56,18 @@
   - publicar `x-ui.optionSource` para fontes derivadas governadas, evitando promover `INPUT` em campos com semantica corporativa clara
   - publicar detalhes de `export` em `/capabilities` com formatos, escopos, limites e async quando o service declarar suporte real a exportacao de colecao
 
+## Campos customizados (candidato #303)
+
+- O container `properties.customFields` usa `x-ui.customFieldsContainer: true`.
+- Cada chave declarada publica `customField: true`, `customFieldKey` seguro e
+  `customFieldScope: tenant` no seu `x-ui`; `exportable` é metadata para a allowlist do host.
+- Valide o `x-ui` do container e de cada propriedade contra `x-ui-field.schema.json`.
+  O arquivo `examples/custom-fields.schema.valid.json` contém a projeção estrutural
+  completa, portanto não deve ser passado integralmente como se fosse um bloco `x-ui`.
+- `CustomFieldSpecContractTest` compara o exemplo com o output real e valida seus
+  blocos `x-ui`, incluindo rejeição de chave insegura e escopo diferente de tenant.
+- Ver [contrato, cache e limites de autorização](custom-fields-and-resource-facts.md).
+
 ## Matriz - Chave da Spec -> Consumo na UI
 
 - x-ui por campo

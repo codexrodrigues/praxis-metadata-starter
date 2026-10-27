@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: ${PRAXIS_CUSTOM_FIELDS_NEON_JDBC_URL}
+    driver-class-name: org.postgresql.Driver
+    username: ${PRAXIS_CUSTOM_FIELDS_NEON_USER}
+    password: ${PRAXIS_CUSTOM_FIELDS_NEON_PASSWORD}
+    hikari:
+      schema: ${PRAXIS_CUSTOM_FIELDS_NEON_SCHEMA}
+  jpa:
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        default_schema: ${PRAXIS_CUSTOM_FIELDS_NEON_SCHEMA}
+  flyway:
+    enabled: false
+springdoc:
+  api-docs:
+    enabled: true
+praxis:
+  hateoas:
+    enabled: true

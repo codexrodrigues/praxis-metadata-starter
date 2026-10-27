@@ -196,6 +196,12 @@ public class ApiDocsController {
     );
 
     @Autowired(required = false)
+    private org.praxisplatform.uischema.customfields.CustomFieldSchemaEnricher customFieldSchemaEnricher;
+
+    @Autowired(required = false)
+    private org.praxisplatform.uischema.customfields.ResourceTenantContextResolver resourceTenantContextResolver;
+
+    @Autowired(required = false)
     private ApiResourceIdentityResolver apiResourceIdentityResolver;
 
     @Autowired(required = false)
@@ -292,8 +298,9 @@ public class ApiDocsController {
      * <p>
      * Nesta lane, variacoes estruturais relevantes para o resultado incluem
      * {@code includeInternalSchemas}, {@code idField} e {@code readOnly}. Os parametros
-     * {@code tenant} e {@code locale} continuam no boundary canonico, mas permanecem neutros para a
-     * estrutura retornada.
+     * {@code tenant} seleciona as definições de custom fields pelo resolver do host; {@code locale}
+     * permanece neutro. O cache interno vincula tenant e fingerprint da projeção, preservando
+     * a identidade histórica do seletor de schema.
      * </p>
      *
      * <p>
@@ -319,8 +326,12 @@ public class ApiDocsController {
             throw new IllegalArgumentException("Parameter 'path' or 'resourcePath' is required.");
         }
 
+        // An authenticated host resolver is authoritative, including an empty result.
+        String resolvedTenant = resourceTenantContextResolver == null
+                ? org.praxisplatform.uischema.customfields.RequestHeaderResourceTenantContextResolver.normalize(tenant)
+                : resourceTenantContextResolver.resolveTenant().orElse(null);
         return openApiDocumentService.withSchemaCacheReadLock(() -> getFilteredSchemaWithStableCache(
-                effectivePath, operation, includeInternalSchemas, schemaType, idField, readOnly, ifNoneMatch, tenant, locale));
+                effectivePath, operation, includeInternalSchemas, schemaType, idField, readOnly, ifNoneMatch, resolvedTenant, locale));
     }
 
     private org.springframework.http.ResponseEntity<Map<String, Object>> getFilteredSchemaWithStableCache(
@@ -514,6 +525,13 @@ public class ApiDocsController {
             }
         }
 
+        String customFieldResourceKey = resourceMeta.get("resourceKey") instanceof String key ? key : null;
+        if (apiResourceIdentityResolver != null) {
+            customFieldResourceKey = apiResourceIdentityResolver.resolveResourceKey(basePath, canonicalPath, normalizedOperation)
+                    .orElse(customFieldResourceKey);
+        }
+        String customFieldFingerprint = customFieldSchemaEnricher == null ? ""
+                : customFieldSchemaEnricher.enrich(schemaMap, customFieldResourceKey, tenant, schemaType);
         enrichPropertyOptionSources(schemaMap, basePath);
         enrichArrayItemSchemasInline(schemaMap, allSchemas);
         enrichReferencedComponentSchemas(schemaMap, allSchemas);
@@ -551,10 +569,16 @@ public class ApiDocsController {
         );
 
         String schemaHash = openApiDocumentService.getOrComputeSchemaHash(
-                schemaRef.schemaId(),
+                tenant == null && customFieldFingerprint.isEmpty() ? schemaRef.schemaId()
+                        : schemaRef.schemaId() + "|custom-context:" + org.praxisplatform.uischema.hash.SchemaHashUtil.sha256Hex(
+                                objectMapper.valueToTree(java.util.Arrays.asList(tenant, customFieldFingerprint))),
                 () -> objectMapper.valueToTree(buildStructuralSchemaPayload(schemaMap))
         );
         String eTag = "\"" + schemaHash + "\""; // strong ETag
+        org.springframework.http.CacheControl responseCache = org.springframework.http.CacheControl
+                .maxAge(0, java.util.concurrent.TimeUnit.SECONDS).mustRevalidate();
+        responseCache = tenant != null || !customFieldFingerprint.isEmpty()
+                ? responseCache.cachePrivate() : responseCache.cachePublic();
 
         // 5) Conditional request handling (If-None-Match)
         if (org.praxisplatform.uischema.http.IfNoneMatchUtils.matches(ifNoneMatch, eTag)) {
@@ -563,8 +587,8 @@ public class ApiDocsController {
                     .eTag(eTag)
                     .header("X-Schema-Hash", schemaHash)
                     .header("Access-Control-Expose-Headers", "ETag,X-Schema-Hash")
-                    .cacheControl(org.springframework.http.CacheControl.maxAge(0, java.util.concurrent.TimeUnit.SECONDS).cachePublic().mustRevalidate())
-                    .varyBy("Accept-Encoding")
+                    .cacheControl(responseCache)
+                    .varyBy("Accept-Encoding", "X-Tenant", "X-Tenant-ID")
                     .build();
         }
 
@@ -573,8 +597,8 @@ public class ApiDocsController {
                 .eTag(eTag)
                 .header("X-Schema-Hash", schemaHash)
                 .header("Access-Control-Expose-Headers", "ETag,X-Schema-Hash")
-                .cacheControl(org.springframework.http.CacheControl.maxAge(0, java.util.concurrent.TimeUnit.SECONDS).cachePublic().mustRevalidate())
-                .varyBy("Accept-Encoding")
+                .cacheControl(responseCache)
+                .varyBy("Accept-Encoding", "X-Tenant", "X-Tenant-ID")
                 .body(schemaMap);
     }
 

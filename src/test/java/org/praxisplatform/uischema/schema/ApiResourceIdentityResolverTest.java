@@ -80,6 +80,8 @@ class ApiResourceIdentityResolverTest {
                 "get"
         ).orElseThrow();
         assertEquals("shield_person", metadata.get("icon"));
+        assertEquals("test.hero-profiles", resolver.resolveResourceKey(
+                "/api/employees", "/api/employees/{id}/hero-profile", "get").orElseThrow());
     }
 
     @Test
@@ -92,6 +94,51 @@ class ApiResourceIdentityResolverTest {
         ApiResourceIdentityResolver resolver = new ApiResourceIdentityResolver(handlerMapping);
 
         assertTrue(resolver.resolve("/api/unconfigured").isEmpty());
+    }
+
+    @Test
+    void resolvesSemanticKeyWithoutInventingVisualMetadata() throws Exception {
+        RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
+        when(mapping.getHandlerMethods()).thenReturn(Map.of(
+                RequestMappingInfo.paths("/api/unconfigured").methods(RequestMethod.GET).build(),
+                new HandlerMethod(new UnconfiguredController(), UnconfiguredController.class.getDeclaredMethod("list"))));
+        var resolver = new ApiResourceIdentityResolver(mapping);
+        assertEquals("test.unconfigured", resolver.resolveResourceKey(
+                "/api/unconfigured", "/api/unconfigured", "get").orElseThrow());
+        assertEquals("test.unconfigured", resolver.resolveResourceKey(
+                "/api/unconfigured/", "/api/unconfigured/missing-operation", "post").orElseThrow());
+        assertTrue(resolver.resolveResourceMetadata("/api/unconfigured").isEmpty());
+    }
+
+    @Test
+    void relatedResourcePathHasSamePrecedenceForSemanticKeyAndExistingIdentity() throws Exception {
+        RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
+        when(mapping.getHandlerMethods()).thenReturn(Map.of(
+                RequestMappingInfo.paths("/api/employees/{employeeId}/conflicting-child").methods(RequestMethod.GET).build(),
+                new HandlerMethod(new ParentEmployeeController(), ParentEmployeeController.class.getDeclaredMethod("conflictingChild")),
+                RequestMappingInfo.paths("/api/hero-profiles").methods(RequestMethod.GET).build(),
+                new HandlerMethod(new ChildHeroProfileController(), ChildHeroProfileController.class.getDeclaredMethod("list")),
+                RequestMappingInfo.paths("/api/unconfigured").methods(RequestMethod.GET).build(),
+                new HandlerMethod(new UnconfiguredController(), UnconfiguredController.class.getDeclaredMethod("list"))));
+        var resolver = new ApiResourceIdentityResolver(mapping);
+        String operation = "/api/employees/{id}/conflicting-child";
+        assertEquals("test.hero-profiles", resolver.resolveResourceKey("/api/employees", operation, "get").orElseThrow());
+        assertEquals("test.hero-profiles", resolver.resolveResourceMetadata("/api/employees", operation, "get")
+                .orElseThrow().get("resourceKey"));
+        assertEquals("funcionarioId", resolver.resolve("/api/employees", operation, "get").orElseThrow().get("keyField"));
+    }
+
+    @Test
+    void relatedKeyRemainsFallbackWhenChildPathIsNotRegistered() throws Exception {
+        RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
+        when(mapping.getHandlerMethods()).thenReturn(Map.of(
+                RequestMappingInfo.paths("/api/employees/{id}/child-by-key").methods(RequestMethod.GET).build(),
+                new HandlerMethod(new ParentEmployeeController(), ParentEmployeeController.class.getDeclaredMethod("childByKey")),
+                RequestMappingInfo.paths("/api/unconfigured").methods(RequestMethod.GET).build(),
+                new HandlerMethod(new UnconfiguredController(), UnconfiguredController.class.getDeclaredMethod("list"))));
+        var resolver = new ApiResourceIdentityResolver(mapping);
+        assertEquals("test.unconfigured", resolver.resolveResourceKey(
+                "/api/employees", "/api/employees/{id}/child-by-key", "get").orElseThrow());
     }
 
     @Test
@@ -137,6 +184,14 @@ class ApiResourceIdentityResolverTest {
             )
     )
     static class ParentEmployeeController {
+        @UiSurface(id = "conflicting-child", title = "Child by path", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM,
+                relatedChildResourceKey = "test.unconfigured", relatedChildResourcePath = "/api/hero-profiles")
+        ResponseEntity<RestApiResponse<Object>> conflictingChild() { return null; }
+
+        @UiSurface(id = "child-by-key", title = "Child by key", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM,
+                relatedChildResourceKey = "test.unconfigured", relatedChildResourcePath = "/api/not-registered")
+        ResponseEntity<RestApiResponse<Object>> childByKey() { return null; }
+
         @UiSurface(
                 id = "hero-profile",
                 kind = SurfaceKind.READ_PROJECTION,
