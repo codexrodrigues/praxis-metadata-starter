@@ -61,6 +61,7 @@ public class SemanticDomainCatalogController {
         DomainCatalogResponse response = hasResource
                 ? semanticDomainCatalogService.findByResourceKey(resolvedResourceKey)
                 : semanticDomainCatalogService.findByGroup(group);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noCache().cachePrivate())
+                .varyBy("X-Tenant", "X-Tenant-ID").body(response);
     }
 }

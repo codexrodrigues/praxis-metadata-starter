@@ -56,6 +56,27 @@
   - publicar `x-ui.optionSource` para fontes derivadas governadas, evitando promover `INPUT` em campos com semantica corporativa clara
   - publicar detalhes de `export` em `/capabilities` com formatos, escopos, limites e async quando o service declarar suporte real a exportacao de colecao
 
+## Campos customizados (candidato #303)
+
+- O container `properties.customFields` usa `x-ui.customFieldsContainer: true`.
+- Cada chave declarada publica `customField: true`, `customFieldKey` seguro e
+  `customFieldScope: tenant` no seu `x-ui`; `exportable` é metadata para a allowlist do host.
+- As chaves seguem `[a-zA-Z][a-zA-Z0-9_]{0,63}` e rejeitam exatamente
+  `constructor`, `prototype`, `hasOwnProperty`, `isPrototypeOf`,
+  `propertyIsEnumerable`, `toLocaleString`, `toString` e `valueOf`, tanto no
+  descriptor Java quanto na spec. Não há aliases para chaves reservadas.
+- Schemas de escrita excluem filhos readonly; schemas de resposta os conservam.
+  Filtros ainda podem publicar esses campos quando declarados `filterable`.
+  Uma projeção sem filhos remove o container e sua obrigatoriedade.
+- `AUTO` é resolvido antes da publicação pela inferência básica compartilhada
+  de tipo/formato, preservando controles explícitos e o tipo dos operandos de filtro.
+- Valide o `x-ui` do container e de cada propriedade contra `x-ui-field.schema.json`.
+  O arquivo `examples/custom-fields.schema.valid.json` contém a projeção estrutural
+  completa, portanto não deve ser passado integralmente como se fosse um bloco `x-ui`.
+- `CustomFieldSpecContractTest` compara o exemplo com o output real e valida seus
+  blocos `x-ui`, incluindo rejeição de chave insegura e escopo diferente de tenant.
+- Ver [contrato, cache e limites de autorização](custom-fields-and-resource-facts.md).
+
 ## Matriz - Chave da Spec -> Consumo na UI
 
 - x-ui por campo
@@ -230,3 +251,13 @@ Diretriz canonica:
 - `canonical-payload.json` e `x-ui-chart.valid.json` tambem cumprem papel documental e podem ser referenciados em guias, desde que permanecam coerentes com os schemas publicados.
 - os fixtures `x-ui-field-option-source-*.json` documentam o draft contratual de `x-ui.optionSource`.
 - Use estes arquivos como base para gerar casos especificos do seu dominio.
+
+
+### Regressões da revisão #303
+
+`CustomFieldSchemaProjectionTest` cruza JSON Schema e validação de escrita para
+required/enum e exercita operandos de filtro. `CustomFieldSchemaTenantIsolationTest`
+verifica a resolução MVC e a equivalência de schemaType. O E2E remoto cobre
+preservação readonly no PUT, schema de filtro versus payload HTTP, IN/IS_NULL no
+PostgreSQL e container obrigatório. O catálogo possui regressões para proxy/lazy,
+datas ISO e governança parcial/completa; ausência de execução de domínio é invariante.

@@ -47,6 +47,7 @@ O baseline canônico atual da plataforma organiza cada recurso sobre cinco pilar
 
 - [Options e Option-Sources Governadas](guides/OPTIONS-ENDPOINT.html) · [RFC `x-ui.optionSource`](spec/x-ui-option-source-rfc.html)
 - [Exportação Canônica de Coleções](guides/COLLECTION-EXPORT.html)
+- [Campos customizados por tenant e fatos de domínio — candidato #303](spec/custom-fields-and-resource-facts.html)
 - [Disponibilidade Contextual Corporativa (Enterprise Availability)](guides/ENTERPRISE-AVAILABILITY-ADOPTION.html)
 - [Determinações Reativas de Formulário](spec/reactive-determinations.html)
 - [Filtros e Paginação](guides/FILTROS-E-PAGINACAO.html) · [Views Somente Leitura](guides/READ-ONLY-VIEWS.html) · [Erros e Respostas](guides/ERROS-E-RESPOSTAS.html)

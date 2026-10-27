@@ -84,6 +84,25 @@ public class ApiResourceIdentityResolver {
         return resolve(basePath);
     }
 
+    /** Resolves semantic resource identity independently of optional presentation metadata. */
+    public Optional<String> resolveResourceKey(String basePath, String canonicalPath, String httpMethod) {
+        Optional<HandlerMethod> handler = findHandlerMethod(canonicalPath, httpMethod);
+        if (handler.isPresent()) {
+            UiSurface surface = AnnotationUtils.findAnnotation(handler.get().getMethod(), UiSurface.class);
+            if (surface != null) {
+                if (StringUtils.hasText(surface.relatedChildResourcePath())) {
+                    Optional<String> child = findApiResourceByPath(surface.relatedChildResourcePath())
+                            .map(ApiResource::resourceKey).filter(StringUtils::hasText);
+                    if (child.isPresent()) return child.map(String::trim);
+                }
+                if (StringUtils.hasText(surface.relatedChildResourceKey())) return Optional.of(surface.relatedChildResourceKey().trim());
+            }
+            ApiResource resource = AnnotationUtils.findAnnotation(handler.get().getBeanType(), ApiResource.class);
+            if (resource != null && StringUtils.hasText(resource.resourceKey())) return Optional.of(resource.resourceKey().trim());
+        }
+        return findApiResourceByPath(basePath).map(ApiResource::resourceKey).filter(StringUtils::hasText).map(String::trim);
+    }
+
     public Optional<Map<String, Object>> resolveResourceMetadata(String resourcePath) {
         return findApiResourceByPath(resourcePath)
                 .map(ApiResourceIdentityResolver::toResourceMetadataMap)

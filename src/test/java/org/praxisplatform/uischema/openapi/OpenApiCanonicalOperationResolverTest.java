@@ -50,6 +50,36 @@ class OpenApiCanonicalOperationResolverTest {
         resolver = new OpenApiCanonicalOperationResolver(openApiDocumentService, handlerMapping);
     }
 
+    static class QueryBody implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO { }
+    static class GenericBodyController<T> {
+        public void execute(@org.springframework.web.bind.annotation.RequestBody T body) { }
+        public void noBody() { }
+    }
+    static class QueryBodyController extends GenericBodyController<QueryBody> { }
+
+    @Test
+    void bodyLookupResolvesInheritedGenericDtoWithoutOperationIdOrResourceBinding() throws Exception {
+        var handler = new HandlerMethod(new QueryBodyController(), GenericBodyController.class.getMethod("execute", Object.class));
+        var route = RequestMappingInfo.paths("/api/people/search-input").methods(RequestMethod.POST).build();
+        when(handlerMapping.getHandlerMethods()).thenReturn(Map.of(route, handler));
+        assertEquals(Optional.of(QueryBody.class), resolver.resolveRequestBodyType("/api/people/search-input/", "post"));
+        assertTrue(resolver.resolveRequestBodyType("/api/people/search-input", "get").isEmpty());
+        assertTrue(resolver.resolveRequestBodyType("/api/people/other", "post").isEmpty());
+    }
+
+    @Test
+    void bodyLookupDoesNotGuessWhenMissingOrWhenRouteHasAmbiguousHandlers() throws Exception {
+        var handler = new HandlerMethod(new QueryBodyController(), GenericBodyController.class.getMethod("noBody"));
+        var route = RequestMappingInfo.paths("/api/people/input").methods(RequestMethod.POST).build();
+        when(handlerMapping.getHandlerMethods()).thenReturn(Map.of(route, handler));
+        assertTrue(resolver.resolveRequestBodyType("/api/people/input", "post").isEmpty());
+        assertTrue(new OpenApiCanonicalOperationResolver(openApiDocumentService, null)
+                .resolveRequestBodyType("/api/people/input", "post").isEmpty());
+        var alternate = RequestMappingInfo.paths("/api/people/input").methods(RequestMethod.POST).params("mode=other").build();
+        when(handlerMapping.getHandlerMethods()).thenReturn(Map.of(route, handler, alternate, handler));
+        assertThrows(IllegalStateException.class, () -> resolver.resolveRequestBodyType("/api/people/input", "post"));
+    }
+
     @Test
     void resolveNormalizesPathMethodAndUsesResolvedGroup() {
         when(openApiDocumentService.resolveGroupFromPath("/api/human-resources/employees")).thenReturn("hr");

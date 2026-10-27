@@ -38,7 +38,6 @@ import java.util.Optional;
  * @param <E> Tipo da entidade alvo da consulta.
  */
 public class GenericSpecificationsBuilder<E> {
-
     /**
      * Lista de construtores de predicados. Cada implementação de {@link PredicateBuilder} é responsável
      * por criar um tipo específico de predicado (e.g., igual, maior que, menor que, LIKE, IN).
@@ -88,9 +87,32 @@ public class GenericSpecificationsBuilder<E> {
         );
     }
 
+    /** Per-call context avoids sharing a service resource key through a singleton builder. */
+    public <FDT extends GenericFilterDTO> GenericSpecification<E> buildSpecification(FDT filter, Pageable pageable,
+            org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider definitions,
+            org.praxisplatform.uischema.customfields.ResourceTenantContextResolver tenant, String resourceKey) {
+        if (org.praxisplatform.uischema.customfields.CustomFieldSupport.read(filter).isEmpty())
+            return buildSpecification(filter, pageable);
+        return new GenericSpecification<>(processSpecification(filter, definitions, tenant, resourceKey), processPageable(filter, pageable));
+    }
+
     private <FDT extends GenericFilterDTO> Specification<E> processSpecification(FDT filter) {
+        return processSpecification(filter, new org.praxisplatform.uischema.customfields.NoOpCustomFieldDefinitionProvider(),
+                java.util.Optional::empty, null);
+    }
+
+    private <FDT extends GenericFilterDTO> Specification<E> processSpecification(FDT filter,
+            org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider definitions,
+            org.praxisplatform.uischema.customfields.ResourceTenantContextResolver tenant, String resourceKey) {
+        var customValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.read(filter);
+        var customDefinitions = customValues.isEmpty() ? java.util.List.<org.praxisplatform.uischema.customfields.CustomFieldDescriptor>of()
+                : definitions.findDefinitions(
+                    org.praxisplatform.uischema.customfields.CustomFieldSupport.resourceKey(filter.getClass(), resourceKey),
+                    tenant.resolveTenant().orElse(null), "request");
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
+            if (!customValues.isEmpty()) predicates.addAll(org.praxisplatform.uischema.customfields.CustomFieldJpaCriteriaSupport
+                    .predicates(customValues, customDefinitions, root, criteriaBuilder));
 
             List<Field> fields = getAnnotatedFields(filter);
 

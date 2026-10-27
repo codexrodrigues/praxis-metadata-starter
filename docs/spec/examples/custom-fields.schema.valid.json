@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "x-ui": {"customFieldsContainer": true},
+  "required": ["numero_calcado"],
+  "properties": {
+    "numero_calcado": {
+      "type": "integer",
+      "minimum": 20,
+      "maximum": 50,
+      "readOnly": false,
+      "x-ui": {
+        "label": "Shoe size",
+        "controlType": "numericTextBox",
+        "group": "Uniform",
+        "order": 1,
+        "required": true,
+        "readOnly": false,
+        "filterable": true,
+        "sortable": false,
+        "exportable": true,
+        "min": 20,
+        "max": 50,
+        "customField": true,
+        "customFieldKey": "numero_calcado",
+        "customFieldScope": "tenant"
+      }
+    }
+  }
+}

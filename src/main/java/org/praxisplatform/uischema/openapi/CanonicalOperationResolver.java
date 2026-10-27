@@ -41,6 +41,16 @@ public interface CanonicalOperationResolver {
     CanonicalOperationRef resolve(String path, String method);
 
     /**
+     * Looks up the direct {@code @RequestBody} raw type for an exact MVC path/method,
+     * resolving inherited type variables in the registered controller context. Absence of
+     * a handler/body returns empty; ambiguous route bindings fail rather than guessing.
+     * This structural lookup does not require an explicit operationId or strict resource binding.
+     */
+    default Optional<Class<?>> resolveRequestBodyType(String path, String method) {
+        return Optional.empty();
+    }
+
+    /**
      * Resolve uma referencia canonica completa a partir do handler e do mapping do Spring MVC.
      *
      * <p>

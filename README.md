@@ -64,6 +64,20 @@ Ao expor um recurso com `@ApiResource` e anotar seus DTOs com `@Schema`, `@UISch
 
 ---
 
+## Campos customizados e fatos de domínio (candidato)
+
+A extensão `@CustomFields` publica campos ativos por recurso/tenant no container
+`customFields`, valida DTOs de escrita, integra filtros JSONB e permite exportar
+caminhos como `customFields.numero_calcado`. `@ResourceFact` e
+`ResourceFactCatalogProvider` descrevem fatos no catálogo semântico, sem executá-los.
+O host fornece definições e a resolução autorizada do tenant.
+
+Consulte o [contrato e exemplo de adoção](docs/spec/custom-fields-and-resource-facts.md).
+Este incremento está em revisão na [issue #303](https://github.com/codexrodrigues/praxis-metadata-starter/issues/303);
+não implica release publicada nem adoção automática nos consumidores.
+
+---
+
 ## Começando em 5 Minutos (Quickstart)
 
 ### 1. Pré-requisitos e Instalação

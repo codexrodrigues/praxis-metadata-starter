@@ -4,6 +4,29 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### Correções da revisão do candidato #303
+- Schemas de escrita deixam de publicar custom fields readonly; schemas de resposta e filtros elegíveis preservam suas projeções próprias.
+- Chaves reservadas pelos consumidores JavaScript são rejeitadas no descriptor e na spec, sem aliases; hosts precisam migrar definições/dados antigos incompatíveis.
+- `AUTO` materializa controles concretos pela inferência básica de tipo/formato já existente, incluindo operandos de filtro, sem heurística por nome.
+- Preservação de campos customizados readonly em atualizações e regressões com mapper de substituição.
+- Schema de filtro derivado do tipo MVC, obrigatoriedade do container, enumeração coerente e normalização de schemaType.
+- Discovery de fatos com proxies Spring, defaults temporais no catálogo e fidelidade de reason/confidence.
+
+### Campos customizados por tenant e catálogo de fatos — candidato #303
+
+- Adiciona `@CustomFields`, descritores e SPI de definições por recurso/tenant,
+  validação antes dos hooks de escrita e predicados JSONB para filtros declarados.
+- Projeta o container estrutural em `/schemas/filtered`, isola o cache interno por
+  tenant e fingerprint e publica `Vary: Accept-Encoding, X-Tenant, X-Tenant-ID`.
+  Respostas com contexto customizado usam cache privado com revalidação.
+- Publica campos customizados e fatos declarativos em `/schemas/domain`, preservando
+  os contratos existentes e a separação entre descoberta e execução de regras.
+- Acrescenta `CollectionExportValueResolver.reflective()` para leitura opt-in de
+  caminhos aninhados previamente autorizados pelo host, em CSV, JSON e XLSX.
+- [Contrato e limites](docs/spec/custom-fields-and-resource-facts.md) e
+  [registro de execução e gates](docs/technical/ISSUE-303-EXECUTION.md).
+  Validação, revisão arquitetural, integração e publicação têm estados próprios.
+
 ### Indisponibilidade de comando governado
 
 - Acrescenta `UNAVAILABLE` ao outcome/categoria de comando e ao kind canônico de
