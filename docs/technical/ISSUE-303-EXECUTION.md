@@ -369,3 +369,58 @@ sem achado acionável restante nesse recorte.
 Skills: `atualizar-existente`; o incremento do PR #868 pertence ao outro chat e
 não foi editado nesta janela. Adoção HTTP/Neon no Quickstart tem atribuição própria
 na coordenação; esta rodada não usa nem certifica a branch Neon desse ensaio.
+
+## Adoção HTTP/Neon no Quickstart — 27/10/2026
+
+Entrega downstream em [Quickstart #482](https://github.com/codexrodrigues/praxis-api-quickstart/pull/482),
+**draft**, commit `6244950e67302a795f8641adac385ae2a8436c2d`. O candidato Metadata foi
+empacotado de um archive limpo de `786526c0774acc10a7014fff4f3091d978af0fe8`
+(árvore `a930126214eff3d542cacde632f89a53e0b27ca2`), com JDK 21, apenas em cache
+Maven privado. JAR SHA-256:
+`624316595693ff432fc1ac2171942fd04cbac072e0f73482ef26a07508664858`.
+POM SHA-256: `fb69f4ea42edc37a2a24a665ad5d5f1b2622a95dda6fd36ee6a188d9a19d26d6`.
+O GAV rc.179 identifica aqui um candidato não publicado; o artefato público ainda
+não contém os novos tipos e seu gate de adoção permanece pendente. Os JARs/POMs
+públicos dos três peers Praxis foram conferidos com Maven Central.
+
+Foram aprovados **25 casos distintos**: três HTTP reais no Neon e 22 focais sem
+banco. O host comprova SESSION/membership reais, alternância A/B/A, ETag/304,
+revogação antes de resposta condicional, rejeição de headers conflitantes,
+CRUD/JSONB, readonly, validação e escopo de linhas inclusive opções, além do
+catálogo declarativo de fatos por tenant. A seleção de contexto é preparação de
+fixture; CSRF/navegador/CORS, rollout produtivo e execução de regras não fazem
+parte desta prova. A configuração de migrations é compartilhada com o caminho
+canônico; o callback administrativo é exclusivo de testes.
+
+A revisão independente conferiu o código, as invariantes, os limites e as fontes.
+Fingerprint final `src/main + src/test`:
+`59167f8a7bb91060be6b0c657b2dda6ad8452e31db8df403c647acbc1a770ae8`.
+O freeze anterior de 24 casos foi reconstruído exatamente; depois dele apenas a
+ordem de grants da fixture histórica e seu novo teste offline mudaram. Os dois
+casos offline passaram, contando a proveniência repetida uma única vez.
+A documentação e seis recibos JSON sanitizados no PR preservam esses vínculos;
+logs brutos estão em `/tmp/praxis-303-adoption`.
+
+**Três pilotos históricos não estão aprovados.** EventosFolha apresentou 11 erros
+de inicialização porque a migração financeira exigia USAGE/SELECT pré-provisionados.
+A ordem de grants foi corrigida e validada offline, sem repetir a campanha longa.
+Por inspeção, o seed/cleanup antigo também conflita com CREATE auditado e proteção
+contra DELETE; essa próxima incompatibilidade não foi uma falha remota observada.
+A correção completa exige adoção do lifecycle financeiro governado e permanece
+pendente; não se desabilitaram triggers, fabricaram recibos ou ampliaram grants
+após o cutover. QuickstartMetadataMigration e OpenApiGroupResolutionIsolated não
+foram repetidos no candidato definitivo. `verify` integral permanece pendente.
+
+Branch Neon exclusiva `br-proud-cake-adwn97mh`, projeto `dark-mountain-25788969`,
+PostgreSQL 17.11, TLS verify-full e owner/runtime distintos. O journal confirma
+14 databases e 14 roles runtime removidos por OID. Postflight confirmou zero
+recursos/conexões de teste; endpoint `ep-aged-sky-adkwifgy` suspenso (`idle`) em
+27/10/2026 18:11:46 UTC. Branch e três identidades de preparação foram retidas.
+
+Skills: `atualizar-existente`, [PR #868](https://github.com/codexrodrigues/praxis-codex-skills/pull/868),
+HEAD `62008cc0f2c7619c775fb14b0c57620c450e0160`: schema, domínio e operational-proof.
+Preflight Python 41 testes, estrutura e auditorias isoladas de 168 Praxis +19 Ergon
+aprovados; último incremento de grants/fixtures validado novamente. A integração
+canônica e sincronização instalada permanecem pendentes por decisão de não merge.
+O Angular segue coordenado separadamente no PR #658. Nenhum merge, release,
+deploy ou dispatch manual de Actions foi realizado nesta entrega de adoção.
