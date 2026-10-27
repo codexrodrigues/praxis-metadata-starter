@@ -190,10 +190,122 @@ brutos; o fingerprint não inclui este registro para evitar auto-referência.
 
 Revisão independente encerrada: correções de schema/cache/auto-config revisadas
 por facts_domain; core/facts revisados pelo coordenador; fixture e documentação
-revisadas pelo coordenador e customfields_core. Sem achado bloqueante remanescente
-no escopo do starter. Os gates externos de adoção acima permanecem explícitos.
+revisadas pelo coordenador e customfields_core. Essa conclusão foi superada pela revisão abrangente subsequente abaixo; os resultados
+dos testes continuam históricos, mas não encerram os oito achados novos. Os gates
+externos de adoção permanecem explícitos.
 
 Ao fim do ensaio, nenhuma tabela permaneceu no schema `metadata303`; o compute
 Neon exclusivo foi suspenso, preservando a branch para rastreabilidade. Nenhum
 shell interativo ou servidor auxiliar foi deixado aberto. A integração dos PRs e
 sincronização local das skills aguardam a revisão arquitetural solicitada.
+
+
+## Correções da revisão abrangente — 27/10/2026
+
+Baseline: starter `a247dec7c4`, skills `1799fc2`; branches/PRs existentes #304 e #868.
+Escopo autorizado: corrigir os oito achados, regressões, documentação/skills,
+revisão independente e push; sem merge, release ou adoção nos consumidores.
+Classificação: `contrato-publico` corretivo. Aderência: `suportado-parcialmente`
+para preservação de readonly e `ja-suportado-mal-nomeado-ou-mal-materializado`
+para schema/filtros, enums, proxy discovery, datas e governança. O tipo MVC do
+request já existe; a consulta por rota no resolver canônico expõe esse dado para
+projeção sem inventar papel de operação por nome/path.
+
+Plano e impacto antes da edição:
+- Corrigir lifecycle readonly com uma definição por escrita e preservar o estado
+  após `beforeUpdate` através do mapper; hooks de domínio continuam responsáveis
+  por alterações legítimas. Cobrir ausência, null, mapa imutável e atribuição negada.
+- Projetar filtros a partir de `GenericFilterDTO` registrado, operadores e tipos;
+  separar obrigatoriedade de escrita, normalizar schemaType e validar enums na fonte.
+- Descobrir annotations em metadados originais/proxies sem executar beans; hash de
+  defaults temporais e governança devem preservar a semântica do descriptor.
+- Atualizar spec, exemplos, conformance e skills existentes; testar unitários,
+  regressões de schemas e HTTP/PostgreSQL na branch Neon exclusiva já atribuída.
+- Revisar o diff final por autor diferente e publicar nos PRs existentes.
+
+Dono canônico: metadata starter. Consumidores afetados: clientes de schema,
+formulários/filtros e grounding de domínio. Quickstart/Angular permanecem nos gates
+anteriores. Nenhum runtime frontend ou recipe de host será anunciado como adotado.
+Risco de compatibilidade: correção no candidato beta ainda não integrado; descriptors
+ENUM inválidos falham na origem, e o helper protegido de validação passa a retornar
+as chaves readonly para que escritores próprios preservem o estado. Não há versão
+paralela nem alteração do container wire.
+
+Responsáveis: fix_readonly (lifecycle), fix_facts_domain (catálogo), fix_schema
+(projeção/descriptor), coordenador (integração, E2E, docs/skills e target Maven).
+Sol/high solicitado aos três implementadores devido à integridade e aos contratos;
+o retorno da ferramenta confirma a atribuição, não métricas de custo/modelo efetivo.
+Sem builds concorrentes, instalações Maven compartilhadas ou mutações na branch pai.
+Status inicial: implementação e provas em andamento; o aceite anterior está revogado.
+
+
+### Resultado das correções e nova revisão independente
+
+Os oito achados foram corrigidos no candidato. Mapeamento de regressão:
+
+| Achado | Correção e prova |
+| --- | --- |
+| 1. Perda readonly no PUT | Snapshot único pós-hook/pré-mapper, restauração de valor/ausência; `CustomFieldResourceLifecycleTest` e HTTP `updatePreservesServerOwnedValuesAndRejectsAssignments`. |
+| 2. Shape de filtro | Tipo MVC real seleciona projeção de operandos; `CustomFieldSchemaProjectionTest`, resolver/controller e HTTP `publishedFilterAndWriteSchemasMatchRealHttpPayloads`. |
+| 3. Container obrigatório | Required da raiz acompanha filhos e preserva exigência estática; JSON Schema e HTTP negam omissão. |
+| 4. Enum divergente | Invariantes fail-fast no descriptor e membership comum STRING/ENUM; testes cruzam schema/validator e combinações inválidas. |
+| 5. Proxy oculta fatos | Metadados originais, target e factories; `AnnotationResourceFactCatalogProviderTest` inclui JDK proxy real, lazy, overload resolvido/ambíguo e owner singleton. |
+| 6. Default temporal | Serialização JavaTime ISO determinística; catálogo testa LocalDate, Instant, OffsetDateTime e LocalDateTime. |
+| 7. Governança alterada | Reason/confidence e demais dados preservados, inclusive declarações parciais/vazias; sem criar políticas AI ausentes nas extensões. Confidence omitida mantém default histórico 1.0, não uma medição. |
+| 8. REQUEST/request | Normalização anterior a provider/schema/hash; testes diretos, controller e HTTP/ETag. |
+
+Validação integrada atual: **242 testes distintos, 0 falhas, 0 erros, 0 skips**,
+em 30 classes: **236 unitários/regressões sem banco + 6 E2E no Neon** (5 custom
+fields e 1 composite ID). Contagem consolidada do último XML de cada classe;
+repetições não são somadas. Dependências do pom inalteradas, JDK 21.0.10,
+Hibernate 6.6.53.Final, PostgreSQL 17.11.
+
+A primeira execução integrada rodou 228 casos e capturou um teste de governança
+antigo enquanto o autor finalizava a correção solicitada pela revisão. O rerun
+focal após estabilização das fontes substituiu essa evidência; o último rerun
+provider/domain/auto-config passou. A suíte integral e gates externos não foram
+executados. O comando unitário anterior foi ampliado com
+`CustomFieldSchemaProjectionTest`, `AnnotationResourceFactCatalogProviderTest` e
+`OpenApiCanonicalOperationResolverTest`; E2E usou os mesmos comandos/lease já
+registrados. Logs novos em `/tmp/praxis-303/`:
+`review-fixes-unit.log`, `review-fixes-focal.log`, `review-fixes-domain-final.log`,
+`review-fixes-e2e.log`, `review-fixes-composite.log` e `review-fixes-counts.json`.
+
+Fingerprint SHA-256 do índice final de `src/main src/test docs/spec`:
+`6c69bffa910c8934fb1a7e30393b0be1e9d4e744410903e2c036a61e0844bc6b`.
+Nenhum código/teste/spec foi alterado depois dessas provas; este registro fica fora
+do fingerprint para evitar auto-referência. O pós-teste JDBC read-only confirmou
+`metadata303_app`, database/schema `metadata303`, PostgreSQL 17.11 e **zero tabelas
+remanescentes**. TLS verify-full e privilégios ordinários foram verificados antes
+do DDL pelo fixture. O compute exclusivo é suspenso ao encerrar a validação.
+
+Revisão independente nesta rodada:
+- `review_writes_filters` (Sol/high solicitado, não autor) revisou lifecycle,
+  schema/enum, resolução MVC e E2E; executou 21 testes isolados com as fontes atuais
+  e o harness original de readonly. Parecer: apto nesse recorte, sem achado restante.
+- `review_schema_domain` (Sol/high solicitado, não autor) revisou catálogo/facts;
+  encontrou e revalidou a correção de factory owner registrado só como singleton.
+  Harnesses finais confirmam proxy, owner singleton, datas e governança. Parecer:
+  apto nesse recorte, sem achado restante.
+- Coordenador revisou os trechos dos três implementadores; encontrou e corrigiu
+  com os autores preservação do backing field/getter, required estático e perda de
+  governança parcial. As mudanças materiais voltaram à revisão independente.
+- `review_plan_ux` (Terra/high solicitado, não autor) confrontou docs/skills com
+  código e limites. Ajustados o texto de evidência E2E e a distinção entre confiança
+  declarada e default. Parecer final: documentação e skills aptas no recorte revisado, sem achado
+  acionável restante; confirmou o fingerprint e os artefatos de testes por leitura.
+
+Skills: `atualizar-existente`, mantendo as duas skills do PR #868 e seus hashes.
+Preflight canônico passou **41 testes**, auditoria isolada de **168 skills Praxis
++ 19 Ergon**, sem drift/ausências/inventário inválido, e validação estrutural das
+duas skills. Logs `review-skills-preflight.log` e `review-skills-fix-manifest.log`.
+A auditoria do destino instalado identificou drifts preexistentes fora do escopo;
+não houve force/sync local. Integração canônica e sincronização continuam pendentes
+por determinação explícita de não fazer merge. Não se declara guidance instalado.
+
+Docs/spec/conformance/changelog e guidance foram atualizados. README e índice já
+remetem à spec e não exigem novo link; o exemplo de container existente mantém o
+mesmo conteúdo, enquanto a obrigatoriedade da raiz é comprovada nos testes de
+payload completo. Corpus HTTP/landing/recipes e runtimes externos mantêm o limite
+de adoção descrito acima. Esta entrega é correção dos PRs candidatos, não aprovação
+de release, UI, host Quickstart ou revisão arquitetural humana.

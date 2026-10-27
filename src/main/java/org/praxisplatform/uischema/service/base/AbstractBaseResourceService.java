@@ -46,12 +46,18 @@ public abstract class AbstractBaseResourceService<
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.praxisplatform.uischema.customfields.ResourceTenantContextResolver resourceTenantContextResolver;
 
-    protected void validateCustomFields(Object dto, String schemaType) {
+    /**
+     * Validates request assignments and returns the read-only keys from the same tenant/operation
+     * definition snapshot. Overrides must retain the keys returned by {@code super} so the
+     * standard update lifecycle can preserve server-owned values across mapping.
+     */
+    protected Set<String> validateCustomFields(Object dto, String schemaType) {
         if (customFieldValidator != null && dto != null
                 && org.praxisplatform.uischema.customfields.CustomFieldSupport.property(dto.getClass()).isPresent()) {
-            customFieldValidator.validate(dto, resolveResourceKey(),
+            return customFieldValidator.validateAndGetReadOnlyKeys(dto, resolveResourceKey(),
                     resourceTenantContextResolver == null ? null : resourceTenantContextResolver.resolveTenant().orElse(null), schemaType);
         }
+        return Set.of();
     }
 
     protected AbstractBaseResourceService(
@@ -94,10 +100,13 @@ public abstract class AbstractBaseResourceService<
         if (this instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>) {
             throw ResourceVersionPreconditionException.required();
         }
-        validateCustomFields(dto, "request");
+        Set<String> readOnlyKeys = validateCustomFields(dto, "request");
         E existing = findEntityById(id);
         beforeUpdate(id, existing, dto);
+        // Domain hooks own server-side decisions. Protect their result from the request mapper.
+        var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(existing, readOnlyKeys);
         getResourceMapper().applyUpdate(existing, dto);
+        org.praxisplatform.uischema.customfields.CustomFieldSupport.restoreReadOnlyValues(existing, readOnlyKeys, readOnlyValues);
         E saved = refreshManaged(getRepository().save(existing));
         afterUpdate(id, saved, dto);
         return getResourceMapper().toResponse(saved);

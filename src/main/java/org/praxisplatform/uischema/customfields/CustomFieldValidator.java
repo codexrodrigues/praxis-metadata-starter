@@ -11,9 +11,17 @@ public class CustomFieldValidator {
     private final CustomFieldDefinitionProvider definitions;
     public CustomFieldValidator(CustomFieldDefinitionProvider definitions) { this.definitions = Objects.requireNonNull(definitions); }
     public void validate(Object dto, String resourceKey, String tenantId, String schemaType) {
-        if (dto == null || CustomFieldSupport.property(dto.getClass()).isEmpty()) return;
+        validateAndGetReadOnlyKeys(dto, resourceKey, tenantId, schemaType);
+    }
+    /** Validates the request and returns the read-only keys from that exact definition snapshot. */
+    public Set<String> validateAndGetReadOnlyKeys(Object dto, String resourceKey, String tenantId, String schemaType) {
+        if (dto == null || CustomFieldSupport.property(dto.getClass()).isEmpty()) return Set.of();
         String effectiveResource = CustomFieldSupport.resourceKey(dto.getClass(), resourceKey);
-        validateValues(CustomFieldSupport.read(dto), definitions.findDefinitions(effectiveResource, tenantId, schemaType));
+        List<CustomFieldDescriptor> active = List.copyOf(definitions.findDefinitions(effectiveResource, tenantId, schemaType));
+        validateValues(CustomFieldSupport.read(dto), active);
+        Set<String> readOnly = new LinkedHashSet<>();
+        active.stream().filter(CustomFieldDescriptor::readOnly).map(CustomFieldDescriptor::key).forEach(readOnly::add);
+        return Collections.unmodifiableSet(readOnly);
     }
     public void validate(Object dto, String resourceKey, String tenantId) { validate(dto, resourceKey, tenantId, null); }
     public void validateValues(Map<String, Object> values, List<CustomFieldDescriptor> active) {
@@ -52,7 +60,7 @@ public class CustomFieldValidator {
     public static boolean matchesType(CustomFieldDescriptor d, Object value) {
         try {
             return switch (d.dataType()) {
-                case STRING -> value instanceof String;
+                case STRING -> value instanceof String s && (d.enumValues().isEmpty() || d.enumValues().contains(s));
                 case INTEGER -> value instanceof Number n && new BigDecimal(n.toString()).stripTrailingZeros().scale() <= 0;
                 case DECIMAL -> value instanceof Number n && new BigDecimal(n.toString()) != null;
                 case BOOLEAN -> value instanceof Boolean;

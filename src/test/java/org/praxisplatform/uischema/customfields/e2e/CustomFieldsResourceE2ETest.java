@@ -2,6 +2,8 @@ package org.praxisplatform.uischema.customfields.e2e;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.networknt.schema.JsonSchemaFactory;
+import com.networknt.schema.SpecVersion;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -285,6 +287,61 @@ class CustomFieldsResourceE2ETest {
         }
     }
 
+    @Test
+    void updatePreservesServerOwnedValuesAndRejectsAssignments() throws Exception {
+        var created = request("/custom-employees", HttpMethod.POST, "org-a",
+                "{\"name\":\"Ana\",\"customFields\":{\"numero_calcado\":42}}", null);
+        assertEquals(201, created.getStatusCode().value(), created.getBody());
+        long id = body(created).at("/data/id").asLong();
+        assertTrue(body(created).at("/data/customFields/auditFlag").asBoolean());
+        var updated = request("/custom-employees/" + id, HttpMethod.PUT, "org-a",
+                "{\"name\":\"Ana Maria\",\"customFields\":{\"numero_calcado\":43}}", null);
+        assertEquals(200, updated.getStatusCode().value(), updated.getBody());
+        assertTrue(body(updated).at("/data/customFields/auditFlag").asBoolean());
+        assertEquals(Boolean.TRUE, repository.findById(id).orElseThrow().customFields.get("auditFlag"));
+        var rejected = request("/custom-employees/" + id, HttpMethod.PUT, "org-a",
+                "{\"name\":\"Bad\",\"customFields\":{\"numero_calcado\":44,\"auditFlag\":false}}", null);
+        assertEquals(400, rejected.getStatusCode().value(), rejected.getBody());
+        assertTrue(rejected.getBody().contains("customFields.auditFlag"));
+        var persisted = repository.findById(id).orElseThrow();
+        assertEquals("Ana Maria", persisted.name);
+        assertEquals(Boolean.TRUE, persisted.customFields.get("auditFlag"));
+    }
+
+    @Test
+    void publishedFilterAndWriteSchemasMatchRealHttpPayloads() throws Exception {
+        String filterUrl = "/schemas/filtered?path=/custom-employees/filter&operation=post&schemaType=request";
+        var projected = request(filterUrl, HttpMethod.GET, "org-ops", null, null);
+        assertEquals(200, projected.getStatusCode().value(), projected.getBody());
+        var filterSchema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(body(projected));
+        for (String payload : List.of("{}", "{\"customFields\":{}}",
+                "{\"customFields\":{\"age\":[42],\"score\":true}}")) {
+            assertTrue(filterSchema.validate(json.readTree(payload)).isEmpty(), payload);
+            var response = request("/custom-employees/filter", HttpMethod.POST, "org-ops", payload, null);
+            assertEquals(200, response.getStatusCode().value(), response.getBody());
+        }
+        for (String payload : List.of("{\"customFields\":{\"age\":42}}", "{\"customFields\":{\"score\":2}}")) {
+            assertFalse(filterSchema.validate(json.readTree(payload)).isEmpty(), payload);
+            assertEquals(400, request("/custom-employees/filter", HttpMethod.POST, "org-ops", payload, null).getStatusCode().value());
+        }
+        repository.saveAndFlush(new Employee("Selected", Map.of("age", 42)));
+        repository.saveAndFlush(new Employee("Excluded", Map.of("age", 43, "score", 7)));
+        var selected = request("/custom-employees/filter", HttpMethod.POST, "org-ops",
+                "{\"customFields\":{\"age\":[42],\"score\":true}}", null);
+        assertEquals(200, selected.getStatusCode().value(), selected.getBody());
+        assertEquals(1, body(selected).at("/data/content").size());
+        assertEquals("Selected", body(selected).at("/data/content/0/name").asText());
+
+        String writeUrl = "/schemas/filtered?path=/custom-employees&operation=post&schemaType=request";
+        var write = request(writeUrl, HttpMethod.GET, "org-a", null, null);
+        var writeSchema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012).getSchema(body(write));
+        assertFalse(writeSchema.validate(json.readTree("{\"name\":\"Missing\"}")).isEmpty());
+        assertEquals(400, request("/custom-employees", HttpMethod.POST, "org-a", "{\"name\":\"Missing\"}", null).getStatusCode().value());
+        var upper = request(writeUrl.replace("schemaType=request", "schemaType=REQUEST"), HttpMethod.GET, "org-a", null, null);
+        assertEquals(write.getHeaders().getETag(), upper.getHeaders().getETag());
+        assertEquals(body(write), body(upper));
+    }
+
     private String url(String path) { return "http://localhost:" + port + path; }
     private JsonNode body(ResponseEntity<String> response) throws Exception { return json.readTree(response.getBody()); }
     private ResponseEntity<String> request(String path, HttpMethod method, String tenant, String body, String etag) {
@@ -307,7 +364,19 @@ class CustomFieldsResourceE2ETest {
                         "numero_calcado", "Shoe size", "Uniform shoe size", CustomFieldDataType.INTEGER,
                         FieldControlType.AUTO, "Uniform", 1, true, false, true, false, true, null,
                         BigDecimal.valueOf(20), BigDecimal.valueOf(50), null, null, null, null, null,
-                        List.of(), List.of(), null, Filterable.FilterOperation.EQUAL, Map.of()));
+                        List.of(), List.of(), null, Filterable.FilterOperation.EQUAL, Map.of()),
+                        new CustomFieldDescriptor("auditFlag", "Audit", null, CustomFieldDataType.BOOLEAN,
+                                null, null, 2, true, true, false, false, false, null,
+                                null, null, null, null, null, null, null, null, null, null, null, null));
+                if ("org-ops".equals(tenant)) return List.of(
+                        new CustomFieldDescriptor("age", "Age", null, CustomFieldDataType.INTEGER,
+                                null, null, 0, true, false, true, false, false, null,
+                                BigDecimal.ONE, BigDecimal.valueOf(100), null, null, null, null, null,
+                                null, null, null, Filterable.FilterOperation.IN, null),
+                        new CustomFieldDescriptor("score", "Score", null, CustomFieldDataType.INTEGER,
+                                null, null, 1, true, false, true, false, false, null,
+                                null, null, null, null, null, null, null,
+                                null, null, null, Filterable.FilterOperation.IS_NULL, null));
                 if ("org-b".equals(tenant)) return List.of(new CustomFieldDescriptor(
                         "matricula", "Registration", null, CustomFieldDataType.STRING,
                         FieldControlType.AUTO, null, 1, false, false, true, false, true, null,
@@ -350,6 +419,12 @@ class CustomFieldsResourceE2ETest {
                 public void applyUpdate(Employee e, UpdateEmployee dto) { e.name = dto.name(); e.customFields = dto.customFields(); }
                 public Long extractId(Employee e) { return e.id; }
             };
+        }
+        @Override protected void beforeCreate(CreateEmployee dto, Employee entity) {
+            if (entity.customFields != null && entity.customFields.containsKey("numero_calcado")) {
+                entity.customFields = new java.util.LinkedHashMap<>(entity.customFields);
+                entity.customFields.put("auditFlag", true);
+            }
         }
         @Override public boolean supportsCollectionExport() { return true; }
         @Override public Optional<CollectionExportCapability> getCollectionExportCapability() {

@@ -4,6 +4,11 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### Correções da revisão do candidato #303
+- Preservação de campos customizados readonly em atualizações e regressões com mapper de substituição.
+- Schema de filtro derivado do tipo MVC, obrigatoriedade do container, enumeração coerente e normalização de schemaType.
+- Discovery de fatos com proxies Spring, defaults temporais no catálogo e fidelidade de reason/confidence.
+
 ### Campos customizados por tenant e catálogo de fatos — candidato #303
 
 - Adiciona `@CustomFields`, descritores e SPI de definições por recurso/tenant,

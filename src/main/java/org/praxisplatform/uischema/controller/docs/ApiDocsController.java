@@ -326,12 +326,17 @@ public class ApiDocsController {
             throw new IllegalArgumentException("Parameter 'path' or 'resourcePath' is required.");
         }
 
+        if (!"response".equalsIgnoreCase(schemaType) && !"request".equalsIgnoreCase(schemaType)) {
+            throw new IllegalArgumentException("Parameter 'schemaType' must be 'response' or 'request'.");
+        }
+        String normalizedSchemaType = schemaType.toLowerCase(Locale.ROOT);
+
         // An authenticated host resolver is authoritative, including an empty result.
         String resolvedTenant = resourceTenantContextResolver == null
                 ? org.praxisplatform.uischema.customfields.RequestHeaderResourceTenantContextResolver.normalize(tenant)
                 : resourceTenantContextResolver.resolveTenant().orElse(null);
         return openApiDocumentService.withSchemaCacheReadLock(() -> getFilteredSchemaWithStableCache(
-                effectivePath, operation, includeInternalSchemas, schemaType, idField, readOnly, ifNoneMatch, resolvedTenant, locale));
+                effectivePath, operation, includeInternalSchemas, normalizedSchemaType, idField, readOnly, ifNoneMatch, resolvedTenant, locale));
     }
 
     private org.springframework.http.ResponseEntity<Map<String, Object>> getFilteredSchemaWithStableCache(
@@ -530,8 +535,11 @@ public class ApiDocsController {
             customFieldResourceKey = apiResourceIdentityResolver.resolveResourceKey(basePath, canonicalPath, normalizedOperation)
                     .orElse(customFieldResourceKey);
         }
+        boolean customFieldFilterRequest = customFieldSchemaEnricher != null && "request".equals(schemaType)
+                && canonicalOperationResolver.resolveRequestBodyType(canonicalPath, normalizedOperation)
+                        .map(org.praxisplatform.uischema.filter.dto.GenericFilterDTO.class::isAssignableFrom).orElse(false);
         String customFieldFingerprint = customFieldSchemaEnricher == null ? ""
-                : customFieldSchemaEnricher.enrich(schemaMap, customFieldResourceKey, tenant, schemaType);
+                : customFieldSchemaEnricher.enrich(schemaMap, customFieldResourceKey, tenant, schemaType, customFieldFilterRequest);
         enrichPropertyOptionSources(schemaMap, basePath);
         enrichArrayItemSchemasInline(schemaMap, allSchemas);
         enrichReferencedComponentSchemas(schemaMap, allSchemas);

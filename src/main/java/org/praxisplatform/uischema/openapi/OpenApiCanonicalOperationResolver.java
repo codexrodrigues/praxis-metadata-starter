@@ -112,6 +112,34 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
     }
 
     @Override
+    public Optional<Class<?>> resolveRequestBodyType(String path, String method) {
+        if (handlerMapping == null) return Optional.empty();
+        String canonicalPath = normalizePath(path);
+        RequestMethod expectedMethod = RequestMethod.valueOf(normalizeMethod(method));
+        List<HandlerMethod> matches = handlerMapping.getHandlerMethods().entrySet().stream()
+                .filter(entry -> entry.getKey().getPatternValues().stream()
+                        .anyMatch(pattern -> canonicalPath.equals(normalizePath(pattern))))
+                .filter(entry -> entry.getKey().getMethodsCondition().getMethods().isEmpty()
+                        || entry.getKey().getMethodsCondition().getMethods().contains(expectedMethod))
+                .map(Map.Entry::getValue).toList();
+        if (matches.size() > 1) throw new IllegalStateException("Ambiguous MVC request body binding for "
+                + canonicalPath + " " + expectedMethod);
+        if (matches.isEmpty()) return Optional.empty();
+        HandlerMethod handler = matches.getFirst();
+        org.springframework.core.MethodParameter body = null;
+        for (org.springframework.core.MethodParameter parameter : handler.getMethodParameters()) {
+            if (parameter.hasParameterAnnotation(org.springframework.web.bind.annotation.RequestBody.class)) {
+                if (body != null) throw new IllegalStateException("Multiple MVC request bodies for " + canonicalPath);
+                body = parameter;
+            }
+        }
+        if (body == null) return Optional.empty();
+        Class<?> type = org.springframework.core.ResolvableType
+                .forMethodParameter(body.withContainingClass(handler.getBeanType())).resolve();
+        return type == null || type == Object.class ? Optional.empty() : Optional.of(type);
+    }
+
+    @Override
     public CanonicalOperationRef resolve(HandlerMethod handlerMethod, RequestMappingInfo mappingInfo) {
         String path = mappingInfo.getPatternValues().stream()
                 .min(Comparator.comparingInt(String::length).thenComparing(String::compareTo))

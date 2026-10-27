@@ -242,3 +242,13 @@ Diretriz canonica:
 - `canonical-payload.json` e `x-ui-chart.valid.json` tambem cumprem papel documental e podem ser referenciados em guias, desde que permanecam coerentes com os schemas publicados.
 - os fixtures `x-ui-field-option-source-*.json` documentam o draft contratual de `x-ui.optionSource`.
 - Use estes arquivos como base para gerar casos especificos do seu dominio.
+
+
+### Regressões da revisão #303
+
+`CustomFieldSchemaProjectionTest` cruza JSON Schema e validação de escrita para
+required/enum e exercita operandos de filtro. `CustomFieldSchemaTenantIsolationTest`
+verifica a resolução MVC e a equivalência de schemaType. O E2E remoto cobre
+preservação readonly no PUT, schema de filtro versus payload HTTP, IN/IS_NULL no
+PostgreSQL e container obrigatório. O catálogo possui regressões para proxy/lazy,
+datas ISO e governança parcial/completa; ausência de execução de domínio é invariante.

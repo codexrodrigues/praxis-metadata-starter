@@ -28,6 +28,10 @@ public record CustomFieldDescriptor(
             throw new IllegalArgumentException("Invalid length bounds");
         if (pattern != null) Pattern.compile(pattern);
         enumValues = enumValues == null ? List.of() : List.copyOf(enumValues);
+        if (!enumValues.isEmpty() && dataType != CustomFieldDataType.STRING && dataType != CustomFieldDataType.ENUM)
+            throw new IllegalArgumentException("enumValues is supported only for STRING and ENUM custom fields");
+        if (dataType == CustomFieldDataType.ENUM && enumValues.isEmpty())
+            throw new IllegalArgumentException("ENUM custom fields require non-empty enumValues");
         options = options == null ? List.of() : options.stream().map(CustomFieldDescriptor::immutableMap).toList();
         governance = governance == null ? Map.of() : immutableMap(governance);
         defaultValue = immutableValue(defaultValue);

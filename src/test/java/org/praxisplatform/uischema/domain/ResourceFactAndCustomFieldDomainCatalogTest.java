@@ -1,6 +1,9 @@
 package org.praxisplatform.uischema.domain;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.customfields.*;
 import org.praxisplatform.uischema.fact.*;
@@ -11,6 +14,11 @@ import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.stream.Stream;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.*;
@@ -42,6 +50,105 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
                 .satisfies(b -> assertThat(b.target()).containsEntry("fieldName", "customFields.shoe_size"));
         assertThat(result.governance()).hasSize(2).allSatisfy(g -> assertThat(g.classification()).isEqualTo("confidential"));
         assertThat(service.findByResourceKey(RESOURCE)).isSameAs(result);
+    }
+
+    @ParameterizedTest
+    @MethodSource("temporalDefaults")
+    void fingerprintsTemporalDefaultsUsingDeterministicIsoValues(CustomFieldDataType dataType, Object value, String iso) {
+        AtomicReference<Object> defaultValue = new AtomicReference<>(value);
+        var service = service((r, t, role) -> List.of(new CustomFieldDescriptor(
+                "effective", "Effective", "Temporal field", dataType, null, null, 0, false, false,
+                false, false, false, defaultValue.get(), null, null, null, null, null, null, null,
+                null, null, null, null, Map.of())), null, null);
+        var first = service.findByResourceKey(RESOURCE);
+        assertThat(first.nodes()).anyMatch(n -> n.nodeKey().equals(RESOURCE + ".field.customFields.effective"));
+        defaultValue.set(iso);
+        assertThat(service.findByResourceKey(RESOURCE)).isSameAs(first);
+        defaultValue.set(dataType == CustomFieldDataType.DATE ? "2027-01-02" : "2027-01-02T00:00:00Z");
+        assertThat(service.findByResourceKey(RESOURCE)).isNotSameAs(first);
+        defaultValue.set(value);
+        assertThat(service.findByResourceKey(RESOURCE)).isSameAs(first);
+    }
+
+    static Stream<Arguments> temporalDefaults() {
+        return Stream.of(
+                Arguments.of(CustomFieldDataType.DATE, LocalDate.of(2026, 1, 1), "2026-01-01"),
+                Arguments.of(CustomFieldDataType.DATE_TIME, Instant.parse("2026-01-01T12:30:45Z"), "2026-01-01T12:30:45Z"),
+                Arguments.of(CustomFieldDataType.DATE_TIME, LocalDateTime.parse("2026-01-01T12:30:45"), "2026-01-01T12:30:45"),
+                Arguments.of(CustomFieldDataType.DATE_TIME, OffsetDateTime.parse("2026-01-01T12:30:45-03:00"), "2026-01-01T12:30:45-03:00"));
+    }
+
+    @Test void preservesDeclaredGovernanceForCustomFieldsAndFacts() {
+        Map<String, Object> declaration = new LinkedHashMap<>();
+        declaration.put("annotationType", "privacy");
+        declaration.put("classification", "restricted");
+        declaration.put("dataCategory", "personal");
+        declaration.put("confidence", 0.4d);
+        declaration.put("reason", "Historical evidence requires review");
+        declaration.put("complianceTags", List.of("LGPD", "INTERNAL_POLICY"));
+        declaration.put("owner", "People Operations");
+        declaration.put("steward", "Data Protection");
+        declaration.put("retentionPolicy", "five-years");
+        declaration.put("source", "host.governance");
+        declaration.put("aiUsage", Map.of("visibility", "mask", "trainingUse", "deny",
+                "ruleAuthoring", "review_required", "reasoningUse", "review_required", "hostPolicy", "case-review",
+                "reason", "Nested reason must yield to the root declaration"));
+        var service = service((r, t, role) -> List.of(new CustomFieldDescriptor(
+                "historical", "Historical", "", CustomFieldDataType.STRING, null, null, 0, false, false,
+                false, false, false, null, null, null, null, null, null, null, null,
+                null, null, null, null, declaration)),
+                (r, t) -> List.of(new ResourceFactDescriptor("historical", RESOURCE, "Historical", "", "string", "",
+                        Map.of(), true, "historical", declaration)), null);
+        assertThat(service.findByResourceKey(RESOURCE).governance()).hasSize(2).allSatisfy(item -> {
+            assertThat(item.governanceKey()).isEqualTo("governance:" + item.nodeKey());
+            assertThat(item.annotationType()).isEqualTo("privacy");
+            assertThat(item.classification()).isEqualTo("restricted");
+            assertThat(item.dataCategory()).isEqualTo("personal");
+            assertThat(item.confidence()).isEqualTo(0.4d);
+            assertThat(item.complianceTags()).containsExactly("LGPD", "INTERNAL_POLICY");
+            assertThat(item.owner()).isEqualTo("People Operations");
+            assertThat(item.steward()).isEqualTo("Data Protection");
+            assertThat(item.retentionPolicy()).isEqualTo("five-years");
+            assertThat(item.source()).isEqualTo("host.governance");
+            assertThat(item.aiUsage()).containsEntry("reason", "Historical evidence requires review")
+                    .containsEntry("visibility", "mask").containsEntry("trainingUse", "deny")
+                    .containsEntry("ruleAuthoring", "review_required").containsEntry("reasoningUse", "review_required")
+                    .containsEntry("hostPolicy", "case-review");
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("partialGovernanceDeclarations")
+    void preservesGovernanceItemsAndOnlyDeclaredPoliciesForEmptyOrPartialExtensions(Map<String, Object> declaration) {
+        var service = service((r, t, role) -> List.of(new CustomFieldDescriptor(
+                "partial", "Partial", "", CustomFieldDataType.STRING, null, null, 0, false, false,
+                false, false, false, null, null, null, null, null, null, null, null,
+                null, null, null, null, declaration)),
+                (r, t) -> List.of(new ResourceFactDescriptor("partial", RESOURCE, "Partial", "", "string", "",
+                        Map.of(), true, "computed", declaration)), null);
+        assertThat(service.findByResourceKey(RESOURCE).governance()).hasSize(2).allSatisfy(item -> {
+            assertThat(item.governanceKey()).isEqualTo("governance:" + item.nodeKey());
+            assertThat(item.annotationType()).isNull();
+            assertThat(item.classification()).isNull();
+            assertThat(item.dataCategory()).isNull();
+            assertThat(item.confidence()).isEqualTo(declaration.getOrDefault("confidence", 1.0d));
+            if (declaration.containsKey("reason")) {
+                assertThat(item.aiUsage()).containsEntry("reason", declaration.get("reason"));
+            } else if (declaration.containsKey("aiUsage")) {
+                assertThat(item.aiUsage()).containsEntry("reason", "Nested evidence");
+            } else {
+                assertThat(item.aiUsage()).isEmpty();
+            }
+            assertThat(item.aiUsage()).doesNotContainKeys("visibility", "trainingUse", "ruleAuthoring", "reasoningUse");
+        });
+    }
+
+    static Stream<Arguments> partialGovernanceDeclarations() {
+        return Stream.of(
+                Arguments.of(Map.of()),
+                Arguments.of(Map.of("confidence", 0.4d, "reason", "Partial declaration")),
+                Arguments.of(Map.of("confidence", 0.4d, "aiUsage", Map.of("reason", "Nested evidence", "hostPolicy", "manual-review"))),
+                Arguments.of(Map.of("reason", "Root evidence", "aiUsage", Map.of("reason", "Nested evidence"))));
     }
 
     @Test void isolatesTenantCacheAndRefreshesChangedDefinitions() {

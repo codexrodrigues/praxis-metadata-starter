@@ -81,6 +81,9 @@ class CustomFieldSchemaTenantIsolationTest {
         assertThat(request.path("required").isMissingNode()).isTrue();
         assertThat(request.at("/properties/calculated/x-ui/required").booleanValue()).isFalse();
         assertThat(request.at("/properties/calculated/readOnly").booleanValue()).isTrue();
+        assertThat(mapper.valueToTree(get(controller, "request", null, null).getBody()).has("required")).isFalse();
+        assertThat(mapper.valueToTree(get(controller, "response", null, null).getBody()).path("required"))
+                .isEqualTo(mapper.createArrayNode().add("customFields"));
         assertThat(response.path("required")).isEqualTo(mapper.createArrayNode().add("calculated"));
         assertThat(response.at("/properties/calculated/x-ui/required").booleanValue()).isTrue();
         assertThat(response.at("/properties/calculated/readOnly").booleanValue()).isTrue();
@@ -92,6 +95,57 @@ class CustomFieldSchemaTenantIsolationTest {
         var enricher = new CustomFieldSchemaEnricher(new NoOpCustomFieldDefinitionProvider(), mapper);
         assertThat(enricher.enrich(schema, "hr.people", null, "response")).isEmpty();
         assertThat(schema).isEqualTo(baseline).doesNotContainKey("properties");
+    }
+
+    @Test void publicRequestRoleIsCaseInsensitiveIncludingProviderAndHash() {
+        List<String> roles = new ArrayList<>();
+        var controller = controller((r,t,role) -> { roles.add(role); return List.of(field("value")); }, Optional::empty, false);
+        var lower = get(controller, "request", null, null);
+        var upper = get(controller, "REQUEST", null, null);
+        assertThat(upper.getBody()).isEqualTo(lower.getBody());
+        assertThat(upper.getHeaders().getETag()).isEqualTo(lower.getHeaders().getETag());
+        assertThat(upper.getHeaders().getFirst("X-Schema-Hash")).isEqualTo(lower.getHeaders().getFirst("X-Schema-Hash"));
+        assertThat(get(controller, "REQUEST", lower.getHeaders().getETag(), null).getStatusCode().value()).isEqualTo(304);
+        assertThat(roles).containsExactly("request", "request", "request");
+    }
+
+    static class Query implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO { }
+    static class FilterNamedWrite { }
+    static class GenericEndpoint<T> { public void execute(@org.springframework.web.bind.annotation.RequestBody T body) { } }
+    static class QueryEndpoint extends GenericEndpoint<Query> { }
+    static class WriteEndpoint extends GenericEndpoint<FilterNamedWrite> { }
+
+    @Test void controllerSelectsFilterProjectionFromResolvedGenericBodyRatherThanRouteOrClassName() throws Exception {
+        for (Object endpoint : List.of(new QueryEndpoint(), new WriteEndpoint())) {
+            var mapping = org.mockito.Mockito.mock(org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping.class);
+            var handler = new org.springframework.web.method.HandlerMethod(endpoint, GenericEndpoint.class.getMethod("execute", Object.class));
+            var route = org.springframework.web.servlet.mvc.method.RequestMappingInfo.paths(PATH)
+                    .methods(org.springframework.web.bind.annotation.RequestMethod.POST).build();
+            org.mockito.Mockito.when(mapping.getHandlerMethods()).thenReturn(Map.of(route, handler));
+            var descriptor = new CustomFieldDescriptor("size", "Size", null, CustomFieldDataType.INTEGER, null, null, 0,
+                    true, true, true, false, true, 20, java.math.BigDecimal.TEN, java.math.BigDecimal.valueOf(50),
+                    null, null, null, null, null, List.of(), List.of(), null,
+                    org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.IN, Map.of());
+            List<String> roles = new ArrayList<>();
+            var controller = controller((r,t,role) -> { roles.add(role); return List.of(descriptor); }, Optional::empty, false);
+            var support = new OpenApiDocsSupport();
+            ReflectionTestUtils.setField(controller, "canonicalOperationResolver",
+                    new OpenApiCanonicalOperationResolver(new TestOpenApiDocumentService(support), mapping));
+            var tree = mapper.valueToTree(get(controller, "request", null, null).getBody());
+            var field = tree.at("/properties/customFields/properties/size");
+            if (endpoint instanceof QueryEndpoint) {
+                assertThat(field.path("type")).isEqualTo(mapper.createArrayNode().add("array").add("null"));
+                assertThat(field.at("/items/type").asText()).isEqualTo("integer");
+                assertThat(field.has("minimum")).isFalse();
+                assertThat(field.has("default")).isFalse();
+                assertThat(field.has("readOnly")).isFalse();
+            } else {
+                assertThat(field.path("type").asText()).isEqualTo("integer");
+                assertThat(field.path("readOnly").asBoolean()).isTrue();
+                assertThat(field.has("minimum")).isTrue();
+            }
+            assertThat(roles).containsExactly("request");
+        }
     }
 
     private ResponseEntity<Map<String, Object>> get(ApiDocsController controller, String role, String etag, String headerTenant) {

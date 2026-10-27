@@ -15,34 +15,43 @@ public final class CustomFieldSchemaEnricher {
     }
 
     /** Returns the fingerprint of the exact definitions used for this projection. */
-    @SuppressWarnings("unchecked")
     public String enrich(Map<String, Object> schema, String resourceKey, String tenant, String schemaType) {
+        return enrich(schema, resourceKey, tenant, schemaType, false);
+    }
+
+    /** Filter projection is selected from the resolved MVC body type, independently of provider role. */
+    @SuppressWarnings("unchecked")
+    public String enrich(Map<String, Object> schema, String resourceKey, String tenant, String schemaType,
+            boolean filterRequest) {
+        if (!"request".equalsIgnoreCase(schemaType) && !"response".equalsIgnoreCase(schemaType))
+            throw new IllegalArgumentException("schemaType must be request or response");
+        String role = schemaType.toLowerCase(Locale.ROOT);
+        if (filterRequest && !"request".equals(role))
+            throw new IllegalArgumentException("Filter projection requires a request schema");
         List<CustomFieldDescriptor> definitions = resourceKey == null || resourceKey.isBlank()
-                ? List.of() : List.copyOf(provider.findDefinitions(resourceKey, tenant, schemaType));
+                ? List.of() : List.copyOf(provider.findDefinitions(resourceKey, tenant, role));
+        if (filterRequest) definitions = definitions.stream().filter(CustomFieldDescriptor::filterable).toList();
         if (definitions.isEmpty() && (!(schema.get("properties") instanceof Map<?, ?> existing)
                 || !existing.containsKey("customFields"))) return "";
         Map<String, Object> properties = (Map<String, Object>) schema.computeIfAbsent("properties", ignored -> new LinkedHashMap<>());
         if (definitions.isEmpty()) {
             properties.remove("customFields");
-            if (schema.get("required") instanceof List<?> required) {
-                List<?> remaining = required.stream().filter(key -> !"customFields".equals(key)).toList();
-                if (remaining.isEmpty()) schema.remove("required");
-                else schema.put("required", remaining);
-            }
+            requireContainer(schema, false);
             return "";
         }
         Map<String, Object> fields = new LinkedHashMap<>();
         List<String> required = new ArrayList<>();
         for (CustomFieldDescriptor descriptor : definitions.stream()
                 .sorted(Comparator.comparingInt(CustomFieldDescriptor::order).thenComparing(CustomFieldDescriptor::key)).toList()) {
-            Map<String, Object> projected = fieldSchema(descriptor);
-            if ("request".equals(schemaType) && descriptor.readOnly()) {
+            Map<String, Object> projected = filterRequest ? filterSchema(descriptor) : fieldSchema(descriptor);
+            if ("request".equals(role) && descriptor.readOnly() && !filterRequest) {
                 ((Map<String, Object>) projected.get("x-ui")).put("required", false);
             }
             if (fields.putIfAbsent(descriptor.key(), projected) != null) {
                 throw new IllegalArgumentException("Duplicate custom field definition: " + descriptor.key());
             }
-            if (descriptor.required() && !("request".equals(schemaType) && descriptor.readOnly())) required.add(descriptor.key());
+            if (!filterRequest && descriptor.required() && !("request".equals(role) && descriptor.readOnly()))
+                required.add(descriptor.key());
         }
         Map<String, Object> container = new LinkedHashMap<>();
         container.put("type", "object");
@@ -51,7 +60,60 @@ public final class CustomFieldSchemaEnricher {
         container.put("properties", fields);
         if (!required.isEmpty()) container.put("required", required);
         properties.put("customFields", container);
+        boolean staticallyRequired = schema.get("required") instanceof Collection<?> existing
+                && existing.contains("customFields");
+        requireContainer(schema, !filterRequest && (staticallyRequired || !required.isEmpty()));
         return SchemaHashUtil.sha256Hex(new org.praxisplatform.uischema.hash.SchemaCanonicalizer().canonicalize(mapper.valueToTree(container)));
+    }
+
+    private static void requireContainer(Map<String, Object> schema, boolean required) {
+        List<Object> keys = new ArrayList<>();
+        if (schema.get("required") instanceof Collection<?> existing)
+            existing.stream().filter(key -> !"customFields".equals(key)).forEach(keys::add);
+        if (required) keys.add("customFields");
+        if (keys.isEmpty()) schema.remove("required");
+        else schema.put("required", keys);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> filterSchema(CustomFieldDescriptor d) {
+        Map<String, Object> projected = fieldSchema(d);
+        projected.keySet().removeAll(Set.of("minimum", "maximum", "minLength", "maxLength", "pattern", "default", "readOnly"));
+        Map<String, Object> ui = (Map<String, Object>) projected.get("x-ui");
+        ui.keySet().removeAll(Set.of("min", "max", "minLength", "maxLength", "pattern", "patternMessage",
+                "requiredMessage", "defaultValue"));
+        ui.put("required", false);
+        ui.put("readOnly", false);
+        Map<String, Object> operand = new LinkedHashMap<>();
+        for (String key : List.of("type", "format", "items", "enum"))
+            if (projected.containsKey(key)) operand.put(key, projected.remove(key));
+        // Null omits a predicate. IN accepts an empty collection and validates each scalar item.
+        // Enum membership remains part of the runtime scalar type, including LIKE operands.
+        boolean scalarSupported = d.dataType() != CustomFieldDataType.ARRAY;
+        Map<String, Object> value = switch (d.filterOperation()) {
+            case IS_NULL -> Map.of("type", "boolean");
+            case IN -> scalarSupported ? Map.of("type", "array", "items", operand) : null;
+            case EQUAL -> scalarSupported ? operand : null;
+            case LIKE -> d.dataType() == CustomFieldDataType.STRING || d.dataType() == CustomFieldDataType.ENUM ? operand : null;
+            case GREATER_OR_EQUAL, LESS_OR_EQUAL -> scalarSupported && d.dataType() != CustomFieldDataType.BOOLEAN ? operand : null;
+            default -> null;
+        };
+        if (d.filterOperation() == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.IS_NULL) {
+            ui.remove("options");
+            ui.remove("optionSource");
+            ui.put("controlType", org.praxisplatform.uischema.FieldControlType.CHECKBOX.getValue());
+        }
+        if (value == null) projected.put("type", "null");
+        else {
+            projected.putAll(value);
+            projected.put("type", List.of(value.get("type"), "null"));
+            if (value.get("enum") instanceof Collection<?> values) {
+                List<Object> nullableValues = new ArrayList<>(values);
+                nullableValues.add(null);
+                projected.put("enum", nullableValues);
+            }
+        }
+        return projected;
     }
 
     public Map<String, Object> fieldSchema(CustomFieldDescriptor d) {

@@ -2,6 +2,8 @@ package org.praxisplatform.uischema.domain;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.praxisplatform.uischema.customfields.CustomFieldDescriptor;
 import org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider;
 import org.praxisplatform.uischema.customfields.ResourceTenantContextResolver;
@@ -50,7 +52,9 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class SemanticDomainCatalogService {
     private static final String DOMAIN_GOVERNANCE_EXTENSION = "x-domain-governance";
-    private static final ObjectMapper HASH_OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper HASH_OBJECT_MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     private static final SchemaCanonicalizer HASH_CANONICALIZER = new SchemaCanonicalizer();
 
     public static final String SCHEMA_VERSION = "praxis.domain-catalog/v0.2";
@@ -329,14 +333,10 @@ public class SemanticDomainCatalogService {
                 nodeKey, "fact".equals(type) ? "resource_fact" : "dto_field", metadata, List.of(), List.of(evidenceKey)));
         evidence.put(evidenceKey, evidence(evidenceKey, source,
                 mapOfNonNull("resourceKey", resource, "kind", source), description, 1.0));
-        JsonNode g = HASH_OBJECT_MAPPER.valueToTree(definitionGovernance == null ? Map.of() : definitionGovernance);
-        Map<String, Object> aiUsage = g.path("aiUsage").isObject()
-                ? HASH_OBJECT_MAPPER.convertValue(g.path("aiUsage"), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}) : Map.of();
-        governance.put("governance:" + nodeKey, new DomainCatalogResponse.DomainGovernanceItem(
-                "governance:" + nodeKey, nodeKey, g.path("annotationType").asText(null),
-                g.path("classification").asText(null), g.path("dataCategory").asText(null),
-                textValues(g.path("complianceTags")), g.path("owner").asText(null), g.path("steward").asText(null),
-                g.path("retentionPolicy").asText(null), aiUsage, source, 1.0));
+        JsonNode declaration = HASH_OBJECT_MAPPER.valueToTree(definitionGovernance == null ? Map.of() : definitionGovernance);
+        DomainCatalogResponse.DomainGovernanceItem explicitGovernance =
+                explicitGovernance(nodeKey, declaration, null, null, source, false);
+        if (explicitGovernance != null) governance.put(explicitGovernance.governanceKey(), explicitGovernance);
     }
 
     private void addAction(
@@ -841,37 +841,48 @@ public class SemanticDomainCatalogService {
             CanonicalSchemaRef schemaRef,
             String schemaRole
     ) {
-        JsonNode governanceNode = effectiveSchema.path(DOMAIN_GOVERNANCE_EXTENSION);
-        if (!governanceNode.isObject()) {
-            return null;
-        }
+        return explicitGovernance(fieldNodeKey, effectiveSchema.path(DOMAIN_GOVERNANCE_EXTENSION),
+                schemaRef, schemaRole, "java.annotation", true);
+    }
 
+    private DomainCatalogResponse.DomainGovernanceItem explicitGovernance(
+            String nodeKey, JsonNode governanceNode, CanonicalSchemaRef schemaRef, String schemaRole,
+            String defaultSource, boolean staticSchemaDeclaration
+    ) {
+        if (!governanceNode.isObject()) return null;
         String annotationType = governanceNode.path("annotationType").asText(null);
         String classification = governanceNode.path("classification").asText(null);
         String dataCategory = governanceNode.path("dataCategory").asText(null);
-        if (!StringUtils.hasText(annotationType)
+        if (staticSchemaDeclaration && (!StringUtils.hasText(annotationType)
                 || !StringUtils.hasText(classification)
-                || !StringUtils.hasText(dataCategory)) {
-            return null;
-        }
+                || !StringUtils.hasText(dataCategory))) return null;
 
-        JsonNode aiUsage = governanceNode.path("aiUsage");
-        return governanceItem(
-                fieldNodeKey,
-                annotationType,
-                classification,
-                dataCategory,
+        Map<String, Object> aiUsage = governanceNode.path("aiUsage").isObject()
+                ? HASH_OBJECT_MAPPER.convertValue(governanceNode.path("aiUsage"),
+                        new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String, Object>>() {})
+                : new LinkedHashMap<>();
+        if (staticSchemaDeclaration) {
+            JsonNode declaredAiUsage = governanceNode.path("aiUsage");
+            aiUsage.put("visibility", firstText(declaredAiUsage.path("visibility").asText(null), "allow"));
+            aiUsage.put("trainingUse", firstText(declaredAiUsage.path("trainingUse").asText(null), "deny"));
+            aiUsage.put("ruleAuthoring", firstText(declaredAiUsage.path("ruleAuthoring").asText(null), "review_required"));
+            aiUsage.put("reasoningUse", firstText(declaredAiUsage.path("reasoningUse").asText(null), "allow"));
+        }
+        if (governanceNode.hasNonNull("reason")) {
+            aiUsage.put("reason", governanceNode.path("reason").asText());
+        } else if (staticSchemaDeclaration) {
+            aiUsage.putIfAbsent("reason", "explicit-domain-governance");
+        }
+        if (schemaRef != null && schemaRef.schemaId() != null) aiUsage.put("schemaId", schemaRef.schemaId());
+        if (schemaRole != null) aiUsage.put("schemaRole", schemaRole);
+        return new DomainCatalogResponse.DomainGovernanceItem(
+                "governance:" + nodeKey + (staticSchemaDeclaration ? ":" + annotationType : ""),
+                nodeKey, annotationType, classification, dataCategory,
                 textValues(governanceNode.path("complianceTags")),
-                firstText(aiUsage.path("visibility").asText(null), "allow"),
-                firstText(aiUsage.path("trainingUse").asText(null), "deny"),
-                firstText(aiUsage.path("ruleAuthoring").asText(null), "review_required"),
-                firstText(aiUsage.path("reasoningUse").asText(null), "allow"),
-                schemaRef,
-                schemaRole,
-                firstText(governanceNode.path("reason").asText(null), "explicit-domain-governance"),
-                firstText(governanceNode.path("source").asText(null), "java.annotation"),
-                governanceNode.path("confidence").isNumber() ? governanceNode.path("confidence").doubleValue() : 1.0d
-        );
+                governanceNode.path("owner").asText(null), governanceNode.path("steward").asText(null),
+                governanceNode.path("retentionPolicy").asText(null), aiUsage,
+                firstText(governanceNode.path("source").asText(null), defaultSource),
+                governanceNode.path("confidence").isNumber() ? governanceNode.path("confidence").doubleValue() : 1.0d);
     }
 
     private DomainCatalogResponse.DomainGovernanceItem governanceItem(
