@@ -39,10 +39,12 @@ ela inclui branch/parent/endpoint/owner e hashes, mas nenhuma URI ou senha.
 
 ## Prova focal sem publicação
 
-O dispatch do mesmo workflow com `create_tag=false` executa a matriz B–H de
-fonte exata: `BulkManagedOwnerNeonGateTest` primeiro e
-`BulkOptionalPoliciesNeonTest` depois, na mesma child exclusiva inicialmente
-sem roles bulk. Não cria tag, altera versão, assina ou publica; tampouco aprova
+O dispatch do mesmo workflow com `create_tag=false` executa a matriz de fonte
+exata: `BulkManagedOwnerNeonGateTest` primeiro, `BulkOptionalPoliciesNeonTest`
+depois e a fase `resource-contracts` com `CustomFieldsResourceE2ETest` e
+`CompositeIdResourceE2ETest`, na mesma child exclusiva inicialmente sem roles bulk.
+P4 exige também a leitura pública autorizada COMPLETE por `readInspectionBatch`,
+com totais e negação de escopo; a fase de recursos exige todos os seis métodos HTTP. Não cria tag, altera versão, assina ou publica; tampouco aprova
 o inventário por impacto ou o artefato da release.
 Use esse caminho quando a topologia do computador local impede uma prova remota
 representativa; registre que CI→Neon não certifica automaticamente Render→Neon.
@@ -54,10 +56,12 @@ Demais guards de child, role criada exclusivamente nela, TLS, tentativa e janela
 são iguais aos da release. O job de 90 minutos exige 95 minutos restantes ao
 iniciar e revalida a mesma atribuição com 40 minutos restantes antes de P4;
 nenhum resume silencioso ou credencial herdada do parent é permitido.
-O harness cria um arquivo privado de credenciais da fixture fora do checkout.
+O harness cria arquivos privados separados para as credenciais P4 e para as duas
+roles ordinárias dos recursos fora do checkout; o arquivo de recursos e seu journal
+de OIDs usam caminhos absolutos, modo `0600` e não entram no artifact.
 O job não transmite Maven bruto ao console; scanner verifica logs/XML contra
-credenciais owner e fixture antes do upload, inclusive em falhas. Os dois
-relatórios Surefire ficam separados; casos obrigatórios, classes/recursos antes
+credenciais owner, P4 e recursos antes do upload, inclusive em falhas. Os três
+diretórios de relatórios Surefire ficam separados; casos obrigatórios, classes/recursos antes
 e depois, fontes e dependências resolvidas compõem um recibo focal com
 `releaseApproved=false`. A falha continua sendo falha mesmo quando a custódia é
 preservada. O inventário e a custódia do JAR seguem gates separados da tag.
@@ -70,7 +74,10 @@ python3 tools/release/neon_gate.py
 ```
 O inventário `tools/release/neon-test-inventory.json` deve estar fechado para a
 árvore integrada: todo teste/recurso/fixture rastreado é enumerado e as células
-B–H apontam para casos Neon e asserções reais. `db_local_legacy` ou
+B–H apontam para casos Neon e asserções reais; `requiredResourceContractCases`
+fixa adicionalmente os cinco métodos custom-field e o método integral composite-ID.
+Os quatro tipos de seleção são `no_db`, `managed-owner`, `optional-policies` e
+`resource-contracts`. `db_local_legacy` ou
 `external_workspace` pendente, classe desconhecida, skip ou evidência divergente
 bloqueiam a release. Exclusões fora do impacto exigem revisão do diff/callpath;
 somente reuso que sustenta uma obrigação A–I precisa de artefato bruto e digest
@@ -131,8 +138,8 @@ Checklist minima para esse caso:
    o POM e envia commit/tag atomicamente; nao cria tag sobre POM divergente.
 4) Acompanhar o workflow “Release Java Starter (praxis-metadata-starter)”
 - O workflow resolve a versão a partir da tag (`v` é removido → `1.0.0-rc.6`).
-- Passos: conferir ancestralidade e versão persistida → higiene pública → importar GPG → validar assignment/inventário → `clean test` da seleção sem DB → revalidar child/janela → `test` da classe managed-owner B/C/H **primeiro** → `verify` da classe optional-policies P4 na mesma child e árvore, com assinatura → verificar três diretórios XML/logs, casos, snapshots de classes de teste/produção e JAR staged → construir/validar o ZIP → preservar o arquivo → upload único pela API oficial e verificação dos bytes públicos. Falha ou cleanup incompleto de B/C/H interrompe a sequência antes de P4.
-- O wrapper Maven 3.9.6, a seleção sem DB completa e auditada, o gate Neon por impacto e `check-public-contract-gate.sh` são obrigatórios. Não se afirma suíte integral nem equivalência das fixtures históricas não executadas. Os relatórios Surefire são separados e limpos por fase; erro, skip, log ausente, receipt fora da árvore/tag ou JAR diferente bloqueiam antes do upload. As invocações Neon não usam `clean`; o script confere os bytes de classes/recursos testados e empacotados. O bundle usa o mesmo JAR staged, sem rebuild posterior. P4 cria arquivo privado de duas senhas de fixture em `$RUNNER_TEMP` com modo `0600`; o scanner rejeita sua presença em logs, XML ou custódia antes do upload, e o arquivo nunca entra no artefato.
+- Passos: conferir ancestralidade e versão persistida → higiene pública → importar GPG → validar assignment/inventário → `clean test` da seleção sem DB → revalidar child/janela → `test` da classe managed-owner B/C/H **primeiro** → `verify` da classe optional-policies P4 na mesma child e árvore, com assinatura → `test` da fase `resource-contracts` com duas classes e seis métodos obrigatórios → verificar quatro diretórios XML/logs, casos, snapshots de classes de teste/produção e JAR staged → construir/validar o ZIP → preservar o arquivo → upload único pela API oficial e verificação dos bytes públicos. Falha ou cleanup incompleto de B/C/H interrompe a sequência antes de P4.
+- O wrapper Maven 3.9.6, a seleção sem DB completa e auditada, o gate Neon por impacto e `check-public-contract-gate.sh` são obrigatórios. Não se afirma suíte integral nem equivalência das fixtures históricas não executadas. Os relatórios Surefire são separados e limpos por fase; erro, skip, log ausente, receipt fora da árvore/tag ou JAR diferente bloqueiam antes do upload. As invocações Neon não usam `clean`; o script confere os bytes de classes/recursos testados e empacotados. O bundle usa o mesmo JAR staged, sem rebuild posterior. P4 cria arquivo privado de duas senhas de fixture em `$RUNNER_TEMP` com modo `0600`; o scanner rejeita sua presença em logs, XML ou custódia antes do upload, e o arquivo nunca entra no artefato. A fase de recursos gera duas novas senhas ordinárias em arquivo separado; seu scanner cobre também logs e XML de todas as fases. O setup owner cria database `template0`/schema distintos por classe e concede CONNECT/USAGE/CREATE; a aplicação opera com a role ordinária, PG17 e TLS verificados antes do Hibernate. Spring fecha o contexto por DirtiesContext antes do listener remover os OIDs atribuídos; cleanup incerto bloqueia a execução, sem PASS ou remoção apenas pelo nome.
 - O receipt vincula `run_id`/tentativa, base/tag, assignment público e hash do segredo original, versão de Java/Maven, POM efetivo, árvore de dependências e SHA-256 dos JARs no classpath de teste resolvido. As três consultas Maven de custódia não executam testes nem recompilam o JAR. A passphrase GPG entra somente pelo ambiente `MAVEN_GPG_PASSPHRASE` suportado pelo plugin 3.2.4; não é passada por `-Dgpg.passphrase`.
 - O publicador exige `PUBLISHED` para o GAV esperado e compara POM/JAR públicos e SHA-512 com o ZIP validado em `repo.maven.apache.org`; HTTP 200 ou uma instalação local não bastam.
 - Consumidores só são atualizados após essa prova; o host ainda deve executar seu próprio `verify` com dependências públicas sem override.
@@ -172,10 +179,10 @@ Checklist minima para esse caso:
 
 ### Preflight de custódia antes de criar a tag
 
-Antes do dispatch que cria a tag, audite as três seleções em uma árvore limpa do
+Antes do dispatch que cria a tag, audite as quatro seleções em uma árvore limpa do
 commit revisado. Use o SHA completo resolvido da fonte como `--base`, sua versão
 atual do POM como `--version`, e `--release --require-clean --print-selection`
-para `no_db`, `managed-owner` e `optional-policies`. Não passe a futura versão
+para `no_db`, `managed-owner`, `optional-policies` e `resource-contracts`. Não passe a futura versão
 antes que o commit oficial de versão exista. Esse preflight não conecta ao banco,
 não cria tag e não substitui os testes e a assinatura obrigatórios da publicação.
 
@@ -197,3 +204,16 @@ A tag rc167 foi criada pelo fluxo oficial, mas sua publicação pendente foi
 cancelada antes de executar por custódia desatualizada. Preserve a tag imutável e
 registre a correção; a próxima publicação deve usar uma versão livre. Não retag,
 substitua bytes públicos ou trate o cancelamento como publicação bem-sucedida.
+
+
+### Reconciliação resource contracts de 2026-10-27
+
+O [registro causal](docs/technical/metadata-resource-contract-release-impact-20261027.md)
+explica as novas fontes, hashes e perfis, as 86 disposições legadas e os três reusos
+históricos. O status `impact_review_pending` admite a prova focal de fonte, que não
+publica; bloqueia o gate de publicação até o aceite independente da nova prova P4.
+O job de criação da tag não executa esse gate: antes de dispará-lo, o coordenador
+deve executar o preflight do inventário na fonte revisada e confirmar o aceite.
+Não substituir esse estado por hashes renovados sem a análise das chamadas.
+O recibo focal enumera B–H e os seis casos de recurso, com
+`releaseApproved=false`; P4 ou recurso ausente, skip ou marcador divergente falha.

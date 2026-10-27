@@ -8,6 +8,9 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInstance;
+import org.praxisplatform.uischema.testsupport.ResourceContractNeonFixture;
+import org.praxisplatform.uischema.testsupport.ResourceContractNeonTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.praxisplatform.uischema.FieldControlType;
@@ -57,7 +60,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(classes = CustomFieldsResourceE2ETest.FixtureApp.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("e2e-neon")
-@EnabledIfEnvironmentVariable(named = "PRAXIS_CUSTOM_FIELDS_NEON_JDBC_URL", matches = ".+")
+@EnabledIfEnvironmentVariable(named = "PRAXIS_BULK_NEON_CONNECTION_FILE", matches = ".+")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ResourceContractNeonTest
 class CustomFieldsResourceE2ETest {
     static final String RESOURCE = "custom.employees";
     @LocalServerPort int port;
@@ -66,124 +71,17 @@ class CustomFieldsResourceE2ETest {
     @Autowired EmployeeRepository repository;
     @Autowired JdbcTemplate jdbc;
 
+    private static ResourceContractNeonFixture fixture;
+
     @DynamicPropertySource
     static void requireAssignedRemoteDatabase(DynamicPropertyRegistry properties) {
-        String url = required("PRAXIS_CUSTOM_FIELDS_NEON_JDBC_URL");
-        if (!url.startsWith("jdbc:postgresql://")) {
-            throw new IllegalStateException("A PostgreSQL JDBC URL is required");
-        }
-        URI uri = URI.create(url.substring("jdbc:".length()));
-        Map<String, String> parameters = connectionParameters(uri);
-        if (uri.getHost() == null || !uri.getHost().endsWith(".neon.tech") || uri.getHost().contains("-pooler")
-                || !uri.getHost().equals(required("PRAXIS_CUSTOM_FIELDS_NEON_EXPECTED_HOST"))
-                || uri.getUserInfo() != null || uri.getFragment() != null
-                || !"verify-full".equals(parameters.get("sslmode"))
-                || !"org.postgresql.ssl.DefaultJavaSSLFactory".equals(parameters.get("sslfactory"))) {
-            throw new IllegalStateException("An explicitly assigned Neon endpoint with verified TLS is required");
-        }
-        if (!required("PRAXIS_CUSTOM_FIELDS_NEON_EXPECTED_BRANCH").startsWith("br-")) {
-            throw new IllegalStateException("Explicit Neon branch assignment is required");
-        }
-        String schema = required("PRAXIS_CUSTOM_FIELDS_NEON_SCHEMA");
-        if (!schema.matches("[a-z][a-z0-9_]{0,62}") || schema.equals("public")
-                || !schema.equals(parameters.get("currentSchema"))) {
-            throw new IllegalStateException("An isolated, precreated schema is required");
-        }
-        String database = uri.getPath() == null ? "" : uri.getPath().substring(1);
-        if (!database.matches("[a-z][a-z0-9_]{0,62}")) {
-            throw new IllegalStateException("An explicitly named fixture database is required");
-        }
-        // Executes before application refresh / Hibernate create-drop, not after fixture DDL.
-        verifyDatabaseBeforeDdl(url, database, schema);
-        properties.add("spring.datasource.url", () -> url);
-        properties.add("spring.datasource.username", () -> required("PRAXIS_CUSTOM_FIELDS_NEON_USER"));
-        properties.add("spring.datasource.password", () -> required("PRAXIS_CUSTOM_FIELDS_NEON_PASSWORD"));
-        properties.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-        properties.add("spring.jpa.properties.hibernate.default_schema", () -> schema);
-        properties.add("spring.datasource.hikari.schema", () -> schema);
-    }
-
-    private static Map<String, String> connectionParameters(URI uri) {
-        Set<String> allowed = Set.of("sslmode", "sslfactory", "currentSchema", "connectTimeout", "socketTimeout", "channelBinding");
-        Map<String, String> parameters = new HashMap<>();
-        if (uri.getRawQuery() == null) throw new IllegalStateException("Explicit verified TLS parameters are required");
-        for (String pair : uri.getRawQuery().split("&", -1)) {
-            String[] parts = pair.split("=", 2);
-            if (parts.length != 2) throw new IllegalStateException("Malformed JDBC parameter");
-            String key = URLDecoder.decode(parts[0], StandardCharsets.UTF_8);
-            String value = URLDecoder.decode(parts[1], StandardCharsets.UTF_8);
-            if (!allowed.contains(key) || parameters.putIfAbsent(key, value) != null) {
-                throw new IllegalStateException("Unsupported or duplicate JDBC parameter");
-            }
-        }
-        if (parameters.containsKey("channelBinding") && !"require".equals(parameters.get("channelBinding"))) {
-            throw new IllegalStateException("Explicit channel binding must be required");
-        }
-        for (String timeout : List.of("connectTimeout", "socketTimeout")) {
-            if (parameters.containsKey(timeout) && !parameters.get(timeout).matches("[1-9][0-9]{0,2}")) {
-                throw new IllegalStateException("Timeout must be a bounded positive number of seconds");
-            }
-        }
-        return parameters;
-    }
-
-    private static void verifyDatabaseBeforeDdl(String url, String database, String schema) {
-        String user = required("PRAXIS_CUSTOM_FIELDS_NEON_USER");
-        Properties credentials = new Properties();
-        credentials.setProperty("user", user);
-        credentials.setProperty("password", required("PRAXIS_CUSTOM_FIELDS_NEON_PASSWORD"));
-        try (var connection = DriverManager.getConnection(url, credentials)) {
-            connection.setReadOnly(true);
-            connection.setAutoCommit(false);
-            try {
-                connection.setSchema(schema);
-                try (var statement = connection.prepareStatement("""
-                        select current_user, current_database(), current_schema(),
-                               current_setting('server_version_num')::integer / 10000,
-                               r.rolsuper or r.rolcreatedb or r.rolcreaterole or r.rolbypassrls,
-                               exists (select 1 from pg_roles n where n.rolname='neon_superuser'
-                                       and pg_has_role(current_user,n.oid,'MEMBER')),
-                               exists (select 1 from pg_namespace n where n.nspname=?
-                                       and has_schema_privilege(current_user,n.oid,'USAGE')
-                                       and has_schema_privilege(current_user,n.oid,'CREATE'))
-                        from pg_roles r where r.rolname=current_user
-                        """)) {
-                    statement.setString(1, schema);
-                    try (var result = statement.executeQuery()) {
-                        if (!result.next() || !user.equals(result.getString(1))
-                                || !database.equals(result.getString(2)) || !schema.equals(result.getString(3))
-                                || result.getInt(4) != 17 || result.getBoolean(5)
-                                || result.getBoolean(6) || !result.getBoolean(7)) {
-                            throw new IllegalStateException("Neon fixture identity, privileges, schema or PostgreSQL version mismatch before DDL");
-                        }
-                    }
-                }
-            } finally {
-                connection.rollback();
-            }
-        } catch (SQLException failure) {
-            // Do not propagate connection properties or credentials into test failure output.
-            throw new IllegalStateException("Read-only Neon preflight failed before DDL (SQLState " + failure.getSQLState() + ")");
-        }
-    }
-
-    private static String required(String name) {
-        String value = System.getenv(name);
-        if (value == null || value.isBlank()) throw new IllegalStateException("Missing " + name);
-        return value;
+        fixture = ResourceContractNeonFixture.open(CustomFieldsResourceE2ETest.class, "custom-fields");
+        fixture.bind(properties);
     }
 
     @BeforeEach
     void verifyIdentityAndResetOnlyFixtureData() {
-        assertEquals(required("PRAXIS_CUSTOM_FIELDS_NEON_USER"), jdbc.queryForObject("select current_user", String.class));
-        assertEquals(required("PRAXIS_CUSTOM_FIELDS_NEON_SCHEMA"), jdbc.queryForObject("select current_schema()", String.class));
-        assertFalse(Boolean.TRUE.equals(jdbc.queryForObject(
-                "select rolsuper or rolcreatedb or rolcreaterole or rolbypassrls from pg_roles where rolname=current_user", Boolean.class)));
-        assertFalse(Boolean.TRUE.equals(jdbc.queryForObject(
-                "select exists (select 1 from pg_roles where rolname='neon_superuser' and pg_has_role(current_user,oid,'MEMBER'))", Boolean.class)));
-        // Neon terminates client TLS at its proxy. pg_stat_ssl on the backend may be false;
-        // the verified JDBC configuration and successful authenticated connection prove client TLS.
-        assertEquals(17, jdbc.queryForObject("select current_setting('server_version_num')::integer / 10000", Integer.class));
+        fixture.verifyRuntime();
         repository.deleteAll();
     }
 

@@ -18,7 +18,19 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 GROUPS = tuple("BCDEFGH")
-NEON_PHASES = ("managed-owner", "optional-policies")
+NEON_PHASES = ("managed-owner", "optional-policies", "resource-contracts")
+RESOURCE_CONTRACT_CASES = {
+    "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest": (
+        "recordDtosRoundTripValidateBeforeWritingAndFilterNativeJsonb",
+        "tenantSchemasHaveIndependentHashesAndConditionalRequests",
+        "exportsCanonicalCustomFieldPathsInCsvAndJson",
+        "updatePreservesServerOwnedValuesAndRejectsAssignments",
+        "publishedFilterAndWriteSchemasMatchRealHttpPayloads",
+    ),
+    "org.praxisplatform.uischema.id.e2e.CompositeIdResourceE2ETest": (
+        "supportsFullCrudFilterOptionsStatsLookupAndOpenApiForCompositeIdResources",
+    ),
+}
 CAPTURE_MARKERS = (
     'NEON_PROOF_CAPTURE_TRANSACTION=same-writable-RR-connection,callback-once,committed-seven-stores,independent-readback',
     'NEON_PROOF_CAPTURE_EXPIRY=postgres-clock-after-callback,safe-unavailable,outer-catch-rollback-only,seven-stores-zero',
@@ -32,6 +44,7 @@ CAPTURE_MARKERS = (
     'NEON_PROOF_ORDERED_UNIT_FENCES=prepare-committed,canonical-recovery-epoch-FENCED,canonical-suspend-NOT_EXECUTABLE,callbacks-zero,domain-preserved,receipt-and-admission-zero',
     'NEON_PROOF_ORDERED_UNIT_PREFIX=two-public-units,nonempty-prefix-read,two-unchanged-receipts,replay-without-callback,domain-preserved',
     'NEON_PROOF_ORDERED_UNIT_TRANSPORT=100ms-floor,policy-reserve-over-2100ms,one-domain-effect-and-receipt,completed,replay-without-callback',
+    'NEON_PROOF_AUTHORIZED_EXECUTION_BATCH=COMPLETE,COMPLETED,target1-confirmed1-pending0,one-jdbc-execute,six-selects-twelve-bindings,scope-denied-no-projection',
 )
 KINDS = {
     "no_db", "neon_required", "historical_reuse", "excluded_outside_impact",
@@ -265,10 +278,17 @@ def audited_inventory(repo, manifest_path, release=False, base=None, version=Non
 def verify_neon_matrix_definition(manifest):
     entries = manifest["files"]
     runnable = {x["className"] for x in entries if x["kind"] == "neon_required"}
-    phases = {x.get("neonPhase"): x["className"] for x in entries
-              if x["kind"] == "neon_required"}
-    if set(phases) != set(NEON_PHASES) or len(runnable) != len(NEON_PHASES):
-        raise GateError("Neon phases must name exactly the two reviewed test classes")
+    phases = {phase: set(selected_classes(manifest, phase)) for phase in NEON_PHASES}
+    if (len(runnable) != 4 or len(phases["managed-owner"]) != 1
+            or len(phases["optional-policies"]) != 1
+            or phases["resource-contracts"] != set(RESOURCE_CONTRACT_CASES)
+            or set().union(*phases.values()) != runnable):
+        raise GateError("Neon phases must name exactly the four reviewed test classes")
+    resource_cases = manifest.get("requiredResourceContractCases", [])
+    expected = {(cls, case) for cls, cases in RESOURCE_CONTRACT_CASES.items() for case in cases}
+    actual = [(case.get("className"), case.get("testcaseName")) for case in resource_cases]
+    if set(actual) != expected or len(actual) != len(expected) or any(not case.get("assertion") for case in resource_cases):
+        raise GateError("resource-contract required testcase matrix is incomplete or divergent")
     required = manifest["requiredImpactGroups"]
     for group in GROUPS:
         cases = required[group]
@@ -319,15 +339,15 @@ def reports(directory):
     return suites, cases
 
 
-def verify_neon_reports(manifest, neon_dirs):
+def verify_neon_reports(manifest, neon_dirs, resource_contracts_log):
     verify_neon_matrix_definition(manifest)
     if set(neon_dirs) != set(NEON_PHASES):
-        raise GateError("Neon reports require both named phases")
+        raise GateError("Neon reports require all three named phases")
     neon_cases = Counter()
     for phase in NEON_PHASES:
         suites, cases = reports(neon_dirs[phase])
         expected = set(selected_classes(manifest, phase))
-        if len(expected) != 1 or set(suites) != expected:
+        if set(suites) != expected:
             raise GateError(f"Neon {phase} Surefire report set differs from inventory")
         if phase == "optional-policies":
             root = ET.parse(next(iter(suites.values()))).getroot()
@@ -335,6 +355,23 @@ def verify_neon_reports(manifest, neon_dirs):
             lines = output.splitlines()
             if any(lines.count(marker) != 1 for marker in CAPTURE_MARKERS):
                 raise GateError("missing/duplicate P4 capture oracle marker")
+        if phase == "resource-contracts":
+            required_cases = {(case["className"], case["testcaseName"])
+                              for case in manifest["requiredResourceContractCases"]}
+            if set(cases) != required_cases:
+                raise GateError("resource-contract JUnit case set differs from required six cases")
+            # Spring afterTestClass runs after Surefire captures testcase system-out.
+            # Its cleanup witness belongs to the raw phase log, never fabricated XML.
+            log = Path(resource_contracts_log) if resource_contracts_log else None
+            if log is None or not log.is_file() or not log.stat().st_size:
+                raise GateError("missing/empty raw resource-contracts Maven log")
+            observed = Counter(line for line in log.read_text().splitlines()
+                               if line.startswith("NEON_RESOURCE_FIXTURE="))
+            expected_markers = Counter(
+                f"NEON_RESOURCE_FIXTURE={label},PG17,ordinary-runtime,OID-cleanup,PASS"
+                for label in ("custom-fields", "composite-id"))
+            if observed != expected_markers:
+                raise GateError("missing/duplicate/unexpected resource fixture cleanup marker in raw log")
         neon_cases.update(cases)
     if any(count != 1 for count in neon_cases.values()):
         raise GateError("duplicate JUnit testcase identity across Neon phases")
@@ -343,14 +380,18 @@ def verify_neon_reports(manifest, neon_dirs):
             identity = (case["className"], case["testcaseName"])
             if neon_cases[identity] != 1:
                 raise GateError(f"missing/duplicate JUnit case in {group}: {identity}")
+    for case in manifest["requiredResourceContractCases"]:
+        identity = (case["className"], case["testcaseName"])
+        if neon_cases[identity] != 1:
+            raise GateError(f"missing/duplicate resource-contract JUnit case: {identity}")
 
 
-def verify_reports(manifest, no_db_dir, neon_dirs):
+def verify_reports(manifest, no_db_dir, neon_dirs, resource_contracts_log):
     no_db_suites, _ = reports(no_db_dir)
     expected_no_db = set(selected_classes(manifest, "no_db"))
     if set(no_db_suites) != expected_no_db:
         raise GateError("no-DB Surefire report set differs from inventory")
-    verify_neon_reports(manifest, neon_dirs)
+    verify_neon_reports(manifest, neon_dirs, resource_contracts_log)
 
 
 def snapshot_classes(directory):
@@ -428,7 +469,7 @@ def evidence_receipt(repo, manifest_path, base, version, assignment_sha,
             char not in "0123456789abcdef" for char in assignment_sha):
         raise GateError("reviewed assignment digest missing")
     if set(neon_dirs) != set(NEON_PHASES) or set(neon_logs) != set(NEON_PHASES):
-        raise GateError("Neon custody requires both named phases")
+        raise GateError("Neon custody requires all three named phases")
     for path in (no_db_log, *neon_logs.values()):
         if not Path(path).is_file() or not Path(path).stat().st_size:
             raise GateError("raw Maven phase log missing or empty")
@@ -490,6 +531,7 @@ def main():
     parser.add_argument("--no-db-reports", type=Path)
     parser.add_argument("--neon-managed-owner-reports", type=Path)
     parser.add_argument("--neon-optional-policies-reports", type=Path)
+    parser.add_argument("--neon-resource-contracts-reports", type=Path)
     parser.add_argument("--print-selection", choices=("no_db", *NEON_PHASES))
     parser.add_argument("--require-clean", action="store_true")
     parser.add_argument("--write-snapshot", type=Path)
@@ -502,6 +544,7 @@ def main():
     parser.add_argument("--no-db-log", type=Path)
     parser.add_argument("--neon-managed-owner-log", type=Path)
     parser.add_argument("--neon-optional-policies-log", type=Path)
+    parser.add_argument("--neon-resource-contracts-log", type=Path)
     parser.add_argument("--assignment-public", type=Path)
     parser.add_argument("--run-id", type=int)
     parser.add_argument("--run-attempt", type=int)
@@ -516,6 +559,7 @@ def main():
     parser.add_argument("--owner-uri-file", type=Path)
     parser.add_argument("--scan-root", type=Path, action="append")
     parser.add_argument("--fixture-credentials-file", type=Path)
+    parser.add_argument("--resource-fixture-credentials-file", type=Path)
     parser.add_argument("--test-before-snapshot", type=Path)
     parser.add_argument("--test-after-snapshot", type=Path)
     args = parser.parse_args()
@@ -527,6 +571,9 @@ def main():
             if args.fixture_credentials_file:
                 from neon_proof import scan_fixture
                 scan_fixture(args.scan_root or [], args.fixture_credentials_file)
+            if args.resource_fixture_credentials_file:
+                from neon_proof import scan_resource_fixture
+                scan_resource_fixture(args.scan_root or [], args.resource_fixture_credentials_file)
             return 0
         if args.require_clean:
             verify_checkout_clean(args.repo)
@@ -535,14 +582,15 @@ def main():
         if args.print_selection:
             print(",".join(selected_classes(manifest, args.print_selection)))
         neon_dirs = {"managed-owner": args.neon_managed_owner_reports,
-                     "optional-policies": args.neon_optional_policies_reports}
+                     "optional-policies": args.neon_optional_policies_reports,
+                     "resource-contracts": args.neon_resource_contracts_reports}
         if args.no_db_reports or any(neon_dirs.values()):
             if not args.no_db_reports or any(value is None for value in neon_dirs.values()):
-                raise GateError("all three report phases are required")
+                raise GateError("all four report phases are required")
         if args.no_db_reports:
             if not args.release:
                 raise GateError("report acceptance requires release-ready inventory")
-            verify_reports(manifest, args.no_db_reports, neon_dirs)
+            verify_reports(manifest, args.no_db_reports, neon_dirs, args.neon_resource_contracts_log)
         if args.write_snapshot:
             if not args.classes_dir:
                 raise GateError("classes directory required for snapshot")
@@ -568,6 +616,7 @@ def main():
         if args.receipt:
             if not (args.release and args.no_db_reports and all(neon_dirs.values()) and args.jar and
                     args.no_db_log and args.neon_managed_owner_log and args.neon_optional_policies_log and
+                    args.neon_resource_contracts_log and args.resource_fixture_credentials_file and
                     args.fixture_credentials_file and args.test_before_snapshot and args.test_after_snapshot and
                     args.assignment_sha and
                     args.assignment_public and args.run_id and args.run_attempt and
@@ -586,13 +635,20 @@ def main():
             from neon_proof import scan_fixture
             scan_fixture([args.no_db_log, *neon_dirs.values(),
                           args.neon_managed_owner_log, args.neon_optional_policies_log,
+                          args.neon_resource_contracts_log,
                           args.jar, args.assignment_public, *custody_files.values()],
                          args.fixture_credentials_file)
+            from neon_proof import scan_resource_fixture
+            scan_resource_fixture([args.no_db_log, *neon_dirs.values(),
+                                   args.neon_managed_owner_log, args.neon_optional_policies_log,
+                                   args.neon_resource_contracts_log, args.jar, args.assignment_public,
+                                   *custody_files.values()], args.resource_fixture_credentials_file, require_complete=True)
             receipt = evidence_receipt(args.repo, manifest_path, args.base, args.version,
                                        args.assignment_sha, args.no_db_reports, neon_dirs,
                                        args.no_db_log,
                                        {"managed-owner": args.neon_managed_owner_log,
-                                        "optional-policies": args.neon_optional_policies_log},
+                                        "optional-policies": args.neon_optional_policies_log,
+                                        "resource-contracts": args.neon_resource_contracts_log},
                                        before, after, args.jar,
                                        args.assignment_public, args.run_id, args.run_attempt,
                                        custody_files)

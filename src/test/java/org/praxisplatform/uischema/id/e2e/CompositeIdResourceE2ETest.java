@@ -17,6 +17,12 @@ import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.praxisplatform.uischema.testsupport.ResourceContractNeonFixture;
+import org.praxisplatform.uischema.testsupport.ResourceContractNeonTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.FieldDataType;
@@ -71,8 +77,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "praxis.stats.enabled=true"
 )
-@ActiveProfiles("e2e-h2")
+@ActiveProfiles("e2e-neon")
+@EnabledIfEnvironmentVariable(named = "PRAXIS_BULK_NEON_CONNECTION_FILE", matches = ".+")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ResourceContractNeonTest
 class CompositeIdResourceE2ETest {
+
+    private static ResourceContractNeonFixture fixture;
+
+    @DynamicPropertySource
+    static void requireAssignedRemoteDatabase(DynamicPropertyRegistry properties) {
+        fixture = ResourceContractNeonFixture.open(CompositeIdResourceE2ETest.class, "composite-id");
+        fixture.bind(properties);
+    }
 
     @LocalServerPort
     private int port;
@@ -91,6 +108,7 @@ class CompositeIdResourceE2ETest {
 
     @BeforeEach
     void setUp() {
+        fixture.verifyRuntime();
         frequenciaRepository.deleteAll();
         vinculoRepository.deleteAll();
 
