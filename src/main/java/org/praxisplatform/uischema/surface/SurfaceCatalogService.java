@@ -157,6 +157,7 @@ public class SurfaceCatalogService {
                 definition.title(),
                 definition.description(),
                 definition.intent(),
+                definition.icon(),
                 definition.operation().operationId(),
                 definition.operation().path(),
                 definition.operation().method(),

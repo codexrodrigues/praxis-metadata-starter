@@ -66,6 +66,8 @@ class FilterableBetweenListDetectionTest {
             @Override public boolean hidden() { return false; }
             @Override public boolean tableHidden() { return false; }
             @Override public boolean formHidden() { return false; }
+            @Override public boolean quickViewVisible() { return false; }
+            @Override public int quickViewOrder() { return 0; }
             @Override public boolean filterable() { return false; }
             @Override public String[] visibleForAuthorities() { return new String[0]; }
             @Override public String[] editableForAuthorities() { return new String[0]; }

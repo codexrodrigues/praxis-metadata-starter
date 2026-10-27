@@ -14,11 +14,26 @@ public record LookupDetailDescriptor(
         String surfaceId,
         String presentation,
         String preferredWidget,
-        String mode
+        String mode,
+        String resourceKey,
+        String previewSurfaceId
 ) {
 
     public LookupDetailDescriptor(String hrefTemplate, String routeTemplate, String openDetailMode) {
-        this(hrefTemplate, routeTemplate, openDetailMode, null, null, null, null, null);
+        this(hrefTemplate, routeTemplate, openDetailMode, null, null, null, null, null, null, null);
+    }
+
+    public LookupDetailDescriptor(
+            String hrefTemplate,
+            String routeTemplate,
+            String openDetailMode,
+            String kind,
+            String surfaceId,
+            String presentation,
+            String preferredWidget,
+            String mode
+    ) {
+        this(hrefTemplate, routeTemplate, openDetailMode, kind, surfaceId, presentation, preferredWidget, mode, null, null);
     }
 
     public LookupDetailDescriptor {
@@ -30,6 +45,8 @@ public record LookupDetailDescriptor(
         presentation = normalize(presentation);
         preferredWidget = normalize(preferredWidget);
         mode = normalize(mode);
+        resourceKey = normalize(resourceKey);
+        previewSurfaceId = normalize(previewSurfaceId);
     }
 
     public boolean isEmpty() {
@@ -40,18 +57,26 @@ public record LookupDetailDescriptor(
                 && surfaceId == null
                 && presentation == null
                 && preferredWidget == null
-                && mode == null;
+                && mode == null
+                && resourceKey == null
+                && previewSurfaceId == null;
     }
 
     public Map<String, Object> toMetadataMap() {
         Map<String, Object> metadata = new LinkedHashMap<>();
         if (kind != null) {
             metadata.put("kind", kind);
-        } else if (surfaceId != null) {
+        } else if (surfaceId != null || previewSurfaceId != null) {
             metadata.put("kind", "surface");
+        }
+        if (resourceKey != null) {
+            metadata.put("resourceKey", resourceKey);
         }
         if (surfaceId != null) {
             metadata.put("surfaceId", surfaceId);
+        }
+        if (previewSurfaceId != null) {
+            metadata.put("previewSurfaceId", previewSurfaceId);
         }
         if (presentation != null) {
             metadata.put("presentation", presentation);

@@ -178,6 +178,18 @@ public @interface UISchema {
     boolean formHidden() default false;
     boolean filterable() default false;
 
+    /**
+     * Destaca o campo para exibição no corpo de cartões de inspeção rápida (Quick View / 360),
+     * permitindo curadoria explícita de atributos além do cabeçalho de identidade.
+     */
+    boolean quickViewVisible() default false;
+
+    /**
+     * Ordem de prioridade do campo dentro do cartão de inspeção rápida (Quick View).
+     * Quando zero, preserva a ordem canônica do campo ({@link #order()}).
+     */
+    int quickViewOrder() default 0;
+
     // 5.1. Acesso contextual de campo
     String[] visibleForAuthorities() default {};
     String[] editableForAuthorities() default {};

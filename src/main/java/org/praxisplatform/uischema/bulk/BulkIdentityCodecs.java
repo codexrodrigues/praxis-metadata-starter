@@ -5,8 +5,10 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
+import org.praxisplatform.uischema.id.CompositeIdSupport;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -37,6 +39,10 @@ public final class BulkIdentityCodecs {
 
     public static BulkIdentityCodec<String, UUID> uuids() {
         return UuidCodec.INSTANCE;
+    }
+
+    public static <ID> BulkIdentityCodec<String, ID> composite(Class<ID> idType) {
+        return new CompositeCodec<>(idType);
     }
 
     private enum IntegerCodec implements BulkIdentityCodec<Integer, Integer> {
@@ -230,6 +236,67 @@ public final class BulkIdentityCodecs {
         @Override
         public String codecId() {
             return "uuid";
+        }
+    }
+
+    private static final class CompositeCodec<ID> implements BulkIdentityCodec<String, ID> {
+        private final Class<ID> idType;
+
+        private CompositeCodec(Class<ID> idType) {
+            this.idType = Objects.requireNonNull(idType, "idType must not be null");
+            if (!CompositeIdSupport.isCompositeIdType(idType)) {
+                throw new IllegalArgumentException(
+                        "Composite bulk identity codec requires an @Embeddable or CompositeResourceId type: " + idType.getName()
+                );
+            }
+        }
+
+        @Override
+        public String readWire(JsonNode node) {
+            String wire = requiredText(node, "a canonical composite identity string");
+            decode(wire);
+            return wire;
+        }
+
+        @Override
+        public ID decode(String wire) {
+            if (wire == null || wire.isEmpty()) {
+                throw invalid("a canonical composite identity string");
+            }
+            try {
+                return CompositeIdSupport.decode(wire, idType);
+            } catch (IllegalArgumentException exception) {
+                throw invalid("a canonical composite identity string (" + exception.getMessage() + ")");
+            }
+        }
+
+        @Override
+        public String encode(ID id) {
+            if (id == null) {
+                throw invalid("a composite identity");
+            }
+            return CompositeIdSupport.encode(id);
+        }
+
+        @Override
+        public Schema<?> wireSchema() {
+            return new StringSchema()
+                    .format("composite-id")
+                    .minLength(1);
+        }
+
+        @Override
+        public JsonNode canonicalWireSchema() {
+            var schema = JsonNodeFactory.instance.objectNode();
+            schema.put("type", "string");
+            schema.put("format", "composite-id");
+            schema.put("minLength", 1);
+            return schema;
+        }
+
+        @Override
+        public String codecId() {
+            return "composite:" + idType.getSimpleName();
         }
     }
 

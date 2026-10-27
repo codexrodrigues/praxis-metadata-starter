@@ -1130,6 +1130,37 @@ class CustomOpenApiResolverTest {
         assertEquals("row.resumoEtapas", fluxoViz.get("fallbackTextExpr"));
     }
 
+    private static class QuickViewAndResourceReferenceDummy {
+        @UISchema(label = "Funcionário", quickViewVisible = true, quickViewOrder = 15)
+        @org.praxisplatform.uischema.annotation.ResourceReference(
+                resourceKey = "human-resources.funcionarios",
+                valueField = "funcionarioId",
+                surfaceId = "detail",
+                previewSurfaceId = "hero-profile",
+                detailPresentation = "drawer"
+        )
+        public String funcionarioNome;
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldSerializeQuickViewFieldCurationAndResourceReference() {
+        Schema<?> schema = resolveEffectiveMicroSchema(QuickViewAndResourceReferenceDummy.class);
+        Schema<?> propSchema = (Schema<?>) schema.getProperties().get("funcionarioNome");
+        assertNotNull(propSchema);
+        Map<String, Object> xui = getXui(propSchema);
+        assertEquals(true, xui.get("quickViewVisible"));
+        assertEquals(15, xui.get("quickViewOrder"));
+
+        Map<String, Object> ref = (Map<String, Object>) xui.get("resourceReference");
+        assertNotNull(ref);
+        assertEquals("human-resources.funcionarios", ref.get("resourceKey"));
+        assertEquals("funcionarioId", ref.get("valueField"));
+        assertEquals("detail", ref.get("surfaceId"));
+        assertEquals("hero-profile", ref.get("previewSurfaceId"));
+        assertEquals("drawer", ref.get("detailPresentation"));
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> getXui(Schema<?> property) {
         assertNotNull(property.getExtensions(), "Extensions should not be null");

@@ -35,7 +35,8 @@ public final class ResourceVersionEtagService {
         if (scope == null) {
             throw new IllegalArgumentException("Resource version scope is required.");
         }
-        String payload = scope.value() + "\n" + resourceKey.trim() + "\n" + resourceId + "\n" + version;
+        String canonicalId = org.praxisplatform.uischema.id.CompositeIdSupport.stringify(resourceId);
+        String payload = scope.value() + "\n" + resourceKey.trim() + "\n" + canonicalId + "\n" + version;
         return "\"" + Base64.getUrlEncoder().withoutPadding().encodeToString(sign(payload)) + "\"";
     }
 

@@ -251,6 +251,13 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @PostConstruct
     protected void initializeBasePath() {
+        Class<?> idType = ResolvableType.forClass(getClass())
+                .as(AbstractResourceQueryController.class)
+                .getGeneric(1)
+                .resolve();
+        if (idType != null) {
+            org.praxisplatform.uischema.id.CompositeIdSupport.registerCompositeIdType(idType);
+        }
         if (detectedBasePath != null) {
             return;
         }
@@ -1568,7 +1575,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (segments != null) {
             for (Object segment : segments) {
                 if (segment != null) {
-                    builder.pathSegment(String.valueOf(segment));
+                    builder.pathSegment(org.praxisplatform.uischema.id.CompositeIdSupport.stringify(segment));
                 }
             }
         }

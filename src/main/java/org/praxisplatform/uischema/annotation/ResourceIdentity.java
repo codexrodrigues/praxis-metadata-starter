@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  * <p>A configuracao e estrutural: informa a chave visual, o titulo humano e os metadados
  * secundarios sem authorar HTML, CSS ou templates no backend.</p>
  */
-@Target(ElementType.ANNOTATION_TYPE)
+@Target({ElementType.ANNOTATION_TYPE, ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ResourceIdentity {
 
@@ -20,6 +20,12 @@ public @interface ResourceIdentity {
 
     /** Campo que representa o titulo humano principal do registro. */
     String titleField() default "";
+
+    /** Campo que representa o subtitulo ou codinome humano do registro. */
+    String subtitleField() default "";
+
+    /** Campo que representa a URL ou token de avatar/foto do registro. */
+    String avatarField() default "";
 
     /** Campos secundarios exibidos em ordem apos a chave e o titulo. */
     String[] metadataFields() default {};

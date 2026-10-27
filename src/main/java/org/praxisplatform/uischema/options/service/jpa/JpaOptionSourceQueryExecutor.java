@@ -14,6 +14,8 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Selection;
 import org.praxisplatform.uischema.dto.OptionDTO;
+import org.praxisplatform.uischema.id.CompositeIdSupport;
+import org.praxisplatform.uischema.id.JpaCriteriaPathSupport;
 import org.praxisplatform.uischema.options.EntityLookupDescriptor;
 import org.praxisplatform.uischema.options.LookupFilterDefinition;
 import org.praxisplatform.uischema.options.LookupFilterRequest;
@@ -81,7 +83,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         boolean relaxDistinctForMetadataSort = metadataSortPath != null;
 
         Predicate predicate = applyPredicate(specification, root, query, cb);
-        Predicate notNullPredicate = cb.isNotNull(valuePath);
+        Predicate notNullPredicate = JpaCriteriaPathSupport.buildIsNotNullPredicate(cb, valuePath);
         Predicate searchPredicate = buildSearchPredicate(cb, root, labelPath, descriptor, search);
         Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, root, descriptor, filters);
         Predicate mergedPredicate = mergePredicates(
@@ -105,8 +107,11 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         typedQuery.setFirstResult((int) pageable.getOffset());
         typedQuery.setMaxResults(pageable.getPageSize());
 
+        Class<?> valueType = valuePath.getJavaType();
         List<OptionDTO<Object>> pageContent = typedQuery.getResultList().stream()
-                .map(tuple -> richResourceEntity ? toEntityLookupOption(tuple, descriptor) : toOption(tuple))
+                .map(tuple -> richResourceEntity
+                        ? toEntityLookupOption(tuple, descriptor, valueType)
+                        : toOption(tuple, valueType))
                 .filter(option -> option.id() != null)
                 .toList();
         pageContent = dedupeOptions(pageContent);
@@ -172,7 +177,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         } else {
             applyOptionSelections(query, valuePath, labelPath);
         }
-        Predicate idPredicate = valuePath.in(coercedIds);
+        Predicate idPredicate = JpaCriteriaPathSupport.buildInPredicate(cb, valuePath, coercedIds);
         Predicate filterPredicate = applyPredicate(specification, root, query, cb);
         Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, root, descriptor, filters);
         Predicate mergedPredicate = mergePredicates(cb, mergePredicates(cb, idPredicate, filterPredicate), structuredFilterPredicate);
@@ -181,7 +186,9 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         Map<String, OptionDTO<Object>> byKey = entityManager.createQuery(query)
                 .getResultList()
                 .stream()
-                .map(tuple -> richResourceEntity ? toEntityLookupOption(tuple, descriptor) : toOption(tuple))
+                .map(tuple -> richResourceEntity
+                        ? toEntityLookupOption(tuple, descriptor, valueType)
+                        : toOption(tuple, valueType))
                 .collect(Collectors.toMap(option -> stringify(option.id()), option -> option, (left, right) -> left, LinkedHashMap::new));
 
         return ids.stream()
@@ -217,12 +224,36 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             List<LookupFilterRequest> filters
     ) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> probeQuery = cb.createTupleQuery();
+        Root<E> probeRoot = probeQuery.from(entityClass);
+        Class<?> valueType = resolveValuePath(probeRoot, descriptor).getJavaType();
+        if (CompositeIdSupport.isCompositeIdType(valueType)) {
+            Path<?> valuePath = resolveValuePath(probeRoot, descriptor);
+            Predicate predicate = applyPredicate(specification, probeRoot, probeQuery, cb);
+            Predicate notNullPredicate = JpaCriteriaPathSupport.buildIsNotNullPredicate(cb, valuePath);
+            Predicate searchPredicate = buildSearchPredicate(cb, probeRoot, resolveLabelPath(probeRoot, descriptor), descriptor, search);
+            Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, probeRoot, descriptor, filters);
+            Predicate mergedPredicate = mergePredicates(
+                    cb,
+                    mergePredicates(cb, mergePredicates(cb, predicate, notNullPredicate), searchPredicate),
+                    structuredFilterPredicate
+            );
+            if (mergedPredicate != null) {
+                probeQuery.where(mergedPredicate);
+            }
+            List<Selection<?>> compSelections = CompositeIdSupport.descriptors(valueType).stream()
+                    .<Selection<?>>map(comp -> valuePath.get(comp.name()))
+                    .toList();
+            probeQuery.multiselect(compSelections).distinct(true);
+            return entityManager.createQuery(probeQuery).getResultList().size();
+        }
+
         CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
         Root<E> root = countQuery.from(entityClass);
         Path<?> valuePath = resolveValuePath(root, descriptor);
 
         Predicate predicate = applyPredicate(specification, root, countQuery, cb);
-        Predicate notNullPredicate = cb.isNotNull(valuePath);
+        Predicate notNullPredicate = JpaCriteriaPathSupport.buildIsNotNullPredicate(cb, valuePath);
         Predicate searchPredicate = buildSearchPredicate(cb, root, resolveLabelPath(root, descriptor), descriptor, search);
         Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, root, descriptor, filters);
         Predicate mergedPredicate = mergePredicates(
@@ -331,16 +362,15 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         LookupSortOption sortOption = resolveSortOptionOrNull(descriptor, sortKey);
         if (sortOption != null) {
             Path<?> sortPath = resolvePath(root, sortOption.field());
-            return new Order[]{
-                    "desc".equals(sortOption.direction()) ? cb.desc(sortPath) : cb.asc(sortPath)
-            };
+            return JpaCriteriaPathSupport.buildOrders(cb, sortPath, !"desc".equals(sortOption.direction()))
+                    .toArray(Order[]::new);
         }
         if (sort != null && sort.isSorted()) {
             List<Order> mapped = sort.stream()
                     .filter(order -> "label".equals(order.getProperty()) || "id".equals(order.getProperty()))
-                    .map(order -> {
+                    .flatMap(order -> {
                         Path<?> sortPath = "id".equals(order.getProperty()) ? valuePath : labelPath;
-                        return order.isAscending() ? cb.asc(sortPath) : cb.desc(sortPath);
+                        return JpaCriteriaPathSupport.buildOrders(cb, sortPath, order.isAscending()).stream();
                     })
                     .toList();
             if (!mapped.isEmpty()) {
@@ -350,12 +380,11 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         LookupSortOption defaultSortOption = resolveDefaultSortOption(descriptor);
         if (defaultSortOption != null) {
             Path<?> sortPath = resolvePath(root, defaultSortOption.field());
-            return new Order[]{
-                    "desc".equals(defaultSortOption.direction()) ? cb.desc(sortPath) : cb.asc(sortPath)
-            };
+            return JpaCriteriaPathSupport.buildOrders(cb, sortPath, !"desc".equals(defaultSortOption.direction()))
+                    .toArray(Order[]::new);
         }
         Path<?> defaultSortPath = "id".equalsIgnoreCase(descriptor.policy().defaultSort()) ? valuePath : labelPath;
-        return new Order[]{cb.asc(defaultSortPath)};
+        return JpaCriteriaPathSupport.buildOrders(cb, defaultSortPath, true).toArray(Order[]::new);
     }
 
     private LookupSortOption resolveSortOptionOrNull(OptionSourceDescriptor descriptor, String sortKey) {
@@ -446,13 +475,13 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                 if ("text".equals(definition.type())) {
                     yield cb.equal(cb.lower(path.as(String.class)), String.valueOf(coerced).toLowerCase(Locale.ROOT));
                 }
-                yield cb.equal(path, coerced);
+                yield JpaCriteriaPathSupport.buildEqualPredicate(cb, path, coerced);
             }
             case "in" -> {
                 List<Object> values = requireMultipleValues(filter).stream()
                         .map(value -> coerceValue(value == null ? null : String.valueOf(value), path.getJavaType()))
                         .toList();
-                yield path.in(values);
+                yield JpaCriteriaPathSupport.buildInPredicate(cb, path, values);
             }
             case "before" -> cb.lessThan((Expression<? extends Comparable>) path, (Comparable) coerceComparableValue(filter, path));
             case "after" -> cb.greaterThan((Expression<? extends Comparable>) path, (Comparable) coerceComparableValue(filter, path));
@@ -531,8 +560,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         return new OptionDTO<>(value, stringify(label != null ? label : value), null);
     }
 
-    private OptionDTO<Object> toOption(Tuple tuple) {
-        Object value = tuple.get("optionValue");
+    private OptionDTO<Object> toOption(Tuple tuple, Class<?> valueType) {
+        Object value = extractOptionValue(tuple, valueType);
         Object label = null;
         try {
             label = tuple.get("optionLabel");
@@ -542,8 +571,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         return toOption(value, label);
     }
 
-    private OptionDTO<Object> toEntityLookupOption(Tuple tuple, OptionSourceDescriptor descriptor) {
-        Object value = tuple.get("optionValue");
+    private OptionDTO<Object> toEntityLookupOption(Tuple tuple, OptionSourceDescriptor descriptor, Class<?> valueType) {
+        Object value = extractOptionValue(tuple, valueType);
         Object label = tupleValue(tuple, "optionLabel");
         EntityLookupDescriptor lookup = descriptor.entityLookup();
         Map<String, Object> extra = new LinkedHashMap<>();
@@ -569,6 +598,20 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         }
 
         return new OptionDTO<>(value, stringify(label != null ? label : value), extra);
+    }
+
+    private Object extractOptionValue(Tuple tuple, Class<?> valueType) {
+        if (CompositeIdSupport.isCompositeIdType(valueType)) {
+            List<CompositeIdSupport.ComponentDescriptor> components = CompositeIdSupport.descriptors(valueType);
+            if (!components.isEmpty()) {
+                List<Object> componentValues = new ArrayList<>(components.size());
+                for (int i = 0; i < components.size(); i++) {
+                    componentValues.add(tuple.get("optionValue__" + i));
+                }
+                return CompositeIdSupport.fromComponentValues(valueType, componentValues);
+            }
+        }
+        return tuple.get("optionValue");
     }
 
     private Object tupleValue(Tuple tuple, String alias) {
@@ -683,11 +726,11 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     }
 
     private String stringify(Object value) {
-        return value == null ? "null" : String.valueOf(value);
+        return CompositeIdSupport.stringify(value);
     }
 
     private String stringifyNullable(Object value) {
-        return value == null ? null : String.valueOf(value);
+        return CompositeIdSupport.stringifyNullable(value);
     }
 
     private void putIfNotNull(Map<String, Object> target, String key, Object value) {
@@ -711,11 +754,14 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     }
 
     private void applyOptionSelections(CriteriaQuery<Tuple> query, Path<?> valuePath, Path<?> labelPath) {
-        if (samePath(valuePath, labelPath)) {
-            query.multiselect(valuePath.alias("optionValue"));
-            return;
+        List<Selection<?>> selections = new ArrayList<>();
+        List<Path<?>> selectedPaths = new ArrayList<>();
+        List<String> selectedAliases = new ArrayList<>();
+        addValueSelections(selections, selectedPaths, selectedAliases, valuePath);
+        if (!samePath(valuePath, labelPath)) {
+            selections.add(labelPath.alias("optionLabel"));
         }
-        query.multiselect(valuePath.alias("optionValue"), labelPath.alias("optionLabel"));
+        query.multiselect(selections);
     }
 
     private void applyEntityLookupSelections(
@@ -730,9 +776,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         List<Selection<?>> selections = new ArrayList<>();
         List<Path<?>> selectedPaths = new ArrayList<>();
         List<String> selectedAliases = new ArrayList<>();
-        selections.add(valuePath.alias("optionValue"));
-        selectedPaths.add(valuePath);
-        selectedAliases.add("optionValue");
+        addValueSelections(selections, selectedPaths, selectedAliases, valuePath);
         selections.add(labelPath.alias("optionLabel"));
         selectedPaths.add(labelPath);
         selectedAliases.add("optionLabel");
@@ -765,6 +809,31 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         query.multiselect(selections);
     }
 
+    private void addValueSelections(
+            List<Selection<?>> selections,
+            List<Path<?>> selectedPaths,
+            List<String> selectedAliases,
+            Path<?> valuePath
+    ) {
+        Class<?> valueType = valuePath.getJavaType();
+        if (CompositeIdSupport.isCompositeIdType(valueType)) {
+            List<CompositeIdSupport.ComponentDescriptor> components = CompositeIdSupport.descriptors(valueType);
+            if (!components.isEmpty()) {
+                for (int i = 0; i < components.size(); i++) {
+                    Path<?> compPath = valuePath.get(components.get(i).name());
+                    String alias = "optionValue__" + i;
+                    selections.add(compPath.alias(alias));
+                    selectedPaths.add(compPath);
+                    selectedAliases.add(alias);
+                }
+                return;
+            }
+        }
+        selections.add(valuePath.alias("optionValue"));
+        selectedPaths.add(valuePath);
+        selectedAliases.add("optionValue");
+    }
+
     private void addSelection(
             List<Selection<?>> selections,
             List<Path<?>> selectedPaths,
@@ -789,80 +858,10 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     }
 
     private Object coerceValue(String raw, Class<?> targetType) {
-        if (raw == null) {
-            return null;
-        }
-        if (targetType == null || targetType == Object.class || targetType == String.class) {
-            return raw;
-        }
-        if (targetType == BigDecimal.class) {
-            return new BigDecimal(raw);
-        }
-        if (targetType == BigInteger.class) {
-            return new BigInteger(raw);
-        }
-        if (targetType == Short.class || targetType == short.class) {
-            return Short.valueOf(raw);
-        }
-        if (targetType == Byte.class || targetType == byte.class) {
-            return Byte.valueOf(raw);
-        }
-        if (targetType == Long.class || targetType == long.class) {
-            return Long.valueOf(raw);
-        }
-        if (targetType == Integer.class || targetType == int.class) {
-            return Integer.valueOf(raw);
-        }
-        if (targetType == Double.class || targetType == double.class) {
-            return Double.valueOf(raw);
-        }
-        if (targetType == Float.class || targetType == float.class) {
-            return Float.valueOf(raw);
-        }
-        if (targetType == Boolean.class || targetType == boolean.class) {
-            return Boolean.valueOf(raw);
-        }
-        if (targetType == UUID.class) {
-            return UUID.fromString(raw);
-        }
-        if (targetType == LocalDate.class) {
-            return LocalDate.parse(raw);
-        }
-        if (targetType == LocalDateTime.class) {
-            return LocalDateTime.parse(raw);
-        }
-        if (targetType == Instant.class) {
-            return Instant.parse(raw);
-        }
-        if (targetType == OffsetDateTime.class) {
-            return OffsetDateTime.parse(raw);
-        }
-        if (targetType == ZonedDateTime.class) {
-            return ZonedDateTime.parse(raw);
-        }
-        if (Enum.class.isAssignableFrom(targetType)) {
-            @SuppressWarnings({"rawtypes", "unchecked"})
-            Object enumValue = Enum.valueOf((Class<? extends Enum>) targetType.asSubclass(Enum.class), raw);
-            return enumValue;
-        }
-        return raw;
+        return CompositeIdSupport.coerceScalar(raw, targetType);
     }
 
     private Path<?> resolvePath(Root<?> root, String propertyPath) {
-        String[] parts = propertyPath.split("\\.");
-        Path<?> path = root;
-        for (int i = 0; i < parts.length; i++) {
-            String part = parts[i];
-            if (i == parts.length - 1) {
-                path = path.get(part);
-            } else if (path instanceof Root<?> rootPath) {
-                path = rootPath.join(part, JoinType.LEFT);
-            } else if (path instanceof From<?, ?> fromPath) {
-                path = fromPath.join(part, JoinType.LEFT);
-            } else {
-                throw new IllegalArgumentException("Unable to resolve option source property path: " + propertyPath);
-            }
-        }
-        return path;
+        return JpaCriteriaPathSupport.resolvePath(root, propertyPath, true);
     }
 }

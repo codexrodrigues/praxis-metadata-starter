@@ -13,6 +13,8 @@ import jakarta.persistence.criteria.Order;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import org.praxisplatform.uischema.id.CompositeIdSupport;
+import org.praxisplatform.uischema.id.JpaCriteriaPathSupport;
 import org.praxisplatform.uischema.stats.DistributionMode;
 import org.praxisplatform.uischema.stats.StatsBucketOrder;
 import org.praxisplatform.uischema.stats.StatsDimensionExtraction;
@@ -109,7 +111,11 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 || request.hasExplicitDimensions()
                 || window != null
                 || Boolean.TRUE.equals(request.fillGaps())
-                || resolvedMetrics.stream().anyMatch(m -> m.metric().operation() == StatsMetric.AVG_PER_CYCLE_OCCURRENCE);
+                || resolvedMetrics.stream().anyMatch(m -> m.metric().operation() == StatsMetric.AVG_PER_CYCLE_OCCURRENCE)
+                || dimensions.stream().anyMatch(dim -> isCompositePropertyPath(entityManager, entityClass, dim.descriptor().keyPropertyPath()))
+                || resolvedMetrics.stream().anyMatch(m -> m.metric().operation() == StatsMetric.DISTINCT_COUNT
+                        && m.descriptor() != null
+                        && isCompositePropertyPath(entityManager, entityClass, m.descriptor().keyPropertyPath()));
 
         if (requiresAdvancedExecution) {
             return executeAdvancedGroupBy(
@@ -208,9 +214,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         }
 
         List<jakarta.persistence.criteria.Selection<?>> selections = new ArrayList<>();
-        Map<String, Integer> selectionIndexByPropertyPath = new LinkedHashMap<>();
-        int[] dimKeySelectionIndex = new int[dimensions.size()];
-        int[] dimLabelSelectionIndex = new int[dimensions.size()];
+        Map<String, SelectionSlot> selectionSlotByPropertyPath = new LinkedHashMap<>();
+        SelectionSlot[] dimKeySlots = new SelectionSlot[dimensions.size()];
+        SelectionSlot[] dimLabelSlots = new SelectionSlot[dimensions.size()];
         boolean[] hasDistinctLabel = new boolean[dimensions.size()];
         for (int d = 0; d < dimensions.size(); d++) {
             ResolvedStatsDimension dim = dimensions.get(d);
@@ -220,20 +226,20 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                         "Temporal extraction " + dim.extraction() + " requires a timestamp field with time component: " + dim.field()
                 );
             }
-            dimKeySelectionIndex[d] = registerSelection(root, dim.descriptor().keyPropertyPath(), selections, selectionIndexByPropertyPath);
+            dimKeySlots[d] = registerSelectionSlot(root, dim.descriptor().keyPropertyPath(), selections, selectionSlotByPropertyPath);
             if (dim.extraction() == StatsDimensionExtraction.NONE
                     && !Objects.equals(dim.descriptor().keyPropertyPath(), dim.descriptor().labelPropertyPath())) {
                 hasDistinctLabel[d] = true;
-                dimLabelSelectionIndex[d] = registerSelection(root, dim.descriptor().labelPropertyPath(), selections, selectionIndexByPropertyPath);
+                dimLabelSlots[d] = registerSelectionSlot(root, dim.descriptor().labelPropertyPath(), selections, selectionSlotByPropertyPath);
             }
         }
-        int[] metricSelectionIndex = new int[resolvedMetrics.size()];
+        SelectionSlot[] metricSlots = new SelectionSlot[resolvedMetrics.size()];
         for (int m = 0; m < resolvedMetrics.size(); m++) {
             ResolvedStatsMetric metric = resolvedMetrics.get(m);
             if (metric.descriptor() != null) {
-                metricSelectionIndex[m] = registerSelection(root, metric.descriptor().keyPropertyPath(), selections, selectionIndexByPropertyPath);
+                metricSlots[m] = registerSelectionSlot(root, metric.descriptor().keyPropertyPath(), selections, selectionSlotByPropertyPath);
             } else {
-                metricSelectionIndex[m] = -1;
+                metricSlots[m] = null;
             }
         }
         query.multiselect(selections);
@@ -252,13 +258,15 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             List<String> labels = new ArrayList<>(dimensions.size());
             for (int d = 0; d < dimensions.size(); d++) {
                 ResolvedStatsDimension dim = dimensions.get(d);
-                Object rawKey = tuple.get(dimKeySelectionIndex[d]);
+                Object rawKey = normalizeStatsKeyValue(extractSelectionValue(tuple, dimKeySlots[d]));
                 Object key;
                 String label;
                 if (dim.extraction() == StatsDimensionExtraction.NONE) {
                     key = rawKey;
-                    Object rawLabel = hasDistinctLabel[d] ? tuple.get(dimLabelSelectionIndex[d]) : rawKey;
-                    label = rawLabel == null ? (key == null ? "null" : String.valueOf(key)) : String.valueOf(rawLabel);
+                    Object rawLabel = hasDistinctLabel[d]
+                            ? normalizeStatsKeyValue(extractSelectionValue(tuple, dimLabelSlots[d]))
+                            : rawKey;
+                    label = rawLabel == null ? (key == null ? "null" : CompositeIdSupport.stringify(key)) : CompositeIdSupport.stringify(rawLabel);
                 } else {
                     if (rawKey == null) {
                         key = null;
@@ -277,7 +285,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                     coordinateKey,
                     k -> MultiDimensionCellAggregate.empty(keys, labels, resolvedMetrics)
             );
-            cell.accumulate(tuple, resolvedMetrics, metricSelectionIndex);
+            cell.accumulate(tuple, resolvedMetrics, metricSlots);
         }
 
         boolean usesCellCeiling = dimensions.size() > 1
@@ -465,17 +473,51 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         }
     }
 
-    private int registerSelection(
+    private SelectionSlot registerSelectionSlot(
             Root<?> root,
             String propertyPath,
             List<jakarta.persistence.criteria.Selection<?>> selections,
-            Map<String, Integer> selectionIndexByPropertyPath
+            Map<String, SelectionSlot> selectionSlotByPropertyPath
     ) {
-        return selectionIndexByPropertyPath.computeIfAbsent(propertyPath, path -> {
+        return selectionSlotByPropertyPath.computeIfAbsent(propertyPath, path -> {
+            Path<?> resolved = resolvePath(root, path);
+            Class<?> pathType = resolved == null ? null : resolved.getJavaType();
+            if (CompositeIdSupport.isCompositeIdType(pathType)) {
+                List<CompositeIdSupport.ComponentDescriptor> comps = CompositeIdSupport.descriptors(pathType);
+                if (!comps.isEmpty()) {
+                    List<Integer> indices = new ArrayList<>(comps.size());
+                    for (CompositeIdSupport.ComponentDescriptor comp : comps) {
+                        indices.add(selections.size());
+                        selections.add(resolved.get(comp.name()));
+                    }
+                    return new SelectionSlot(pathType, indices);
+                }
+            }
             int index = selections.size();
-            selections.add(resolvePath(root, path));
-            return index;
+            selections.add(resolved);
+            return new SelectionSlot(null, List.of(index));
         });
+    }
+
+    private static Object extractSelectionValue(Tuple tuple, SelectionSlot slot) {
+        if (slot == null) {
+            return null;
+        }
+        if (slot.compositeType() == null) {
+            return tuple.get(slot.tupleIndices().get(0));
+        }
+        List<Object> partValues = new ArrayList<>(slot.tupleIndices().size());
+        for (int idx : slot.tupleIndices()) {
+            Object part = tuple.get(idx);
+            if (part == null) {
+                return null;
+            }
+            partValues.add(part);
+        }
+        return CompositeIdSupport.fromComponentValues(slot.compositeType(), partValues);
+    }
+
+    private record SelectionSlot(Class<?> compositeType, List<Integer> tupleIndices) {
     }
 
     private Map<CellCoordinateKey, Long> computeCycleOccurrencesIfNeeded(
@@ -1055,30 +1097,28 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
     }
 
     private Path<?> resolvePath(Root<?> root, String propertyPath) {
-        String[] parts = propertyPath.split("\\.");
-        Path<?> path = root;
-        for (int i = 0; i < parts.length; i++) {
-            String part = parts[i];
-            if (i == parts.length - 1) {
-                path = path.get(part);
-            } else if (path instanceof From<?, ?> fromPath) {
-                path = getOrCreateLeftJoin(fromPath, part);
-            } else {
-                throw new IllegalArgumentException("Unable to resolve stats property path: " + propertyPath);
-            }
-        }
-        return path;
+        return JpaCriteriaPathSupport.resolvePath(root, propertyPath, true);
     }
 
-    private Join<?, ?> getOrCreateLeftJoin(From<?, ?> fromPath, String attributeName) {
-        for (Join<?, ?> existing : fromPath.getJoins()) {
-            if (existing.getAttribute() != null
-                    && attributeName.equals(existing.getAttribute().getName())
-                    && existing.getJoinType() == JoinType.LEFT) {
-                return existing;
-            }
+    private <E> boolean isCompositePropertyPath(EntityManager entityManager, Class<E> entityClass, String propertyPath) {
+        if (propertyPath == null || propertyPath.isBlank()) {
+            return false;
         }
-        return fromPath.join(attributeName, JoinType.LEFT);
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> probe = cb.createTupleQuery();
+        Root<E> root = probe.from(entityClass);
+        Path<?> path = resolvePath(root, propertyPath);
+        return path != null && CompositeIdSupport.isCompositeIdType(path.getJavaType());
+    }
+
+    private Object normalizeStatsKeyValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (CompositeIdSupport.isCompositeIdValue(value)) {
+            return CompositeIdSupport.stringify(value);
+        }
+        return value;
     }
 
     @SuppressWarnings("unchecked")
@@ -1286,12 +1326,12 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             );
         }
 
-        void accumulate(Tuple tuple, List<ResolvedStatsMetric> metrics, int[] metricSelectionIndex) {
+        void accumulate(Tuple tuple, List<ResolvedStatsMetric> metrics, SelectionSlot[] metricSlots) {
             count++;
             for (int index = 0; index < metrics.size(); index++) {
                 ResolvedStatsMetric metric = metrics.get(index);
-                int selIdx = metricSelectionIndex[index];
-                Object value = selIdx < 0 ? null : tuple.get(selIdx);
+                SelectionSlot slot = metricSlots[index];
+                Object value = slot == null ? null : extractSelectionValue(tuple, slot);
                 aggregates.get(metric.alias()).accumulate(metric.metric().operation(), value);
             }
         }

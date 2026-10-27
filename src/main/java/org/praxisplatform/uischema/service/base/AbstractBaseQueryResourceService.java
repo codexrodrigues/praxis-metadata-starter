@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.service.base;
 
+import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.Id;
@@ -10,6 +11,8 @@ import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.specification.GenericSpecification;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
+import org.praxisplatform.uischema.id.CompositeIdSupport;
+import org.praxisplatform.uischema.id.JpaCriteriaPathSupport;
 import org.praxisplatform.uischema.mapper.base.OptionMapper;
 import org.praxisplatform.uischema.mapper.base.ResourceMapper;
 import org.praxisplatform.uischema.options.OptionSourceByIdsRequest;
@@ -179,6 +182,7 @@ public abstract class AbstractBaseQueryResourceService<
         this.repository = repository;
         this.specificationsBuilder = specificationsBuilder;
         this.entityClass = entityClass;
+        CompositeIdSupport.registerEntityCompositeIdTypes(entityClass);
     }
 
     protected AbstractBaseQueryResourceService(BaseCrudRepository<E, ID> repository, Class<E> entityClass) {
@@ -208,7 +212,7 @@ public abstract class AbstractBaseQueryResourceService<
         Class<?> current = entityClass;
         while (current != null && current != Object.class) {
             for (Field field : current.getDeclaredFields()) {
-                if (field.isAnnotationPresent(Id.class)) {
+                if (field.isAnnotationPresent(Id.class) || field.isAnnotationPresent(EmbeddedId.class)) {
                     return field.getName();
                 }
             }
@@ -238,7 +242,7 @@ public abstract class AbstractBaseQueryResourceService<
                 })
                 .toList();
 
-        return Sort.by(orders);
+        return JpaCriteriaPathSupport.expandCompositeSort(getEntityClass(), Sort.by(orders));
     }
 
     @Override
@@ -786,7 +790,7 @@ public abstract class AbstractBaseQueryResourceService<
             }
         }
 
-        return String.valueOf(extractId(entity));
+        return CompositeIdSupport.stringify(extractId(entity));
     }
 
     protected EntityNotFoundException getNotFoundException() {
@@ -798,7 +802,7 @@ public abstract class AbstractBaseQueryResourceService<
     }
 
     protected List<E> findAllEntities() {
-        return repository.findAll(getDefaultSort());
+        return repository.findAll(JpaCriteriaPathSupport.expandCompositeSort(getEntityClass(), getDefaultSort()));
     }
 
     protected List<E> findEntitiesById(Collection<ID> ids) {
@@ -874,19 +878,31 @@ public abstract class AbstractBaseQueryResourceService<
         }
 
         GenericSpecification<E> functional = getSpecificationsBuilder().buildSpecification(filter, sortedPageable);
+        Pageable effectivePageable = functional.pageable();
+        if (effectivePageable != null && effectivePageable.isPaged() && effectivePageable.getSort().isSorted()) {
+            Sort expandedSort = JpaCriteriaPathSupport.expandCompositeSort(getEntityClass(), effectivePageable.getSort());
+            if (expandedSort != effectivePageable.getSort()) {
+                effectivePageable = PageRequest.of(
+                        effectivePageable.getPageNumber(),
+                        effectivePageable.getPageSize(),
+                        expandedSort
+                );
+            }
+        }
         ResourceFilterAccessScope<E> accessScope = Objects.requireNonNull(
                 resolveResourceFilterAccessScope(),
                 "resolveResourceFilterAccessScope() must return an explicit scope"
         );
         Specification<E> access = accessScope.specification();
-        return new ResourceFilterQuery<>(access, access.and(functional.spec()), functional.pageable());
+        return new ResourceFilterQuery<>(access, access.and(functional.spec()), effectivePageable);
     }
 
     private List<E> findEntitiesByIdWithinAccessScope(Collection<ID> ids, Specification<E> accessSpecification) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
-        Specification<E> requestedIds = (root, query, criteriaBuilder) -> root.get(getIdFieldName()).in(ids);
+        Specification<E> requestedIds = (root, query, criteriaBuilder) ->
+                JpaCriteriaPathSupport.buildInPredicate(criteriaBuilder, root.get(getIdFieldName()), ids);
         return repository.findAll(accessSpecification.and(requestedIds));
     }
 

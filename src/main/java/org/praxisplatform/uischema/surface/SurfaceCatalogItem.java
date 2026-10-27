@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.surface;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 
 import java.util.List;
@@ -21,6 +22,7 @@ public record SurfaceCatalogItem(
         String title,
         String description,
         String intent,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String icon,
         String operationId,
         String path,
         String method,
@@ -32,6 +34,51 @@ public record SurfaceCatalogItem(
         List<String> tags,
         RelatedResourceSurface relatedResource
 ) {
+    public SurfaceCatalogItem {
+        icon = icon != null && !icon.isBlank() ? icon.trim() : null;
+    }
+
+    public SurfaceCatalogItem(
+            String id,
+            String resourceKey,
+            SurfaceKind kind,
+            SurfaceScope scope,
+            String title,
+            String description,
+            String intent,
+            String operationId,
+            String path,
+            String method,
+            String schemaId,
+            String schemaUrl,
+            SurfaceResponseCardinality responseCardinality,
+            AvailabilityDecision availability,
+            int order,
+            List<String> tags,
+            RelatedResourceSurface relatedResource
+    ) {
+        this(
+                id,
+                resourceKey,
+                kind,
+                scope,
+                title,
+                description,
+                intent,
+                null,
+                operationId,
+                path,
+                method,
+                schemaId,
+                schemaUrl,
+                responseCardinality,
+                availability,
+                order,
+                tags,
+                relatedResource
+        );
+    }
+
     public SurfaceCatalogItem(
             String id,
             String resourceKey,
@@ -58,6 +105,7 @@ public record SurfaceCatalogItem(
                 title,
                 description,
                 intent,
+                null,
                 operationId,
                 path,
                 method,

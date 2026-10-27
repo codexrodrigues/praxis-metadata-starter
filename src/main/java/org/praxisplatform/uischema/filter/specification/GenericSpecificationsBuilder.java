@@ -123,7 +123,13 @@ public class GenericSpecificationsBuilder<E> {
                 return order;
             }
         }).toList();
-        return ((PageRequest) oldPageable).withSort(Sort.by(orderList));
+        if (oldPageable instanceof PageRequest pageRequest) {
+            return pageRequest.withSort(Sort.by(orderList));
+        }
+        if (oldPageable.isPaged()) {
+            return PageRequest.of(oldPageable.getPageNumber(), oldPageable.getPageSize(), Sort.by(orderList));
+        }
+        return Pageable.unpaged(Sort.by(orderList));
     }
 
     /**
@@ -198,26 +204,7 @@ public class GenericSpecificationsBuilder<E> {
      * @return O caminho resolvido para a propriedade.
      */
     jakarta.persistence.criteria.Path<?> resolvePath(Root<?> root, String relationPath) {
-        String[] relations = relationPath.split("\\."); // Divide o caminho em partes
-        jakarta.persistence.criteria.Path<?> path = root;
-
-        for (int i = 0; i < relations.length; i++) {
-            String relation = relations[i];
-            if (i == relations.length - 1) {
-                // Último elemento: acessa diretamente como atributo básico
-                path = path.get(relation);
-            } else if (path instanceof Root<?>) {
-                // Relacionamento no root
-                path = ((Root<?>) path).join(relation, JoinType.LEFT);
-            } else if (path instanceof From<?, ?>) {
-                // Relacionamento em joins
-                path = ((From<?, ?>) path).join(relation, JoinType.LEFT);
-            } else {
-                throw new IllegalArgumentException("Não foi possível resolver o caminho: " + relationPath);
-            }
-        }
-
-        return path;
+        return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, relationPath, false);
     }
 
 
@@ -258,7 +245,7 @@ class EqualPredicateBuilder implements PredicateBuilder {
 
     @Override
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
-        return criteriaBuilder.equal(path, value);
+        return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.buildEqualPredicate(criteriaBuilder, path, value);
     }
 }
 
@@ -270,7 +257,7 @@ class NotEqualPredicateBuilder implements PredicateBuilder {
 
     @Override
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
-        return criteriaBuilder.notEqual(path, value);
+        return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.buildNotEqualPredicate(criteriaBuilder, path, value);
     }
 }
 
@@ -438,12 +425,8 @@ class InPredicateBuilder implements PredicateBuilder {
 
     @Override
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
-        if (value instanceof List) {
-            CriteriaBuilder.In<Object> inClause = criteriaBuilder.in(path);
-            for (Object val : (List<?>) value) {
-                inClause.value(val);
-            }
-            return inClause;
+        if (value instanceof java.util.Collection<?> collection) {
+            return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.buildInPredicate(criteriaBuilder, path, collection);
         }
         throw new InvalidFilterPayloadException("IN operation requires a List value.");
     }
@@ -457,12 +440,8 @@ class NotInPredicateBuilder implements PredicateBuilder {
 
     @Override
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
-        if (value instanceof java.util.List<?> list) {
-            CriteriaBuilder.In<Object> inClause = criteriaBuilder.in(path);
-            for (Object val : list) {
-                inClause.value(val);
-            }
-            return criteriaBuilder.not(inClause);
+        if (value instanceof java.util.Collection<?> collection) {
+            return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.buildNotInPredicate(criteriaBuilder, path, collection);
         }
         throw new InvalidFilterPayloadException("NOT_IN operation requires a List value.");
     }
@@ -844,7 +823,7 @@ class IsNullPredicateBuilder implements PredicateBuilder {
     @Override
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
         if (Boolean.TRUE.equals(value)) {
-            return criteriaBuilder.isNull(path);
+            return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.buildIsNullPredicate(criteriaBuilder, path);
         }
         // não adiciona predicado quando null/false → sem efeito
         return criteriaBuilder.conjunction();
@@ -860,7 +839,7 @@ class IsNotNullPredicateBuilder implements PredicateBuilder {
     @Override
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
         if (Boolean.TRUE.equals(value)) {
-            return criteriaBuilder.isNotNull(path);
+            return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.buildIsNotNullPredicate(criteriaBuilder, path);
         }
         // não adiciona predicado quando null/false → sem efeito
         return criteriaBuilder.conjunction();

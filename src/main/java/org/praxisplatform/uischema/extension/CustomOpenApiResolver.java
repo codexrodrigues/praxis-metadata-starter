@@ -10,10 +10,12 @@ import io.swagger.v3.oas.models.media.StringSchema;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.annotation.MicroVisualization;
 import org.praxisplatform.uischema.annotation.MicroVisualizationKind;
+import org.praxisplatform.uischema.annotation.ResourceReference;
 import org.praxisplatform.uischema.annotation.Threshold;
 import org.praxisplatform.uischema.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
+import org.praxisplatform.uischema.id.CompositeIdSupport;
 import org.praxisplatform.uischema.numeric.NumberFormatStyle;
 import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
@@ -72,6 +74,20 @@ public class CustomOpenApiResolver extends ModelResolver {
 
     @Override
     public Schema resolve(io.swagger.v3.core.converter.AnnotatedType type, io.swagger.v3.core.converter.ModelConverterContext context, java.util.Iterator<io.swagger.v3.core.converter.ModelConverter> next) {
+        Class<?> rawClass = extractRawClass(type);
+        if (CompositeIdSupport.isCompositeIdType(rawClass)) {
+            StringSchema primitive = new StringSchema();
+            primitive.setFormat("composite-id");
+            resolveSchemaMembers(primitive, type, context, next);
+            applyBeanValidatorAnnotations(primitive, type.getCtxAnnotations(), type.getParent(), false);
+            List<String> compNames = CompositeIdSupport.componentNames(rawClass);
+            if (!compNames.isEmpty() && type.isSchemaProperty()) {
+                Map<String, Object> uiExt = getUIExtensionMap(primitive);
+                uiExt.putIfAbsent("compositeIdComponents", compNames);
+                uiExt.putIfAbsent("compositeIdSeparator", CompositeIdSupport.SEPARATOR);
+            }
+            return primitive;
+        }
         Schema schema = super.resolve(type, context, next);
         // Swagger applies property-level schema siblings after resolving this intermediate type.
         // Propagate from the final model instead, so an eventual union cannot inherit an array control.
@@ -79,6 +95,20 @@ public class CustomOpenApiResolver extends ModelResolver {
             propagateOptionsInSchema(schema, context, java.util.Collections.newSetFromMap(new IdentityHashMap<>()));
         }
         return schema;
+    }
+
+    private Class<?> extractRawClass(io.swagger.v3.core.converter.AnnotatedType type) {
+        if (type == null || type.getType() == null) {
+            return null;
+        }
+        if (type.getType() instanceof Class<?> rawClass) {
+            return rawClass;
+        }
+        try {
+            return _mapper.constructType(type.getType()).getRawClass();
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     @Override
@@ -192,6 +222,7 @@ public class CustomOpenApiResolver extends ModelResolver {
 
         if (annotations != null && ResolverUtils.getAnnotation(UISchema.class, annotations) == null) {
             applyMicroVisualization(property, annotations);
+            applyResourceReference(property, annotations);
         }
 
         if (annotations != null && ResolverUtils.getAnnotation(UISchema.class, annotations) != null) {
@@ -280,6 +311,9 @@ public class CustomOpenApiResolver extends ModelResolver {
         // === ETAPA 4.5: Semântica canônica de apresentação de valor ===
         // Publica `x-ui.valuePresentation` a partir do contrato efetivo resolvido.
         applyValuePresentation(property, annotation, uiExtension);
+
+        // === ETAPA 4.6: Referência cruzada de recurso (@ResourceReference) ===
+        applyResourceReference(property, annotations);
 
         // === ETAPA 5: extraProperties (precedência MÁXIMA) ===
         // Sobrescreve tudo com propriedades customizadas
@@ -1702,6 +1736,12 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (annotation.formHidden()) {
             uiExtension.put(FieldConfigProperties.FORM_HIDDEN.getValue(), true);
         }
+        if (annotation.quickViewVisible()) {
+            uiExtension.put(FieldConfigProperties.QUICK_VIEW_VISIBLE.getValue(), true);
+        }
+        if (annotation.quickViewOrder() > 0) {
+            uiExtension.put(FieldConfigProperties.QUICK_VIEW_ORDER.getValue(), annotation.quickViewOrder());
+        }
         applyFieldAccess(annotation, uiExtension);
         if (!annotation.editable()) { // padrão é true
             uiExtension.put(FieldConfigProperties.EDITABLE.getValue(), false);
@@ -2211,6 +2251,52 @@ public class CustomOpenApiResolver extends ModelResolver {
                 "source", "java.annotation",
                 "confidence", governance.confidence()
         ));
+    }
+
+    private void applyResourceReference(Schema<?> property, Annotation[] annotations) {
+        ResourceReference reference = ResolverUtils.getAnnotation(ResourceReference.class, annotations);
+        if (reference == null) {
+            return;
+        }
+        String resourceKey = asTrimmedString(reference.resourceKey());
+        if (resourceKey == null) {
+            return;
+        }
+
+        Map<String, Object> uiExtension = getUIExtensionMap(property);
+        if (property.getName() != null) {
+            OpenApiUiUtils.populateUiName(uiExtension, property.getName());
+            OpenApiUiUtils.populateUiLabel(uiExtension, property.getTitle(), property.getName());
+        }
+
+        Map<String, Object> resourceRefMap = new LinkedHashMap<>();
+        resourceRefMap.put("resourceKey", resourceKey);
+        String valueField = asTrimmedString(reference.valueField());
+        if (valueField != null) {
+            resourceRefMap.put("valueField", valueField);
+        }
+        String surfaceId = asTrimmedString(reference.surfaceId());
+        if (surfaceId != null) {
+            resourceRefMap.put("surfaceId", surfaceId);
+        }
+        String previewSurfaceId = asTrimmedString(reference.previewSurfaceId());
+        if (previewSurfaceId != null) {
+            resourceRefMap.put("previewSurfaceId", previewSurfaceId);
+        }
+        String detailPresentation = asTrimmedString(reference.detailPresentation());
+        if (detailPresentation != null) {
+            String normalizedPresentation = detailPresentation.toLowerCase(Locale.ROOT);
+            if (Set.of("drawer", "modal", "fullscreen", "route").contains(normalizedPresentation)) {
+                resourceRefMap.put("detailPresentation", normalizedPresentation);
+            } else {
+                LOGGER.warn(
+                        "Ignoring unsupported @ResourceReference.detailPresentation '{}' on property '{}'",
+                        detailPresentation,
+                        property.getName()
+                );
+            }
+        }
+        uiExtension.put(FieldConfigProperties.RESOURCE_REFERENCE.getValue(), resourceRefMap);
     }
 
     private void applyMicroVisualization(Schema<?> property, Annotation[] annotations) {

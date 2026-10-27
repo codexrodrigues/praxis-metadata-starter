@@ -33,6 +33,8 @@ import org.praxisplatform.uischema.exporting.DefaultCollectionExportExecutor;
 import org.praxisplatform.uischema.exporting.ExcelCollectionExportEngine;
 import org.praxisplatform.uischema.exporting.JsonCollectionExportEngine;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
+import org.praxisplatform.uischema.id.CompositeIdConverter;
+import org.praxisplatform.uischema.id.CompositeIdJacksonModule;
 import org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodPayloadNormalizer;
 import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
@@ -155,14 +157,31 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     /**
-     * Publica o {@link ObjectMapper} padrao do starter, com suporte a Java Time.
+     * Publica o {@link ObjectMapper} padrao do starter, com suporte a Java Time e IDs compostos.
      */
     @Bean(name = "openApiUiSchemaObjectMapper")
     @ConditionalOnMissingBean
     public ObjectMapper objectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.registerModule(new CompositeIdJacksonModule());
         return objectMapper;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(CompositeIdJacksonModule.class)
+    public CompositeIdJacksonModule compositeIdJacksonModule() {
+        return new CompositeIdJacksonModule();
+    }
+
+    @Bean
+    public org.springframework.web.servlet.config.annotation.WebMvcConfigurer praxisCompositeIdWebMvcConfigurer() {
+        return new org.springframework.web.servlet.config.annotation.WebMvcConfigurer() {
+            @Override
+            public void addFormatters(org.springframework.format.FormatterRegistry registry) {
+                registry.addConverter(new CompositeIdConverter());
+            }
+        };
     }
 
     /**

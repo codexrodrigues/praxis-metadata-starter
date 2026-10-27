@@ -145,7 +145,9 @@ public class ApiDocsController {
                     "surfaceId",
                     "presentation",
                     "preferredWidget",
-                    "mode"
+                    "mode",
+                    "resourceKey",
+                    "previewSurfaceId"
             ),
             "create", Set.of(
                     "hrefTemplate",
@@ -458,10 +460,33 @@ public class ApiDocsController {
             resourceMeta.put("capabilities", caps);
         }
 
+        if (apiResourceIdentityResolver != null) {
+            Optional<Map<String, Object>> resolvedMetadata = apiResourceIdentityResolver.resolveResourceMetadata(
+                    basePath,
+                    canonicalPath,
+                    normalizedOperation
+            );
+            if (resolvedMetadata.isEmpty()) {
+                resolvedMetadata = apiResourceIdentityResolver.resolveResourceMetadata(basePath);
+            }
+            if (resolvedMetadata.isPresent()) {
+                for (Map.Entry<String, Object> entry : resolvedMetadata.get().entrySet()) {
+                    resourceMeta.putIfAbsent(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+
         // Record identity describes materialized resources. Request schemas model
         // filters and commands, and must not publish an identity their DTO cannot satisfy.
         if ("response".equalsIgnoreCase(schemaType) && apiResourceIdentityResolver != null) {
-            Optional<Map<String, Object>> resolvedIdentity = apiResourceIdentityResolver.resolve(basePath);
+            Optional<Map<String, Object>> resolvedIdentity = apiResourceIdentityResolver.resolve(
+                    basePath,
+                    canonicalPath,
+                    normalizedOperation
+            );
+            if (resolvedIdentity.isEmpty()) {
+                resolvedIdentity = apiResourceIdentityResolver.resolve(basePath);
+            }
             if (resolvedIdentity.isPresent()) {
                 Map<String, Object> identity = resolvedIdentity.get();
                 Map<String, Object> publishedIdentity = new java.util.LinkedHashMap<>(identity);

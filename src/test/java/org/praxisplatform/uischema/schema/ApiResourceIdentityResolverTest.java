@@ -3,7 +3,13 @@ package org.praxisplatform.uischema.schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.ResourceIdentity;
+import org.praxisplatform.uischema.annotation.UiSurface;
+import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.praxisplatform.uischema.surface.SurfaceKind;
+import org.praxisplatform.uischema.surface.SurfaceScope;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -30,8 +36,50 @@ class ApiResourceIdentityResolverTest {
         Map<String, Object> identity = resolver.resolve("/api/records/").orElseThrow();
         assertEquals("code", identity.get("keyField"));
         assertEquals("name", identity.get("titleField"));
+        assertEquals("codename", identity.get("subtitleField"));
+        assertEquals("avatarUrl", identity.get("avatarField"));
         assertEquals(java.util.List.of("type", "mnemonic"), identity.get("metadataFields"));
         assertEquals("displayLabel", identity.get("displayLabelField"));
+
+        Map<String, Object> resourceMeta = resolver.resolveResourceMetadata("/api/records/").orElseThrow();
+        assertEquals("test.records", resourceMeta.get("resourceKey"));
+        assertEquals("Records", resourceMeta.get("title"));
+        assertEquals("badge", resourceMeta.get("icon"));
+        assertEquals("human-resources", resourceMeta.get("visualTone"));
+    }
+
+    @Test
+    void resolvesProjectedChildIdentityAndIconForRelatedUiSurface() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        Method parentHeroMethod = ParentEmployeeController.class.getDeclaredMethod("heroProfile");
+        Method childListMethod = ChildHeroProfileController.class.getDeclaredMethod("list");
+        Map<RequestMappingInfo, HandlerMethod> mappings = Map.of(
+                RequestMappingInfo.paths("/api/employees/{id}/hero-profile").methods(RequestMethod.GET).build(),
+                new HandlerMethod(new ParentEmployeeController(), parentHeroMethod),
+                RequestMappingInfo.paths("/api/hero-profiles").methods(RequestMethod.GET).build(),
+                new HandlerMethod(new ChildHeroProfileController(), childListMethod)
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(mappings);
+
+        ApiResourceIdentityResolver resolver = new ApiResourceIdentityResolver(handlerMapping);
+
+        Map<String, Object> identity = resolver.resolve(
+                "/api/employees",
+                "/api/employees/{id}/hero-profile",
+                "get"
+        ).orElseThrow();
+        assertEquals("funcionarioId", identity.get("keyField"));
+        assertEquals("nomeCompleto", identity.get("titleField"));
+        assertEquals("codinome", identity.get("subtitleField"));
+        assertEquals("fotoPerfilUrl", identity.get("avatarField"));
+        assertEquals(java.util.List.of("cargo", "departamento"), identity.get("metadataFields"));
+
+        Map<String, Object> metadata = resolver.resolveResourceMetadata(
+                "/api/employees",
+                "/api/employees/{id}/hero-profile",
+                "get"
+        ).orElseThrow();
+        assertEquals("shield_person", metadata.get("icon"));
     }
 
     @Test
@@ -62,14 +110,60 @@ class ApiResourceIdentityResolverTest {
     @ApiResource(
             value = "/api/records",
             resourceKey = "test.records",
+            title = "Records",
+            icon = "badge",
+            visualTone = "human-resources",
             identity = @ResourceIdentity(
                     keyField = "code",
                     titleField = "name",
+                    subtitleField = "codename",
+                    avatarField = "avatarUrl",
                     metadataFields = {"type", "mnemonic"},
                     displayLabelField = "displayLabel"
             )
     )
     static class FixtureController {
+        void list() { }
+    }
+
+    @ApiResource(
+            value = "/api/employees",
+            resourceKey = "test.employees",
+            icon = "users",
+            identity = @ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            )
+    )
+    static class ParentEmployeeController {
+        @UiSurface(
+                id = "hero-profile",
+                kind = SurfaceKind.READ_PROJECTION,
+                scope = SurfaceScope.ITEM,
+                title = "Perfil 360",
+                icon = "shield_person",
+                relatedChildResourceKey = "test.hero-profiles",
+                relatedChildResourcePath = "/api/hero-profiles"
+        )
+        ResponseEntity<RestApiResponse<Object>> heroProfile() {
+            return null;
+        }
+    }
+
+    @ApiResource(
+            value = "/api/hero-profiles",
+            resourceKey = "test.hero-profiles",
+            icon = "badge",
+            identity = @ResourceIdentity(
+                    keyField = "funcionarioId",
+                    titleField = "nomeCompleto",
+                    subtitleField = "codinome",
+                    avatarField = "fotoPerfilUrl",
+                    metadataFields = {"cargo", "departamento"}
+            )
+    )
+    static class ChildHeroProfileController {
         void list() { }
     }
 

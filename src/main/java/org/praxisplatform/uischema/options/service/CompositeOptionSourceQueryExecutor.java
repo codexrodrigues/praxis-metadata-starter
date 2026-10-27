@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.options.service;
 
 import jakarta.persistence.EntityManager;
 import org.praxisplatform.uischema.dto.OptionDTO;
+import org.praxisplatform.uischema.id.CompositeIdSupport;
 import org.praxisplatform.uischema.options.LookupFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.service.jpa.JpaOptionSourceHostContext;
@@ -159,7 +160,7 @@ public class CompositeOptionSourceQueryExecutor implements OptionSourceQueryExec
     }
 
     private String stringify(Object value) {
-        return value == null ? "" : value.toString();
+        return value == null ? "" : CompositeIdSupport.stringify(value);
     }
 
 }

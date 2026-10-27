@@ -60,6 +60,11 @@ public @interface UiSurface {
     String intent() default "";
 
     /**
+     * Icone semantico opcional da surface. Quando omitido, herda o icone do {@link ApiResource} quando disponivel.
+     */
+    String icon() default "";
+
+    /**
      * Ordem estavel para renderizacao, navegacao ou listagem.
      */
     int order() default 0;

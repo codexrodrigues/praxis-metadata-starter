@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.surface;
 import io.swagger.v3.oas.annotations.Operation;
 import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.annotation.ResourceIdentity;
 import org.praxisplatform.uischema.annotation.UiSurface;
 import org.praxisplatform.uischema.annotation.WorkflowAction;
 import org.praxisplatform.uischema.controller.base.AbstractCreateUpdateResourceController;
@@ -191,6 +192,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 surface.title(),
                 surface.description(),
                 StringUtils.hasText(surface.intent()) ? surface.intent() : surface.id(),
+                StringUtils.hasText(surface.icon()) ? surface.icon().trim() : resource.icon(),
                 schemaType,
                 responseCardinality,
                 operationRef,
@@ -248,6 +250,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 title,
                 description,
                 automaticSurface.intent(),
+                resource.icon(),
                 automaticSurface.schemaType(),
                 responseCardinality,
                 operationRef,
@@ -302,10 +305,32 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
     }
 
     private String relatedSchemaIdField(RelatedResourceSurface relatedResource) {
-        if (relatedResource == null || !relatedResource.selectable()) {
+        if (relatedResource == null) {
             return null;
         }
-        return relatedResource.selectionKeyField();
+        if (relatedResource.selectable()) {
+            return relatedResource.selectionKeyField();
+        }
+        if (StringUtils.hasText(relatedResource.childResourcePath())) {
+            String childPath = normalizePath(relatedResource.childResourcePath());
+            for (HandlerMethod method : handlerMapping.getHandlerMethods().values()) {
+                Class<?> beanType = method.getBeanType();
+                String basePath = extractControllerBasePath(beanType);
+                if (StringUtils.hasText(basePath) && childPath.equals(normalizePath(basePath))) {
+                    ApiResource childApiResource = AnnotationUtils.findAnnotation(beanType, ApiResource.class);
+                    if (childApiResource != null && StringUtils.hasText(childApiResource.identity().keyField())) {
+                        return childApiResource.identity().keyField().trim();
+                    }
+                    ResourceIdentity childIdentity = AnnotationUtils.findAnnotation(beanType, ResourceIdentity.class);
+                    if (childIdentity != null && StringUtils.hasText(childIdentity.keyField())) {
+                        return childIdentity.keyField().trim();
+                    }
+                    Object bean = resolveControllerBean(method);
+                    return resolveIdField(bean);
+                }
+            }
+        }
+        return null;
     }
 
     private ResourceDescriptor resolveResourceDescriptor(HandlerMethod handlerMethod, Class<?> controllerClass) {
@@ -329,7 +354,8 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                         ? apiGroup.value()
                         : canonicalOperationResolver.resolve(resourcePath, "GET").group(),
                 AbstractReadOnlyResourceController.class.isAssignableFrom(controllerClass),
-                idField
+                idField,
+                apiResource != null && StringUtils.hasText(apiResource.icon()) ? apiResource.icon().trim() : null
         );
     }
 
@@ -502,7 +528,8 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
             String resourcePath,
             String group,
             boolean readOnly,
-            String idField
+            String idField,
+            String icon
     ) {
     }
 

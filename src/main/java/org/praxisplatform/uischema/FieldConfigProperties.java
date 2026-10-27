@@ -108,6 +108,12 @@ public enum FieldConfigProperties {
     TABLE_HIDDEN("tableHidden"),
     /** Especifica se o campo deve ser oculto no formulário */
     FORM_HIDDEN("formHidden"),
+    /** Indica se o campo deve ser priorizado/exibido no corpo do Quick View */
+    QUICK_VIEW_VISIBLE("quickViewVisible"),
+    /** Ordem de exibição do campo dentro do Quick View */
+    QUICK_VIEW_ORDER("quickViewOrder"),
+    /** Referência semântica cruzada para outro recurso canônico da plataforma */
+    RESOURCE_REFERENCE("resourceReference"),
     /**
      * Declara politica contextual de acesso ao campo.
      *

@@ -24,6 +24,7 @@ public record SurfaceDefinition(
         String title,
         String description,
         String intent,
+        String icon,
         String schemaType,
         SurfaceResponseCardinality responseCardinality,
         CanonicalOperationRef operation,
@@ -34,6 +35,53 @@ public record SurfaceDefinition(
         List<String> tags,
         RelatedResourceSurface relatedResource
 ) {
+    public SurfaceDefinition {
+        icon = icon != null && !icon.isBlank() ? icon.trim() : null;
+    }
+
+    public SurfaceDefinition(
+            String id,
+            String resourceKey,
+            String resourcePath,
+            String group,
+            SurfaceKind kind,
+            SurfaceScope scope,
+            String title,
+            String description,
+            String intent,
+            String schemaType,
+            SurfaceResponseCardinality responseCardinality,
+            CanonicalOperationRef operation,
+            CanonicalSchemaRef schema,
+            int order,
+            List<String> requiredAuthorities,
+            List<String> allowedStates,
+            List<String> tags,
+            RelatedResourceSurface relatedResource
+    ) {
+        this(
+                id,
+                resourceKey,
+                resourcePath,
+                group,
+                kind,
+                scope,
+                title,
+                description,
+                intent,
+                null,
+                schemaType,
+                responseCardinality,
+                operation,
+                schema,
+                order,
+                requiredAuthorities,
+                allowedStates,
+                tags,
+                relatedResource
+        );
+    }
+
     public SurfaceDefinition(
             String id,
             String resourceKey,
@@ -63,6 +111,7 @@ public record SurfaceDefinition(
                 title,
                 description,
                 intent,
+                null,
                 schemaType,
                 responseCardinality,
                 operation,

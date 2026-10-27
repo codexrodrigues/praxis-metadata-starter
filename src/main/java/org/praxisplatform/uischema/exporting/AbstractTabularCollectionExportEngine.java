@@ -61,6 +61,9 @@ abstract class AbstractTabularCollectionExportEngine implements CollectionExport
         if (value instanceof TemporalAccessor) {
             return value.toString();
         }
+        if (org.praxisplatform.uischema.id.CompositeIdSupport.isCompositeIdValue(value)) {
+            return org.praxisplatform.uischema.id.CompositeIdSupport.encode(value);
+        }
         return value;
     }
 

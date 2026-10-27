@@ -331,7 +331,7 @@ class OptionSourceDescriptorTest {
                                 null
                         ),
                         new LookupCapabilities(true, true, true, false, false, true, false, true, true, true),
-                        new LookupDetailDescriptor(null, null, null, "surface", "detail", "drawer", "praxis-dynamic-form", "view"),
+                        new LookupDetailDescriptor(null, null, null, "surface", "detail", "drawer", "praxis-dynamic-form", "view", "human-resources.companies", "company-360"),
                         new LookupDisplayDescriptor(
                                 "directory",
                                 "form",
@@ -416,7 +416,9 @@ class OptionSourceDescriptorTest {
 
         Map<String, Object> detail = (Map<String, Object>) metadata.get("detail");
         assertEquals("surface", detail.get("kind"));
+        assertEquals("human-resources.companies", detail.get("resourceKey"));
         assertEquals("detail", detail.get("surfaceId"));
+        assertEquals("company-360", detail.get("previewSurfaceId"));
         assertEquals("drawer", detail.get("presentation"));
         assertEquals("praxis-dynamic-form", detail.get("preferredWidget"));
         assertEquals("view", detail.get("mode"));
