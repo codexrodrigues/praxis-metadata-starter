@@ -421,6 +421,48 @@ Para recurso read-only, nao espere:
 - `DELETE /{resource}/{id}`
 - `DELETE /{resource}/batch`
 
+## Concorrência Otimista (`@Version` + `VersionedCreateUpdateResourceService`)
+
+Quando a entidade possuir controle de versão otimista (`@Version private Long version = 0L;`) e `praxis.resource-version.etag.secret` estiver configurado no `application.yml`, implemente `VersionedCreateUpdateResourceService<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>` no service para emitir `ETag` assinado no `GET /{id}` e exigir precondição `If-Match` no `PUT /{id}`:
+
+```java
+@Override
+protected OptionalLong getEntityResourceVersion(Employee entity) {
+    return entity != null && entity.getVersion() != null
+            ? OptionalLong.of(entity.getVersion())
+            : OptionalLong.empty();
+}
+
+@Override
+@Transactional
+public ResourceRepresentationResult<EmployeeResponseDTO> update(
+        Long id,
+        UpdateEmployeeDTO dto,
+        ResourceVersionUpdatePrecondition<Long> precondition) {
+    Employee entity = findEntityById(id);
+    OptionalLong currentVersion = getEntityResourceVersion(entity);
+    if (precondition != null) {
+        if (currentVersion.isEmpty()) {
+            throw ResourceVersionPreconditionException.missingState();
+        }
+        precondition.requireMatch(id, currentVersion.getAsLong());
+    }
+    mapper.applyUpdate(entity, dto);
+    Employee saved = getRepository().save(entity);
+    entityManager.flush();
+    return toResourceRepresentation(saved);
+}
+```
+
+## Extensibilidade Dinâmica Multi-Tenant (`@CustomFields`) e Fatos de Domínio (`@ResourceFact`)
+
+1. **Campos Customizados (`@CustomFields` + `CustomFieldDefinitionProvider`):**
+   - Na entidade JPA PostgreSQL, mapeie a coluna JSONB com `@JdbcTypeCode(SqlTypes.JSON)` e `@Column(name = "custom_fields", columnDefinition = "jsonb") private Map<String, Object> customFields = new LinkedHashMap<>();`.
+   - Em `ResponseDTO`, `CreateDTO`, `UpdateDTO` e `FilterDTO`, declare `@CustomFields(resourceKey = "human-resources.employees") private Map<String, Object> customFields = new LinkedHashMap<>();` (mantendo `customFields` aninhado no JSON, sem `@JsonAnyGetter`/`@JsonAnySetter`).
+   - Registre um bean `@Component` implementando `CustomFieldDefinitionProvider` (consultando `custom_field_definitions`) para que `/schemas/filtered`, validação server-side, filtros JSONB em `/filter`, exportação e `/schemas/domain` projetem automaticamente os campos ativos do órgão/tenant.
+2. **Catálogo de Fatos de Domínio (`@ResourceFact` + `ResourceFactCatalogProvider`):**
+   - Anote o controller/service com `@ResourceFact(key = "tempoServicoDias", resourceKey = "human-resources.employees", label = "Tempo de Serviço em Dias", description = "...", dataType = "integer", unit = "days")` ou exponha um bean `ResourceFactCatalogProvider` para publicar indicadores derivados em `/schemas/domain`.
+
 ## O que nao deve ser gerado
 
 - schema inline em catalogos

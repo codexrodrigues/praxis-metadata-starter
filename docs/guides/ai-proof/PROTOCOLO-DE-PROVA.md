@@ -45,19 +45,19 @@ Nao liberar como baseline:
 
 ### Rodada 1
 
-- backend H2 simples
+- backend PostgreSQL/Neon (ou perfil de prova atribuído) com recurso simples
 
 ### Rodada 2
 
-- backend H2 com relacao
+- backend PostgreSQL/Neon com relacionamento e lookup (`@OptionLabel` / `@ResourceReference` / `OptionSourceRegistry`)
 
 ### Rodada 3
 
-- backend H2 com MapStruct
+- backend PostgreSQL/Neon com MapStruct, chave composta (`CompositeResourceId`) e concorrência otimista (`VersionedCreateUpdateResourceService`)
 
 ### Rodada 4
 
-- backend H2 com filtros ricos
+- backend PostgreSQL/Neon com filtros ricos (`@Filterable`), extensibilidade JSONB (`@CustomFields`) e fatos de domínio (`@ResourceFact`)
 
 ### Rodada 5
 
