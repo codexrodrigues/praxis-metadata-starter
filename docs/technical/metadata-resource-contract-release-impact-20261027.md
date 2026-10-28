@@ -394,3 +394,75 @@ is source-impact acceptance, not release approval. The authorized official relea
 will execute all 204 no-DB classes, the complete Neon matrix and signing/staged
 artifact gates afresh. Public Quickstart adoption still requires actual Central
 bytes and the complete private/sanitized host verification.
+
+### rc.180 release failure and completion-boundary repair
+
+The authorized official dispatcher created immutable tag `v8.0.0-rc.180` at
+`58051205a2d452c334c04a42dba527e4f34c1e5e` from reviewed base `1a88c017db`.
+[Publication run 40605478405](https://github.com/codexrodrigues/praxis-metadata-starter/actions/runs/40605478405)
+failed before Neon, signing or publication: 204 no-DB classes executed 1456 tests,
+with two failures and zero errors/skips. The tag is retained; no rc.180 public
+adoption is claimed and the next attempt must use a free version.
+
+One failure was a stale test expectation: `BulkTargetEvidence` already normalizes
+integral JSON copies to `BigIntegerNode`. The corrected test preserves raw `IntNode`
+input without mutation, canonical integral round-trip/fingerprint equality and
+integral-versus-decimal fingerprint/revalidation differences. No normalization
+behavior changed.
+
+The second exposed a product regression introduced by c05879156f. All four public
+authorized proposal/execution readers started their three-second budget after
+connection acquisition, but sampled expiry before transaction completion. A slow
+commit therefore escaped the required post-transaction check. The existing
+[BULK-H1B read-model contract](../spec/BULK-H1B-READ-MODEL.md) requires checking the
+budget after the owned transaction and before publishing the observation. This is
+a `contrato-publico` correction of `suportado-parcialmente`, not a new contract.
+Metadata remains the canonical owner; Quickstart and other SDK consumers receive
+the existing `UNAVAILABLE` state without a payload when completion expires.
+No DTO, endpoint, header, schema vocabulary or UI adapter is added.
+
+Source commit `f4a0d5a7195eda7bca4827cdaf23705e86e5b053` retains the Deadline object
+created inside the owned callback and checks it after `withConsistentRead` returns.
+It preserves the three-second limit, post-checkout start, commit-failure diagnostics,
+cursor validity, and diagnostic emission after the result decision and connection
+closure. The two diagnostic suites cover all four readers with delayed commit and
+assert exact reasons/stages plus emission after commit/close. Together with the
+numeric-evidence suite, all 34 focal cases passed on JDK 21 with zero failures,
+errors or skips. Independent reviewer `review_quickstart_adoption` approved the
+seven-file patch, including exception paths and absent payload construction.
+
+The product delta affects 85 broad source closures: 77 exclusions and eight
+superseded entries. Six legacy F/G exclusions actually invoke these readers:
+`BulkAuthorizedExecutionReaderPostgresTest`,
+`BulkAuthorizedExecutionResultsReaderPostgresTest`,
+`BulkAuthorizedProposalReaderPostgresTest`,
+`BulkAuthorizedProposalResultsCapacityPostgresTest`,
+`BulkAuthorizedProposalResultsContinuationPostgresTest` and
+`BulkPreviewPageReaderPostgresTest`. Their late-completion behavior is corrected;
+their historical suites are not claimed to have rerun. The other 79 closures contain
+the delta without invoking these four facades. The three historical reuses invoke
+migration/capacity or enqueue/claim/worker paths and direct SQL, not these facades;
+their original ZIP hashes and bounded claims remain intact.
+
+The fresh official release must exercise P4's authorized execution aggregate,
+totals and reduced-scope denial on the repaired source. P4 is native proof of the
+execution reader's ordinary path, not native delayed-completion coverage of all
+four readers; the four completion boundaries are covered by the offline regression
+suites. Full no-DB, all Neon phases, signing and public artifact verification remain
+mandatory. Skills assessment: `existente-adequada`; the canonical operational-proof
+and quickstart-proof guidance already require current source/dependency evidence
+and fail-closed gates. No new guidance contract or derived UI/corpus artifact is
+needed for restoring this documented boundary.
+
+Inventory custody has two separately reviewed causes. The official 1a88c017db to
+58051205a2 transition changed only the root POM version from rc.179 to rc.180;
+POM content normalized without project.version is byte-identical. All 86 impact
+closures and three historical production closures include that POM. Of these,
+85 impact closures plus the three historical production closures also include the
+four-reader repair. `JsonLogicExpressionValidatorParityTest` changes only because
+of the POM version; its validation semantics remain untouched. Only authority and
+async historical dependency closures include POM and require that version-only
+renewal. Occupancy's dependency closure excludes POM and remains exactly
+`d50f2afe28ba75ec6068bc6fa37d1b2810d02224aead9bd8efc80fc57b8b6d6d`.
+No historical ZIP is changed. Reviewer/author `financial_openapi` independently
+checked the exact call paths and official scope-digest function before renewal.
