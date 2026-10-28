@@ -1,5 +1,7 @@
 # Guia 01 - IA Backend - Aplicacao Nova com Core Canonico Atual
 
+> **Blueprint Completo (20 Pilares e 3 Fases):** Antes de gerar os recursos de negocio do host, consulte obrigatoriamente [`GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md`](./GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md) (tambem embarcado dentro do `.jar` do starter em `META-INF/praxis/AI-RESOURCE-BLUEPRINT.md`). Todo recurso corporativo deve contemplar os **20 Pilares** divididos em **Fase 1** (100% colunas da entidade nos DTOs, `@UISchema` editorial, `@MicroVisualization`, `@DomainGovernance`/`fieldAccess`, `@ResourceIdentity` rico, Quick View 360° `@ResourceReference`, `EntityLookupDescriptor` completo com `LookupSelectionPolicy`/`LookupDetailDescriptor`/`dependsOn` e `FilterDTO` exaustivo + `@QuickFilter`), **Fase 2** (`@UiSurface`, `@ResourceIntent`, `@WorkflowAction` com `If-Match`, **Bulking Governado nos 3 modos** `@BulkEditable`/`@BulkResourceOperations`/`@BulkOperation`, `@ResourceFact`, `@UiAnalytics` + `StatsFieldRegistry` e `CollectionExport` `CSV`/`JSON`/`EXCEL` com `CollectionExportFieldPresentation`) e **Fase 3** (Invariantes transacionais `409`/`422`, `ReactiveDeterminationDefinitionProvider`, `praxis-rules-engine`, `/praxis/cockpit`, orcamento N+1 e Gate JUnit Nativo com `SemanticMetadataReviewer` + `PraxisExpressionStaticValidator` + `OptionSourcePublicationInventory`).
+
 ## Objetivo
 
 Este guia existe para uma LLM conseguir gerar, com alta chance de sucesso, uma

@@ -117,7 +117,7 @@ public class GenericSpecificationsBuilder<E> {
             List<Field> fields = getAnnotatedFields(filter);
 
             for (Field field : fields) {
-                processField(field, filter, root, criteriaBuilder, predicates);
+                processField(field, filter, root, query, criteriaBuilder, predicates);
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
@@ -137,10 +137,16 @@ public class GenericSpecificationsBuilder<E> {
             try {
                 Field field = filter.getClass().getDeclaredField(order.getProperty());
                 Filterable filterable = field.getAnnotation(Filterable.class);
-                if (filterable == null || filterable.relation().isEmpty()) {
+                if (filterable == null) {
                     return order;
                 }
-                return order.withProperty(filterable.relation());
+                if (!filterable.relation().isEmpty()) {
+                    return order.withProperty(filterable.relation());
+                }
+                if (filterable.relations().length > 0 && !filterable.relations()[0].isBlank()) {
+                    return order.withProperty(filterable.relations()[0].trim());
+                }
+                return order;
             } catch (NoSuchFieldException e) {
                 return order;
             }
@@ -176,23 +182,51 @@ public class GenericSpecificationsBuilder<E> {
      * <p>Etapas:
      * <ul>
      *   <li>Extrai o valor do campo no DTO.</li>
-     *   <li>Resolve o caminho para a propriedade correspondente na entidade.</li>
+     *   <li>Resolve o caminho para a propriedade correspondente na entidade (ou múltiplos caminhos em {@code OR} quando {@link Filterable#relations()} for usado).</li>
      *   <li>Identifica o tipo de operação (e.g., EQUAL, LIKE) e cria o predicado apropriado.</li>
      * </ul>
      *
      * @param field           Campo do DTO.
      * @param filter          Instância do DTO de filtro.
      * @param root            Raiz da consulta JPA.
+     * @param query           Consulta JPA atual (usada para ativar {@code distinct} quando houver disjunção com joins).
      * @param criteriaBuilder Construtor de critérios JPA.
      * @param predicates      Lista de predicados a ser preenchida.
      */
     private <FDT extends GenericFilterDTO> void processField(Field field, FDT filter, Root<E> root,
-                              CriteriaBuilder criteriaBuilder, List<Predicate> predicates) {
+                              CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder, List<Predicate> predicates) {
         try {
             field.setAccessible(true);
             Object value = field.get(filter);
             if (value != null) {
                 Filterable filterable = field.getAnnotation(Filterable.class);
+                String[] multiRelations = filterable.relations();
+                if (multiRelations != null && multiRelations.length > 0) {
+                    List<Predicate> orPredicates = new ArrayList<>();
+                    boolean hasNestedJoin = false;
+                    for (String rel : multiRelations) {
+                        if (rel == null || rel.isBlank()) {
+                            continue;
+                        }
+                        String trimmed = rel.trim();
+                        if (trimmed.contains(".")) {
+                            hasNestedJoin = true;
+                        }
+                        jakarta.persistence.criteria.Path<?> relPath =
+                                org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, trimmed, true);
+                        addPredicate(orPredicates, criteriaBuilder, relPath, value, filterable);
+                    }
+                    if (!orPredicates.isEmpty()) {
+                        if (hasNestedJoin && query != null) {
+                            query.distinct(true);
+                        }
+                        predicates.add(orPredicates.size() == 1
+                                ? orPredicates.get(0)
+                                : criteriaBuilder.or(orPredicates.toArray(new Predicate[0])));
+                    }
+                    return;
+                }
+
                 jakarta.persistence.criteria.Path<?> path;
 
                 // Usa o campo relacionado, se especificado

@@ -281,15 +281,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<RestApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException ex, WebRequest request) {
-        // Mantém 400 para invalidações explícitas em endpoints de schema.
-        // Validação de payload de filtro deve usar InvalidFilterPayloadException.
+        // MantÃ©m 400 para invalidaÃ§Ãµes explÃ­citas em endpoints de schema.
+        // ValidaÃ§Ã£o de payload de filtro deve usar InvalidFilterPayloadException.
         if (isSchemaRequest(request)) {
             String reason = normalize(ex.getMessage());
             String detailMessage = reason != null ? reason : "Invalid parameter.";
             return buildValidationErrorResponse(detailMessage, "Invalid parameter", request, ERROR_CODE_INVALID_PARAMETER);
         }
 
-        log.error("[GlobalExceptionHandler] IllegalArgumentException fora do fluxo de validação explícita", ex);
+        log.error("[GlobalExceptionHandler] IllegalArgumentException fora do fluxo de validaÃ§Ã£o explÃ­cita", ex);
         return buildInternalServerErrorResponse(request);
     }
 

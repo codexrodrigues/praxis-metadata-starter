@@ -1,11 +1,11 @@
 # Integração de host e Bulking — candidato da Issue 308
 
-Este candidato usa a coordenada local distinta `8.0.0-ergon-bulk.308-SNAPSHOT`.
+Este candidato usa a coordenada local distinta `8.0.0-bulk.308-SNAPSHOT`.
 Não é release público e não substitui os bytes da rc.179 já instalada. O host
 consumidor usa override explícito e repositório Maven isolado durante a prova.
 Publicação e adoção de uma versão pública continuam sendo gates separados.
 O candidato foi atualizado sobre o main rc.183; o POM versionado conserva essa linha. Para reproduzir a coordenada de prova,
-use um checkout isolado e `mvn versions:set -DnewVersion=8.0.0-ergon-bulk.308-SNAPSHOT
+use um checkout isolado e `mvn versions:set -DnewVersion=8.0.0-bulk.308-SNAPSHOT
 -DgenerateBackupPoms=false` antes do package; instale o resultado somente no
 cache isolado do consumidor. Não instale esse build como rc.179.
 
