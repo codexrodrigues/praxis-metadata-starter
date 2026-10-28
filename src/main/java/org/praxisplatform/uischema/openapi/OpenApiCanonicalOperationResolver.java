@@ -416,6 +416,19 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
      * run after MVC inspection and can otherwise rewrite or duplicate it.
      */
     private void verifyPublishedBulkOperation(String operationId, String path, String method) {
+        // One semantic identity is derived from every published group. Separate document
+        // guards can observe different publications and repeatedly attest the same read.
+        // Reuse the canonical scope: immutable local photograph, live entry/exit guards,
+        // no authority cache and no domain work while holding the scope.
+        Boolean verified = openApiDocumentService.withSchemaCacheReadLock(() -> {
+            verifyPublishedBulkOperationWithinFence(operationId, path, method);
+            return Boolean.TRUE;
+        });
+        if (!Boolean.TRUE.equals(verified))
+            throw invalidBinding(operationId, "document fence did not complete identity verification");
+    }
+
+    private void verifyPublishedBulkOperationWithinFence(String operationId, String path, String method) {
         String group = resolveGroup(path);
         JsonNode document = openApiDocumentService.getDocumentForGroupStrict(group);
         JsonNode paths = document == null ? null : document.path("paths");
