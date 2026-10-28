@@ -205,13 +205,25 @@ class BulkGovernanceEvidenceTest {
                 governance(proposal.createdAt()));
         var loaded = BulkEvaluationStorageCodec.decode(proposal, BulkEvaluationStorageCodec.encode(original), original.fingerprint());
         var checkedAt = original.evaluatedAt().plusSeconds(1);
+        var integerFacts = JSON.objectNode().put("count", 1);
+        var integerPlan = JSON.objectNode().put("amount", 1);
         var freshInteger = new BulkTargetEvidence<>(target.target(), target.observedVersion(),
-                JSON.objectNode().put("count", 1), JSON.objectNode().put("amount", 1), BulkTargetEligibility.executable());
+                integerFacts, integerPlan, BulkTargetEligibility.executable());
         var freshDecimal = new BulkTargetEvidence<>(target.target(), target.observedVersion(),
                 JSON.objectNode().put("count", 1), JSON.objectNode().put("amount", new BigDecimal("1.0")), BulkTargetEligibility.executable());
 
         assertThat(loaded.targets().getFirst().facts().get("count").isBigInteger()).isTrue();
-        assertThat(freshInteger.facts().get("count").isInt()).isTrue();
+        // Inputs retain their Jackson representation; evidence owns a canonical defensive copy.
+        assertThat(integerFacts.get("count").isInt()).isTrue();
+        assertThat(integerPlan.get("amount").isInt()).isTrue();
+        assertThat(freshInteger.facts().get("count").isBigInteger()).isTrue();
+        assertThat(freshInteger.plan().get("amount").isBigInteger()).isTrue();
+        assertThat(freshDecimal.plan().get("amount").isBigDecimal()).isTrue();
+        assertThat(loaded.fingerprint()).isEqualTo(original.fingerprint());
+        assertThat(new BulkEvaluationSnapshot(proposal, original.evaluatedAt(), List.of(freshInteger),
+                original.governance()).fingerprint()).isEqualTo(original.fingerprint());
+        assertThat(new BulkEvaluationSnapshot(proposal, original.evaluatedAt(), List.of(freshDecimal),
+                original.governance()).fingerprint()).isNotEqualTo(original.fingerprint());
         assertThat(loaded.matchesCurrentEvidence(CONTEXT, checkedAt, List.of(freshInteger), governance(checkedAt))).isTrue();
         assertThat(loaded.matchesCurrentEvidence(CONTEXT, checkedAt, List.of(freshDecimal), governance(checkedAt))).isFalse();
     }

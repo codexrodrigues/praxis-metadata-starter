@@ -136,12 +136,27 @@ class BulkExecutionReadFailureDiagnosticsTest {
 
     @Test void expiryAfterOwnedTransactionIsRecordedAfterItsCompletedDecision() throws Exception {
         try (var f = new Readers(); var log = new Events()) {
+            var commits = new AtomicInteger();
+            var closes = new AtomicInteger();
             doReturn(null).when(f.auth).preAuthorize(any(), any());
-            doAnswer(i -> { Thread.sleep(3100); return null; }).when(f.jdbc.connection).commit();
+            doAnswer(i -> {
+                assertThat(log.events()).hasSize(commits.get() * 2);
+                Thread.sleep(3100);
+                commits.incrementAndGet();
+                return null;
+            }).when(f.jdbc.connection).commit();
+            doAnswer(i -> {
+                assertThat(log.events()).hasSize(closes.get() * 2);
+                assertThat(commits.get()).isEqualTo(closes.get() + 1);
+                closes.incrementAndGet();
+                return null;
+            }).when(f.jdbc.connection).close();
             assertThat(f.execution.readExecution("subject", f.id).state()).isEqualTo(BulkAuthorizedExecutionReader.State.UNAVAILABLE);
             assertThat(f.results.readExecutionResults("subject", f.id, 1).state()).isEqualTo(BulkAuthorizedExecutionResultsReader.State.UNAVAILABLE);
             assertThat(log.events()).extracting(e -> e.path("stage").asText()).containsExactly("GLOBAL_AUTHORIZATION", "AFTER_TRANSACTION", "GLOBAL_AUTHORIZATION", "AFTER_TRANSACTION");
-            assertThat(log.events().get(1).path("reason").asText()).isEqualTo("DEADLINE_EXPIRED");
+            assertThat(log.events()).extracting(e -> e.path("reason").asText()).containsExactly("GLOBAL_DECISION_MISSING", "DEADLINE_EXPIRED", "GLOBAL_DECISION_MISSING", "DEADLINE_EXPIRED");
+            assertThat(commits).hasValue(2);
+            assertThat(closes).hasValue(2);
         }
     }
 
