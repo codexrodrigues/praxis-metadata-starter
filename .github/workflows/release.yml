@@ -192,6 +192,18 @@ jobs:
           RELEASE_INPUT_VERSION: ${{ inputs.version }}
           RELEASE_INPUT_BUMP: ${{ inputs.bump }}
           RELEASE_INPUT_PREID: ${{ inputs.preid }}
+      - name: Validate reviewed release inventory before tag creation
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]] || { echo '::error::Release preflight source differs from dispatch.'; exit 1; }
+          CURRENT_VERSION="$(python3 -B -c 'from pathlib import Path; from tools.release.neon_gate import _pom_without_project_version; print(_pom_without_project_version(Path("pom.xml").read_bytes())[0])')"
+          for selection in no_db managed-owner optional-policies resource-contracts; do
+            python3 -B tools/release/neon_gate.py --release --require-clean \
+              --base "$GITHUB_SHA" --version "$CURRENT_VERSION" --print-selection "$selection" >/dev/null
+          done
       - name: Persist version and push main and tag atomically
         shell: bash
         run: |

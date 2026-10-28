@@ -8,7 +8,8 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from neon_gate import (RESOURCE_CONTRACT_CASES, CAPTURE_MARKERS, GateError, audited_inventory, sha256, verify_reports,
+from neon_gate import (RESOURCE_CONTRACT_CASES, CAPTURE_MARKERS, SCOPE_HASH_BASIS, GateError,
+                       _pom_without_project_version, audited_inventory, sha256, verify_reports,
                        verify_staged_jar, verify_tag_derivation, reviewed_scope_digest,
                        validate_superseded, verify_checkout_clean,
                        snapshot_dependency_classpath, verify_no_known_secrets,
@@ -66,6 +67,7 @@ class NeonGateOfflineTest(unittest.TestCase):
         head = self._git("rev-parse", "HEAD")
         manifest = {
             "schemaVersion": 2,
+            "reviewedScopeHashBasis": SCOPE_HASH_BASIS,
             "baselineCommit": head,
             "fixtureGroups": {},
             "requiredImpactGroups": {key: [] for key in "BCDEFGH"},
@@ -132,13 +134,110 @@ class NeonGateOfflineTest(unittest.TestCase):
         base = manifest["baselineCommit"]
         review = {"scopePrefixes": ["src/main/java/example/"]}
         original = reviewed_scope_digest(self.root, base, review)
+        existing = self.root / "src/main/java/example/Service.java"
+        existing.write_text("package example; class Service { int changed; }\n")
+        self._git("add", ".")
+        self._git("-c", "user.name=Gate", "-c", "user.email=gate@example.invalid",
+                  "commit", "-qm", "changed production dependency")
+        changed = reviewed_scope_digest(self.root, self._git("rev-parse", "HEAD"), review)
+        self.assertNotEqual(original, changed)
         new_source = self.root / "src/main/java/example/Second.java"
         new_source.write_text("package example; class Second {}\n")
         self._git("add", ".")
         self._git("-c", "user.name=Gate", "-c", "user.email=gate@example.invalid",
                   "commit", "-qm", "new production dependency")
-        self.assertNotEqual(original, reviewed_scope_digest(
+        self.assertNotEqual(changed, reviewed_scope_digest(
             self.root, self._git("rev-parse", "HEAD"), review))
+
+    def test_root_version_mask_preserves_every_other_byte(self):
+        original = (b'<project xmlns="http://maven.apache.org/POM/4.0.0">\r\n'
+                    b'<!--retain comment--> <parent><version>3.5.15</version></parent>\r\n'
+                    b'<version> 8.0.0-rc.180 </version>\r\n'
+                    b'<dependencies><dependency><version>42.7.11</version></dependency></dependencies>'
+                    b'<properties><revision>fixed</revision></properties>'
+                    b'<build><plugins><plugin><version>3.8.1</version></plugin></plugins></build>'
+                    b'<profiles><profile><id>release</id></profile></profiles></project>')
+        actual, masked = _pom_without_project_version(original)
+        self.assertEqual(actual, '8.0.0-rc.180')
+        self.assertEqual(masked, original.replace(b'8.0.0-rc.180', b'<reviewed-version-bump>'))
+        for version in (b'8.0.0-rc.181', b'8.0.0-rc.182', b'8.0.0-rc.183'):
+            bumped = original.replace(b'8.0.0-rc.180', version)
+            self.assertNotEqual(sha256(original), sha256(bumped))
+            self.assertEqual(masked, _pom_without_project_version(bumped)[1])
+        for before, after in ((b'3.5.15', b'3.5.16'), (b'42.7.11', b'42.7.12'),
+                              (b'3.8.1', b'3.8.2'), (b'fixed', b'changed'),
+                              (b'release</id>', b'other</id>'),
+                              (b'retain comment', b'changed comment'), (b'\r\n', b'\n')):
+            self.assertNotEqual(masked, _pom_without_project_version(original.replace(before, after))[1])
+
+    def test_scope_digest_neutralizes_repeated_root_bumps_but_not_nested_pom_or_dependency(self):
+        self._repo()
+        review = {'scopePaths': ['pom.xml'], 'scopePrefixes': ['src/main/java/', 'nested/']}
+        original = reviewed_scope_digest(self.root, self._git('rev-parse', 'HEAD'), review)
+        prior_version = '1.0.0'
+        for version in ('1.0.1', '1.0.2', '1.0.3'):
+            pom = self.root / 'pom.xml'
+            pom.write_text(pom.read_text().replace('<version>' + prior_version + '</version>',
+                                                 '<version>' + version + '</version>'))
+            prior_version = version
+            self._git('add', 'pom.xml')
+            self._git('-c', 'user.name=Gate', '-c', 'user.email=gate@example.invalid', 'commit', '-qm', 'bump')
+            self.assertEqual(original, reviewed_scope_digest(self.root, self._git('rev-parse', 'HEAD'), review))
+        pom.write_text(pom.read_text().replace('</project>', '<dependencies><dependency>'
+            '<artifactId>real-dependency-change</artifactId><version>2</version></dependency></dependencies></project>'))
+        self._git('add', 'pom.xml')
+        self._git('-c', 'user.name=Gate', '-c', 'user.email=gate@example.invalid', 'commit', '-qm', 'dependency')
+        self.assertNotEqual(original, reviewed_scope_digest(self.root, self._git('rev-parse', 'HEAD'), review))
+        nested = self.root / 'nested/pom.xml'
+        nested.parent.mkdir()
+        nested.write_text((self.root / 'pom.xml').read_text())
+        self._git('add', '.')
+        self._git('-c', 'user.name=Gate', '-c', 'user.email=gate@example.invalid', 'commit', '-qm', 'nested')
+        with_nested = reviewed_scope_digest(self.root, self._git('rev-parse', 'HEAD'), review)
+        self.assertNotEqual(original, with_nested)
+        nested.write_text(nested.read_text().replace('1.0.3', '1.0.4'))
+        self._git('add', '.')
+        self._git('-c', 'user.name=Gate', '-c', 'user.email=gate@example.invalid', 'commit', '-qm', 'nested bump')
+        self.assertNotEqual(with_nested, reviewed_scope_digest(self.root, self._git('rev-parse', 'HEAD'), review))
+
+    def test_version_mask_rejects_malformed_missing_duplicate_and_nonliteral_versions(self):
+        prefix = b'<project xmlns="http://maven.apache.org/POM/4.0.0">'
+        for body in (b'', b'<version/>', b'<version> </version>',
+                     b'<version>1</version><version>2</version>', b'<version>1',
+                     b'<version><value>1</value></version>', b'<version><![CDATA[1]]></version>',
+                     b'<version><!--comment-->1</version>', b'<version>1&amp;2</version>',
+                     b'<version>${revision}</version>'):
+            with self.subTest(body=body), self.assertRaises(GateError):
+                _pom_without_project_version(prefix + body + b'</project>')
+
+    def test_version_references_outside_root_fail_closed_in_text_and_attributes(self):
+        for reference in ('${project.version}', '${pom.version}', '${version}', '&#36;{project.version}',
+                          '${pro&#106;ect.version}', '${po&#109;.version}', '${ver&#115;ion}'):
+            for body in (f'<properties><sdk>{reference}</sdk></properties>',
+                         f'<dependency version="{reference}"/>'):
+                pom = ('<project xmlns="http://maven.apache.org/POM/4.0.0"><version>1</version>'
+                       + body + '</project>').encode()
+                with self.subTest(body=body), self.assertRaisesRegex(GateError, 'references project version'):
+                    _pom_without_project_version(pom)
+        for reference in ('${pro<!--fragment-->ject.version}', '${pro<![CDATA[ject]]>.version}'):
+            pom = ('<project xmlns="http://maven.apache.org/POM/4.0.0"><version>1</version>'
+                   '<properties><x>' + reference + '</x></properties></project>').encode()
+            with self.assertRaisesRegex(GateError, 'references project version'):
+                _pom_without_project_version(pom)
+
+    def test_unsupported_pom_encoding_fails_closed(self):
+        for data in (b'<?xml version="1.0" encoding="ISO-8859-1"?><project/>',
+                     '<project/>'.encode('utf-16'), b'\xffinvalid'):
+            with self.assertRaisesRegex(GateError, 'UTF-8 encoding'):
+                _pom_without_project_version(data)
+
+    def test_inventory_requires_the_explicit_scope_hash_algorithm(self):
+        path, manifest = self._repo()
+        for value in (None, 'raw-git-blobs', 'future-unknown'):
+            manifest['reviewedScopeHashBasis'] = value
+            path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(GateError, 'scope hash basis'):
+                audited_inventory(self.root, path)
 
     def test_release_disposition_is_bound_to_baseline_and_product_scope(self):
         path, manifest = self._repo()

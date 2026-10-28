@@ -210,8 +210,35 @@ para `no_db`, `managed-owner`, `optional-policies` e `resource-contracts`. Não 
 antes que o commit oficial de versão exista. Esse preflight não conecta ao banco,
 não cria tag e não substitui os testes e a assinatura obrigatórios da publicação.
 
+```bash
+REVIEWED_BASE="$(git rev-parse HEAD)"
+CURRENT_VERSION="$(python3 -B -c 'from pathlib import Path; from tools.release.neon_gate import _pom_without_project_version; print(_pom_without_project_version(Path("pom.xml").read_bytes())[0])')"
+for selection in no_db managed-owner optional-policies resource-contracts; do
+  python3 -B tools/release/neon_gate.py --release --require-clean \
+    --base "$REVIEWED_BASE" --version "$CURRENT_VERSION" --print-selection "$selection" >/dev/null
+done
+```
+
+`--require-clean` sem `--release` não valida closures de exclusão/reuso e não é
+este preflight. O algoritmo lógico obrigatório do manifesto é
+`reviewedScopeHashBasis=git-blobs-root-project-version-neutral-v1`: somente o valor
+literal de `/project/version` no `pom.xml` raiz é neutralizado nas closures de
+fonte e dependências. Todo outro byte permanece no digest, inclusive parent,
+dependencies, plugins, properties, profiles, comentários e POMs aninhados.
+Referências a `${project.version}`, `${pom.version}` ou `${version}` fora da versão
+raiz falham fechado, pois tornam o bump operacionalmente relevante. XML inválido,
+versão ausente/duplicada/não literal ou encoding não UTF-8 também é recusado.
+O POM bruto, JAR, classpath resolvido, POM efetivo e tag continuam sob custódia
+exata; a normalização não autoriza alterar dependências nem ignorar a versão da
+publicação. A [migração causal](docs/technical/release-inventory-version-normalization.md)
+preserva os recibos/ZIPs e distingue identidade lógica de evidência de build.
+
+O job `create_tag` executa automaticamente as quatro verificações acima antes de
+`versions:set`, commit, tag ou push; uma falha impede a criação da versão.
+
 Uma alteração de teste exige renovar seu hash inventariado. Uma mudança no scope
-amplo de produção ou no POM exige revisão das exclusões e reutilizações, mesmo
+amplo de produção ou no POM, fora do valor raiz de versão neutralizado, exige
+revisão das exclusões e reutilizações, mesmo
 quando o caminho exercitado não mudou. Não atualizar hashes sem confrontar o diff,
 o comportamento coberto, as substituições obrigatórias e os recibos originais.
 A validação da tag compara essas closures contra o base pré-release; a alteração

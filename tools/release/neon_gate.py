@@ -12,12 +12,14 @@ import os
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from xml.parsers import expat
 import zipfile
 from collections import Counter
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 GROUPS = tuple("BCDEFGH")
+SCOPE_HASH_BASIS = "git-blobs-root-project-version-neutral-v1"
 NEON_PHASES = ("managed-owner", "optional-policies", "resource-contracts")
 RESOURCE_CONTRACT_CASES = {
     "org.praxisplatform.uischema.customfields.e2e.CustomFieldsResourceE2ETest": (
@@ -85,18 +87,106 @@ def reviewed_scope_digest(repo, commit, review):
     digest = hashlib.sha256()
     for path in selected:
         blob = subprocess.check_output(["git", "-C", str(repo), "show", f"{commit}:{path}"])
+        if path == "pom.xml":
+            _, blob = _pom_without_project_version(blob)
         digest.update(path.encode() + b"\0" + sha256(blob).encode() + b"\n")
     return digest.hexdigest()
 
 
 def _pom_without_project_version(contents):
-    root = ET.fromstring(contents)
-    version = root.find("{http://maven.apache.org/POM/4.0.0}version")
-    if version is None or not version.text:
-        raise GateError("POM has no project version")
-    actual = version.text
-    version.text = "<reviewed-version-bump>"
-    return actual, ET.tostring(root)
+    """Mask only the literal root version value; preserve every other original byte.
+
+    This is a logical closure identity, never the raw POM/build-artifact hash.
+    A project-version interpolation elsewhere makes a bump operationally meaningful.
+    """
+    try:
+        contents.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GateError("POM requires UTF-8 encoding") from exc
+    if b"\0" in contents:
+        raise GateError("POM requires UTF-8 encoding")
+    parser = expat.ParserCreate(namespace_separator="}")
+    project = "http://maven.apache.org/POM/4.0.0}project"
+    version = "http://maven.apache.org/POM/4.0.0}version"
+    path, spans, text, outside_text = [], [], [], []
+    references = ("${project.version}", "${pom.version}", "${version}")
+
+    def reject_reference(value):
+        if any(ref in value for ref in references):
+            raise GateError("POM references project version outside root version")
+
+    def start(name, attributes):
+        if path == [project, version]:
+            raise GateError("POM root version must contain only literal text")
+        path.append(name)
+        if len(path) == 1 and name != project:
+            raise GateError("POM root is not Maven project")
+        for value in attributes.values():
+            reject_reference(value)
+        if path == [project, version]:
+            if spans or attributes:
+                raise GateError("POM requires exactly one plain root project version")
+            # XML validates the element; locate its closing '>' without serializing it.
+            index, quote = parser.CurrentByteIndex, None
+            while index < len(contents):
+                byte = contents[index]
+                if quote is not None:
+                    if byte == quote:
+                        quote = None
+                elif byte in (34, 39):
+                    quote = byte
+                elif byte == 62:
+                    spans.append([index + 1, None])
+                    break
+                index += 1
+
+    def characters(value):
+        if path == [project, version]:
+            text.append(value)
+        else:
+            outside_text.append(value)
+            reject_reference(value)
+
+    def end(name):
+        if path == [project, version]:
+            spans[0][1] = parser.CurrentByteIndex
+        path.pop()
+
+    def non_text(*_):
+        if path == [project, version]:
+            raise GateError("POM root version must contain only literal text")
+
+    def doctype(*_):
+        raise GateError("POM DTD is unsupported")
+
+    def declaration(_, encoding, __):
+        if encoding is not None and encoding.upper().replace("-", "") != "UTF8":
+            raise GateError("POM requires UTF-8 encoding")
+
+    parser.StartElementHandler, parser.EndElementHandler = start, end
+    parser.CharacterDataHandler = characters
+    parser.CommentHandler = non_text
+    parser.ProcessingInstructionHandler = non_text
+    parser.StartCdataSectionHandler = non_text
+    parser.StartDoctypeDeclHandler = doctype
+    parser.XmlDeclHandler = declaration
+    try:
+        parser.Parse(contents, True)
+    except expat.ExpatError as exc:
+        raise GateError("malformed POM XML") from exc
+    if len(spans) != 1 or not text or not "".join(text).strip():
+        raise GateError("POM requires exactly one nonempty root project version")
+    begin, end = spans[0]
+    literal = contents[begin:end]
+    if b"<" in literal or b"&" in literal or b"${" in literal:
+        raise GateError("POM root version must contain only literal text")
+    leading = len(literal) - len(literal.lstrip(b" \t\r\n"))
+    trailing = len(literal) - len(literal.rstrip(b" \t\r\n"))
+    stop = end - trailing
+    # Catch exact tokens across parser chunks/comments as well as decoded XML text.
+    reject_reference((contents[:begin] + contents[end:]).decode("utf-8"))
+    reject_reference("".join(outside_text))
+    return "".join(text).strip(), contents[:begin + leading] + b"<reviewed-version-bump>" + contents[stop:]
 
 
 def verify_tag_derivation(repo, base, version):
@@ -168,6 +258,8 @@ def audited_inventory(repo, manifest_path, release=False, base=None, version=Non
     manifest = json.loads(Path(manifest_path).read_text())
     if manifest.get("schemaVersion") != 2:
         raise GateError("unsupported inventory schema")
+    if manifest.get("reviewedScopeHashBasis") != SCOPE_HASH_BASIS:
+        raise GateError("unsupported reviewed scope hash basis")
     head = run_git(repo, "rev-parse", "HEAD")
     baseline = manifest.get("baselineCommit")
     if not baseline:

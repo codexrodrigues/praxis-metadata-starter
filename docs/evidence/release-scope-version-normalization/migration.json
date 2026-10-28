@@ -1,0 +1,1071 @@
+{
+  "algorithm": "git-blobs-root-project-version-neutral-v1",
+  "closures": {
+    "0f0e6a1c2446daac896cfa6464ed90a283c042da1d17b39caaede22fc9f1261e": {
+      "cause": "unchanged: root POM outside closure",
+      "changedSinceReviewedCommit": [],
+      "legacyRawReviewedDigest": "d50f2afe28ba75ec6068bc6fa37d1b2810d02224aead9bd8efc80fc57b8b6d6d",
+      "legacyRawTag182Digest": "d50f2afe28ba75ec6068bc6fa37d1b2810d02224aead9bd8efc80fc57b8b6d6d",
+      "newLogicalDigest": "d50f2afe28ba75ec6068bc6fa37d1b2810d02224aead9bd8efc80fc57b8b6d6d",
+      "scope": {
+        "scopePaths": [
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityGlobalOccupancyNeonTest.java",
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityGlobalOccupancyPostgresTest.java",
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
+        ],
+        "scopePrefixes": [
+          "src/test/resources/"
+        ]
+      },
+      "selectedPathCount": 24
+    },
+    "115c2cc50f868248d24734f3b0fa9c9997b74687ab1c96497fb6885cb2b17f7b": {
+      "cause": "root-project-version-only normalization migration",
+      "changedSinceReviewedCommit": [
+        "pom.xml"
+      ],
+      "legacyRawReviewedDigest": "67d9655b87729ab73ef32f363fc550a67f4fb944a3e56aca4c66a628ed182edb",
+      "legacyRawTag182Digest": "8f3d5a21f4f9264a3e414ba99632c044b7d2d722f9d80451c01dc672e8fb2e49",
+      "newLogicalDigest": "eef059687be9bf890a97de4835d1ec7693c20cf44f6fb5a615e4452426a7c6ed",
+      "scope": {
+        "scopePaths": [
+          "pom.xml"
+        ],
+        "scopePrefixes": [
+          "src/main/java/org/praxisplatform/uischema/bulk/",
+          "src/main/resources/db/praxis-bulk-capacity-migration-lineage/",
+          "src/main/resources/db/praxis-bulk-capacity-migrations/",
+          "src/main/resources/db/praxis-bulk-migration-lineage/",
+          "src/main/resources/db/praxis-bulk-migrations/"
+        ]
+      },
+      "selectedPathCount": 174
+    },
+    "34e03528b156e271021083edd49a272d412592654aabb13e0561985d1c0fac8c": {
+      "cause": "root-project-version-only normalization migration",
+      "changedSinceReviewedCommit": [
+        "pom.xml"
+      ],
+      "legacyRawReviewedDigest": "d5362c5e392af4f80517181bcd18ab82b6d1181006294fed75874b28b5896687",
+      "legacyRawTag182Digest": "505b02fd71d73502685afb134b82795268c3ab1376cf69737513e7a17171d911",
+      "newLogicalDigest": "4f21725f42d5b6c3b2ad7062281f80b102974893cdef7998fe70a11eb18a70bd",
+      "scope": {
+        "scopePaths": [
+          "pom.xml"
+        ],
+        "scopePrefixes": [
+          "src/main/java/org/praxisplatform/uischema/bulk/",
+          "src/main/resources/db/praxis-bulk-capacity-migration-lineage/",
+          "src/main/resources/db/praxis-bulk-capacity-migrations/"
+        ]
+      },
+      "selectedPathCount": 133
+    },
+    "57eafac8fe0b8d4f728ad9b4bd5f6ea1ef01ff5d654229460f44c2b8ab44826c": {
+      "cause": "root-project-version-only normalization migration",
+      "changedSinceReviewedCommit": [
+        "pom.xml"
+      ],
+      "legacyRawReviewedDigest": "93b135ed9aa92a9e20927cbb71b92bc9055581f960916000fc1c1b0153a46b35",
+      "legacyRawTag182Digest": "a39acb8fc9e2fbed01f2ccc1f5e8fc186332e1b3803ea60174d3f96a5befcb76",
+      "newLogicalDigest": "15c4a4a3c311e0c999e8fce06677d8cb94b5c1826feabf69b80bc0b533446c6a",
+      "scope": {
+        "scopePaths": [
+          "pom.xml",
+          "src/main/java/org/praxisplatform/uischema/validation/JsonLogicExpressionValidator.java",
+          "src/main/java/org/praxisplatform/uischema/validation/PraxisExpressionStaticValidator.java",
+          "src/test/java/org/praxisplatform/uischema/validation/JsonLogicExpressionValidatorParityTest.java"
+        ],
+        "scopePrefixes": []
+      },
+      "selectedPathCount": 4
+    },
+    "59f6f66c41b6437d59c6fa953709fc8aa0dafbd37777b31d43584f9776c307af": {
+      "cause": "root-project-version-only normalization migration",
+      "changedSinceReviewedCommit": [
+        "pom.xml"
+      ],
+      "legacyRawReviewedDigest": "15b603e0c60421ff50ce42bad125f9b7240fccd907daf5d1bd2f895ccd937351",
+      "legacyRawTag182Digest": "e7f7160013d3feb3705a52dbf44193823f43579936929cf3ebf245b8746f0e3b",
+      "newLogicalDigest": "a91cd67803430d442d90108846500544cb3c98268744e945d25be8eb3da3ee73",
+      "scope": {
+        "scopePaths": [
+          "pom.xml",
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkAsyncNeonContinuationTest.java",
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkAsyncPublicAdmissionNeonFixture.java",
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkAsyncPublicAdmissionNeonTest.java",
+          "src/test/java/org/praxisplatform/uischema/consumer/BulkAsyncPublicAdmissionConsumer.java",
+          "src/test/java/org/praxisplatform/uischema/consumer/BulkAsyncPublicAdmissionWorkerProcess.java"
+        ],
+        "scopePrefixes": [
+          "src/test/resources/"
+        ]
+      },
+      "selectedPathCount": 27
+    },
+    "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276": {
+      "cause": "root-project-version-only normalization migration",
+      "changedSinceReviewedCommit": [
+        "pom.xml"
+      ],
+      "legacyRawReviewedDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a",
+      "legacyRawTag182Digest": "64ab4a1b7a739cb06288cdd19bbc03425ca3dc27ed18f2d51e4f8125b3739adf",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "scope": {
+        "scopePaths": [
+          "pom.xml"
+        ],
+        "scopePrefixes": [
+          "src/main/java/org/praxisplatform/uischema/",
+          "src/test/java/org/praxisplatform/dummy/",
+          "src/test/resources/"
+        ]
+      },
+      "selectedPathCount": 612
+    },
+    "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648": {
+      "cause": "root-project-version-only normalization migration",
+      "changedSinceReviewedCommit": [
+        "pom.xml"
+      ],
+      "legacyRawReviewedDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de",
+      "legacyRawTag182Digest": "6879c926e899f727999d026e1e1c53983210148c200654eb86b4174e71be419e",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "scope": {
+        "scopePaths": [
+          "pom.xml",
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
+        ],
+        "scopePrefixes": [
+          "src/main/java/org/praxisplatform/uischema/bulk/",
+          "src/main/resources/db/praxis-bulk-capacity-migration-lineage/",
+          "src/main/resources/db/praxis-bulk-capacity-migrations/",
+          "src/main/resources/db/praxis-bulk-migrations/"
+        ]
+      },
+      "selectedPathCount": 154
+    },
+    "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174": {
+      "cause": "root-project-version-only normalization migration",
+      "changedSinceReviewedCommit": [
+        "pom.xml"
+      ],
+      "legacyRawReviewedDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c",
+      "legacyRawTag182Digest": "5d86c560e0ee7c3a89f895d4c8a07a854cab115cdf864366c7e730d9f70e8e77",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "scope": {
+        "scopePaths": [
+          "pom.xml",
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
+        ],
+        "scopePrefixes": [
+          "src/main/java/org/praxisplatform/uischema/bulk/",
+          "src/main/resources/db/praxis-bulk-migration-lineage/",
+          "src/main/resources/db/praxis-bulk-migrations/"
+        ]
+      },
+      "selectedPathCount": 170
+    },
+    "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3": {
+      "cause": "root-project-version-only normalization migration",
+      "changedSinceReviewedCommit": [
+        "pom.xml"
+      ],
+      "legacyRawReviewedDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa",
+      "legacyRawTag182Digest": "f5a60ca8398657137779c8197ef5f4c78ecc3a3dc30c7c919ff761f7cebb6cdb",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "scope": {
+        "scopePaths": [
+          "pom.xml",
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresFixture.java"
+        ],
+        "scopePrefixes": [
+          "src/main/java/org/praxisplatform/uischema/bulk/",
+          "src/main/resources/db/praxis-bulk-capacity-migration-lineage/",
+          "src/main/resources/db/praxis-bulk-capacity-migrations/",
+          "src/main/resources/db/praxis-bulk-migration-lineage/",
+          "src/main/resources/db/praxis-bulk-migrations/"
+        ]
+      },
+      "selectedPathCount": 175
+    },
+    "b45a0b35e646d508003ad537df9a0dfa809194a9df3edd5313a09ca741ee3ed6": {
+      "cause": "root-project-version-only normalization migration",
+      "changedSinceReviewedCommit": [
+        "pom.xml"
+      ],
+      "legacyRawReviewedDigest": "1b984670c41875d6b86787d83818c9e00f5a2fa5c1855de820fc7586bde84959",
+      "legacyRawTag182Digest": "e1a4db4177431b42aef33099b210e69f5c4c95c8c479a0018ab214530405723d",
+      "newLogicalDigest": "97d5db22e64d5c4518f2485e0c32acfa9999397504513b24e4e8b04aeec8c6e5",
+      "scope": {
+        "scopePaths": [
+          "pom.xml",
+          "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityAuthorityManagedNeonTest.java"
+        ],
+        "scopePrefixes": [
+          "src/test/resources/"
+        ]
+      },
+      "selectedPathCount": 23
+    }
+  },
+  "counts": {
+    "changed": 91,
+    "fields": 92,
+    "unchanged": 1
+  },
+  "entries": [
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/EmbeddedPostgresColdStartTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkActionSchemaProjectionHttpTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAtomicExecutionPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAtomicProposalJsonConstraintPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedExecutionReaderPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedExecutionResultsReaderPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedProposalReaderPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedProposalResultsCapacityPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAuthorizedProposalResultsContinuationPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityAttestationPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityAuthorityMigrationPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityAuthorityRollbackPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityCloneBaselinePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityControlledWithdrawalPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityExternalQuarantinePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityGlobalOccupancyPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityLocalAdministrationPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityLocalInstallationPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyCatalogPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyCutoverPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityOccupancyProcessesPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityProvisioningInterlockPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityTwoClusterQuarantinePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkConsumerArtifactIntegrationTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkControlPlaneInfrastructurePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCrudOperationalCapabilityHttpTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCrudOperationalLifecyclePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCrudStructuralOpenApiHttpTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableExecutionPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableMigrationPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerActiveCapacityPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerCallbackScopePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerHandlerIdentityPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerLifecyclePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerNamespacePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerOperationHeadPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerProcessesPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerQueueBoundariesPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerQueuePlanPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "61860122c5154f23a6aafbc301245f93d6145d03e4f4d76b730c5def87cbb648",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkDurableWorkerSuspendedQueuePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8e114c6475656552ac7b768f30cb902308393548ab37c829820b5256ed14539d",
+      "oldStoredDigest": "462dea21fc6f78f3fdc77f073f1ef7a26b2d13d5d90a5721bfe8383b67cef7de"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkEvaluationStorePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkExecutionInfrastructurePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkHistoricalInterruptedPrefix14PostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkHistoricalPre14ProvisionedUpgradePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkHistoricalPre14UpgradePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkHistoricalPublicationIdentityMissingPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkManagedOwnerPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkOpenApiPublicationPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkOperationPublicationFencePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkOperationStructuralCompilerTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkOwnerMigrationResourcesPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkPreviewPageReaderPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkProtectedProposalReaderPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkPublicationCreationPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkReadCapacityPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkWorkerQueueIndexPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b3db4a8125afa544fac95dd035bf63e39bd5c671f90df14c4578e322d1b5fac3",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/JdbcBulkCapacityIssuerPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "8f78690df37c9161845546eaa74c313f94445b4a0f1c17eae1b7bd1838a952cc",
+      "oldStoredDigest": "c07b48c5b2d19c639ef8ecb0dd23bfb30686312561e9a400b6a4eaf74e78b8aa"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/JdbcBulkProposalCapturePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/JdbcBulkProposalStorePostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "8b160ca6ba59e1e4846fdf67be806f64d7f37be840c2dedb947d9b5095f5a174",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/JdbcBulkUniformQueryPostgresTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "600c398e149624417789b085814a30e4ab6895b752a229942cc6e7e3288b941e",
+      "oldStoredDigest": "7e281adb12bc8221ee699041c33b08a19b03c576b1af81678490fbbf522dda4c"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/controller/base/AbstractResourceControllerJpaWriteIntegrationTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/ActionCatalogE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/BulkResourceOperationOpenApiHttpTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/CanonicalRequestSchemaHttpIntegrationTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/CapabilityConsistencyE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/CapabilityE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/CatalogDiscoveryE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/HateoasAndPayloadSizeE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/HypermediaDiscoveryE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/LimitsAndErrorsE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/MutableResourceLifecycleE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/NonJpaOptionSourceProviderE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/OpenApiGroupRegistrationE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/OpenApiGroupResolutionE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/OptionsAndOptionSourcesE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/ReadOnlyResourceE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/ResourceQuerySurfaceE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/SchemaDiscoveryE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/SchemaHashE2eTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/StarterBootstrapE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/StatsE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/SurfaceCatalogE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "5f396bfe876798a4cf20d5ed3fd94fc6f5d2bfbb2bd55bbdbaacdadf46156276",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/e2e/WorkflowNegativePathsE2ETest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "23a00c3f494d5e529a351417a4a0701d3a9b12b2121e8e1ccd7da6510feea77b",
+      "oldStoredDigest": "02e84be34c49a11be5cb023a7cdc83bfbbae3b23316d27347ac95218e6a37e9a"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "57eafac8fe0b8d4f728ad9b4bd5f6ea1ef01ff5d654229460f44c2b8ab44826c",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/validation/JsonLogicExpressionValidatorParityTest.java",
+      "field": "impactReview.reviewedScopeDigest",
+      "newLogicalDigest": "15c4a4a3c311e0c999e8fce06677d8cb94b5c1826feabf69b80bc0b533446c6a",
+      "oldStoredDigest": "93b135ed9aa92a9e20927cbb71b92bc9055581f960916000fc1c1b0153a46b35"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "34e03528b156e271021083edd49a272d412592654aabb13e0561985d1c0fac8c",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityAuthorityManagedNeonTest.java",
+      "field": "reuse.reviewedScopeDigest",
+      "newLogicalDigest": "4f21725f42d5b6c3b2ad7062281f80b102974893cdef7998fe70a11eb18a70bd",
+      "oldStoredDigest": "d5362c5e392af4f80517181bcd18ab82b6d1181006294fed75874b28b5896687"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "b45a0b35e646d508003ad537df9a0dfa809194a9df3edd5313a09ca741ee3ed6",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityAuthorityManagedNeonTest.java",
+      "field": "reuse.dependencyDigest",
+      "newLogicalDigest": "97d5db22e64d5c4518f2485e0c32acfa9999397504513b24e4e8b04aeec8c6e5",
+      "oldStoredDigest": "1b984670c41875d6b86787d83818c9e00f5a2fa5c1855de820fc7586bde84959"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "115c2cc50f868248d24734f3b0fa9c9997b74687ab1c96497fb6885cb2b17f7b",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAsyncPublicAdmissionNeonTest.java",
+      "field": "reuse.reviewedScopeDigest",
+      "newLogicalDigest": "eef059687be9bf890a97de4835d1ec7693c20cf44f6fb5a615e4452426a7c6ed",
+      "oldStoredDigest": "67d9655b87729ab73ef32f363fc550a67f4fb944a3e56aca4c66a628ed182edb"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "59f6f66c41b6437d59c6fa953709fc8aa0dafbd37777b31d43584f9776c307af",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAsyncPublicAdmissionNeonTest.java",
+      "field": "reuse.dependencyDigest",
+      "newLogicalDigest": "a91cd67803430d442d90108846500544cb3c98268744e945d25be8eb3da3ee73",
+      "oldStoredDigest": "15b603e0c60421ff50ce42bad125f9b7240fccd907daf5d1bd2f895ccd937351"
+    },
+    {
+      "cause": "root-project-version-only normalization migration",
+      "changed": true,
+      "closureKey": "115c2cc50f868248d24734f3b0fa9c9997b74687ab1c96497fb6885cb2b17f7b",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityGlobalOccupancyNeonTest.java",
+      "field": "reuse.reviewedScopeDigest",
+      "newLogicalDigest": "eef059687be9bf890a97de4835d1ec7693c20cf44f6fb5a615e4452426a7c6ed",
+      "oldStoredDigest": "67d9655b87729ab73ef32f363fc550a67f4fb944a3e56aca4c66a628ed182edb"
+    },
+    {
+      "cause": "unchanged: root POM outside closure",
+      "changed": false,
+      "closureKey": "0f0e6a1c2446daac896cfa6464ed90a283c042da1d17b39caaede22fc9f1261e",
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityGlobalOccupancyNeonTest.java",
+      "field": "reuse.dependencyDigest",
+      "newLogicalDigest": "d50f2afe28ba75ec6068bc6fa37d1b2810d02224aead9bd8efc80fc57b8b6d6d",
+      "oldStoredDigest": "d50f2afe28ba75ec6068bc6fa37d1b2810d02224aead9bd8efc80fc57b8b6d6d"
+    }
+  ],
+  "historicalArtifacts": [
+    {
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityAuthorityManagedNeonTest.java",
+      "path": "tools/release/evidence/async-admission-authority-composite/evidence.public.zip",
+      "sha256": "eabb0131cfef2d44b68d60375d07e7ac238c2e2a15f8cfc2f85a476f46733aea",
+      "unchangedAcrossReviewedBaseAndCheckout": true
+    },
+    {
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkAsyncPublicAdmissionNeonTest.java",
+      "path": "tools/release/evidence/async-admission-authority-composite/evidence.public.zip",
+      "sha256": "eabb0131cfef2d44b68d60375d07e7ac238c2e2a15f8cfc2f85a476f46733aea",
+      "unchangedAcrossReviewedBaseAndCheckout": true
+    },
+    {
+      "entryPath": "src/test/java/org/praxisplatform/uischema/bulk/BulkCapacityGlobalOccupancyNeonTest.java",
+      "path": "tools/release/evidence/capacity-global-occupancy-8-80/evidence.public.zip",
+      "sha256": "e03c257c8aa3f4c2db387d697d3719580bd7fc621d8702c592a775cde6db0125",
+      "unchangedAcrossReviewedBaseAndCheckout": true
+    }
+  ],
+  "method": "Official old/raw and new/logical reviewed_scope_digest functions on immutable Git objects; cached ls-tree/cat-file reads preserve exact bytes. Every old stored digest matches reviewedRawCommit. Only root POM version changed in selected paths; new logical digests match at both commits.",
+  "migrationBase": "76eea70650178d0979ad3fbe23b560b0e8033625",
+  "reviewedRawCommit": "f4a0d5a7195eda7bca4827cdaf23705e86e5b053",
+  "schemaVersion": 1
+}
