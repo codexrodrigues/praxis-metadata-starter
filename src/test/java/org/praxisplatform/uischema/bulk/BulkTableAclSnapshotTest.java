@@ -185,7 +185,7 @@ class BulkTableAclSnapshotTest {
     private static LiveFixture liveFixture(int count) throws Exception {
         var c = mock(Connection.class); var statement = mock(PreparedStatement.class);
         var first = mock(java.sql.Array.class); var second = mock(java.sql.Array.class);
-        when(c.createArrayOf(eq("text"), any())).thenReturn(first, second);
+        when(c.createArrayOf(eq("text"), any())).thenReturn(first, second, mock(java.sql.Array.class));
         when(c.prepareStatement(anyString())).thenReturn(statement);
         when(statement.execute()).thenReturn(count > 0); when(statement.getUpdateCount()).thenReturn(-1);
         var resultSets = new ArrayList<ResultSet>();

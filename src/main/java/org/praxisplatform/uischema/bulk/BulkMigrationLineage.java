@@ -52,6 +52,8 @@ final class BulkMigrationLineage implements ResourceProvider {
         return resource.text;
     }
 
+    static int lastVersion() { return LAST_VERSION; }
+
     int checksum(int version) {
         MigrationResource resource = resources.get(version);
         require(resource != null, "Unknown canonical bulk migration version");

@@ -125,19 +125,24 @@ final class OpenApiRequestSchemaReader {
     }
 
     private JsonNode schema(JsonNode source, Set<String> visited, int depth, boolean allowResponseOneOf) {
+        return schema(source, visited, depth, allowResponseOneOf, false);
+    }
+
+    private JsonNode schema(JsonNode source, Set<String> visited, int depth, boolean allowResponseOneOf, boolean rangeScope) {
         budget(depth);
+        if (!rangeScope && !allowResponseOneOf && org.praxisplatform.uischema.filter.range.CanonicalRangeSchema.matches(source, version)) rangeScope=true;
         if (source.isBoolean() && version == SpecVersion.V31) return source;
         if (!source.isObject()) throw invalid("Schema is missing or unsupported");
         checkDialect(source.get("$schema"), version);
         for (String keyword : UNSUPPORTED) {
-            if (source.has(keyword) && !(allowResponseOneOf && "oneOf".equals(keyword))) {
+            if (source.has(keyword) && !((allowResponseOneOf && "oneOf".equals(keyword)) || rangeScope && Set.of("oneOf","anyOf","not").contains(keyword))) {
                 throw invalid("Unresolved or unsupported schema composition: " + keyword);
             }
         }
         if (source.has("$ref")) {
             String ref = reference(source, "#/components/schemas/");
             if (!visited.add(ref)) throw invalid("Cyclic schema reference");
-            JsonNode resolved = schema(target(ref), visited, depth + 1, allowResponseOneOf);
+            JsonNode resolved = schema(target(ref), visited, depth + 1, allowResponseOneOf, rangeScope);
             visited.remove(ref);
             return resolved;
         }
@@ -153,24 +158,24 @@ final class OpenApiRequestSchemaReader {
                 var children = value.fields();
                 while (children.hasNext()) {
                     var child = children.next();
-                    properties.set(child.getKey(), schema(child.getValue(), visited, depth + 1, allowResponseOneOf));
+                    properties.set(child.getKey(), schema(child.getValue(), visited, depth + 1, allowResponseOneOf, rangeScope));
                 }
-            } else if (allowResponseOneOf && "oneOf".equals(key)) {
+            } else if (allowResponseOneOf && "oneOf".equals(key) || rangeScope && Set.of("oneOf","anyOf").contains(key)) {
                 if (!value.isArray() || value.isEmpty()) {
                     throw invalid("Response oneOf must contain at least one schema variant");
                 }
                 ArrayNode variants = result.putArray(key);
                 for (JsonNode variant : value) {
-                    variants.add(schema(variant, visited, depth + 1, true));
+                    variants.add(schema(variant, visited, depth + 1, allowResponseOneOf, rangeScope));
                 }
-            } else if (SCHEMA_VALUES.contains(key)) {
+            } else if (SCHEMA_VALUES.contains(key) || rangeScope && "not".equals(key)) {
                 // OpenAPI 3.0 explicitly allows boolean additionalProperties.
                 result.set(key, value.isBoolean() && "additionalProperties".equals(key)
-                        ? value : schema(value, visited, depth + 1, allowResponseOneOf));
+                        ? value : schema(value, visited, depth + 1, allowResponseOneOf, rangeScope));
             } else if ("prefixItems".equals(key)) {
                 if (version != SpecVersion.V31 || !value.isArray()) throw invalid("Tuple schema is unsupported");
                 ArrayNode items = result.putArray(key);
-                for (JsonNode item : value) items.add(schema(item, visited, depth + 1, allowResponseOneOf));
+                for (JsonNode item : value) items.add(schema(item, visited, depth + 1, allowResponseOneOf, rangeScope));
             } else {
                 // Defaults, examples and x-ui are data: a literal $ref there is not a schema reference.
                 result.set(key, copyData(value, depth + 1));
