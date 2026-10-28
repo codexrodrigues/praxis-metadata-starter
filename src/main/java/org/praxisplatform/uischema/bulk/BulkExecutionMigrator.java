@@ -4277,6 +4277,12 @@ public final class BulkExecutionMigrator {
                 loadMigrationExpectations(BulkMigrationLineage.resolve(List.of()));
     }
 
+    /** Prepares only immutable artifact data, without opening a connection or trusting live facts. */
+    static void prepareLiveAttestation() {
+        Objects.requireNonNull(CanonicalLiveExpectations.VALUE);
+        BulkCatalogFunctionBodies.packaged();
+    }
+
     private static MigrationExpectations migrationExpectations(Connection connection) throws SQLException {
         return loadMigrationExpectations(BulkMigrationLineage.select(connection));
     }

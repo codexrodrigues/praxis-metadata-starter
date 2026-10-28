@@ -72,7 +72,7 @@ final class BulkCatalogPhase {
             join pg_catalog.pg_proc p on p.oid=t.tgfoid join pg_catalog.pg_namespace n on n.oid=p.pronamespace
             where cn.nspname='praxis_bulk' and not t.tgisinternal order by t.tgname collate "C"
             """) : List.of();
-        tableAcl = reader.read("""
+        tableAcl = reader.readTableAcl("""
             select q.relname,coalesce(r.rolname,'PUBLIC') role,q.permission,q.is_grantable,q.grantee=q.relowner is_owner
             from (
               select c.relname,'T:'||a.privilege_type permission,a.is_grantable,a.grantee,c.relowner
@@ -205,6 +205,14 @@ final class BulkCatalogPhase {
         private Set<String> configured, roots;
         private String owner;
         Reader(Connection connection, boolean batch) { this.connection = connection; this.batch = batch; }
+        List<Fact> readTableAcl(String sql) throws SQLException {
+            if (!batch) return read(sql);
+            // Compress repeated identities only. Grant options, ownership, column grants and
+            // duplicate privileges remain in this invocation's result, without an allowlist filter.
+            return read("select relname,role,is_grantable,is_owner,"
+                    + "array_agg(permission order by permission) permissions from (" + sql
+                    + ") grants group by relname,role,is_grantable,is_owner");
+        }
         List<Fact> read(String sql) throws SQLException {
             if (!batch) {
                 try (var s = connection.createStatement(); var r = s.executeQuery(sql)) { return BulkCatalogPhase.read(r); }
@@ -257,7 +265,8 @@ final class BulkCatalogPhase {
                                     var values = new LinkedHashMap<>(fact.values());
                                     values.put("prosrc", BulkCatalogFunctionBodies.restore(fact.text("prosrc_digest"),fact.text("prosrc")));
                                     results.get(i).add(new Fact(Collections.unmodifiableMap(values)));
-                                } else results.get(i).add(fact);
+                                } else if (i==4) results.get(i).addAll(expandTableAcl(fact));
+                                else results.get(i).add(fact);
                             }
                         }
                         result = statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT);
@@ -272,6 +281,20 @@ final class BulkCatalogPhase {
                 }
             }
         }
+    }
+    static List<Fact> expandTableAcl(Fact grouped) {
+        require(grouped.value("permissions") instanceof Object[], "Live table ACL permissions are absent or malformed");
+        Object[] permissions = (Object[]) grouped.value("permissions");
+        require(permissions.length > 0, "Live table ACL permissions are empty");
+        var expanded = new ArrayList<Fact>();
+        for (Object permission : permissions) {
+            require(permission instanceof String, "Live table ACL permission is not text");
+            var values = new LinkedHashMap<>(grouped.values());
+            values.remove("permissions");
+            values.put("permission", permission);
+            expanded.add(new Fact(Collections.unmodifiableMap(values)));
+        }
+        return List.copyOf(expanded);
     }
     static List<Fact> read(java.sql.ResultSet r) throws SQLException {
         var result = new ArrayList<Fact>(); var metadata = r.getMetaData();

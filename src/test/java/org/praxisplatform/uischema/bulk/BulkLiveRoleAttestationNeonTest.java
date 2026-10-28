@@ -18,6 +18,9 @@ class BulkLiveRoleAttestationNeonTest {
             var owner=DriverManager.getConnection(url,required("BULK_OWNER_USERNAME"),required("BULK_OWNER_PASSWORD"));
             var admin=owner.createStatement()) {
             var originalColumns=updateColumns(owner,runtime);
+            var grouped = BulkCatalogPhase.captureLive(connection, roles);
+            var ungrouped = BulkCatalogPhase.captureAccess(connection, roles);
+            assertThat(grouped.tableAcl).containsExactlyInAnyOrderElementsOf(ungrouped.tableAcl);
             BulkExecutionMigrator.validateLiveRuntimeRoleAccess(connection,roles);
             try {
                 admin.executeUpdate("grant update on praxis_bulk.praxis_bulk_namespace_binding to \""+runtime+"\"");
