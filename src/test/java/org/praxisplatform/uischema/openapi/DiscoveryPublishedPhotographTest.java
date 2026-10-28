@@ -244,6 +244,35 @@ class DiscoveryPublishedPhotographTest {
     }
 
     @Test
+    void infrastructureFailuresInsideTheDurableGuardAreUnavailableWithTheirPrivateCause() throws Exception {
+        for (RuntimeException failure : new RuntimeException[]{
+                new org.springframework.transaction.TransactionTimedOutException("PRIVATE_TIMEOUT"),
+                new org.springframework.dao.DataAccessResourceFailureException("PRIVATE_DATABASE")}) {
+            for(int guardIndex:new int[]{1,2}) try (var f = new Fixture(true)) {
+                f.failOnGuard=guardIndex;f.guardFailure=failure;
+                var calls=new AtomicInteger();
+                var error=org.junit.jupiter.api.Assertions.assertThrows(GovernedOpenApiPublicationUnavailableException.class,
+                        ()->f.documents.withPublishedBulkOpenApiPublication((candidate,generation)->calls.incrementAndGet()));
+                assertThat(error.getCause()).isSameAs(failure);assertThat(calls).hasValue(guardIndex-1);
+                var request=new org.springframework.web.context.request.ServletWebRequest(new org.springframework.mock.web.MockHttpServletRequest());
+                var response=new org.praxisplatform.uischema.rest.exceptionhandler.GlobalExceptionHandler()
+                        .handleGovernedOpenApiPublicationUnavailable(error,request);
+                assertThat(response.getStatusCode().value()).isEqualTo(503);
+                assertThat(new ObjectMapper().findAndRegisterModules().writeValueAsString(response.getBody()))
+                        .contains("GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE").doesNotContain("PRIVATE_");
+            }
+        }
+    }
+
+    @Test
+    void callbackFailuresOutsideTheGuardKeepTheirOriginalClassification() {
+        try (var f=new Fixture(true)) {
+            var bug=new IllegalArgumentException("callback bug");
+            assertThatThrownBy(()->f.documents.withPublishedBulkOpenApiPublication((candidate,generation)->{throw bug;})).isSameAs(bug);
+        }
+    }
+
+    @Test
     void genuineLegacyDocumentServiceKeepsItsExistingGettersAndCustomResolverSemantics() throws Exception {
         // This is the legacy caller's transaction boundary, not governed unlocked materialization.
         for (boolean ambient : new boolean[]{false, true}) {
@@ -381,6 +410,7 @@ class DiscoveryPublishedPhotographTest {
         final AtomicInteger guards = new AtomicInteger();
         final AtomicLong generation = new AtomicLong(1);
         int failOnGuard;
+        RuntimeException guardFailure=new IllegalStateException("guard unavailable");
         OpenApiPublicationCandidate candidate;
 
         Fixture(boolean install) {
@@ -388,7 +418,7 @@ class DiscoveryPublishedPhotographTest {
             source.owner = documents;
             documents.markBulkOpenApiServingInstalled("");
             documents.installBulkLifecyclePublicationGuard((observed, digest) -> {
-                if (guards.incrementAndGet() == failOnGuard) throw new IllegalStateException("guard unavailable");
+                if (guards.incrementAndGet() == failOnGuard) throw guardFailure;
                 if (observed != generation.get() || candidate == null || !candidate.digest().equals(digest))
                     throw new IllegalStateException("durable tuple changed");
             });

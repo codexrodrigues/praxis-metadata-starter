@@ -531,7 +531,8 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 
         } catch (GovernedOpenApiPublicationUnavailableException alreadyClassified) {
             throw alreadyClassified;
-        } catch (IllegalStateException unavailablePublication) {
+        } catch (IllegalStateException | org.springframework.transaction.TransactionException
+                | org.springframework.dao.DataAccessException unavailablePublication) {
             // Only this publication guard is a known availability boundary. Callback and
             // programming failures elsewhere retain their existing error classification.
             throw new GovernedOpenApiPublicationUnavailableException(unavailablePublication);

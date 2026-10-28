@@ -67,12 +67,15 @@ permanece vinculada ao contrato de confirmação e à chave idempotente.
 
 ## Evidência e limites
 
-A suíte focal composta final executou 176 casos distintos sem falhas, erros ou skips:
+A suíte focal composta final executou 192 casos distintos sem falhas, erros ou skips:
 leitores canônicos de request/response, emissão de intervalos, compilador de CRUD,
 captura de ACL, dicionário de corpos, mapeamento de falhas HTTP e regressões de
-diagnóstico/leitura e governança presentes na base rc.183. A prova opt-in Neon
+diagnóstico/leitura e governança presentes na base rc.183, além da fotografia
+publicada e da classificação de indisponibilidade do guard. Timeouts transacionais
+e falhas de acesso a dados dentro desse guard retornam o envelope seguro 503;
+falhas do callback fora dele conservam sua classificação original. A prova opt-in Neon
 acrescentou um caso distinto de privilégio excessivo após aquecimento, restauração
-exata dos grants e bloqueio operacional; também foi aprovado. Total: 177 casos,
+exata dos grants e bloqueio operacional; também foi aprovado. Total: 193 casos,
 sem somar novamente as repetições das mesmas suítes.
 São provas do candidato; não certificam release, execução de todos os cenários do
 host, disputa concorrente de 200 alvos ou consumo de pacote Angular publicado.
@@ -81,3 +84,7 @@ O host está exercitando as oito declarações operacionais e os três recursos
 mutáveis. Registros de READY e descoberta são evidência distinta de efeitos de
 domínio e recibos duráveis. O relatório do host deve registrar o resultado final
 da campanha, sem promover essas verificações parciais a aceite integral.
+
+Somente as expectativas imutáveis derivadas das migrations deste artefato são
+compartilhadas entre atestações LIVE. Inventários de catálogo, identidade, grants,
+controle e autorização continuam sendo lidos e verificados em cada chamada.

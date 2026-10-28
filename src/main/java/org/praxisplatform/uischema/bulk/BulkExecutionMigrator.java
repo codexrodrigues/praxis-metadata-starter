@@ -3502,7 +3502,7 @@ public final class BulkExecutionMigrator {
         try {
             var catalog = BulkCatalogPhase.captureLive(connection, configuration);
             validateConnectionIdentity(catalog, configuration.runtimeGranteeRoles(), null);
-            MigrationExpectations expectations = loadMigrationExpectations(BulkMigrationLineage.resolve(List.of()));
+            MigrationExpectations expectations = CanonicalLiveExpectations.VALUE;
             validateV5Functions(connection, configuration, Map.of(), expectations, catalog);
             validateV5RolesAndPrivileges(configuration, true, Map.of(), catalog, new CapacityPhases(Map.of()));
             validateDescriptorFenceCatalog(catalog, expectations);
@@ -3524,7 +3524,7 @@ public final class BulkExecutionMigrator {
         try {
             var catalog = BulkCatalogPhase.captureLive(connection, configuration);
             validateConnectionIdentity(catalog, configuration.controlPlaneGranteeRoles(), expected);
-            MigrationExpectations expectations = loadMigrationExpectations(BulkMigrationLineage.resolve(List.of()));
+            MigrationExpectations expectations = CanonicalLiveExpectations.VALUE;
             validateV5Functions(connection, configuration, Map.of(), expectations, catalog);
             validateV5RolesAndPrivileges(configuration, true, Map.of(), catalog, new CapacityPhases(Map.of()));
             validateDescriptorFenceCatalog(catalog, expectations);
@@ -4269,6 +4269,12 @@ public final class BulkExecutionMigrator {
                     && row.number("indnatts") == source.width(), "V18 capacity index changed: " + table + "." + name);
         }
         require(seen.equals(expected.keySet()), "V18 capacity index inventory changed: " + table);
+    }
+
+    /** Only immutable expectations from this artifact. Live facts and physical lineage stay invocation-local. */
+    private static final class CanonicalLiveExpectations {
+        private static final MigrationExpectations VALUE =
+                loadMigrationExpectations(BulkMigrationLineage.resolve(List.of()));
     }
 
     private static MigrationExpectations migrationExpectations(Connection connection) throws SQLException {
