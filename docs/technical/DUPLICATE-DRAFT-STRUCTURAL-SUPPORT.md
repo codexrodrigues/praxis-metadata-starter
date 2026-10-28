@@ -67,3 +67,9 @@ Os testes deste corte são locais, com fixtures, mocks e conversão de schema; n
 certificam HTTP implantado, banco, pilotos de domínio ou execução Angular.
 Migrações dos pilotos, guidance amplo e validação integrada pertencem aos cortes
 T05–T12 do plano de duplicação.
+
+## Conflitos na criação posterior ao preparo
+
+Preparar não reserva identidade. A criação comum deve persistir uma entidade nova e deixar a constraint de unicidade decidir uma corrida entre requisições; uma consulta prévia não elimina essa corrida. Para identidade atribuída com versão JPA nullable, preserve a versão inicial nula para a detecção de entidade nova do Spring Data. Não use merge de uma cópia da origem como inclusão.
+
+O tratamento canônico publica HTTP 409, envelope `failure` e código `DATA_INTEGRITY_VIOLATION` tanto para `DataIntegrityViolationException` traduzida pelo Spring quanto para `org.hibernate.exception.ConstraintViolationException` lançada diretamente em flush. A mensagem pública é fixa, sem SQL, valores ou nome de constraint. Exceções inesperadas permanecem 500 sanitizado. Esse conflito não autoriza retry automático nem significa idempotência de criação.

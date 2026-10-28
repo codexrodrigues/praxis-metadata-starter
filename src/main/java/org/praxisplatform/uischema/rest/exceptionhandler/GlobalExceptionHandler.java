@@ -333,6 +333,19 @@ public class GlobalExceptionHandler {
         );
     }
 
+    /** Flushes outside Spring repositories can expose the native constraint exception directly. */
+    @ExceptionHandler(org.hibernate.exception.ConstraintViolationException.class)
+    public ResponseEntity<RestApiResponse<Object>> handlePersistenceConstraintViolation(
+            org.hibernate.exception.ConstraintViolationException ex, WebRequest request) {
+        log.warn("[GlobalExceptionHandler] Persistence constraint conflict at {}", extractUri(request));
+        return buildStatusResponse(
+                HttpStatus.CONFLICT,
+                "Request conflicts with existing data constraints.",
+                request,
+                ERROR_CODE_DATA_INTEGRITY_VIOLATION
+        );
+    }
+
     @ExceptionHandler(AsyncRequestNotUsableException.class)
     public ResponseEntity<Void> handleAsyncRequestNotUsableException(
             AsyncRequestNotUsableException ex,
