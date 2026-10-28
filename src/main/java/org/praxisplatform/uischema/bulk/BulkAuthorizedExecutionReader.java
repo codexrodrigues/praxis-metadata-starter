@@ -74,20 +74,20 @@ public final class BulkAuthorizedExecutionReader {
 
     private Observation readExecutionObserved(String requester, UUID executionId,
             BulkReadFailureDiagnostics.Capture diagnostic) {
-        boolean[] expiredRef = new boolean[1];
+        Deadline[] deadlineRef = new Deadline[1];
         Observation result;
         try {
             result = infrastructure.withConsistentRead(connection -> {
                 Deadline deadline = Deadline.start(READ_BUDGET);
                 Observation snapshot = readSnapshot(connection, requester, executionId, deadline, diagnostic);
-                expiredRef[0] = deadline.expired();
+                deadlineRef[0] = deadline;
                 return snapshot;
             });
         } catch (RuntimeException failure) {
             diagnostic.record(Stage.SNAPSHOT_TRANSACTION, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
-        if (expiredRef[0]) {
+        if (deadlineRef[0].expired()) {
             diagnostic.record(Stage.AFTER_TRANSACTION, Reason.DEADLINE_EXPIRED, null);
             return Observation.state(State.UNAVAILABLE);
         }

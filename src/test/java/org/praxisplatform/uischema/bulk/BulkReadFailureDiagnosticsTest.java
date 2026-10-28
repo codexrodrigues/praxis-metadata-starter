@@ -163,6 +163,36 @@ class BulkReadFailureDiagnosticsTest {
         }
     }
 
+    @Test void expiryAfterOwnedTransactionIsRecordedAfterItsCompletedDecision() throws Exception {
+        try (var f = new Readers(); var log = new Events()) {
+            var commits = new AtomicInteger();
+            var closes = new AtomicInteger();
+            doReturn(null).when(f.auth).preAuthorize(any(), any());
+            doAnswer(i -> {
+                assertThat(log.events()).hasSize(commits.get() * 2);
+                Thread.sleep(3100);
+                commits.incrementAndGet();
+                return null;
+            }).when(f.jdbc.connection).commit();
+            doAnswer(i -> {
+                assertThat(log.events()).hasSize(closes.get() * 2);
+                assertThat(commits.get()).isEqualTo(closes.get() + 1);
+                closes.incrementAndGet();
+                return null;
+            }).when(f.jdbc.connection).close();
+            assertThat(f.proposal.readProposal("subject", UUID.randomUUID()).state())
+                    .isEqualTo(BulkAuthorizedProposalReader.State.UNAVAILABLE);
+            assertThat(f.results.readProposalResults("subject", UUID.randomUUID(), 1).state())
+                    .isEqualTo(BulkAuthorizedProposalResultsReader.State.UNAVAILABLE);
+            assertThat(log.events()).extracting(e -> e.path("stage").asText())
+                    .containsExactly("GLOBAL_AUTHORIZATION", "AFTER_TRANSACTION", "GLOBAL_AUTHORIZATION", "AFTER_TRANSACTION");
+            assertThat(log.events()).extracting(e -> e.path("reason").asText())
+                    .containsExactly("GLOBAL_DECISION_MISSING", "DEADLINE_EXPIRED", "GLOBAL_DECISION_MISSING", "DEADLINE_EXPIRED");
+            assertThat(commits).hasValue(2);
+            assertThat(closes).hasValue(2);
+        }
+    }
+
     @Test void slowThrowingSinkRunsAfterOwnedTransactionAndCannotChangeChosenState() throws Exception {
         try (var f = new Readers(); var loggerFactory = mockStatic(LoggerFactory.class,
                 withSettings().mockMaker("mock-maker-inline").defaultAnswer(CALLS_REAL_METHODS))) {

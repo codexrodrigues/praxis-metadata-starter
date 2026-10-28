@@ -111,21 +111,21 @@ public final class BulkAuthorizedExecutionResultsReader {
             }
         }
         BulkReadCursorCodec.Decoded continuation = decoded;
-        boolean[] expiredRef = new boolean[1];
+        Deadline[] deadlineRef = new Deadline[1];
         Observation result;
         try {
             result = infrastructure.withConsistentRead(connection -> {
                 Deadline snapshotDeadline = Deadline.start(READ_BUDGET);
                 Observation snapshot = readSnapshot(connection,
                         authenticatedSubjectId, executionId, pageSize, continuation, snapshotDeadline, diagnostic);
-                expiredRef[0] = snapshotDeadline.expired();
+                deadlineRef[0] = snapshotDeadline;
                 return snapshot;
             });
         } catch (RuntimeException failure) {
             diagnostic.record(Stage.SNAPSHOT_TRANSACTION, Reason.EXCEPTION, failure);
             return Observation.state(State.UNAVAILABLE);
         }
-        if (expiredRef[0]) {
+        if (deadlineRef[0].expired()) {
             diagnostic.record(Stage.AFTER_TRANSACTION, Reason.DEADLINE_EXPIRED, null);
             return Observation.state(State.UNAVAILABLE);
         }
