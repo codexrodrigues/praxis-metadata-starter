@@ -43,7 +43,7 @@ CAPTURE_MARKERS = (
     'NEON_PROOF_ORDERED_UNIT_EXPIRED_MUTATION=CONFIRMED-returned,deadline-STOP,no-pending,domain-rollback,receipt-and-admission-zero',
     'NEON_PROOF_ORDERED_UNIT_FENCES=prepare-committed,canonical-recovery-epoch-FENCED,canonical-suspend-NOT_EXECUTABLE,callbacks-zero,domain-preserved,receipt-and-admission-zero',
     'NEON_PROOF_ORDERED_UNIT_PREFIX=two-public-units,nonempty-prefix-read,two-unchanged-receipts,replay-without-callback,domain-preserved',
-    'NEON_PROOF_ORDERED_UNIT_TRANSPORT=100ms-floor,policy-reserve-over-2100ms,one-domain-effect-and-receipt,completed,replay-without-callback',
+    'NEON_PROOF_ORDERED_UNIT_TRANSPORT=sdk-synthetic,5s-unit,100ms-floor,pre-policy-reserve-over-1500ms,39-executes,one-domain-effect-and-receipt,completed,replay-without-callback',
     'NEON_PROOF_AUTHORIZED_EXECUTION_BATCH=COMPLETE,COMPLETED,target1-confirmed1-pending0,one-jdbc-execute,six-selects-twelve-bindings,scope-denied-no-projection',
 )
 KINDS = {

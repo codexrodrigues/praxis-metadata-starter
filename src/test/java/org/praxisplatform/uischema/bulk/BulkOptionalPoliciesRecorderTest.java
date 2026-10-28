@@ -19,6 +19,25 @@ class BulkOptionalPoliciesRecorderTest {
             java.util.Collections.nCopies(6, "select ?, ?"));
 
     @Test
+    void syntheticSdkReserveHasAStrictDerivedBoundaryAndAnExplicitlyNarrowerMarker() {
+        assertThat(BulkOptionalPoliciesNeonTest.TRANSPORT_FLOOR_MILLIS).isEqualTo(100);
+        assertThat(BulkOptionalPoliciesNeonTest.TRANSPORT_SUFFIX_EXECUTES).isEqualTo(11);
+        assertThat(BulkOptionalPoliciesNeonTest.TRANSPORT_SUFFIX_OVERHEAD_MILLIS).isEqualTo(400);
+        assertThat(BulkOptionalPoliciesNeonTest.TRANSPORT_PRE_POLICY_RESERVE_MILLIS).isEqualTo(1500);
+        for (long insufficient : new long[] {-1, 0, 1499, 1500}) {
+            assertThat(BulkOptionalPoliciesNeonTest.hasSyntheticPrePolicyReserve(insufficient))
+                    .as("insufficient synthetic SDK reserve: %s", insufficient).isFalse();
+        }
+        for (long sufficient : new long[] {1501, 2081, 2098, 2100, 2147}) {
+            assertThat(BulkOptionalPoliciesNeonTest.hasSyntheticPrePolicyReserve(sufficient))
+                    .as("sufficient synthetic SDK reserve: %s", sufficient).isTrue();
+        }
+        assertThat(BulkOptionalPoliciesNeonTest.ORDERED_TRANSPORT_MARKER).isEqualTo(
+                "NEON_PROOF_ORDERED_UNIT_TRANSPORT=sdk-synthetic,5s-unit,100ms-floor,pre-policy-reserve-over-1500ms,"
+                + "39-executes,one-domain-effect-and-receipt,completed,replay-without-callback");
+    }
+
+    @Test
     void unrelatedAndFlooredExecutesDoNotInvokeTheAuthorizedReaderObserver() throws Exception {
         var recorder = new BulkOptionalPoliciesNeonTest.MeasuredDataSource(source(), () -> {
             throw new AssertionError("reader stack inspection escaped its scope");
