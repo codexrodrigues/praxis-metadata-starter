@@ -4,7 +4,7 @@ Este candidato usa a coordenada local distinta `8.0.0-ergon-bulk.308-SNAPSHOT`.
 Não é release público e não substitui os bytes da rc.179 já instalada. O host
 consumidor usa override explícito e repositório Maven isolado durante a prova.
 Publicação e adoção de uma versão pública continuam sendo gates separados.
-O POM versionado conserva a linha rc.179. Para reproduzir a coordenada de prova,
+O candidato foi atualizado sobre o main rc.183; o POM versionado conserva essa linha. Para reproduzir a coordenada de prova,
 use um checkout isolado e `mvn versions:set -DnewVersion=8.0.0-ergon-bulk.308-SNAPSHOT
 -DgenerateBackupPoms=false` antes do package; instale o resultado somente no
 cache isolado do consumidor. Não instale esse build como rc.179.
@@ -41,7 +41,10 @@ Na cópia Neon de prova, os 58 corpos instalados, somando 80.142 bytes,
 corresponderam exatamente ao dicionário. A prova opt-in
 `BulkLiveRoleAttestationNeonTest` aquece a atestação, concede temporariamente
 UPDATE adicional na tabela técnica de binding, exige recusa e remove o grant no
-`finally`, exigindo nova aprovação depois da restauração. Essa prova deve ser
+`finally`, exigindo nova aprovação depois da restauração. Como REVOKE de UPDATE
+de tabela também remove os grants correspondentes de coluna, a prova captura
+e repõe exatamente os grants originais de coluna e verifica FOR SHARE real após
+a restauração. Essa prova deve ser
 executada sozinha contra banco descartável, sem avaliações concorrentes.
 
 ## Recusas HTTP tipadas
@@ -64,10 +67,13 @@ permanece vinculada ao contrato de confirmação e à chave idempotente.
 
 ## Evidência e limites
 
-A suíte focal composta executou 138 casos distintos sem falhas, erros ou skips:
+A suíte focal composta final executou 176 casos distintos sem falhas, erros ou skips:
 leitores canônicos de request/response, emissão de intervalos, compilador de CRUD,
-captura de ACL, dicionário de corpos e mapeamento de falhas HTTP. A prova opt-in
-Neon acrescentou um caso de privilégio excessivo após aquecimento, também aprovado.
+captura de ACL, dicionário de corpos, mapeamento de falhas HTTP e regressões de
+diagnóstico/leitura e governança presentes na base rc.183. A prova opt-in Neon
+acrescentou um caso distinto de privilégio excessivo após aquecimento, restauração
+exata dos grants e bloqueio operacional; também foi aprovado. Total: 177 casos,
+sem somar novamente as repetições das mesmas suítes.
 São provas do candidato; não certificam release, execução de todos os cenários do
 host, disputa concorrente de 200 alvos ou consumo de pacote Angular publicado.
 
