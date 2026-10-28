@@ -140,7 +140,7 @@ class AbstractReadOnlyResourceControllerLinksTest {
                 );
         org.praxisplatform.uischema.capability.ResourceStructuralCapabilities structural =
                 new org.praxisplatform.uischema.capability.ResourceStructuralCapabilities(
-                        true, true, true, false, false, false, false,
+                        true, true, true, false, false, false, false, false,
                         new org.praxisplatform.uischema.stats.StatsCapability(List.of(fieldCap)),
                         null
                 );

@@ -7,7 +7,7 @@ import java.util.Optional;
 
 /**
  * Escopo thread-local curto para deduplicar leituras de {@link ResourceStateSnapshotProvider}
- * durante a materializacao agregada de {@code itemCapabilities}.
+ * durante guardas, links e materializacao contextual de capabilities e actions.
  *
  * <p>
  * Quando {@link DefaultCapabilityService} compoe surfaces, actions e operacoes de um item no

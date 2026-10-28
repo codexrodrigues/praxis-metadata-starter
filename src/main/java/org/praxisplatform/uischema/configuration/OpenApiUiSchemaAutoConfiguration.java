@@ -797,8 +797,16 @@ public class OpenApiUiSchemaAutoConfiguration {
             ActionDefinitionRegistry actionDefinitionRegistry,
             ActionAvailabilityEvaluator actionAvailabilityEvaluator,
             ActionAvailabilityContextResolver actionAvailabilityContextResolver,
-            ObjectProvider<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle
+            ObjectProvider<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle,
+            CanonicalCapabilityResolver canonicalCapabilityResolver,
+            OpenApiDocumentService openApiDocumentService,
+            ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
+            ResourceStateSnapshotProvider resourceStateSnapshotProvider,
+            ObjectProvider<SurfaceCatalogService> surfaceCatalogServiceProvider
     ) {
+        // Ordinary custom action registries do not require MVC/surfaces. Only compose the
+        // duplicate-draft policy when its surface baseline collaborator is present.
+        SurfaceCatalogService surfaceCatalogService = surfaceCatalogServiceProvider.getIfAvailable();
         return new ActionCatalogService(
                 actionDefinitionRegistry,
                 actionAvailabilityEvaluator,
@@ -807,7 +815,11 @@ public class OpenApiUiSchemaAutoConfiguration {
                     var lifecycle = bulkLifecycle.getIfAvailable();
                     return lifecycle == null ? consumer.apply(java.util.Map.of())
                             : lifecycle.projectReadyActions(definitions, consumer);
-                }
+                },
+                surfaceCatalogService == null ? null
+                        : new org.praxisplatform.uischema.capability.ResourceOperationAvailabilityEvaluator(
+                        canonicalCapabilityResolver, openApiDocumentService,
+                        resourceOperationAvailabilityProvider, resourceStateSnapshotProvider, surfaceCatalogService)
         );
     }
 

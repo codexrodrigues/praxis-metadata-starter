@@ -283,8 +283,18 @@ Escolha a classe base de acordo com a semântica real de escrita e leitura do se
 - **Criação e atualização (sem delete)**: `AbstractCreateUpdateResourceController` + `BaseCreateUpdateResourceService`
 - **Delete unitário sem delete em lote**: `AbstractUnitDeleteResourceController` + `BaseUnitDeleteResourceService` (publica `DELETE /{id}` sem `DELETE /batch`)
 - **Somente leitura (Views / Consultas)**: `AbstractReadOnlyResourceController` + `AbstractReadOnlyResourceService` (marca `x-ui.resource.readOnly=true` e mantém HATEOAS/discovery coerentes)
-- **Escrita delegada a adaptador/legado**: `AbstractLegacyBackedResourceController` + `LegacyBackedResourceService`
-- **Rascunho duplicável (`duplicate-draft`)**: `AbstractDuplicateDraftLegacyBackedResourceController` + `DuplicateDraftLegacyBackedResourceService` (somente quando o recurso publicar `POST /{resource}/{id}/duplicate-draft` como rascunho não mutante, usando `DraftDTO` quando necessário)
+- **Escrita delegada a adaptador/legado**: `AbstractResourceController` + `BaseResourceService`
+- **Rascunho duplicável (`duplicate-draft`)**: `AbstractDuplicateDraftResourceController` + `DuplicateDraftResourceService` (somente quando o recurso publicar `POST /{resource}/{id}/duplicate-draft` como rascunho não mutante, usando `DraftDTO` quando necessário)
+
+`DuplicateDraftResourceService<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO, DraftDTO>`
+combina `BaseResourceService` com `DuplicateDraftResourceCommandService<ID, DraftDTO>`.
+O serviço pode implementar o contrato diretamente ou estender `AbstractBaseResourceService`;
+adaptadores externos não precisam herdar infraestrutura JPA. O preparo retorna `200 OK` no
+envelope `RestApiResponse<DraftDTO>` e não grava nem altera a origem. A política do recurso
+limpa identificadores, campos únicos, credenciais, aprovações e estado de ciclo de vida;
+o usuário revisa e completa o payload antes do `POST` de criação, que revalida o domínio.
+O opt-in mantém `supportsDuplicateDraft()` com default `true`; `false` omite os links de
+duplicação e faz o endpoint responder `404`. O controller CRUD comum não publica esse endpoint.
 
 **Hooks de Ciclo de Vida e Relacionamentos JPA**:
 - `AbstractBaseResourceService` oferece hooks protegidos para `create`, `update`, `delete` individual e `delete` em lote — use-os para validações e efeitos de domínio dentro da transação canônica sem sobrescrever o método inteiro.

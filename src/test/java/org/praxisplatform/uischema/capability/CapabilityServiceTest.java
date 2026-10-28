@@ -34,6 +34,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CapabilityServiceTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"true,true,true", "false,true,false",
+            "true,false,false", "false,false,false"})
+    void snapshotsPreserveDuplicateDraftStructuralDecision(boolean optIn, boolean mapping, boolean expected)
+            throws Exception {
+        var document = new com.fasterxml.jackson.databind.ObjectMapper().readTree(mapping
+                ? "{\"paths\":{\"/employees/{id}/duplicate-draft\":{\"post\":{}}}}"
+                : "{\"paths\":{}}");
+        OpenApiDocumentService documents = org.mockito.Mockito.mock(
+                OpenApiDocumentService.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        org.mockito.Mockito.when(documents.resolveGroupFromPath("/employees")).thenReturn("human-resources");
+        org.mockito.Mockito.when(documents.getDocumentForGroup("human-resources")).thenReturn(document);
+        ResourceStructuralCapabilityResolver structural = ignored -> new ResourceStructuralCapabilities(
+                false, false, false, false, false, false, false, optIn, null, null);
+        CapabilityService service = new DefaultCapabilityService(
+                new OpenApiCanonicalCapabilityResolver(documents, structural),
+                emptySurfaceCatalogService(), emptyActionCatalogService(), documents,
+                new NoOpResourceOperationAvailabilityProvider(), new NoOpResourceStateSnapshotProvider(), structural);
+
+        for (CapabilitySnapshot snapshot : List.of(
+                service.collectionCapabilities("test.employees", "/employees"),
+                service.itemCapabilities("test.employees", "/employees", 1L))) {
+            assertEquals(expected, snapshot.canonicalOperations().get("duplicate-draft"));
+            CapabilityOperation operation = snapshot.operations().get("duplicate-draft");
+            assertEquals(expected, operation.supported());
+            assertEquals("ITEM", operation.scope());
+            assertEquals(expected ? "POST" : null, operation.preferredMethod());
+            assertEquals("duplicate-draft", operation.preferredRel());
+        }
+    }
+
     @Test
     void collectionCapabilitiesAggregateCanonicalOperationsAndCollectionScopedDiscoveries() {
         CapabilityService service = new DefaultCapabilityService(

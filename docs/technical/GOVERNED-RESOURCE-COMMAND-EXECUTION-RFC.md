@@ -25,10 +25,9 @@ O Praxis ja publica uma borda resource-oriented forte para recursos mutaveis:
 
 - `AbstractCreateUpdateResourceController`;
 - `AbstractResourceController`;
-- `AbstractLegacyBackedResourceController`;
+- `AbstractDuplicateDraftResourceController`;
 - `BaseResourceCommandService`;
-- `LegacyBackedResourceCommandService`;
-- `DuplicateDraftLegacyBackedResourceCommandService`;
+- `DuplicateDraftResourceCommandService`;
 - `ResourceOperationAvailabilityProvider`;
 - `AvailabilityDecision`;
 - `@ResourceIntent`, `@WorkflowAction`, actions, surfaces e capabilities.

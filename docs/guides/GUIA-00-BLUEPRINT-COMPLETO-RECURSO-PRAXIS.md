@@ -67,7 +67,7 @@ Para evitar entregas superficiais ("um pouquinho de cada coisa"), todo módulo o
 11. **Manutenção Parcial Governada (`@ResourceIntent`):**
     - Endpoints `PATCH /{id}/{intent}` com `@ResourceIntent` + `@UiSurface(kind = SurfaceKind.PARTIAL_FORM)` e DTO dedicado por subbloco cadastral.
 12. **Ciclo de Vida (`@WorkflowAction`) & Concorrência (`If-Match` / `Idempotency-Key`):**
-    - Todas as transições de estado reais modeladas com `@WorkflowAction`, DTO de comando, `ResourceStateSnapshotProvider`, `VersionedCreateUpdateResourceService` (`ETag` + `If-Match`), `Idempotency-Key` (`GovernedResourceCommandExecutor`) e `DuplicateDraftLegacyBackedResourceService` quando aplicável.
+    - Todas as transições de estado reais modeladas com `@WorkflowAction`, DTO de comando, `ResourceStateSnapshotProvider`, `VersionedCreateUpdateResourceService` (`ETag` + `If-Match`), `Idempotency-Key` (`GovernedResourceCommandExecutor`) e `DuplicateDraftResourceService` quando aplicável.
 13. **Operações em Lote Governadas (`Bulking` — 3 Modos Além do Óbvio):**
     - Auditar 100% dos atributos mutáveis diferenciando `BulkMode.UNIFORM_UPDATE` (padronização coletiva: departamento, centro de custo, jornada/turno, regime/plano, banco/agência/forma de pagamento, flags operacionais, gestor) e `BulkMode.PER_ITEM_UPDATE` (planilha/grade de revisão individualizada em lote: telefones, e-mails, endereços, contas bancárias, valores/limites individuais, códigos externos, datas específicas por item) com `@Schema(nullable = true)` quando `allowClear = true`;
     - `@BulkResourceOperations(protectedUpdateFields = {...})` no Controller;

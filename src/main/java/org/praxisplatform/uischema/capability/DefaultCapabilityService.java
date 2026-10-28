@@ -33,6 +33,7 @@ import java.util.Map;
  */
 public class DefaultCapabilityService implements CapabilityService {
 
+    private final ResourceOperationAvailabilityEvaluator operationAvailability;
     private final CanonicalCapabilityResolver canonicalCapabilityResolver;
     private final SurfaceCatalogService surfaceCatalogService;
     private final ActionCatalogService actionCatalogService;
@@ -110,6 +111,8 @@ public class DefaultCapabilityService implements CapabilityService {
                 ? new NoOpResourceStateSnapshotProvider()
                 : resourceStateSnapshotProvider;
         this.structuralCapabilityResolver = structuralCapabilityResolver;
+        this.operationAvailability = new ResourceOperationAvailabilityEvaluator(canonicalCapabilityResolver,
+                openApiDocumentService, this.resourceOperationAvailabilityProvider, this.resourceStateSnapshotProvider, surfaceCatalogService);
     }
 
     @Override
@@ -352,6 +355,12 @@ public class DefaultCapabilityService implements CapabilityService {
             }
             List<SurfaceCatalogItem> itemSurfaces = itemSurfaces(resourceKey, resourceId);
             List<ActionCatalogItem> itemActions = itemActions(resourceKey, resourceId);
+            List<SurfaceCatalogItem> operationSurfaces = itemSurfaces;
+            CapabilityOperation duplicate = projection.operations().get("duplicate-draft");
+            if (duplicate != null && duplicate.supported()) {
+                operationSurfaces = java.util.stream.Stream.concat(itemSurfaces.stream(),
+                        collectionSurfaces(resourceKey).stream()).toList();
+            }
             String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
             ResourceStateSnapshot stateSnapshot = ResourceStateSnapshotScope
                     .resolve(resourceStateSnapshotProvider, resourceKey, resourceId)
@@ -362,7 +371,7 @@ public class DefaultCapabilityService implements CapabilityService {
                     group,
                     resourceId,
                     canonicalOperations,
-                    resolveOperations(resourcePath, itemSurfaces, itemActions, canonicalOperations, projection),
+                    resolveOperations(resourcePath, operationSurfaces, itemActions, canonicalOperations, projection),
                     itemSurfaces,
                     itemActions,
                     structural != null ? structural.stats() : StatsCapability.from(
@@ -483,7 +492,8 @@ public class DefaultCapabilityService implements CapabilityService {
             String resourcePath,
             String operationId
     ) {
-        return evaluateAvailability(ResourceOperationAvailabilityContext.collection(resourceKey, resourcePath, operationId));
+        return operationAvailability.withOperations(resourcePath, operations ->
+                operationAvailability.evaluate(operations, resourceKey, resourcePath, operationId, null));
     }
 
     @Override
@@ -493,16 +503,19 @@ public class DefaultCapabilityService implements CapabilityService {
             String operationId,
             Object resourceId
     ) {
-        ResourceStateSnapshot stateSnapshot = ResourceStateSnapshotScope
-                .resolve(resourceStateSnapshotProvider, resourceKey, resourceId)
-                .orElse(null);
-        return evaluateAvailability(ResourceOperationAvailabilityContext.item(
-                resourceKey,
-                resourcePath,
-                operationId,
-                resourceId,
-                stateSnapshot
-        ));
+        return operationAvailability.withOperations(resourcePath, operations ->
+                !operations.containsKey(operationId) && !"duplicate-draft".equals(operationId)
+                        ? operationAvailability.evaluateUnknownItem(resourceKey, resourcePath, operationId, resourceId)
+                        : evaluateOperation(operations, resourceKey, resourcePath, operationId, resourceId, false));
+    }
+
+    private AvailabilityDecision evaluateOperation(Map<String, CapabilityOperation> operations,
+            String key, String path, String id, Object resourceId, boolean surfaceBaselinesResolved) {
+        AvailabilityDecision decision = operationAvailability.evaluateProjection(operations, key, path, id,
+                resourceId, surfaceBaselinesResolved);
+        if (!"duplicate-draft".equals(id) || !decision.allowed()) return decision;
+        // The narrow declared-rule evaluation does not assemble a catalog or call capabilities.
+        return actionCatalogService.evaluateDeclaredDuplicateDraftAvailability(key, path, resourceId);
     }
 
     private Map<String, CapabilityOperation> applyCollectionAvailability(
@@ -531,69 +544,11 @@ public class DefaultCapabilityService implements CapabilityService {
             ResourceStateSnapshot stateSnapshot
     ) {
         Map<String, CapabilityOperation> resolved = new LinkedHashMap<>();
-        operations.forEach((id, operation) -> {
-            boolean itemScoped = "ITEM".equalsIgnoreCase(operation.scope());
-            ResourceOperationAvailabilityContext context = new ResourceOperationAvailabilityContext(
-                    resourceKey,
-                    resourcePath,
-                    id,
-                    operation.scope(),
-                    itemScoped ? resourceId : null,
-                    itemScoped ? stateSnapshot : null,
-                    operationContextMetadata(operation)
-            );
-            AvailabilityDecision hostDecision = evaluateAvailability(
-                    context
-            );
-            resolved.put(id, operation.withAvailability(combineAvailability(operation.availability(), hostDecision)));
-        });
+        try (var ignored = ResourceStateSnapshotScope.open()) {
+            operations.forEach((id, operation) -> resolved.put(id, operation.withAvailability(
+                    evaluateOperation(operations, resourceKey, resourcePath, id, resourceId, true))));
+        }
         return Map.copyOf(resolved);
-    }
-
-    private Map<String, Object> operationContextMetadata(CapabilityOperation operation) {
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        if (operation.preferredMethod() != null && !operation.preferredMethod().isBlank()) {
-            metadata.put("preferredMethod", operation.preferredMethod());
-        }
-        if (operation.preferredRel() != null && !operation.preferredRel().isBlank()) {
-            metadata.put("preferredRel", operation.preferredRel());
-        }
-        metadata.put("supported", operation.supported());
-        return Map.copyOf(metadata);
-    }
-
-    private AvailabilityDecision combineAvailability(
-            AvailabilityDecision baseline,
-            AvailabilityDecision hostDecision
-    ) {
-        AvailabilityDecision first = baseline == null ? AvailabilityDecision.allowAll() : baseline;
-        AvailabilityDecision second = hostDecision == null ? AvailabilityDecision.allowAll() : hostDecision;
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        if (first.metadata() != null) {
-            metadata.putAll(first.metadata());
-        }
-        if (second.metadata() != null) {
-            metadata.putAll(second.metadata());
-        }
-        if (!first.allowed()) {
-            return AvailabilityDecision.deny(first.reason(), metadata);
-        }
-        if (!second.allowed()) {
-            return AvailabilityDecision.deny(second.reason(), metadata);
-        }
-        return AvailabilityDecision.allow(metadata);
-    }
-
-    private AvailabilityDecision evaluateAvailability(ResourceOperationAvailabilityContext context) {
-        try {
-            AvailabilityDecision decision = resourceOperationAvailabilityProvider.evaluate(context);
-            return decision == null ? AvailabilityDecision.allowAll() : decision;
-        } catch (RuntimeException ex) {
-            return AvailabilityDecision.deny(
-                    "availability-provider-error",
-                    Map.of("operationId", context.operationId())
-            );
-        }
     }
 
     private Map<String, CapabilityOperation> resolveCollectionOperations(
@@ -761,29 +716,11 @@ public class DefaultCapabilityService implements CapabilityService {
     }
 
     private SurfaceCatalogItem findCreateSurface(List<SurfaceCatalogItem> surfaces) {
-        return surfaces.stream()
-                .filter(surface -> surface.scope() == SurfaceScope.COLLECTION)
-                .filter(surface -> isWritable(surface.kind()))
-                .filter(surface -> "create".equalsIgnoreCase(surface.id()))
-                .findFirst()
-                .orElseGet(() -> surfaces.stream()
-                        .filter(surface -> surface.scope() == SurfaceScope.COLLECTION)
-                        .filter(surface -> isWritable(surface.kind()))
-                        .findFirst()
-                        .orElse(null));
+        return ResourceOperationAvailabilityEvaluator.selectSurface(surfaces, "create");
     }
 
     private SurfaceCatalogItem findViewSurface(List<SurfaceCatalogItem> surfaces) {
-        return surfaces.stream()
-                .filter(surface -> surface.scope() == SurfaceScope.ITEM)
-                .filter(surface -> isReadable(surface.kind()))
-                .filter(surface -> "detail".equalsIgnoreCase(surface.id()) || "view".equalsIgnoreCase(surface.id()))
-                .findFirst()
-                .orElseGet(() -> surfaces.stream()
-                        .filter(surface -> surface.scope() == SurfaceScope.ITEM)
-                        .filter(surface -> isReadable(surface.kind()))
-                        .findFirst()
-                        .orElse(null));
+        return ResourceOperationAvailabilityEvaluator.selectSurface(surfaces, "view");
     }
 
     private SurfaceCatalogItem findEditSurface(List<SurfaceCatalogItem> surfaces) {

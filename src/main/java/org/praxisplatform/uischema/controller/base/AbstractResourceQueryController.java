@@ -314,6 +314,11 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         return detectedBasePath;
     }
 
+    /** Returns the configured contextual availability facade, or null when it is absent. */
+    protected final CapabilityService getCapabilityService() {
+        return capabilityService;
+    }
+
     protected String getResourceKey() {
         String resourceKey = getResourceKeyOrNull();
         if (StringUtils.hasText(resourceKey)) {

@@ -1,6 +1,8 @@
 package org.praxisplatform.uischema.action;
 
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityEvaluator;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshotScope;
 import org.springframework.util.StringUtils;
 
 import java.util.Comparator;
@@ -19,6 +21,7 @@ import java.util.Map;
  */
 public class ActionCatalogService {
 
+    private final ResourceOperationAvailabilityEvaluator operationAvailability;
     private final ActionDefinitionRegistry actionDefinitionRegistry;
     private final ActionAvailabilityEvaluator availabilityEvaluator;
     private final ActionAvailabilityContextResolver contextResolver;
@@ -40,6 +43,16 @@ public class ActionCatalogService {
             java.util.function.BiFunction<List<ActionDefinition>,
                     java.util.function.Function<Map<String, ActionExecutionContract>, ActionCatalogResponse>,
                     ActionCatalogResponse> bulkProjector) {
+        this(actionDefinitionRegistry, availabilityEvaluator, contextResolver, bulkProjector, null);
+    }
+
+    public ActionCatalogService(ActionDefinitionRegistry actionDefinitionRegistry,
+            ActionAvailabilityEvaluator availabilityEvaluator, ActionAvailabilityContextResolver contextResolver,
+            java.util.function.BiFunction<List<ActionDefinition>,
+                    java.util.function.Function<Map<String, ActionExecutionContract>, ActionCatalogResponse>,
+                    ActionCatalogResponse> bulkProjector,
+            ResourceOperationAvailabilityEvaluator operationAvailability) {
+        this.operationAvailability = operationAvailability;
         this.bulkProjector = java.util.Objects.requireNonNull(bulkProjector, "bulkProjector");
         this.actionDefinitionRegistry = actionDefinitionRegistry;
         this.availabilityEvaluator = availabilityEvaluator;
@@ -50,86 +63,94 @@ public class ActionCatalogService {
      * Retorna as actions documentais de um recurso.
      */
     public ActionCatalogResponse findByResourceKey(String resourceKey) {
-        List<ActionDefinition> definitions = requireDefinitions(
-                sort(actionDefinitionRegistry.findByResourceKey(resourceKey)),
-                ActionCatalogNotFoundException.unknownResourceKey(resourceKey)
-        );
-        String resolvedResourcePath = singleValue(definitions, ActionDefinition::resourcePath);
-        String resolvedGroup = singleValue(definitions, ActionDefinition::group);
-        Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, null);
-        return bulkProjector.apply(definitions, executions -> new ActionCatalogResponse(
-                resourceKey,
-                resolvedResourcePath,
-                resolvedGroup,
-                null,
-                definitions.stream().map(def -> toCatalogItem(def, contexts, null, executions)).toList()
-        ));
+        try (var ignored = ResourceStateSnapshotScope.open()) {
+            List<ActionDefinition> definitions = requireDefinitions(
+                    sort(actionDefinitionRegistry.findByResourceKey(resourceKey)),
+                    ActionCatalogNotFoundException.unknownResourceKey(resourceKey)
+            );
+            String resolvedResourcePath = singleValue(definitions, ActionDefinition::resourcePath);
+            String resolvedGroup = singleValue(definitions, ActionDefinition::group);
+            Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, null);
+            return bulkProjector.apply(definitions, executions -> new ActionCatalogResponse(
+                    resourceKey,
+                    resolvedResourcePath,
+                    resolvedGroup,
+                    null,
+                    definitions.stream().map(def -> toCatalogItem(def, contexts, null, executions)).toList()
+            ));
+        }
     }
 
     /**
      * Retorna as actions documentais agregadas por grupo OpenAPI.
      */
     public ActionCatalogResponse findByGroup(String group) {
-        List<ActionDefinition> definitions = requireDefinitions(
-                sort(actionDefinitionRegistry.findByGroup(group)),
-                ActionCatalogNotFoundException.unknownGroup(group)
-        );
-        Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, null);
-        return bulkProjector.apply(definitions, executions -> new ActionCatalogResponse(
-                null,
-                null,
-                group,
-                null,
-                definitions.stream().map(def -> toCatalogItem(def, contexts, null, executions)).toList()
-        ));
+        try (var ignored = ResourceStateSnapshotScope.open()) {
+            List<ActionDefinition> definitions = requireDefinitions(
+                    sort(actionDefinitionRegistry.findByGroup(group)),
+                    ActionCatalogNotFoundException.unknownGroup(group)
+            );
+            Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, null);
+            return bulkProjector.apply(definitions, executions -> new ActionCatalogResponse(
+                    null,
+                    null,
+                    group,
+                    null,
+                    definitions.stream().map(def -> toCatalogItem(def, contexts, null, executions)).toList()
+            ));
+        }
     }
 
     /**
      * Retorna apenas as actions item-level disponiveis para uma instancia especifica.
      */
     public ActionCatalogResponse findItemActions(String resourceKey, Object resourceId) {
-        List<ActionDefinition> resourceDefinitions = requireDefinitions(
-                sort(actionDefinitionRegistry.findByResourceKey(resourceKey)),
-                ActionCatalogNotFoundException.unknownResourceKey(resourceKey)
-        );
-        List<ActionDefinition> definitions = requireDefinitions(
-                resourceDefinitions.stream().filter(definition -> definition.scope() == ActionScope.ITEM).toList(),
-                ActionCatalogNotFoundException.missingItemActions(resourceKey)
-        );
-        String resolvedResourcePath = singleValue(definitions, ActionDefinition::resourcePath);
-        String resolvedGroup = singleValue(definitions, ActionDefinition::group);
-        Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, resourceId);
-        return bulkProjector.apply(definitions, executions -> new ActionCatalogResponse(
-                resourceKey,
-                resolvedResourcePath,
-                resolvedGroup,
-                resourceId,
-                definitions.stream().map(def -> toCatalogItem(def, contexts, resourceId, executions)).toList()
-        ));
+        try (var ignored = ResourceStateSnapshotScope.open()) {
+            List<ActionDefinition> resourceDefinitions = requireDefinitions(
+                    sort(actionDefinitionRegistry.findByResourceKey(resourceKey)),
+                    ActionCatalogNotFoundException.unknownResourceKey(resourceKey)
+            );
+            List<ActionDefinition> definitions = requireDefinitions(
+                    resourceDefinitions.stream().filter(definition -> definition.scope() == ActionScope.ITEM).toList(),
+                    ActionCatalogNotFoundException.missingItemActions(resourceKey)
+            );
+            String resolvedResourcePath = singleValue(definitions, ActionDefinition::resourcePath);
+            String resolvedGroup = singleValue(definitions, ActionDefinition::group);
+            Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, resourceId);
+            return bulkProjector.apply(definitions, executions -> new ActionCatalogResponse(
+                    resourceKey,
+                    resolvedResourcePath,
+                    resolvedGroup,
+                    resourceId,
+                    definitions.stream().map(def -> toCatalogItem(def, contexts, resourceId, executions)).toList()
+            ));
+        }
     }
 
     /**
      * Retorna apenas as actions collection-level de um recurso.
      */
     public ActionCatalogResponse findCollectionActions(String resourceKey) {
-        List<ActionDefinition> resourceDefinitions = requireDefinitions(
-                sort(actionDefinitionRegistry.findByResourceKey(resourceKey)),
-                ActionCatalogNotFoundException.unknownResourceKey(resourceKey)
-        );
-        List<ActionDefinition> definitions = requireDefinitions(
-                resourceDefinitions.stream().filter(definition -> definition.scope() == ActionScope.COLLECTION).toList(),
-                ActionCatalogNotFoundException.missingCollectionActions(resourceKey)
-        );
-        String resolvedResourcePath = singleValue(definitions, ActionDefinition::resourcePath);
-        String resolvedGroup = singleValue(definitions, ActionDefinition::group);
-        Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, null);
-        return bulkProjector.apply(definitions, executions -> new ActionCatalogResponse(
-                resourceKey,
-                resolvedResourcePath,
-                resolvedGroup,
-                null,
-                definitions.stream().map(def -> toCatalogItem(def, contexts, null, executions)).toList()
-        ));
+        try (var ignored = ResourceStateSnapshotScope.open()) {
+            List<ActionDefinition> resourceDefinitions = requireDefinitions(
+                    sort(actionDefinitionRegistry.findByResourceKey(resourceKey)),
+                    ActionCatalogNotFoundException.unknownResourceKey(resourceKey)
+            );
+            List<ActionDefinition> definitions = requireDefinitions(
+                    resourceDefinitions.stream().filter(definition -> definition.scope() == ActionScope.COLLECTION).toList(),
+                    ActionCatalogNotFoundException.missingCollectionActions(resourceKey)
+            );
+            String resolvedResourcePath = singleValue(definitions, ActionDefinition::resourcePath);
+            String resolvedGroup = singleValue(definitions, ActionDefinition::group);
+            Map<ContextKey, ActionAvailabilityContext> contexts = availabilityContexts(definitions, null);
+            return bulkProjector.apply(definitions, executions -> new ActionCatalogResponse(
+                    resourceKey,
+                    resolvedResourcePath,
+                    resolvedGroup,
+                    null,
+                    definitions.stream().map(def -> toCatalogItem(def, contexts, null, executions)).toList()
+            ));
+        }
     }
 
     private ActionCatalogItem toCatalogItem(
@@ -144,7 +165,18 @@ public class ActionCatalogService {
                 definition.resourcePath(),
                 scopedResourceId
         ));
-        AvailabilityDecision availability = availabilityEvaluator.evaluate(definition, context);
+        AvailabilityDecision availability;
+        if ("duplicate-draft".equals(definition.id())) {
+            availability = operationAvailability == null
+                    ? AvailabilityDecision.deny("operation-availability-unconfigured", Map.of())
+                    : operationAvailability.withOperations(definition.resourcePath(), operations -> {
+                        var decision = operationAvailability.evaluate(operations, definition.resourceKey(),
+                                definition.resourcePath(), definition.id(), scopedResourceId);
+                        return decision.allowed() ? declaredDuplicateDraftAvailability(definition, context) : decision;
+                    });
+        } else {
+            availability = availabilityEvaluator.evaluate(definition, context);
+        }
         return new ActionCatalogItem(
                 definition.id(),
                 definition.resourceKey(),
@@ -165,6 +197,31 @@ public class ActionCatalogService {
                 definition.tags(),
                 executions.getOrDefault(definition.operation().operationId(), definition.execution().withBulk(null))
         );
+    }
+
+    /** Evaluates only declared action rules, never a catalog or a capability snapshot. */
+    public AvailabilityDecision evaluateDeclaredDuplicateDraftAvailability(String key, String path, Object id) {
+        try {
+            if (operationAvailability == null || actionDefinitionRegistry == null) return AvailabilityDecision.deny("duplicate-draft-unavailable", Map.of());
+            var definitions = actionDefinitionRegistry.findByResourceKey(key).stream()
+                    .filter(def -> "duplicate-draft".equals(def.id()) && path.equals(def.resourcePath())
+                            && def.scope() == ActionScope.ITEM).toList();
+            if (definitions.size() != 1) return AvailabilityDecision.deny("duplicate-draft-unavailable", Map.of());
+            return declaredDuplicateDraftAvailability(definitions.getFirst(), contextResolver.resolve(key, path, id));
+        } catch (RuntimeException ex) {
+            return AvailabilityDecision.deny("duplicate-draft-unavailable", Map.of());
+        }
+    }
+
+    private AvailabilityDecision declaredDuplicateDraftAvailability(ActionDefinition definition,
+            ActionAvailabilityContext context) {
+        try {
+            var decision = availabilityEvaluator.evaluate(definition, context);
+            return decision != null && decision.allowed() ? AvailabilityDecision.allowAll()
+                    : AvailabilityDecision.deny("duplicate-draft-unavailable", Map.of());
+        } catch (RuntimeException ex) {
+            return AvailabilityDecision.deny("duplicate-draft-unavailable", Map.of());
+        }
     }
 
     private List<String> emptyToNull(List<String> values) {
