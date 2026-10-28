@@ -251,6 +251,15 @@ public class GlobalExceptionHandler {
                 "BULK_PROPOSAL_" + ex.reason().name());
     }
 
+    /** Discovery lost its live operational proof; no infrastructure cause is public. */
+    @ExceptionHandler(org.praxisplatform.uischema.bulk.BulkDiscoveryUnavailableException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleBulkDiscovery(
+            org.praxisplatform.uischema.bulk.BulkDiscoveryUnavailableException ex, WebRequest request) {
+        return buildStatusResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                "Bulk discovery is temporarily unavailable. Refresh availability before continuing.",
+                request, "BULK_DISCOVERY_UNAVAILABLE");
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<RestApiResponse<Object>> handleResponseStatusException(ResponseStatusException ex, WebRequest request) {
         HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
@@ -259,6 +268,15 @@ public class GlobalExceptionHandler {
         }
         String reason = normalize(ex.getReason());
         return buildStatusResponse(status, reason, request, null);
+    }
+
+    /** A timeout does not authorize replay of a write; inspect the current operation state. */
+    @ExceptionHandler(org.springframework.transaction.TransactionTimedOutException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleTransactionTimeout(
+            org.springframework.transaction.TransactionTimedOutException ex, WebRequest request) {
+        return buildStatusResponse(HttpStatus.SERVICE_UNAVAILABLE,
+                "The operation exceeded its transaction deadline. Check its current state before retrying.",
+                request, "TRANSACTION_TIMEOUT");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

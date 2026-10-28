@@ -22,6 +22,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SemanticMetadataReviewerTest {
 
     @Test
+    void excludesInternalStateOnlyWhenBothWireAndSchemaExplicitlyIgnoreIt() {
+        var issues = new SemanticMetadataReviewer().review(InternalStateDTO.class).issues();
+        assertTrue(issues.stream().noneMatch(i -> i.fieldName().equals("internal")));
+        assertTrue(issues.stream().anyMatch(i -> i.fieldName().equals("hiddenOnly")));
+        assertTrue(issues.stream().anyMatch(i -> i.fieldName().equals("publicWire")));
+    }
+
+    private static class InternalStateDTO {
+        @Schema(hidden=true) @com.fasterxml.jackson.annotation.JsonIgnore private String internal;
+        @Schema(hidden=true) private String hiddenOnly;
+        @Schema(hidden=true) @com.fasterxml.jackson.annotation.JsonIgnore(false) private String publicWire;
+    }
+
+    @Test
     void acceptsDeliberateDescriptionsAndGovernedContextFields() {
         SemanticMetadataReviewReport report = new SemanticMetadataReviewer().review(GoodMetadataDTO.class);
 

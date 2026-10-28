@@ -379,7 +379,8 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         if (!contextPath.isEmpty()) OpenApiPublicationCandidate.requireBasePath(contextPath);
         var internal = (OpenApiInternalRestTemplate) restTemplate;
         long transportRevision = internal.transportRevision();
-        return withCompositionDeadline(() -> withTimedLock(compositionPreparationLock, () -> {
+        try {
+          return withCompositionDeadline(() -> withTimedLock(compositionPreparationLock, () -> {
             internal.requireTransportRevision(transportRevision);
             long epoch = withTimedLock(cacheLifecycleLock.readLock(), () -> cacheInvalidationEpoch);
             ObjectMapper parser = objectMapper.copy();
@@ -401,7 +402,10 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                     throw new IllegalStateException("OpenAPI publication was invalidated during preparation");
                 return new OpenApiPublicationCandidate(this, epoch, transportRevision, basePath, contextPath, capturedGroups, captures);
             });
-        }));
+          }));
+        } catch (RuntimeException unavailablePreparation) {
+            throw new GovernedOpenApiPublicationUnavailableException(unavailablePreparation);
+        }
     }
 
     String bulkOpenApiBasePath() { return openApiBasePath; }

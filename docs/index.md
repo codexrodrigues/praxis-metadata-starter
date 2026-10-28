@@ -96,6 +96,8 @@ O baseline canônico atual da plataforma organiza cada recurso sobre cinco pilar
 
 ## Regra de Leitura
 
+Para DTOs PATCH tipados, consulte [presença, omissão e null explícito](spec/PARTIAL-UPDATE-PRESENCE.html).
+
 Quando houver dúvida sobre a superfície publicada:
 1. Priorize os guias principais desta home (`Guia 01` a `Guia 06`) e a [Visão Arquitetural](architecture-overview.html).
 2. Trate `/schemas/filtered` como a única fonte estrutural de request/response e `/capabilities` como o snapshot agregado de disponibilidade.
