@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Issue #303 — execução e gates</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Issue #303 — execução e gates</h1>
+</header>
+<h1 id="issue-303-execução-e-gates">Issue #303 — execução e gates</h1>
+<p>Atualização: 2026-10-27. Coordenador: chat principal da
+implementação. Fonte de requisitos: <a
+href="https://github.com/codexrodrigues/praxis-metadata-starter/issues/303">issue
+#303</a>. Classificação: <code>arquitetural</code> /
+<code>contrato-publico</code>, extensão aditiva candidata.</p>
+<h2 id="escopo-autorizado-e-baseline">Escopo autorizado e baseline</h2>
+<p>Implementar <code>@CustomFields</code> e <code>@ResourceFact</code> /
+<code>ResourceFactCatalogProvider</code>, validar, commit, push do
+branch solicitado e abrir PR para <code>main</code> com
+<code>Closes #303</code>. <strong>Não fazer merge.</strong> Release,
+deploy e adoção em consumidores não são autorizados.</p>
+<ul>
+<li>Branch: <code>feat/custom-fields-and-resource-facts</code>.</li>
+<li>Base atualizada por <code>git fetch origin</code>:
+<code>d57244ad51</code> (<code>origin/main</code> na criação).</li>
+<li>Worktree:
+<code>/Users/rodrigo/Dev/pessoal/praxis-plataform/praxis-metadata-custom-fields</code>.</li>
+<li>O checkout original tinha alterações de outro trabalho e foi
+preservado.</li>
+<li>Política: <code>AGENTS.md</code> do workspace e do starter; guia
+<code>docs/engineering/agentes-e-modelos.md</code> do workspace.</li>
+<li>Skill consultada pelo coordenador:
+<code>praxis-metadata-schema-contracts</code>.</li>
+</ul>
+<h2 id="inventário-de-aderência-e-decisões">Inventário de aderência e
+decisões</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Necessidade</th>
+<th>Classificação</th>
+<th>Evidência / decisão</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DTOs, records e lifecycle resource-oriented</td>
+<td><code>suportado-parcialmente</code></td>
+<td><code>AbstractBaseResourceService</code> já possui mapper/hooks;
+faltava validação de definições dinâmicas antes dos hooks. Integrar
+nesse ciclo.</td>
+</tr>
+<tr>
+<td>Definições de campos por recurso/tenant</td>
+<td><code>lacuna-real-de-contrato</code></td>
+<td>Não havia <code>CustomFieldDefinitionProvider</code> ou anotação de
+container. Dono: metadata starter; host fornece definições ativas e
+persistência.</td>
+</tr>
+<tr>
+<td>Projeção e cache estruturais</td>
+<td><code>suportado-parcialmente</code></td>
+<td><code>/schemas/filtered</code> e <code>getOrComputeSchemaHash</code>
+já existem; acrescentar projeção e dimensão interna tenant/fingerprint,
+preservando IDs públicos neutros.</td>
+</tr>
+<tr>
+<td>Resolução substituível de tenant</td>
+<td><code>lacuna-real-de-contrato</code></td>
+<td>Faltava SPI comum para escrita, filtro, schema e domínio. Adapter de
+header é sintático; autorização continua no host.</td>
+</tr>
+<tr>
+<td>Filtro de campos JSONB</td>
+<td><code>suportado-parcialmente</code></td>
+<td><code>GenericSpecificationsBuilder</code> já publica filtros
+tipados; falta introspecção do container e predicados por definição
+ativa.</td>
+</tr>
+<tr>
+<td>Exportação de caminhos aninhados</td>
+<td><code>suportado-parcialmente</code></td>
+<td>Engines já recebem <code>CollectionExportValueResolver</code> do
+host. Baseline não tinha <code>readFieldValue</code> no engine citado na
+issue; manter o ponto canônico com factory opt-in
+<code>reflective()</code>, consumida pelos engines existentes.</td>
+</tr>
+<tr>
+<td>Fatos declarativos</td>
+<td><code>lacuna-real-de-contrato</code></td>
+<td>Faltavam annotation/descriptor/provider. Publicar somente metadata,
+sem execução ou dependência de config/rules engine.</td>
+</tr>
+<tr>
+<td>Grafo, bindings e governança</td>
+<td><code>suportado-parcialmente</code></td>
+<td><code>SemanticDomainCatalogService</code> já publica os tipos de
+artefato; acrescentar origens
+<code>custom_field</code>/<code>resource_fact</code>, evitando segunda
+estrutura de schema.</td>
+</tr>
+<tr>
+<td>Chaves <code>x-ui</code> e exemplo documental</td>
+<td><code>suportado-parcialmente</code></td>
+<td>Schema fechado de campo já cobre apresentação/restrições, mas
+faltavam quatro marcadores custom e <code>exportable</code>. Atualizar
+spec, exemplo e teste de conformidade.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="plano-e-mapa-de-impacto">Plano e mapa de impacto</h2>
+<ol type="1">
+<li>Inventariar fontes e preservar alterações preexistentes; criar
+branch limpo.</li>
+<li>Implementar contratos e integrações no starter, com writers
+separados.</li>
+<li>Atualizar documentação/specs derivadas e avaliar guidance
+canônico.</li>
+<li>Executar unitários, regressões e E2E Neon com identidade/isolamento
+confirmados.</li>
+<li>Revisão independente do autor, corrigir achados e repetir somente
+gates invalidados.</li>
+<li>Commit, push e PR; aguardar revisão arquitetural sem merge.</li>
+</ol>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Área</th>
+<th>Impacto / validação mínima</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Metadata starter</td>
+<td>Annotations/SPIs, lifecycle, Criteria, export resolver,
+schema/cache, domínio e auto-config; unitários focais e integração
+HTTP.</td>
+</tr>
+<tr>
+<td>Quickstart</td>
+<td>Consumidor Maven e prova operacional; revisar impacto em schemas,
+sem presumir adoção de uma versão não publicada.</td>
+</tr>
+<tr>
+<td>Angular <code>@praxisui/*</code></td>
+<td>Consome <code>properties.*.x-ui</code>, schema e cache; manter
+contexto autorizado em cache/requests, sem declarar renderer adotado por
+este patch.</td>
+</tr>
+<tr>
+<td>Config starter / Policy Studio / rules engine</td>
+<td>Consumidores potenciais do grafo; descritor de fato não é execução
+nem uma dependência Maven nova.</td>
+</tr>
+<tr>
+<td>Docs públicas / examples</td>
+<td>README, CHANGELOG, docs/index, spec de campo, exemplo e contrato
+neste starter; guidance das skills sob responsabilidade do
+coordenador.</td>
+</tr>
+<tr>
+<td>Corpus HTTP / landing</td>
+<td>Não há exemplo host adotado neste corte. Revisão de impacto
+permanece gate do coordenador; não declarar sincronização externa
+automática.</td>
+</tr>
+</tbody>
+</table>
+<p>Risco de breaking change: os caminhos não anotados e as assinaturas
+públicas existentes são preservados; headers <code>Vary</code> passam a
+incluir tenant. DTOs que adotam a anotação passam a rejeitar campos
+desconhecidos/readonly e restrições violadas. O host precisa alinhar
+schemas de request/response/filter e metadata geral de seu provider.</p>
+<h2 id="coordenação-e-recursos">Coordenação e recursos</h2>
+<ul>
+<li>Coordenador: schema/projeção, tenant, auto-config, validação, Git e
+skills canônicas.</li>
+<li><code>customfields_core</code>: pacote de campo,
+lifecycle/filtro/export e unitários.</li>
+<li><code>facts_domain</code>: facts, catálogo semântico e respectivos
+testes.</li>
+<li><code>e2e</code>: fixture HTTP Neon, documentação/specs e teste de
+conformidade.</li>
+<li>Modelo/esforço dos trabalhadores herdados; configuração efetiva não
+confirmada independentemente. Pacotes exigem contexto de contrato e
+revisão pelo coordenador.</li>
+<li>Maven/target e banco são coordenados pelo chat principal;
+trabalhadores não executam builds simultâneos. Revisão independente e
+testes não substituem um ao outro.</li>
+</ul>
+<h2 id="branch-neon-atribuída-ao-ensaio">Branch Neon atribuída ao
+ensaio</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Identidade</th>
+<th>Valor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Projeto</td>
+<td><code>dark-mountain-25788969</code></td>
+</tr>
+<tr>
+<td>Branch</td>
+<td><code>br-young-scene-ad8dg9ip</code>
+(<code>metadata-303-custom-fields-20261027</code>)</td>
+</tr>
+<tr>
+<td>Endpoint</td>
+<td><code>ep-proud-sunset-adp7j1dj.c-2.us-east-1.aws.neon.tech</code></td>
+</tr>
+<tr>
+<td>Database / schema</td>
+<td><code>metadata303</code> / <code>metadata303</code></td>
+</tr>
+<tr>
+<td>Runtime</td>
+<td><code>metadata303_app</code>, papel ordinário</td>
+</tr>
+<tr>
+<td>PostgreSQL esperado</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Responsável exclusivo</td>
+<td>Coordenador deste ensaio</td>
+</tr>
+</tbody>
+</table>
+<p>Credenciais ficam fora do repositório e deste documento. O fixture
+exige JDBC Neon com <code>sslmode=verify-full</code>,
+<code>DefaultJavaSSLFactory</code>, host esperado,
+<code>currentSchema</code> igual ao schema atribuído e branch
+explicitamente informada. Hikari define explicitamente o schema antes do
+DDL, pois o parâmetro startup <code>currentSchema</code> pode não ser
+aplicado pelo proxy. Confere usuário efetivo, schema, versão PostgreSQL
+e ausência de SUPERUSER, CREATEDB, CREATEROLE, BYPASSRLS e membership
+<code>neon_superuser</code>. A conexão autenticada bem-sucedida com
+configuração TLS verificada prova o transporte cliente-proxy;
+<code>pg_stat_ssl</code> do backend pode ser falso pela terminação TLS
+no proxy Neon. O coordenador confirma provisionamento, owner e
+privilégios antes de conectar; a atribuição acima não prova execução.
+<code>ddl-auto=create-drop</code> deve atingir somente o database/schema
+exclusivo do ensaio. Não executar contra branch pai ou produção.</p>
+<p>Antes do refresh do contexto e do DDL Hibernate, o fixture valida
+parâmetros JDBC sem duplicatas ou opções extras, exige os valores exatos
+de TLS e executa preflight JDBC read-only com rollback. Confere
+identidade/database, versão, privilégios, existência do schema e grants
+USAGE/CREATE; aplica <code>setSchema</code> e confirma
+<code>current_schema()</code>. As verificações de identidade se repetem
+antes de cada teste. O ID de branch é uma declaração externa confirmada
+pelo coordenador no provisionamento; o JDBC não descobre nem certifica
+sozinho a relação branch/endpoint.</p>
+<p>A issue menciona E2E H2; o guardrail do workspace exige Neon para
+toda validação de banco. Preservar o utilitário H2 requerido e validá-lo
+sem banco não equivale a prova H2. O E2E candidato usa
+<code>jsonb_extract_path_text</code> real do PostgreSQL.</p>
+<h2 id="gates-e-evidências">Gates e evidências</h2>
+<ul>
+<li><code>CustomFieldsResourceE2ETest</code>: 3 testes HTTP passaram no
+Neon, com zero skip. A fixture inclui preflight somente leitura antes do
+DDL, vínculo de identidade/configuração e rejeição de parâmetros JDBC
+duplicados; repetição focal final aprovada.</li>
+<li><code>CompositeIdResourceE2ETest</code>: 1 teste passou no Neon,
+zero skip, com profile legado sobreposto por datasource PostgreSQL
+explícito e schema isolado.</li>
+<li>Unitários e regressões: 181 testes passaram, zero
+falhas/erros/skips, em 25 classes. O rerun focal de auto-config passou
+4/4 após corrigir a fixture MVC; o bean é condicionado ao nome do
+mapping canônico.</li>
+<li>Revisão independente: coordenador revisou core/facts/E2E/docs;
+facts_domain revisou schema/tenant/cache/auto-config e guidance;
+customfields_core revisou docs/E2E. Achados corrigidos incluem cache
+privado, required residual/readonly, chave de recurso sem metadata
+visual, builder compartilhado e gate JDBC antes DDL.</li>
+<li>Skills: <code>atualizar-existente</code>, fonte canônica
+inspecionada e atualizada no <a
+href="https://github.com/codexrodrigues/praxis-codex-skills/pull/868">PR
+#868</a>, commit <code>1799fc2</code>. Preflight canônico passou 41
+testes, validação estrutural e auditorias isoladas das duas famílias.
+Sem merge/sync local até revisão arquitetural do contrato.</li>
+<li>Nenhuma release, deploy, merge ou Actions manual foi executada.
+Workflows inspecionados: starter só reage a tags/dispatch; skills só
+dispatch. Push dos branches não duplica gates remotos.</li>
+</ul>
+<h3 id="consumidores-e-limites-do-aceite">Consumidores e limites do
+aceite</h3>
+<p>Auditoria somente leitura dos consumidores:
+<code>SchemaMetadataClient</code> e <code>GenericCrudService</code> do
+Angular mantêm caches/in-flight por schemaId neutro ao tenant, e um
+retry 304 perde header. Também não foi encontrada materialização
+recursiva dos novos marcadores de container. Classificação
+<code>suportado-parcialmente</code>; adoção multitenant do runtime exige
+correção no dono <code>@praxisui/core</code>. Não há afirmação de UI
+pronta neste PR.</p>
+<p>Os testes cruzados do Quickstart
+(<code>EventosFolhaPilotIntegrationTest</code>,
+<code>QuickstartMetadataMigrationIntegrationTest</code>,
+<code>OpenApiGroupResolutionIsolatedIntegrationTest</code>) não foram
+executados: esse host requer lease Neon com stores API/config,
+owner/runtime separados e hash do artefato candidato. O checkout do host
+possui alterações externas; esta tarefa não instalou uma versão
+candidata sobre as coordenadas compartilhadas. O gate do host permanece
+pendente de atribuição própria e revisão de adoção. As specs Angular de
+schema/ETag/CRUD foram inspecionadas, não executadas; seu checkout
+também contém trabalho externo. Os gates da issue no starter não
+certificam esses consumidores.</p>
+<p>Corpus HTTP e landing não recebem recipes fictícias de recurso host
+ainda não adotado. Os artefatos derivados deste incremento são a spec,
+exemplo, conformance, README, CHANGELOG e índice do starter, além do PR
+canônico de skills. Nenhum outro artefato derivado foi atualizado.
+Revisão arquitetural deve preservar esses gates de adoção.</p>
+<p><code>CustomFieldsResourceE2ETest</code> é habilitado pela variável
+<code>PRAXIS_CUSTOM_FIELDS_NEON_JDBC_URL</code>; ausência gera skip, não
+aprovação. O profile <code>e2e-neon</code> recebe também
+<code>PRAXIS_CUSTOM_FIELDS_NEON_USER</code>,
+<code>PRAXIS_CUSTOM_FIELDS_NEON_PASSWORD</code>,
+<code>PRAXIS_CUSTOM_FIELDS_NEON_SCHEMA</code>,
+<code>PRAXIS_CUSTOM_FIELDS_NEON_EXPECTED_HOST</code> e
+<code>PRAXIS_CUSTOM_FIELDS_NEON_EXPECTED_BRANCH</code>. Para
+<code>CompositeIdResourceE2ETest</code>, que declara
+<code>e2e-h2</code>, o coordenador deve sobrescrever explicitamente
+datasource/dialect para Neon e verificar a conexão efetiva.</p>
+<h3 id="comandos-e-reprodutibilidade">Comandos e reprodutibilidade</h3>
+<p>Unitários/regressões sem banco (JDK 21, Maven, dependências do pom
+sem mudanças):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> <span class="st">&#39;-Dtest=CustomFieldValidatorTest,CustomFieldJpaCriteriaSupportTest,CustomFieldResourceLifecycleTest,CustomFieldCollectionExportTest,CustomFieldSpecContractTest,RequestHeaderResourceTenantContextResolverTest,H2JsonbFunctionsTest,ResourceFactAndCustomFieldDomainCatalogTest,CustomFieldSchemaTenantIsolationTest,CustomFieldAutoConfigurationTest,ApiResourceIdentityResolverTest,ApiDocsControllerTest,ApiDocsControllerSchemaHashTest,ApiDocsControllerPathResolutionTest,FilteredSchemaReferenceResolverTest,SemanticDomainCatalogServiceTest,AbstractBaseResourceServiceTest,GlobalExceptionHandlerTest,DefaultCollectionExportExecutorTest,OpenApiUiSchemaAutoConfiguration*Test&#39;</span> test</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> <span class="at">-Dtest</span><span class="op">=</span>CustomFieldAutoConfigurationTest test</span></code></pre></div>
+<p>E2E exige as variáveis privadas de atribuição descritas acima; nunca
+usar valores de produção como substitutos. O URL inclui
+<code>sslmode=verify-full</code>,
+<code>sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory</code> e
+<code>currentSchema=metadata303</code>. A role
+<code>metadata303_app</code> não tem
+SUPERUSER/CREATEDB/CREATEROLE/BYPASSRLS nem membership
+<code>neon_superuser</code>. Owner de setup:
+<code>metadata303_runtime</code>; seu privilégio não é usado como prova
+do caminho da aplicação. Não há control plane de negócio neste
+fluxo.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> <span class="at">-Dtest</span><span class="op">=</span>CustomFieldsResourceE2ETest test</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Para a regressão, definir SPRING_DATASOURCE_URL/USERNAME/PASSWORD/DRIVER_CLASS_NAME,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"># SPRING_DATASOURCE_HIKARI_SCHEMA e SPRING_JPA_DATABASE_PLATFORM para a mesma atribuição;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># SPRING_JPA_PROPERTIES_HIBERNATE_DEFAULT_SCHEMA limita o DDL ao schema do ensaio.</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> <span class="at">-Dtest</span><span class="op">=</span>CompositeIdResourceE2ETest <span class="at">-Dspring.profiles.include</span><span class="op">=</span>e2e-neon test</span></code></pre></div>
+<p>Logs brutos locais: <code>/tmp/praxis-303/unit-final.log</code>,
+<code>autoconfig-final.log</code>, <code>e2e.log</code>,
+<code>composite.log</code>; resultados individuais em
+<code>target/surefire-reports</code>. A consolidação usa o último
+resultado de cada classe, incluindo correções focais; não soma execuções
+repetidas. Suites integrais e gates de release não foram rodados.</p>
+<h3 id="resultado-final-do-candidato">Resultado final do candidato</h3>
+<p>Consolidação final: <strong>185 testes distintos, 0 falhas, 0 erros e
+0 skips</strong> — 181 unitários/regressões e 4 E2E reais no Neon. A
+repetição focal final executou <code>CustomFieldValidatorTest</code>,
+<code>CustomFieldResourceLifecycleTest</code>,
+<code>CustomFieldJpaCriteriaSupportTest</code>,
+<code>CustomFieldsResourceE2ETest</code> e
+<code>CompositeIdResourceE2ETest</code> na árvore final; log
+<code>final-focal.log</code> no diretório local de evidências. Correções
+apenas nas fixtures de auto-config foram validadas pelo rerun focal 4/4,
+sem repetir suites válidas sem necessidade.</p>
+<p>Fingerprint da árvore de código/testes/specs validada (SHA-256 da
+saída de <code>git ls-files -s src/main src/test docs/spec</code>):
+<code>fb510c59610344153c965692d2612c9cd24f51a5ec351df3d78c00a1d3d3cf03</code>.
+O pom não foi alterado: JDK 21.0.10, Hibernate 6.6.53.Final e PostgreSQL
+17.11 observados na execução. Os relatórios Surefire e logs locais
+preservam os resultados brutos; o fingerprint não inclui este registro
+para evitar auto-referência.</p>
+<p>Revisão independente encerrada: correções de schema/cache/auto-config
+revisadas por facts_domain; core/facts revisados pelo coordenador;
+fixture e documentação revisadas pelo coordenador e customfields_core.
+Essa conclusão foi superada pela revisão abrangente subsequente abaixo;
+os resultados dos testes continuam históricos, mas não encerram os oito
+achados novos. Os gates externos de adoção permanecem explícitos.</p>
+<p>Ao fim do ensaio, nenhuma tabela permaneceu no schema
+<code>metadata303</code>; o compute Neon exclusivo foi suspenso,
+preservando a branch para rastreabilidade. Nenhum shell interativo ou
+servidor auxiliar foi deixado aberto. A integração dos PRs e
+sincronização local das skills aguardam a revisão arquitetural
+solicitada.</p>
+<h2 id="correções-da-revisão-abrangente-27102026">Correções da revisão
+abrangente — 27/10/2026</h2>
+<p>Baseline: starter <code>a247dec7c4</code>, skills
+<code>1799fc2</code>; branches/PRs existentes #304 e #868. Escopo
+autorizado: corrigir os oito achados, regressões, documentação/skills,
+revisão independente e push; sem merge, release ou adoção nos
+consumidores. Classificação: <code>contrato-publico</code> corretivo.
+Aderência: <code>suportado-parcialmente</code> para preservação de
+readonly e <code>ja-suportado-mal-nomeado-ou-mal-materializado</code>
+para schema/filtros, enums, proxy discovery, datas e governança. O tipo
+MVC do request já existe; a consulta por rota no resolver canônico expõe
+esse dado para projeção sem inventar papel de operação por
+nome/path.</p>
+<p>Plano e impacto antes da edição: - Corrigir lifecycle readonly com
+uma definição por escrita e preservar o estado após
+<code>beforeUpdate</code> através do mapper; hooks de domínio continuam
+responsáveis por alterações legítimas. Cobrir ausência, null, mapa
+imutável e atribuição negada. - Projetar filtros a partir de
+<code>GenericFilterDTO</code> registrado, operadores e tipos; separar
+obrigatoriedade de escrita, normalizar schemaType e validar enums na
+fonte. - Descobrir annotations em metadados originais/proxies sem
+executar beans; hash de defaults temporais e governança devem preservar
+a semântica do descriptor. - Atualizar spec, exemplos, conformance e
+skills existentes; testar unitários, regressões de schemas e
+HTTP/PostgreSQL na branch Neon exclusiva já atribuída. - Revisar o diff
+final por autor diferente e publicar nos PRs existentes.</p>
+<p>Dono canônico: metadata starter. Consumidores afetados: clientes de
+schema, formulários/filtros e grounding de domínio. Quickstart/Angular
+permanecem nos gates anteriores. Nenhum runtime frontend ou recipe de
+host será anunciado como adotado. Risco de compatibilidade: correção no
+candidato beta ainda não integrado; descriptors ENUM inválidos falham na
+origem, e o helper protegido de validação passa a retornar as chaves
+readonly para que escritores próprios preservem o estado. Não há versão
+paralela nem alteração do container wire.</p>
+<p>Responsáveis: fix_readonly (lifecycle), fix_facts_domain (catálogo),
+fix_schema (projeção/descriptor), coordenador (integração, E2E,
+docs/skills e target Maven). Sol/high solicitado aos três
+implementadores devido à integridade e aos contratos; o retorno da
+ferramenta confirma a atribuição, não métricas de custo/modelo efetivo.
+Sem builds concorrentes, instalações Maven compartilhadas ou mutações na
+branch pai. Status inicial: implementação e provas em andamento; o
+aceite anterior está revogado.</p>
+<h3 id="resultado-das-correções-e-nova-revisão-independente">Resultado
+das correções e nova revisão independente</h3>
+<p>Os oito achados foram corrigidos no candidato. Mapeamento de
+regressão:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Achado</th>
+<th>Correção e prova</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Perda readonly no PUT</td>
+<td>Snapshot único pós-hook/pré-mapper, restauração de valor/ausência;
+<code>CustomFieldResourceLifecycleTest</code> e HTTP
+<code>updatePreservesServerOwnedValuesAndRejectsAssignments</code>.</td>
+</tr>
+<tr>
+<td>2. Shape de filtro</td>
+<td>Tipo MVC real seleciona projeção de operandos;
+<code>CustomFieldSchemaProjectionTest</code>, resolver/controller e HTTP
+<code>publishedFilterAndWriteSchemasMatchRealHttpPayloads</code>.</td>
+</tr>
+<tr>
+<td>3. Container obrigatório</td>
+<td>Required da raiz acompanha filhos e preserva exigência estática;
+JSON Schema e HTTP negam omissão.</td>
+</tr>
+<tr>
+<td>4. Enum divergente</td>
+<td>Invariantes fail-fast no descriptor e membership comum STRING/ENUM;
+testes cruzam schema/validator e combinações inválidas.</td>
+</tr>
+<tr>
+<td>5. Proxy oculta fatos</td>
+<td>Metadados originais, target e factories;
+<code>AnnotationResourceFactCatalogProviderTest</code> inclui JDK proxy
+real, lazy, overload resolvido/ambíguo e owner singleton.</td>
+</tr>
+<tr>
+<td>6. Default temporal</td>
+<td>Serialização JavaTime ISO determinística; catálogo testa LocalDate,
+Instant, OffsetDateTime e LocalDateTime.</td>
+</tr>
+<tr>
+<td>7. Governança alterada</td>
+<td>Reason/confidence e demais dados preservados, inclusive declarações
+parciais/vazias; sem criar políticas AI ausentes nas extensões.
+Confidence omitida mantém default histórico 1.0, não uma medição.</td>
+</tr>
+<tr>
+<td>8. REQUEST/request</td>
+<td>Normalização anterior a provider/schema/hash; testes diretos,
+controller e HTTP/ETag.</td>
+</tr>
+</tbody>
+</table>
+<p>Validação integrada atual: <strong>242 testes distintos, 0 falhas, 0
+erros, 0 skips</strong>, em 30 classes: <strong>236 unitários/regressões
+sem banco + 6 E2E no Neon</strong> (5 custom fields e 1 composite ID).
+Contagem consolidada do último XML de cada classe; repetições não são
+somadas. Dependências do pom inalteradas, JDK 21.0.10, Hibernate
+6.6.53.Final, PostgreSQL 17.11.</p>
+<p>A primeira execução integrada rodou 228 casos e capturou um teste de
+governança antigo enquanto o autor finalizava a correção solicitada pela
+revisão. O rerun focal após estabilização das fontes substituiu essa
+evidência; o último rerun provider/domain/auto-config passou. A suíte
+integral e gates externos não foram executados. O comando unitário
+anterior foi ampliado com <code>CustomFieldSchemaProjectionTest</code>,
+<code>AnnotationResourceFactCatalogProviderTest</code> e
+<code>OpenApiCanonicalOperationResolverTest</code>; E2E usou os mesmos
+comandos/lease já registrados. Logs novos em
+<code>/tmp/praxis-303/</code>: <code>review-fixes-unit.log</code>,
+<code>review-fixes-focal.log</code>,
+<code>review-fixes-domain-final.log</code>,
+<code>review-fixes-e2e.log</code>,
+<code>review-fixes-composite.log</code> e
+<code>review-fixes-counts.json</code>.</p>
+<p>Fingerprint SHA-256 do índice final de
+<code>src/main src/test docs/spec</code>:
+<code>6c69bffa910c8934fb1a7e30393b0be1e9d4e744410903e2c036a61e0844bc6b</code>.
+Nenhum código/teste/spec foi alterado depois dessas provas; este
+registro fica fora do fingerprint para evitar auto-referência. O
+pós-teste JDBC read-only confirmou <code>metadata303_app</code>,
+database/schema <code>metadata303</code>, PostgreSQL 17.11 e
+<strong>zero tabelas remanescentes</strong>. TLS verify-full e
+privilégios ordinários foram verificados antes do DDL pelo fixture. O
+compute exclusivo é suspenso ao encerrar a validação.</p>
+<p>Revisão independente nesta rodada: -
+<code>review_writes_filters</code> (Sol/high solicitado, não autor)
+revisou lifecycle, schema/enum, resolução MVC e E2E; executou 21 testes
+isolados com as fontes atuais e o harness original de readonly. Parecer:
+apto nesse recorte, sem achado restante. -
+<code>review_schema_domain</code> (Sol/high solicitado, não autor)
+revisou catálogo/facts; encontrou e revalidou a correção de factory
+owner registrado só como singleton. Harnesses finais confirmam proxy,
+owner singleton, datas e governança. Parecer: apto nesse recorte, sem
+achado restante. - Coordenador revisou os trechos dos três
+implementadores; encontrou e corrigiu com os autores preservação do
+backing field/getter, required estático e perda de governança parcial.
+As mudanças materiais voltaram à revisão independente. -
+<code>review_plan_ux</code> (Terra/high solicitado, não autor)
+confrontou docs/skills com código e limites. Ajustados o texto de
+evidência E2E e a distinção entre confiança declarada e default. Parecer
+final: documentação e skills aptas no recorte revisado, sem achado
+acionável restante; confirmou o fingerprint e os artefatos de testes por
+leitura.</p>
+<p>Skills: <code>atualizar-existente</code>, mantendo as duas skills do
+PR #868 e seus hashes. Preflight canônico passou <strong>41
+testes</strong>, auditoria isolada de <strong>168 skills Praxis + 19
+Ergon</strong>, sem drift/ausências/inventário inválido, e validação
+estrutural das duas skills. Logs
+<code>review-skills-preflight.log</code> e
+<code>review-skills-fix-manifest.log</code>. A auditoria do destino
+instalado identificou drifts preexistentes fora do escopo; não houve
+force/sync local. Integração canônica e sincronização continuam
+pendentes por determinação explícita de não fazer merge. Não se declara
+guidance instalado.</p>
+<p>Docs/spec/conformance/changelog e guidance foram atualizados. README
+e índice já remetem à spec e não exigem novo link; o exemplo de
+container existente mantém o mesmo conteúdo, enquanto a obrigatoriedade
+da raiz é comprovada nos testes de payload completo. Corpus
+HTTP/landing/recipes e runtimes externos mantêm o limite de adoção
+descrito acima. Esta entrega é correção dos PRs candidatos, não
+aprovação de release, UI, host Quickstart ou revisão arquitetural
+humana.</p>
+<h2
+id="interoperabilidade-com-o-runtime-angular-27102026">Interoperabilidade
+com o runtime Angular — 27/10/2026</h2>
+<p>Baseline backend:
+<code>368d96266b6bcafdd1a5048f8922fe75122ffd37</code>, branch existente
+<code>feat/custom-fields-and-resource-facts</code> / PR #304. Janela de
+escrita e <code>target/</code> exclusiva atribuída ao trabalhador
+<code>review_core657</code> pelo coordenador após conferir o trabalho
+paralelo de adoção. Nenhum commit, merge, publish ou instalação Maven
+compartilhada foi executado pelo trabalhador.</p>
+<p>Classificação: <code>contrato-publico</code> /
+<code>transversal</code>, corretiva no candidato beta. Inventário: o
+tipo, formato, readonly e enumeração já estavam declarados pelos
+descriptors; as lacunas eram de projeção/materialização. A política de
+chave já existia, mas seu alfabeto aceitava membros incompatíveis com
+objetos JavaScript e caminhos bloqueados nos consumidores. Não foi
+criado contrato paralelo.</p>
+<p>Decisões e alterações: - Schemas de escrita excluem filhos readonly;
+resposta mantém esses filhos e sua obrigatoriedade. Filtros continuam
+publicando readonly quando <code>filterable</code>. Projeção vazia
+remove propriedade e <code>required</code> do container, inclusive
+quando o schema original só declarava <code>required</code> e não
+possuía <code>properties</code>. - A política Java/spec rejeita
+exatamente <code>constructor</code>, <code>prototype</code>,
+<code>hasOwnProperty</code>, <code>isPrototypeOf</code>,
+<code>propertyIsEnumerable</code>, <code>toLocaleString</code>,
+<code>toString</code> e <code>valueOf</code>, além dos nomes já
+inválidos pelo regex. Migração de dados e referências incompatíveis é
+responsabilidade explícita do host; não há aliases. - AUTO usa
+<code>OpenApiUiUtils.determineBasicControlType</code>, aproveitando
+tipo/formato e forma do operando de filtro. Controles explícitos são
+preservados; nomes/labels não decidem o controle. O exemplo publicado
+agora mostra <code>numericTextBox</code>.</p>
+<p>Impacto: <code>CustomFieldDescriptor</code>,
+<code>CustomFieldSchemaEnricher</code>, JSON Schema <code>x-ui</code>,
+exemplo, conformance, spec e changelog. Runtime Angular e adoção
+Quickstart são consumidores diretos coordenados separadamente.
+README/índice já apontam à spec; não foram adicionados logs operacionais
+às homes. A extensão beta restringe chaves antes aceitas: hosts precisam
+migrar definições antigas antes da adoção.</p>
+<p>Validações sem banco, JDK 21.0.10 / Maven 3.9.15:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> <span class="at">-Dtest</span><span class="op">=</span>CustomFieldSchemaProjectionTest,CustomFieldSpecContractTest,CustomFieldSchemaTenantIsolationTest,CustomFieldValidatorTest,RequestHeaderResourceTenantContextResolverTest,CustomFieldResourceLifecycleTest,CustomFieldJpaCriteriaSupportTest test</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co"># 65 testes, zero falhas/erros/skips</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="ex">mvn</span> <span class="at">-Dtest</span><span class="op">=</span>ResourceFactAndCustomFieldDomainCatalogTest,CustomFieldAutoConfigurationTest,CustomFieldCollectionExportTest test</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 22 testes, zero falhas/erros/skips</span></span></code></pre></div>
+<p>Evidência bruta:
+<code>/tmp/praxis-304-angular-contract-unit.log</code> e
+<code>/tmp/praxis-304-angular-contract-consumers.log</code>, com
+resultados por classe em <code>target/surefire-reports</code>. São
+<strong>87 testes distintos</strong>. O caso MockMvc despacha
+requisições pela infraestrutura MVC real ao
+<code>ApiDocsController</code>, verificando request/response, readonly,
+tenant, ETag, 304, <code>private</code> e <code>Vary</code>. Ele não
+inicia servidor de rede, contexto JPA, banco local/embutido ou conexão
+Neon; não comprova persistência nem cadeia de segurança do host.</p>
+<p>SHA-256 do patch de <code>src/main</code>, <code>src/test</code> e
+<code>docs/spec</code> contra esse baseline:
+<code>bd0d7fb3a9c5d51cfc3a1b3407d77c95816fbbf70110292af9ca8a88fa53c066</code>.
+Revisão independente pelo coordenador concluída: confrontou o diff de
+produção, as projeções de escrita/resposta/filtro, as specs e a
+evidência das duas execuções. O early return com required sem properties
+foi corrigido antes dos testes finais; sem achado acionável restante
+nesse recorte. Skills: <code>atualizar-existente</code>; o incremento do
+PR #868 pertence ao outro chat e não foi editado nesta janela. Adoção
+HTTP/Neon no Quickstart tem atribuição própria na coordenação; esta
+rodada não usa nem certifica a branch Neon desse ensaio.</p>
+<h2 id="adoção-httpneon-no-quickstart-27102026">Adoção HTTP/Neon no
+Quickstart — 27/10/2026</h2>
+<p>Entrega downstream em <a
+href="https://github.com/codexrodrigues/praxis-api-quickstart/pull/482">Quickstart
+#482</a>, <strong>draft</strong>, commit
+<code>6244950e67302a795f8641adac385ae2a8436c2d</code>. O candidato
+Metadata foi empacotado de um archive limpo de
+<code>786526c0774acc10a7014fff4f3091d978af0fe8</code> (árvore
+<code>a930126214eff3d542cacde632f89a53e0b27ca2</code>), com JDK 21,
+apenas em cache Maven privado. JAR SHA-256:
+<code>624316595693ff432fc1ac2171942fd04cbac072e0f73482ef26a07508664858</code>.
+POM SHA-256:
+<code>fb69f4ea42edc37a2a24a665ad5d5f1b2622a95dda6fd36ee6a188d9a19d26d6</code>.
+O GAV rc.179 identifica aqui um candidato não publicado; o artefato
+público ainda não contém os novos tipos e seu gate de adoção permanece
+pendente. Os JARs/POMs públicos dos três peers Praxis foram conferidos
+com Maven Central.</p>
+<p>Foram aprovados <strong>25 casos distintos</strong>: três HTTP reais
+no Neon e 22 focais sem banco. O host comprova SESSION/membership reais,
+alternância A/B/A, ETag/304, revogação antes de resposta condicional,
+rejeição de headers conflitantes, CRUD/JSONB, readonly, validação e
+escopo de linhas inclusive opções, além do catálogo declarativo de fatos
+por tenant. A seleção de contexto é preparação de fixture;
+CSRF/navegador/CORS, rollout produtivo e execução de regras não fazem
+parte desta prova. A configuração de migrations é compartilhada com o
+caminho canônico; o callback administrativo é exclusivo de testes.</p>
+<p>A revisão independente conferiu o código, as invariantes, os limites
+e as fontes. Fingerprint final <code>src/main + src/test</code>:
+<code>59167f8a7bb91060be6b0c657b2dda6ad8452e31db8df403c647acbc1a770ae8</code>.
+O freeze anterior de 24 casos foi reconstruído exatamente; depois dele
+apenas a ordem de grants da fixture histórica e seu novo teste offline
+mudaram. Os dois casos offline passaram, contando a proveniência
+repetida uma única vez. A documentação e os recibos JSON sanitizados no
+PR preservam esses vínculos; logs brutos estão em
+<code>/tmp/praxis-303-adoption</code>.</p>
+<p><strong>Três pilotos históricos não estão aprovados.</strong>
+EventosFolha apresentou 11 erros de inicialização porque a migração
+financeira exigia USAGE/SELECT pré-provisionados. A ordem de grants foi
+corrigida e validada offline, sem repetir a campanha longa. Por
+inspeção, o seed/cleanup antigo também conflita com CREATE auditado e
+proteção contra DELETE; essa próxima incompatibilidade não foi uma falha
+remota observada. A correção completa exige adoção do lifecycle
+financeiro governado e permanece pendente; não se desabilitaram
+triggers, fabricaram recibos ou ampliaram grants após o cutover.
+QuickstartMetadataMigration e OpenApiGroupResolutionIsolated não foram
+repetidos no candidato definitivo. <code>verify</code> integral
+permanece pendente.</p>
+<p>Branch Neon exclusiva <code>br-proud-cake-adwn97mh</code>, projeto
+<code>dark-mountain-25788969</code>, PostgreSQL 17.11, TLS verify-full e
+owner/runtime distintos. O journal confirma 14 databases e 14 roles
+runtime removidos por OID. Postflight confirmou zero recursos/conexões
+de teste; endpoint <code>ep-aged-sky-adkwifgy</code> suspenso
+(<code>idle</code>) em 27/10/2026 18:11:46 UTC. Branch e três
+identidades de preparação foram retidas.</p>
+<p>Skills: <code>atualizar-existente</code>, <a
+href="https://github.com/codexrodrigues/praxis-codex-skills/pull/868">PR
+#868</a>, HEAD <code>62008cc0f2c7619c775fb14b0c57620c450e0160</code>:
+schema, domínio e operational-proof. Preflight Python 41 testes,
+estrutura e auditorias isoladas de 168 Praxis +19 Ergon aprovados;
+último incremento de grants/fixtures validado novamente. A integração
+canônica e sincronização instalada permanecem pendentes por decisão de
+não merge. O Angular segue coordenado separadamente no PR #658. Nenhum
+merge, release, deploy ou dispatch manual de Actions foi realizado nesta
+entrega de adoção.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

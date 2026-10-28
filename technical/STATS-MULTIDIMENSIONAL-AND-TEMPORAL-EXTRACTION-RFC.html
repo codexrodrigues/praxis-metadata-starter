@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>RFC - Agregacao Multidimensional (Cross-Tab 2D/ND) e Extracoes Canonicas de Dimensao em `praxis.stats`</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">RFC - Agregacao Multidimensional (Cross-Tab 2D/ND) e
+Extracoes Canonicas de Dimensao em `praxis.stats`</h1>
+</header>
+<h1
+id="rfc---agregacao-multidimensional-cross-tab-2dnd-e-extracoes-canonicas-de-dimensao-em-praxis.stats">RFC
+- Agregacao Multidimensional (Cross-Tab 2D/ND) e Extracoes Canonicas de
+Dimensao em <code>praxis.stats</code></h1>
+<h2 id="status">Status</h2>
+<ul>
+<li>estado: <code>proposed</code></li>
+<li>issue: #301</li>
+<li>dependencias: #98 (<code>STATS-BUCKET-IDENTITY-RFC</code>), #99
+(<code>STATS-COMPARISON-RFC</code>)</li>
+<li>classe:
+<code>contrato-publico + arquitetural + transversal</code></li>
+<li>aderencia: <code>lacuna-real-de-contrato</code></li>
+</ul>
+<h2 id="objetivo">Objetivo</h2>
+<p>Evoluir a superficie canonica
+<code>POST /{resource}/stats/group-by</code>,
+<code>GET /{resource}/capabilities</code> (<code>stats</code>) e
+<code>x-ui.analytics</code> no <code>praxis-metadata-starter</code> para
+suportar tres primitivas ortogonais de plataforma:</p>
+<ol type="1">
+<li><strong>Extracao/Transformacao Canonica de Dimensao
+(<code>StatsDimensionExtraction</code>) com <code>timezone</code>
+IANA</strong>: permitir agrupar um campo elegivel nao apenas pelo seu
+valor bruto, mas por extracoes temporais ciclicas
+(<code>HOUR_OF_DAY</code>, <code>DAY_OF_WEEK</code>,
+<code>DAY_OF_MONTH</code>, <code>MONTH_OF_YEAR</code>,
+<code>QUARTER_OF_YEAR</code>) ou truncamentos cronologicos
+(<code>HOUR</code>, <code>DAY</code>, <code>WEEK</code>,
+<code>MONTH</code>, <code>QUARTER</code>, <code>YEAR</code>), tanto em
+<strong>1D</strong> quanto em <strong>2D/ND</strong>.</li>
+<li><strong>Agrupamento Multidimensional / Cross-Tab Governado
+(<code>dimensions[]</code>)</strong>: permitir agrupar por ate
+<code>praxis.stats.max-dimensions</code> (padrao <code>2</code>)
+dimensoes coordenadas em uma unica operacao, cobrindo cruzamentos
+<strong>Categorico x Categorico</strong>, <strong>Categorico x
+Temporal</strong> e <strong>Temporal x Temporal</strong> (como matrizes
+<code>dia da semana x hora</code> 7x24), sem introduzir endpoint
+paralelo ad-hoc.</li>
+<li><strong>Densificacao de Dominio Finito e Medidas sobre Ocorrencias
+do Ciclo (<code>AVG_PER_CYCLE_OCCURRENCE</code>)</strong>: distinguir
+formalmente contagem zero (<code>0</code>), valor metrico
+<code>null</code> (inclusive por ausencia de ocorrencia do ciclo em
+janelas parciais ou transicoes de DST) e bucket omitido, alem de
+suportar media normalizada pelo numero real de ocorrencias do bucket
+temporal dentro da janela <code>[from, to]</code>.</li>
+</ol>
+<h2
+id="diagnostico-do-contrato-atual-por-que-nao-criar-endpoint-separado">Diagnostico
+do Contrato Atual (Por que nao criar endpoint separado)</h2>
+<p>Antes desta RFC: - <code>GroupByStatsRequest</code> aceitava apenas
+<code>String field</code> (1D escalar) e <code>GroupByBucket</code>
+publicava apenas <code>Object key</code> e <code>String label</code>. -
+<code>TimeSeriesStatsRequest</code> e <code>TimeSeriesGranularity</code>
+(<code>DAY</code>, <code>WEEK</code>, <code>MONTH</code>) modelavam
+apenas progressao cronologica linear contínua. Adicionar
+<code>HOUR</code> em <code>timeseries</code> produziria uma sequencia
+linear (<code>720</code> pontos em 30 dias), incapaz de consolidar os
+mesmos horarios ou dias da semana ao longo de varias semanas. -
+<code>UiAnalyticsAnnotationMapper</code> e
+<code>x-ui-analytics.schema.json</code> publicavam apenas
+<code>bindings.primaryDimension</code> singular, enquanto o runtime
+<code>@praxisui/charts</code> ja previa <code>dimensions[]</code>.</p>
+<p>Criar um endpoint dedicado apenas a <code>weekday x hour</code>
+violaria a Diretriz de Solucao de Plataforma: qualquer matriz
+<code>departamento x cargo</code>, <code>severidade x status</code>,
+<code>equipe x dia da semana</code> ou <code>ano x mes</code> exigiria
+outro contrato ad-hoc. A evolucao canonica correta consiste em estender
+<code>group-by</code>, <code>StatsCapability</code> e
+<code>x-ui.analytics</code> com <code>dimensions[]</code> e
+<code>StatsDimensionExtraction</code>, preservando total
+retrocompatibilidade com requests 1D (<code>field</code>).</p>
+<h2 id="primitiva-de-extracao-de-dimensao-statsdimensionextraction">1.
+Primitiva de Extracao de Dimensao
+(<code>StatsDimensionExtraction</code>)</h2>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">enum</span> StatsDimensionExtraction <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    NONE<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    HOUR_OF_DAY<span class="op">,</span>      <span class="co">// 0..23 (dominio finito de 24 chaves inteiras)</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    DAY_OF_WEEK<span class="op">,</span>      <span class="co">// ISO-8601: 1 (Monday) .. 7 (Sunday) (dominio finito de 7 chaves inteiras)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    DAY_OF_MONTH<span class="op">,</span>     <span class="co">// 1..31 (dominio finito de 31 chaves inteiras)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    MONTH_OF_YEAR<span class="op">,</span>    <span class="co">// 1..12 (dominio finito de 12 chaves inteiras)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    QUARTER_OF_YEAR<span class="op">,</span>  <span class="co">// 1..4 (dominio finito de 4 chaves inteiras)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    HOUR<span class="op">,</span>             <span class="co">// truncamento cronologico linear: YYYY-MM-DDTHH:00</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    DAY<span class="op">,</span>              <span class="co">// truncamento cronologico linear: YYYY-MM-DD</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    WEEK<span class="op">,</span>             <span class="co">// truncamento cronologico linear: YYYY-MM-DD (segunda-feira ISO)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    MONTH<span class="op">,</span>            <span class="co">// truncamento cronologico linear: YYYY-MM</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    QUARTER<span class="op">,</span>          <span class="co">// truncamento cronologico linear: YYYY-Qn</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    YEAR              <span class="co">// truncamento cronologico linear: YYYY</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Regras semanticas: - <code>NONE</code> (default quando omitido): usa
+a identidade e o label governados pelo <code>StatsFieldDescriptor</code>
+(incluindo <code>keyPropertyPath</code> e <code>labelPropertyPath</code>
+distintos da #98). Exige
+<code>descriptor.groupByEligible() == true</code>. - Extracoes temporais
+(<code>!= NONE</code>): exigem
+<code>descriptor.timeSeriesEligible() == true</code>. -
+<strong>Identidade estavel vs. Label</strong>: - Para extracoes
+ciclicas, <code>key</code> e sempre um <code>Integer</code> canonico
+(<code>0..23</code> para <code>HOUR_OF_DAY</code>, <code>1..7</code> ISO
+para <code>DAY_OF_WEEK</code>, <code>1..31</code> para
+<code>DAY_OF_MONTH</code>, <code>1..12</code> para
+<code>MONTH_OF_YEAR</code>, <code>1..4</code> para
+<code>QUARTER_OF_YEAR</code>). - <code>label</code> publica uma
+representacao canonica neutra
+(<code>"00:00"</code>..<code>"23:00"</code>,
+<code>"MON"</code>..<code>"SUN"</code>,
+<code>"01"</code>..<code>"31"</code>,
+<code>"JAN"</code>..<code>"DEC"</code>,
+<code>"Q1"</code>..<code>"Q4"</code>). Runtimes consumidores usam
+<code>key</code> para ordenacao, identidade de celula e filtros, podendo
+localizar o texto exibido sem nunca inferir semantica a partir do
+<code>label</code>. - <strong>Governanca de <code>timezone</code>
+IANA</strong>: - Quando qualquer dimensao utiliza extracao temporal
+sobre campos de instante/timestamp (<code>Instant</code>,
+<code>OffsetDateTime</code>, <code>ZonedDateTime</code>,
+<code>LocalDateTime</code>) ou quando uma janela temporal
+(<code>periodPreset</code> ou <code>from</code>/<code>to</code>) e
+solicitada, <code>timezone</code> deve ser um identificador IANA valido
+(<code>ZoneId.of(timezone)</code>). Se ausente em extracao temporal ou
+preset, responde <code>400 Bad Request</code>. - Para
+<code>LocalDate</code> puro (sem componente horario), extracoes
+<code>HOUR_OF_DAY</code> e <code>HOUR</code> sao rejeitadas com
+<code>400 Bad Request</code>.</p>
+<h2 id="primitiva-de-agrupamento-multidimensional-dimensions">2.
+Primitiva de Agrupamento Multidimensional
+(<code>dimensions[]</code>)</h2>
+<h3 id="request-canonico-post-resourcestatsgroup-by">Request canonico
+(<code>POST /{resource}/stats/group-by</code>)</h3>
+<p>O contrato aceita o modo 1D classico (<code>field</code>) ou a lista
+ordenada <code>dimensions[]</code> (1D com extracao ou 2D/ND
+Cross-Tab):</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;filter&quot;</span><span class="fu">:</span> <span class="fu">{},</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dimensions&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;occurredAt&quot;</span><span class="fu">,</span> <span class="dt">&quot;extraction&quot;</span><span class="fu">:</span> <span class="st">&quot;DAY_OF_WEEK&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;dayOfWeek&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;occurredAt&quot;</span><span class="fu">,</span> <span class="dt">&quot;extraction&quot;</span><span class="fu">:</span> <span class="st">&quot;HOUR_OF_DAY&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;hourOfDay&quot;</span> <span class="fu">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;timezone&quot;</span><span class="fu">:</span> <span class="st">&quot;America/Sao_Paulo&quot;</span><span class="fu">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;periodPreset&quot;</span><span class="fu">:</span> <span class="st">&quot;LAST_30_DAYS&quot;</span><span class="fu">,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;fillGaps&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;metrics&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;COUNT&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;totalEventos&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;AVG_PER_CYCLE_OCCURRENCE&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;mediaPorOcorrencia&quot;</span> <span class="fu">}</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;orderBy&quot;</span><span class="fu">:</span> <span class="st">&quot;KEY_ASC&quot;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Regras de validacao do request: - Deve informar <code>field</code> ou
+<code>dimensions[]</code> nao vazio. Se ambos forem enviados e
+divergirem, <code>dimensions[]</code> prevalece apenas quando
+<code>field</code> for omitido ou igual a primeira dimensao; enviar
+<code>field</code> contraditorio com <code>dimensions[]</code> responde
+<code>400</code>. - <code>dimensions.size()</code> nao pode exceder
+<code>praxis.stats.max-dimensions</code> (default <code>2</code>). -
+Cada <code>StatsDimensionRequest</code> possui
+<code>effectiveAlias()</code>: usa <code>alias</code> quando declarado;
+caso contrario, usa <code>field</code> quando
+<code>extraction == NONE</code> ou
+<code>field + "_" + extraction.name().toLowerCase()</code> quando
+<code>extraction != NONE</code>. Aliases efetivos de dimensao devem ser
+unicos no request (permitindo extrair duas partes distintas do mesmo
+campo temporal, como <code>occurredAt</code> -&gt;
+<code>dayOfWeek</code> e <code>hourOfDay</code>). - Janela temporal
+opcional no <code>group-by</code>: aceita <code>periodPreset</code>
+(<code>ComparisonPeriodPreset</code>) OU par <code>from</code> +
+<code>to</code> (<code>LocalDate</code>), nunca ambos simultaneamente
+(<code>400</code>). A janela filtra o campo temporal elegivel no
+<code>timezone</code> informado como
+<code>[from.atStartOfDay(zone), to.plusDays(1).atStartOfDay(zone))</code>,
+limitado a <code>praxis.stats.max-comparison-period-days</code> (default
+<code>366</code> dias).</p>
+<h3 id="response-canonico-groupbystatsresponse-e-groupbybucket">Response
+canonico (<code>GroupByStatsResponse</code> e
+<code>GroupByBucket</code>)</h3>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;occurredAt&quot;</span><span class="fu">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dimensions&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;occurredAt&quot;</span><span class="fu">,</span> <span class="dt">&quot;extraction&quot;</span><span class="fu">:</span> <span class="st">&quot;DAY_OF_WEEK&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;dayOfWeek&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;occurredAt&quot;</span><span class="fu">,</span> <span class="dt">&quot;extraction&quot;</span><span class="fu">:</span> <span class="st">&quot;HOUR_OF_DAY&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;hourOfDay&quot;</span> <span class="fu">}</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;window&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;from&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-09-25&quot;</span><span class="fu">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;to&quot;</span><span class="fu">:</span> <span class="st">&quot;2026-10-24&quot;</span><span class="fu">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;timezone&quot;</span><span class="fu">:</span> <span class="st">&quot;America/Sao_Paulo&quot;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;metric&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;COUNT&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;totalEventos&quot;</span> <span class="fu">},</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;metrics&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;COUNT&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;totalEventos&quot;</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;operation&quot;</span><span class="fu">:</span> <span class="st">&quot;AVG_PER_CYCLE_OCCURRENCE&quot;</span><span class="fu">,</span> <span class="dt">&quot;alias&quot;</span><span class="fu">:</span> <span class="st">&quot;mediaPorOcorrencia&quot;</span> <span class="fu">}</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;buckets&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;1|0&quot;</span><span class="fu">,</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;label&quot;</span><span class="fu">:</span> <span class="st">&quot;MON | 00:00&quot;</span><span class="fu">,</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;keys&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="dv">1</span><span class="ot">,</span> <span class="dv">0</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;labels&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;MON&quot;</span><span class="ot">,</span> <span class="st">&quot;00:00&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;coordinates&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;dayOfWeek&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;hourOfDay&quot;</span><span class="fu">:</span> <span class="dv">0</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>      <span class="fu">},</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;value&quot;</span><span class="fu">:</span> <span class="dv">12</span><span class="fu">,</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;count&quot;</span><span class="fu">:</span> <span class="dv">12</span><span class="fu">,</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;values&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;totalEventos&quot;</span><span class="fu">:</span> <span class="dv">12</span><span class="fu">,</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        <span class="dt">&quot;mediaPorOcorrencia&quot;</span><span class="fu">:</span> <span class="fl">3.0</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Compatibilidade e invariantes: - Em consultas 1D simples
+(<code>field</code> sem <code>dimensions[]</code>),
+<code>buckets[].key</code> e <code>buckets[].label</code> mantem
+exatamente o comportamento anterior; <code>keys</code>,
+<code>labels</code>, <code>coordinates</code>, <code>dimensions</code> e
+<code>window</code> permanecem <code>null</code> (ou omitidos quando nao
+aplicaveis) para nao quebrar snapshots 1D existentes, enquanto consultas
+via <code>dimensions[]</code> populam <code>keys</code>,
+<code>labels</code>, <code>coordinates</code> e
+<code>dimensions</code>.</p>
+<h2
+id="semantica-de-dominio-finito-densificacao-dst-e-medidas-sobre-ciclos">3.
+Semantica de Dominio Finito (Densificacao), DST e Medidas sobre
+Ciclos</h2>
+<h3 id="densificacao-fillgaps-true">Densificacao
+(<code>fillGaps = true</code>)</h3>
+<ul>
+<li>Quando <code>fillGaps = true</code> e todas as dimensoes solicitadas
+possuem dominio finito conhecido no contexto da consulta (ex.:
+<code>DAY_OF_WEEK</code> [7], <code>HOUR_OF_DAY</code> [24],
+<code>MONTH_OF_YEAR</code> [12], <code>QUARTER_OF_YEAR</code> [4],
+<code>DAY_OF_MONTH</code> [31], ou truncamentos lineares
+<code>DAY</code>/<code>WEEK</code>/<code>MONTH</code>/<code>HOUR</code>
+dentro de uma janela <code>[from, to]</code> fechada):
+<ul>
+<li>O produto cartesiano das chaves do dominio e validado contra
+<code>maxCells</code> (<code>praxis.stats.max-buckets</code>, ou
+<code>maxSeriesPoints</code> / <code>maxCells</code> governado, default
+<code>500</code> para matrizes densificadas como
+<code>7 x 24 = 168</code> ou <code>12 x 31 = 372</code>).</li>
+<li>Celulas sem registros recebem <code>count = 0</code>,
+<code>COUNT = 0</code>, <code>DISTINCT_COUNT = 0</code>,
+<code>SUM = 0</code>, e <code>MIN = null</code>,
+<code>MAX = null</code>, <code>AVG = null</code>.</li>
+</ul></li>
+<li>Quando <code>fillGaps = false</code> (ou omitido), apenas os buckets
+observados nos dados filtrados sao retornados, respeitando
+<code>limit</code> e <code>orderBy</code>.</li>
+</ul>
+<h3
+id="medidas-sobre-ocorrencias-do-ciclo-avg_per_cycle_occurrence">Medidas
+sobre Ocorrencias do Ciclo (<code>AVG_PER_CYCLE_OCCURRENCE</code>)</h3>
+<ul>
+<li>Alem de <code>COUNT</code>, <code>DISTINCT_COUNT</code>,
+<code>SUM</code>, <code>AVG</code> (media simples por registro:
+<code>sum / count</code>), <code>MIN</code> e <code>MAX</code>,
+<code>StatsMetric</code> passa a incluir
+<code>AVG_PER_CYCLE_OCCURRENCE</code>:
+<ul>
+<li>Requer janela temporal resolvida (<code>[from, to]</code> +
+<code>timezone</code>) e pelo menos uma dimensao temporal ciclica
+(<code>HOUR_OF_DAY</code>, <code>DAY_OF_WEEK</code>,
+<code>DAY_OF_MONTH</code>, <code>MONTH_OF_YEAR</code>,
+<code>QUARTER_OF_YEAR</code>) ou truncamento diario/horario.</li>
+<li>O denominador <code>occurrences(cell, window, timezone)</code> e o
+numero exato de vezes que aquela coordenada temporal existiu no
+calendario da <code>timezone</code> dentro de <code>[from, to]</code>:
+<ul>
+<li>Exemplo 1 (janela parcial de 30 dias): em 30 dias corridos, dois
+dias da semana ocorrem <code>5</code> vezes e cinco dias da semana
+ocorrem <code>4</code> vezes. Para <code>dayOfWeek × hourOfDay</code>,
+uma celula nos dois primeiros dias divide a soma/contagem por
+<code>5</code>; nas demais, divide por <code>4</code>.</li>
+<li>Exemplo 2 (janela curta de 3 dias, Segunda a Quarta, com
+<code>fillGaps = true</code>): Quinta a Domingo tiveram <code>0</code>
+ocorrencias na janela. Para Quinta a Domingo, <code>COUNT = 0</code>,
+mas <code>AVG_PER_CYCLE_OCCURRENCE = null</code> (coordenada nao
+observada na janela, nunca confundida com media <code>0.0</code>).</li>
+<li>Exemplo 3 (DST / Horario de Verao):
+<ul>
+<li>No dia de avanco de relogio (<em>spring-forward</em>, ex.:
+<code>America/New_York</code> em <code>2026-03-08</code>, onde a hora
+<code>02:00</code> pula para <code>03:00</code>), a hora <code>02</code>
+nao ocorre naquele domingo (<code>0</code> ocorrencias nesse dia).</li>
+<li>No dia de atraso de relogio (<em>fall-back</em>, ex.:
+<code>America/New_York</code> em <code>2026-11-01</code>, onde a hora
+<code>01:00</code> ocorre duas vezes, <code>-04:00</code> e
+<code>-05:00</code>), a politica declarada conta cada hora civil
+distinta no calendario ou cada passagem horaria real conforme
+documentado: adotamos <strong>passagens horarias reais de 1h no eixo UTC
+convertido para a ZoneId</strong> para <code>HOUR_OF_DAY</code> (ou dias
+civis para <code>DAY_OF_WEEK</code>), garantindo que no
+<em>spring-forward</em> de 1 dia único a hora inexistente tenha
+<code>0</code> ocorrencias
+(<code>AVG_PER_CYCLE_OCCURRENCE = null</code>) e no <em>fall-back</em>
+as duas passagens da hora <code>01</code> contem <code>2</code>
+ocorrencias horarias.</li>
+</ul></li>
+</ul></li>
+<li>Se <code>metric.field</code> for omitido em
+<code>AVG_PER_CYCLE_OCCURRENCE</code>, o numerador e a contagem de
+eventos (<code>count</code>) da celula
+(<code>count / occurrences</code>). Se <code>metric.field</code> for um
+campo numerico elegivel, o numerador e a soma
+(<code>sum(field) / occurrences</code>).</li>
+</ul></li>
+</ul>
+<h2
+id="seguranca-row-scope-discovery-statscapability-e-x-ui.analytics">4.
+Seguranca, Row Scope, Discovery (<code>StatsCapability</code>) e
+<code>x-ui.analytics</code></h2>
+<ul>
+<li><strong>Autorizacao e Row Scope obrigatorios</strong>:
+<ul>
+<li>Todas as operacoes estatisticas (<code>group-by</code>,
+<code>timeseries</code>, <code>distribution</code>,
+<code>comparison</code>) em
+<code>AbstractBaseQueryResourceService</code> devem construir a
+<code>Specification</code> efetiva passando por
+<code>resolveResourceFilterQuery</code> (intersecao obrigatoria com
+<code>resolveResourceFilterAccessScope()</code>), garantindo que
+<code>stats</code> nunca revele contagens ou categorias fora do escopo
+autorizado do principal/tenant.</li>
+</ul></li>
+<li><strong>Discovery em <code>StatsCapability</code> e
+<code>StatsFieldCapability</code></strong>:
+<ul>
+<li><code>StatsCapability</code> passa a informar
+<code>maxDimensions</code> (ex.: <code>2</code>) e <code>maxCells</code>
+(ex.: <code>500</code>).</li>
+<li><code>StatsFieldCapability</code> publica
+<code>supportedExtractions</code> (lista dos
+<code>StatsDimensionExtraction</code> suportados pelo campo:
+<code>["NONE"]</code> para categoricos;
+<code>["HOUR_OF_DAY", "DAY_OF_WEEK", "DAY_OF_MONTH", "MONTH_OF_YEAR", "QUARTER_OF_YEAR", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR"]</code>
+para campos <code>timeSeriesEligible</code>, acrescentando
+<code>"NONE"</code> se tambem for <code>groupByEligible</code>).</li>
+</ul></li>
+<li><strong>Projecao semantica em <code>x-ui.analytics</code>
+(<code>@AnalyticsProjection</code>)</strong>:
+<ul>
+<li><code>@AnalyticsDimensionBinding</code> ganha
+<code>extraction</code> (default <code>""</code>), <code>alias</code>
+(default <code>""</code>) e <code>timezone</code> opcional.</li>
+<li><code>@AnalyticsProjection</code> ganha
+<code>secondaryDimension()</code> e <code>dimensions()</code>
+(<code>AnalyticsDimensionBinding[]</code>) alem de
+<code>primaryDimension()</code>, e <code>defaults</code> pode declarar
+<code>timezone</code>, <code>periodPreset</code> e
+<code>fillGaps</code>.</li>
+<li>Quando <code>interactions.crossFilter = true</code> em uma
+projection multidimensional, todas as dimensoes com filtro publico
+declaram seu <code>keyFilterField</code> (ou
+<code>primaryDimension</code> + <code>dimensions[]</code>), permitindo
+ao runtime aplicar cross-filter coordenado por celula.</li>
+</ul></li>
+</ul>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

@@ -13,12 +13,14 @@ org.praxisplatform.uischema.controller
 org.praxisplatform.uischema.controller.base
 org.praxisplatform.uischema.controller.cockpit
 org.praxisplatform.uischema.controller.docs
+org.praxisplatform.uischema.customfields
 org.praxisplatform.uischema.determination
 org.praxisplatform.uischema.domain
 org.praxisplatform.uischema.dto
 org.praxisplatform.uischema.exporting
 org.praxisplatform.uischema.extension
 org.praxisplatform.uischema.extension.annotation
+org.praxisplatform.uischema.fact
 org.praxisplatform.uischema.filter
 org.praxisplatform.uischema.filter.annotation
 org.praxisplatform.uischema.filter.dto

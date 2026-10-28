@@ -342,34 +342,53 @@
 <h1 id="recursos-somente-leitura-views-jpa-immutable">Recursos Somente
 Leitura (Views JPA / <span class="citation"
 data-cites="Immutable">@Immutable</span>)</h1>
-<p>Acelere telas baseadas em views do banco, ou entidades marcadas como
-<code>@Immutable</code>, com o modo read-only canonico do Starter.</p>
+<p>Acelere telas baseadas em views do banco, relatorios analiticos ou
+entidades marcadas como <code>@Immutable</code> com o modo read-only
+canonico do Starter.</p>
 <ul>
-<li>Sem escrever endpoints: herde do controller/servico read-only e
-ganhe automaticamente filtros, paginacao, opcoes id/label e
-documentacao.</li>
-<li>Seguranca por design: a superficie read-only canonica nao publica
-endpoints de escrita.</li>
+<li><strong>Sem escrever endpoints manuais</strong>: herde de
+<code>AbstractReadOnlyResourceController</code> e
+<code>AbstractReadOnlyResourceService</code> e ganhe automaticamente
+filtros dinamicos, paginacao offset/cursor, locate, opcoes
+<code>id/label</code>, estatisticas (<code>/stats/*</code>),
+<code>/capabilities</code>, <code>/surfaces</code> e
+<code>/schemas/filtered</code>.</li>
+<li><strong>Seguranca por design</strong>: a superficie read-only
+canonica nao publica endpoints de escrita (<code>POST /</code>,
+<code>PUT /{id}</code>, <code>DELETE /{id}</code>,
+<code>DELETE /batch</code>).</li>
 </ul>
 <a id="endpoints-readonly"></a>
-<details>
+<details open>
 <summary>
 <strong>Endpoints disponiveis (read-only)</strong>
 </summary>
 <ul>
-<li><code>GET /{id}</code> - busca registro por ID</li>
-<li><code>GET /all</code> - lista completa</li>
+<li><code>GET /{id}</code> - busca registro por ID (com HATEOAS
+<code>_links</code> e <code>ETag</code>)</li>
+<li><code>GET /all</code> - lista completa ordenada por
+<code>@DefaultSortColumn</code></li>
 <li><code>POST /filter</code> - paginacao e filtragem via
-Specifications</li>
-<li><code>POST /filter/cursor</code> - paginacao por cursor</li>
-<li><code>POST /locate</code> - retorna a posicao absoluta de um ID no
-conjunto filtrado</li>
+<code>GenericSpecificationsBuilder</code></li>
+<li><code>POST /filter/cursor</code> - paginacao keyset por cursor
+(<code>after</code>/<code>before</code>)</li>
+<li><code>POST /locate</code> - retorna a posicao absoluta e pagina de
+um ID no conjunto filtrado</li>
 <li><code>GET /by-ids</code> - multiplos registros por IDs na ordem
 solicitada</li>
-<li><code>POST /options/filter</code> - opcoes id/label para
-selects</li>
-<li><code>GET /options/by-ids</code> - opcoes por IDs com ordem
-preservada</li>
+<li><code>POST /options/filter</code> - opcoes
+<code>OptionDTO{id,label}</code> paginadas para
+selects/autocompletes</li>
+<li><code>GET /options/by-ids</code> - reidratacao de opcoes por IDs com
+ordem preservada</li>
+<li><code>POST /stats/group-by</code>,
+<code>POST /stats/timeseries</code>,
+<code>POST /stats/distribution</code>,
+<code>POST /stats/comparison</code> - agregacoes analiticas automaticas
+quando <code>StatsFieldRegistry</code> +
+<code>StatsSupportMode.AUTO</code> estao ativos no service</li>
+<li><code>GET /capabilities</code> e <code>GET /{id}/capabilities</code>
+- snapshot agregado de operacoes, surfaces, actions e stats/export</li>
 <li><code>GET /schemas</code> - redirect para
 <code>/schemas/filtered</code> do recurso</li>
 </ul>
@@ -379,75 +398,255 @@ preservada</li>
 </blockquote>
 </details>
 <a id="como-usar"></a>
-<details>
+<details open>
 <summary>
-<strong>Como usar</strong>
+<strong>Como usar (Compila de Primeira)</strong>
 </summary>
-<h3 id="entidade-viewimmutable">1) Entidade (view/<span class="citation"
-data-cites="Immutable">@Immutable</span>)</h3>
+<h3 id="assinaturas-genericas-read-only">Assinaturas Genericas
+Read-Only</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Camada</th>
+<th>Tipo Base</th>
+<th>Ordem dos Parametros Genericos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Repository</strong></td>
+<td><code>BaseCrudRepository</code></td>
+<td><code>&lt;E, ID&gt;</code> <em>(2 parametros)</em></td>
+</tr>
+<tr>
+<td><strong>Mapper</strong></td>
+<td><code>ResourceMapper</code></td>
+<td><code>&lt;E, ResponseDTO, Void, Void, ID&gt;</code> <em>(5
+parametros — use <code>Void</code> em <code>CreateDTO</code> e
+<code>UpdateDTO</code>)</em></td>
+</tr>
+<tr>
+<td><strong>Service</strong></td>
+<td><code>AbstractReadOnlyResourceService</code></td>
+<td><code>&lt;E, ResponseDTO, ID, FilterDTO&gt;</code> <em>(4 parametros
+— <code>E</code> e o 1º, <code>ID</code> e o 3º)</em></td>
+</tr>
+<tr>
+<td><strong>Controller</strong></td>
+<td><code>AbstractReadOnlyResourceController</code></td>
+<td><code>&lt;ResponseDTO, ID, FilterDTO&gt;</code> <em>(3 parametros —
+<strong>sem <code>E</code></strong>, <code>ID</code> e o 2º)</em></td>
+</tr>
+</tbody>
+</table>
+<h3 id="entidade-view-immutable">1) Entidade (view /
+<code>@Immutable</code>)</h3>
 <div class="sourceCode" id="cb1"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">hibernate</span><span class="op">.</span><span class="im">annotations</span><span class="op">.</span><span class="im">Immutable</span><span class="op">;</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">@Entity</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">@Immutable</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">@Table</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;vw_vendas_resumo&quot;</span><span class="op">)</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumo <span class="op">{</span> <span class="co">/* campos da view */</span> <span class="op">}</span></span></code></pre></div>
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">jakarta</span><span class="op">.</span><span class="im">persistence</span><span class="op">.*;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">math</span><span class="op">.</span><span class="im">BigDecimal</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">time</span><span class="op">.</span><span class="im">LocalDate</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">hibernate</span><span class="op">.</span><span class="im">annotations</span><span class="op">.</span><span class="im">Immutable</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">OptionLabel</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">service</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">DefaultSortColumn</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="at">@Entity</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="at">@Immutable</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="at">@Table</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;vw_vendas_resumo&quot;</span><span class="op">)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumo <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Id</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">Long</span> id<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">@OptionLabel</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Column</span><span class="op">(</span>nullable <span class="op">=</span> <span class="kw">false</span><span class="op">)</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">String</span> regional<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Column</span><span class="op">(</span>nullable <span class="op">=</span> <span class="kw">false</span><span class="op">)</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">String</span> categoria<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">@DefaultSortColumn</span><span class="op">(</span>priority <span class="op">=</span> <span class="dv">1</span><span class="op">,</span> ascending <span class="op">=</span> <span class="kw">false</span><span class="op">)</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Column</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;data_competencia&quot;</span><span class="op">,</span> nullable <span class="op">=</span> <span class="kw">false</span><span class="op">)</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> LocalDate dataCompetencia<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Column</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;valor_total&quot;</span><span class="op">,</span> nullable <span class="op">=</span> <span class="kw">false</span><span class="op">,</span> precision <span class="op">=</span> <span class="dv">15</span><span class="op">,</span> scale <span class="op">=</span> <span class="dv">2</span><span class="op">)</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">BigDecimal</span> valorTotal<span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    <span class="co">// getters e setters</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h3 id="repository">2) Repository</h3>
 <div class="sourceCode" id="cb2"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> VendaResumoRepository <span class="kw">extends</span> BaseCrudRepository<span class="op">&lt;</span>VendaResumo<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span> <span class="op">}</span></span></code></pre></div>
-<h3 id="service-read-only">3) Service read-only</h3>
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">repository</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">BaseCrudRepository</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> VendaResumoRepository <span class="kw">extends</span> BaseCrudRepository<span class="op">&lt;</span>VendaResumo<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="mapper-read-only-corporatemapperconfig">3) Mapper Read-Only
+(<code>CorporateMapperConfig</code>)</h3>
 <div class="sourceCode" id="cb3"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumoService <span class="kw">extends</span> AbstractReadOnlyResourceService<span class="op">&lt;</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    VendaResumo<span class="op">,</span> VendaResumoDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> VendaResumoFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">mapstruct</span><span class="op">.</span><span class="im">Mapper</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">mapper</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">ResourceMapper</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">mapper</span><span class="op">.</span><span class="im">config</span><span class="op">.</span><span class="im">CorporateMapperConfig</span><span class="op">;</span></span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">public</span> <span class="fu">VendaResumoService</span><span class="op">(</span>VendaResumoRepository repo<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">super</span><span class="op">(</span>repo<span class="op">,</span> VendaResumo<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="controller-read-only">4) Controller read-only</h3>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="at">@Mapper</span><span class="op">(</span>config <span class="op">=</span> CorporateMapperConfig<span class="op">.</span><span class="fu">class</span><span class="op">)</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> VendaResumoMapper <span class="kw">extends</span> ResourceMapper<span class="op">&lt;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        VendaResumo<span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        VendaResumoDTO<span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Void</span><span class="op">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Void</span><span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">default</span> VendaResumo <span class="fu">newEntity</span><span class="op">(</span><span class="bu">Void</span> dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">UnsupportedOperationException</span><span class="op">(</span><span class="st">&quot;Read-only resource&quot;</span><span class="op">);</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">default</span> <span class="dt">void</span> <span class="fu">applyUpdate</span><span class="op">(</span>VendaResumo entity<span class="op">,</span> <span class="bu">Void</span> dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="kw">new</span> <span class="bu">UnsupportedOperationException</span><span class="op">(</span><span class="st">&quot;Read-only resource&quot;</span><span class="op">);</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">default</span> <span class="bu">Long</span> <span class="fu">extractId</span><span class="op">(</span>VendaResumo entity<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entity<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3
+id="service-read-only-com-statsfieldregistry-statssupportmode.auto">4)
+Service Read-Only (com <code>StatsFieldRegistry</code> +
+<code>StatsSupportMode.AUTO</code>)</h3>
 <div class="sourceCode" id="cb4"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>value <span class="op">=</span> <span class="st">&quot;/api/relatorios/vendas-resumo&quot;</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;relatorios.vendas-resumo&quot;</span><span class="op">)</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;relatorios&quot;</span><span class="op">)</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumoController <span class="kw">extends</span> AbstractReadOnlyResourceController<span class="op">&lt;</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    VendaResumoDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> VendaResumoFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Autowired</span> <span class="kw">private</span> VendaResumoService service<span class="op">;</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Override</span> <span class="kw">protected</span> VendaResumoService <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span> <span class="cf">return</span> service<span class="op">;</span> <span class="op">}</span></span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Override</span> <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getResponseId</span><span class="op">(</span>VendaResumoDTO dto<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span> <span class="op">}</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h3 id="filtros-e-ordenacao">5) Filtros e ordenacao</h3>
+class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">mapper</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">ResourceMapper</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">service</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">AbstractReadOnlyResourceService</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">stats</span><span class="op">.</span><span class="im">StatsFieldRegistry</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">stats</span><span class="op">.</span><span class="im">StatsSupportMode</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">springframework</span><span class="op">.</span><span class="im">stereotype</span><span class="op">.</span><span class="im">Service</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumoService <span class="kw">extends</span> AbstractReadOnlyResourceService<span class="op">&lt;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        VendaResumo<span class="op">,</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        VendaResumoDTO<span class="op">,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        VendaResumoFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> VendaResumoMapper mapper<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> StatsFieldRegistry statsFieldRegistry <span class="op">=</span> StatsFieldRegistry<span class="op">.</span><span class="fu">builder</span><span class="op">()</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">categoricalGroupByBucket</span><span class="op">(</span><span class="st">&quot;regional&quot;</span><span class="op">,</span> <span class="st">&quot;regional&quot;</span><span class="op">)</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">categoricalGroupByBucket</span><span class="op">(</span><span class="st">&quot;categoria&quot;</span><span class="op">,</span> <span class="st">&quot;categoria&quot;</span><span class="op">)</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">temporalTimeSeriesField</span><span class="op">(</span><span class="st">&quot;dataCompetencia&quot;</span><span class="op">,</span> <span class="st">&quot;dataCompetencia&quot;</span><span class="op">)</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">numericDistributionField</span><span class="op">(</span><span class="st">&quot;valorTotal&quot;</span><span class="op">,</span> <span class="st">&quot;valorTotal&quot;</span><span class="op">)</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">numericMeasureField</span><span class="op">(</span><span class="st">&quot;valorTotal&quot;</span><span class="op">,</span> <span class="st">&quot;valorTotal&quot;</span><span class="op">)</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">build</span><span class="op">();</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">VendaResumoService</span><span class="op">(</span>VendaResumoRepository repo<span class="op">,</span> VendaResumoMapper mapper<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>repo<span class="op">,</span> VendaResumo<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">mapper</span> <span class="op">=</span> mapper<span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> ResourceMapper<span class="op">&lt;</span>VendaResumo<span class="op">,</span> VendaResumoDTO<span class="op">,</span> <span class="op">?,</span> <span class="op">?,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="fu">getMapper</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">;</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsFieldRegistry <span class="fu">getStatsFieldRegistry</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> statsFieldRegistry<span class="op">;</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsSupportMode <span class="fu">getGroupByStatsSupportMode</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> StatsSupportMode<span class="op">.</span><span class="fu">AUTO</span><span class="op">;</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsSupportMode <span class="fu">getTimeSeriesStatsSupportMode</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> StatsSupportMode<span class="op">.</span><span class="fu">AUTO</span><span class="op">;</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsSupportMode <span class="fu">getDistributionStatsSupportMode</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> StatsSupportMode<span class="op">.</span><span class="fu">AUTO</span><span class="op">;</span></span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsSupportMode <span class="fu">getComparisonStatsSupportMode</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> StatsSupportMode<span class="op">.</span><span class="fu">AUTO</span><span class="op">;</span></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="controller-read-only">5) Controller Read-Only</h3>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">ApiGroup</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">ApiResource</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">QuickFilter</span><span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">annotation</span><span class="op">.</span><span class="im">ResourceIdentity</span><span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">controller</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">AbstractReadOnlyResourceController</span><span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">service</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">BaseResourceQueryService</span><span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>value <span class="op">=</span> <span class="st">&quot;/api/relatorios/vendas-resumo&quot;</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;relatorios.vendas-resumo&quot;</span><span class="op">)</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="at">@ResourceIdentity</span><span class="op">(</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        idField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        labelField <span class="op">=</span> <span class="st">&quot;regional&quot;</span><span class="op">,</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        subtitleField <span class="op">=</span> <span class="st">&quot;categoria&quot;</span><span class="op">,</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        badgeField <span class="op">=</span> <span class="st">&quot;categoria&quot;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="at">@QuickFilter</span><span class="op">(</span>fields <span class="op">=</span> <span class="op">{</span><span class="st">&quot;regional&quot;</span><span class="op">,</span> <span class="st">&quot;categoria&quot;</span><span class="op">},</span> minLength <span class="op">=</span> <span class="dv">2</span><span class="op">)</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;relatorios&quot;</span><span class="op">)</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> VendaResumoController <span class="kw">extends</span> AbstractReadOnlyResourceController<span class="op">&lt;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        VendaResumoDTO<span class="op">,</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        VendaResumoFilterDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> VendaResumoService service<span class="op">;</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">VendaResumoController</span><span class="op">(</span>VendaResumoService service<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">service</span> <span class="op">=</span> service<span class="op">;</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> BaseResourceQueryService<span class="op">&lt;</span>VendaResumoDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> VendaResumoFilterDTO<span class="op">&gt;</span> <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">;</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getResponseId</span><span class="op">(</span>VendaResumoDTO dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="filtros-ordenacao-e-semantica-de-display">6) Filtros, ordenacao
+e semantica de display</h3>
 <ul>
-<li>Use <code>@Filterable</code> no DTO de filtro para
-Specifications</li>
+<li>Use <code>@Filterable</code> no <code>FilterDTO</code>
+(<code>LIKE</code>, <code>EQUAL</code>, <code>IN</code>,
+<code>BETWEEN</code>, <code>IN_LAST_DAYS</code>) para
+<code>GenericSpecificationsBuilder</code>.</li>
 <li>Defina <code>@DefaultSortColumn</code> na entidade para ordenacao
-padrao</li>
-</ul>
-<h3 id="semantica-de-displayread-only">6) Semantica de
-display/read-only</h3>
-<p>Recursos read-only participam do mesmo contrato canonico de
-apresentacao:</p>
-<ul>
-<li>o starter publica <code>x-ui.valuePresentation</code> quando a
-intencao de exibicao for inferivel</li>
-<li>isso vale para <code>currency</code>, <code>percentage</code>,
+padrao e <code>@OptionLabel</code> para projecao automatica de
+<code>OptionDTO</code>.</li>
+<li>O starter publica <code>x-ui.valuePresentation</code>
+automaticamente para <code>currency</code>
+(<code>UISchemaPreset.MONEY</code> /
+<code>NumericFormat.CURRENCY</code>), <code>percentage</code>,
 <code>date</code>, <code>datetime</code>, <code>time</code>,
-<code>number</code> e <code>boolean</code></li>
-<li>quando houver necessidade excepcional de override, use
-<code>extraProperties</code> em <code>@UISchema</code></li>
+<code>number</code> e <code>boolean</code>.</li>
 </ul>
 </details>
 <a id="beneficios"></a>
-<details>
+<details open>
 <summary>
 <strong>Beneficios</strong>
 </summary>
 <ul>
-<li>Sem riscos de escrita: o controller nao expoe operacoes
-mutaveis.</li>
-<li>Endpoints de leitura prontos e documentados em OpenAPI.</li>
-<li>Integracao direta com <code>/schemas/filtered</code>,
+<li><strong>Sem riscos de escrita</strong>: o controller nao expoe
+operacoes mutaveis.</li>
+<li><strong>Analytics nativo</strong>: <code>/stats/group-by</code>,
+<code>/stats/timeseries</code>, <code>/stats/distribution</code> e
+<code>/stats/comparison</code> prontos para
+<code>@praxisui/charts</code> e tabelas analiticas.</li>
+<li><strong>Integracao direta</strong> com
+<code>/schemas/filtered</code>, <code>/capabilities</code>,
 <code>options/*</code> e runtime Angular.</li>
 </ul>
 </details>

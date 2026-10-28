@@ -57,6 +57,13 @@
       "required": ["primaryMetrics"],
       "properties": {
         "primaryDimension": { "$ref": "#/$defs/dimension" },
+        "secondaryDimension": { "$ref": "#/$defs/dimension" },
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/dimension" }
+        },
         "primaryMetrics": {
           "type": "array",
           "minItems": 1,
@@ -92,6 +99,24 @@
       "required": ["field"],
       "properties": {
         "field": { "type": "string", "minLength": 1 },
+        "extraction": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "HOUR_OF_DAY",
+            "DAY_OF_WEEK",
+            "DAY_OF_MONTH",
+            "MONTH_OF_YEAR",
+            "QUARTER_OF_YEAR",
+            "HOUR",
+            "DAY",
+            "WEEK",
+            "MONTH",
+            "QUARTER",
+            "YEAR"
+          ]
+        },
+        "alias": { "type": "string", "minLength": 1 },
         "role": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
         "keyFilterField": { "type": "string", "minLength": 1 }
@@ -105,7 +130,7 @@
         "field": { "type": "string", "minLength": 1 },
         "aggregation": {
           "type": "string",
-          "enum": ["count", "distinct-count", "sum", "avg", "min", "max"]
+          "enum": ["count", "distinct-count", "sum", "avg", "min", "max", "avg-per-cycle-occurrence"]
         },
         "label": { "type": "string", "minLength": 1 }
       }
@@ -158,6 +183,17 @@
         "granularity": {
           "type": "string",
           "enum": ["day", "week", "month"]
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "periodPreset": {
+          "type": "string",
+          "enum": ["TODAY", "YESTERDAY", "LAST_7_DAYS", "LAST_30_DAYS", "THIS_MONTH", "LAST_MONTH", "THIS_QUARTER", "THIS_YEAR"]
+        },
+        "fillGaps": {
+          "type": "boolean"
         }
       }
     },
@@ -246,12 +282,29 @@
       "then": {
         "properties": {
           "bindings": {
-            "required": ["primaryDimension"],
-            "properties": {
-              "primaryDimension": {
-                "required": ["keyFilterField"]
+            "anyOf": [
+              {
+                "required": ["primaryDimension"],
+                "properties": {
+                  "primaryDimension": {
+                    "required": ["keyFilterField"]
+                  },
+                  "secondaryDimension": {
+                    "required": ["keyFilterField"]
+                  }
+                }
+              },
+              {
+                "required": ["dimensions"],
+                "properties": {
+                  "dimensions": {
+                    "items": {
+                      "required": ["keyFilterField"]
+                    }
+                  }
+                }
               }
-            }
+            ]
           }
         }
       }

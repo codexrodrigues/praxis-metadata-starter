@@ -375,17 +375,23 @@ Entrada:
 <h2 id="protocolo-de-geracao">Protocolo de geracao</h2>
 <p>Peca explicitamente para a LLM gerar nesta ordem:</p>
 <ol type="1">
-<li>DTOs</li>
-<li>repository</li>
-<li>mapper</li>
-<li>service</li>
-<li>controller</li>
+<li>DTOs (<code>ResponseDTO</code>, <code>CreateDTO</code>,
+<code>UpdateDTO</code>, <code>FilterDTO</code>)</li>
+<li>repository
+(<code>extends BaseCrudRepository&lt;E, ID&gt;</code>)</li>
+<li>mapper
+(<code>implements ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;</code>)</li>
+<li>service
+(<code>extends AbstractBaseResourceService&lt;E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt;</code>)</li>
+<li>controller
+(<code>extends AbstractResourceController&lt;ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt;</code>)</li>
 <li>apenas depois intents, surfaces e workflow actions</li>
 </ol>
 <p>Isso evita dois erros frequentes:</p>
 <ul>
 <li>controller dependente de tipos ainda inexistentes</li>
-<li>service sem mapper correto</li>
+<li>service sem mapper correto ou com ordem trocada de parametros
+genericos</li>
 </ul>
 <h2 id="semantica-obrigatoria-de-resourcekey">Semantica obrigatoria de
 <code>resourceKey</code></h2>
@@ -437,15 +443,24 @@ estrutural continua ancorado em <code>/schemas/filtered</code>.</p>
 <h2 id="dtos-canonicos">DTOs canonicos</h2>
 <p>Use sempre:</p>
 <ul>
-<li><code>{Resource}ResponseDTO</code> para leitura</li>
-<li><code>Create{Resource}DTO</code> para <code>POST</code></li>
-<li><code>Update{Resource}DTO</code> para <code>PUT</code></li>
-<li><code>{Resource}FilterDTO</code> para query/filter</li>
+<li><code>{Resource}ResponseDTO</code> para leitura (com
+<code>@Schema</code>, <code>@ResourceIdentity</code>,
+<code>@UISchema</code> com grupos/icones/presets e
+<code>@DomainGovernance</code>)</li>
+<li><code>Create{Resource}DTO</code> para <code>POST</code>
+(<code>@JsonIgnoreProperties({"id"})</code>)</li>
+<li><code>Update{Resource}DTO</code> para <code>PUT</code>
+(<code>@JsonIgnoreProperties({"id"})</code>)</li>
+<li><code>{Resource}FilterDTO</code> para query/filter
+(<code>implements GenericFilterDTO</code> com <code>@Filterable</code> +
+<code>@UISchema</code> + <code>@Schema</code>)</li>
 </ul>
 <p>Regras que a LLM deve obedecer:</p>
 <ul>
 <li><code>FilterDTO</code> deve implementar
-<code>GenericFilterDTO</code></li>
+<code>GenericFilterDTO</code> e declarar predicados reais com
+<code>@Filterable</code> (<code>LIKE</code>, <code>EQUAL</code>,
+<code>IN</code>, <code>BETWEEN</code>, <code>IN_LAST_DAYS</code>)</li>
 <li>DTOs de escrita devem carregar <code>@Valid</code> e constraints
 reais quando houver</li>
 <li><code>ResponseDTO</code> deve expor o ID retornado pelo
@@ -457,11 +472,106 @@ preencher os DTOs, resolva a semantica do recurso: quais campos
 pertencem a leitura, criacao, atualizacao, filtros e discovery. Depois
 disso, use mapper ou MapStruct para materializar a fronteira entre
 persistencia e contrato.</p>
+<blockquote>
+<p><strong>Regra de Profundidade Funcional (Proibido Mutilar o
+Dominio):</strong> “Nao derivar mecanicamente da entidade” significa
+<strong>organizar semanticamente os campos por grupos de UX
+(<code>@UISchema(group = ...)</code>), ocultar colunas secundarias na
+grade principal (<code>tableHidden = true</code> mantendo-as no
+formulario/ficha), proteger atributos controlados por transicoes de
+estado (<code>readOnly = true</code> no <code>ResponseDTO</code> e fora
+do <code>UpdateDTO</code> generico) e aplicar
+<code>@DomainGovernance</code></strong>. <strong>Jamais ampute 70%–80%
+das colunas de negocio de uma entidade corporativa nem gere
+<code>FilterDTO</code>s timidos com apenas 2 ou 3 campos!</strong> O
+recurso Praxis deve entregar capacidade cadastral, analitica, de
+filtragem (<code>@Filterable</code> cobrindo texto, exato, multi-selecao
+<code>IN</code>/<code>NOT_IN</code>, faixas <code>BETWEEN</code>, datas
+relativas <code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code>, nulidade
+<code>IS_NULL</code>/<code>IS_NOT_NULL</code>, booleanos
+<code>IS_TRUE</code> e relacoes aninhadas), <code>@QuickFilter</code>,
+<code>@ResourceIntent</code> (manutencao parcial com
+<code>@UiSurface(kind = SurfaceKind.PARTIAL_FORM)</code>),
+<code>@WorkflowAction</code>, <code>@ResourceFact</code> e invariantes
+de negocio <strong>superior ao sistema legado</strong>.</p>
+</blockquote>
 <h2 id="repository-minimo">Repository minimo</h2>
 <div class="sourceCode" id="cb3"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> EmployeeRepository <span class="kw">extends</span> BaseCrudRepository<span class="op">&lt;</span>Employee<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>Sem isso, o service nao encaixa no core atual.</p>
+<h3
+id="chave-primaria-simples-longuuidstring-vs.-chave-composta-embeddedid-compositeresourceid">Chave
+primaria simples
+(<code>Long</code>/<code>UUID</code>/<code>String</code>) vs. Chave
+composta (<code>@EmbeddedId</code> /
+<code>CompositeResourceId</code>)</h3>
+<p>O <code>praxis-metadata-starter</code> suporta nativamente tanto
+chaves simples (<code>Long</code>, <code>UUID</code>,
+<code>String</code>) quanto chaves compostas JPA
+(<code>@EmbeddedId</code> com <code>@Embeddable</code>
+<code>record</code> ou classe implementando
+<code>CompositeResourceId</code>):</p>
+<ul>
+<li><strong>Quando usar <code>@EmbeddedId</code>
+(<code>CompositeResourceId</code>):</strong> quando a chave composta de
+dominio for <strong>imutavel</strong> apos a criacao do registro (ex.:
+<code>VinculoId(Long numfunc, Integer numvinc)</code>,
+<code>DependenteId(Long numfunc, Integer numdep)</code>,
+<code>ItemTabelaId(String tab, String item)</code>). No wire
+HTTP/JSON/OpenAPI, o starter converte automaticamente o
+<code>@Embeddable</code> para string canonica separada por
+<code>:</code> (<code>"1001:1"</code>) em <code>@PathVariable</code>,
+<code>includeIds</code>, <code>options/by-ids</code>,
+<code>OptionDTO&lt;ID&gt;</code>, <code>RESOURCE_ENTITY</code> option
+sources, <code>@Filterable(relation = "id.numfunc")</code> /
+<code>@Filterable(relation = "vinculo.id")</code>, ordenacao
+(<code>sort=id,desc</code> expandido para os componentes), exportacao
+tabular (CSV/Excel/JSON), HATEOAS e <code>/schemas/filtered</code>
+(<code>type: "string"</code>, <code>format: "composite-id"</code>,
+<code>x-ui.compositeIdComponents: ["numfunc", "numvinc"]</code>,
+<code>x-ui.compositeIdSeparator: ":"</code>).</li>
+<li><strong>Distincao entre <code>@EmbeddedId</code> e Value Objects
+<code>@Embedded</code>:</strong> apenas classes que implementam
+<code>CompositeResourceId</code> (ou sao referenciadas por
+<code>@EmbeddedId</code> / seguem a convencao de chave composta) sao
+serializadas como <code>format: "composite-id"</code>. Classes
+<code>@Embeddable</code> comuns usadas como <code>@Embedded</code> Value
+Objects (ex.: <code>EnderecoEmbeddable</code>,
+<code>LotacaoEmbeddable</code>) permanecem objetos JSON estruturados nos
+DTOs e OpenAPI, mas tambem contam com navegacao segura via
+<code>.get(part)</code> no Criteria JPA (sem <code>LEFT JOIN</code>
+indevido).</li>
+<li><strong>Contrato UX em Tabelas e Formularios
+(<code>ResponseDTO</code>, <code>CreateDTO</code>,
+<code>UpdateDTO</code>):</strong>
+<ul>
+<li><code>ResponseDTO</code>: exponha <code>VinculoId id</code>
+(identidade canonica para selecao de linha, roteamento, edicao, exclusao
+e HATEOAS) <strong>e</strong> mantenha as colunas de negocio individuais
+(<code>Long numfunc</code>, <code>Integer numvinc</code>) visiveis e
+formatadas para leitura/ordenacao humana na tabela.</li>
+<li><code>CreateDTO</code>: exponha os campos de negocio separados e
+editaveis (<code>@NotNull Long numfunc</code>,
+<code>@NotNull Integer numvinc</code>), permitindo que o formulario de
+criacao use controles ricos (ex.: lookup <code>RESOURCE_ENTITY</code>
+para <code>numfunc</code> e input numerico para <code>numvinc</code>), e
+instancie <code>new VinculoId(dto.numfunc(), dto.numvinc())</code> no
+<code>ResourceMapper.newEntity(dto)</code>.</li>
+<li><code>UpdateDTO</code>: omita os campos da chave primaria composta
+(ou marque-os como <code>readOnly = true</code> apenas para exibicao
+contextual) e <strong>nunca</strong> altere
+<code>entity.setId(...)</code> em <code>applyUpdate</code>, pois chaves
+primarias sao imutaveis apos a criacao.</li>
+</ul></li>
+<li><strong>Quando usar chave substituta (<code>Long id</code>) +
+<code>UNIQUE</code>:</strong> quando as colunas que identificam o evento
+no legado forem <strong>editaveis pelo usuario</strong> em operacoes de
+<code>PUT /{id}</code> (ex.: lancamentos de frequencia/afastamento em
+que <code>dtini</code> ou <code>codfreq</code> podem ser corrigidos na
+tela), pois o JPA/Hibernate proibe alterar atributos de um
+<code>@EmbeddedId</code> em uma entidade gerenciada.</li>
+</ul>
 <h2 id="mapper-canonico">Mapper canonico</h2>
 <div class="sourceCode" id="cb4"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Component</span></span>
@@ -479,21 +589,28 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb4-1"><a href="
 <span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> Employee <span class="fu">newEntity</span><span class="op">(</span>CreateEmployeeDTO dto<span class="op">)</span> <span class="op">{</span> <span class="kw">...</span> <span class="op">}</span></span>
 <span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">applyUpdate</span><span class="op">(</span>Employee entity<span class="op">,</span> UpdateEmployeeDTO dto<span class="op">)</span> <span class="op">{</span> <span class="kw">...</span> <span class="op">}</span></span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="bu">Long</span> <span class="fu">extractId</span><span class="op">(</span>Employee entity<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entity<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">void</span> <span class="fu">applyUpdate</span><span class="op">(</span>Employee entity<span class="op">,</span> UpdateEmployeeDTO dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Nunca sobrescreva entity.setId(...) nem chaves técnicas pertencentes à rota!</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">...</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="bu">Long</span> <span class="fu">extractId</span><span class="op">(</span>Employee entity<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> entity<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>Metodos obrigatorios:</p>
 <ul>
 <li><code>toResponse</code></li>
 <li><code>newEntity</code></li>
-<li><code>applyUpdate</code></li>
+<li><code>applyUpdate(E entity, UpdateDTO dto)</code>
+(<code>entity</code> e o 1º parametro!)</li>
 <li><code>extractId</code></li>
 </ul>
-<h2 id="service-canonico">Service canonico</h2>
+<h2
+id="service-canonico-com-analytics-statsfieldregistry-e-getdatasetversion">Service
+canonico (com Analytics / <code>StatsFieldRegistry</code> e
+<code>getDatasetVersion()</code>)</h2>
 <div class="sourceCode" id="cb5"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeService <span class="kw">extends</span> AbstractBaseResourceService<span class="op">&lt;</span></span>
@@ -504,18 +621,54 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb5-1"><a href="
 <span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        CreateEmployeeDTO<span class="op">,</span></span>
 <span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO<span class="op">&gt;</span> <span class="op">{</span></span>
 <span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> EmployeeMapper mapper<span class="op">;</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">EmployeeService</span><span class="op">(</span>EmployeeRepository repository<span class="op">,</span> EmployeeMapper mapper<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>repository<span class="op">,</span> Employee<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">mapper</span> <span class="op">=</span> mapper<span class="op">;</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> ResourceMapper<span class="op">&lt;</span>Employee<span class="op">,</span> EmployeeResponseDTO<span class="op">,</span> CreateEmployeeDTO<span class="op">,</span> UpdateEmployeeDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="fu">getResourceMapper</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">;</span></span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">static</span> <span class="dt">final</span> StatsFieldRegistry STATS_FIELDS <span class="op">=</span> StatsFieldRegistry<span class="op">.</span><span class="fu">builder</span><span class="op">()</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">categoricalGroupByBucket</span><span class="op">(</span><span class="st">&quot;active&quot;</span><span class="op">,</span> <span class="st">&quot;active&quot;</span><span class="op">)</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">temporalTimeSeriesField</span><span class="op">(</span><span class="st">&quot;hireDate&quot;</span><span class="op">,</span> <span class="st">&quot;hireDate&quot;</span><span class="op">)</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">numericHistogramMeasureField</span><span class="op">(</span><span class="st">&quot;salary&quot;</span><span class="op">,</span> <span class="st">&quot;salary&quot;</span><span class="op">)</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>            <span class="op">.</span><span class="fu">build</span><span class="op">();</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> EmployeeMapper mapper<span class="op">;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">EmployeeService</span><span class="op">(</span>EmployeeRepository repository<span class="op">,</span> EmployeeMapper mapper<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="kw">super</span><span class="op">(</span>repository<span class="op">,</span> Employee<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">mapper</span> <span class="op">=</span> mapper<span class="op">;</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> ResourceMapper<span class="op">&lt;</span>Employee<span class="op">,</span> EmployeeResponseDTO<span class="op">,</span> CreateEmployeeDTO<span class="op">,</span> UpdateEmployeeDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="fu">getResourceMapper</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">;</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> Optional<span class="op">&lt;</span><span class="bu">String</span><span class="op">&gt;</span> <span class="fu">getDatasetVersion</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> Optional<span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;Employee:&quot;</span> <span class="op">+</span> <span class="fu">getRepository</span><span class="op">().</span><span class="fu">count</span><span class="op">());</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsFieldRegistry <span class="fu">getStatsFieldRegistry</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> STATS_FIELDS<span class="op">;</span></span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsSupportMode <span class="fu">getGroupByStatsSupportMode</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> StatsSupportMode<span class="op">.</span><span class="fu">AUTO</span><span class="op">;</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsSupportMode <span class="fu">getTimeSeriesStatsSupportMode</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> StatsSupportMode<span class="op">.</span><span class="fu">AUTO</span><span class="op">;</span></span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsSupportMode <span class="fu">getDistributionStatsSupportMode</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> StatsSupportMode<span class="op">.</span><span class="fu">AUTO</span><span class="op">;</span></span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> StatsSupportMode <span class="fu">getComparisonStatsSupportMode</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> StatsSupportMode<span class="op">.</span><span class="fu">AUTO</span><span class="op">;</span></span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>Para read-only:</p>
 <div class="sourceCode" id="cb6"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Service</span></span>
@@ -537,33 +690,54 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb6-1"><a href="
 <span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> mapper<span class="op">;</span></span>
 <span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
 <span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
-<h2 id="controller-canonico">Controller canonico</h2>
+<h2
+id="controller-canonico-com-resourceidentity-e-quickfilter">Controller
+canonico (com <code>@ResourceIdentity</code> e
+<code>@QuickFilter</code>)</h2>
 <div class="sourceCode" id="cb7"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span>value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">EMPLOYEES</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;human-resources.employees&quot;</span><span class="op">)</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;human-resources&quot;</span><span class="op">)</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeController <span class="kw">extends</span> AbstractResourceController<span class="op">&lt;</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        EmployeeResponseDTO<span class="op">,</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        EmployeeFilterDTO<span class="op">,</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        CreateEmployeeDTO<span class="op">,</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> EmployeeService service<span class="op">;</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">EmployeeController</span><span class="op">(</span>EmployeeService service<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">service</span> <span class="op">=</span> service<span class="op">;</span></span>
-<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> EmployeeService <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span></span>
-<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">;</span></span>
-<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
-<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getResponseId</span><span class="op">(</span>EmployeeResponseDTO dto<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
-<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">HumanResources</span><span class="op">.</span><span class="fu">EMPLOYEES</span><span class="op">,</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    resourceKey <span class="op">=</span> <span class="st">&quot;human-resources.employees&quot;</span><span class="op">,</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    title <span class="op">=</span> <span class="st">&quot;Colaboradores&quot;</span><span class="op">,</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    description <span class="op">=</span> <span class="st">&quot;Gestão cadastral, remuneração base e situação operacional de colaboradores.&quot;</span><span class="op">,</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    icon <span class="op">=</span> <span class="st">&quot;groups&quot;</span><span class="op">,</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    visualTone <span class="op">=</span> <span class="st">&quot;human-resources&quot;</span><span class="op">,</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    identity <span class="op">=</span> <span class="at">@ResourceIdentity</span><span class="op">(</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        keyField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>        titleField <span class="op">=</span> <span class="st">&quot;name&quot;</span><span class="op">,</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        subtitleField <span class="op">=</span> <span class="st">&quot;email&quot;</span><span class="op">,</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        metadataFields <span class="op">=</span> <span class="op">{</span><span class="st">&quot;hireDate&quot;</span><span class="op">},</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        displayLabelField <span class="op">=</span> <span class="st">&quot;name&quot;</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">),</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    quickFilters <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="at">@QuickFilter</span><span class="op">(</span>id <span class="op">=</span> <span class="st">&quot;active&quot;</span><span class="op">,</span> label <span class="op">=</span> <span class="st">&quot;Ativos&quot;</span><span class="op">,</span> filter <span class="op">=</span> <span class="st">&quot;active=true&quot;</span><span class="op">,</span> icon <span class="op">=</span> <span class="st">&quot;check_circle&quot;</span><span class="op">),</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        <span class="at">@QuickFilter</span><span class="op">(</span>id <span class="op">=</span> <span class="st">&quot;inactive&quot;</span><span class="op">,</span> label <span class="op">=</span> <span class="st">&quot;Inativos&quot;</span><span class="op">,</span> filter <span class="op">=</span> <span class="st">&quot;active=false&quot;</span><span class="op">,</span> icon <span class="op">=</span> <span class="st">&quot;remove_circle_outline&quot;</span><span class="op">)</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiGroup</span><span class="op">(</span><span class="st">&quot;human-resources&quot;</span><span class="op">)</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeController <span class="kw">extends</span> AbstractResourceController<span class="op">&lt;</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>        EmployeeResponseDTO<span class="op">,</span></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span><span class="op">,</span></span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>        EmployeeFilterDTO<span class="op">,</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>        CreateEmployeeDTO<span class="op">,</span></span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> EmployeeService service<span class="op">;</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="fu">EmployeeController</span><span class="op">(</span>EmployeeService service<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>        <span class="kw">this</span><span class="op">.</span><span class="fu">service</span> <span class="op">=</span> service<span class="op">;</span></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> EmployeeService <span class="fu">getService</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> service<span class="op">;</span></span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Override</span></span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true" tabindex="-1"></a>    <span class="kw">protected</span> <span class="bu">Long</span> <span class="fu">getResponseId</span><span class="op">(</span>EmployeeResponseDTO dto<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> dto<span class="op">.</span><span class="fu">getId</span><span class="op">();</span></span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>Regras obrigatorias:</p>
 <ul>
 <li>use <code>@ApiResource(value = ..., resourceKey = ...)</code></li>
@@ -630,17 +804,24 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb10-1"><a href=
 class="sourceCode java"><code class="sourceCode java"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="at">@PostMapping</span><span class="op">(</span><span class="st">&quot;/{id}/actions/approve&quot;</span><span class="op">)</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="at">@WorkflowAction</span><span class="op">(</span>id <span class="op">=</span> <span class="st">&quot;approve&quot;</span><span class="op">,</span> title <span class="op">=</span> <span class="st">&quot;Aprovar&quot;</span><span class="op">,</span> scope <span class="op">=</span> ActionScope<span class="op">.</span><span class="fu">ITEM</span><span class="op">)</span></span></code></pre></div>
 <h2 id="o-que-o-recurso-deve-expor">O que o recurso deve expor</h2>
-<p>Para um recurso mutavel no core atual, espere:</p>
+<p>Para um recurso mutavel no core atual (com
+<code>StatsFieldRegistry</code> configurado), espere:</p>
 <ul>
 <li><code>GET /{resource}/all</code></li>
 <li><code>GET /{resource}/{id}</code></li>
 <li><code>POST /{resource}</code></li>
 <li><code>PUT /{resource}/{id}</code></li>
+<li><code>DELETE /{resource}/{id}</code></li>
+<li><code>DELETE /{resource}/batch</code></li>
 <li><code>POST /{resource}/filter</code></li>
 <li><code>POST /{resource}/filter/cursor</code></li>
 <li><code>POST /{resource}/locate</code></li>
 <li><code>POST /{resource}/options/filter</code></li>
 <li><code>GET /{resource}/options/by-ids</code></li>
+<li><code>POST /{resource}/stats/group-by</code></li>
+<li><code>POST /{resource}/stats/timeseries</code></li>
+<li><code>POST /{resource}/stats/distribution</code></li>
+<li><code>POST /{resource}/stats/comparison</code></li>
 <li><code>GET /{resource}/capabilities</code></li>
 <li><code>GET /{resource}/{id}/capabilities</code></li>
 </ul>
@@ -649,7 +830,90 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb11-1"><a href=
 <li><code>POST /{resource}</code></li>
 <li><code>PUT /{resource}/{id}</code></li>
 <li><code>DELETE /{resource}/{id}</code></li>
+<li><code>DELETE /{resource}/batch</code></li>
 </ul>
+<h2
+id="concorrência-otimista-version-versionedcreateupdateresourceservice">Concorrência
+Otimista (<code>@Version</code> +
+<code>VersionedCreateUpdateResourceService</code>)</h2>
+<p>Quando a entidade possuir controle de versão otimista
+(<code>@Version private Long version = 0L;</code>) e
+<code>praxis.resource-version.etag.secret</code> estiver configurado no
+<code>application.yml</code>, implemente
+<code>VersionedCreateUpdateResourceService&lt;ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt;</code>
+no service para emitir <code>ETag</code> assinado no
+<code>GET /{id}</code> e exigir precondição <code>If-Match</code> no
+<code>PUT /{id}</code>:</p>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="kw">protected</span> OptionalLong <span class="fu">getEntityResourceVersion</span><span class="op">(</span>Employee entity<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> entity <span class="op">!=</span> <span class="kw">null</span> <span class="op">&amp;&amp;</span> entity<span class="op">.</span><span class="fu">getVersion</span><span class="op">()</span> <span class="op">!=</span> <span class="kw">null</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>            <span class="op">?</span> OptionalLong<span class="op">.</span><span class="fu">of</span><span class="op">(</span>entity<span class="op">.</span><span class="fu">getVersion</span><span class="op">())</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>            <span class="op">:</span> OptionalLong<span class="op">.</span><span class="fu">empty</span><span class="op">();</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="at">@Transactional</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> ResourceRepresentationResult<span class="op">&lt;</span>EmployeeResponseDTO<span class="op">&gt;</span> <span class="fu">update</span><span class="op">(</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">Long</span> id<span class="op">,</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>        UpdateEmployeeDTO dto<span class="op">,</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>        ResourceVersionUpdatePrecondition<span class="op">&lt;</span><span class="bu">Long</span><span class="op">&gt;</span> precondition<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>precondition <span class="op">==</span> <span class="kw">null</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> ResourceVersionPreconditionException<span class="op">.</span><span class="fu">required</span><span class="op">();</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">Set</span><span class="op">&lt;</span><span class="bu">String</span><span class="op">&gt;</span> readOnlyKeys <span class="op">=</span> <span class="fu">validateCustomFields</span><span class="op">(</span>dto<span class="op">,</span> <span class="st">&quot;request&quot;</span><span class="op">);</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>    Employee entity <span class="op">=</span> <span class="fu">findEntityById</span><span class="op">(</span>id<span class="op">);</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>    OptionalLong currentVersion <span class="op">=</span> <span class="fu">getEntityResourceVersion</span><span class="op">(</span>entity<span class="op">);</span></span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>currentVersion<span class="op">.</span><span class="fu">isEmpty</span><span class="op">())</span> <span class="op">{</span></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> ResourceVersionPreconditionException<span class="op">.</span><span class="fu">missingState</span><span class="op">();</span></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>    precondition<span class="op">.</span><span class="fu">requireMatch</span><span class="op">(</span>currentVersion<span class="op">.</span><span class="fu">getAsLong</span><span class="op">());</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">beforeUpdate</span><span class="op">(</span>id<span class="op">,</span> entity<span class="op">,</span> dto<span class="op">);</span></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>    <span class="dt">var</span> readOnlyValues <span class="op">=</span> org<span class="op">.</span><span class="fu">praxisplatform</span><span class="op">.</span><span class="fu">uischema</span><span class="op">.</span><span class="fu">customfields</span><span class="op">.</span><span class="fu">CustomFieldSupport</span><span class="op">.</span><span class="fu">snapshotReadOnlyValues</span><span class="op">(</span>entity<span class="op">,</span> readOnlyKeys<span class="op">);</span></span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>    mapper<span class="op">.</span><span class="fu">applyUpdate</span><span class="op">(</span>entity<span class="op">,</span> dto<span class="op">);</span></span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>    org<span class="op">.</span><span class="fu">praxisplatform</span><span class="op">.</span><span class="fu">uischema</span><span class="op">.</span><span class="fu">customfields</span><span class="op">.</span><span class="fu">CustomFieldSupport</span><span class="op">.</span><span class="fu">restoreReadOnlyValues</span><span class="op">(</span>entity<span class="op">,</span> readOnlyKeys<span class="op">,</span> readOnlyValues<span class="op">);</span></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>    Employee saved <span class="op">=</span> <span class="fu">getRepository</span><span class="op">().</span><span class="fu">save</span><span class="op">(</span>entity<span class="op">);</span></span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>    <span class="fu">afterUpdate</span><span class="op">(</span>id<span class="op">,</span> saved<span class="op">,</span> dto<span class="op">);</span></span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>    entityManager<span class="op">.</span><span class="fu">flush</span><span class="op">();</span></span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">toResourceRepresentation</span><span class="op">(</span>saved<span class="op">);</span></span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2
+id="extensibilidade-dinâmica-multi-tenant-customfields-e-fatos-de-domínio-resourcefact">Extensibilidade
+Dinâmica Multi-Tenant (<code>@CustomFields</code>) e Fatos de Domínio
+(<code>@ResourceFact</code>)</h2>
+<ol type="1">
+<li><strong>Campos Customizados (<code>@CustomFields</code> +
+<code>CustomFieldDefinitionProvider</code>):</strong>
+<ul>
+<li>Na entidade JPA PostgreSQL, mapeie a coluna JSONB com
+<code>@JdbcTypeCode(SqlTypes.JSON)</code>,
+<code>@Column(name = "custom_fields", columnDefinition = "jsonb")</code>
+<strong>e</strong>
+<code>@CustomFields(resourceKey = "human-resources.employees") private Map&lt;String, Object&gt; customFields = new LinkedHashMap&lt;&gt;();</code>
+(a anotacao na entidade e obrigatoria para que
+<code>GenericSpecificationsBuilder</code> resolva predicados JSONB em
+<code>/filter</code>).</li>
+<li>Em <code>ResponseDTO</code>, <code>CreateDTO</code>,
+<code>UpdateDTO</code> e <code>FilterDTO</code>, declare
+<code>@CustomFields(resourceKey = "human-resources.employees") private Map&lt;String, Object&gt; customFields = new LinkedHashMap&lt;&gt;();</code>
+(mantendo <code>customFields</code> aninhado no JSON, sem
+<code>@JsonAnyGetter</code>/<code>@JsonAnySetter</code>).</li>
+<li>Registre um bean <code>@Component</code> implementando
+<code>CustomFieldDefinitionProvider</code> (consultando
+<code>custom_field_definitions</code>) para que
+<code>/schemas/filtered</code>, validação server-side, filtros JSONB em
+<code>/filter</code>, exportação e <code>/schemas/domain</code> projetem
+automaticamente os campos ativos do órgão/tenant.</li>
+</ul></li>
+<li><strong>Catálogo de Fatos de Domínio (<code>@ResourceFact</code> +
+<code>ResourceFactCatalogProvider</code>):</strong>
+<ul>
+<li>Anote o controller/service com
+<code>@ResourceFact(key = "tempoServicoDias", resourceKey = "human-resources.employees", label = "Tempo de Serviço em Dias", description = "...", dataType = "integer", unit = "days")</code>
+ou exponha um bean <code>ResourceFactCatalogProvider</code> para
+publicar indicadores derivados em <code>/schemas/domain</code>.</li>
+</ul></li>
+</ol>
 <h2 id="o-que-nao-deve-ser-gerado">O que nao deve ser gerado</h2>
 <ul>
 <li>schema inline em catalogos</li>
@@ -663,32 +927,33 @@ semantica</li>
 </ul>
 <h2 id="prompt-recomendado-para-adicionar-um-recurso-novo">Prompt
 recomendado para adicionar um recurso novo</h2>
-<pre class="text"><code>Adicione um novo recurso metadata-driven ao projeto Spring Boot existente.
+<pre class="text"><code>Adicione um novo recurso metadata-driven completo e rico em metadados de negocio ao projeto Spring Boot existente.
 
 Use obrigatoriamente:
-- @ApiResource(value = ..., resourceKey = ...)
+- @ApiResource(value = ..., resourceKey = ..., title = ..., description = ..., icon = ..., identity = @ResourceIdentity(...), quickFilters = {@QuickFilter(...)})
 - @ApiGroup
-- BaseCrudRepository
-- ResourceMapper
-- AbstractBaseResourceService ou AbstractReadOnlyResourceService
-- AbstractResourceController ou AbstractReadOnlyResourceController
+- Entidade com @OptionLabel e @DefaultSortColumn
+- BaseCrudRepository&lt;E, ID&gt;
+- ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;
+- AbstractBaseResourceService&lt;E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt; ou AbstractReadOnlyResourceService&lt;E, ResponseDTO, ID, FilterDTO&gt;
+- AbstractResourceController&lt;ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt; ou AbstractReadOnlyResourceController&lt;ResponseDTO, ID, FilterDTO&gt;
 
 Gere, nesta ordem:
-1. DTOs
-2. repository
-3. mapper
-4. service
-5. controller
+1. DTOs (ResponseDTO, CreateDTO, UpdateDTO, FilterDTO com @Schema de negocio em PT-BR, @UISchema com grupos/icones/presets, @DomainGovernance e @Filterable rico)
+2. repository (extends BaseCrudRepository&lt;E, ID&gt;)
+3. mapper (implements ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;)
+4. service (com getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e modos StatsSupportMode.AUTO)
+5. controller (com getService() e getResponseId())
 
 Regras:
 - nao use @RestController junto com @ApiResource
 - nao derive DTO publico mecanicamente da entidade JPA; use a entidade apenas como grounding
-- FilterDTO deve implementar GenericFilterDTO
-- mapper deve implementar toResponse, newEntity, applyUpdate, extractId
-- service deve sobrescrever getResourceMapper()
+- FilterDTO deve implementar GenericFilterDTO e usar @Filterable (LIKE, EQUAL, IN, BETWEEN, IN_LAST_DAYS) + @UISchema
+- mapper deve implementar toResponse, newEntity, applyUpdate(E entity, UpdateDTO dto) (sem sobrescrever id) e extractId
+- service deve sobrescrever getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e StatsSupportMode.AUTO
 - controller deve sobrescrever getService() e getResponseId()
 - nao gere classes fora do baseline resource-oriented atual
-- entregue codigo compilavel, sem stubs</code></pre>
+- entregue codigo compilavel na primeira tentativa, sem stubs</code></pre>
 <h2 id="checklist-do-recurso">Checklist do recurso</h2>
 <p>Antes de concluir:</p>
 <ul>
@@ -696,9 +961,14 @@ Regras:
 <code>@ApiResource(value = ..., resourceKey = ...)</code></li>
 <li><code>resourceKey</code> representa a semantica do recurso</li>
 <li>o recurso nao usa DTO unico</li>
-<li><code>FilterDTO implements GenericFilterDTO</code></li>
+<li><code>FilterDTO implements GenericFilterDTO</code> com
+<code>@Filterable</code> e <code>@UISchema</code></li>
+<li>entidade declara <code>@OptionLabel</code> para alimentar
+<code>/options/filter</code> e <code>/options/by-ids</code></li>
 <li>repository estende <code>BaseCrudRepository</code></li>
-<li>service sobrescreve <code>getResourceMapper()</code></li>
+<li>service sobrescreve <code>getResourceMapper()</code>,
+<code>getDatasetVersion()</code> e <code>getStatsFieldRegistry()</code>
+(quando houver dimensoes/metricas analiticas)</li>
 <li>controller sobrescreve <code>getService()</code> e
 <code>getResponseId()</code></li>
 <li><code>/schemas/filtered</code> resolve request e response</li>

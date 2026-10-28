@@ -7,12 +7,15 @@ CRUD que ja publica corretamente o contrato metadata-driven do
 `praxis-metadata-starter`.
 
 O objetivo nao e montar "qualquer tela Angular que compile". O objetivo e gerar
-um host alinhado ao runtime oficial da plataforma:
+um host **fino (zero-boilerplate)** alinhado ao runtime oficial da plataforma,
+onde colunas, mascaras, moeda, filtros, opcoes remotas, agrupamento de formulario
+e acoes de CRUD sao materializados automaticamente a partir de `/schemas/filtered`:
 
-- `@praxisui/crud` como shell canonico de CRUD
+- `@praxisui/crud` como shell canonico de CRUD (com suporte a `openMode = 'drawer'`, `'modal'` ou `'route'`)
 - `@praxisui/table` como superficie canonica de listagem e filtro
-- `@praxisui/dynamic-form` como superficie canonica de formulario
-- `GenericCrudService` consumindo `GET {resource}/schemas` e `/schemas/filtered`
+- `@praxisui/dynamic-form` como superficie canonica de formulario (`layoutPolicy.source = 'schema'`)
+- `@praxisui/list` como superficie alternativa de cards/lista
+- `GenericCrudService` e `SchemaMetadataClient` consumindo `GET {resource}/schemas` e `/schemas/filtered`
 - `resourcePath`, `idField`, `ETag` e `X-Schema-Hash` usados de forma coerente
 
 ## Ordem de leitura para a LLM
@@ -32,11 +35,10 @@ Nenhum passo deste guia depende de consultar app externo.
 ## Hierarquia canonica
 
 1. `praxis-metadata-starter`
-   - define `x-ui`, `/schemas/filtered`, `idField` e o contrato metadata-driven
+   - define `x-ui`, `/schemas/filtered`, `idField`, capabilities, HATEOAS e o contrato metadata-driven
 2. `praxis-ui-angular`
    - define o runtime oficial:
-     `@praxisui/core`, `@praxisui/table`, `@praxisui/dynamic-form` e
-     `@praxisui/crud`
+     `@praxisui/core`, `@praxisui/table`, `@praxisui/dynamic-form`, `@praxisui/crud` e `@praxisui/list`
 
 O starter nao redefine semantica de frontend. Ele orienta o consumo correto do
 runtime oficial Angular.
@@ -50,9 +52,9 @@ Este guia cobre:
 
 - lista com `praxis-table`
 - filtro remoto metadata-driven
-- formulario metadata-driven
+- formulario metadata-driven com `layoutPolicy.source = 'schema'`
 - acoes `create`, `view`, `edit` e `delete`
-- host unificado com `praxis-crud`
+- host unificado com `praxis-crud` (`drawer`, `modal` ou `route`)
 
 ## Quando nao usar este guia
 
@@ -60,7 +62,6 @@ Este guia nao e o lugar correto para:
 
 - page builder
 - editor visual de metadados
-- regras corporativas avancadas de drawer
 - UX fora do fluxo CRUD canonico
 
 Se o pedido for apenas uma lista remota simples, `praxis-table` pode bastar.
@@ -71,9 +72,9 @@ Se o pedido for um CRUD completo, prefira `praxis-crud`.
 No minimo:
 
 1. nome do recurso frontend
-2. `resourcePath` canonico do backend
+2. `resourcePath` canonico do backend (sem prefixo `/api`)
 3. `idField`
-4. estrategia de abertura: `modal`, `route` ou `drawer`
+4. estrategia de abertura: `drawer`, `modal` ou `route`
 5. rota Angular desejada
 6. `endpointKey` quando houver mais de uma API configurada
 
@@ -86,41 +87,27 @@ Entrada:
 - Recurso: Funcionarios
 - resourcePath: human-resources/funcionarios
 - idField: id
-- endpointKey: HumanResources
+- endpointKey: default
 - rota da lista: /funcionarios
 - rota de visualizacao: /funcionarios/view/:id
-- openMode padrao: modal
+- openMode padrao: drawer
 ```
 
 ## Dependencias frontend minimas
 
-Para um CRUD completo:
+Para um CRUD completo na linha ativa `@praxisui/*` (`9.0.0-beta.*` / `latest` correspondente ao trem Angular do host):
 
 ```bash
 npm i @angular/animations @angular/cdk @angular/material
-npm i @praxisui/core @praxisui/table @praxisui/dynamic-form @praxisui/crud
+npm i @praxisui/core @praxisui/table @praxisui/dynamic-form @praxisui/crud @praxisui/dynamic-fields
 ```
 
-Para um app Angular novo, a prova operacional desta rodada mostrou que o
-baseline real tambem precisa incluir:
+Para um app Angular novo, resolva tambem o fecho completo de peer dependencies da linha `@praxisui/*` adotada (que pode incluir `@praxisui/settings-panel`, `@praxisui/metadata-editor`, `@praxisui/dialog`, `@praxisui/rich-content`, `@praxisui/visual-builder`, `@praxisui/table-rule-builder`, `@praxisui/ai` e `@google/generative-ai`).
 
-```bash
-npm i @praxisui/ai @google/generative-ai
-```
+Referencia de linha ativa:
 
-Motivo:
-
-- as libs publicadas em `@praxisui 3.0.0-beta.10` ainda puxam `@praxisui/ai`
-  no grafo de bundle de algumas libs
-- `@praxisui/ai` referencia `@google/generative-ai`
-
-Nao assumir que as quatro libs principais bastam sozinhas em um app Angular
-novo.
-
-Referencia operacional validada nesta rodada:
-
-- `praxis-metadata-starter 5.0.0-rc.2`
-- `@praxisui 3.0.0-beta.10`
+- `praxis-metadata-starter`: linha `9.x` (`9.0.0-rc.*` ou estavel mais recente no Maven Central)
+- `@praxisui/*`: linha `9.0.0-beta.*` no npm (`dist-tag=latest`)
 
 ## Contratos canonicos de runtime
 
@@ -133,7 +120,7 @@ human-resources/funcionarios
 ```
 
 Se `API_URL` ja aponta para `/api`, mantenha o `resourcePath` relativo ao
-dominio do recurso e nao repita o prefixo `api/`.
+dominio do recurso e **nunca** repita o prefixo `/api`, `/filter` ou `/all`.
 
 ### 2. `API_URL`
 
@@ -182,12 +169,13 @@ Se houver endpoint dedicado por dominio:
 ```
 
 Para app Angular novo fora do workspace oficial, prefira
-`baseUrl = window.location.origin`.
+`baseUrl = window.location.origin` com proxy de desenvolvimento para `/api` e `/schemas`.
 
 Para app novo, o bootstrap tambem deve prover:
 
 - `provideHttpClient()`
 - `provideAnimationsAsync()` ou equivalente
+- estilos Material, Material Icons/Symbols, CDK Overlay e `@praxisui/core/theme-bridge.css`
 
 ### 3. `providePraxisGlobalConfigBootstrap()`
 
@@ -197,21 +185,26 @@ So use esse bootstrap quando o host realmente integrar
 `praxis-config-starter` e precisar de config remota em
 `/api/praxis/config/**`.
 
-### 4. `GenericCrudService`
+### 4. `GenericCrudService` e `layoutPolicy` Schema-Driven
 
 Regras canonicas:
 
 - `praxis-table` e self-hosted para `GenericCrudService`
-- `praxis-dynamic-form` e host-driven para `GenericCrudService`
-- `praxis-crud` e o shell recomendado para CRUD completo
+- `praxis-dynamic-form` e host-driven para `GenericCrudService` e deve usar `layoutPolicy` orientada por schema:
+  - formularios de criacao/edicao (`command`): `layoutPolicy: { source: 'schema', intent: 'command', preset: 'groupedCommand' }`
+  - formularios de detalhe/leitura (`detail`): `layoutPolicy: { source: 'schema', intent: 'detail', preset: 'compactPresentation' }`
+  - nao declare `FormConfig.sections` manuais ou `sections: []` vazias apenas para fazer um formulario schema-driven funcionar; deixe o runtime materializar os grupos (`group`) e a ordem (`order`) publicados em `@UISchema` no backend
+- `praxis-crud` e o shell recomendado para CRUD completo (usando `CrudLauncherService` com `openMode = 'drawer'`, `'modal'` ou `'route'` sem criar drawers/modais manuais no host)
 
 ## Fluxo de schema
 
 O frontend oficial consome:
 
 - `GET {resource}/schemas`
-- `/schemas/filtered?path=.../all&operation=get&schemaType=response`
+- `/schemas/filtered?path=.../filter&operation=post&schemaType=response`
 - `/schemas/filtered?path=.../filter&operation=post&schemaType=request`
+- `/schemas/filtered?path=...&operation=post&schemaType=request` (create)
+- `/schemas/filtered?path=.../{id}&operation=put&schemaType=request` (update)
 
 Tambem usa:
 
@@ -241,38 +234,15 @@ normalizar a assinatura. Após release/adoção, conferir o header efetivamente 
 nas variantes identity/gzip/br e o uso do token intacto; testes MVC não certificam
 um proxy ou deployment específico.
 
-No contrato Java candidato B4-R1, `ResourceRepresentationResult` carrega corpo e
-`persistedVersion` capturados da **mesma entidade**. `findById` projeta ambos na
-transação de leitura; o PUT versionado de três argumentos captura ambos após o último
-hook e `flush`, sem reconsulta tardia para formar o header.
-Na migração Java beta, remover overrides de `getResourceVersion(id)` e implementar
-`getEntityResourceVersion(entity)`; consumidores Java de `findById` passam a usar
-`.body()`, e o PUT versionado de três argumentos devolve o par. Não manter alias ou
-segunda API de consulta de versão. O service deve exigir
-`result.requirePersistedVersion()` **dentro da mesma transação de escrita** antes de
-retornar, para que ausência de versão reverta domínio e versão juntos. O controller
-também valida o resultado, mas sua checagem posterior ao commit não substitui esse
-guard transacional em implementações próprias do SPI. O mapper não aceita versão
-esperada do payload, e a entrada Java de dois argumentos permanece protegida por
-`428`. A implementação herdada de `AbstractBaseResourceService` rejeita essa entrada
-antes da leitura, dos hooks e do mapper quando o serviço implementa
-`VersionedCreateUpdateResourceService`; não exige override defensivo no host. Um
-override concreto próprio de dois argumentos continua responsável por preservar
-essa rejeição. Serviços não versionados mantêm o update de dois argumentos, e a
-implementação versionada de três argumentos executa seu próprio fluxo transacional
-com precondição, sem delegar ao overload sem precondição.
-Em replay histórico de action, reutilize revisão historicamente capturada ou
-omita ETag; nunca assine a versão atual para um corpo antigo. Esse par certifica a
-linha do recurso, não um snapshot de links, grants ou relações.
-
-Antes de adotar o candidato, prove com PostgreSQL e barreiras entre projeção/header
-do GET e resultado/header do PUT: corpo/token pareados, token anterior rejeitado em
-`412`, token de DTO igual ao header quando ambos existem, replay sem token renovado
-e rollback quando um service versionado tenta retornar revisão vazia. O candidato
-local passou 46 testes focais Metadata e 28 testes focais host: 13 com PostgreSQL (5 JPA/MockMvc e 8 receipt/replay), 1 unitário de providers
-e 14 TCP/H2, sem prova de grants de role ou domínio RuleLab
-inteiro em PostgreSQL. Revisão final, integração, release e adoção sem override
-continuam separadas; não usar esse resultado para declarar backend completo.
+Em `ResourceRepresentationResult`, corpo e `persistedVersion` sao capturados da
+**mesma entidade**. `findById` projeta ambos na transação de leitura; o PUT versionado
+de três argumentos captura ambos após o último hook e `flush`, sem reconsulta tardia
+para formar o header. Serviços versionados implementam `getEntityResourceVersion(entity)`
+e exigem `result.requirePersistedVersion()` dentro da mesma transação de escrita antes
+de retornar, para que ausência de versão reverta domínio e versão juntos. A entrada
+Java de dois argumentos permanece protegida por `428`. Em replay histórico de action,
+reutilize revisão historicamente capturada ou omita ETag; nunca assine a versão atual
+para um corpo antigo.
 
 O `ETag` tambem e vinculado ao escopo de isolamento resolvido pelo servidor. Por padrao o
 starter usa o escopo global; hosts multi-tenant devem publicar um
@@ -302,11 +272,11 @@ lista + acoes:
   praxis-crud
     -> praxis-table
     -> crudContext estavel
-    -> create/view/edit/delete
+    -> create/view/edit/delete (drawer | modal | route)
 
 formulario:
   praxis-dynamic-form
-    -> schema-driven
+    -> schema-driven (layoutPolicy.source = 'schema')
     -> usa GenericCrudService quando depende de resourcePath/resourceId
 ```
 
@@ -318,7 +288,7 @@ Para um app Angular novo, gere no minimo:
 - `src/app/app.routes.ts`
 - componente host da lista com `praxis-crud`
 - componente de view/edit roteado com `praxis-dynamic-form`, quando houver rota
-- `src/styles.scss` com tema Material
+- `src/styles.scss` com tema Material + `@praxisui/core/theme-bridge.css`
 - `proxy.conf.js`
 - `angular.json` com `serve.options.proxyConfig`
 
@@ -331,13 +301,13 @@ Use apenas o contrato metadata-driven ja publicado pelo backend.
 Considere praxis-ui-angular como runtime canonico.
 
 Gere:
-- host com praxis-crud para a lista principal
-- praxis-dynamic-form para view/edit quando houver rota
-- API_URL coerente
+- host com praxis-crud para a lista principal (sem criar servicos HTTP customizados nem colunas hardcoded)
+- praxis-dynamic-form com layoutPolicy.source='schema' (preset 'groupedCommand' para escrita e 'compactPresentation' para detalhe) quando houver rota
+- API_URL coerente (sem duplicar /api no resourcePath)
 - resource.path e idField corretos
 - create/view/edit/delete conectados ao fluxo canonico
 
-Nao invente wrappers locais nem duplicacoes de contrato.
+Nao invente wrappers locais, FormConfig.sections manuais nem duplicacoes de contrato.
 
 Entrada:
 - resourcePath: {resource-path}
@@ -353,9 +323,9 @@ Entrada:
 Antes de concluir:
 
 - existe um host `praxis-crud` para a lista principal
-- `resource.path` e `idField` estao corretos no metadata
+- `resource.path` e `idField` estao corretos no metadata (sem `/api` no `resourcePath`)
 - `GenericCrudService` foi provido ou configurado no host correto
-- o formulario roteado usa `praxis-dynamic-form` quando o fluxo exigir `route`
+- o formulario usa `praxis-dynamic-form` com `layoutPolicy.source = 'schema'` sem `sections` manuais redundantes
 - o recurso remoto carrega schema sem ajuste local de contrato
 - `create`, `view`, `edit` e `delete` estao conectados ao fluxo correto
 
@@ -385,6 +355,6 @@ baseline material acima.
 ## Referencias publicas
 
 - repositório público do runtime Angular: `https://github.com/codexrodrigues/praxis-ui-angular`
-- pacotes publicados: `@praxisui/core`, `@praxisui/table`, `@praxisui/dynamic-form`, `@praxisui/crud`
+- pacotes publicados: `@praxisui/core`, `@praxisui/table`, `@praxisui/dynamic-form`, `@praxisui/crud`, `@praxisui/list`
 - `praxis-metadata-starter/docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md`
 - `praxis-metadata-starter/docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md`

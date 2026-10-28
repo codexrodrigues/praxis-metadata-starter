@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Campos customizados por tenant e fatos de domínio</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Campos customizados por tenant e fatos de domínio</h1>
+</header>
+<h1 id="campos-customizados-por-tenant-e-fatos-de-domínio">Campos
+customizados por tenant e fatos de domínio</h1>
+<p>Status: candidato da <a
+href="https://github.com/codexrodrigues/praxis-metadata-starter/issues/303">issue
+#303</a>, sujeito a revisão arquitetural. Esta documentação descreve o
+código do candidato; não declara release publicada ou adoção no
+Quickstart, Angular ou Policy Studio.</p>
+<h2 id="fonte-canônica-e-fronteiras">Fonte canônica e fronteiras</h2>
+<p>O metadata starter publica definições estruturais e grounding
+semântico. <code>CustomFieldDefinitionProvider</code> fornece definições
+ativas por <code>resourceKey</code>, tenant e tipo de schema; a
+persistência e a autorização dessas definições pertencem ao host. Não há
+dependência de <code>praxis-config-starter</code> ou
+<code>praxis-rules-engine</code>.</p>
+<p><code>/schemas/filtered</code> permanece a fonte estrutural.
+<code>/schemas/domain</code> publica nós, bindings, evidências e
+governança derivados das mesmas definições. Um fato descrito no catálogo
+não é uma regra executável: o starter não avalia fatos, chama métodos
+anotados, executa SQL de fatos ou cria um motor de decisões.</p>
+<h2 id="container-e-definições">Container e definições</h2>
+<p>Entidade, DTOs de criação/atualização/resposta e DTO de filtro usam
+uma propriedade <code>Map&lt;String, Object&gt;</code> chamada
+<code>customFields</code>, anotada com <code>@CustomFields</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">record</span> <span class="fu">CreateEmployee</span><span class="op">(</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">String</span> name<span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="at">@CustomFields</span><span class="op">(</span>resourceKey <span class="op">=</span> <span class="st">&quot;hr.employees&quot;</span><span class="op">)</span> <span class="bu">Map</span><span class="op">&lt;</span><span class="bu">String</span><span class="op">,</span> <span class="bu">Object</span><span class="op">&gt;</span> customFields<span class="op">)</span> <span class="op">{}</span></span></code></pre></div>
+<p>O wire mantém o container explícito, inclusive em records:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;name&quot;</span><span class="fu">:</span><span class="st">&quot;Ana&quot;</span><span class="fu">,</span><span class="dt">&quot;customFields&quot;</span><span class="fu">:{</span><span class="dt">&quot;numero_calcado&quot;</span><span class="fu">:</span><span class="dv">42</span><span class="fu">}}</span></span></code></pre></div>
+<p>Não adicione <code>@JsonAnyGetter</code> ou
+<code>@JsonAnySetter</code> à raiz. Na entidade PostgreSQL, o host
+mapeia o <code>Map</code> para JSONB, por exemplo com
+<code>@JdbcTypeCode(SqlTypes.JSON)</code> e
+<code>@Column(columnDefinition = "jsonb")</code>, preservando o mapper
+resource-oriented.</p>
+<p>Cada <code>CustomFieldDescriptor</code> declara chave segura, tipo,
+apresentação, restrições, opções, elegibilidade de
+filtro/ordenação/exportação e governança. A chave segue
+<code>[a-zA-Z][a-zA-Z0-9_]{0,63}</code>. Tipos disponíveis:
+<code>STRING</code>, <code>INTEGER</code>, <code>DECIMAL</code>,
+<code>BOOLEAN</code>, <code>DATE</code>, <code>DATE_TIME</code>,
+<code>ENUM</code> e <code>ARRAY</code>.</p>
+<p>São reservadas, com comparação exata e sensível a maiúsculas, as
+chaves <code>constructor</code>, <code>prototype</code>,
+<code>hasOwnProperty</code>, <code>isPrototypeOf</code>,
+<code>propertyIsEnumerable</code>, <code>toLocaleString</code>,
+<code>toString</code> e <code>valueOf</code>. Elas colidem com
+propriedades herdadas de objetos JavaScript ou com caminhos bloqueados
+no runtime oficial. <code>__proto__</code> e outros nomes iniciados por
+<code>_</code> já são rejeitados pelo formato acima. O descriptor e a
+spec <code>x-ui-field.schema.json</code> aplicam a mesma política, sem
+aliases nem normalização silenciosa. Hosts com definições antigas nesses
+nomes precisam migrar explicitamente as chaves, os dados e suas
+referências antes de construir os descriptors deste candidato beta.</p>
+<p><code>controlType: AUTO</code> (também o default Java quando omitido)
+é uma sentinela de authoring, não um controle enviado ao Angular. A
+projeção usa a inferência básica compartilhada de tipo/formato do
+starter: texto → <code>input</code>, números →
+<code>numericTextBox</code>, booleanos → <code>checkbox</code>, data →
+<code>date</code>, data-hora → <code>dateTime</code>, enumeração →
+<code>select</code> e array livre → <code>chipInput</code>. Um controle
+explícito é preservado; a resolução não consulta palavras do nome ou
+label. Em filtros, AUTO segue o tipo do operando: <code>IN</code>
+materializa coleção (<code>chipInput</code> ou <code>multiSelect</code>
+para itens enumerados), e <code>IS_NULL</code> usa booleano, sem
+confundir o operando com o valor armazenado.</p>
+<p>Um bean <code>CustomFieldDefinitionProvider</code> substitui o
+provider padrão vazio. Retorne somente definições ativas do
+recurso/tenant solicitado. <code>schemaType</code> recebe
+<code>request</code> ou <code>response</code> na projeção estrutural,
+<code>request</code> na validação de escrita, <code>request</code> na
+construção do filtro e <code>null</code> no overload de discovery geral.
+O host precisa manter essas projeções coerentes; o default de dois
+argumentos delega com <code>schemaType = null</code>. Variantes aceitas
+pelo endpoint, como <code>REQUEST</code>, são normalizadas antes da
+consulta ao provider e da geração do schema/hash.</p>
+<p><code>enumValues</code> só é válido em <code>STRING</code> e
+<code>ENUM</code>; em <code>ENUM</code>, a lista deve ser não vazia. Em
+ambos, a escrita respeita a lista publicada no schema.
+<code>options</code> e <code>optionSource</code> descrevem
+apresentação/carregamento e não substituem uma enumeração canônica. Para
+seleção dinâmica sem lista finita, use <code>STRING</code> e valide as
+regras de domínio no host. Definições inválidas falham na construção do
+descriptor.</p>
+<h2 id="tenant-e-cache">Tenant e cache</h2>
+<p><code>ResourceTenantContextResolver.resolveTenant()</code> permite ao
+host obter o tenant de um contexto autenticado. O adapter padrão lê
+<code>X-Tenant</code> ou <code>X-Tenant-ID</code>, aceita
+<code>[A-Za-z0-9._:-]{1,64}</code> e rejeita headers conflitantes.
+Valores vazios representam ausência de tenant. Validação sintática do
+header não autoriza acesso ao órgão: o host deve vincular o tenant ao
+principal e aplicar autorização de dados.</p>
+<p>A projeção de <code>/schemas/filtered</code> consulta uma lista de
+definições e usa o fingerprint da projeção efetiva na chave interna do
+cache de hash, junto com o tenant. Isso impede reutilização de um hash
+de outro contexto ou de definições anteriores. O contrato público
+existente de <code>schemaId</code> e <code>schemaUrl</code> é
+preservado; consumidores devem encaminhar o contexto autorizado e não
+usar só a URL como chave de cache.</p>
+<p>Respostas <code>200</code> e <code>304</code> publicam
+<code>Vary: Accept-Encoding, X-Tenant, X-Tenant-ID</code>. Com tenant ou
+definições customizadas, o cache é privado e exige revalidação.
+<code>If-None-Match</code> é comparado com o hash do payload projetado.
+Dois tenants com o mesmo payload podem ter o mesmo ETag; a separação das
+chaves internas permanece.</p>
+<p>O catálogo de domínio também separa suas chaves pelo tenant e pelo
+fingerprint das definições de campos e fatos. Isso não introduz ETag ou
+resposta <code>304</code> no catálogo: seu contrato HTTP continua
+independente daquele de <code>/schemas/filtered</code>.</p>
+<h2 id="projeção-estrutural">Projeção estrutural</h2>
+<p><code>properties.customFields</code> recebe
+<code>type: object</code>, <code>additionalProperties: false</code>,
+<code>x-ui.customFieldsContainer: true</code>, propriedades tipadas e a
+lista <code>required</code>. Quando houver filhos efetivamente
+obrigatórios, a raiz também exige <code>customFields</code>. Na escrita,
+campos <code>readOnly</code> são excluídos das <code>properties</code> e
+de <code>required</code>; na resposta continuam publicados e podem ser
+obrigatórios. Quando a operação é um filtro, campos readonly elegíveis a
+busca continuam disponíveis como operandos, sem a restrição de edição.
+Se nenhum filho permanecer na projeção, o container e sua exigência na
+raiz são removidos, preservando os demais campos obrigatórios. Assim,
+omitir o container de uma escrita com campo editável obrigatório é
+inválido tanto no schema quanto no serviço. Sem definições ativas, o
+container é omitido para evitar um controle vazio.</p>
+<p>Cada propriedade contém o tipo/formato JSON Schema, limites e opções
+aplicáveis, <code>x-domain-governance</code> quando informado e
+<code>x-ui</code> com apresentação e marcadores:
+<code>customField: true</code>, <code>customFieldKey</code> e
+<code>customFieldScope: tenant</code>. O exemplo <a
+href="examples/custom-fields.schema.valid.json">custom-fields.schema.valid.json</a>
+ilustra o container. As chaves <code>x-ui</code> são verificadas por <a
+href="x-ui-field.schema.json">x-ui-field.schema.json</a>.</p>
+<h2 id="escrita-filtro-e-exportação">Escrita, filtro e exportação</h2>
+<p><code>AbstractBaseResourceService</code> valida DTOs anotados antes
+de <code>beforeCreate</code> e <code>beforeUpdate</code>: rejeita chaves
+desconhecidas, valores em campos read-only e violações de
+obrigatoriedade, tipo, limites, tamanho e pattern. Erros são publicados
+pelo handler canônico com o caminho
+<code>customFields.&lt;key&gt;</code>. Defaults são metadata; o
+validador não preenche valores automaticamente.</p>
+<p>Na atualização padrão, a base consulta as definições uma vez, executa
+<code>beforeUpdate</code>, captura os valores <code>readOnly</code> e
+restaura esses valores após <code>ResourceMapper.applyUpdate</code>,
+antes de salvar. Também preserva a ausência: o mapper não pode inventar
+um campo protegido ausente. Alterações legítimas feitas pelo hook de
+domínio são preservadas. O snapshot copia Maps, coleções e arrays
+aninhados; não clona POJOs mutáveis arbitrários. A entidade deve
+permitir restaurar o container por setter, campo gravável ou Map
+mutável. Uma restauração impossível falha antes do save.</p>
+<p>Exemplo: estado persistido
+<code>{"numero_calcado":42,"auditFlag":true}</code> e PUT com
+<code>{"customFields":{"numero_calcado":43}}</code> resultam em
+<code>{"numero_calcado":43,"auditFlag":true}</code>. Enviar
+<code>auditFlag</code>, mesmo com <code>null</code>, continua sendo erro
+de escrita; a UI deve omitir campos protegidos no submit.</p>
+<p>A chave do recurso pode ser explicitada na anotação ou no método
+protegido <code>resolveResourceKey()</code>. Use a mesma chave publicada
+pelo <code>@ApiResource</code> do controller. Recursos sem container
+anotado mantêm seu ciclo existente. Implementações de escrita próprias
+do host, incluindo o overload de atualização versionada, devem chamar
+<code>validateCustomFields(dto, "request")</code> antes de seus hooks e
+preservar os valores protegidos através do mapper. Esse helper retorna
+<code>Set&lt;String&gt;</code> das chaves readonly validadas; overrides
+devem conservar as chaves retornadas por <code>super</code>. Escritores
+próprios usam
+<code>CustomFieldSupport.snapshotReadOnlyValues(entity, keys)</code>
+após o hook e <code>restoreReadOnlyValues(entity, keys, snapshot)</code>
+após o mapper, na mesma transação, antes de persistir. Isso não
+substitui precondição/versionamento ou autorização. Não existe
+implementação canônica concreta do overload versionado para interceptar
+automaticamente.</p>
+<p>O filtro usa <code>GenericSpecificationsBuilder</code> e
+<code>jsonb_extract_path_text</code> sobre o atributo anotado da
+entidade. Somente chaves declaradas e <code>filterable</code> são
+admitidas. <code>filterOperation</code> define <code>EQUAL</code>,
+<code>LIKE</code>, <code>IN</code>, <code>GREATER_OR_EQUAL</code>,
+<code>LESS_OR_EQUAL</code> ou <code>IS_NULL</code>; valores nulos são
+ignorados. <code>IN</code> recebe coleção e <code>IS_NULL</code> recebe
+booleano. A projeção de filtro é escolhida pelo tipo
+<code>@RequestBody</code> concreto registrado no Spring MVC
+(<code>GenericFilterDTO</code>), inclusive quando herdado por parâmetro
+genérico. Não depende do sufixo <code>/filter</code>, nome Java ou de
+outra role inventada para o provider. Somente campos
+<code>filterable</code> aparecem; critérios e container são opcionais.
+Limites, pattern, defaults e readonly de escrita não são restrições de
+busca. Tipos e membership de enum continuam sendo validados.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Operador</th>
+<th>Valor no filtro</th>
+<th>Exemplo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EQUAL</code>, <code>LIKE</code>,
+<code>GREATER_OR_EQUAL</code>, <code>LESS_OR_EQUAL</code></td>
+<td>Escalar compatível</td>
+<td><code>{"customFields":{"idade":42}}</code></td>
+</tr>
+<tr>
+<td><code>IN</code></td>
+<td>Array de escalares compatíveis, inclusive vazio</td>
+<td><code>{"customFields":{"idade":[42,43]}}</code></td>
+</tr>
+<tr>
+<td><code>IS_NULL</code></td>
+<td>Booleano; <code>true</code> ativa o predicado, <code>false</code>
+não o aplica</td>
+<td><code>{"customFields":{"pontuacao":true}}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Esses exemplos pressupõem o operador declarado para cada chave; o
+mesmo campo não aceita um operador escolhido livremente pelo payload.
+<code>null</code> omite o predicado; <code>IN</code> não admite itens
+nulos. A UI deve derivar controles do schema da operação de filtro, sem
+reutilizar obrigatoriedade/defaults do formulário de escrita.
+Comparações numéricas e temporais usam casts tipados. Publicar
+<code>sortable</code> como metadata não instala automaticamente um
+resolvedor de ordenação JSONB.</p>
+<p>O host continua responsável por escopo, seleção, limite e allowlist
+da exportação. Para colunas já autorizadas,
+<code>CollectionExportValueResolver.reflective()</code> lê records,
+getters e Maps por caminho pontuado, incluindo
+<code>customFields.numero_calcado</code>. Passe esse resolver ao
+<code>CollectionExportExecutor</code>; resolvers próprios continuam
+válidos. CSV, JSON e XLSX compartilham essa leitura. A flag
+<code>exportable</code> deve alimentar a allowlist do host; ela não
+concede acesso aos dados por si só.</p>
+<p><code>H2JsonbFunctions.jsonbExtractPathText</code> é um adapter de
+compatibilidade de teste que pode ser registrado como alias H2. A prova
+de banco deste incremento usa Neon e a função PostgreSQL real; teste
+unitário do adapter sem banco não prova execução H2.</p>
+<h2 id="fatos-declarativos-e-grafo-semântico">Fatos declarativos e grafo
+semântico</h2>
+<p>Declare <code>@ResourceFact</code> em um tipo ou método de bean
+Spring:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ResourceFact</span><span class="op">(</span>key <span class="op">=</span> <span class="st">&quot;serviceYears&quot;</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;hr.employees&quot;</span><span class="op">,</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>        label <span class="op">=</span> <span class="st">&quot;Tempo de serviço&quot;</span><span class="op">,</span> dataType <span class="op">=</span> <span class="st">&quot;number&quot;</span><span class="op">,</span> unit <span class="op">=</span> <span class="st">&quot;years&quot;</span><span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        parameters <span class="op">=</span> <span class="op">{</span><span class="st">&quot;employeeId&quot;</span><span class="op">,</span> <span class="st">&quot;referenceDate&quot;</span><span class="op">},</span> sourceKind <span class="op">=</span> <span class="st">&quot;computed&quot;</span><span class="op">)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeFactsMetadata <span class="op">{}</span></span></code></pre></div>
+<p>O provider de annotations inspeciona declarações sem executar os
+métodos e sem instanciar beans lazy. Recupera a classe original de
+proxies Spring e os metadados de BeanDefinition/factory disponíveis.
+Para beans lazy cujo factory declara apenas uma interface, coloque a
+annotation na interface, no método factory ou exponha o tipo concreto;
+uma implementação escondida no corpo do factory não é descoberta sem
+executá-lo. Factories não resolvidos com overloads ambíguos falham
+explicitamente. Parâmetros de annotation são nomes com schema
+<code>string</code>; um <code>ResourceFactCatalogProvider</code> próprio
+pode publicar <code>ResourceFactDescriptor</code> com parâmetros tipados
+e governança do host. O bean próprio substitui o provider padrão; se
+quiser ambas as origens, componha-as explicitamente.
+<code>@DomainGovernance</code> pode acompanhar a declaração de
+annotation.</p>
+<p>O grafo publica:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Origem</th>
+<th>Nó e identidade</th>
+<th>Aresta</th>
+<th>Binding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Campo customizado</td>
+<td><code>nodeType=field</code>, <code>source=custom_field</code>,
+<code>&lt;resource&gt;.field.customFields.&lt;key&gt;</code></td>
+<td><code>has_field</code></td>
+<td><code>dto_field</code>,
+<code>fieldName=customFields.&lt;key&gt;</code></td>
+</tr>
+<tr>
+<td>Fato</td>
+<td><code>nodeType=fact</code>, <code>source=resource_fact</code>,
+<code>&lt;resource&gt;.fact.&lt;key&gt;</code></td>
+<td><code>provides_fact</code></td>
+<td><code>resource_fact</code>,
+<code>factPath=facts.&lt;key&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<p>Governança e evidências acompanham os nós. A projeção preserva
+<code>confidence</code> e a justificativa (em
+<code>aiUsage.reason</code>), além de owner/steward/retention e
+políticas AI. Uma confiança informada como <code>0.4</code> permanece
+<code>0.4</code>. Quando <code>confidence</code> é omitida, o contrato
+mantém o default histórico <code>1.0</code>; esse default não é uma
+medição de qualidade do fato. Hosts devem declarar sua confiança
+explicitamente. Defaults Java Time de campos são serializados em ISO
+para o fingerprint do catálogo, sem executar cálculo de fatos.
+<code>deterministic</code> e <code>sourceKind</code> descrevem a
+natureza do fato; não certificam sua implementação, autorização ou
+resultado.</p>
+<h2 id="validação-e-adoção">Validação e adoção</h2>
+<p>Os testes candidatos incluem
+<code>CustomFieldsResourceE2ETest</code>,
+<code>ResourceFactAndCustomFieldDomainCatalogTest</code>, unitários de
+validação, projeção, criteria, tenant, exportação e conformidade. A
+regressão exigida inclui <code>ApiDocsControllerTest</code>,
+<code>FilteredSchemaReferenceResolverTest</code>,
+<code>SemanticDomainCatalogServiceTest</code> e
+<code>CompositeIdResourceE2ETest</code>. O <a
+href="../technical/ISSUE-303-EXECUTION.md">registro de execução</a>
+distingue os gates e as evidências executadas; a presença do teste não
+significa aprovação.</p>
+<h3 id="gate-de-consumo-angular">Gate de consumo Angular</h3>
+<p>A auditoria do runtime atual encontrou caches e coalescência de
+requests que usam somente o <code>schemaId</code> neutro ao tenant, além
+de um retry após 304 sem repassar o header. Antes da adoção multitenant,
+o dono <code>@praxisui/core</code> deve separar cache e in-flight por
+contexto autorizado e preservar esse contexto em retries. Este PR do
+starter não certifica isolamento do cache do consumidor nem renderização
+recursiva do container. O gate permanece explícito para a revisão
+arquitetural.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

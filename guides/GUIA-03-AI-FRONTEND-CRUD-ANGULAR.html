@@ -346,15 +346,23 @@ Frontend - Angular CRUD Completo</h1>
 recurso CRUD que ja publica corretamente o contrato metadata-driven do
 <code>praxis-metadata-starter</code>.</p>
 <p>O objetivo nao e montar “qualquer tela Angular que compile”. O
-objetivo e gerar um host alinhado ao runtime oficial da plataforma:</p>
+objetivo e gerar um host <strong>fino (zero-boilerplate)</strong>
+alinhado ao runtime oficial da plataforma, onde colunas, mascaras,
+moeda, filtros, opcoes remotas, agrupamento de formulario e acoes de
+CRUD sao materializados automaticamente a partir de
+<code>/schemas/filtered</code>:</p>
 <ul>
-<li><code>@praxisui/crud</code> como shell canonico de CRUD</li>
+<li><code>@praxisui/crud</code> como shell canonico de CRUD (com suporte
+a <code>openMode = 'drawer'</code>, <code>'modal'</code> ou
+<code>'route'</code>)</li>
 <li><code>@praxisui/table</code> como superficie canonica de listagem e
 filtro</li>
 <li><code>@praxisui/dynamic-form</code> como superficie canonica de
-formulario</li>
-<li><code>GenericCrudService</code> consumindo
-<code>GET {resource}/schemas</code> e
+formulario (<code>layoutPolicy.source = 'schema'</code>)</li>
+<li><code>@praxisui/list</code> como superficie alternativa de
+cards/lista</li>
+<li><code>GenericCrudService</code> e <code>SchemaMetadataClient</code>
+consumindo <code>GET {resource}/schemas</code> e
 <code>/schemas/filtered</code></li>
 <li><code>resourcePath</code>, <code>idField</code>, <code>ETag</code> e
 <code>X-Schema-Hash</code> usados de forma coerente</li>
@@ -375,13 +383,14 @@ corretamente o contrato metadata-driven.</p>
 <li><code>praxis-metadata-starter</code>
 <ul>
 <li>define <code>x-ui</code>, <code>/schemas/filtered</code>,
-<code>idField</code> e o contrato metadata-driven</li>
+<code>idField</code>, capabilities, HATEOAS e o contrato
+metadata-driven</li>
 </ul></li>
 <li><code>praxis-ui-angular</code>
 <ul>
 <li>define o runtime oficial: <code>@praxisui/core</code>,
-<code>@praxisui/table</code>, <code>@praxisui/dynamic-form</code> e
-<code>@praxisui/crud</code></li>
+<code>@praxisui/table</code>, <code>@praxisui/dynamic-form</code>,
+<code>@praxisui/crud</code> e <code>@praxisui/list</code></li>
 </ul></li>
 </ol>
 <p>O starter nao redefine semantica de frontend. Ele orienta o consumo
@@ -393,17 +402,18 @@ recurso CRUD ja exposto pelo backend Praxis.</p>
 <ul>
 <li>lista com <code>praxis-table</code></li>
 <li>filtro remoto metadata-driven</li>
-<li>formulario metadata-driven</li>
+<li>formulario metadata-driven com
+<code>layoutPolicy.source = 'schema'</code></li>
 <li>acoes <code>create</code>, <code>view</code>, <code>edit</code> e
 <code>delete</code></li>
-<li>host unificado com <code>praxis-crud</code></li>
+<li>host unificado com <code>praxis-crud</code> (<code>drawer</code>,
+<code>modal</code> ou <code>route</code>)</li>
 </ul>
 <h2 id="quando-nao-usar-este-guia">Quando nao usar este guia</h2>
 <p>Este guia nao e o lugar correto para:</p>
 <ul>
 <li>page builder</li>
 <li>editor visual de metadados</li>
-<li>regras corporativas avancadas de drawer</li>
 <li>UX fora do fluxo CRUD canonico</li>
 </ul>
 <p>Se o pedido for apenas uma lista remota simples,
@@ -414,10 +424,11 @@ como entrada</h2>
 <p>No minimo:</p>
 <ol type="1">
 <li>nome do recurso frontend</li>
-<li><code>resourcePath</code> canonico do backend</li>
+<li><code>resourcePath</code> canonico do backend (sem prefixo
+<code>/api</code>)</li>
 <li><code>idField</code></li>
-<li>estrategia de abertura: <code>modal</code>, <code>route</code> ou
-<code>drawer</code></li>
+<li>estrategia de abertura: <code>drawer</code>, <code>modal</code> ou
+<code>route</code></li>
 <li>rota Angular desejada</li>
 <li><code>endpointKey</code> quando houver mais de uma API
 configurada</li>
@@ -429,33 +440,32 @@ Entrada:
 - Recurso: Funcionarios
 - resourcePath: human-resources/funcionarios
 - idField: id
-- endpointKey: HumanResources
+- endpointKey: default
 - rota da lista: /funcionarios
 - rota de visualizacao: /funcionarios/view/:id
-- openMode padrao: modal</code></pre>
+- openMode padrao: drawer</code></pre>
 <h2 id="dependencias-frontend-minimas">Dependencias frontend
 minimas</h2>
-<p>Para um CRUD completo:</p>
+<p>Para um CRUD completo na linha ativa <code>@praxisui/*</code>
+(<code>9.0.0-beta.*</code> / <code>latest</code> correspondente ao trem
+Angular do host):</p>
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @angular/animations @angular/cdk @angular/material</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @praxisui/core @praxisui/table @praxisui/dynamic-form @praxisui/crud</span></code></pre></div>
-<p>Para um app Angular novo, a prova operacional desta rodada mostrou
-que o baseline real tambem precisa incluir:</p>
-<div class="sourceCode" id="cb3"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @praxisui/ai @google/generative-ai</span></code></pre></div>
-<p>Motivo:</p>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @praxisui/core @praxisui/table @praxisui/dynamic-form @praxisui/crud @praxisui/dynamic-fields</span></code></pre></div>
+<p>Para um app Angular novo, resolva tambem o fecho completo de peer
+dependencies da linha <code>@praxisui/*</code> adotada (que pode incluir
+<code>@praxisui/settings-panel</code>,
+<code>@praxisui/metadata-editor</code>, <code>@praxisui/dialog</code>,
+<code>@praxisui/rich-content</code>,
+<code>@praxisui/visual-builder</code>,
+<code>@praxisui/table-rule-builder</code>, <code>@praxisui/ai</code> e
+<code>@google/generative-ai</code>).</p>
+<p>Referencia de linha ativa:</p>
 <ul>
-<li>as libs publicadas em <code>@praxisui 3.0.0-beta.10</code> ainda
-puxam <code>@praxisui/ai</code> no grafo de bundle de algumas libs</li>
-<li><code>@praxisui/ai</code> referencia
-<code>@google/generative-ai</code></li>
-</ul>
-<p>Nao assumir que as quatro libs principais bastam sozinhas em um app
-Angular novo.</p>
-<p>Referencia operacional validada nesta rodada:</p>
-<ul>
-<li><code>praxis-metadata-starter 5.0.0-rc.2</code></li>
-<li><code>@praxisui 3.0.0-beta.10</code></li>
+<li><code>praxis-metadata-starter</code>: linha <code>9.x</code>
+(<code>9.0.0-rc.*</code> ou estavel mais recente no Maven Central)</li>
+<li><code>@praxisui/*</code>: linha <code>9.0.0-beta.*</code> no npm
+(<code>dist-tag=latest</code>)</li>
 </ul>
 <h2 id="contratos-canonicos-de-runtime">Contratos canonicos de
 runtime</h2>
@@ -464,50 +474,54 @@ runtime</h2>
 formato:</p>
 <pre class="text"><code>human-resources/funcionarios</code></pre>
 <p>Se <code>API_URL</code> ja aponta para <code>/api</code>, mantenha o
-<code>resourcePath</code> relativo ao dominio do recurso e nao repita o
-prefixo <code>api/</code>.</p>
+<code>resourcePath</code> relativo ao dominio do recurso e
+<strong>nunca</strong> repita o prefixo <code>/api</code>,
+<code>/filter</code> ou <code>/all</code>.</p>
 <h3 id="api_url">2. <code>API_URL</code></h3>
 <p>O app host precisa fornecer o token <code>API_URL</code>.</p>
 <p>Exemplo minimo:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { ApplicationConfig } <span class="im">from</span> <span class="st">&#39;@angular/core&#39;</span><span class="op">;</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { API_URL<span class="op">,</span> <span class="kw">type</span> ApiUrlConfig } <span class="im">from</span> <span class="st">&#39;@praxisui/core&#39;</span><span class="op">;</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">const</span> appConfig<span class="op">:</span> ApplicationConfig <span class="op">=</span> {</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  providers<span class="op">:</span> [</span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>      provide<span class="op">:</span> API_URL<span class="op">,</span></span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>      useFactory<span class="op">:</span> ()<span class="op">:</span> ApiUrlConfig <span class="kw">=&gt;</span> {</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> origin <span class="op">=</span></span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>          <span class="kw">typeof</span> <span class="bu">window</span> <span class="op">!==</span> <span class="st">&#39;undefined&#39;</span> <span class="op">&amp;&amp;</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>            <span class="op">?</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span><span class="op">.</span><span class="at">origin</span></span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>            <span class="op">:</span> <span class="st">&#39;http://127.0.0.1:4200&#39;</span><span class="op">;</span></span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {</span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>          <span class="cf">default</span><span class="op">:</span> { baseUrl<span class="op">:</span> origin<span class="op">,</span> path<span class="op">:</span> <span class="st">&#39;/api&#39;</span><span class="op">,</span> version<span class="op">:</span> <span class="st">&#39;&#39;</span> }<span class="op">,</span></span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        } <span class="im">as</span> ApiUrlConfig<span class="op">;</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>      }<span class="op">,</span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">,</span></span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { ApplicationConfig } <span class="im">from</span> <span class="st">&#39;@angular/core&#39;</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> { API_URL<span class="op">,</span> <span class="kw">type</span> ApiUrlConfig } <span class="im">from</span> <span class="st">&#39;@praxisui/core&#39;</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="im">export</span> <span class="kw">const</span> appConfig<span class="op">:</span> ApplicationConfig <span class="op">=</span> {</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  providers<span class="op">:</span> [</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>      provide<span class="op">:</span> API_URL<span class="op">,</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>      useFactory<span class="op">:</span> ()<span class="op">:</span> ApiUrlConfig <span class="kw">=&gt;</span> {</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">const</span> origin <span class="op">=</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>          <span class="kw">typeof</span> <span class="bu">window</span> <span class="op">!==</span> <span class="st">&#39;undefined&#39;</span> <span class="op">&amp;&amp;</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>            <span class="op">?</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span><span class="op">.</span><span class="at">origin</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>            <span class="op">:</span> <span class="st">&#39;http://127.0.0.1:4200&#39;</span><span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> {</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>          <span class="cf">default</span><span class="op">:</span> { baseUrl<span class="op">:</span> origin<span class="op">,</span> path<span class="op">:</span> <span class="st">&#39;/api&#39;</span><span class="op">,</span> version<span class="op">:</span> <span class="st">&#39;&#39;</span> }<span class="op">,</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        } <span class="im">as</span> ApiUrlConfig<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>      }<span class="op">,</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    }<span class="op">,</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">,</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span></code></pre></div>
 <p>Se houver endpoint dedicado por dominio:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>{</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  provide<span class="op">:</span> API_URL<span class="op">,</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  useFactory<span class="op">:</span> ()<span class="op">:</span> ApiUrlConfig <span class="kw">=&gt;</span> {</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> origin <span class="op">=</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>      <span class="kw">typeof</span> <span class="bu">window</span> <span class="op">!==</span> <span class="st">&#39;undefined&#39;</span> <span class="op">&amp;&amp;</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">?</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span><span class="op">.</span><span class="at">origin</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> <span class="st">&#39;http://127.0.0.1:4200&#39;</span><span class="op">;</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">default</span><span class="op">:</span> { baseUrl<span class="op">:</span> origin<span class="op">,</span> path<span class="op">:</span> <span class="st">&#39;/api&#39;</span><span class="op">,</span> version<span class="op">:</span> <span class="st">&#39;&#39;</span> }<span class="op">,</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>      humanResources<span class="op">:</span> { baseUrl<span class="op">:</span> origin<span class="op">,</span> path<span class="op">:</span> <span class="st">&#39;/api&#39;</span><span class="op">,</span> version<span class="op">:</span> <span class="st">&#39;&#39;</span> }<span class="op">,</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    } <span class="im">as</span> ApiUrlConfig<span class="op">;</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode ts"><code class="sourceCode typescript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  provide<span class="op">:</span> API_URL<span class="op">,</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  useFactory<span class="op">:</span> ()<span class="op">:</span> ApiUrlConfig <span class="kw">=&gt;</span> {</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">const</span> origin <span class="op">=</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>      <span class="kw">typeof</span> <span class="bu">window</span> <span class="op">!==</span> <span class="st">&#39;undefined&#39;</span> <span class="op">&amp;&amp;</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">?</span> <span class="bu">window</span><span class="op">.</span><span class="at">location</span><span class="op">.</span><span class="at">origin</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> <span class="st">&#39;http://127.0.0.1:4200&#39;</span><span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> {</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>      <span class="cf">default</span><span class="op">:</span> { baseUrl<span class="op">:</span> origin<span class="op">,</span> path<span class="op">:</span> <span class="st">&#39;/api&#39;</span><span class="op">,</span> version<span class="op">:</span> <span class="st">&#39;&#39;</span> }<span class="op">,</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>      humanResources<span class="op">:</span> { baseUrl<span class="op">:</span> origin<span class="op">,</span> path<span class="op">:</span> <span class="st">&#39;/api&#39;</span><span class="op">,</span> version<span class="op">:</span> <span class="st">&#39;&#39;</span> }<span class="op">,</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    } <span class="im">as</span> ApiUrlConfig<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  }<span class="op">,</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
 <p>Para app Angular novo fora do workspace oficial, prefira
-<code>baseUrl = window.location.origin</code>.</p>
+<code>baseUrl = window.location.origin</code> com proxy de
+desenvolvimento para <code>/api</code> e <code>/schemas</code>.</p>
 <p>Para app novo, o bootstrap tambem deve prover:</p>
 <ul>
 <li><code>provideHttpClient()</code></li>
 <li><code>provideAnimationsAsync()</code> ou equivalente</li>
+<li>estilos Material, Material Icons/Symbols, CDK Overlay e
+<code>@praxisui/core/theme-bridge.css</code></li>
 </ul>
 <h3 id="providepraxisglobalconfigbootstrap">3.
 <code>providePraxisGlobalConfigBootstrap()</code></h3>
@@ -515,22 +529,42 @@ prefixo <code>api/</code>.</p>
 <p>So use esse bootstrap quando o host realmente integrar
 <code>praxis-config-starter</code> e precisar de config remota em
 <code>/api/praxis/config/**</code>.</p>
-<h3 id="genericcrudservice">4. <code>GenericCrudService</code></h3>
+<h3 id="genericcrudservice-e-layoutpolicy-schema-driven">4.
+<code>GenericCrudService</code> e <code>layoutPolicy</code>
+Schema-Driven</h3>
 <p>Regras canonicas:</p>
 <ul>
 <li><code>praxis-table</code> e self-hosted para
 <code>GenericCrudService</code></li>
 <li><code>praxis-dynamic-form</code> e host-driven para
-<code>GenericCrudService</code></li>
-<li><code>praxis-crud</code> e o shell recomendado para CRUD
-completo</li>
+<code>GenericCrudService</code> e deve usar <code>layoutPolicy</code>
+orientada por schema:
+<ul>
+<li>formularios de criacao/edicao (<code>command</code>):
+<code>layoutPolicy: { source: 'schema', intent: 'command', preset: 'groupedCommand' }</code></li>
+<li>formularios de detalhe/leitura (<code>detail</code>):
+<code>layoutPolicy: { source: 'schema', intent: 'detail', preset: 'compactPresentation' }</code></li>
+<li>nao declare <code>FormConfig.sections</code> manuais ou
+<code>sections: []</code> vazias apenas para fazer um formulario
+schema-driven funcionar; deixe o runtime materializar os grupos
+(<code>group</code>) e a ordem (<code>order</code>) publicados em
+<code>@UISchema</code> no backend</li>
+</ul></li>
+<li><code>praxis-crud</code> e o shell recomendado para CRUD completo
+(usando <code>CrudLauncherService</code> com
+<code>openMode = 'drawer'</code>, <code>'modal'</code> ou
+<code>'route'</code> sem criar drawers/modais manuais no host)</li>
 </ul>
 <h2 id="fluxo-de-schema">Fluxo de schema</h2>
 <p>O frontend oficial consome:</p>
 <ul>
 <li><code>GET {resource}/schemas</code></li>
-<li><code>/schemas/filtered?path=.../all&amp;operation=get&amp;schemaType=response</code></li>
+<li><code>/schemas/filtered?path=.../filter&amp;operation=post&amp;schemaType=response</code></li>
 <li><code>/schemas/filtered?path=.../filter&amp;operation=post&amp;schemaType=request</code></li>
+<li><code>/schemas/filtered?path=...&amp;operation=post&amp;schemaType=request</code>
+(create)</li>
+<li><code>/schemas/filtered?path=.../{id}&amp;operation=put&amp;schemaType=request</code>
+(update)</li>
 </ul>
 <p>Tambem usa:</p>
 <ul>
@@ -565,48 +599,19 @@ cliente deve reenviar o token original forte, sem remover
 conferir o header efetivamente servido nas variantes identity/gzip/br e
 o uso do token intacto; testes MVC não certificam um proxy ou deployment
 específico.</p>
-<p>No contrato Java candidato B4-R1,
-<code>ResourceRepresentationResult</code> carrega corpo e
-<code>persistedVersion</code> capturados da <strong>mesma
+<p>Em <code>ResourceRepresentationResult</code>, corpo e
+<code>persistedVersion</code> sao capturados da <strong>mesma
 entidade</strong>. <code>findById</code> projeta ambos na transação de
 leitura; o PUT versionado de três argumentos captura ambos após o último
 hook e <code>flush</code>, sem reconsulta tardia para formar o header.
-Na migração Java beta, remover overrides de
-<code>getResourceVersion(id)</code> e implementar
-<code>getEntityResourceVersion(entity)</code>; consumidores Java de
-<code>findById</code> passam a usar <code>.body()</code>, e o PUT
-versionado de três argumentos devolve o par. Não manter alias ou segunda
-API de consulta de versão. O service deve exigir
-<code>result.requirePersistedVersion()</code> <strong>dentro da mesma
-transação de escrita</strong> antes de retornar, para que ausência de
-versão reverta domínio e versão juntos. O controller também valida o
-resultado, mas sua checagem posterior ao commit não substitui esse guard
-transacional em implementações próprias do SPI. O mapper não aceita
-versão esperada do payload, e a entrada Java de dois argumentos
-permanece protegida por <code>428</code>. A implementação herdada de
-<code>AbstractBaseResourceService</code> rejeita essa entrada antes da
-leitura, dos hooks e do mapper quando o serviço implementa
-<code>VersionedCreateUpdateResourceService</code>; não exige override
-defensivo no host. Um override concreto próprio de dois argumentos
-continua responsável por preservar essa rejeição. Serviços não
-versionados mantêm o update de dois argumentos, e a implementação
-versionada de três argumentos executa seu próprio fluxo transacional com
-precondição, sem delegar ao overload sem precondição. Em replay
-histórico de action, reutilize revisão historicamente capturada ou omita
-ETag; nunca assine a versão atual para um corpo antigo. Esse par
-certifica a linha do recurso, não um snapshot de links, grants ou
-relações.</p>
-<p>Antes de adotar o candidato, prove com PostgreSQL e barreiras entre
-projeção/header do GET e resultado/header do PUT: corpo/token pareados,
-token anterior rejeitado em <code>412</code>, token de DTO igual ao
-header quando ambos existem, replay sem token renovado e rollback quando
-um service versionado tenta retornar revisão vazia. O candidato local
-passou 46 testes focais Metadata e 28 testes focais host: 13 com
-PostgreSQL (5 JPA/MockMvc e 8 receipt/replay), 1 unitário de providers e
-14 TCP/H2, sem prova de grants de role ou domínio RuleLab inteiro em
-PostgreSQL. Revisão final, integração, release e adoção sem override
-continuam separadas; não usar esse resultado para declarar backend
-completo.</p>
+Serviços versionados implementam
+<code>getEntityResourceVersion(entity)</code> e exigem
+<code>result.requirePersistedVersion()</code> dentro da mesma transação
+de escrita antes de retornar, para que ausência de versão reverta
+domínio e versão juntos. A entrada Java de dois argumentos permanece
+protegida por <code>428</code>. Em replay histórico de action, reutilize
+revisão historicamente capturada ou omita ETag; nunca assine a versão
+atual para um corpo antigo.</p>
 <p>O <code>ETag</code> tambem e vinculado ao escopo de isolamento
 resolvido pelo servidor. Por padrao o starter usa o escopo global; hosts
 multi-tenant devem publicar um <code>ResourceVersionScopeProvider</code>
@@ -637,11 +642,11 @@ completo</h2>
   praxis-crud
     -&gt; praxis-table
     -&gt; crudContext estavel
-    -&gt; create/view/edit/delete
+    -&gt; create/view/edit/delete (drawer | modal | route)
 
 formulario:
   praxis-dynamic-form
-    -&gt; schema-driven
+    -&gt; schema-driven (layoutPolicy.source = &#39;schema&#39;)
     -&gt; usa GenericCrudService quando depende de resourcePath/resourceId</code></pre>
 <h2 id="arquivos-minimos-do-frontend">Arquivos minimos do frontend</h2>
 <p>Para um app Angular novo, gere no minimo:</p>
@@ -651,7 +656,8 @@ formulario:
 <li>componente host da lista com <code>praxis-crud</code></li>
 <li>componente de view/edit roteado com
 <code>praxis-dynamic-form</code>, quando houver rota</li>
-<li><code>src/styles.scss</code> com tema Material</li>
+<li><code>src/styles.scss</code> com tema Material +
+<code>@praxisui/core/theme-bridge.css</code></li>
 <li><code>proxy.conf.js</code></li>
 <li><code>angular.json</code> com
 <code>serve.options.proxyConfig</code></li>
@@ -663,13 +669,13 @@ Use apenas o contrato metadata-driven ja publicado pelo backend.
 Considere praxis-ui-angular como runtime canonico.
 
 Gere:
-- host com praxis-crud para a lista principal
-- praxis-dynamic-form para view/edit quando houver rota
-- API_URL coerente
+- host com praxis-crud para a lista principal (sem criar servicos HTTP customizados nem colunas hardcoded)
+- praxis-dynamic-form com layoutPolicy.source=&#39;schema&#39; (preset &#39;groupedCommand&#39; para escrita e &#39;compactPresentation&#39; para detalhe) quando houver rota
+- API_URL coerente (sem duplicar /api no resourcePath)
 - resource.path e idField corretos
 - create/view/edit/delete conectados ao fluxo canonico
 
-Nao invente wrappers locais nem duplicacoes de contrato.
+Nao invente wrappers locais, FormConfig.sections manuais nem duplicacoes de contrato.
 
 Entrada:
 - resourcePath: {resource-path}
@@ -683,11 +689,12 @@ Entrada:
 <ul>
 <li>existe um host <code>praxis-crud</code> para a lista principal</li>
 <li><code>resource.path</code> e <code>idField</code> estao corretos no
-metadata</li>
+metadata (sem <code>/api</code> no <code>resourcePath</code>)</li>
 <li><code>GenericCrudService</code> foi provido ou configurado no host
 correto</li>
-<li>o formulario roteado usa <code>praxis-dynamic-form</code> quando o
-fluxo exigir <code>route</code></li>
+<li>o formulario usa <code>praxis-dynamic-form</code> com
+<code>layoutPolicy.source = 'schema'</code> sem <code>sections</code>
+manuais redundantes</li>
 <li>o recurso remoto carrega schema sem ajuste local de contrato</li>
 <li><code>create</code>, <code>view</code>, <code>edit</code> e
 <code>delete</code> estao conectados ao fluxo correto</li>
@@ -697,9 +704,9 @@ fluxo exigir <code>route</code></li>
 Windows, prefira executar via <code>cmd.exe /c</code>.</p>
 <p>Quando a prova usar um app Angular novo fora do workspace oficial, a
 validacao minima deve incluir:</p>
-<div class="sourceCode" id="cb9"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run build</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> start <span class="at">--</span> <span class="at">--host</span> 127.0.0.1 <span class="at">--port</span> 4305</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run build</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> start <span class="at">--</span> <span class="at">--host</span> 127.0.0.1 <span class="at">--port</span> 4305</span></code></pre></div>
 <p>Evidencias esperadas:</p>
 <ul>
 <li>build fecha sem erro de bundle ou peer dependency</li>
@@ -717,7 +724,7 @@ separada do baseline material acima.</p>
 <code>https://github.com/codexrodrigues/praxis-ui-angular</code></li>
 <li>pacotes publicados: <code>@praxisui/core</code>,
 <code>@praxisui/table</code>, <code>@praxisui/dynamic-form</code>,
-<code>@praxisui/crud</code></li>
+<code>@praxisui/crud</code>, <code>@praxisui/list</code></li>
 <li><code>praxis-metadata-starter/docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md</code></li>
 <li><code>praxis-metadata-starter/docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md</code></li>
 </ul>

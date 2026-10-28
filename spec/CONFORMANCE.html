@@ -394,6 +394,39 @@ corporativa clara</li>
 o service declarar suporte real a exportacao de colecao</li>
 </ul></li>
 </ul>
+<h2 id="campos-customizados-candidato-303">Campos customizados
+(candidato #303)</h2>
+<ul>
+<li>O container <code>properties.customFields</code> usa
+<code>x-ui.customFieldsContainer: true</code>.</li>
+<li>Cada chave declarada publica <code>customField: true</code>,
+<code>customFieldKey</code> seguro e
+<code>customFieldScope: tenant</code> no seu <code>x-ui</code>;
+<code>exportable</code> é metadata para a allowlist do host.</li>
+<li>As chaves seguem <code>[a-zA-Z][a-zA-Z0-9_]{0,63}</code> e rejeitam
+exatamente <code>constructor</code>, <code>prototype</code>,
+<code>hasOwnProperty</code>, <code>isPrototypeOf</code>,
+<code>propertyIsEnumerable</code>, <code>toLocaleString</code>,
+<code>toString</code> e <code>valueOf</code>, tanto no descriptor Java
+quanto na spec. Não há aliases para chaves reservadas.</li>
+<li>Schemas de escrita excluem filhos readonly; schemas de resposta os
+conservam. Filtros ainda podem publicar esses campos quando declarados
+<code>filterable</code>. Uma projeção sem filhos remove o container e
+sua obrigatoriedade.</li>
+<li><code>AUTO</code> é resolvido antes da publicação pela inferência
+básica compartilhada de tipo/formato, preservando controles explícitos e
+o tipo dos operandos de filtro.</li>
+<li>Valide o <code>x-ui</code> do container e de cada propriedade contra
+<code>x-ui-field.schema.json</code>. O arquivo
+<code>examples/custom-fields.schema.valid.json</code> contém a projeção
+estrutural completa, portanto não deve ser passado integralmente como se
+fosse um bloco <code>x-ui</code>.</li>
+<li><code>CustomFieldSpecContractTest</code> compara o exemplo com o
+output real e valida seus blocos <code>x-ui</code>, incluindo rejeição
+de chave insegura e escopo diferente de tenant.</li>
+<li>Ver <a href="custom-fields-and-resource-facts.md">contrato, cache e
+limites de autorização</a>.</li>
+</ul>
 <h2 id="matriz---chave-da-spec---consumo-na-ui">Matriz - Chave da Spec
 -&gt; Consumo na UI</h2>
 <ul>
@@ -731,6 +764,15 @@ o draft contratual de <code>x-ui.optionSource</code>.</li>
 <li>Use estes arquivos como base para gerar casos especificos do seu
 dominio.</li>
 </ul>
+<h3 id="regressões-da-revisão-303">Regressões da revisão #303</h3>
+<p><code>CustomFieldSchemaProjectionTest</code> cruza JSON Schema e
+validação de escrita para required/enum e exercita operandos de filtro.
+<code>CustomFieldSchemaTenantIsolationTest</code> verifica a resolução
+MVC e a equivalência de schemaType. O E2E remoto cobre preservação
+readonly no PUT, schema de filtro versus payload HTTP, IN/IS_NULL no
+PostgreSQL e container obrigatório. O catálogo possui regressões para
+proxy/lazy, datas ISO e governança parcial/completa; ausência de
+execução de domínio é invariante.</p>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

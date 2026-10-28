@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Version-neutral logical release inventory</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Version-neutral logical release inventory</h1>
+</header>
+<h1 id="version-neutral-logical-release-inventory">Version-neutral
+logical release inventory</h1>
+<p>Official rc.182 stopped before tests because
+<code>EmbeddedPostgresColdStartTest</code>’s reviewed closure included
+the raw root POM from rc.180. Source base rc.181 and the tag’s rc.182
+POM changed that digest despite identical non-version bytes. This run
+remains FAILURE; neither the previously integrated synthetic P4
+tolerance nor a clean-checkout-only audit certified the release
+inventory.</p>
+<p>The recurring repair changes tooling only.
+<code>reviewedScopeHashBasis</code> explicitly requires
+<code>git-blobs-root-project-version-neutral-v1</code>. Every logical
+source and historical dependency closure retains the
+path/NUL/blob-SHA256/newline framing; only the literal root
+<code>/project/version</code> text of the exact path
+<code>pom.xml</code> is neutralized. XML parsing validates cardinality
+and structure while replacement preserves every byte outside that value.
+Parent/dependency/plugin/property/profile changes, comments, formatting,
+nested POMs and production/new-prefix files remain observable. Missing,
+duplicate, malformed or nonliteral root versions and non-UTF-8 input
+fail closed. Decoded <code>${project.version}</code>,
+<code>${pom.version}</code> and <code>${version}</code> references
+outside the root version also fail closed, including fragmented
+entity/comment/CDATA representations. No raw-hash fallback is
+accepted.</p>
+<p>Tag derivation still requires the exact expected version and a base
+commit or one child changing only the root version. Build custody still
+hashes the actual POM, effective POM, resolved classpath/JARs, tested
+outputs and packaged artifact. A version-neutral logical digest is not
+binary equivalence, a test result or permission to publish modified
+bytes.</p>
+<p>The <a
+href="../evidence/release-scope-version-normalization/migration.json">migration
+map</a> records ten unique closure specifications and all 92 entry/field
+identities. Every old stored digest was recomputed with the old raw
+algorithm against the reviewed source
+<code>f4a0d5a7195eda7bca4827cdaf23705e86e5b053</code> (POM rc.180).
+Comparing selected paths to migration base
+<code>76eea70650178d0979ad3fbe23b560b0e8033625</code> (POM rc.182) found
+only <code>pom.xml</code>, or no difference where root POM is outside
+the closure. New official logical digests are equal at both commits. All
+89 source fields and the authority/async dependency fields migrate: 91
+changes. Occupancy’s dependency excludes POM, so that one digest remains
+unchanged. All three original historical ZIP hashes match at both
+commits and in the checkout. No source/test file hash, dependency
+choice, product behavior or historical oracle was refreshed under this
+migration.</p>
+<p>Regression covers repeated version-only bumps, preservation of every
+other byte, parent/dependency/plugin/property/profile drift,
+existing/new production files, nested POM version drift,
+malformed/cardinality/encoding cases and outside-root references. Before
+any new tag, all four official selections must pass locally with
+<code>--release --require-clean</code>, the complete reviewed HEAD as
+base and its actual current POM version. Do not supply the future
+release version before that commit exists. This preflight needs no
+database and does not replace fresh Neon, signing or staged/public
+artifact checks. Canonical skill guidance is coordinated separately;
+impact is <code>atualizar-existente</code> for the precise inventory
+procedure.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

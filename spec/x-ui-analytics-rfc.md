@@ -125,6 +125,67 @@ de campos e metricas continua no `StatsFieldRegistry` e em `capabilities.stats`;
 esse bloco nao cria uma segunda fonte de verdade nem autoriza o runtime a trocar
 o periodo publicado por heuristica.
 
+## Projection multidimensional (Cross-Tab 2D/ND) e extracoes de dimensao
+
+Uma projection de `group-by` pode declarar `secondaryDimension` ou `dimensions[]` (ate `maxDimensions`)
+e extracoes de dimensao (`extraction`, como `DAY_OF_WEEK`, `HOUR_OF_DAY`, `MONTH_OF_YEAR`, `DAY`, `MONTH`),
+permitindo matrizes 2D (Cross-Tab / Heatmap) categoricas, mistas (categorica x temporal) ou
+temporais ciclicas (como `weekday x hour` 7x24):
+
+```json
+{
+  "id": "operational-rhythm-matrix",
+  "intent": "distribution",
+  "source": {
+    "kind": "praxis.stats",
+    "resource": "/api/human-resources/funcionarios",
+    "operation": "group-by"
+  },
+  "bindings": {
+    "primaryDimension": {
+      "field": "occurredAt",
+      "extraction": "DAY_OF_WEEK",
+      "alias": "weekday",
+      "role": "time-cycle",
+      "label": "Dia da semana",
+      "keyFilterField": "occurredWeekday"
+    },
+    "secondaryDimension": {
+      "field": "occurredAt",
+      "extraction": "HOUR_OF_DAY",
+      "alias": "hour",
+      "role": "time-cycle",
+      "label": "Hora do dia",
+      "keyFilterField": "occurredHour"
+    },
+    "primaryMetrics": [
+      {
+        "field": "id",
+        "aggregation": "count",
+        "label": "Volume"
+      },
+      {
+        "field": "id",
+        "aggregation": "avg-per-cycle-occurrence",
+        "label": "Media por ocorrencia do ciclo"
+      }
+    ]
+  },
+  "defaults": {
+    "timezone": "America/Sao_Paulo",
+    "periodPreset": "LAST_30_DAYS",
+    "fillGaps": true,
+    "limit": 168
+  },
+  "presentationHints": {
+    "preferredFamilies": ["chart", "analytic-table"]
+  },
+  "interactions": {
+    "crossFilter": true
+  }
+}
+```
+
 ## Referencias de politicas governadas
 
 Quando uma projection depende de uma classificacao, elegibilidade, retencao ou

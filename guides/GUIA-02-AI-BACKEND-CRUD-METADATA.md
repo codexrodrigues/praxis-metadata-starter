@@ -39,17 +39,17 @@ Entrada:
 
 Peca explicitamente para a LLM gerar nesta ordem:
 
-1. DTOs
-2. repository
-3. mapper
-4. service
-5. controller
+1. DTOs (`ResponseDTO`, `CreateDTO`, `UpdateDTO`, `FilterDTO`)
+2. repository (`extends BaseCrudRepository<E, ID>`)
+3. mapper (`implements ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>`)
+4. service (`extends AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>`)
+5. controller (`extends AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>`)
 6. apenas depois intents, surfaces e workflow actions
 
 Isso evita dois erros frequentes:
 
 - controller dependente de tipos ainda inexistentes
-- service sem mapper correto
+- service sem mapper correto ou com ordem trocada de parametros genericos
 
 ## Semantica obrigatoria de `resourceKey`
 
@@ -106,14 +106,14 @@ Para recurso read-only, remova:
 
 Use sempre:
 
-- `{Resource}ResponseDTO` para leitura
-- `Create{Resource}DTO` para `POST`
-- `Update{Resource}DTO` para `PUT`
-- `{Resource}FilterDTO` para query/filter
+- `{Resource}ResponseDTO` para leitura (com `@Schema`, `@ResourceIdentity`, `@UISchema` com grupos/icones/presets e `@DomainGovernance`)
+- `Create{Resource}DTO` para `POST` (`@JsonIgnoreProperties({"id"})`)
+- `Update{Resource}DTO` para `PUT` (`@JsonIgnoreProperties({"id"})`)
+- `{Resource}FilterDTO` para query/filter (`implements GenericFilterDTO` com `@Filterable` + `@UISchema` + `@Schema`)
 
 Regras que a LLM deve obedecer:
 
-- `FilterDTO` deve implementar `GenericFilterDTO`
+- `FilterDTO` deve implementar `GenericFilterDTO` e declarar predicados reais com `@Filterable` (`LIKE`, `EQUAL`, `IN`, `BETWEEN`, `IN_LAST_DAYS`)
 - DTOs de escrita devem carregar `@Valid` e constraints reais quando houver
 - `ResponseDTO` deve expor o ID retornado pelo controller
 
@@ -123,6 +123,10 @@ resolva a semantica do recurso: quais campos pertencem a leitura, criacao,
 atualizacao, filtros e discovery. Depois disso, use mapper ou MapStruct para
 materializar a fronteira entre persistencia e contrato.
 
+> **Regra de Profundidade Funcional (Proibido Mutilar o Dominio):**
+> "Nao derivar mecanicamente da entidade" significa **organizar semanticamente os campos por grupos de UX (`@UISchema(group = ...)`), ocultar colunas secundarias na grade principal (`tableHidden = true` mantendo-as no formulario/ficha), proteger atributos controlados por transicoes de estado (`readOnly = true` no `ResponseDTO` e fora do `UpdateDTO` generico) e aplicar `@DomainGovernance`**.
+> **Jamais ampute 70%–80% das colunas de negocio de uma entidade corporativa nem gere `FilterDTO`s timidos com apenas 2 ou 3 campos!** O recurso Praxis deve entregar capacidade cadastral, analitica, de filtragem (`@Filterable` cobrindo texto, exato, multi-selecao `IN`/`NOT_IN`, faixas `BETWEEN`, datas relativas `IN_LAST_DAYS`/`IN_NEXT_DAYS`, nulidade `IS_NULL`/`IS_NOT_NULL`, booleanos `IS_TRUE` e relacoes aninhadas), `@QuickFilter`, `@ResourceIntent` (manutencao parcial com `@UiSurface(kind = SurfaceKind.PARTIAL_FORM)`), `@WorkflowAction`, `@ResourceFact` e invariantes de negocio **superior ao sistema legado**.
+
 ## Repository minimo
 
 ```java
@@ -131,6 +135,18 @@ public interface EmployeeRepository extends BaseCrudRepository<Employee, Long> {
 ```
 
 Sem isso, o service nao encaixa no core atual.
+
+### Chave primaria simples (`Long`/`UUID`/`String`) vs. Chave composta (`@EmbeddedId` / `CompositeResourceId`)
+
+O `praxis-metadata-starter` suporta nativamente tanto chaves simples (`Long`, `UUID`, `String`) quanto chaves compostas JPA (`@EmbeddedId` com `@Embeddable` `record` ou classe implementando `CompositeResourceId`):
+
+- **Quando usar `@EmbeddedId` (`CompositeResourceId`):** quando a chave composta de dominio for **imutavel** apos a criacao do registro (ex.: `VinculoId(Long numfunc, Integer numvinc)`, `DependenteId(Long numfunc, Integer numdep)`, `ItemTabelaId(String tab, String item)`). No wire HTTP/JSON/OpenAPI, o starter converte automaticamente o `@Embeddable` para string canonica separada por `:` (`"1001:1"`) em `@PathVariable`, `includeIds`, `options/by-ids`, `OptionDTO<ID>`, `RESOURCE_ENTITY` option sources, `@Filterable(relation = "id.numfunc")` / `@Filterable(relation = "vinculo.id")`, ordenacao (`sort=id,desc` expandido para os componentes), exportacao tabular (CSV/Excel/JSON), HATEOAS e `/schemas/filtered` (`type: "string"`, `format: "composite-id"`, `x-ui.compositeIdComponents: ["numfunc", "numvinc"]`, `x-ui.compositeIdSeparator: ":"`).
+- **Distincao entre `@EmbeddedId` e Value Objects `@Embedded`:** apenas classes que implementam `CompositeResourceId` (ou sao referenciadas por `@EmbeddedId` / seguem a convencao de chave composta) sao serializadas como `format: "composite-id"`. Classes `@Embeddable` comuns usadas como `@Embedded` Value Objects (ex.: `EnderecoEmbeddable`, `LotacaoEmbeddable`) permanecem objetos JSON estruturados nos DTOs e OpenAPI, mas tambem contam com navegacao segura via `.get(part)` no Criteria JPA (sem `LEFT JOIN` indevido).
+- **Contrato UX em Tabelas e Formularios (`ResponseDTO`, `CreateDTO`, `UpdateDTO`):**
+  - `ResponseDTO`: exponha `VinculoId id` (identidade canonica para selecao de linha, roteamento, edicao, exclusao e HATEOAS) **e** mantenha as colunas de negocio individuais (`Long numfunc`, `Integer numvinc`) visiveis e formatadas para leitura/ordenacao humana na tabela.
+  - `CreateDTO`: exponha os campos de negocio separados e editaveis (`@NotNull Long numfunc`, `@NotNull Integer numvinc`), permitindo que o formulario de criacao use controles ricos (ex.: lookup `RESOURCE_ENTITY` para `numfunc` e input numerico para `numvinc`), e instancie `new VinculoId(dto.numfunc(), dto.numvinc())` no `ResourceMapper.newEntity(dto)`.
+  - `UpdateDTO`: omita os campos da chave primaria composta (ou marque-os como `readOnly = true` apenas para exibicao contextual) e **nunca** altere `entity.setId(...)` em `applyUpdate`, pois chaves primarias sao imutaveis apos a criacao.
+- **Quando usar chave substituta (`Long id`) + `UNIQUE`:** quando as colunas que identificam o evento no legado forem **editaveis pelo usuario** em operacoes de `PUT /{id}` (ex.: lancamentos de frequencia/afastamento em que `dtini` ou `codfreq` podem ser corrigidos na tela), pois o JPA/Hibernate proibe alterar atributos de um `@EmbeddedId` em uma entidade gerenciada.
 
 ## Mapper canonico
 
@@ -150,7 +166,10 @@ public class EmployeeMapper implements ResourceMapper<
     public Employee newEntity(CreateEmployeeDTO dto) { ... }
 
     @Override
-    public void applyUpdate(Employee entity, UpdateEmployeeDTO dto) { ... }
+    public void applyUpdate(Employee entity, UpdateEmployeeDTO dto) {
+        // Nunca sobrescreva entity.setId(...) nem chaves técnicas pertencentes à rota!
+        ...
+    }
 
     @Override
     public Long extractId(Employee entity) {
@@ -163,10 +182,10 @@ Metodos obrigatorios:
 
 - `toResponse`
 - `newEntity`
-- `applyUpdate`
+- `applyUpdate(E entity, UpdateDTO dto)` (`entity` e o 1º parametro!)
 - `extractId`
 
-## Service canonico
+## Service canonico (com Analytics / `StatsFieldRegistry` e `getDatasetVersion()`)
 
 ```java
 @Service
@@ -178,6 +197,12 @@ public class EmployeeService extends AbstractBaseResourceService<
         CreateEmployeeDTO,
         UpdateEmployeeDTO> {
 
+    private static final StatsFieldRegistry STATS_FIELDS = StatsFieldRegistry.builder()
+            .categoricalGroupByBucket("active", "active")
+            .temporalTimeSeriesField("hireDate", "hireDate")
+            .numericHistogramMeasureField("salary", "salary")
+            .build();
+
     private final EmployeeMapper mapper;
 
     public EmployeeService(EmployeeRepository repository, EmployeeMapper mapper) {
@@ -188,6 +213,36 @@ public class EmployeeService extends AbstractBaseResourceService<
     @Override
     protected ResourceMapper<Employee, EmployeeResponseDTO, CreateEmployeeDTO, UpdateEmployeeDTO, Long> getResourceMapper() {
         return mapper;
+    }
+
+    @Override
+    public Optional<String> getDatasetVersion() {
+        return Optional.of("Employee:" + getRepository().count());
+    }
+
+    @Override
+    public StatsFieldRegistry getStatsFieldRegistry() {
+        return STATS_FIELDS;
+    }
+
+    @Override
+    public StatsSupportMode getGroupByStatsSupportMode() {
+        return StatsSupportMode.AUTO;
+    }
+
+    @Override
+    public StatsSupportMode getTimeSeriesStatsSupportMode() {
+        return StatsSupportMode.AUTO;
+    }
+
+    @Override
+    public StatsSupportMode getDistributionStatsSupportMode() {
+        return StatsSupportMode.AUTO;
+    }
+
+    @Override
+    public StatsSupportMode getComparisonStatsSupportMode() {
+        return StatsSupportMode.AUTO;
     }
 }
 ```
@@ -216,10 +271,28 @@ public class PayrollViewService extends AbstractReadOnlyResourceService<
 }
 ```
 
-## Controller canonico
+## Controller canonico (com `@ResourceIdentity` e `@QuickFilter`)
 
 ```java
-@ApiResource(value = ApiPaths.HumanResources.EMPLOYEES, resourceKey = "human-resources.employees")
+@ApiResource(
+    value = ApiPaths.HumanResources.EMPLOYEES,
+    resourceKey = "human-resources.employees",
+    title = "Colaboradores",
+    description = "Gestão cadastral, remuneração base e situação operacional de colaboradores.",
+    icon = "groups",
+    visualTone = "human-resources",
+    identity = @ResourceIdentity(
+        keyField = "id",
+        titleField = "name",
+        subtitleField = "email",
+        metadataFields = {"hireDate"},
+        displayLabelField = "name"
+    ),
+    quickFilters = {
+        @QuickFilter(id = "active", label = "Ativos", filter = "active=true", icon = "check_circle"),
+        @QuickFilter(id = "inactive", label = "Inativos", filter = "active=false", icon = "remove_circle_outline")
+    }
+)
 @ApiGroup("human-resources")
 public class EmployeeController extends AbstractResourceController<
         EmployeeResponseDTO,
@@ -325,17 +398,23 @@ Use apenas para comando de negocio explicito.
 
 ## O que o recurso deve expor
 
-Para um recurso mutavel no core atual, espere:
+Para um recurso mutavel no core atual (com `StatsFieldRegistry` configurado), espere:
 
 - `GET /{resource}/all`
 - `GET /{resource}/{id}`
 - `POST /{resource}`
 - `PUT /{resource}/{id}`
+- `DELETE /{resource}/{id}`
+- `DELETE /{resource}/batch`
 - `POST /{resource}/filter`
 - `POST /{resource}/filter/cursor`
 - `POST /{resource}/locate`
 - `POST /{resource}/options/filter`
 - `GET /{resource}/options/by-ids`
+- `POST /{resource}/stats/group-by`
+- `POST /{resource}/stats/timeseries`
+- `POST /{resource}/stats/distribution`
+- `POST /{resource}/stats/comparison`
 - `GET /{resource}/capabilities`
 - `GET /{resource}/{id}/capabilities`
 
@@ -344,6 +423,55 @@ Para recurso read-only, nao espere:
 - `POST /{resource}`
 - `PUT /{resource}/{id}`
 - `DELETE /{resource}/{id}`
+- `DELETE /{resource}/batch`
+
+## Concorrência Otimista (`@Version` + `VersionedCreateUpdateResourceService`)
+
+Quando a entidade possuir controle de versão otimista (`@Version private Long version = 0L;`) e `praxis.resource-version.etag.secret` estiver configurado no `application.yml`, implemente `VersionedCreateUpdateResourceService<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>` no service para emitir `ETag` assinado no `GET /{id}` e exigir precondição `If-Match` no `PUT /{id}`:
+
+```java
+@Override
+protected OptionalLong getEntityResourceVersion(Employee entity) {
+    return entity != null && entity.getVersion() != null
+            ? OptionalLong.of(entity.getVersion())
+            : OptionalLong.empty();
+}
+
+@Override
+@Transactional
+public ResourceRepresentationResult<EmployeeResponseDTO> update(
+        Long id,
+        UpdateEmployeeDTO dto,
+        ResourceVersionUpdatePrecondition<Long> precondition) {
+    if (precondition == null) {
+        throw ResourceVersionPreconditionException.required();
+    }
+    Set<String> readOnlyKeys = validateCustomFields(dto, "request");
+    Employee entity = findEntityById(id);
+    OptionalLong currentVersion = getEntityResourceVersion(entity);
+    if (currentVersion.isEmpty()) {
+        throw ResourceVersionPreconditionException.missingState();
+    }
+    precondition.requireMatch(currentVersion.getAsLong());
+    beforeUpdate(id, entity, dto);
+    var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(entity, readOnlyKeys);
+    mapper.applyUpdate(entity, dto);
+    org.praxisplatform.uischema.customfields.CustomFieldSupport.restoreReadOnlyValues(entity, readOnlyKeys, readOnlyValues);
+    Employee saved = getRepository().save(entity);
+    afterUpdate(id, saved, dto);
+    entityManager.flush();
+    return toResourceRepresentation(saved);
+}
+```
+
+## Extensibilidade Dinâmica Multi-Tenant (`@CustomFields`) e Fatos de Domínio (`@ResourceFact`)
+
+1. **Campos Customizados (`@CustomFields` + `CustomFieldDefinitionProvider`):**
+   - Na entidade JPA PostgreSQL, mapeie a coluna JSONB com `@JdbcTypeCode(SqlTypes.JSON)`, `@Column(name = "custom_fields", columnDefinition = "jsonb")` **e** `@CustomFields(resourceKey = "human-resources.employees") private Map<String, Object> customFields = new LinkedHashMap<>();` (a anotacao na entidade e obrigatoria para que `GenericSpecificationsBuilder` resolva predicados JSONB em `/filter`).
+   - Em `ResponseDTO`, `CreateDTO`, `UpdateDTO` e `FilterDTO`, declare `@CustomFields(resourceKey = "human-resources.employees") private Map<String, Object> customFields = new LinkedHashMap<>();` (mantendo `customFields` aninhado no JSON, sem `@JsonAnyGetter`/`@JsonAnySetter`).
+   - Registre um bean `@Component` implementando `CustomFieldDefinitionProvider` (consultando `custom_field_definitions`) para que `/schemas/filtered`, validação server-side, filtros JSONB em `/filter`, exportação e `/schemas/domain` projetem automaticamente os campos ativos do órgão/tenant.
+2. **Catálogo de Fatos de Domínio (`@ResourceFact` + `ResourceFactCatalogProvider`):**
+   - Anote o controller/service com `@ResourceFact(key = "tempoServicoDias", resourceKey = "human-resources.employees", label = "Tempo de Serviço em Dias", description = "...", dataType = "integer", unit = "days")` ou exponha um bean `ResourceFactCatalogProvider` para publicar indicadores derivados em `/schemas/domain`.
 
 ## O que nao deve ser gerado
 
@@ -358,32 +486,33 @@ Para recurso read-only, nao espere:
 ## Prompt recomendado para adicionar um recurso novo
 
 ```text
-Adicione um novo recurso metadata-driven ao projeto Spring Boot existente.
+Adicione um novo recurso metadata-driven completo e rico em metadados de negocio ao projeto Spring Boot existente.
 
 Use obrigatoriamente:
-- @ApiResource(value = ..., resourceKey = ...)
+- @ApiResource(value = ..., resourceKey = ..., title = ..., description = ..., icon = ..., identity = @ResourceIdentity(...), quickFilters = {@QuickFilter(...)})
 - @ApiGroup
-- BaseCrudRepository
-- ResourceMapper
-- AbstractBaseResourceService ou AbstractReadOnlyResourceService
-- AbstractResourceController ou AbstractReadOnlyResourceController
+- Entidade com @OptionLabel e @DefaultSortColumn
+- BaseCrudRepository<E, ID>
+- ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>
+- AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>
+- AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceController<ResponseDTO, ID, FilterDTO>
 
 Gere, nesta ordem:
-1. DTOs
-2. repository
-3. mapper
-4. service
-5. controller
+1. DTOs (ResponseDTO, CreateDTO, UpdateDTO, FilterDTO com @Schema de negocio em PT-BR, @UISchema com grupos/icones/presets, @DomainGovernance e @Filterable rico)
+2. repository (extends BaseCrudRepository<E, ID>)
+3. mapper (implements ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>)
+4. service (com getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e modos StatsSupportMode.AUTO)
+5. controller (com getService() e getResponseId())
 
 Regras:
 - nao use @RestController junto com @ApiResource
 - nao derive DTO publico mecanicamente da entidade JPA; use a entidade apenas como grounding
-- FilterDTO deve implementar GenericFilterDTO
-- mapper deve implementar toResponse, newEntity, applyUpdate, extractId
-- service deve sobrescrever getResourceMapper()
+- FilterDTO deve implementar GenericFilterDTO e usar @Filterable (LIKE, EQUAL, IN, BETWEEN, IN_LAST_DAYS) + @UISchema
+- mapper deve implementar toResponse, newEntity, applyUpdate(E entity, UpdateDTO dto) (sem sobrescrever id) e extractId
+- service deve sobrescrever getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e StatsSupportMode.AUTO
 - controller deve sobrescrever getService() e getResponseId()
 - nao gere classes fora do baseline resource-oriented atual
-- entregue codigo compilavel, sem stubs
+- entregue codigo compilavel na primeira tentativa, sem stubs
 ```
 
 ## Checklist do recurso
@@ -393,9 +522,10 @@ Antes de concluir:
 - o controller usa `@ApiResource(value = ..., resourceKey = ...)`
 - `resourceKey` representa a semantica do recurso
 - o recurso nao usa DTO unico
-- `FilterDTO implements GenericFilterDTO`
+- `FilterDTO implements GenericFilterDTO` com `@Filterable` e `@UISchema`
+- entidade declara `@OptionLabel` para alimentar `/options/filter` e `/options/by-ids`
 - repository estende `BaseCrudRepository`
-- service sobrescreve `getResourceMapper()`
+- service sobrescreve `getResourceMapper()`, `getDatasetVersion()` e `getStatsFieldRegistry()` (quando houver dimensoes/metricas analiticas)
 - controller sobrescreve `getService()` e `getResponseId()`
 - `/schemas/filtered` resolve request e response
 - `/schemas/catalog` continua sendo discovery documental, nao fonte estrutural
