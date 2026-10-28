@@ -321,7 +321,7 @@ The official source proof for commit `60556d07f5c652c219192682b8248727e01ceb0c`
 failed on 2026-10-27. The managed-owner case passed in 2209.123 seconds with all
 nine required scenario markers. P4 failed after 484.084 seconds: its synthetic 100 ms transport profile, with
 unchanged thresholds and query-count expectations, observed 2098 ms before policy admission,
-while the existing guard requires more than 2100 ms within the original five-second
+while the then-current guard required more than 2100 ms within the original five-second
 unit deadline. Independent durable readback was `STOPPED`, with zero domain
 effects, receipts and admissions; no SQL exception was recorded.
 
@@ -332,8 +332,9 @@ did not execute. Final source snapshots and a successful proof receipt are absen
 The uploaded failure artifact preserves the raw XML and logs. Postflight found
 one retained P4 database and two fixture logins with zero connections; this is
 retained diagnostic state, not a zero-resource cleanup claim. No release is
-approved by this run. Diagnosis must preserve the five-second deadline, transport
-floor and pre-policy reserve rather than lower the thresholds to obtain a pass.
+approved by this run. At that stage, diagnosis was required to preserve the
+five-second deadline, transport floor and pre-policy reserve rather than lower
+the thresholds to obtain a pass.
 
 The subsequent harness correction scopes stack-origin inspection to the two
 public authorized reads and disarms it on exceptional exits. Three offline
@@ -466,3 +467,44 @@ renewal. Occupancy's dependency closure excludes POM and remains exactly
 `d50f2afe28ba75ec6068bc6fa37d1b2810d02224aead9bd8efc80fc57b8b6d6d`.
 No historical ZIP is changed. Reviewer/author `financial_openapi` independently
 checked the exact call paths and official scope-digest function before renewal.
+
+## Authorized narrower synthetic SDK transport profile
+
+After official rc.181 run 40608273980, the user explicitly authorized greater
+harness tolerance on the existing runner. That run remains FAILURE: all 1457
+no-DB tests and managed-owner passed, but P4 stopped with 2081 ms before policy;
+resource-contracts did not run. This decision changes only the test assurance,
+not the product's absolute five-second unit budget or any Config/host guard.
+
+The new strict threshold is **more than 1500 ms**, derived from the actual suffix:
+six synthetic reads, one post-admission batch, three mutation executes and one
+receipt/pending/snapshot batch, totaling eleven 100 ms floors plus a 400 ms
+overhead allowance. The unchanged 28 prefix executes leave strictly less than
+700 ms for external prefix cost (`5000 - 2800 - 1500`). The actual profile still
+requires all 39 executes, real commit and independent `COMPLETED`/one-effect/
+one-receipt readback, replay without callbacks, and every existing expiry,
+rollback and fencing negative. The allowance does not guarantee future timing.
+
+This is explicitly less coverage than the former >2100 ms synthetic reserve.
+It does not prove QuickstartUnitBudget.afterPoolReserve: its production >2100 ms
+reserve (one-second pool acquisition, 100 ms scheduling and one-second SQL)
+remains unchanged. Exact-artifact consumer HTTP and deployed-host proofs remain
+separate. No production source, deadline anchoring, acquisition/SQL timeout,
+query, authority, public contract or workflow changes in this increment.
+
+The required marker is now
+`NEON_PROOF_ORDERED_UNIT_TRANSPORT=sdk-synthetic,5s-unit,100ms-floor,pre-policy-reserve-over-1500ms,39-executes,one-domain-effect-and-receipt,completed,replay-without-callback`.
+The verifier rejects the former marker and any wrong threshold/count; there is
+no fallback. Historical runs and receipts retain their original markers, sources
+and limits. In particular, 2081 or 2098 being above the new numeric guard does
+not make either earlier failed run pass. Fresh current-source Neon execution is
+still mandatory before release.
+
+Offline regression fixes the strict 1499/1500/1501 boundary, suffix derivation,
+100 ms floor and exact narrower marker. The inventory changes only the two test
+hashes, their causal reasons and live marker assertions/policy. All impact/reuse
+closures, dependency digests and original ZIPs remain unchanged: no scoped
+production/dependency bytes changed. No UI, corpus or public API artifact needs
+updating. Skill assessment for this increment is `atualizar-existente`: the
+canonical operational-proof skill must distinguish the narrower SDK profile
+from the unchanged host Config reserve; the coordinator owns that integration.

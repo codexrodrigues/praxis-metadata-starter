@@ -318,6 +318,15 @@ class NeonGateOfflineTest(unittest.TestCase):
                 xml.write_text(bad)
                 with self.assertRaisesRegex(GateError, "capture oracle marker"):
                     verify_neon_reports(manifest, phases, resource_log)
+        transport = next(marker for marker in CAPTURE_MARKERS
+                         if marker.startswith("NEON_PROOF_ORDERED_UNIT_TRANSPORT="))
+        old_profile = ("NEON_PROOF_ORDERED_UNIT_TRANSPORT=100ms-floor,policy-reserve-over-2100ms,"
+                       "one-domain-effect-and-receipt,completed,replay-without-callback")
+        for wrong_profile in (old_profile, transport.replace("1500ms", "2100ms"),
+                              transport.replace("39-executes", "38-executes")):
+            xml.write_text(original.replace(transport, wrong_profile))
+            with self.assertRaisesRegex(GateError, "capture oracle marker"):
+                verify_neon_reports(manifest, phases, resource_log)
         xml.write_text(original)
 
     def test_resource_contract_cases_cleanup_and_class_set_are_required(self):

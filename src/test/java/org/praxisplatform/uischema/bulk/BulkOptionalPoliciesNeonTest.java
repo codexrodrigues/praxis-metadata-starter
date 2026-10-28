@@ -48,6 +48,22 @@ import static org.praxisplatform.uischema.bulk.BulkSnapshotStorageCodecTest.snap
  */
 @EnabledIfEnvironmentVariable(named = "PRAXIS_BULK_NEON_CONNECTION_FILE", matches = ".+")
 class BulkOptionalPoliciesNeonTest {
+    static final long TRANSPORT_FLOOR_MILLIS = 100;
+    // SDK-only synthetic suffix: policy reads(6), post-admission batch(1), mutation(3), receipt batch(1).
+    // Its 400ms allowance is test tolerance, not the independent Config/host policy-pool reserve.
+    static final int TRANSPORT_SUFFIX_EXECUTES = 6 + 1 + 3 + 1;
+    static final long TRANSPORT_SUFFIX_OVERHEAD_MILLIS = 400;
+    static final long TRANSPORT_PRE_POLICY_RESERVE_MILLIS =
+            TRANSPORT_SUFFIX_EXECUTES * TRANSPORT_FLOOR_MILLIS + TRANSPORT_SUFFIX_OVERHEAD_MILLIS;
+    static final String ORDERED_TRANSPORT_MARKER =
+            "NEON_PROOF_ORDERED_UNIT_TRANSPORT=sdk-synthetic,5s-unit,100ms-floor,pre-policy-reserve-over-"
+            + TRANSPORT_PRE_POLICY_RESERVE_MILLIS
+            + "ms,39-executes,one-domain-effect-and-receipt,completed,replay-without-callback";
+
+    static boolean hasSyntheticPrePolicyReserve(long remainingMillis) {
+        return remainingMillis > TRANSPORT_PRE_POLICY_RESERVE_MILLIS;
+    }
+
     private static final String NAMESPACE = "optional-policies-neon-proof";
     private static final String DEPLOYMENT = "optional-policies-neon-proof-deployment";
     private static final String OPERATION = "optional-policies-update";
@@ -804,7 +820,7 @@ class BulkOptionalPoliciesNeonTest {
                 balances[0] = unit.remainingBudget().toMillis();
                 transportCheckpoints[3] = runtime.recorder.unitJdbcNanos;
                 transportCheckpoints[4] = runtime.recorder.unitImposedNanos;
-                if (balances[0] <= 2100)
+                if (!hasSyntheticPrePolicyReserve(balances[0]))
                     return BulkUnitAdmission.stop(BulkUnitReasonCode.COMMON_GOVERNANCE_UNAVAILABLE);
                 syntheticReads(runtimeSql, 6); // policy(1), recheck(2), prepared entity/active check(3).
                 executes[2] = runtime.recorder.unitExecutes;
@@ -824,7 +840,9 @@ class BulkOptionalPoliciesNeonTest {
             executionFailure = failure;
         } finally {
             runtime.recorder.endUnitFloor();
-            System.out.println("NEON_ORDERED_TRANSPORT=floorMillis=100,executes=" + runtime.recorder.unitExecutes
+            System.out.println("NEON_ORDERED_TRANSPORT=floorMillis=" + TRANSPORT_FLOOR_MILLIS
+                    + ",syntheticReserveMillis=" + TRANSPORT_PRE_POLICY_RESERVE_MILLIS
+                    + ",executes=" + runtime.recorder.unitExecutes
                     + ",jdbcNanos=" + runtime.recorder.unitJdbcNanos + ",imposedNanos=" + runtime.recorder.unitImposedNanos
                     + ",policyRemainingMillis=" + balances[0] + ",admittedRemainingMillis=" + balances[1]
                     + ",mutationRemainingMillis=" + balances[2]
@@ -842,7 +860,8 @@ class BulkOptionalPoliciesNeonTest {
         // Always record the independent durable result before reporting an insufficient profile.
         if (executionFailure instanceof RuntimeException failure) throw failure;
         if (executionFailure instanceof Error failure) throw failure;
-        assertThat(balances[0]).as("synthetic pre-policy balance with original 5s unit").isGreaterThan(2100);
+        assertThat(balances[0]).as("synthetic SDK pre-policy balance with original 5s unit")
+                .isGreaterThan(TRANSPORT_PRE_POLICY_RESERVE_MILLIS);
         assertThat(calls).hasValue(1); assertThat(mutations).hasValue(1);
         assertThat(state).isEqualTo("COMPLETED"); assertThat(effects).isEqualTo(1);
         assertThat(receipts).isEqualTo(1); assertThat(admissions).isZero();
@@ -853,14 +872,15 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(executes[3]-executes[2]).isEqualTo(1); // Post-admission three-result batch.
         assertThat(executes[4]-executes[3]).isEqualTo(3);
         assertThat(runtime.recorder.unitExecutes-executes[4]).isEqualTo(1); // Receipt/pending/snapshot batch.
+        assertThat(runtime.recorder.unitExecutes).as("complete synthetic SDK transport profile").isEqualTo(39);
         assertThat(runtime.recorder.unitJdbcNanos + runtime.recorder.unitImposedNanos)
-                .isGreaterThanOrEqualTo(runtime.recorder.unitExecutes * TimeUnit.MILLISECONDS.toNanos(100));
+                .isGreaterThanOrEqualTo(runtime.recorder.unitExecutes * TimeUnit.MILLISECONDS.toNanos(TRANSPORT_FLOOR_MILLIS));
         kernel.advance(reservation, unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); },
                 unit -> { mutations.incrementAndGet(); return BulkUnitMutationResult.confirmed(); });
         assertThat(calls).hasValue(1); assertThat(mutations).hasValue(1);
         assertThat(owner.queryForObject("select writes from public.bulk_optional_domain where id=1", Integer.class)).isEqualTo(before + 1);
         assertThat(owner.queryForObject("select count(*) from praxis_bulk.praxis_bulk_item_receipt where execution_id=?", Integer.class, reservation.executionId())).isEqualTo(1);
-        System.out.println("NEON_PROOF_ORDERED_UNIT_TRANSPORT=100ms-floor,policy-reserve-over-2100ms,one-domain-effect-and-receipt,completed,replay-without-callback");
+        System.out.println(ORDERED_TRANSPORT_MARKER);
     }
 
     private static void syntheticReads(JdbcTemplate sql, int count) {
@@ -1121,7 +1141,7 @@ class BulkOptionalPoliciesNeonTest {
                                         long jdbcElapsed=System.nanoTime()-started;
                                         if (imposeFloor) {
                                             long sleepStarted=System.nanoTime();
-                                            long until=started+TimeUnit.MILLISECONDS.toNanos(100);
+                                            long until=started+TimeUnit.MILLISECONDS.toNanos(TRANSPORT_FLOOR_MILLIS);
                                             while (System.nanoTime()<until)
                                                 java.util.concurrent.locks.LockSupport.parkNanos(until-System.nanoTime());
                                             unitExecutes++; unitJdbcNanos+=jdbcElapsed;

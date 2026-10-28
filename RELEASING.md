@@ -66,6 +66,30 @@ e depois, fontes e dependências resolvidas compõem um recibo focal com
 `releaseApproved=false`. A falha continua sendo falha mesmo quando a custódia é
 preservada. O inventário e a custódia do JAR seguem gates separados da tag.
 
+## Limite do perfil sintético SDK em P4
+
+O perfil `assertOrderedTransportProfile` exige saldo pré-policy **estritamente
+maior que 1500 ms**, dentro do mesmo prazo produtivo absoluto de cinco segundos.
+Essa garantia é menor que a reserva sintética anterior de mais de 2100 ms. Ela
+não comprova a reserva independente do pool Config do Quickstart: esse consumidor
+continua exigindo mais de 2100 ms (pool de 1 s, scheduling de 100 ms e SQL de 1 s),
+com prova HTTP própria vinculada ao artefato adotado.
+
+A constante do teste deriva 1500 ms de onze executes restantes com piso de 100 ms
+(seis leituras sintéticas, um batch pós-admissão, três executes de mutação e um batch
+de receipt) mais 400 ms de tolerância para overhead. Os 28 executes anteriores
+mantêm seus pisos: `5000 - 28×100 - 1500 = 700 ms` de folga externa estrita antes
+do guard. Isso é tolerância do harness, não garantia de latência do ambiente.
+Permanecem obrigatórios os 39 executes, conclusão `COMPLETED`, um efeito, um receipt,
+replay sem nova callback e todos os negativos de prazo/rollback/fencing. Nenhum
+prazo, ancoragem, timeout de SQL/aquisição ou guard produtivo foi alterado.
+
+O marker exato agora é
+`NEON_PROOF_ORDERED_UNIT_TRANSPORT=sdk-synthetic,5s-unit,100ms-floor,pre-policy-reserve-over-1500ms,39-executes,one-domain-effect-and-receipt,completed,replay-without-callback`.
+O verificador recusa o marker anterior como evidência da árvore atual. Recibos e
+runs históricos preservam seus limites originais; a mudança não converte uma
+falha anterior em PASS. A release continua exigindo P4 Neon fresco na fonte atual.
+
 ## Fluxo (Release Candidate)
 1) Validar localmente o mecanismo offline (sem banco nem assinatura):
 ```
