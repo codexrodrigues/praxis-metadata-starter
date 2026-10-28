@@ -221,6 +221,36 @@ public class GlobalExceptionHandler {
                 "GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE");
     }
 
+    /** Public status mapping for typed kernel refusals; protected storage details stay private. */
+    @ExceptionHandler(org.praxisplatform.uischema.bulk.BulkDurableExecutionException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleBulkExecution(
+            org.praxisplatform.uischema.bulk.BulkDurableExecutionException ex, WebRequest request) {
+        HttpStatus status = switch (ex.reason()) {
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case CONFLICT -> HttpStatus.CONFLICT;
+            case CAPACITY -> HttpStatus.TOO_MANY_REQUESTS;
+            case EXPIRED, RESULT_PURGED -> HttpStatus.GONE;
+            case NOT_EXECUTABLE -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case FENCED, DEADLINE_EXCEEDED, RECONCILIATION_REQUIRED, CORRUPT, UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        return buildStatusResponse(status, "Bulk execution cannot proceed in its current state.", request,
+                "BULK_EXECUTION_" + ex.reason().name());
+    }
+
+    /** Proposal selection/storage refusals use the same standard resource failure envelope. */
+    @ExceptionHandler(org.praxisplatform.uischema.bulk.BulkProposalStorageException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleBulkProposal(
+            org.praxisplatform.uischema.bulk.BulkProposalStorageException ex, WebRequest request) {
+        HttpStatus status = switch (ex.reason()) {
+            case CONFLICT -> HttpStatus.CONFLICT;
+            case CAPACITY -> HttpStatus.TOO_MANY_REQUESTS;
+            case INVALID_SELECTION -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case CORRUPT, UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        return buildStatusResponse(status, "Bulk proposal cannot be accepted in its current state.", request,
+                "BULK_PROPOSAL_" + ex.reason().name());
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<RestApiResponse<Object>> handleResponseStatusException(ResponseStatusException ex, WebRequest request) {
         HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());

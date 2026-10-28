@@ -6,7 +6,7 @@ package org.praxisplatform.uischema.openapi;
  * This does not authorize recapture, publication, or a retry of domain mutations.
  */
 public final class GovernedOpenApiPublicationUnavailableException extends IllegalStateException {
-    GovernedOpenApiPublicationUnavailableException(IllegalStateException cause) {
+    GovernedOpenApiPublicationUnavailableException(RuntimeException cause) {
         super(cause.getMessage(), cause);
     }
 }

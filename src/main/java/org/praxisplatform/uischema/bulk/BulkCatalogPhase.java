@@ -209,6 +209,13 @@ final class BulkCatalogPhase {
             if (!batch) {
                 try (var s = connection.createStatement(); var r = s.executeQuery(sql)) { return BulkCatalogPhase.read(r); }
             }
+            // Fresh server digests compress only byte-identical packaged bodies. All existing
+            // validators still see the exact original prosrc, including on a cache miss.
+            if (sql.contains("p.prosrc")) sql = sql.replace("p.prosrc", """
+                case when pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
+                    =any(?::text[]) then null else p.prosrc end prosrc,
+                pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') prosrc_digest
+                """);
             var facts = new ArrayList<Fact>(); queries.add(sql); results.add(facts);
             return Collections.unmodifiableList(facts);
         }
@@ -216,9 +223,10 @@ final class BulkCatalogPhase {
             this.configured = configured; this.roots = roots; this.owner = owner;
             if (batch) return read(sql);
             try (var statement = connection.prepareStatement(sql)) {
-                var configuredArray = connection.createArrayOf("text", configured.toArray());
+                java.sql.Array configuredArray = null;
                 java.sql.Array rootsArray = null;
                 try {
+                    configuredArray = connection.createArrayOf("text", configured.toArray());
                     rootsArray = connection.createArrayOf("text", roots.toArray());
                     statement.setArray(1, configuredArray); statement.setArray(2, rootsArray); statement.setString(3, owner);
                     try (var rows = statement.executeQuery()) { return BulkCatalogPhase.read(rows); }
@@ -232,24 +240,35 @@ final class BulkCatalogPhase {
             if (!batch) return;
             require(queries.size() == 7, "Live catalog query inventory differs");
             try (var statement = connection.prepareStatement(String.join(";\n", queries))) {
-                var configuredArray = connection.createArrayOf("text", configured.toArray());
+                var bodyDigests = connection.createArrayOf("text", BulkCatalogFunctionBodies.packaged().keySet().toArray());
+                java.sql.Array configuredArray = null;
                 java.sql.Array rootsArray = null;
                 try {
+                    configuredArray = connection.createArrayOf("text", configured.toArray());
                     rootsArray = connection.createArrayOf("text", roots.toArray());
-                    statement.setArray(1, configuredArray); statement.setArray(2, rootsArray); statement.setString(3, owner);
+                    statement.setArray(1, bodyDigests); statement.setArray(2, configuredArray); statement.setArray(3, rootsArray); statement.setString(4, owner);
                     boolean result = statement.execute();
                     for (int i = 0; i < results.size(); i++) {
                         require(result, "Live catalog result set absent or replaced by update count: " + i);
                         try (var rows = statement.getResultSet()) {
                             require(rows != null, "Live catalog result set is null: " + i);
-                            results.get(i).addAll(BulkCatalogPhase.read(rows));
+                            for (var fact : BulkCatalogPhase.read(rows)) {
+                                if (i==2) {
+                                    var values = new LinkedHashMap<>(fact.values());
+                                    values.put("prosrc", BulkCatalogFunctionBodies.restore(fact.text("prosrc_digest"),fact.text("prosrc")));
+                                    results.get(i).add(new Fact(Collections.unmodifiableMap(values)));
+                                } else results.get(i).add(fact);
+                            }
                         }
                         result = statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT);
                     }
                     require(!result && statement.getUpdateCount() == -1, "Live catalog returned unexpected extra results");
                 } finally {
                     try { if (configuredArray != null) configuredArray.free(); }
-                    finally { if (rootsArray != null) rootsArray.free(); }
+                    finally {
+                        try { if (rootsArray != null) rootsArray.free(); }
+                        finally { if (bodyDigests != null) bodyDigests.free(); }
+                    }
                 }
             }
         }

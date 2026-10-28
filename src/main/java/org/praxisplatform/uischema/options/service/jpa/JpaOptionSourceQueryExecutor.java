@@ -96,7 +96,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         }
 
         if (richResourceEntity) {
-            applyEntityLookupSelections(query, root, valuePath, labelPath, descriptor, metadataSortPath);
+            applyEntityLookupSelections(cb, query, root, valuePath, labelPath, descriptor, metadataSortPath);
         } else {
             applyOptionSelections(query, valuePath, labelPath);
         }
@@ -173,7 +173,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                 .toList();
 
         if (richResourceEntity) {
-            applyEntityLookupSelections(query, root, valuePath, labelPath, descriptor, null);
+            applyEntityLookupSelections(cb, query, root, valuePath, labelPath, descriptor, null);
         } else {
             applyOptionSelections(query, valuePath, labelPath);
         }
@@ -765,6 +765,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     }
 
     private void applyEntityLookupSelections(
+            CriteriaBuilder cb,
             CriteriaQuery<Tuple> query,
             Root<?> root,
             Path<?> valuePath,
@@ -780,27 +781,27 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         selections.add(labelPath.alias("optionLabel"));
         selectedPaths.add(labelPath);
         selectedAliases.add("optionLabel");
-        addSelection(selections, selectedPaths, selectedAliases, root, lookup.codePropertyPath(), "lookupCode");
-        addSelection(selections, selectedPaths, selectedAliases, root, lookup.statusPropertyPath(), "lookupStatus");
-        addSelection(selections, selectedPaths, selectedAliases, root, lookup.disabledPropertyPath(), "lookupDisabled");
-        addSelection(selections, selectedPaths, selectedAliases, root, lookup.disabledReasonPropertyPath(), "lookupDisabledReason");
+        addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.codePropertyPath(), "lookupCode");
+        addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.statusPropertyPath(), "lookupStatus");
+        addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.disabledPropertyPath(), "lookupDisabled");
+        addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.disabledReasonPropertyPath(), "lookupDisabledReason");
         LookupSelectionPolicy policy = lookup.selectionPolicy();
         if (policy != null) {
-            addSelection(selections, selectedPaths, selectedAliases, root, policy.selectablePropertyPath(), "lookupSelectable");
+            addSelection(cb, selections, selectedPaths, selectedAliases, root, policy.selectablePropertyPath(), "lookupSelectable");
             if (lookup.statusPropertyPath() == null) {
-                addSelection(selections, selectedPaths, selectedAliases, root, policy.statusPropertyPath(), "lookupStatus");
+                addSelection(cb, selections, selectedPaths, selectedAliases, root, policy.statusPropertyPath(), "lookupStatus");
             }
         }
         for (int index = 0; index < lookup.descriptionPropertyPaths().size(); index++) {
-            addSelection(selections, selectedPaths, selectedAliases, root, lookup.descriptionPropertyPaths().get(index), "lookupDescription" + index);
+            addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.descriptionPropertyPaths().get(index), "lookupDescription" + index);
         }
         LookupDisplayDescriptor display = lookup.display();
         if (display != null) {
             for (int index = 0; index < display.fields().size(); index++) {
-                addSelection(selections, selectedPaths, selectedAliases, root, display.fields().get(index).propertyPath(), "lookupRichField" + index);
+                addSelection(cb, selections, selectedPaths, selectedAliases, root, display.fields().get(index).propertyPath(), "lookupRichField" + index);
             }
             for (int index = 0; index < display.badgePropertyPaths().size(); index++) {
-                addSelection(selections, selectedPaths, selectedAliases, root, display.badgePropertyPaths().get(index), "lookupBadge" + index);
+                addSelection(cb, selections, selectedPaths, selectedAliases, root, display.badgePropertyPaths().get(index), "lookupBadge" + index);
             }
         }
         if (metadataSortPath != null && selectedPaths.stream().noneMatch(path -> samePath(path, metadataSortPath))) {
@@ -835,6 +836,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     }
 
     private void addSelection(
+            CriteriaBuilder cb,
             List<Selection<?>> selections,
             List<Path<?>> selectedPaths,
             List<String> selectedAliases,
@@ -847,7 +849,10 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             if (selectedAliases.contains(alias)) {
                 return;
             }
-            selections.add(resolvedPath.alias(alias));
+            // Hibernate reuses Path instances. alias() mutates that instance, so the same
+            // property in code/description/display must get independent selection nodes.
+            // COALESCE(x,x) is value/type/null preserving and leaves predicates/sort paths untouched.
+            selections.add(cb.coalesce(resolvedPath, resolvedPath).alias(alias));
             selectedPaths.add(resolvedPath);
             selectedAliases.add(alias);
         }

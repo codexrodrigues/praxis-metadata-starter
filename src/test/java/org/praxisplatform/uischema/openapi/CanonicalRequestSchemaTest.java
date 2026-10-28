@@ -370,6 +370,48 @@ class CanonicalRequestSchemaTest {
         return new CachedOpenApiDocumentService(new RestTemplate(), JSON, support);
     }
 
+    @Test
+    void resolvesOnlyTheExactlyEmittedCanonicalRangeUnionWithoutWeakeningItsConstraints() {
+        for (String dialect : List.of("3.0.3", "3.1.0")) {
+            for (String kind : List.of("integer", "date", "money", "exclusive")) {
+                ObjectNode document=basicDocument(dialect);
+                JsonNode range=canonicalRange(dialect,kind);
+                ((ObjectNode)requestSchema(document).path("properties")).set("interval",range);
+                JsonNode resolved=cached(document).requireRequestSchema(UPDATE).schema().path("properties").path("interval");
+                assertEquals(range,resolved,dialect+" "+kind);
+            }
+        }
+    }
+
+    @Test
+    void rejectsLookalikeRangesWithChangedBranchesMissingNullGuardOrArbitraryUnion() {
+        for (String mutation : List.of("third-branch","null-guard","root-not","bad-bound","fake-ui","extra-definitions")) {
+            ObjectNode document=basicDocument("3.0.3");
+            ObjectNode range=(ObjectNode)canonicalRange("3.0.3","integer");
+            switch(mutation) {
+                case "third-branch" -> ((com.fasterxml.jackson.databind.node.ArrayNode)range.path("oneOf")).addObject().put("type","boolean");
+                case "null-guard" -> ((ObjectNode)range.path("oneOf").get(0)).remove("not");
+                case "root-not" -> range.putObject("not").put("type","string");
+                case "extra-definitions" -> range.putObject("$defs").putObject("Other").putArray("oneOf").addObject().put("type","boolean");
+                case "bad-bound" -> ((ObjectNode)range.path("oneOf").get(1).path("properties").path("min")).put("$ref","#/components/schemas/Missing");
+                case "fake-ui" -> { range.removeAll();range.putObject("x-ui").put("mode","range");range.putArray("oneOf").addObject().put("type","string"); }
+            }
+            ((ObjectNode)requestSchema(document).path("properties")).set("interval",range);
+            assertThrows(IllegalStateException.class,()->cached(document).requireRequestSchema(UPDATE),mutation);
+        }
+    }
+
+    private static JsonNode canonicalRange(String dialect,String kind) {
+        var version=dialect.startsWith("3.1") ? SpecVersion.V31 : SpecVersion.V30;
+        var item=new io.swagger.v3.oas.models.media.Schema<>();item.setSpecVersion(version);
+        String type=kind.equals("date") ? "string" : kind.equals("money") ? "number" : "integer";
+        if(version==SpecVersion.V31) item.setTypes(new java.util.LinkedHashSet<>(java.util.Set.of(type))); else item.setType(type);
+        item.setFormat(kind.equals("date") ? "date" : kind.equals("money") ? "currency" : "int32");
+        var property=new io.swagger.v3.oas.models.media.ArraySchema();property.setSpecVersion(version);property.setItems(item);
+        org.praxisplatform.uischema.filter.range.CanonicalRangeSchema.apply(property,kind.equals("date"),kind.equals("money"),kind.equals("exclusive"));
+        return (version==SpecVersion.V31 ? io.swagger.v3.core.util.Json31.mapper() : io.swagger.v3.core.util.Json.mapper()).valueToTree(property);
+    }
+
     private static ObjectNode basicDocument(String openApiVersion) {
         ObjectNode root = JSON.createObjectNode();
         root.put("openapi", openApiVersion);

@@ -137,6 +137,8 @@ class FilterableBetweenListDetectionTest {
             public FilterOperation operation() { return operation; }
             @Override
             public String relation() { return ""; }
+            @Override
+            public String[] relations() { return new String[0]; }
         };
     }
 

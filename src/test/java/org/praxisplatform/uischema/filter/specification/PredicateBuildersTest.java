@@ -231,4 +231,71 @@ class PredicateBuildersTest {
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
                 () -> b.build(cb, path, new Object()));
     }
+
+    static class BroadSearchFilterDTO implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
+        @Filterable(
+                operation = Filterable.FilterOperation.LIKE,
+                relations = {"fullName", "socialName", "dependents.fullName"}
+        )
+        String searchTerm;
+    }
+
+    @Test
+    @DisplayName("GenericSpecificationsBuilder with @Filterable(relations = {...}) builds OR predicate and sets distinct(true)")
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void multiRelationsBuildsDisjunctionAndSetsDistinct() {
+        jakarta.persistence.criteria.Root root = mock(jakarta.persistence.criteria.Root.class);
+        jakarta.persistence.criteria.CriteriaQuery query = mock(jakarta.persistence.criteria.CriteriaQuery.class);
+        jakarta.persistence.criteria.Join dependentsJoin = mock(jakarta.persistence.criteria.Join.class);
+        Path fullNamePath = mock(Path.class);
+        Path socialNamePath = mock(Path.class);
+        Path depNamePath = mock(Path.class);
+        Expression fullNameStr = mock(Expression.class);
+        Expression socialNameStr = mock(Expression.class);
+        Expression depNameStr = mock(Expression.class);
+        Expression lower1 = mock(Expression.class);
+        Expression lower2 = mock(Expression.class);
+        Expression lower3 = mock(Expression.class);
+        Predicate p1 = mock(Predicate.class);
+        Predicate p2 = mock(Predicate.class);
+        Predicate p3 = mock(Predicate.class);
+        Predicate orPred = mock(Predicate.class);
+        Predicate andPred = mock(Predicate.class);
+
+        when(root.get("fullName")).thenReturn(fullNamePath);
+        when(root.get("socialName")).thenReturn(socialNamePath);
+        when(root.getJoins()).thenReturn(java.util.Set.of());
+        when(root.join("dependents", jakarta.persistence.criteria.JoinType.LEFT)).thenReturn(dependentsJoin);
+        when(dependentsJoin.get("fullName")).thenReturn(depNamePath);
+
+        when(fullNamePath.as(String.class)).thenReturn(fullNameStr);
+        when(socialNamePath.as(String.class)).thenReturn(socialNameStr);
+        when(depNamePath.as(String.class)).thenReturn(depNameStr);
+        when(cb.lower(fullNameStr)).thenReturn(lower1);
+        when(cb.lower(socialNameStr)).thenReturn(lower2);
+        when(cb.lower(depNameStr)).thenReturn(lower3);
+        when(cb.like(lower1, "%silva%")).thenReturn(p1);
+        when(cb.like(lower2, "%silva%")).thenReturn(p2);
+        when(cb.like(lower3, "%silva%")).thenReturn(p3);
+        when(cb.or(any(Predicate[].class))).thenReturn(orPred);
+        when(cb.and(any(Predicate[].class))).thenReturn(andPred);
+
+        BroadSearchFilterDTO filter = new BroadSearchFilterDTO();
+        filter.searchTerm = "Silva";
+
+        GenericSpecificationsBuilder<Object> builder = new GenericSpecificationsBuilder<>();
+        GenericSpecification<Object> spec = builder.buildSpecification(
+                filter,
+                org.springframework.data.domain.PageRequest.of(0, 10, org.springframework.data.domain.Sort.by("searchTerm"))
+        );
+        Predicate built = spec.spec().toPredicate(root, query, cb);
+
+        assertSame(andPred, built);
+        verify(query).distinct(true);
+        verify(cb).or(any(Predicate[].class));
+        org.junit.jupiter.api.Assertions.assertEquals(
+                "fullName",
+                spec.pageable().getSort().iterator().next().getProperty()
+        );
+    }
 }

@@ -144,6 +144,19 @@ public @interface Filterable {
     String relation() default "";
 
     /**
+     * Múltiplos caminhos de atributos/relacionamentos na entidade combinados por disjunção ({@code OR})
+     * para busca ampla (omnibox) num único campo de filtro.
+     *
+     * <p>Permite que um único campo do {@code FilterDTO} (ex.: {@code searchTerm} ou {@code buscaAmpla})
+     * pesquise simultaneamente em múltiplos atributos da própria entidade e de entidades relacionadas
+     * (ex.: {@code relations = {"fullName", "socialName", "motherName", "fatherName", "dependents.fullName", "taxId"}}),
+     * sem obrigar o usuário final a escolher campos separados para cada variação semântica.</p>
+     *
+     * @return Lista de caminhos de propriedades/relacionamentos avaliados em {@code OR}.
+     */
+    String[] relations() default {};
+
+    /**
      * Enumeração com as operações de filtro disponíveis.
      */
     enum FilterOperation {
