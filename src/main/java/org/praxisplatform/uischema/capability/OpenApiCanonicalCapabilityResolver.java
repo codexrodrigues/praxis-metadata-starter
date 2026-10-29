@@ -58,7 +58,8 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 || hasItemLevelWriteOperation(pathsNode, basePath, "put", "patch"));
         capabilities.put("delete", hasDirectItemOperation(pathsNode, basePath, "delete")
                 || hasOperation(pathsNode, basePath + "/batch", "delete"));
-        capabilities.put("duplicate-draft", hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post"));
+        capabilities.put("duplicate-draft", structural.duplicateDraft()
+                && hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post"));
         capabilities.put("options", structural.options() && (hasOperation(pathsNode, basePath + "/options/filter", "post")
                 || hasOperation(pathsNode, basePath + "/options/by-ids", "get")));
         capabilities.put("optionSources", structural.optionSources()
@@ -107,7 +108,7 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
         ResourceStructuralCapabilities structural = structuralCapabilityResolver.resolve(basePath);
         Map<String, CapabilityOperation> operations = new LinkedHashMap<>(
-                resolveCrudOperations(openApiDocument, resourcePath)
+                resolveCrudOperations(pathsNode, basePath, structural)
         );
 
         boolean byId = hasOperation(pathsNode, basePath + "/{id}", "get");
@@ -210,7 +211,12 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
     public Map<String, CapabilityOperation> resolveCrudOperations(JsonNode openApiDocument, String resourcePath) {
         String basePath = normalizePath(resourcePath);
         JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
+        return resolveCrudOperations(pathsNode, basePath, structuralCapabilityResolver.resolve(basePath));
+    }
 
+    private Map<String, CapabilityOperation> resolveCrudOperations(
+            JsonNode pathsNode, String basePath, ResourceStructuralCapabilities structural
+    ) {
         Map<String, CapabilityOperation> operations = new LinkedHashMap<>();
         operations.put("create", new CapabilityOperation(
                 "create",
@@ -244,11 +250,13 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 "delete",
                 AvailabilityDecision.allowAll()
         ));
+        boolean duplicateDraft = structural.duplicateDraft()
+                && hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post");
         operations.put("duplicate-draft", new CapabilityOperation(
                 "duplicate-draft",
-                hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post"),
+                duplicateDraft,
                 "ITEM",
-                hasOperation(pathsNode, basePath + "/{id}/duplicate-draft", "post") ? "POST" : null,
+                duplicateDraft ? "POST" : null,
                 "duplicate-draft",
                 AvailabilityDecision.allowAll()
         ));

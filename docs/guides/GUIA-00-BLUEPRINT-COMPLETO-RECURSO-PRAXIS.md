@@ -67,7 +67,7 @@ Para evitar entregas superficiais ("um pouquinho de cada coisa"), todo módulo o
 11. **Manutenção Parcial Governada (`@ResourceIntent`):**
     - Endpoints `PATCH /{id}/{intent}` com `@ResourceIntent` + `@UiSurface(kind = SurfaceKind.PARTIAL_FORM)` e DTO dedicado por subbloco cadastral.
 12. **Ciclo de Vida (`@WorkflowAction`) & Concorrência (`If-Match` / `Idempotency-Key`):**
-    - Todas as transições de estado reais modeladas com `@WorkflowAction`, DTO de comando, `ResourceStateSnapshotProvider`, `VersionedCreateUpdateResourceService` (`ETag` + `If-Match`), `Idempotency-Key` (`GovernedResourceCommandExecutor`) e `DuplicateDraftLegacyBackedResourceService` quando aplicável.
+    - Todas as transições de estado reais modeladas com `@WorkflowAction`, DTO de comando, `ResourceStateSnapshotProvider`, `VersionedCreateUpdateResourceService` (`ETag` + `If-Match`), `Idempotency-Key` (`GovernedResourceCommandExecutor`) e `DuplicateDraftResourceService` quando aplicável.
 13. **Operações em Lote Governadas (`Bulking` — 3 Modos Além do Óbvio):**
     - Auditar 100% dos atributos mutáveis diferenciando `BulkMode.UNIFORM_UPDATE` (padronização coletiva: departamento, centro de custo, jornada/turno, regime/plano, banco/agência/forma de pagamento, flags operacionais, gestor) e `BulkMode.PER_ITEM_UPDATE` (planilha/grade de revisão individualizada em lote: telefones, e-mails, endereços, contas bancárias, valores/limites individuais, códigos externos, datas específicas por item) com `@Schema(nullable = true)` quando `allowClear = true`;
     - `@BulkResourceOperations(protectedUpdateFields = {...})` no Controller;
@@ -119,3 +119,19 @@ Ao construir ou evoluir um host Praxis, **é proibido atuar como um gerador mec�
      - `@PostMapping` (`create`) e `@PutMapping("/{id}")` (`update`) no Controller devem declarar `@Operation(operationId = "create...", ...)` e `@Operation(operationId = "update...", ...)` explícitos;
      - O endpoint da determinação deve ser um `@PostMapping` sem variáveis de caminho, com `@Operation(operationId = "determine...", ...)`, corpo JSON e resposta `200 OK` JSON não-persistente;
      - Todos os caminhos (`sourcePaths`, `fieldPath`, `requestPath`, `responsePath`) devem ser JSON Pointers iniciados por `"/"`; todo `sourcePath` deve constar em `inputs`; todos os campos `input.fieldPath` e `output.fieldPath` devem existir no `CreateDTO`/`UpdateDTO`; e `inputs` e `outputs` nunca podem se sobrepor.
+
+## Caminhos reutilizados e fontes de opções
+
+Antes de criar DTOs e FilterDTOs, defina `final ApiPaths` no host (construtor
+privado, constantes `public static final String` calculáveis em compilação).
+Componha base, caminho do recurso, chave da fonte e endpoint nomeado de opções
+uma única vez. Controllers, DTOs de todas as operações, registro de fontes,
+superfícies e links devem reutilizar essas constantes. Não concatene caminhos
+completos em cada DTO, não use interfaces de constantes ou chamadas de método
+para valores de annotations, e não inclua origem/porta do ambiente.
+`OptionSourceRegistry`/`OptionSourceDescriptor` continuam definindo a semântica;
+o runtime consome `x-ui.optionSource.filterEndpoint` e `byIdsEndpoint` publicados
+pelo starter. Selects com enum/opções estáticas não precisam de endpoint.
+Valide os endpoints das annotations contra o runtime do descritor e o mapping
+do controller, preservando fixtures literais independentes e recompilando o host.
+A classe de caminhos é do host; bibliotecas universais não recebem rotas de produtos.

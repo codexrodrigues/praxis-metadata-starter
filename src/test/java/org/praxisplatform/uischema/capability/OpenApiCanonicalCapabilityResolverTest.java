@@ -3,6 +3,8 @@ package org.praxisplatform.uischema.capability;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.stats.StatsCapability;
 
@@ -162,7 +164,7 @@ class OpenApiCanonicalCapabilityResolverTest {
 
     private static ResourceStructuralCapabilities fullySupported() {
         return new ResourceStructuralCapabilities(
-                true, true, true, true, true, true, false,
+                true, true, true, true, true, true, false, true,
                 StatsCapability.empty(), null
         );
     }
@@ -179,7 +181,7 @@ class OpenApiCanonicalCapabilityResolverTest {
         CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
                 new StaticOpenApiDocumentService("human-resources", document),
                 ignored -> new ResourceStructuralCapabilities(
-                        false, false, false, false, false, false, true,
+                        false, false, false, false, false, false, true, false,
                         StatsCapability.empty(), null
                 )
         );
@@ -398,6 +400,70 @@ class OpenApiCanonicalCapabilityResolverTest {
         CapabilityOperation delete = resolver.resolveCrudOperations(document, "/codigos-frequencia").get("delete");
         assertFalse(delete.supported());
         assertNull(delete.preferredMethod());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,post,true", "false,post,false", "true,get,false",
+            "false,get,false", "true,absent,false", "false,absent,false"})
+    void duplicateDraftRequiresBothStructuralOptInAndPublishedPost(
+            boolean optIn, String mapping, boolean expected
+    ) throws Exception {
+        JsonNode document = objectMapper.readTree("{\"paths\":{}}");
+        if (!"absent".equals(mapping)) {
+            ((com.fasterxml.jackson.databind.node.ObjectNode) document.path("paths"))
+                    .putObject("/employees/{id}/duplicate-draft").putObject(mapping);
+        }
+        JsonNode unchangedDocument = document.deepCopy();
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("human-resources", document),
+                ignored -> new ResourceStructuralCapabilities(
+                        false, false, false, false, false, false, false, optIn, null, null)
+        );
+        assertEquals(expected, resolver.resolve("/employees/").get("duplicate-draft"));
+        assertEquals(expected, resolver.resolve(document, "/employees/").get("duplicate-draft"));
+        for (Map<String, CapabilityOperation> operations : java.util.List.of(
+                resolver.resolveCrudOperations("/employees/"),
+                resolver.resolveCrudOperations(document, "/employees/"),
+                resolver.resolveOperations("/employees/"),
+                resolver.resolveOperations(document, "/employees/"))) {
+            assertOperation(operations, "duplicate-draft", expected, "ITEM",
+                    expected ? "POST" : null, "duplicate-draft");
+        }
+        // Capabilities do not remove a fixed controller mapping from OpenAPI.
+        assertEquals(unchangedDocument, document);
+    }
+
+    @Test
+    void noOpStructuralResolverNeverInfersDuplicateSupportFromMapping() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {"paths":{"/employees/{id}/duplicate-draft":{"post":{}}}}
+                """);
+        OpenApiDocumentService documents = new StaticOpenApiDocumentService("human-resources", document);
+        assertEquals(ResourceStructuralCapabilities.unsupported(),
+                new NoOpResourceStructuralCapabilityResolver().resolve("/employees"));
+        for (CanonicalCapabilityResolver resolver : java.util.List.of(
+                new OpenApiCanonicalCapabilityResolver(documents),
+                new OpenApiCanonicalCapabilityResolver(documents, null),
+                new OpenApiCanonicalCapabilityResolver(documents, new NoOpResourceStructuralCapabilityResolver()))) {
+            assertFalse(resolver.resolve("/employees").get("duplicate-draft"));
+            assertOperation(resolver.resolveCrudOperations("/employees"),
+                    "duplicate-draft", false, "ITEM", null, "duplicate-draft");
+            assertOperation(resolver.resolveOperations("/employees"),
+                    "duplicate-draft", false, "ITEM", null, "duplicate-draft");
+        }
+    }
+
+    @Test
+    void resolvesStructuralSupportOncePerOperationsProjection() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {"paths":{"/employees/{id}/duplicate-draft":{"post":{}}}}
+                """);
+        ResourceStructuralCapabilityResolver structural = org.mockito.Mockito.mock(ResourceStructuralCapabilityResolver.class);
+        org.mockito.Mockito.when(structural.resolve("/employees")).thenReturn(fullySupported());
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("human-resources", document), structural);
+        assertTrue(resolver.resolveOperations(document, "//employees//").get("duplicate-draft").supported());
+        org.mockito.Mockito.verify(structural, org.mockito.Mockito.times(1)).resolve("/employees");
     }
 
     private void assertOperation(

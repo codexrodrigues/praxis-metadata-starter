@@ -1,5 +1,10 @@
 # Guia 02 - IA Backend - Recurso Metadata-Driven no Core Atual
 
+> **Autoria de caminhos:** use constantes de compilação do `ApiPaths` do host em
+> controllers, DTOs/FilterDTOs, comandos e registro de fontes; não espalhe caminhos
+> de lookup. Consulte [Caminhos de API e fontes de opções](API-PATHS-E-OPTION-SOURCES.md).
+
+
 ## Objetivo
 
 Este guia orienta a implementacao de um recurso backend metadata-driven alinhado

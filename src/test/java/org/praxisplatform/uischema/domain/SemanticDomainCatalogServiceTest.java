@@ -183,6 +183,7 @@ class SemanticDomainCatalogServiceTest {
                                 false,
                                 false,
                                 false,
+                                false,
                                 org.praxisplatform.uischema.stats.StatsCapability.empty(),
                                 null
                         )

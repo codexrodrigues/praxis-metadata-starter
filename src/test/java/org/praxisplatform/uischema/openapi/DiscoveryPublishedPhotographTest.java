@@ -39,6 +39,43 @@ class DiscoveryPublishedPhotographTest {
             + "{\"name\":\"child\",\"url\":\"/v3/api-docs/child\"}]}";
 
     @Test
+    void directOperationGuardRunsCallbacksOutsideLocksAndChecksTheFinalFence() {
+        try (var f = new Fixture(true)) {
+            var calls = new AtomicInteger();
+            var service = f.capabilities(() -> { f.assertUnlocked(); calls.incrementAndGet(); });
+            assertThat(service.itemOperationAvailability(RESOURCE, PATH, "view", 42).allowed()).isTrue();
+            assertThat(calls).hasValue(1);
+            f.assertFencesClosed();
+            var drifting = f.capabilities(() -> { f.assertUnlocked(); f.generation.incrementAndGet(); });
+            assertThatThrownBy(() -> drifting.itemOperationAvailability(RESOURCE, PATH, "view", 42))
+                    .isInstanceOf(GovernedOpenApiPublicationUnavailableException.class);
+            f.assertFencesClosed();
+        }
+    }
+
+    @Test
+    void directOperationGuardRejectsMissingPublicationAndAmbientTransactionBeforeCallbacks() {
+        try (var f = new Fixture(false)) {
+            var calls = new AtomicInteger();
+            assertThatThrownBy(() -> f.capabilities(calls::incrementAndGet)
+                    .itemOperationAvailability(RESOURCE, PATH, "view", 42))
+                    .isInstanceOf(GovernedOpenApiPublicationUnavailableException.class);
+            assertThat(calls).hasValue(0);
+        }
+        try (var f = new Fixture(true)) {
+            var calls = new AtomicInteger();
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                assertThatThrownBy(() -> f.capabilities(calls::incrementAndGet)
+                        .itemOperationAvailability(RESOURCE, PATH, "view", 42))
+                        .isInstanceOf(IllegalStateException.class).hasMessageContaining("outside operational transactions");
+                assertThat(calls).hasValue(0);
+                assertThat(f.guards).hasValue(0);
+            } finally { TransactionSynchronizationManager.setActualTransactionActive(false); }
+        }
+    }
+
+    @Test
     void realParentAndRelatedDocumentsUseBoundedGuardsIndependentOfChildOperationCount() {
         try (var f = new Fixture(true)) {
             var callbacks = new AtomicInteger();

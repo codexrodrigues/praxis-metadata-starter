@@ -27,7 +27,7 @@ import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.FieldDataType;
 import org.praxisplatform.uischema.action.EmptyWorkflowActionRequest;
 import org.praxisplatform.uischema.configuration.OpenApiUiSchemaAutoConfiguration;
-import org.praxisplatform.uischema.controller.base.AbstractDuplicateDraftLegacyBackedResourceController;
+import org.praxisplatform.uischema.controller.base.AbstractDuplicateDraftResourceController;
 import org.springdoc.core.properties.SpringDocConfigProperties;
 import org.springdoc.core.utils.SpringDocAnnotationsUtils;
 import org.springdoc.core.properties.SpringDocConfigProperties.ApiDocs.OpenApiVersion;
@@ -168,7 +168,7 @@ class CustomOpenApiResolverSwaggerPipelineTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void conversionPreservesTheActualDuplicateDraftRequestBodyContext(boolean openApi31) throws Exception {
-        var operation = AbstractDuplicateDraftLegacyBackedResourceController.class
+        var operation = AbstractDuplicateDraftResourceController.class
                 .getDeclaredMethod("duplicateDraft", Object.class)
                 .getAnnotation(io.swagger.v3.oas.annotations.Operation.class);
         var requestBody = operation.requestBody();

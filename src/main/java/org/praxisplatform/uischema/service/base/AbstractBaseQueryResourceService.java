@@ -132,6 +132,7 @@ public abstract class AbstractBaseQueryResourceService<
                 distribution,
                 comparison,
                 export,
+                BaseResourceQueryService.super.getStructuralCapabilities().duplicateDraft(),
                 statsInfrastructure
                         ? StatsCapability.from(
                                 registry,

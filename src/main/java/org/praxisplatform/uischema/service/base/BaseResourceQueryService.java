@@ -47,11 +47,18 @@ import java.util.OptionalLong;
 public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends GenericFilterDTO> {
 
     /**
-     * Publica o suporte estrutural executavel das operacoes opcionais da hierarquia de query.
+     * Publica o suporte estrutural executavel das operacoes opcionais do recurso.
      * Implementacoes diretas devem optar explicitamente pelas operacoes que realmente executam.
+     * A porta {@link DuplicateDraftResourceCommandService} declara o opt-in de duplicacao,
+     * sem exigir heranca JPA. Sobrescritas devem preservar esse sinal junto aos demais suportes.
      */
     default ResourceStructuralCapabilities getStructuralCapabilities() {
-        return ResourceStructuralCapabilities.unsupported();
+        return new ResourceStructuralCapabilities(
+                false, false, false, false, false, false, false,
+                this instanceof DuplicateDraftResourceCommandService<?, ?> duplicateDraftService
+                        && duplicateDraftService.supportsDuplicateDraft(),
+                null, null
+        );
     }
 
     String getIdFieldName();

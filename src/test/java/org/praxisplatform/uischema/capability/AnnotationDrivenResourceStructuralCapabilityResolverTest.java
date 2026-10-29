@@ -26,7 +26,7 @@ class AnnotationDrivenResourceStructuralCapabilityResolverTest {
     @Test
     void resolvesTheExecutableServiceBoundToTheCanonicalResourcePath() throws Exception {
         ResourceStructuralCapabilities expected = new ResourceStructuralCapabilities(
-                true, false, false, false, false, false, false,
+                true, false, false, false, false, false, false, false,
                 StatsCapability.empty(), null
         );
         @SuppressWarnings("unchecked")

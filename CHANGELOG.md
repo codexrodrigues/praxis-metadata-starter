@@ -4,6 +4,19 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### API Java neutra de rascunho de duplicação — T01
+
+- Substitui `DuplicateDraftLegacyBackedResourceCommandService`, `DuplicateDraftLegacyBackedResourceService`
+  e `AbstractDuplicateDraftLegacyBackedResourceController` por `DuplicateDraftResourceCommandService`,
+  `DuplicateDraftResourceService` e `AbstractDuplicateDraftResourceController`, respectivamente.
+- Remove as bases redundantes `LegacyBackedResourceCommandService`, `LegacyBackedResourceService`
+  e `AbstractLegacyBackedResourceController`: consumidores passam a usar `BaseResourceCommandService`,
+  `BaseResourceService` e `AbstractResourceController`, mantendo a ordem dos parâmetros genéricos.
+- Quebra de API Java sem aliases de compatibilidade. Serviços diretos continuam sem obrigação de
+  herdar JPA. Endpoint, envelope, `DraftDTO` e comportamento de opt-in são preservados.
+- Suporte estrutural, unificação de disponibilidade e migrações downstream são incrementos posteriores;
+  este corte isolado não autoriza integração ou publicação com consumidores ainda não migrados.
+
 ### Correções da revisão do candidato #303
 - Schemas de escrita deixam de publicar custom fields readonly; schemas de resposta e filtros elegíveis preservam suas projeções próprias.
 - Chaves reservadas pelos consumidores JavaScript são rejeitadas no descriptor e na spec, sem aliases; hosts precisam migrar definições/dados antigos incompatíveis.

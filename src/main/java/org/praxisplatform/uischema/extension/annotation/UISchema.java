@@ -35,13 +35,17 @@ import static java.lang.annotation.ElementType.*;
  * mas nao devem substituir o contrato governado de option-source quando a fonte precisar
  * ser consumida por IA, Page Builder, formularios metadata-driven ou runtimes corporativos.</p>
  *
+ * <p>Centralize os caminhos reutilizados em constantes de compilação do {@code ApiPaths}
+ * do host e compartilhe recurso/chave com o registry. Origem e porta são configuração de
+ * ambiente. Opções estáticas não exigem endpoint.</p>
+ *
  * <h4>Padrões suportados</h4>
  * <ol>
  *   <li><strong>OptionDTO (payload leve)</strong>
  *   <pre>{@code
  * @UISchema(
  *   controlType = FieldControlType.SELECT,
- *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/option-sources/categorias/options/filter",
+ *   endpoint = ApiPaths.Catalog.CATEGORIAS_OPTIONS,
  *   valueField = "id",     // org.praxisplatform.uischema.dto.OptionDTO.id
  *   displayField = "label" // org.praxisplatform.uischema.dto.OptionDTO.label
  * )
@@ -50,13 +54,13 @@ import static java.lang.annotation.ElementType.*;
  *   <p>O label e resolvido no backend via {@code @OptionLabel} ou heuristicas do
  *   {@code AbstractBaseQueryResourceService#computeOptionLabel}.</p>
  *   </li>
- *   <li><strong>DTO completo</strong> (recomendado quando a UI precisa de colunas extras no dropdown)
+ *   <li><strong>Lookup rico</strong> (metadados adicionais em {@code OptionDTO.extra})
  *   <pre>{@code
  * @UISchema(
  *   controlType = FieldControlType.SELECT,
- *   endpoint = ApiPaths.Catalog.CATEGORIAS + "/option-sources/categorias/options/filter",
- *   valueField = "id",            // campo do DTO usado como value
- *   displayField = "nome"         // campo do DTO usado como label
+ *   endpoint = ApiPaths.Catalog.CATEGORIAS_OPTIONS,
+ *   valueField = "id",            // identidade publicada pelo OptionDTO
+ *   displayField = "label"        // descrição publicada pelo OptionDTO
  * )
  * private Long categoriaId;
  * }</pre>
@@ -73,7 +77,7 @@ import static java.lang.annotation.ElementType.*;
  * @UISchema(
  *   name = "cidade",
  *   controlType = FieldControlType.SELECT,
- *   endpoint = "/api/cidades/option-sources/cidades/options/filter",
+ *   endpoint = ApiPaths.Catalog.CIDADES_OPTIONS,
  *   dependsOn = "estado",
  *   resetOnDependentChange = true
  * )
