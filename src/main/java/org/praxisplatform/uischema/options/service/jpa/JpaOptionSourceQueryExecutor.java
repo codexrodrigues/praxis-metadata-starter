@@ -618,8 +618,24 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         try {
             return tuple.get(alias);
         } catch (IllegalArgumentException ignored) {
-            return null;
+            return compositeTupleValue(tuple, alias);
         }
+    }
+
+    private String compositeTupleValue(Tuple tuple, String alias) {
+        List<String> parts = new ArrayList<>();
+        for (int index = 0; ; index++) {
+            try {
+                Object part = tuple.get(alias + "__" + index);
+                if (part == null) {
+                    return null;
+                }
+                parts.add(String.valueOf(part).replace("%", "%25").replace(":", "%3A"));
+            } catch (IllegalArgumentException ignored) {
+                break;
+            }
+        }
+        return parts.isEmpty() ? null : String.join(CompositeIdSupport.SEPARATOR, parts);
     }
 
     private String buildDescription(Tuple tuple, int descriptionCount) {
@@ -848,6 +864,22 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             Path<?> resolvedPath = resolvePath(root, propertyPath);
             if (selectedAliases.contains(alias)) {
                 return;
+            }
+            Class<?> pathType = resolvedPath.getJavaType();
+            if (CompositeIdSupport.isCompositeIdType(pathType)) {
+                List<CompositeIdSupport.ComponentDescriptor> components = CompositeIdSupport.descriptors(pathType);
+                if (!components.isEmpty()) {
+                    for (int i = 0; i < components.size(); i++) {
+                        Path<?> compPath = resolvedPath.get(components.get(i).name());
+                        String compAlias = alias + "__" + i;
+                        selections.add(cb.coalesce(compPath, compPath).alias(compAlias));
+                        selectedPaths.add(compPath);
+                        selectedAliases.add(compAlias);
+                    }
+                    selectedPaths.add(resolvedPath);
+                    selectedAliases.add(alias);
+                    return;
+                }
             }
             // Hibernate reuses Path instances. alias() mutates that instance, so the same
             // property in code/description/display must get independent selection nodes.
