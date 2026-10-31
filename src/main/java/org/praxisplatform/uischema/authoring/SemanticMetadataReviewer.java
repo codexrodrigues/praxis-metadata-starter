@@ -4,12 +4,17 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
+import org.praxisplatform.uischema.fact.ResourceFact;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Lints DTO metadata without fabricating domain text.
@@ -23,6 +28,12 @@ import java.util.Locale;
  */
 public class SemanticMetadataReviewer {
 
+    private static final Set<String> SENSITIVE_FIELD_TOKENS = Set.of(
+            "cpf", "cnpj", "pis", "pasep", "nit", "ctps", "cnh", "passaporte",
+            "senha", "password", "secret", "token", "apikey", "clientsecret", "privatekey",
+            "cartao", "creditcard", "cvv", "contabancaria", "chavepix"
+    );
+
     public SemanticMetadataReviewReport review(Class<?> targetType) {
         if (targetType == null) {
             return new SemanticMetadataReviewReport(null, List.of());
@@ -30,26 +41,99 @@ public class SemanticMetadataReviewer {
 
         List<SemanticMetadataReviewIssue> issues = new ArrayList<>();
         Class<?> currentType = targetType;
-        while (currentType != null && currentType != Object.class) {
+        while (currentType != null && currentType != Object.class && currentType != Record.class) {
             for (Field field : currentType.getDeclaredFields()) {
-                if (Modifier.isStatic(field.getModifiers())) {
+                if (Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) {
                     continue;
                 }
-                reviewField(targetType, field, issues);
+                reviewField(targetType, currentType, field, issues);
             }
+            reviewResourceFactsOnType(targetType, currentType, issues);
             currentType = currentType.getSuperclass();
         }
         return new SemanticMetadataReviewReport(targetType, issues);
     }
 
-    private void reviewField(Class<?> targetType, Field field, List<SemanticMetadataReviewIssue> issues) {
-        Schema schema = field.getAnnotation(Schema.class);
-        var ignored = field.getAnnotation(com.fasterxml.jackson.annotation.JsonIgnore.class);
+    public SemanticMetadataReviewReport reviewResourceFacts(Class<?> targetType) {
+        if (targetType == null) {
+            return new SemanticMetadataReviewReport(null, List.of());
+        }
+
+        List<SemanticMetadataReviewIssue> issues = new ArrayList<>();
+        Class<?> currentType = targetType;
+        while (currentType != null && currentType != Object.class && currentType != Record.class) {
+            reviewResourceFactsOnType(targetType, currentType, issues);
+            currentType = currentType.getSuperclass();
+        }
+        return new SemanticMetadataReviewReport(targetType, issues);
+    }
+
+    private void reviewResourceFactsOnType(
+            Class<?> targetType,
+            Class<?> currentType,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        for (ResourceFact fact : currentType.getDeclaredAnnotationsByType(ResourceFact.class)) {
+            reviewResourceFact(targetType, "@ResourceFact(" + normalize(fact.key()) + ")", fact, issues);
+        }
+        for (Method method : currentType.getDeclaredMethods()) {
+            if (method.isSynthetic() || method.isBridge()) {
+                continue;
+            }
+            for (ResourceFact fact : method.getDeclaredAnnotationsByType(ResourceFact.class)) {
+                String factKey = normalize(fact.key());
+                String memberName = factKey.isBlank() ? method.getName() : method.getName() + "@ResourceFact(" + factKey + ")";
+                reviewResourceFact(targetType, memberName, fact, issues);
+            }
+        }
+    }
+
+    private void reviewResourceFact(
+            Class<?> targetType,
+            String memberName,
+            ResourceFact fact,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        String label = normalize(fact.label());
+        String description = normalize(fact.description());
+
+        if (description.isBlank()) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-fact-description-missing",
+                    targetType.getName(),
+                    memberName,
+                    "@ResourceFact requires explicit business-domain description."
+            ));
+        }
+
+        if (label.isBlank()) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-fact-label-missing",
+                    targetType.getName(),
+                    memberName,
+                    "@ResourceFact requires a short UI label (<= 36 chars, no trailing period)."
+            ));
+        } else if (label.length() > 36 || label.endsWith(".")) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-fact-label-looks-like-sentence",
+                    targetType.getName(),
+                    memberName,
+                    "@ResourceFact(label) exceeds 36 chars or ends with a period; move detailed explanation to description."
+            ));
+        }
+    }
+
+    private void reviewField(Class<?> targetType, Class<?> declaringType, Field field, List<SemanticMetadataReviewIssue> issues) {
+        Schema schema = findMemberAnnotation(declaringType, field, Schema.class);
+        var ignored = findMemberAnnotation(declaringType, field, com.fasterxml.jackson.annotation.JsonIgnore.class);
         // Internal state must be excluded from both wire JSON and documentation.
         // Hiding a schema alone must not exempt an undocumented public property.
         if (schema != null && schema.hidden() && ignored != null && ignored.value()) return;
-        UISchema uiSchema = field.getAnnotation(UISchema.class);
-        DomainGovernance governance = field.getAnnotation(DomainGovernance.class);
+        UISchema uiSchema = findMemberAnnotation(declaringType, field, UISchema.class);
+        DomainGovernance governance = findMemberAnnotation(declaringType, field, DomainGovernance.class);
 
         String description = schema == null ? "" : normalize(schema.description());
         String label = uiSchema == null ? "" : normalize(uiSchema.label());
@@ -80,6 +164,16 @@ public class SemanticMetadataReviewer {
             ));
         }
 
+        if (!label.isBlank() && (label.length() > 36 || label.endsWith("."))) {
+            issues.add(issue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "ui-label-looks-like-sentence",
+                    targetType,
+                    field,
+                    "@UISchema(label) exceeds 36 chars or ends with a period; keep label concise and move explanation to helpText or @Schema(description)."
+            ));
+        }
+
         if (looksLikePrivateContextField(field.getName()) && governance == null) {
             issues.add(issue(
                     SemanticMetadataIssueSeverity.WARNING,
@@ -87,6 +181,14 @@ public class SemanticMetadataReviewer {
                     targetType,
                     field,
                     "Field name looks like private tenant/user/session context. Add governance or move it out of the public DTO."
+            ));
+        } else if (looksLikeSensitiveOrCredentialField(field.getName()) && governance == null) {
+            issues.add(issue(
+                    SemanticMetadataIssueSeverity.WARNING,
+                    "sensitive-field-without-governance",
+                    targetType,
+                    field,
+                    "Field name looks like PII/sensitive/credential data. Declare @DomainGovernance explicitly for catalog and policy sidecar consumption."
             ));
         }
 
@@ -99,6 +201,54 @@ public class SemanticMetadataReviewer {
                     "UI presentation preset does not replace explicit domain documentation."
             ));
         }
+    }
+
+    private <A extends Annotation> A findMemberAnnotation(Class<?> declaringType, Field field, Class<A> annotationType) {
+        A direct = field.getAnnotation(annotationType);
+        if (direct != null) {
+            return direct;
+        }
+        if (declaringType.isRecord() && declaringType.getRecordComponents() != null) {
+            for (RecordComponent component : declaringType.getRecordComponents()) {
+                if (component.getName().equals(field.getName())) {
+                    A fromComponent = component.getAnnotation(annotationType);
+                    if (fromComponent != null) {
+                        return fromComponent;
+                    }
+                    Method accessor = component.getAccessor();
+                    if (accessor != null) {
+                        A fromAccessor = accessor.getAnnotation(annotationType);
+                        if (fromAccessor != null) {
+                            return fromAccessor;
+                        }
+                    }
+                }
+            }
+        }
+        try {
+            Method accessor = declaringType.getDeclaredMethod(field.getName());
+            A fromMethod = accessor.getAnnotation(annotationType);
+            if (fromMethod != null) {
+                return fromMethod;
+            }
+        } catch (NoSuchMethodException ignored) {
+            // Not a record-style accessor; check standard JavaBean getter below.
+        }
+        String capitalized = field.getName().isEmpty()
+                ? ""
+                : Character.toUpperCase(field.getName().charAt(0)) + field.getName().substring(1);
+        for (String prefix : List.of("get", "is")) {
+            try {
+                Method getter = declaringType.getDeclaredMethod(prefix + capitalized);
+                A fromGetter = getter.getAnnotation(annotationType);
+                if (fromGetter != null) {
+                    return fromGetter;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // No getter with this prefix.
+            }
+        }
+        return null;
     }
 
     private SemanticMetadataReviewIssue issue(
@@ -126,6 +276,19 @@ public class SemanticMetadataReviewer {
                 || normalized.equals("contextid")
                 || normalized.equals("requestcontext")
                 || normalized.equals("securitycontext");
+    }
+
+    private boolean looksLikeSensitiveOrCredentialField(String fieldName) {
+        String normalized = normalizeToken(fieldName);
+        if (SENSITIVE_FIELD_TOKENS.contains(normalized)) {
+            return true;
+        }
+        for (String token : List.of("cpf", "cnpj", "pasep", "senha", "password", "secret", "apikey", "clientsecret", "privatekey", "creditcard", "chavepix")) {
+            if (normalized.contains(token)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean sameMeaning(String left, String right) {

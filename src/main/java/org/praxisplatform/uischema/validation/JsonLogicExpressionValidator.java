@@ -318,7 +318,7 @@ public final class JsonLogicExpressionValidator {
         put(arities, "matches", 2, 2);
         put(arities, "isBlank", 1, 1);
         put(arities, "len", 1, 1);
-        put(arities, "round", 1, 1);
+        put(arities, "round", 1, 2);
         put(arities, "ceil", 1, 1);
         put(arities, "floor", 1, 1);
         put(arities, "abs", 1, 1);

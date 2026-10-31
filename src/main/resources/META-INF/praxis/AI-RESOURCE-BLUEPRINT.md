@@ -33,7 +33,7 @@ O valor da plataforma Praxis reside em publicar um **contrato semântico complet
 | **2** | **Contabilidade 100% Entity-to-DTO (`Entity-to-DTO Coverage Gate`)** | **100% das colunas de negócio da entidade JPA** devem estar presentes no `ResponseDTO`. Colunas secundárias usam `@UISchema(group = "...", tableHidden = true)` para manter a tabela principal escaneável (5 a 10 colunas visíveis por padrão) e o formulário/ficha 100% completo. Em recursos mutáveis, toda coluna de negócio deve ser editável em `CreateDTO`/`UpdateDTO` **ou** `readOnly = true` no `ResponseDTO` e mutada por `@WorkflowAction` ou `@ResourceIntent` (`PATCH`). |
 | **3** | **Qualidade Editorial de `@UISchema`, `UISchemaPreset` & `valuePresentation`** | `label` curto (1 a 4 palavras, máx. ~35 caracteres, sem ponto final e **nunca** cópia de `@Schema.description`); `helpText` orientativo; `@Schema(description = ...)` com semântica real de negócio; `FieldDataType` e `FieldControlType` explícitos (usando os 65+ controles especializados como `AVATAR`, `CPF_CNPJ_INPUT`, `PHONE`, `CURRENCY_INPUT`, `DATE_PICKER`, `DATE_RANGE`, `ENTITY_LOOKUP`, `SELECT`, `CHECKBOX`, `PERCENT_SLIDER`, `FILE_UPLOAD`, `CRON_BUILDER`); `icon` Material; `group` e `order`; `UISchemaPreset` e `extraProperties` de apresentação (`labelTrue`/`labelFalse`, `toneTrue`/`toneFalse`, `presentation.presenter`). |
 | **4** | **Micro-Visualizações In-Cell (`@MicroVisualization`)** | Campos de progresso, ocupação, meta, variação ou distribuição em `ResponseDTO` declaram `@MicroVisualization(kind = MicroVisualizationKind.BULLET \| RADIAL \| HARVEY_BALL \| STACKED_BAR \| COMPARISON \| DELTA \| PROCESS_FLOW, valueExpr = "...", targetExpr = "...", totalExpr = "...", thresholds = {@Threshold(...)})`, validados estaticamente por `PraxisExpressionStaticValidator`. |
-| **5** | **Governança de Domínio, LGPD & `fieldAccess`** | `@DomainGovernance(domain, subdomain, dataCategory, classification, sensitiveData, maskPattern, exportable, filterable, analyticsEligible, aiPolicy = @AiUsagePolicy(...))` em todos os campos sensíveis, pessoais, financeiros ou de auditoria, combinado com `@UISchema(visibleForAuthorities = {...}, editableForAuthorities = {...}, fieldAccessReason = "...")` quando houver restrição por perfil. |
+| **5** | **Governança de Domínio, LGPD & `fieldAccess`** | `@DomainGovernance(kind = DomainGovernanceKind.PRIVACY \| SECURITY \| COMPLIANCE, classification = DomainClassification.PUBLIC \| INTERNAL \| CONFIDENTIAL \| RESTRICTED, dataCategory = DomainDataCategory.PERSONAL \| SENSITIVE_PERSONAL \| FINANCIAL \| CREDENTIAL \| OPERATIONAL \| LEGAL, complianceTags = {"LGPD", "PII"}, aiUsage = @AiUsagePolicy(visibility = AiVisibilityMode.MASK \| REDACT \| ALLOW \| DENY, trainingUse = AiTrainingUseMode.DENY, ruleAuthoring = AiControlledUseMode.REVIEW_REQUIRED, reasoningUse = AiControlledUseMode.ALLOW), reason = "...")` em todos os campos sensíveis, pessoais, financeiros ou de contexto de segurança, combinado com `@UISchema(visibleForAuthorities = {...}, editableForAuthorities = {...}, fieldAccessReason = "...")` quando houver restrição declarativa por perfil (consumida pelo catálogo semântico `/schemas/domain` e pelo futuro Sidecar de Políticas de Segurança OPA/Rego). |
 | **6** | **Identidade Rica (`@ResourceIdentity`)** | Declarada tanto em `@ApiResource(identity = @ResourceIdentity(...))` no Controller quanto no `ResponseDTO`, preenchendo obrigatoriamente `keyField`, `titleField`, `subtitleField` (e/ou `codeField`/`statusField`) e `metadataFields = {...}`. |
 | **7** | **Quick View & Navegação 360° (`@ResourceReference`)** | Curar **4 a 8 campos executivos** no `ResponseDTO` com `@UISchema(quickViewVisible = true, quickViewOrder = ...)` (sem repetir `titleField`/`subtitleField`). Anotar o campo `titleField` do próprio recurso **e** todos os campos de exibição de FKs (`departmentName`, `customerName`, `positionName`, `costCenterName`, `managerName`, etc.) com `@ResourceReference(resourceKey = "...", valueField = "...", surfaceId = "detail", previewSurfaceId = "...", detailPresentation = "drawer")`. |
 | **8** | **Lookups Ricos (`OptionSourceDescriptor` + `EntityLookupDescriptor`)** | Registrar no `OptionSourceRegistry` fontes `RESOURCE_ENTITY` e `DISTINCT_DIMENSION` completas. Todo `RESOURCE_ENTITY` deve preencher `EntityLookupDescriptor` com: (a) `codePropertyPath`, `descriptionPropertyPaths`, `statusPropertyPath`; (b) `LookupSelectionPolicy` (`selectablePropertyPath`, `allowedStatuses`/`blockedStatuses`, `allowRetainInvalidExistingValue = true`, `disabledReasonTemplate`, `validationMessageTemplate`); (c) `LookupDetailDescriptor` (`surfaceId = "detail"`, `previewSurfaceId = "..."`, `presentation = "drawer"`); (d) `LookupDisplayDescriptor` (`preset = "directory"`, `fields`); (e) `LookupFilteringDescriptor` (`sortOptions`, `defaultSort`, `searchStrategies`); e (f) `dependsOn` + `dependencyFilterMap` para filtros em cascata (ex.: `companyId` / `organizationId`). |
@@ -76,30 +76,26 @@ Todo projeto Java que utiliza `praxis-metadata-starter` deve incluir um teste JU
 ```java
 package com.example.host.architecture;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.core.converter.AnnotatedType;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.authoring.SemanticMetadataIssueSeverity;
 import org.praxisplatform.uischema.authoring.SemanticMetadataReviewReport;
 import org.praxisplatform.uischema.authoring.SemanticMetadataReviewer;
+import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
+import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationCandidate;
 import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationDiagnostics;
 import org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationInventory;
-import org.praxisplatform.uischema.options.service.OptionSourceRegistry;
 import org.praxisplatform.uischema.validation.PraxisExpressionStaticValidator;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
 class PraxisMetadataCompletenessTest {
-
-    @Autowired
-    private OptionSourceRegistry optionSourceRegistry;
 
     private final SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
     private final PraxisExpressionStaticValidator expressionValidator = new PraxisExpressionStaticValidator();
@@ -107,7 +103,7 @@ class PraxisMetadataCompletenessTest {
     @Test
     void responseAndFilterDtosPassSemanticMetadataReview() {
         List<Class<?>> dtoClasses = List.of(
-                // Liste aqui todos os ResponseDTO, CreateDTO, UpdateDTO e FilterDTO do host
+                // Liste aqui todos os ResponseDTO, CreateDTO, UpdateDTO, FilterDTO, DuplicateDraftDTO e CommandDTO do host
         );
         for (Class<?> dtoClass : dtoClasses) {
             SemanticMetadataReviewReport report = reviewer.review(dtoClass);
@@ -119,12 +115,16 @@ class PraxisMetadataCompletenessTest {
 
     @Test
     void responseDtosPassStaticExpressionValidation() {
+        ModelConverters converters = new ModelConverters();
+        converters.addConverter(new CustomOpenApiResolver(new ObjectMapper().findAndRegisterModules()));
         List<Class<?>> responseDtoClasses = List.of(
                 // Liste aqui todos os ResponseDTO do host (que declaram @MicroVisualization / formulas)
         );
         for (Class<?> dtoClass : responseDtoClasses) {
-            Map<String, Schema> resolved = ModelConverters.getInstance().readAll(dtoClass);
-            Schema<?> rootSchema = resolved.get(dtoClass.getSimpleName());
+            Schema<?> rootSchema = converters.resolveAsResolvedSchema(
+                    new AnnotatedType(dtoClass).resolveAsRef(false)
+            ).schema;
+            assertThat(rootSchema.getProperties()).as(dtoClass.getSimpleName()).isNotEmpty();
             assertThat(expressionValidator.validateSchemaExpressions(dtoClass.getSimpleName(), rootSchema, false))
                     .as("Static expression issues in %s", dtoClass.getSimpleName())
                     .isEmpty();
@@ -133,11 +133,12 @@ class PraxisMetadataCompletenessTest {
 
     @Test
     void registeredOptionSourcesArePublishedWithoutMismatch() {
-        List<OptionSourcePublicationCandidate> candidates = List.of(
-                // Ex.: new OptionSourcePublicationCandidate("department", "human-resources.employees", "POST", "/api/human-resources/employees/filter", "request", EmployeeFilterDTO.class)
+        OptionSourceRegistry optionSourceRegistry = OptionSourceRegistry.empty(); // substitua pelo bean OptionSourceRegistry do host
+        OptionSourcePublicationInventory inventory = OptionSourcePublicationInventory.of(
+                // Ex.: new OptionSourcePublicationCandidate("department", ApiPaths.HumanResources.DEPARTMENTS, "hr")
         );
         OptionSourcePublicationDiagnostics diagnostics =
-                new OptionSourcePublicationInventory(optionSourceRegistry, candidates).diagnose();
+                new OptionSourcePublicationDiagnostics(optionSourceRegistry, List.of(inventory));
         assertThat(diagnostics.unpublishedOrMismatched()).isEmpty();
     }
 }

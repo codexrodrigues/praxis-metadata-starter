@@ -94,7 +94,7 @@ import static java.lang.annotation.ElementType.*;
  * @see org.praxisplatform.uischema.ValidationProperties
  * @since 1.0.0
  */
-@Target({FIELD, METHOD, PARAMETER, TYPE, ANNOTATION_TYPE})
+@Target({FIELD, METHOD, PARAMETER, TYPE, ANNOTATION_TYPE, RECORD_COMPONENT})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface UISchema {

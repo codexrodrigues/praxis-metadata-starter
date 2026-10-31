@@ -7,6 +7,10 @@ import io.swagger.v3.oas.models.media.StringSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.annotation.MicroVisualization;
+import org.praxisplatform.uischema.annotation.MicroVisualizationKind;
+import org.praxisplatform.uischema.annotation.Threshold;
+import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.springframework.mock.env.MockEnvironment;
 
 import java.util.*;
@@ -253,5 +257,85 @@ class PraxisExpressionStaticValidatorTest {
         assertThrows(InvalidDomainExpressionException.class, () ->
                 validator.validateSchemaExpressions("HeroDTO", schema, true)
         );
+    }
+
+    @Test
+    @DisplayName("Validates all 14 MicroVisualization *Expr keys in x-ui.presentation.visualization")
+    void testAllFourteenMicroVisualizationExpressionKeysValidated() {
+        List<String> allExprKeys = List.of(
+                "toneExpr", "valueExpr", "targetExpr", "totalExpr", "baselineExpr",
+                "minExpr", "maxExpr", "pointsExpr", "segmentsExpr", "itemsExpr",
+                "thresholdsExpr", "ariaLabelExpr", "fallbackTextExpr", "valueSuffixExpr"
+        );
+
+        for (String exprKey : allExprKeys) {
+            Schema<?> schema = new Schema<>();
+            Schema<String> metricProp = new StringSchema();
+            metricProp.setName("ocupacao");
+
+            Map<String, Object> uiExtension = new LinkedHashMap<>();
+            Map<String, Object> presentation = new LinkedHashMap<>();
+            Map<String, Object> visualization = new LinkedHashMap<>();
+            visualization.put(exprKey, "= row.propriedadeInexistente + 1");
+            presentation.put("visualization", visualization);
+            uiExtension.put("presentation", presentation);
+            metricProp.addExtension("x-ui", uiExtension);
+
+            schema.addProperty("ocupacao", metricProp);
+            schema.addProperty("vagasAutorizadas", new StringSchema());
+
+            List<String> errors = validator.validateSchemaExpressions("CargoDTO", schema, false);
+            assertEquals(1, errors.size(), "Expected validation error for key " + exprKey);
+            assertTrue(errors.get(0).contains("CargoDTO.ocupacao." + exprKey),
+                    "Error message should reference key " + exprKey + " but was: " + errors.get(0));
+            assertTrue(errors.get(0).contains("propriedadeInexistente"));
+        }
+    }
+
+    @Test
+    @DisplayName("validateDtoClass and validateDtoClasses resolve @MicroVisualization via CustomOpenApiResolver")
+    void testValidateDtoClassResolvesMicroVisualizationAnnotations() {
+        assertTrue(validator.validateDtoClass(ValidMicroVizDTO.class, false).isEmpty());
+        assertTrue(validator.validateDtoClasses(List.of(ValidMicroVizDTO.class), true).isEmpty());
+
+        List<String> errors = validator.validateDtoClass(InvalidMicroVizDTO.class, false);
+        assertFalse(errors.isEmpty());
+        assertTrue(errors.stream().anyMatch(e -> e.contains("metaInexistente")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("fallbackInexistente")));
+
+        assertThrows(InvalidDomainExpressionException.class, () ->
+                validator.validateDtoClass(InvalidMicroVizDTO.class, true)
+        );
+    }
+
+    public static class ValidMicroVizDTO {
+        public Integer vagasOcupadas;
+        public Integer vagasAutorizadas;
+
+        @UISchema(label = "Ocupação")
+        @MicroVisualization(
+                kind = MicroVisualizationKind.BULLET,
+                valueExpr = "= row.vagasOcupadas",
+                targetExpr = "= row.vagasAutorizadas",
+                totalExpr = "= row.vagasAutorizadas",
+                fallbackTextExpr = "= row.vagasAutorizadas == null ? 'Sem quadro' : 'OK'",
+                thresholds = {
+                        @Threshold(min = 0, max = 100, tone = "success", label = "Normal")
+                }
+        )
+        public Double taxaOcupacao;
+    }
+
+    public static class InvalidMicroVizDTO {
+        public Integer vagasOcupadas;
+
+        @UISchema(label = "Ocupação")
+        @MicroVisualization(
+                kind = MicroVisualizationKind.BULLET,
+                valueExpr = "= row.vagasOcupadas",
+                targetExpr = "= row.metaInexistente",
+                fallbackTextExpr = "= row.fallbackInexistente"
+        )
+        public Double taxaOcupacao;
     }
 }

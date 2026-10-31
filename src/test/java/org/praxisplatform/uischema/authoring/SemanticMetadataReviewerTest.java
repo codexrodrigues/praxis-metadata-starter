@@ -12,10 +12,12 @@ import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.annotation.DomainGovernanceKind;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
+import org.praxisplatform.uischema.fact.ResourceFact;
 
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,6 +69,106 @@ class SemanticMetadataReviewerTest {
                 .collect(Collectors.toSet());
 
         assertTrue(inheritedIssueFields.contains("userId"));
+    }
+
+    @Test
+    void reviewsJavaRecordDtosAndEditorialLabels() {
+        SemanticMetadataReviewReport goodReport = new SemanticMetadataReviewer().review(GoodRecordDTO.class);
+        assertFalse(goodReport.hasErrors(), goodReport.issues().toString());
+        assertTrue(goodReport.issues().isEmpty(), goodReport.issues().toString());
+
+        SemanticMetadataReviewReport badReport = new SemanticMetadataReviewer().review(BadEditorialRecordDTO.class);
+        assertTrue(badReport.hasErrors());
+        Set<String> codes = badReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(codes.contains("ui-label-looks-like-sentence"));
+        assertTrue(codes.contains("sensitive-field-without-governance"));
+
+        SemanticMetadataReviewIssue cpfWarning = badReport.issues().stream()
+                .filter(i -> i.code().equals("sensitive-field-without-governance"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(SemanticMetadataIssueSeverity.WARNING, cpfWarning.severity());
+    }
+
+    @Test
+    void reviewsResourceFactEditorialQuality() {
+        SemanticMetadataReviewReport goodFacts = new SemanticMetadataReviewer().reviewResourceFacts(GoodResourceFactHost.class);
+        assertFalse(goodFacts.hasErrors(), goodFacts.issues().toString());
+
+        SemanticMetadataReviewReport badFacts = new SemanticMetadataReviewer().reviewResourceFacts(BadResourceFactHost.class);
+        assertTrue(badFacts.hasErrors());
+        Set<String> codes = badFacts.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(codes.contains("resource-fact-description-missing"));
+        assertTrue(codes.contains("resource-fact-label-missing"));
+        assertTrue(codes.contains("resource-fact-label-looks-like-sentence"));
+    }
+
+    private record GoodRecordDTO(
+            @Schema(description = "Identificador funcional unico do cargo no quadro de pessoal.")
+            @UISchema(label = "ID do cargo", controlType = FieldControlType.NUMERIC_TEXT_BOX)
+            Long id,
+
+            @DomainGovernance(
+                    kind = DomainGovernanceKind.PRIVACY,
+                    classification = DomainClassification.CONFIDENTIAL,
+                    dataCategory = DomainDataCategory.PERSONAL,
+                    aiUsage = @AiUsagePolicy(visibility = AiVisibilityMode.MASK, trainingUse = AiTrainingUseMode.DENY)
+            )
+            @Schema(description = "Cadastro de Pessoa Fisica do servidor titular usado na qualificacao cadastral.")
+            @UISchema(label = "CPF", controlType = FieldControlType.CPF_CNPJ_INPUT)
+            String cpf
+    ) {}
+
+    private record BadEditorialRecordDTO(
+            @Schema(description = "Descricao detalhada do motivo de afastamento funcional do servidor.")
+            @UISchema(label = "Descricao detalhada do motivo de afastamento funcional.")
+            String motivoAfastamento,
+
+            @Schema(description = "Cadastro de Pessoa Fisica do servidor titular sem anotacao de governanca.")
+            @UISchema(label = "CPF")
+            String cpf
+    ) {}
+
+    @ResourceFact(
+            key = "deficit-vagas",
+            resourceKey = "administracao-pessoal.cargos",
+            label = "Déficit de vagas",
+            description = "Quantidade de vagas ocupadas acima do limite legal autorizado para o cargo."
+    )
+    private static class GoodResourceFactHost {
+        @ResourceFact(
+                key = "ocupacao-percentual",
+                resourceKey = "administracao-pessoal.cargos",
+                label = "Taxa de ocupação",
+                description = "Percentual de vagas preenchidas em relacao ao quadro autorizado."
+        )
+        public void computeFacts() {}
+    }
+
+    @ResourceFact(
+            key = "sem-descricao",
+            resourceKey = "administracao-pessoal.cargos",
+            label = "Fato curto",
+            description = ""
+    )
+    private static class BadResourceFactHost {
+        @ResourceFact(
+                key = "rotulo-longo",
+                resourceKey = "administracao-pessoal.cargos",
+                label = "Este rotulo tem mais de trinta e seis caracteres e ponto.",
+                description = "Descricao valida do fato deterministico."
+        )
+        @ResourceFact(
+                key = "sem-rotulo",
+                resourceKey = "administracao-pessoal.cargos",
+                label = "",
+                description = "Descricao valida do segundo fato deterministico."
+        )
+        public void computeFacts() {}
     }
 
     private static class GoodMetadataDTO {

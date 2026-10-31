@@ -1,6 +1,11 @@
 package org.praxisplatform.uischema.validation;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.v3.core.converter.AnnotatedType;
+import io.swagger.v3.core.converter.ModelConverters;
+import io.swagger.v3.core.converter.ResolvedSchema;
 import io.swagger.v3.oas.models.media.Schema;
+import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +33,23 @@ public class PraxisExpressionStaticValidator {
             "typeof", "instanceof", "in", "new", "this",
             // Semantic tones permitidos em expressoes
             "neutral", "info", "success", "warning", "danger", "critical"
+    );
+
+    private static final List<String> VISUALIZATION_EXPR_KEYS = List.of(
+            "toneExpr",
+            "valueExpr",
+            "targetExpr",
+            "totalExpr",
+            "baselineExpr",
+            "minExpr",
+            "maxExpr",
+            "pointsExpr",
+            "segmentsExpr",
+            "itemsExpr",
+            "thresholdsExpr",
+            "ariaLabelExpr",
+            "fallbackTextExpr",
+            "valueSuffixExpr"
     );
 
     private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("\\b([a-zA-Z_$][a-zA-Z0-9_$.]*)\\b");
@@ -152,11 +174,9 @@ public class PraxisExpressionStaticValidator {
             if (rawPresentation instanceof Map<?, ?> presentation) {
                 Object rawViz = presentation.get("visualization");
                 if (rawViz instanceof Map<?, ?> viz) {
-                    validateVizField("toneExpr", viz.get("toneExpr"), validPropNames, schemaName, propName, schemaErrors);
-                    validateVizField("valueExpr", viz.get("valueExpr"), validPropNames, schemaName, propName, schemaErrors);
-                    validateVizField("targetExpr", viz.get("targetExpr"), validPropNames, schemaName, propName, schemaErrors);
-                    validateVizField("totalExpr", viz.get("totalExpr"), validPropNames, schemaName, propName, schemaErrors);
-                    validateVizField("baselineExpr", viz.get("baselineExpr"), validPropNames, schemaName, propName, schemaErrors);
+                    for (String exprKey : VISUALIZATION_EXPR_KEYS) {
+                        validateVizField(exprKey, viz.get(exprKey), validPropNames, schemaName, propName, schemaErrors);
+                    }
                 }
             }
 
@@ -192,6 +212,45 @@ public class PraxisExpressionStaticValidator {
         }
 
         return schemaErrors;
+    }
+
+    /**
+     * Resolve uma classe DTO usando {@link CustomOpenApiResolver} e valida todas as expressoes
+     * emitidas em {@code x-ui.presentation.visualization} e {@code x-ui.rules}.
+     */
+    public List<String> validateDtoClass(Class<?> dtoClass, boolean strict) {
+        if (dtoClass == null) {
+            return Collections.emptyList();
+        }
+        ModelConverters converters = new ModelConverters();
+        converters.addConverter(new CustomOpenApiResolver(new ObjectMapper().findAndRegisterModules()));
+        ResolvedSchema resolved = converters.resolveAsResolvedSchema(new AnnotatedType(dtoClass).resolveAsRef(false));
+        if (resolved == null || resolved.schema == null) {
+            return Collections.emptyList();
+        }
+        return validateSchemaExpressions(dtoClass.getSimpleName(), resolved.schema, strict);
+    }
+
+    /**
+     * Resolve e valida uma colecao de classes DTO usando uma instancia compartilhada de {@link CustomOpenApiResolver}.
+     */
+    public List<String> validateDtoClasses(Collection<Class<?>> dtoClasses, boolean strict) {
+        if (dtoClasses == null || dtoClasses.isEmpty()) {
+            return Collections.emptyList();
+        }
+        ModelConverters converters = new ModelConverters();
+        converters.addConverter(new CustomOpenApiResolver(new ObjectMapper().findAndRegisterModules()));
+        List<String> allErrors = new ArrayList<>();
+        for (Class<?> dtoClass : dtoClasses) {
+            if (dtoClass == null) {
+                continue;
+            }
+            ResolvedSchema resolved = converters.resolveAsResolvedSchema(new AnnotatedType(dtoClass).resolveAsRef(false));
+            if (resolved != null && resolved.schema != null) {
+                allErrors.addAll(validateSchemaExpressions(dtoClass.getSimpleName(), resolved.schema, strict));
+            }
+        }
+        return allErrors;
     }
 
     private void validateRuleExpressionOrLogic(String ruleName, Object ruleValue, Set<String> validProps,
