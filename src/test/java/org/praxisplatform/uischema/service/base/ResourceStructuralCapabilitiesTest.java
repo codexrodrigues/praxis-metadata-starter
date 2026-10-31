@@ -143,7 +143,8 @@ class ResourceStructuralCapabilitiesTest {
     }
 
     @org.praxisplatform.uischema.annotation.ApiResource(value = "/records", resourceKey = "test.records")
-    static class DuplicateController extends org.praxisplatform.uischema.controller.base.AbstractDuplicateDraftResourceController<
+    @org.springframework.context.annotation.Profile("resource-structural-capabilities-test")
+    class DuplicateController extends org.praxisplatform.uischema.controller.base.AbstractDuplicateDraftResourceController<
             Response, Long, Filter, Draft, Draft, Draft> {
         private final DuplicateDraftResourceService<Response, Long, Filter, Draft, Draft, Draft> service;
         DuplicateController(DuplicateDraftResourceService<Response, Long, Filter, Draft, Draft, Draft> service) {
