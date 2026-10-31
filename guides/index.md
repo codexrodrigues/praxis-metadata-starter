@@ -1,6 +1,6 @@
 # Guides
 
-Esta é a trilha principal de leitura para uma pessoa ou uma LLM que queira seguir o fluxo canônico atual da plataforma.
+Esta é a trilha principal de leitura para uma pessoa ou uma LLM que queira implementar e operar recursos na **Praxis Platform** — uma **plataforma semanticamente orientada para aplicações corporativas AI-native**, em que recursos, regras, ações, dados e políticas são descritos uma vez e podem ser operados por **interfaces tradicionais, interfaces generativas, agentes de IA e integrações** (construindo aplicações legíveis e operáveis por IA por definição).
 
 ## Ordem recomendada
 

@@ -508,3 +508,63 @@ production/dependency bytes changed. No UI, corpus or public API artifact needs
 updating. Skill assessment for this increment is `atualizar-existente`: the
 canonical operational-proof skill must distinguish the narrower SDK profile
 from the unchanged host Config reserve; the coordinator owns that integration.
+
+## 2026-10-31 reconciliation: bulk 308 live attestation, duplicate-draft consolidation, and PR #311
+
+Between published `v8.0.0-rc.183` (`657e7ddf58`) and `08dc7fa90e`, sixteen commits
+landed on `main` across five bounded functional areas:
+
+1. **Bulk 308 live ACL transport compaction, function-body dictionary, and publication guard classification (`530d009dfe`, `bd0f708bbd`, `a178fe1f14`, `0b162f2abc`, `0a2db557a7`, `21f89ae167`, `3822eca0af`, `039c9838c9`, `21ca36df72`):**
+   - `BulkCatalogFunctionBodies`, `BulkCatalogPhase`, `BulkExecutionInfrastructure`,
+     `BulkExecutionMigrator`, `BulkMigrationLineage`, `BulkOperationLifecycle`,
+     `BulkDiscoveryUnavailableException`, `GovernedOpenApiPublicationUnavailableException`,
+     `CachedOpenApiDocumentService`, and `OpenApiCanonicalOperationResolver`.
+   - Immutable migration expectations and packaged function bodies are prepared at
+     infrastructure construction without database access; live ACL JDBC queries group
+     permissions by table, role, grant option, and ownership while reconstructing the
+     exact per-fact set before validation; multi-group bulk identity validation is
+     fenced as a single publication read; publication guard timeouts and data-access
+     failures map to the sanitized `503` envelope with private diagnostics retained.
+   - Covered by new `no_db` suites (`BulkCatalogFunctionBodiesTest`,
+     `BulkDiscoveryProjectionFailureTest`, `BulkHttpFailureContractTest`), updated
+     `no_db` suites (`BulkResourceOperationBindingsTest`, `BulkTableAclSnapshotTest`,
+     `GovernedOpenApiPublicationUnavailableExceptionTest`, `DiscoveryPublishedPhotographTest`,
+     `OpenApiPublicationPreparationTest`, `CanonicalRequestSchemaTest`), and the
+     mandatory Neon gates (`BulkManagedOwnerNeonGateTest` and `BulkOptionalPoliciesNeonTest`).
+     The opt-in disposable-database probe `BulkLiveRoleAttestationNeonTest`
+     (`@EnabledIfEnvironmentVariable(named="BULK_LIVE_PROOF_ENABLED",matches="true")`)
+     is inventoried as `superseded` by `BulkOptionalPoliciesNeonTest` (`impactGroup: "D"`)
+     and `verify_staged_jar` (`impactGroup: "I"`).
+2. **Canonical duplicate-draft controller/service and availability consolidation (`abedeb9ce1`, `adf4eda099`, `cd65acdfa9`):**
+   - Replaces legacy-prefixed duplicate-draft base classes with neutral canonical
+     `AbstractDuplicateDraftResourceController`, `DuplicateDraftResourceService`,
+     `DuplicateDraftResourceCommandService`, and `ResourceOperationAvailabilityEvaluator`,
+     and updates `ActionCatalogService`, `DefaultCapabilityService`,
+     `OpenApiCanonicalCapabilityResolver`, `ResourceOperationAvailabilityContext`,
+     `ResourceStateSnapshotScope`, `ResourceStructuralCapabilities`,
+     `OpenApiUiSchemaAutoConfiguration`, `AbstractResourceQueryController`,
+     `AbstractBaseQueryResourceService`, and `BaseResourceQueryService`.
+   - Covered by new `no_db` suites (`AbstractDuplicateDraftResourceControllerTest`
+     replacing removed `AbstractLegacyBackedResourceControllerTest`,
+     `DuplicateDraftAvailabilityIntegrationTest`, `ActionCatalogPartialBootstrapTest`,
+     `ResourceStructuralCapabilitiesTest`) and updated `no_db` suites
+     (`AnnotationDrivenResourceStructuralCapabilityResolverTest`, `CapabilityServiceTest`,
+     `OpenApiCanonicalCapabilityResolverTest`, `AbstractReadOnlyResourceControllerLinksTest`).
+3. **Range filter composition, `@Filterable.relations`, `@UISchema` quick-view attributes, and JPA lookup alias isolation (`530d009dfe`, `f9519fb3da`, `0b162f2abc`):**
+   - `CanonicalRangeSchema`, `Filterable`, `GenericSpecificationsBuilder`,
+     `CustomOpenApiResolver`, `OpenApiRequestSchemaReader`, `JpaOptionSourceQueryExecutor`,
+     `UISchema`, and `SemanticMetadataReviewer`.
+   - Covered by new `no_db` suite `JpaLookupSelectionAliasTest` and updated `no_db`
+     suites (`FilterableBetweenListDetectionTest`, `PredicateBuildersTest`,
+     `CustomOpenApiResolverSwaggerPipelineTest`, `SemanticMetadataReviewerTest`,
+     `SemanticDomainCatalogServiceTest`).
+4. **`PartialUpdateInput` and canonical `409` persistence constraint mapping (`e53a13534b`, `d6845671b5`):**
+   - `PartialUpdateInput` and `GlobalExceptionHandler`, covered by new `no_db` suites
+     `PartialUpdateInputTest` and `PersistenceConstraintHttpTest`.
+5. **AI Resource Blueprint and POM description (`cd65acdfa9`, `08dc7fa90e`):**
+   - Adds `META-INF/praxis/AI-RESOURCE-BLUEPRINT.md` and updates the root POM
+     `<description>` text (which is outside `/project/version` and therefore updates
+     logical closures that include `pom.xml`, including the authority and async
+     historical dependency digests, while occupancy's POM-free dependency digest and
+     all three historical ZIP artifacts remain unchanged).
+

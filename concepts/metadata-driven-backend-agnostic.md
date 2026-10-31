@@ -2,7 +2,7 @@
 
 ## Definição
 
-Uma arquitetura **Metadata-driven & Backend-agnostic** desacopla a implementação interna do servidor (persistência, framework web, linguagem) dos consumidores de interface e automação por meio de um contrato declarativo intermediário baseado em padrões abertos (OpenAPI + JSON Schema + extensões semânticas).
+Uma arquitetura **Metadata-driven & Backend-agnostic** desacopla a implementação interna do servidor (persistência, framework web, linguagem) dos consumidores de interface e automação por meio de um contrato declarativo intermediário baseado em padrões abertos (OpenAPI + JSON Schema + extensões semânticas). Na **Praxis Platform**, isso permite que recursos, regras, ações, dados e políticas sejam descritos uma vez e operados por **interfaces tradicionais, interfaces generativas, agentes de IA e integrações**, construindo aplicações legíveis e operáveis por IA por definição.
 
 ## Como o `praxis-metadata-starter` implementa
 

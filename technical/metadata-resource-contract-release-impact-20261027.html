@@ -1413,6 +1413,128 @@ assessment for this increment is <code>atualizar-existente</code>: the
 canonical operational-proof skill must distinguish the narrower SDK
 profile from the unchanged host Config reserve; the coordinator owns
 that integration.</p>
+<h2
+id="reconciliation-bulk-308-live-attestation-duplicate-draft-consolidation-and-pr-311">2026-10-31
+reconciliation: bulk 308 live attestation, duplicate-draft
+consolidation, and PR #311</h2>
+<p>Between published <code>v8.0.0-rc.183</code>
+(<code>657e7ddf58</code>) and <code>08dc7fa90e</code>, sixteen commits
+landed on <code>main</code> across five bounded functional areas:</p>
+<ol type="1">
+<li><strong>Bulk 308 live ACL transport compaction, function-body
+dictionary, and publication guard classification
+(<code>530d009dfe</code>, <code>bd0f708bbd</code>,
+<code>a178fe1f14</code>, <code>0b162f2abc</code>,
+<code>0a2db557a7</code>, <code>21f89ae167</code>,
+<code>3822eca0af</code>, <code>039c9838c9</code>,
+<code>21ca36df72</code>):</strong>
+<ul>
+<li><code>BulkCatalogFunctionBodies</code>,
+<code>BulkCatalogPhase</code>, <code>BulkExecutionInfrastructure</code>,
+<code>BulkExecutionMigrator</code>, <code>BulkMigrationLineage</code>,
+<code>BulkOperationLifecycle</code>,
+<code>BulkDiscoveryUnavailableException</code>,
+<code>GovernedOpenApiPublicationUnavailableException</code>,
+<code>CachedOpenApiDocumentService</code>, and
+<code>OpenApiCanonicalOperationResolver</code>.</li>
+<li>Immutable migration expectations and packaged function bodies are
+prepared at infrastructure construction without database access; live
+ACL JDBC queries group permissions by table, role, grant option, and
+ownership while reconstructing the exact per-fact set before validation;
+multi-group bulk identity validation is fenced as a single publication
+read; publication guard timeouts and data-access failures map to the
+sanitized <code>503</code> envelope with private diagnostics
+retained.</li>
+<li>Covered by new <code>no_db</code> suites
+(<code>BulkCatalogFunctionBodiesTest</code>,
+<code>BulkDiscoveryProjectionFailureTest</code>,
+<code>BulkHttpFailureContractTest</code>), updated <code>no_db</code>
+suites (<code>BulkResourceOperationBindingsTest</code>,
+<code>BulkTableAclSnapshotTest</code>,
+<code>GovernedOpenApiPublicationUnavailableExceptionTest</code>,
+<code>DiscoveryPublishedPhotographTest</code>,
+<code>OpenApiPublicationPreparationTest</code>,
+<code>CanonicalRequestSchemaTest</code>), and the mandatory Neon gates
+(<code>BulkManagedOwnerNeonGateTest</code> and
+<code>BulkOptionalPoliciesNeonTest</code>). The opt-in
+disposable-database probe <code>BulkLiveRoleAttestationNeonTest</code>
+(<code>@EnabledIfEnvironmentVariable(named="BULK_LIVE_PROOF_ENABLED",matches="true")</code>)
+is inventoried as <code>superseded</code> by
+<code>BulkOptionalPoliciesNeonTest</code>
+(<code>impactGroup: "D"</code>) and <code>verify_staged_jar</code>
+(<code>impactGroup: "I"</code>).</li>
+</ul></li>
+<li><strong>Canonical duplicate-draft controller/service and
+availability consolidation (<code>abedeb9ce1</code>,
+<code>adf4eda099</code>, <code>cd65acdfa9</code>):</strong>
+<ul>
+<li>Replaces legacy-prefixed duplicate-draft base classes with neutral
+canonical <code>AbstractDuplicateDraftResourceController</code>,
+<code>DuplicateDraftResourceService</code>,
+<code>DuplicateDraftResourceCommandService</code>, and
+<code>ResourceOperationAvailabilityEvaluator</code>, and updates
+<code>ActionCatalogService</code>,
+<code>DefaultCapabilityService</code>,
+<code>OpenApiCanonicalCapabilityResolver</code>,
+<code>ResourceOperationAvailabilityContext</code>,
+<code>ResourceStateSnapshotScope</code>,
+<code>ResourceStructuralCapabilities</code>,
+<code>OpenApiUiSchemaAutoConfiguration</code>,
+<code>AbstractResourceQueryController</code>,
+<code>AbstractBaseQueryResourceService</code>, and
+<code>BaseResourceQueryService</code>.</li>
+<li>Covered by new <code>no_db</code> suites
+(<code>AbstractDuplicateDraftResourceControllerTest</code> replacing
+removed <code>AbstractLegacyBackedResourceControllerTest</code>,
+<code>DuplicateDraftAvailabilityIntegrationTest</code>,
+<code>ActionCatalogPartialBootstrapTest</code>,
+<code>ResourceStructuralCapabilitiesTest</code>) and updated
+<code>no_db</code> suites
+(<code>AnnotationDrivenResourceStructuralCapabilityResolverTest</code>,
+<code>CapabilityServiceTest</code>,
+<code>OpenApiCanonicalCapabilityResolverTest</code>,
+<code>AbstractReadOnlyResourceControllerLinksTest</code>).</li>
+</ul></li>
+<li><strong>Range filter composition,
+<code>@Filterable.relations</code>, <code>@UISchema</code> quick-view
+attributes, and JPA lookup alias isolation (<code>530d009dfe</code>,
+<code>f9519fb3da</code>, <code>0b162f2abc</code>):</strong>
+<ul>
+<li><code>CanonicalRangeSchema</code>, <code>Filterable</code>,
+<code>GenericSpecificationsBuilder</code>,
+<code>CustomOpenApiResolver</code>,
+<code>OpenApiRequestSchemaReader</code>,
+<code>JpaOptionSourceQueryExecutor</code>, <code>UISchema</code>, and
+<code>SemanticMetadataReviewer</code>.</li>
+<li>Covered by new <code>no_db</code> suite
+<code>JpaLookupSelectionAliasTest</code> and updated <code>no_db</code>
+suites (<code>FilterableBetweenListDetectionTest</code>,
+<code>PredicateBuildersTest</code>,
+<code>CustomOpenApiResolverSwaggerPipelineTest</code>,
+<code>SemanticMetadataReviewerTest</code>,
+<code>SemanticDomainCatalogServiceTest</code>).</li>
+</ul></li>
+<li><strong><code>PartialUpdateInput</code> and canonical
+<code>409</code> persistence constraint mapping
+(<code>e53a13534b</code>, <code>d6845671b5</code>):</strong>
+<ul>
+<li><code>PartialUpdateInput</code> and
+<code>GlobalExceptionHandler</code>, covered by new <code>no_db</code>
+suites <code>PartialUpdateInputTest</code> and
+<code>PersistenceConstraintHttpTest</code>.</li>
+</ul></li>
+<li><strong>AI Resource Blueprint and POM description
+(<code>cd65acdfa9</code>, <code>08dc7fa90e</code>):</strong>
+<ul>
+<li>Adds <code>META-INF/praxis/AI-RESOURCE-BLUEPRINT.md</code> and
+updates the root POM <code>&lt;description&gt;</code> text (which is
+outside <code>/project/version</code> and therefore updates logical
+closures that include <code>pom.xml</code>, including the authority and
+async historical dependency digests, while occupancy’s POM-free
+dependency digest and all three historical ZIP artifacts remain
+unchanged).</li>
+</ul></li>
+</ol>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

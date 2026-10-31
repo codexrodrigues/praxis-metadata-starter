@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Caminhos de API e fontes de opções no host Java</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Caminhos de API e fontes de opções no host Java</h1>
+</header>
+<h1 id="caminhos-de-api-e-fontes-de-opções-no-host-java">Caminhos de API
+e fontes de opções no host Java</h1>
+<h2 id="decisão-de-plataforma">Decisão de plataforma</h2>
+<p>Centralize os caminhos reutilizados do host em uma classe
+<code>final ApiPaths</code>, com construtor privado e constantes
+<code>public static final String</code> calculáveis em compilação.
+Compartilhe essas constantes entre controllers, DTOs, FilterDTOs,
+comandos, superfícies, links e registro de fontes. Em hosts maiores,
+agrupe por domínio em classes finais aninhadas ou classes de caminhos
+por módulo; não crie um catálogo global de todos os produtos dentro do
+starter.</p>
+<p>Esta é uma convenção de autoria Praxis, fundamentada nas restrições
+do Java e nos contratos existentes; Java e Spring não impõem uma classe
+chamada <code>ApiPaths</code>. É adoção de capacidade já suportada, sem
+novo atributo público ou endpoint.</p>
+<h2 id="separe-três-responsabilidades">Separe três
+responsabilidades</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Responsabilidade</th>
+<th>Dono e regra</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Endereço de implantação</td>
+<td>Configuração de ambiente: origem, porta, proxy e contexto. Não
+colocar <code>https://host:porta</code> em DTOs.</td>
+</tr>
+<tr>
+<td>Caminho e chave da fonte do host</td>
+<td><code>ApiPaths</code>: recurso, chave de option-source e constantes
+de endpoints efetivamente reutilizados. <code>resourceKey</code> é
+identidade semântica, não URL.</td>
+</tr>
+<tr>
+<td>Semântica e transporte publicados</td>
+<td><code>OptionSourceDescriptor</code> /
+<code>OptionSourceRuntimeContract</code> do Metadata Starter. O Angular
+consome <code>x-ui.optionSource.filterEndpoint</code> e
+<code>byIdsEndpoint</code>; não reconstrói esses caminhos.</td>
+</tr>
+</tbody>
+</table>
+<p>Um <code>SELECT</code>, multi-select ou lista pode usar enum/opções
+estáticas. Não crie endpoint por causa do controle visual. Para opções
+remotas, escolha a taxonomia adequada e registre a fonte;
+<code>ApiPaths</code> não substitui o descritor, a política de seleção,
+a recarga por IDs, as dependências ou a autorização.</p>
+<h2 id="padrão-de-autoria">Padrão de autoria</h2>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="dt">final</span> <span class="kw">class</span> ApiPaths <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="fu">ApiPaths</span><span class="op">()</span> <span class="op">{}</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> BASE <span class="op">=</span> <span class="st">&quot;/api&quot;</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="kw">class</span> Organization <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">private</span> <span class="fu">Organization</span><span class="op">()</span> <span class="op">{}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> DEPARTMENTS <span class="op">=</span> BASE <span class="op">+</span> <span class="st">&quot;/organization/departments&quot;</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> DEPARTMENT_SOURCE <span class="op">=</span> <span class="st">&quot;department&quot;</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">public</span> <span class="dt">static</span> <span class="dt">final</span> <span class="bu">String</span> DEPARTMENT_OPTIONS <span class="op">=</span> DEPARTMENTS</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>                <span class="op">+</span> <span class="st">&quot;/option-sources/&quot;</span> <span class="op">+</span> DEPARTMENT_SOURCE <span class="op">+</span> <span class="st">&quot;/options/filter&quot;</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Use <code>ApiPaths.Organization.DEPARTMENTS</code> em
+<code>@ApiResource(value = ...)</code> e no <code>resourcePath</code> do
+descritor; use <code>DEPARTMENT_SOURCE</code> na chave do descritor. Nos
+DTOs de criação, atualização, resposta, filtro e comando, reutilize:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span>controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">ENTITY_LOOKUP</span><span class="op">,</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    endpoint <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">Organization</span><span class="op">.</span><span class="fu">DEPARTMENT_OPTIONS</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    valueField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span> displayField <span class="op">=</span> <span class="st">&quot;label&quot;</span><span class="op">)</span></span></code></pre></div>
+<p>O trecho mostra apenas o vínculo de transporte. Complete
+<code>@Schema</code>, governança, label, grupos e demais metadados com a
+semântica real do campo. O payload <code>OptionDTO</code> usa
+<code>id</code>/<code>label</code>; propriedades adicionais pertencem ao
+contrato rico do lookup, não a uma suposição de que o endpoint retorna o
+ResponseDTO inteiro.</p>
+<p>O ponto de vinculação atual é <code>@UISchema.endpoint</code>:
+<code>ApiDocsController</code> resolve o par
+<code>resourcePath + sourceKey</code> desse endpoint contra
+<code>OptionSourceRegistry</code> e materializa
+<code>x-ui.optionSource</code>. Não invente
+<code>@UISchema(optionSource = ...)</code> nem remova o endpoint supondo
+que o nome da propriedade sempre basta para resolver uma referência
+entre recursos. O starter também possui resolução por campo registrado
+no próprio recurso; confirme a resolução efetiva antes de migrar.</p>
+<h2 id="limites-e-alternativas">Limites e alternativas</h2>
+<ul>
+<li>Não use interface de constantes, herança de controllers,
+<code>enum.getPath()</code>, <code>String.format</code>,
+<code>String.join</code> ou builders para valores de anotações: chamadas
+de método não são expressões constantes. Uma classe <code>final</code>
+sozinha não basta; o inicializador da <code>String</code> precisa ser
+uma expressão constante.</li>
+<li>Placeholders de configuração são suportados em mappings Spring, mas
+isso não prova interpolação em <code>@UISchema.endpoint</code> e em
+descritores. Não os adote como substituto geral de <code>ApiPaths</code>
+sem prova de toda a cadeia.</li>
+<li>Métodos de construção de links/HATEOAS continuam apropriados em
+runtime. Não podem fornecer o valor de uma anotação Java.</li>
+<li>Um segmento local de método, por exemplo <code>/{id}/summary</code>,
+pode permanecer no controller quando não é repetido. Se houver
+referência externa ao mesmo path, compartilhe o segmento e componha o
+caminho completo em <code>ApiPaths</code>. Matchers de segurança são
+padrões, não endpoints; reutilize a base sem mudar o padrão.</li>
+<li>Não copie todos os endpoints herdados do starter em constantes sem
+uso. Para endpoints necessários em anotações, mantenha constantes e
+valide sua igualdade com
+<code>descriptor.runtimeContract().filterEndpoint()</code>.</li>
+<li>Constantes Java são incorporadas no bytecode dos consumidores.
+Alterações de caminhos exigem recompilar o host e avaliar
+compatibilidade HTTP, documentação, integrações e artefatos publicados.
+Centralizar não torna renomear uma rota automaticamente compatível. Não
+distribua um JAR de constantes de todos os hosts nem imponha dependência
+do frontend em constantes Java.</li>
+</ul>
+<h2 id="gate-de-adoção">Gate de adoção</h2>
+<ol type="1">
+<li>Inventarie literais em <code>src/main/java</code>, incluindo DTOs
+herdados, filtros, comandos, controllers, registry, surfaces, HATEOAS e
+matchers de segurança.</li>
+<li>Em uma extração sem mudança de contrato, preserve exatamente cada
+string e capture a correspondência literal → constante. Não renomeie
+rotas nesse corte.</li>
+<li>Compile e valide cada endpoint de DTO contra o runtime do descritor
+e o mapping real do controller. Preserve testes de contrato com caminhos
+literais independentes para detectar uma mudança acidental de toda a
+cadeia.</li>
+<li>Verifique metadata gerada e, quando mudar comportamento/endereço,
+prove <code>/schemas/filtered</code>, filtro e by-ids por HTTP com
+dependências e escopo reais. Teste local de anotações não equivale a
+integração HTTP ou aceite visual. O auditor estático do workspace
+resolve literais, concatenação e referências qualificadas como
+<code>ApiPaths.Domain.OPTIONS</code>, com imports explícitos. Não
+interpreta toda a linguagem Java: referências simples por import
+estático, chamadas de método, ambiguidades e ciclos permanecem não
+comprovados, sem aprovação por prefixo literal. Herança por si só não
+impede a prova: o auditor transporta o <strong>tipo declarante
+exato</strong> de cada campo, preserva seus imports e percorre
+superclasses/interfaces usando os fontes do host e do starter
+selecionado (<code>--metadata-sources</code>, diretório ou
+<code>sources.jar</code>). O universo de fontes recebe um SHA-256 no
+relatório.</li>
+</ol>
+<p>A referência importada é comprovada quando o grafo completo demonstra
+ausência de membro que possa ocultá-la. Referências em annotations ou
+corpos de métodos não são declarações de membros. A regra funciona para
+interfaces vazias ou com membros, hierarquias genéricas, diamantes e
+classes aninhadas; não contém lista de nomes de interfaces, recursos ou
+projetos autorizados.</p>
+<p>Fonte ausente, ciclo, tipo duplicado, binding ambíguo, possível
+sombreamento ou declaração fora da gramática suportada mantêm o endpoint
+não comprovado. O resolvedor não decide arbitrariamente acessibilidade
+ou precedência entre membros herdados conflitantes: não substitui um
+deles por import ou escopo externo. Chamadores sem tipo exato só podem
+inferi-lo quando o arquivo declara um único tipo. Unicode escapes e text
+blocks exigem análise Java fora deste lexer e não recebem prova por
+aproximação. O diagnóstico distingue falta de comprovação de endpoint
+literal inválido. Nenhum desses limites autoriza dispensar o gate. O
+teste Java do host continua sendo necessário para comprovar os valores
+compilados.</p>
+<ol start="5" type="1">
+<li><p>Atualize skills, exemplos executáveis e guias de criação/DTOs.
+Constantes corretas sem adoção nos templates não evitam repetição em
+novos hosts.</p></li>
+<li><p>Ao alterar um exemplo Java, compile o bloco exato do documento
+contra o artefato efetivamente consumido; conferir YAML ou hashes não
+valida construtores. No repositório canônico
+<code>praxis-codex-skills</code>, execute
+<code>python scripts/check-java-lookup-example.py --java-home &lt;JDK&gt; --classpath &lt;starter.jar&gt;</code>.
+O gate extrai <code>ApiPaths</code> e <code>HrOptionSourcesConfig</code>
+de <code>resource-baseline.md</code>, compila ambos e confere os
+descritores, endpoint runtime, dependências e surfaces. Ele usa fixtures
+apenas para annotations Spring e a classe de domínio
+<code>Position</code>; não prova consulta JPA, autorização, existência
+de surfaces ou integração HTTP. Registre versão e SHA-256 do artefato;
+um snapshot privado não comprova a versão pública.</p></li>
+</ol>
+<h2 id="fundamentos-consultados-em-28102026">Fundamentos consultados em
+28/10/2026</h2>
+<ul>
+<li><a
+href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-9.html#jls-9.7.1">Java
+Language Specification 21, §9.7.1</a>: valores de anotações String
+exigem expressões constantes.</li>
+<li><a
+href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-15.html#jls-15.29">JLS
+§15.29</a>: composição de constantes com literais, referências
+constantes e <code>+</code>.</li>
+<li><a
+href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-13.html#jls-13.1">JLS
+§13.1</a>: referências a constantes resolvidas em compilação.</li>
+<li><a
+href="https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-controller/ann-requestmapping.html">Spring
+MVC — Mapping Requests</a>: composição entre mapping de classe e método,
+placeholders e expressões nos mappings.</li>
+<li><a
+href="https://learn.openapis.org/specification/paths.html">OpenAPI — API
+Endpoints</a>: separação entre caminhos e endereço do servidor. Essa
+especificação não define a resolução de <code>x-ui</code>; a resolução
+de origem permanece responsabilidade do runtime Praxis.</li>
+</ul>
+<p>Fontes internas: <code>annotation/ApiResource.java</code>,
+<code>extension/annotation/UISchema.java</code>,
+<code>controller/docs/ApiDocsController.java</code>,
+<code>options/OptionSourceDescriptor.java</code>,
+<code>options/OptionSourceRuntimeContract.java</code> e
+<code>options/OptionSourceRegistry.java</code>, sob
+<code>src/main/java/org/praxisplatform/uischema/</code>. O API
+Quickstart já demonstra <code>constants/ApiPaths.java</code> com
+agrupamento por domínio; essa organização é referência de autoria, não
+uma dependência obrigatória de novos hosts.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

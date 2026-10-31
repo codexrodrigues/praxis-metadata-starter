@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Integração de host e Bulking — candidato da Issue 308</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Integração de host e Bulking — candidato da Issue
+308</h1>
+</header>
+<h1 id="integração-de-host-e-bulking-candidato-da-issue-308">Integração
+de host e Bulking — candidato da Issue 308</h1>
+<p>Este candidato usa a coordenada local distinta
+<code>8.0.0-bulk.308-SNAPSHOT</code>. Não é release público e não
+substitui os bytes da rc.179 já instalada. O host consumidor usa
+override explícito e repositório Maven isolado durante a prova.
+Publicação e adoção de uma versão pública continuam sendo gates
+separados. O candidato foi atualizado sobre o main rc.183; o POM
+versionado conserva essa linha. Para reproduzir a coordenada de prova,
+use um checkout isolado e
+<code>mvn versions:set -DnewVersion=8.0.0-bulk.308-SNAPSHOT -DgenerateBackupPoms=false</code>
+antes do package; instale o resultado somente no cache isolado do
+consumidor. Não instale esse build como rc.179.</p>
+<h2 id="intervalos-canônicos-em-filtros-query">Intervalos canônicos em
+filtros QUERY</h2>
+<p>O leitor estrutural de requests recusava o <code>oneOf</code>
+produzido pelo próprio <code>CustomOpenApiResolver</code> para filtros
+BETWEEN. Reduzir o FilterDTO do host eliminaria capacidades reais de
+consulta.</p>
+<p><code>CanonicalRangeSchema</code> centraliza a emissão já existente
+de intervalos. O leitor aceita a composição somente quando ela
+corresponde exatamente à forma emitida por essa fábrica, em OpenAPI 3.0
+ou 3.1: array ou objeto, com as mesmas restrições de limites e de
+intervalo vazio. Uniões arbitrárias, branches extras, referências
+estranhas e alterações nas guardas continuam recusadas. Os demais
+limites de profundidade e tamanho permanecem vigentes.</p>
+<h2 id="transporte-da-atestação-de-funções">Transporte da atestação de
+funções</h2>
+<p>Cada chamada continua lendo os catálogos e verificando identidades,
+atributos, privilégios, memberships, funções e triggers. Não há cache de
+autorização ou de resultado de atestação e nenhum prazo foi
+ampliado.</p>
+<p>A leitura LIVE calcula SHA-256 de cada <code>prosrc</code> no
+PostgreSQL. Corpos cujos bytes são idênticos a SQLs empacotados podem
+ser omitidos do transporte; o leitor os reconstrói dos mesmos bytes
+antes dos validadores existentes. Corpo desconhecido é transferido
+integralmente, tem o digest conferido e passa pela comparação
+normalizada anterior. Alterações de whitespace continuam tendo o mesmo
+critério de aceitação. Digest ausente, malformado, desconhecido sem
+corpo ou incompatível com o corpo transferido falha fechado. O
+dicionário contém somente recursos imutáveis do artefato, nunca fatos
+consultados no banco.</p>
+<p>Na cópia Neon de prova, os 58 corpos instalados, somando 80.142
+bytes, corresponderam exatamente ao dicionário. A prova opt-in
+<code>BulkLiveRoleAttestationNeonTest</code> aquece a atestação, concede
+temporariamente UPDATE adicional na tabela técnica de binding, exige
+recusa e remove o grant no <code>finally</code>, exigindo nova aprovação
+depois da restauração. Como REVOKE de UPDATE de tabela também remove os
+grants correspondentes de coluna, a prova captura e repõe exatamente os
+grants originais de coluna e verifica FOR SHARE real após a restauração.
+Essa prova deve ser executada sozinha contra banco descartável, sem
+avaliações concorrentes.</p>
+<h2 id="recusas-http-tipadas">Recusas HTTP tipadas</h2>
+<p>O <code>GlobalExceptionHandler</code> conserva o envelope
+<code>RestApiResponse</code> e mensagens fixas sem SQL, planos,
+parâmetros, identidades de alvo ou causas privadas.</p>
+<table>
+<colgroup>
+<col style="width: 42%" />
+<col style="width: 57%" />
+</colgroup>
+<thead>
+<tr>
+<th>Recusa do kernel</th>
+<th style="text-align: right;">HTTP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NOT_FOUND</td>
+<td style="text-align: right;">404</td>
+</tr>
+<tr>
+<td>CONFLICT</td>
+<td style="text-align: right;">409</td>
+</tr>
+<tr>
+<td>CAPACITY</td>
+<td style="text-align: right;">429</td>
+</tr>
+<tr>
+<td>EXPIRED / RESULT_PURGED</td>
+<td style="text-align: right;">410</td>
+</tr>
+<tr>
+<td>NOT_EXECUTABLE / INVALID_SELECTION</td>
+<td style="text-align: right;">422</td>
+</tr>
+<tr>
+<td>FENCED / DEADLINE_EXCEEDED / RECONCILIATION_REQUIRED / CORRUPT /
+UNAVAILABLE</td>
+<td style="text-align: right;">503</td>
+</tr>
+</tbody>
+</table>
+<p>Os códigos são <code>BULK_EXECUTION_&lt;motivo&gt;</code> ou
+<code>BULK_PROPOSAL_&lt;motivo&gt;</code>. Uma recusa não autoriza retry
+automático nem repetição de mutação. A política de replay permanece
+vinculada ao contrato de confirmação e à chave idempotente.</p>
+<h2 id="evidência-e-limites">Evidência e limites</h2>
+<p>A suíte focal composta final executou 192 casos distintos sem falhas,
+erros ou skips: leitores canônicos de request/response, emissão de
+intervalos, compilador de CRUD, captura de ACL, dicionário de corpos,
+mapeamento de falhas HTTP e regressões de diagnóstico/leitura e
+governança presentes na base rc.183, além da fotografia publicada e da
+classificação de indisponibilidade do guard. Timeouts transacionais e
+falhas de acesso a dados dentro desse guard retornam o envelope seguro
+503; falhas do callback fora dele conservam sua classificação original.
+A prova opt-in Neon acrescentou um caso distinto de privilégio excessivo
+após aquecimento, restauração exata dos grants e bloqueio operacional;
+também foi aprovado. Total: 193 casos, sem somar novamente as repetições
+das mesmas suítes. São provas do candidato; não certificam release,
+execução de todos os cenários do host, disputa concorrente de 200 alvos
+ou consumo de pacote Angular publicado.</p>
+<p>O host está exercitando as oito declarações operacionais e os três
+recursos mutáveis. Registros de READY e descoberta são evidência
+distinta de efeitos de domínio e recibos duráveis. O relatório do host
+deve registrar o resultado final da campanha, sem promover essas
+verificações parciais a aceite integral.</p>
+<p>Somente as expectativas imutáveis derivadas das migrations deste
+artefato são compartilhadas entre atestações LIVE. Inventários de
+catálogo, identidade, grants, controle e autorização continuam sendo
+lidos e verificados em cada chamada.</p>
+<p>A preparação dessas expectativas e do dicionário de corpos acontece
+na construção da infraestrutura, sem acesso ao banco, antes de iniciar
+transações operacionais. A captura LIVE agrupa permissões por tabela,
+papel, grant option e propriedade no transporte JDBC, reconstruindo os
+mesmos fatos individuais antes da validação. Não filtra tabelas ou
+papéis inesperados, não elimina grants de coluna ou duplicatas e não
+compartilha resultados de autorização entre chamadas. Os limites
+transacionais e de statements permanecem inalterados.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

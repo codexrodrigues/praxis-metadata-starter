@@ -343,10 +343,54 @@ Canonico Atual</h1>
 <h1
 id="guia-01---ia-backend---aplicacao-nova-com-core-canonico-atual">Guia
 01 - IA Backend - Aplicacao Nova com Core Canonico Atual</h1>
+<blockquote>
+<p><strong>Autoria de caminhos:</strong> use constantes de compilação do
+<code>ApiPaths</code> do host em controllers, DTOs/FilterDTOs, comandos
+e registro de fontes; não espalhe caminhos de lookup. Consulte <a
+href="API-PATHS-E-OPTION-SOURCES.md">Caminhos de API e fontes de
+opções</a>.</p>
+</blockquote>
+<blockquote>
+<p><strong>Blueprint Completo (20 Pilares e 3 Fases):</strong> Antes de
+gerar os recursos de negocio do host, consulte obrigatoriamente <a
+href="./GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md"><code>GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md</code></a>
+(tambem embarcado dentro do <code>.jar</code> do starter em
+<code>META-INF/praxis/AI-RESOURCE-BLUEPRINT.md</code>). Todo recurso
+corporativo deve contemplar os <strong>20 Pilares</strong> divididos em
+<strong>Fase 1</strong> (100% colunas da entidade nos DTOs,
+<code>@UISchema</code> editorial, <code>@MicroVisualization</code>,
+<code>@DomainGovernance</code>/<code>fieldAccess</code>,
+<code>@ResourceIdentity</code> rico, Quick View 360°
+<code>@ResourceReference</code>, <code>EntityLookupDescriptor</code>
+completo com
+<code>LookupSelectionPolicy</code>/<code>LookupDetailDescriptor</code>/<code>dependsOn</code>
+e <code>FilterDTO</code> exaustivo + <code>@QuickFilter</code>),
+<strong>Fase 2</strong> (<code>@UiSurface</code>,
+<code>@ResourceIntent</code>, <code>@WorkflowAction</code> com
+<code>If-Match</code>, <strong>Bulking Governado nos 3 modos</strong>
+<code>@BulkEditable</code>/<code>@BulkResourceOperations</code>/<code>@BulkOperation</code>,
+<code>@ResourceFact</code>, <code>@UiAnalytics</code> +
+<code>StatsFieldRegistry</code> e <code>CollectionExport</code>
+<code>CSV</code>/<code>JSON</code>/<code>EXCEL</code> com
+<code>CollectionExportFieldPresentation</code>) e <strong>Fase
+3</strong> (Invariantes transacionais <code>409</code>/<code>422</code>,
+<code>ReactiveDeterminationDefinitionProvider</code>,
+<code>praxis-rules-engine</code>, <code>/praxis/cockpit</code>,
+orcamento N+1 e Gate JUnit Nativo com
+<code>SemanticMetadataReviewer</code> +
+<code>PraxisExpressionStaticValidator</code> +
+<code>OptionSourcePublicationInventory</code>).</p>
+</blockquote>
 <h2 id="objetivo">Objetivo</h2>
 <p>Este guia existe para uma LLM conseguir gerar, com alta chance de
 sucesso, uma nova aplicacao Spring Boot baseada no baseline atual do
-<code>praxis-metadata-starter</code>.</p>
+<code>praxis-metadata-starter</code> — parte da <strong>Praxis
+Platform</strong>, uma plataforma semanticamente orientada para
+aplicacoes corporativas AI-native em que recursos, regras, acoes, dados
+e politicas sao descritos uma vez e operados por interfaces
+tradicionais, interfaces generativas, agentes de IA e integracoes (sem
+construir IA ao lado da aplicacao, mas tornando a propria aplicacao
+legivel e operavel por IA por definicao).</p>
 <p>A aplicacao nova deve nascer sobre:</p>
 <ul>
 <li><code>AbstractResourceController</code></li>

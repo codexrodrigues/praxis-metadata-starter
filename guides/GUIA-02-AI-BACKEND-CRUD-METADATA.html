@@ -343,10 +343,21 @@ Atual</h1>
 <h1
 id="guia-02---ia-backend---recurso-metadata-driven-no-core-atual">Guia
 02 - IA Backend - Recurso Metadata-Driven no Core Atual</h1>
+<blockquote>
+<p><strong>Autoria de caminhos:</strong> use constantes de compilação do
+<code>ApiPaths</code> do host em controllers, DTOs/FilterDTOs, comandos
+e registro de fontes; não espalhe caminhos de lookup. Consulte <a
+href="API-PATHS-E-OPTION-SOURCES.md">Caminhos de API e fontes de
+opções</a>.</p>
+</blockquote>
 <h2 id="objetivo">Objetivo</h2>
-<p>Este guia orienta a implementacao de um recurso backend
-metadata-driven alinhado ao core atual do
-<code>praxis-metadata-starter</code>.</p>
+<p>Este guia orienta a implementacao de um recurso backend alinhado ao
+core atual do <code>praxis-metadata-starter</code>, descrevendo
+recursos, regras, acoes, dados e politicas uma unica vez para que o novo
+recurso seja imediatamente legivel e operavel por <strong>interfaces
+tradicionais</strong> (<code>@praxisui/*</code>), <strong>interfaces
+generativas</strong>, <strong>agentes de IA</strong> e
+<strong>integracoes</strong>.</p>
 <p>Ele foca no caso mais comum: a aplicacao ja existe, e a LLM precisa
 adicionar um novo recurso no baseline atual sem gerar codigo
 incompleto.</p>
@@ -473,27 +484,65 @@ pertencem a leitura, criacao, atualizacao, filtros e discovery. Depois
 disso, use mapper ou MapStruct para materializar a fronteira entre
 persistencia e contrato.</p>
 <blockquote>
-<p><strong>Regra de Profundidade Funcional (Proibido Mutilar o
-Dominio):</strong> “Nao derivar mecanicamente da entidade” significa
+<p><strong>Regra de Profundidade Funcional e Blueprint de 20 Pilares
+(Proibido Mutilar o Dominio):</strong> Consulte <a
+href="./GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md"><code>GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md</code></a>
+(e <code>META-INF/praxis/AI-RESOURCE-BLUEPRINT.md</code> no classpath do
+<code>.jar</code>). “Nao derivar mecanicamente da entidade” significa
 <strong>organizar semanticamente os campos por grupos de UX
 (<code>@UISchema(group = ...)</code>), ocultar colunas secundarias na
 grade principal (<code>tableHidden = true</code> mantendo-as no
-formulario/ficha), proteger atributos controlados por transicoes de
-estado (<code>readOnly = true</code> no <code>ResponseDTO</code> e fora
-do <code>UpdateDTO</code> generico) e aplicar
+formulario/ficha e preservando 5 a 10 colunas visiveis na tabela),
+proteger atributos controlados por transicoes de estado
+(<code>readOnly = true</code> no <code>ResponseDTO</code> e fora do
+<code>UpdateDTO</code> generico) e aplicar
 <code>@DomainGovernance</code></strong>. <strong>Jamais ampute 70%–80%
 das colunas de negocio de uma entidade corporativa nem gere
 <code>FilterDTO</code>s timidos com apenas 2 ou 3 campos!</strong> O
-recurso Praxis deve entregar capacidade cadastral, analitica, de
-filtragem (<code>@Filterable</code> cobrindo texto, exato, multi-selecao
-<code>IN</code>/<code>NOT_IN</code>, faixas <code>BETWEEN</code>, datas
-relativas <code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code>, nulidade
-<code>IS_NULL</code>/<code>IS_NOT_NULL</code>, booleanos
-<code>IS_TRUE</code> e relacoes aninhadas), <code>@QuickFilter</code>,
-<code>@ResourceIntent</code> (manutencao parcial com
-<code>@UiSurface(kind = SurfaceKind.PARTIAL_FORM)</code>),
-<code>@WorkflowAction</code>, <code>@ResourceFact</code> e invariantes
-de negocio <strong>superior ao sistema legado</strong>.</p>
+recurso Praxis deve ser executado em <strong>3 Fases de Profundidade
+100%</strong> entregando os <strong>20 Pilares</strong>: - <strong>Fase
+1:</strong> 100% das colunas nos DTOs, <code>@UISchema</code> com
+<code>label</code> curto (≤ 35 chars, sem ponto final),
+<code>@MicroVisualization</code> + <code>@Threshold</code>,
+<code>@DomainGovernance</code> + <code>fieldAccess</code>,
+<code>@ResourceIdentity</code> completo (<code>subtitleField</code>,
+<code>metadataFields</code>), Quick View 360°
+(<code>quickViewVisible</code>/<code>quickViewOrder</code> em 4..8
+campos + <code>@ResourceReference</code> com
+<code>previewSurfaceId</code> no titulo e em todas as FKs),
+<code>EntityLookupDescriptor</code> rico
+(<code>LookupSelectionPolicy</code>,
+<code>LookupDetailDescriptor</code>,
+<code>LookupDisplayDescriptor</code>,
+<code>LookupFilteringDescriptor</code>,
+<code>dependsOn</code>/<code>dependencyFilterMap</code>),
+<code>FilterDTO</code> exaustivo + <code>@QuickFilter</code> +
+<code>ResourceFilterAccessScope</code>; - <strong>Fase 2:</strong>
+<code>@UiSurface</code> (<code>READ_PROJECTION</code> para Quick View
+360° e colecoes filhas <code>relatedChildResourceKey</code>,
+<code>PARTIAL_FORM</code> e <code>VIEW</code>),
+<code>@ResourceIntent</code> (<code>PATCH</code>),
+<code>@WorkflowAction</code> com
+<code>If-Match</code>/<code>Idempotency-Key</code>, <strong>Operacoes em
+Lote Governadas (Bulking)</strong> (<code>@BulkEditable</code>,
+<code>@BulkResourceOperations</code>, <code>@BulkOperation</code> para
+<code>UNIFORM_UPDATE</code>, <code>PER_ITEM_UPDATE</code> e
+<code>DOMAIN_COMMAND</code>), <code>@ResourceFact</code>, Analytics
+(<code>StatsFieldRegistry</code> +
+<code>@UiAnalytics</code>/<code>@AnalyticsProjection</code>) e
+<code>CollectionExport</code>
+(<code>CSV</code>/<code>JSON</code>/<code>EXCEL</code> com
+<code>CollectionExportFieldPresentation</code>); - <strong>Fase
+3:</strong> Invariantes de negocio transacionais
+(<code>409</code>/<code>422</code>),
+<code>ReactiveDeterminationDefinitionProvider</code>
+(<code>ReactiveDeterminationTriggerMode.ON_CHANGE</code>,
+<code>ReactiveDeterminationFormMode.CREATE | EDIT</code>),
+<code>praxis-rules-engine</code>, <code>/praxis/cockpit</code>,
+orcamento N+1 e Gate JUnit Nativo
+(<code>SemanticMetadataReviewer</code>,
+<code>PraxisExpressionStaticValidator</code>,
+<code>OptionSourcePublicationInventory</code>).</p>
 </blockquote>
 <h2 id="repository-minimo">Repository minimo</h2>
 <div class="sourceCode" id="cb3"><pre
@@ -516,20 +565,19 @@ chaves simples (<code>Long</code>, <code>UUID</code>,
 <li><strong>Quando usar <code>@EmbeddedId</code>
 (<code>CompositeResourceId</code>):</strong> quando a chave composta de
 dominio for <strong>imutavel</strong> apos a criacao do registro (ex.:
-<code>VinculoId(Long numfunc, Integer numvinc)</code>,
-<code>DependenteId(Long numfunc, Integer numdep)</code>,
-<code>ItemTabelaId(String tab, String item)</code>). No wire
+<code>EmployeeAssignmentId(Long employeeId, Integer assignmentNumber)</code>,
+<code>OrderItemId(Long orderId, Integer itemSequence)</code>). No wire
 HTTP/JSON/OpenAPI, o starter converte automaticamente o
 <code>@Embeddable</code> para string canonica separada por
 <code>:</code> (<code>"1001:1"</code>) em <code>@PathVariable</code>,
 <code>includeIds</code>, <code>options/by-ids</code>,
 <code>OptionDTO&lt;ID&gt;</code>, <code>RESOURCE_ENTITY</code> option
-sources, <code>@Filterable(relation = "id.numfunc")</code> /
-<code>@Filterable(relation = "vinculo.id")</code>, ordenacao
+sources, <code>@Filterable(relation = "id.employeeId")</code> /
+<code>@Filterable(relation = "assignment.id")</code>, ordenacao
 (<code>sort=id,desc</code> expandido para os componentes), exportacao
 tabular (CSV/Excel/JSON), HATEOAS e <code>/schemas/filtered</code>
 (<code>type: "string"</code>, <code>format: "composite-id"</code>,
-<code>x-ui.compositeIdComponents: ["numfunc", "numvinc"]</code>,
+<code>x-ui.compositeIdComponents: ["employeeId", "assignmentNumber"]</code>,
 <code>x-ui.compositeIdSeparator: ":"</code>).</li>
 <li><strong>Distincao entre <code>@EmbeddedId</code> e Value Objects
 <code>@Embedded</code>:</strong> apenas classes que implementam
@@ -537,27 +585,29 @@ tabular (CSV/Excel/JSON), HATEOAS e <code>/schemas/filtered</code>
 <code>@EmbeddedId</code> / seguem a convencao de chave composta) sao
 serializadas como <code>format: "composite-id"</code>. Classes
 <code>@Embeddable</code> comuns usadas como <code>@Embedded</code> Value
-Objects (ex.: <code>EnderecoEmbeddable</code>,
-<code>LotacaoEmbeddable</code>) permanecem objetos JSON estruturados nos
-DTOs e OpenAPI, mas tambem contam com navegacao segura via
-<code>.get(part)</code> no Criteria JPA (sem <code>LEFT JOIN</code>
+Objects (ex.: <code>AddressEmbeddable</code>,
+<code>CostAllocationEmbeddable</code>) permanecem objetos JSON
+estruturados nos DTOs e OpenAPI, mas tambem contam com navegacao segura
+via <code>.get(part)</code> no Criteria JPA (sem <code>LEFT JOIN</code>
 indevido).</li>
 <li><strong>Contrato UX em Tabelas e Formularios
 (<code>ResponseDTO</code>, <code>CreateDTO</code>,
 <code>UpdateDTO</code>):</strong>
 <ul>
-<li><code>ResponseDTO</code>: exponha <code>VinculoId id</code>
-(identidade canonica para selecao de linha, roteamento, edicao, exclusao
-e HATEOAS) <strong>e</strong> mantenha as colunas de negocio individuais
-(<code>Long numfunc</code>, <code>Integer numvinc</code>) visiveis e
-formatadas para leitura/ordenacao humana na tabela.</li>
+<li><code>ResponseDTO</code>: exponha
+<code>EmployeeAssignmentId id</code> (identidade canonica para selecao
+de linha, roteamento, edicao, exclusao e HATEOAS) <strong>e</strong>
+mantenha as colunas de negocio individuais
+(<code>Long employeeId</code>, <code>Integer assignmentNumber</code>)
+visiveis e formatadas para leitura/ordenacao humana na tabela.</li>
 <li><code>CreateDTO</code>: exponha os campos de negocio separados e
-editaveis (<code>@NotNull Long numfunc</code>,
-<code>@NotNull Integer numvinc</code>), permitindo que o formulario de
-criacao use controles ricos (ex.: lookup <code>RESOURCE_ENTITY</code>
-para <code>numfunc</code> e input numerico para <code>numvinc</code>), e
-instancie <code>new VinculoId(dto.numfunc(), dto.numvinc())</code> no
-<code>ResourceMapper.newEntity(dto)</code>.</li>
+editaveis (<code>@NotNull Long employeeId</code>,
+<code>@NotNull Integer assignmentNumber</code>), permitindo que o
+formulario de criacao use controles ricos (ex.: lookup
+<code>RESOURCE_ENTITY</code> para <code>employeeId</code> e input
+numerico para <code>assignmentNumber</code>), e instancie
+<code>new EmployeeAssignmentId(dto.employeeId(), dto.assignmentNumber())</code>
+no <code>ResourceMapper.newEntity(dto)</code>.</li>
 <li><code>UpdateDTO</code>: omita os campos da chave primaria composta
 (ou marque-os como <code>readOnly = true</code> apenas para exibicao
 contextual) e <strong>nunca</strong> altere
@@ -566,11 +616,12 @@ primarias sao imutaveis apos a criacao.</li>
 </ul></li>
 <li><strong>Quando usar chave substituta (<code>Long id</code>) +
 <code>UNIQUE</code>:</strong> quando as colunas que identificam o evento
-no legado forem <strong>editaveis pelo usuario</strong> em operacoes de
-<code>PUT /{id}</code> (ex.: lancamentos de frequencia/afastamento em
-que <code>dtini</code> ou <code>codfreq</code> podem ser corrigidos na
-tela), pois o JPA/Hibernate proibe alterar atributos de um
-<code>@EmbeddedId</code> em uma entidade gerenciada.</li>
+no negocio forem <strong>editaveis pelo usuario</strong> em operacoes de
+<code>PUT /{id}</code> (ex.: lancamentos de apontamento/ocorrencia
+<code>TimesheetEntry</code> em que <code>entryDate</code> ou
+<code>activityCode</code> podem ser corrigidos na tela), pois o
+JPA/Hibernate proibe alterar atributos de um <code>@EmbeddedId</code> em
+uma entidade gerenciada.</li>
 </ul>
 <h2 id="mapper-canonico">Mapper canonico</h2>
 <div class="sourceCode" id="cb4"><pre
@@ -878,9 +929,10 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb12-1"><a href=
 <span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">toResourceRepresentation</span><span class="op">(</span>saved<span class="op">);</span></span>
 <span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h2
-id="extensibilidade-dinâmica-multi-tenant-customfields-e-fatos-de-domínio-resourcefact">Extensibilidade
-Dinâmica Multi-Tenant (<code>@CustomFields</code>) e Fatos de Domínio
-(<code>@ResourceFact</code>)</h2>
+id="extensibilidade-dinâmica-multi-tenant-customfields-fatos-de-domínio-resourcefact-e-determinações-reativas-reactivedeterminationdefinitionprovider">Extensibilidade
+Dinâmica Multi-Tenant (<code>@CustomFields</code>), Fatos de Domínio
+(<code>@ResourceFact</code>) e Determinações Reativas
+(<code>ReactiveDeterminationDefinitionProvider</code>)</h2>
 <ol type="1">
 <li><strong>Campos Customizados (<code>@CustomFields</code> +
 <code>CustomFieldDefinitionProvider</code>):</strong>
@@ -903,7 +955,7 @@ Dinâmica Multi-Tenant (<code>@CustomFields</code>) e Fatos de Domínio
 <code>custom_field_definitions</code>) para que
 <code>/schemas/filtered</code>, validação server-side, filtros JSONB em
 <code>/filter</code>, exportação e <code>/schemas/domain</code> projetem
-automaticamente os campos ativos do órgão/tenant.</li>
+automaticamente os campos ativos da organização/tenant.</li>
 </ul></li>
 <li><strong>Catálogo de Fatos de Domínio (<code>@ResourceFact</code> +
 <code>ResourceFactCatalogProvider</code>):</strong>
@@ -912,6 +964,43 @@ automaticamente os campos ativos do órgão/tenant.</li>
 <code>@ResourceFact(key = "tempoServicoDias", resourceKey = "human-resources.employees", label = "Tempo de Serviço em Dias", description = "...", dataType = "integer", unit = "days")</code>
 ou exponha um bean <code>ResourceFactCatalogProvider</code> para
 publicar indicadores derivados em <code>/schemas/domain</code>.</li>
+</ul></li>
+<li><strong>Determinações Reativas em Tempo de Formulário
+(<code>ReactiveDeterminationDefinitionProvider</code>):</strong>
+<ul>
+<li>Quando o preenchimento de um ou mais campos de
+<code>CreateDTO</code> / <code>UpdateDTO</code> permitir projetar dados
+relacionados, calcular valores/datas ou simular elegibilidade antes do
+submit:
+<ol type="1">
+<li>Declare os campos de saída (inclusive prévias calculadas com
+<code>@UISchema(readOnly = true)</code>) em <code>CreateDTO</code> e
+<code>UpdateDTO</code>;</li>
+<li>No Controller do recurso, sobrescreva <code>create</code>
+(<code>@PostMapping</code>) com
+<code>@Operation(operationId = "createEmployee", ...)</code> e
+<code>update</code> (<code>@PutMapping("/{id}")</code>) com
+<code>@Operation(operationId = "updateEmployee", ...)</code>, e exponha
+um endpoint
+<code>@PostMapping("/determinations/compensation-preview")</code> (sem
+variáveis de caminho <code>{id}</code>) com
+<code>@Operation(operationId = "determineEmployeeCompensationPreview", ...)</code>
+que receba <code>@RequestBody</code> JSON e retorne <code>200 OK</code>
+JSON sem persistir estado;</li>
+<li>Registre um
+<code>@Bean ReactiveDeterminationDefinitionProvider</code> vinculando os
+escopos
+(<code>new ReactiveDeterminationScope("createEmployee", ReactiveDeterminationFormMode.CREATE)</code>,
+<code>new ReactiveDeterminationScope("updateEmployee", ReactiveDeterminationFormMode.EDIT)</code>)
+ao <code>operationId</code>
+<code>"determineEmployeeCompensationPreview"</code>, usando
+<code>ReactiveDeterminationTriggerMode.ON_CHANGE</code>,
+<code>sourcePaths</code> iniciados por <code>"/"</code> (todos presentes
+em <code>inputs</code>), <code>ReactiveDeterminationInputBinding</code>,
+<code>ReactiveDeterminationOutputBinding</code> (sem sobrepor
+<code>inputs</code>) e
+<code>ReactiveDeterminationProvenance(ReactiveDeterminationProvenanceKind.HOST, "host-service", "1")</code>.</li>
+</ol></li>
 </ul></li>
 </ol>
 <h2 id="o-que-nao-deve-ser-gerado">O que nao deve ser gerado</h2>

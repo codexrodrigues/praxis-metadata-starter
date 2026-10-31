@@ -2,7 +2,7 @@
 
 ## Definição
 
-**Schema-driven UI** é o padrão arquitetural em que interfaces de usuário — formulários, tabelas, barras de filtro, diálogos de workflow e visualizações analíticas — são construídas dinamicamente a partir de contratos estruturais e semânticos publicados pelo backend, reduzindo código manual repetitivo por tela.
+**Schema-driven UI** é o padrão arquitetural em que interfaces de usuário — formulários, tabelas, barras de filtro, diálogos de workflow e visualizações analíticas — são construídas dinamicamente a partir de contratos estruturais e semânticos publicados pelo backend, reduzindo código manual repetitivo por tela. Na **Praxis Platform**, o mesmo contrato semântico que alimenta a **interface tradicional** (`@praxisui/*`) também alimenta **interfaces generativas**, **agentes de IA** e **integrações**.
 
 ## Como o `praxis-metadata-starter` implementa
 

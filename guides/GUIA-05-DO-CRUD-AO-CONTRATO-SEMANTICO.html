@@ -279,17 +279,25 @@ Contrato Semantico</h1>
 <h2 id="objetivo">Objetivo</h2>
 <p>Este guia mostra visualmente por que o
 <code>praxis-metadata-starter</code> nao deve ser lido como “CRUD com
-DTO anotado”.</p>
+DTO anotado”, mas como a fundacao de contratos de uma <strong>plataforma
+semanticamente orientada para aplicacoes corporativas AI-native</strong>
+— onde nao se constroi IA ao lado da aplicacao, e sim uma aplicacao que,
+por definicao, ja nasce legivel e operavel por IA, humanos e
+integracoes.</p>
 <p>O ponto central e este:</p>
 <ul>
-<li><code>resource</code> continua sendo o contrato canonico</li>
-<li><code>surface</code> adiciona descoberta semantica de
-experiencia</li>
+<li><code>resource</code> descreve o contrato canonico do recurso, dados
+e governanca de campo uma unica vez</li>
+<li><code>surface</code> adiciona descoberta semantica de experiencia
+(leitura, projecao 360°, formulario parcial)</li>
 <li><code>workflow action</code> adiciona descoberta semantica de
-comando de negocio</li>
-<li><code>capabilities</code> agrega o que pode ser feito agora</li>
-<li>tudo isso continua apontando para operacoes HTTP reais e schemas
-canonicos</li>
+comando de negocio governado</li>
+<li><code>capabilities</code> agrega o que pode ser feito agora para a
+colecao ou instancia</li>
+<li>tudo isso aponta para operacoes HTTP reais e schemas canonicos
+consumidos por <strong>interfaces tradicionais</strong>,
+<strong>interfaces generativas</strong>, <strong>agentes de IA</strong>
+e <strong>integracoes</strong></li>
 </ul>
 <h2 id="a-leitura-correta-do-contrato">A leitura correta do
 contrato</h2>
@@ -300,16 +308,22 @@ contrato</h2>
 <p>O contrato canonico do starter e:</p>
 <pre class="mermaid"><code>flowchart LR
     resource[&quot;Resource HTTP real&quot;] --&gt; filtered[&quot;/schemas/filtered&quot;]
-    resource --&gt; catalog[&quot;/schemas/catalog&quot;]
+    resource --&gt; catalog[&quot;/schemas/catalog + /schemas/domain&quot;]
     resource --&gt; surfaces[&quot;/schemas/surfaces&quot;]
     resource --&gt; actions[&quot;/schemas/actions&quot;]
     surfaces --&gt; capabilities[&quot;/{resource}/capabilities&quot;]
     actions --&gt; capabilities
-    filtered --&gt; runtime[&quot;Runtime Angular&quot;]
-    catalog --&gt; docs[&quot;Docs, examples, RAG&quot;]
-    capabilities --&gt; clients[&quot;Clientes semanticos e assistentes&quot;]</code></pre>
+    filtered --&gt; uiTrad[&quot;Interfaces Tradicionais (@praxisui/*)&quot;]
+    filtered --&gt; uiGen[&quot;Interfaces Generativas / Compostas&quot;]
+    catalog --&gt; agents[&quot;Agentes de IA + Grounding RAG&quot;]
+    capabilities --&gt; uiTrad
+    capabilities --&gt; uiGen
+    capabilities --&gt; agents
+    capabilities --&gt; integrations[&quot;Integracoes HTTP&quot;]</code></pre>
 <p>Praxis continua tendo CRUD quando o recurso realmente e CRUD. O ganho
-da plataforma esta no que aparece em volta dele.</p>
+estrategico da plataforma esta em descrever recursos, regras, acoes,
+dados e politicas uma vez para que multiplos canais operem sobre a mesma
+verdade.</p>
 <h2 id="camada-1---resource-continua-sendo-a-fonte-da-verdade">Camada 1
 - Resource continua sendo a fonte da verdade</h2>
 <p><code>resource</code> continua definindo:</p>

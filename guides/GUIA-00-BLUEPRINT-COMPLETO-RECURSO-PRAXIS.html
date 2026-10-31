@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Guia 00 — Blueprint Completo de Recurso e Host Praxis (20 Pilares e 3 Fases)</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Guia 00 — Blueprint Completo de Recurso e Host Praxis
+(20 Pilares e 3 Fases)</h1>
+</header>
+<h1
+id="guia-00-blueprint-completo-de-recurso-e-host-praxis-20-pilares-e-3-fases">Guia
+00 — Blueprint Completo de Recurso e Host Praxis (20 Pilares e 3
+Fases)</h1>
+<blockquote>
+<p><strong>Leitura Obrigatória para Humanos e Agentes de IA (Codex,
+Claude, Antigravity, Copilot)</strong> Este guia consolida <strong>todas
+as 20 capacidades canônicas</strong> do
+<code>praxis-metadata-starter</code>, <code>praxis-rules-engine</code> e
+<code>praxis-config-starter</code> que devem ser contempladas ao criar
+ou migrar um recurso corporativo na plataforma Praxis. Uma cópia
+idêntica deste blueprint também é empacotada dentro do próprio
+<code>.jar</code> publicado no Maven Central em
+<code>META-INF/praxis/AI-RESOURCE-BLUEPRINT.md</code>.</p>
+</blockquote>
+<hr />
+<h2 id="por-que-existe-este-blueprint-diretriz-anti-minimalismo">1. Por
+que existe este Blueprint? (Diretriz Anti-Minimalismo)</h2>
+<p>Quando uma LLM gera um recurso Spring Boot sem um guia prescritivo
+completo, ela tende a produzir apenas um CRUD básico: um
+<code>ResponseDTO</code> com meia dúzia de campos, um
+<code>FilterDTO</code> com 2 ou 3 filtros simples e um controller vazio.
+Isso <strong>desperdiça 80% do valor da plataforma Praxis</strong>.</p>
+<p>Na <strong>Praxis Platform</strong> — uma <strong>plataforma
+semanticamente orientada para aplicações corporativas AI-native</strong>
+em que não se constrói IA ao lado da aplicação, mas uma aplicação que,
+por definição, já nasce legível e operável por IA —, o backend é a fonte
+canônica onde recursos, regras, ações, dados e políticas são descritos
+uma vez (<code>x-ui</code>, <code>/schemas/filtered</code>,
+<code>/schemas/surfaces</code>, <code>/schemas/actions</code>,
+<code>/schemas/domain</code>, <code>/capabilities</code>,
+<code>/option-sources/*</code>, <code>/stats/*</code>,
+<code>/export</code>, <code>/reactive-determinations/evaluate</code>).
+Quando o recurso backend publica os <strong>20 Pilares</strong> abaixo,
+<strong>interfaces tradicionais</strong> (<code>@praxisui/*</code>),
+<strong>interfaces generativas</strong>, <strong>agentes de IA</strong>
+e <strong>integrações</strong> materializam e operam automaticamente: -
+Tabelas corporativas com micro-visualizações in-cell
+(<code>@MicroVisualization</code>), badges, máscaras, Quick Filters,
+paginação por cursor e exportação rica
+(<code>CSV</code>/<code>JSON</code>/<code>EXCEL</code>); - Inspeção
+<strong>Quick View 360°</strong> ao passar o mouse ou clicar em células
+de chave estrangeira ou no título do registro
+(<code>@ResourceIdentity</code> + <code>@ResourceReference</code> +
+<code>@UiSurface</code>); - Formulários dinâmicos com <strong>Lookups
+Ricos (<code>EntityLookupDescriptor</code>)</strong>, <strong>Manutenção
+Parcial por Subbloco (<code>@ResourceIntent</code>)</strong> e
+<strong>Determinações Reativas em Tempo de Formulário
+(<code>ReactiveDetermination</code>)</strong>; - Transições de ciclo de
+vida governadas por <strong><code>@WorkflowAction</code></strong> com
+ETag/<code>If-Match</code> e <strong>Operações em Lote
+(<code>Bulking</code> nos 3 modos)</strong>; - Gráficos e KPIs prontos
+para consumo via <strong><code>StatsFieldRegistry</code> +
+<code>@UiAnalytics</code> /
+<code>@AnalyticsProjection</code></strong>.</p>
+<hr />
+<h2 id="estratégia-de-execução-em-3-fases-de-profundidade-100">2.
+Estratégia de Execução em 3 Fases de Profundidade 100%</h2>
+<p>Para evitar entregas superficiais (“um pouquinho de cada coisa”),
+todo módulo ou vitrine com múltiplos recursos deve ser construído e
+validado em <strong>3 Fases Verticais com 100% de
+profundidade</strong>:</p>
+<ol type="1">
+<li><strong>Fase 1 — Dados, Contabilidade 100% Entity-to-DTO,
+<code>@UISchema</code>, <code>@MicroVisualization</code>,
+<code>@DomainGovernance</code>, Quick View 360°, Lookups Ricos e Matriz
+<code>FilterDTO</code></strong> (Pilares 1 a 9).</li>
+<li><strong>Fase 2 — Superfícies Semânticas (<code>@UiSurface</code>),
+Manutenção Parcial (<code>@ResourceIntent</code>), Ciclo de Vida
+(<code>@WorkflowAction</code>), Operações em Lote
+(<code>Bulking</code>), Fatos (<code>@ResourceFact</code>), Analytics
+(<code>@UiAnalytics</code>) e Exportação
+(<code>CollectionExport</code>)</strong> (Pilares 10 a 16).</li>
+<li><strong>Fase 3 — Regras de Negócio Transacionais
+(<code>409</code>/<code>422</code>), Determinações Reativas
+(<code>ReactiveDetermination</code>), Motor de Regras
+(<code>praxis-rules-engine</code> / <code>praxis-config-starter</code>),
+Cockpit (<code>/praxis/cockpit</code>) e Gates Automatizados</strong>
+(Pilares 17 a 20).</li>
+</ol>
+<hr />
+<h2 id="os-20-pilares-canônicos-checklist-completo">3. Os 20 Pilares
+Canônicos (Checklist Completo)</h2>
+<h3
+id="fase-1-dados-dtos-semântica-lookups-ricos-filtros-e-quick-view-360">Fase
+1: Dados, DTOs, Semântica, Lookups Ricos, Filtros e Quick View 360°</h3>
+<ol type="1">
+<li><strong>Hierarquia Resource-Oriented &amp;
+<code>@DefaultSortColumn</code>:</strong>
+<ul>
+<li>Mutável: <code>BaseCrudRepository&lt;E, ID&gt;</code>,
+<code>ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;</code>,
+<code>AbstractBaseResourceService&lt;E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt;</code>
+e
+<code>AbstractResourceController&lt;ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt;</code>.</li>
+<li>Somente leitura:
+<code>AbstractReadOnlyResourceService&lt;E, ResponseDTO, ID, FilterDTO&gt;</code>
+e
+<code>AbstractReadOnlyResourceController&lt;ResponseDTO, ID, FilterDTO&gt;</code>.</li>
+<li>Entidade com <code>@OptionLabel</code> e
+<code>@DefaultSortColumn</code> determinístico (indispensável para
+<code>/filter/cursor</code> e <code>/locate</code>). Chaves compostas
+imutáveis usam <code>@Embeddable</code> <code>record</code>
+implementando <code>CompositeResourceId</code>.</li>
+</ul></li>
+<li><strong>Contabilidade de 100% das Colunas da Entidade
+(<code>Entity-to-DTO Coverage Gate</code>):</strong>
+<ul>
+<li>100% das colunas de negócio da entidade JPA devem ser expostas no
+<code>ResponseDTO</code>.</li>
+<li>Use <code>@UISchema(group = "...", tableHidden = true)</code> para
+atributos secundários de formulário/ficha, deixando entre <strong>5 e 10
+colunas</strong> visíveis por padrão na grade principal
+(<code>tableHidden = false</code>) — inclusive em DTOs read-only de
+projeção.</li>
+<li>Em recursos mutáveis, toda coluna de negócio deve ser editável em
+<code>CreateDTO</code>/<code>UpdateDTO</code> <strong>ou</strong>
+declarada <code>readOnly = true</code> no <code>ResponseDTO</code> e
+controlada por um <code>@WorkflowAction</code> ou
+<code>@ResourceIntent</code> (<code>PATCH</code>).</li>
+</ul></li>
+<li><strong>Qualidade Editorial de <code>@UISchema</code>,
+<code>UISchemaPreset</code> e <code>valuePresentation</code>:</strong>
+<ul>
+<li><code>label</code> curto (1 a 4 palavras, ≤ 35 caracteres, sem ponto
+final e <strong>jamais</strong> copiando
+<code>@Schema.description</code>);</li>
+<li><code>helpText</code> explicando preenchimento/interpretação;
+<code>@Schema(description = ...)</code> documentando semântica real de
+produto;</li>
+<li><code>FieldDataType</code>, <code>FieldControlType</code> explícitos
+(incluindo controles especializados como <code>AVATAR</code>,
+<code>CPF_CNPJ_INPUT</code>, <code>PHONE</code>,
+<code>CURRENCY_INPUT</code>, <code>DATE_PICKER</code>,
+<code>DATE_RANGE</code>, <code>ENTITY_LOOKUP</code>,
+<code>SELECT</code>, <code>CHECKBOX</code>, <code>PERCENT_SLIDER</code>,
+<code>FILE_UPLOAD</code>, <code>CRON_BUILDER</code>), <code>icon</code>
+Material, <code>group</code>, <code>order</code>,
+<code>UISchemaPreset</code> e <code>extraProperties</code>
+(<code>labelTrue</code>/<code>labelFalse</code>,
+<code>toneTrue</code>/<code>toneFalse</code>,
+<code>presentation.presenter</code>).</li>
+</ul></li>
+<li><strong>Micro-Visualizações In-Cell
+(<code>@MicroVisualization</code> + <code>@Threshold</code>):</strong>
+<ul>
+<li>Campos de ocupação, saldo, progresso, meta ou comparação no
+<code>ResponseDTO</code> declaram
+<code>@MicroVisualization(kind = MicroVisualizationKind.BULLET | RADIAL | HARVEY_BALL | STACKED_BAR | COMPARISON | DELTA | PROCESS_FLOW, valueExpr = "...", targetExpr = "...", totalExpr = "...", thresholds = {@Threshold(...)})</code>,
+validados por <code>PraxisExpressionStaticValidator</code>.</li>
+</ul></li>
+<li><strong>Governança de Domínio, LGPD &amp;
+<code>fieldAccess</code>:</strong>
+<ul>
+<li><code>@DomainGovernance(domain, subdomain, dataCategory, classification, sensitiveData, maskPattern, exportable, filterable, analyticsEligible, aiPolicy = @AiUsagePolicy(...))</code>
++
+<code>@UISchema(visibleForAuthorities = {...}, editableForAuthorities = {...}, fieldAccessReason = "...")</code>.</li>
+</ul></li>
+<li><strong>Identidade Rica (<code>@ResourceIdentity</code>):</strong>
+<ul>
+<li>No <code>@ApiResource</code> do Controller e no
+<code>ResponseDTO</code>: <code>keyField</code>,
+<code>titleField</code>, <code>subtitleField</code> (e/ou
+<code>codeField</code>/<code>statusField</code>) e
+<code>metadataFields = {...}</code>.</li>
+</ul></li>
+<li><strong>Quick View &amp; Navegação 360°
+(<code>@ResourceReference</code>):</strong>
+<ul>
+<li>Curar de <strong>4 a 8 campos executivos</strong> no
+<code>ResponseDTO</code> com
+<code>@UISchema(quickViewVisible = true, quickViewOrder = ...)</code>
+(sem duplicar <code>titleField</code>/<code>subtitleField</code>).</li>
+<li>Anotar o campo de título do próprio recurso <strong>e</strong> todos
+os campos de exibição de chaves estrangeiras
+(<code>departmentName</code>, <code>customerName</code>,
+<code>positionName</code>, <code>costCenterName</code>,
+<code>managerName</code>, etc.) com
+<code>@ResourceReference(resourceKey = "...", valueField = "...", surfaceId = "detail", previewSurfaceId = "...", detailPresentation = "drawer")</code>.</li>
+</ul></li>
+<li><strong>Lookups Ricos (<code>OptionSourceDescriptor</code> +
+<code>EntityLookupDescriptor</code>):</strong>
+<ul>
+<li>Registrar <code>RESOURCE_ENTITY</code> e
+<code>DISTINCT_DIMENSION</code> no
+<code>OptionSourceRegistry</code>.</li>
+<li>Nunca passar <code>null</code> nos subcontratos de
+<code>EntityLookupDescriptor</code>: configurar
+<code>codePropertyPath</code>, <code>descriptionPropertyPaths</code>,
+<code>statusPropertyPath</code>, <code>LookupSelectionPolicy</code>
+(<code>allowedStatuses</code>/<code>blockedStatuses</code>,
+<code>allowRetainInvalidExistingValue = true</code>,
+<code>disabledReasonTemplate</code>,
+<code>validationMessageTemplate</code>),
+<code>LookupDetailDescriptor</code> (conectado à surface 360°),
+<code>LookupDisplayDescriptor</code> (<code>preset = "directory"</code>,
+<code>fields</code>), <code>LookupFilteringDescriptor</code>
+(<code>sortOptions</code>, <code>defaultSort</code>,
+<code>searchStrategies</code>) e <code>dependsOn</code> +
+<code>dependencyFilterMap</code> para dependências cruzadas entre
+campos.</li>
+</ul></li>
+<li><strong>Matriz Exaustiva de <code>FilterDTO</code>, Busca Ampla
+(<code>relations</code>), <code>@QuickFilter</code> &amp;
+<code>ResourceFilterAccessScope</code>:</strong>
+<ul>
+<li><code>FilterDTO implements GenericFilterDTO</code> cobrindo todas as
+dimensões operacionais: busca ampla unificada num único campo
+(<code>@Filterable(operation = FilterOperation.LIKE, relations = {"fullName", "socialName", "motherName", "fatherName", "dependents.fullName", "taxId"})</code>),
+combinação multi-operador
+(<code>LIKE</code>/<code>STARTS_WITH</code>/<code>EQUAL</code>/<code>IN</code>,
+intervalos <code>BETWEEN</code>, janelas relativas
+<code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code>/<code>ON_DATE</code>,
+auditoria de nulidade <code>IS_NULL</code>/<code>IS_NOT_NULL</code>,
+cardinalidade de coleções <code>SIZE_GT</code>/<code>SIZE_EQ</code>,
+booleanos <code>IS_TRUE</code>), navegação relacional cross-entity
+(<code>relation = "entidade.subentidade.campo"</code>) e
+<code>@CustomFields</code>, <code>@QuickFilter</code> no
+<code>@ApiResource</code> para recortes frequentes e
+<code>ResourceFilterAccessScope</code> no <code>Service</code> quando
+houver escopo de linha por tenant/empresa.</li>
+</ul></li>
+</ol>
+<h3
+id="fase-2-superfícies-projeções-360-intents-workflow-actions-bulking-facts-analytics-e-exportação">Fase
+2: Superfícies, Projeções 360°, Intents, Workflow Actions, Bulking,
+Facts, Analytics e Exportação</h3>
+<ol start="10" type="1">
+<li><strong>Superfícies Semânticas (<code>@UiSurface</code>),
+Master-Detail &amp; Novos Endpoints Cross-Entity:</strong>
+<ul>
+<li><code>@UiSurface(id = "...", kind = SurfaceKind.READ_PROJECTION | SurfaceKind.VIEW, scope = SurfaceScope.ITEM)</code>
+para respaldar todos os <code>previewSurfaceId</code> e
+<code>surfaceId</code> declarados em <code>@ResourceReference</code>,
+além de coleções filhas via <code>relatedChildResourceKey</code>,
+<code>relatedChildResourcePath</code>,
+<code>relatedChildParentField</code>. Quando o relacionamento entre
+entidades revelar visões consolidadas não-óbvias, criar também novos
+endpoints read-only dedicados
+(<code>AbstractReadOnlyResourceController</code>).</li>
+</ul></li>
+<li><strong>Manutenção Parcial Governada
+(<code>@ResourceIntent</code>):</strong>
+<ul>
+<li>Endpoints <code>PATCH /{id}/{intent}</code> com
+<code>@ResourceIntent</code> +
+<code>@UiSurface(kind = SurfaceKind.PARTIAL_FORM)</code> e DTO dedicado
+por subbloco cadastral.</li>
+</ul></li>
+<li><strong>Ciclo de Vida (<code>@WorkflowAction</code>), Concorrência
+(<code>If-Match</code> / <code>Idempotency-Key</code>) &amp; Duplicação
+(<code>duplicate-draft</code> vs. Deep Clone):</strong>
+<ul>
+<li>Todas as transições de estado reais modeladas com
+<code>@WorkflowAction</code>, DTO de comando,
+<code>ResourceStateSnapshotProvider</code>,
+<code>VersionedCreateUpdateResourceService</code> (<code>ETag</code> +
+<code>If-Match</code>) e <code>Idempotency-Key</code>
+(<code>GovernedResourceCommandExecutor</code>).</li>
+<li><strong>Regra de Decisão (<code>duplicate-draft</code>
+vs. <code>@WorkflowAction</code> Deep Clone):</strong> Para duplicação
+assistida em que o operador revisa e complementa um novo registro antes
+de salvar (catálogos, cargos, tabelas paramétricas, pré-preenchimento
+organizacional), usar
+<code>AbstractDuplicateDraftResourceController&lt;R, ID, F, C, U, D&gt;</code>
++ <code>DuplicateDraftResourceService&lt;R, ID, F, C, U, D&gt;</code>
+(<code>DuplicateDraftResourceCommandService&lt;ID, D&gt;</code>),
+expondo <code>POST /{resource}/{id}/duplicate-draft</code> sem efeitos
+colaterais de persistência, com <code>DuplicateDraftDTO</code> explícito
+(zerando chaves únicas/pessoais e usando
+<code>@Schema(nullable = true)</code> nos campos zerados cujo
+preenchimento é obrigatório em <code>CreateDTO</code>) e
+<code>ResourceOperationAvailabilityEvaluator</code>
+(<code>ResourceStructuralCapabilities.DUPLICATE_DRAFT_OPERATION</code>).
+Usar <code>@WorkflowAction</code> somente quando o domínio exigir
+clonagem profunda transacional imediata no servidor (ex.: clonar
+cabeçalho + coleções filhas <code>1:N</code> em uma única
+transação).</li>
+</ul></li>
+<li><strong>Operações em Lote Governadas (<code>Bulking</code> — 3 Modos
+Além do Óbvio):</strong>
+<ul>
+<li>Auditar 100% dos atributos mutáveis diferenciando
+<code>BulkMode.UNIFORM_UPDATE</code> (padronização coletiva:
+departamento, centro de custo, jornada/turno, regime/plano,
+banco/agência/forma de pagamento, flags operacionais, gestor) e
+<code>BulkMode.PER_ITEM_UPDATE</code> (planilha/grade de revisão
+individualizada em lote: telefones, e-mails, endereços, contas
+bancárias, valores/limites individuais, códigos externos, datas
+específicas por item) com <code>@Schema(nullable = true)</code> quando
+<code>allowClear = true</code>;</li>
+<li><code>@BulkResourceOperations(protectedUpdateFields = {...})</code>
+no Controller;</li>
+<li><code>@BulkOperation(mode = BulkMode.UNIFORM_UPDATE | BulkMode.PER_ITEM_UPDATE, evaluationOperationId = "...")</code>
+para atualização estrutural em lote;</li>
+<li><code>@WorkflowAction(scope = ActionScope.COLLECTION)</code> +
+<code>@BulkOperation(mode = BulkMode.DOMAIN_COMMAND, evaluationOperationId = "...")</code>
+para atos coletivos de negócio descobertos a partir do ciclo de vida e
+dos relacionamentos entre entidades (ex.: realocação coletiva entre
+unidades, homologação/aprovação em lote, suspensão/reativação coletiva,
+reenquadramento paramétrico) no protocolo de 2 fases
+(<code>evaluation -&gt; proposal -&gt; confirm -&gt; execution/results</code>).</li>
+</ul></li>
+<li><strong>Fatos Determinísticos (<code>@ResourceFact</code>):</strong>
+<ul>
+<li>Indicadores calculados publicados em <code>/schemas/domain</code>
+com <code>label</code> curto (≤ 35 caracteres, sem ponto final).</li>
+</ul></li>
+<li><strong>Analytics (<code>StatsFieldRegistry</code> +
+<code>@UiAnalytics</code> / <code>@AnalyticsProjection</code>):</strong>
+<ul>
+<li><code>StatsFieldRegistry</code> e <code>StatsSupportMode.AUTO</code>
+no <code>Service</code> (<code>/stats/group-by</code>,
+<code>/stats/timeseries</code>, <code>/stats/distribution</code>,
+<code>/stats/comparison</code>) +
+<code>@UiAnalytics(projections = {@AnalyticsProjection(...)})</code> no
+Controller com <code>@AnalyticsRecordOpen</code> apontando para a
+surface 360°.</li>
+</ul></li>
+<li><strong>Exportação Governada (<code>CollectionExport</code> +
+<code>CollectionExportFieldPresentation</code>):</strong>
+<ul>
+<li>Formatos <code>CSV</code>, <code>JSON</code> e <code>EXCEL</code>,
+escopos <code>AUTO</code>, <code>SELECTED</code>, <code>FILTERED</code>,
+<code>CURRENT_PAGE</code>, <code>ALL</code>, respeitando
+<code>exportable = false</code> de <code>@DomainGovernance</code> e
+aplicando <code>CollectionExportFieldPresentation</code> (moeda, data,
+booleanos).</li>
+</ul></li>
+</ol>
+<h3
+id="fase-3-regras-de-negócio-determinações-reativas-motor-de-regras-e-gates-automatizados">Fase
+3: Regras de Negócio, Determinações Reativas, Motor de Regras e Gates
+Automatizados</h3>
+<ol start="17" type="1">
+<li><strong>Invariantes Transacionais &amp; Contratos de Erro
+Estruturados (<code>409</code> / <code>422</code>):</strong>
+<ul>
+<li>Validações transacionais no <code>Service</code> retornando
+<code>409 Conflict</code> / <code>422 Unprocessable Entity</code> com
+<code>fieldErrors</code> estruturados.</li>
+</ul></li>
+<li><strong>Determinações Reativas
+(<code>ReactiveDeterminationDefinitionProvider</code> — Além do
+Óbvio):</strong>
+<ul>
+<li>Registrar beans <code>ReactiveDeterminationDefinitionProvider</code>
+vinculando operações de formulário
+(<code>ReactiveDeterminationScope(schemaOperationId, ReactiveDeterminationFormMode.CREATE | EDIT)</code>
+— exigindo <code>@Operation(operationId = "create...")</code> no
+<code>@PostMapping</code> e
+<code>@Operation(operationId = "update...")</code> no
+<code>@PutMapping("/{id}")</code> do Controller) a endpoints
+<code>POST</code> não-persistentes anotados com
+<code>@Operation(operationId = "determine...")</code>.</li>
+<li>Configurar <code>ReactiveDeterminationTriggerMode.ON_CHANGE</code>,
+<code>sourcePaths</code> (JSON Pointers iniciados por <code>"/"</code>,
+todos contidos em <code>inputs</code>),
+<code>ReactiveDeterminationInputBinding(fieldPath, requestPath)</code>
+(podendo incluir <code>"/id"</code> em modo <code>EDIT</code> sem
+listá-lo em <code>sourcePaths</code>),
+<code>ReactiveDeterminationOutputBinding(responsePath, fieldPath)</code>
+(todos os campos de saída devem existir em
+<code>CreateDTO</code>/<code>UpdateDTO</code> — com
+<code>@UISchema(readOnly = true)</code> quando forem prévias calculadas
+— sem sobrepor <code>inputs</code>) e
+<code>ReactiveDeterminationProvenance(ReactiveDeterminationProvenanceKind.HOST | PLATFORM, sourceId, version)</code>.</li>
+</ul></li>
+<li><strong>Motor de Regras (<code>praxis-rules-engine</code>) &amp;
+Decisões Governadas (<code>praxis-config-starter</code>):</strong>
+<ul>
+<li><code>RuleSet</code> determinístico JSON Logic e, quando
+<code>praxis-config-starter</code> estiver ativo no host, consumo de
+snapshots aprovados em <code>/api/praxis/config/domain-rules/**</code>
+(<code>ReactiveDeterminationProvenanceKind.PLATFORM</code> / decisões
+governadas).</li>
+</ul></li>
+<li><strong>Observabilidade, <code>/praxis/cockpit</code>, Orçamento N+1
+&amp; Gates Automatizados:</strong>
+<ul>
+<li>Liberar <code>/praxis/cockpit/**</code> no
+<code>SecurityConfig</code> de dev/showcase, testar contagem de queries
+SQL em <code>/filter</code> frio (<code>QueryCountHolder</code>) e
+executar o <strong>Gate JUnit Nativo</strong>
+(<code>SemanticMetadataReviewer</code> +
+<code>PraxisExpressionStaticValidator</code> +
+<code>OptionSourcePublicationInventory</code>) e o auditor
+<code>scripts/workspace/audit-java-resource-completeness.py</code>.</li>
+</ul></li>
+</ol>
+<hr />
+<h2
+id="protocolo-de-descoberta-profunda-de-domínio-e-síntese-relacional-além-do-óbvio">4.
+Protocolo de Descoberta Profunda de Domínio e Síntese Relacional (“Além
+do Óbvio”)</h2>
+<p>Ao construir ou evoluir um host Praxis, <strong>é proibido atuar como
+um gerador mecânico <code>1 tabela = 1 CRUD óbvio</code></strong>. O
+agente de IA deve analisar <strong>o domínio de negócio em si e o grafo
+de relacionamentos entre as entidades (<code>@ManyToOne</code>,
+<code>@OneToMany</code>, <code>@Embedded</code>)</strong> para descobrir
+e implementar capacidades corporativas não-óbvias:</p>
+<ol type="1">
+<li><strong>Filtragem Profunda, Multi-Operador, Cross-Entity e Busca
+Ampla (<code>Omnibox</code>):</strong>
+<ul>
+<li><strong>Busca Unificada num Único Campo
+(<code>@Filterable(relations = {...})</code>):</strong> incluir pelo
+menos um campo de busca ampla (<code>searchTerm</code> /
+<code>buscaAmpla</code> / <code>identificacaoOuFamiliar</code>) com
+<code>@Filterable(operation = FilterOperation.LIKE, relations = {"fullName", "socialName", "motherName", "fatherName", "dependents.fullName", "taxId"})</code>
+para que o usuário pesquise por nome, sobrenome, filiação/parente ou
+documento no mesmo campo sem escolher filtros separados;</li>
+<li><strong>Multi-Operador sobre o Mesmo Atributo:</strong> combinar
+<code>LIKE</code> + <code>STARTS_WITH</code> + <code>EQUAL</code> +
+<code>IN</code> em textos/códigos; <code>BETWEEN</code> +
+<code>ON_DATE</code> + <code>IN_LAST_DAYS</code> (eventos recentes) +
+<code>IN_NEXT_DAYS</code> (radar de vencimentos) em datas;
+<code>IS_NULL</code> / <code>IS_NOT_NULL</code> para auditoria de
+cadastros incompletos; e <code>SIZE_GT</code> / <code>SIZE_EQ</code> em
+coleções filhas;</li>
+<li><strong>Navegação Cross-Entity:</strong> atravessar 1 a 3 níveis de
+relacionamento (<code>relation = "department.costCenter.region"</code>,
+<code>relation = "dependents.relationshipType"</code>).</li>
+</ul></li>
+<li><strong>Descoberta Exaustiva de Bulking nos 3 Modos:</strong>
+<ul>
+<li><strong><code>UNIFORM_UPDATE</code>:</strong> habilitar em todos os
+atributos organizacionais, classificatórios, contratuais, bancários e
+operacionais padronizáveis para um lote;</li>
+<li><strong><code>PER_ITEM_UPDATE</code>:</strong> habilitar amplamente
+em atributos de revisão individualizada em planilha/grade (telefones,
+e-mails, endereços, contas, saldos/valores individuais, códigos
+externos, datas específicas), excluindo apenas chaves imutáveis e campos
+exclusivos de workflow;</li>
+<li><strong><code>DOMAIN_COMMAND</code>:</strong> analisar o ciclo de
+vida e os relacionamentos para criar atos coletivos reais
+(<code>@WorkflowAction(scope = ActionScope.COLLECTION)</code> +
+<code>@BulkOperation(mode = BulkMode.DOMAIN_COMMAND)</code>), como
+realocação coletiva entre unidades, aprovação/homologação em lote,
+suspensão/reativação coletiva ou revisão paramétrica.</li>
+</ul></li>
+<li><strong>Novos Endpoints Cross-Entity e Subdomínios:</strong>
+<ul>
+<li>Criar novos endpoints read-only consolidados
+(<code>AbstractReadOnlyResourceController</code>) quando o cruzamento de
+entidades responder a perguntas operacionais/analíticas (ocupação e
+vagas, vencimentos, custos por unidade);</li>
+<li>Expor todas as coleções filhas <code>1:N</code> como superfícies
+360° (<code>@UiSurface</code> + <code>relatedChildResourceKey</code>) e
+decompor entidades extensas em <code>@ResourceIntent</code>
+(<code>PATCH</code>) por subbloco operacional.</li>
+</ul></li>
+<li><strong>Descoberta Profunda de Determinações Reativas em Tempo de
+Formulário (<code>ReactiveDetermination</code> Além do Óbvio):</strong>
+<ul>
+<li>Analisar <code>CreateDTO</code> e <code>UpdateDTO</code> para
+transformar formulários passivos em superfícies assistidas em tempo real
+nas 4 famílias:
+<ol type="1">
+<li><em>Autopreenchimento e Projeção Cross-Entity
+(<code>Lookup &amp; Directory Projection</code>):</em> ao informar CEP
+(<code>"/postalCode"</code>) preencher logradouro/bairro/cidade/UF; ao
+selecionar cargo/departamento/plano (<code>"/positionId"</code>,
+<code>"/departmentId"</code>), projetar piso salarial, jornada padrão,
+vagas disponíveis ou centro de custo padrão;</li>
+<li><em>Cálculos Determinísticos Multi-Campo
+(<code>Financial, Tax &amp; Date Formulas</code>):</em> ao alterar valor
+bruto/descontos (<code>"/grossAmount"</code>,
+<code>"/baseDeductions"</code>), calcular total de descontos e valor
+líquido (<code>"/totalDeductions"</code>, <code>"/netAmount"</code>); ao
+informar data inicial e prazo (<code>"/startDate"</code>,
+<code>"/probationDays"</code>), derivar data prevista de término
+(<code>"/expectedEndDate"</code>);</li>
+<li><em>Determinações Encadeadas
+(<code>Chained Determinations A -&gt; B -&gt; C</code>):</em> quando a
+Determinação 1 escreve <code>"/netAmount"</code>, uma Determinação 2 que
+escute <code>"/netAmount"</code> em <code>sourcePaths</code> e
+<code>inputs</code> dispara automaticamente para calcular
+<code>"/expectedPaymentDate"</code>;</li>
+<li><em>Simulação Preventiva de Elegibilidade e Capacidade
+(<code>Draft Policy &amp; Quota Preview</code>):</em> avaliar saldo de
+vagas, compatibilidade de requisitos ou conflitos em tempo de digitação
+e preencher campos de prévia (<code>@UISchema(readOnly = true)</code>)
+no <code>CreateDTO</code>/<code>UpdateDTO</code>.</li>
+</ol></li>
+<li><strong>Regras Estritas do
+<code>ReactiveDeterminationMetadataCompiler</code>:</strong>
+<ul>
+<li><code>@PostMapping</code> (<code>create</code>) e
+<code>@PutMapping("/{id}")</code> (<code>update</code>) no Controller
+devem declarar <code>@Operation(operationId = "create...", ...)</code> e
+<code>@Operation(operationId = "update...", ...)</code> explícitos;</li>
+<li>O endpoint da determinação deve ser um <code>@PostMapping</code> sem
+variáveis de caminho, com
+<code>@Operation(operationId = "determine...", ...)</code>, corpo JSON e
+resposta <code>200 OK</code> JSON não-persistente;</li>
+<li>Todos os caminhos (<code>sourcePaths</code>, <code>fieldPath</code>,
+<code>requestPath</code>, <code>responsePath</code>) devem ser JSON
+Pointers iniciados por <code>"/"</code>; todo <code>sourcePath</code>
+deve constar em <code>inputs</code>; todos os campos
+<code>input.fieldPath</code> e <code>output.fieldPath</code> devem
+existir no <code>CreateDTO</code>/<code>UpdateDTO</code>; e
+<code>inputs</code> e <code>outputs</code> nunca podem se sobrepor.</li>
+</ul></li>
+</ul></li>
+</ol>
+<h2 id="caminhos-reutilizados-e-fontes-de-opções">Caminhos reutilizados
+e fontes de opções</h2>
+<p>Antes de criar DTOs e FilterDTOs, defina <code>final ApiPaths</code>
+no host (construtor privado, constantes
+<code>public static final String</code> calculáveis em compilação).
+Componha base, caminho do recurso, chave da fonte e endpoint nomeado de
+opções uma única vez. Controllers, DTOs de todas as operações, registro
+de fontes, superfícies e links devem reutilizar essas constantes. Não
+concatene caminhos completos em cada DTO, não use interfaces de
+constantes ou chamadas de método para valores de annotations, e não
+inclua origem/porta do ambiente.
+<code>OptionSourceRegistry</code>/<code>OptionSourceDescriptor</code>
+continuam definindo a semântica; o runtime consome
+<code>x-ui.optionSource.filterEndpoint</code> e
+<code>byIdsEndpoint</code> publicados pelo starter. Selects com
+enum/opções estáticas não precisam de endpoint. Valide os endpoints das
+annotations contra o runtime do descritor e o mapping do controller,
+preservando fixtures literais independentes e recompilando o host. A
+classe de caminhos é do host; bibliotecas universais não recebem rotas
+de produtos.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

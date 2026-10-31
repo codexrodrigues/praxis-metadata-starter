@@ -276,6 +276,28 @@
 </header>
 <h1 id="lifecycle-governado-de-operações-em-lote">Lifecycle governado de
 operações em lote</h1>
+<h2 id="diagnóstico-privado-da-recusa-de-publicação">Diagnóstico privado
+da recusa de publicação</h2>
+<p><code>GovernedOpenApiPublicationUnavailableException</code> conserva
+a causa privada e o contrato HTTP 503 existente. Ao classificar a falha,
+emite o código <code>GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE</code> com
+a cadeia limitada a doze tipos de exceção canônicos e SQLSTATE válido,
+quando presente. Tipos externos são <code>OTHER</code>. Não registra
+mensagens de exceção, stack trace, SQL, URL, identidade ou payload.
+Ciclos e falhas do observador não substituem a recusa original. Esse
+diagnóstico não autoriza retry de escrita, recaptura de OpenAPI nem
+ampliação de deadline.</p>
+<p>O registro distingue, por exemplo, deadline transacional de falha de
+conexão; ele não prova sozinho que o banco está saturado ou que o
+request não gravou. Após uma confirmação incerta, consultar o protocolo
+de recibos/idempotência.</p>
+<p>A verificação estrita de uma identidade bulk em múltiplos grupos
+OpenAPI usa um único <code>withSchemaCacheReadLock</code> canônico para
+toda a composição. No serviço governado, isso mantém a mesma fotografia
+imutável, com autoridade LIVE na entrada e na saída, em vez de abrir uma
+verificação independente por documento. A invalidação no fence final
+continua impedindo o retorno da identidade. Não há cache de autorização,
+relaxamento de prazo ou trabalho de domínio dentro desse escopo.</p>
 <h2 id="estado-e-fronteira">Estado e fronteira</h2>
 <p>As seções históricas descrevem o corte R2/V15. O artefato público
 rc.154 inclui a seleção QUERY delimitada descrita adiante; o host já usa

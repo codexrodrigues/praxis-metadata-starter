@@ -6,7 +6,7 @@
 
 ## Como a plataforma Praxis separa Código vs Configuração
 
-Na arquitetura Praxis, existe uma fronteira canônica estrita entre o que nasce no código do recurso e o que é configurado em runtime:
+Na arquitetura da **Praxis Platform** — em que recursos, regras, ações, dados e políticas são descritos uma vez para serem operados por interfaces tradicionais, interfaces generativas, agentes de IA e integrações —, existe uma fronteira canônica estrita entre o que nasce no contrato do recurso e o que é governado e configurado em runtime:
 
 | Camada | Módulo Canônico | O que governa |
 | :--- | :--- | :--- |

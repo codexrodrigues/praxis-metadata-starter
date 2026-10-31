@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Disponibilidade de duplicate-draft</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Disponibilidade de duplicate-draft</h1>
+</header>
+<h1 id="disponibilidade-de-duplicate-draft">Disponibilidade de
+duplicate-draft</h1>
+<p>Complementa <a href="DUPLICATE-DRAFT-STRUCTURAL-SUPPORT.md">suporte
+estrutural</a>. O contrato continua sendo
+<code>POST /{resource}/{id}/duplicate-draft</code>, retornando um draft
+editável, sem persistência. O documento OpenAPI e os schemas são
+estruturais e não variam por usuário. <code>canonicalOperations</code>
+informa suporte; <code>operations.*.availability</code>, as actions e os
+links representam a disponibilidade contextual.</p>
+<h2 id="composição-canônica">Composição canônica</h2>
+<p><code>ResourceOperationAvailabilityEvaluator</code> compartilha a
+avaliação entre as guardas de <code>DefaultCapabilityService</code>, os
+snapshots e <code>ActionCatalogService</code>. Não chama capabilities
+para produzir um catálogo. A ordem da duplicação é:</p>
+<ol type="1">
+<li>POST publicado e
+<code>ResourceStructuralCapabilities.duplicateDraft=true</code>.</li>
+<li>Criação estruturalmente suportada e permitida no escopo
+COLLECTION.</li>
+<li>Identificador de origem presente e operação <code>view</code>
+suportada/permitida em ITEM.</li>
+<li>Disponibilidade própria da operação <code>duplicate-draft</code> em
+ITEM.</li>
+<li>Regras declaradas da action real descoberta por
+<code>@WorkflowAction</code>.</li>
+</ol>
+<p>Uma negação em qualquer etapa impede a disponibilidade executável.
+<code>create</code> e <code>view</code> incorporam também a availability
+de suas surfaces, como os snapshots já faziam. O snapshot de item
+incorpora a surface de criação quando há duplicação suportada; a surface
+de coleção não é publicada como surface de item. A seleção de
+create/view é compartilhada, preservando a precedência existente dos IDs
+create/detail/view e a alternativa de primeira surface elegível.</p>
+<p>O contexto do provider recebe <code>preferredMethod</code>,
+<code>preferredRel</code> e <code>supported</code> extraídos da
+operação, tanto em guardas diretas quanto no snapshot. Criação mantém
+<code>scope=COLLECTION</code>, sem ID ou estado da origem, inclusive
+dentro do snapshot de item. <code>view</code> recebe GET/self e
+duplicação POST/duplicate-draft. Não há inferência de permissões a
+partir de nomes de roles ou de botões.</p>
+<p>As regras da action podem restringir adicionalmente o resultado. A
+avaliação restrita
+<code>evaluateDeclaredDuplicateDraftAvailability</code> consulta apenas
+registry, contexto e evaluator; não monta outro catálogo nem chama
+capabilities. A annotation, operação real, schemas e demais dados úteis
+da action são preservados. No catálogo documental
+<code>/schemas/actions</code>, não há ID: a definição continua visível,
+mas não é executável (<code>resource-context-required</code> quando as
+condições anteriores permitem chegar a essa etapa). O catálogo
+contextual <code>/{id}/actions</code> avalia a origem.</p>
+<h2 id="falhas-estado-e-fronteiras">Falhas, estado e fronteiras</h2>
+<ul>
+<li>Serviço com suporte false continua produzindo 404 antes de preparar
+qualquer draft. Mapping sozinho, NoOp ou ausência de opt-in não
+habilitam suporte.</li>
+<li>Negações ou falhas de provider/action na composição da duplicação
+retornam a razão pública <code>duplicate-draft-unavailable</code>, sem
+transportar dados privados da política, da origem ou detalhes de
+exceções. Ausência de suporte tem a razão estrutural
+<code>operation-not-supported</code>; ausência de contexto tem
+<code>resource-context-required</code>. Razões não descrevem a
+existência de uma origem.</li>
+<li>Resultado nulo do provider não autoriza um pré-requisito de
+duplicação. A semântica anterior de resultado nulo para outras operações
+permanece preservada.</li>
+<li><code>ResourceStateSnapshotScope</code> é compartilhado por
+guardas/links/preparo do controller e por cada composição do
+catálogo/snapshot. Não há cache de decisões ou estado entre requisições.
+Implementações customizadas de resolvers devem respeitar a mesma
+fronteira para manter a deduplicação.</li>
+<li>A captura de operações usa o documento e o read fence existentes.
+Providers e regras executam fora do lock de schema e de transações
+abertas pela descoberta; o fence final rejeita mudança da publicação.
+Não se abre transação de persistência.</li>
+<li>O controller exige CapabilityService configurado, resourceKey/path e
+ID presentes, além de decisões não nulas e permitidas de create, view e
+duplicate-draft antes do preparo e da publicação do link. Os helpers
+opcionais das demais operações não são utilizados para autorizar
+duplicação. Suporte false retorna 404; indisponibilidade retorna 403 com
+razão genérica. Não há chamada automática a create/update/delete.</li>
+</ul>
+<p>A autorização efetiva por objeto, tenant/escopo e campo continua no
+backend do host. O serviço <code>duplicateDraft(sourceId)</code> deve
+carregar apenas uma origem permitida, recusar origens
+inexistentes/inacessíveis de forma indistinguível e copiar apenas campos
+autorizados segundo a política de domínio. Um snapshot permitido não
+prova existência nem substitui essas verificações. O starter não pode
+impedir uma implementação incorreta da porta de persistir ou revelar
+dados. O POST final de criação revalida autorização, unicidade,
+invariantes e campos; nenhuma decisão de discovery constitui autorização
+reutilizável.</p>
+<h2 id="wiring-e-adoção">Wiring e adoção</h2>
+<p>A auto-configuração existente fornece ao catálogo o mesmo conjunto
+canônico de resolver OpenAPI, provider de operações, provider de estado
+e catálogo de surfaces usado pelas capabilities quando esse colaborador
+está presente. Um registry customizado de actions sem MVC/surfaces
+continua compondo seu catálogo comum; nesse contexto o avaliador
+operacional de duplicação não é criado e duplicate-draft fica negada.
+Não se passa surfaces null para criar um avaliador permissivo. Um
+catálogo customizado substitui o default, sem segunda instância;
+surfaces ambíguas produzem erro explícito de composição. Não há novo
+bean de auto-configuração/import ou payload HTTP. Construtores manuais
+de <code>ActionCatalogService</code> sem o avaliador operacional
+continuam úteis para outras actions, mas duplicação falha fechada;
+consumidores que construam esse serviço manualmente devem fornecer a
+composição pelo construtor completo. Não substituir o NoOp estrutural
+por fallback permissivo.</p>
+<p>CapabilityService ausente ou suas decisões nulas são diferentes de um
+ResourceOperationAvailabilityProvider NoOp intencional: o segundo pode
+integrar uma composição canônica completa para um host sem política
+dinâmica, mantendo suporte, identidade, regras das actions e as
+verificações do serviço de domínio. O controller de duplicação não muda
+os fallbacks das demais operações CRUD.</p>
+<p>Quickstart (<code>LegacyPayCode</code> e <code>Funcionario</code>) e
+Showcase (<code>Cargo</code>) precisam adotar os tipos neutros e a
+coordenada candidata do starter nos cortes próprios. O provider de
+Quickstart usa <code>preferredMethod</code>: sua política passa a
+receber essa metadata nas guardas, mas o host ainda precisa demonstrar a
+política por objeto, campos e escopo, não persistência do preparo,
+descarte sem gravação e revalidação no POST final. A prova com
+mocks/MockMvc no starter não certifica esses pilotos.</p>
+<p>Angular deve respeitar ausência de link e availability negada,
+preservar o schema de criação e não executar fallback que contorne a
+negação. Robustez, experiência visual e modos de abertura pertencem aos
+cortes de runtime próprios. Config, corpus HTTP, landing e guidance
+amplo devem ser reconciliados no fechamento do plano; esta nota não
+representa adoção, publicação ou aceite integrado.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

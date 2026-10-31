@@ -276,13 +276,21 @@
 </header>
 <h1 id="praxis-metadata-starter---visao-arquitetural">Praxis Metadata
 Starter - Visao Arquitetural</h1>
-<p>A arquitetura atual do <code>praxis-metadata-starter</code> nao deve
-mais ser explicada como “DTO anotado gera CRUD”. O baseline canonico
-evoluiu para um sistema resource-oriented que publica:</p>
+<p>A <strong>Praxis Platform</strong> e uma plataforma semanticamente
+orientada para aplicacoes corporativas AI-native, em que recursos,
+regras, acoes, dados e politicas sao descritos uma vez e operados por
+interfaces tradicionais, interfaces generativas, agentes de IA e
+integracoes — construindo aplicacoes que, por definicao, ja sao legiveis
+e operaveis por IA.</p>
+<p>Dentro dessa arquitetura, o <code>praxis-metadata-starter</code> nao
+deve mais ser explicado como “DTO anotado gera CRUD”. Ele e o owner
+canonico da semantica de recursos, dados, superficies, acoes e
+governanca de campo no backend Java/Spring Boot, publicando:</p>
 <ul>
 <li>OpenAPI enriquecido com <code>x-ui</code></li>
 <li><code>/schemas/filtered</code> como contrato estrutural</li>
-<li><code>/schemas/catalog</code> como catalogo documental</li>
+<li><code>/schemas/catalog</code> e <code>/schemas/domain</code> como
+catalogo documental, semantico e de governanca</li>
 <li><code>/schemas/surfaces</code> e <code>/schemas/actions</code> como
 discovery semantico</li>
 <li><code>/{resource}/capabilities</code> e
@@ -295,25 +303,33 @@ Publicado</h2>
     host[&quot;Spring Boot host&quot;] --&gt; auto[&quot;PraxisMetadataAutoConfiguration&quot;]
     auto --&gt; openapi[&quot;OpenAPI enriched with x-ui&quot;]
     openapi --&gt; filtered[&quot;/schemas/filtered&quot;]
-    openapi --&gt; catalog[&quot;/schemas/catalog&quot;]
+    openapi --&gt; catalog[&quot;/schemas/catalog + /schemas/domain&quot;]
     openapi --&gt; surfaces[&quot;/schemas/surfaces&quot;]
     openapi --&gt; actions[&quot;/schemas/actions&quot;]
     surfaces --&gt; caps[&quot;/{resource}/capabilities&quot;]
     actions --&gt; caps
-    filtered --&gt; runtime[&quot;praxis-ui-angular runtime&quot;]
-    catalog --&gt; docs[&quot;docs, examples, RAG&quot;]
-    caps --&gt; semantic[&quot;semantic clients and assistants&quot;]</code></pre>
+    filtered --&gt; uiTrad[&quot;Interfaces Tradicionais (@praxisui/*)&quot;]
+    filtered --&gt; uiGen[&quot;Interfaces Generativas / Compostas&quot;]
+    catalog --&gt; agents[&quot;Agentes de IA Governados + RAG&quot;]
+    caps --&gt; uiTrad
+    caps --&gt; uiGen
+    caps --&gt; agents
+    caps --&gt; http[&quot;Integracoes HTTP / Clientes de API&quot;]</code></pre>
 <p>O contrato estrutural e o discovery semantico tem papeis
-diferentes:</p>
+complementares para os quatro canais operacionais:</p>
 <ul>
-<li><code>/schemas/filtered</code> e a superficie lida pelo runtime para
-renderizacao</li>
-<li><code>/schemas/catalog</code> organiza exemplos, links e sumarios
-para exploracao</li>
+<li><code>/schemas/filtered</code> e a superficie estrutural lida por
+interfaces tradicionais e generativas para materializacao em
+runtime</li>
+<li><code>/schemas/catalog</code> e <code>/schemas/domain</code>
+organizam semantica de dominio, relacionamentos, exemplos e governanca
+(<code>@DomainGovernance</code>, <code>@AiUsagePolicy</code>) para
+exploracao humana e grounding de agentes de IA</li>
 <li><code>/schemas/surfaces</code> e <code>/schemas/actions</code>
-publicam catalogos semanticos</li>
+publicam catalogos semanticos de projecoes e comandos de negocio</li>
 <li><code>/{resource}/capabilities</code> agrega o que pode ser feito
-agora sem virar um schema alternativo</li>
+agora por humanos, agentes e integracoes sem virar um schema
+alternativo</li>
 </ul>
 <h2 id="baseline-de-modelagem">2. Baseline De Modelagem</h2>
 <p>Para aplicacoes novas, o baseline correto e:</p>
