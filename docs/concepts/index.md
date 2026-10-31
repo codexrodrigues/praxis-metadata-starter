@@ -1,6 +1,6 @@
 # Conceitos Fundamentais da Plataforma Praxis
 
-Conceitos arquiteturais que sustentam o contrato metadata-driven e a fronteira entre recursos semânticos de backend, configuração governada e renderização dinâmica de UI.
+Conceitos arquiteturais da **Praxis Platform** — uma plataforma semanticamente orientada para aplicações corporativas AI-native, em que recursos, regras, ações, dados e políticas são descritos uma vez e podem ser operados por interfaces tradicionais, interfaces generativas, agentes de IA e integrações. Em vez de construir IA ao lado da aplicação, esses conceitos sustentam aplicações que, por definição, já nascem legíveis e operáveis por IA.
 
 ## Navegação
 

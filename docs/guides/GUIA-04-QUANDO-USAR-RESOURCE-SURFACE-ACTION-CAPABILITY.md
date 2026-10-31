@@ -1,9 +1,12 @@
-﻿# Guia 04 - Quando usar Resource, Surface, Action e Capability
+# Guia 04 - Quando usar Resource, Surface, Action e Capability
 
 ## Objetivo
 
-Este guia evita o erro mais comum na adocao do baseline atual: misturar os papeis de
-`resource`, `surface`, `action` e `capability`.
+Este guia evita o erro mais comum na adocao do baseline atual da **Praxis
+Platform**: misturar os papeis de `resource`, `surface`, `action` e
+`capability` ao descrever recursos, regras, acoes, dados e politicas uma unica
+vez para operacao por interfaces tradicionais, interfaces generativas, agentes
+de IA e integracoes.
 
 ## Resource
 

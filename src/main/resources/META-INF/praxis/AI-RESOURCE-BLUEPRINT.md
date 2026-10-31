@@ -6,7 +6,9 @@ Este documento é embarcado em `META-INF/praxis/AI-RESOURCE-BLUEPRINT.md` dentro
 
 ## 1. Princípio Anti-Minimalismo e Execução em 3 Fases de Profundidade 100%
 
-Um recurso Praxis **não é** um controlador REST tradicional com DTOs esqueléticos. O valor da plataforma Praxis reside em publicar um **contrato semântico completo** que habilita automaticamente no `@praxisui/*` (Angular) e nas superfícies de IA:
+Um recurso Praxis **não é** um controlador REST tradicional com DTOs esqueléticos. A **Praxis Platform** é uma **plataforma semanticamente orientada para aplicações corporativas AI-native**, em que recursos, regras, ações, dados e políticas são descritos uma vez e podem ser operados por **interfaces tradicionais, interfaces generativas, agentes de IA e integrações** — construindo uma aplicação que, por definição, já seja legível e operável por IA (em vez de construir IA ao lado da aplicação).
+
+O valor da plataforma Praxis reside em publicar um **contrato semântico completo** que habilita automaticamente no `@praxisui/*` (Angular), nas superfícies generativas/compostas, nos agentes de IA e nas integrações:
 - Tabelas corporativas com micro-visualizações in-cell, filtros avançados, Quick Filters, paginação por cursor, exportação (`CSV`/`JSON`/`EXCEL`) e analíticos (`/stats/*`);
 - Cartões **Quick View 360°** e gavetas (*drawers*) de inspeção master-detail sem código manual de frontend;
 - Formulários dinâmicos com **Lookups Ricos (`RESOURCE_ENTITY`)**, **Manutenção Parcial (`@ResourceIntent`)** e **Determinações Reativas (`ReactiveDetermination`)**;

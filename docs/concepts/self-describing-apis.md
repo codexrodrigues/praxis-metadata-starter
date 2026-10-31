@@ -2,7 +2,7 @@
 
 ## Definição
 
-Uma **Self-describing API** (API autodescritiva) publica não apenas dados de negócio, mas também a estrutura, a semântica operacional, as regras de validação, as superfícies disponíveis e as ações permitidas para cada recurso e instância em tempo de execução.
+Uma **Self-describing API** (API autodescritiva) publica não apenas dados de negócio, mas também a estrutura, a semântica operacional, as regras de validação, as políticas de governança, as superfícies disponíveis e as ações permitidas para cada recurso e instância em tempo de execução. Na **Praxis Platform**, ela é o alicerce para **não construir IA ao lado da aplicação, mas construir uma aplicação que, por definição, já seja legível e operável por IA**, interfaces tradicionais, interfaces generativas e integrações.
 
 ## Como o `praxis-metadata-starter` implementa
 

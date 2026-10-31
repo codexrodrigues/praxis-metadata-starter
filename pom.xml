@@ -17,7 +17,7 @@
     <packaging>jar</packaging>
 
     <name>Praxis Metadata Starter</name>
-    <description>Starter for Praxis UI Metadata (Spring): annotations, OpenAPI x-ui enrichment and /schemas/filtered.</description>
+    <description>Spring Boot starter for the Praxis semantic AI-native enterprise platform: canonical resource contracts, OpenAPI x-ui enrichment, /schemas/filtered, /schemas/domain, surfaces, workflow actions, and capabilities.</description>
     <url>https://github.com/codexrodrigues/praxis-metadata-starter</url>
     <licenses>
         <license>

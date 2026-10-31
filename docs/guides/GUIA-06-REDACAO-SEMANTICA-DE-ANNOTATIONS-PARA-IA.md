@@ -4,7 +4,9 @@
 
 Este guia define como pessoas e LLMs devem preencher textos semanticos em
 annotations e descricoes publicadas pelo `praxis-metadata-starter` e pelos hosts
-que o consomem.
+que o consomem — peça essencial para **nao construir IA ao lado da aplicacao,
+mas construir uma aplicacao que, por definicao, ja seja legivel e operavel por
+IA**, interfaces tradicionais, interfaces generativas e integracoes.
 
 Ele complementa:
 

@@ -1,12 +1,19 @@
 # Praxis Metadata Starter - Visao Arquitetural
 
-A arquitetura atual do `praxis-metadata-starter` nao deve mais ser explicada
-como "DTO anotado gera CRUD". O baseline canonico evoluiu para um sistema
-resource-oriented que publica:
+A **Praxis Platform** e uma plataforma semanticamente orientada para aplicacoes
+corporativas AI-native, em que recursos, regras, acoes, dados e politicas sao
+descritos uma vez e operados por interfaces tradicionais, interfaces generativas,
+agentes de IA e integracoes — construindo aplicacoes que, por definicao, ja sao
+legiveis e operaveis por IA.
+
+Dentro dessa arquitetura, o `praxis-metadata-starter` nao deve mais ser explicado
+como "DTO anotado gera CRUD". Ele e o owner canonico da semantica de recursos,
+dados, superficies, acoes e governanca de campo no backend Java/Spring Boot,
+publicando:
 
 - OpenAPI enriquecido com `x-ui`
 - `/schemas/filtered` como contrato estrutural
-- `/schemas/catalog` como catalogo documental
+- `/schemas/catalog` e `/schemas/domain` como catalogo documental, semantico e de governanca
 - `/schemas/surfaces` e `/schemas/actions` como discovery semantico
 - `/{resource}/capabilities` e `/{resource}/{id}/capabilities` como snapshot agregado
 - `RestApiResponse` com Spring HATEOAS efetivo
@@ -18,22 +25,26 @@ flowchart LR
     host["Spring Boot host"] --> auto["PraxisMetadataAutoConfiguration"]
     auto --> openapi["OpenAPI enriched with x-ui"]
     openapi --> filtered["/schemas/filtered"]
-    openapi --> catalog["/schemas/catalog"]
+    openapi --> catalog["/schemas/catalog + /schemas/domain"]
     openapi --> surfaces["/schemas/surfaces"]
     openapi --> actions["/schemas/actions"]
     surfaces --> caps["/{resource}/capabilities"]
     actions --> caps
-    filtered --> runtime["praxis-ui-angular runtime"]
-    catalog --> docs["docs, examples, RAG"]
-    caps --> semantic["semantic clients and assistants"]
+    filtered --> uiTrad["Interfaces Tradicionais (@praxisui/*)"]
+    filtered --> uiGen["Interfaces Generativas / Compostas"]
+    catalog --> agents["Agentes de IA Governados + RAG"]
+    caps --> uiTrad
+    caps --> uiGen
+    caps --> agents
+    caps --> http["Integracoes HTTP / Clientes de API"]
 ```
 
-O contrato estrutural e o discovery semantico tem papeis diferentes:
+O contrato estrutural e o discovery semantico tem papeis complementares para os quatro canais operacionais:
 
-- `/schemas/filtered` e a superficie lida pelo runtime para renderizacao
-- `/schemas/catalog` organiza exemplos, links e sumarios para exploracao
-- `/schemas/surfaces` e `/schemas/actions` publicam catalogos semanticos
-- `/{resource}/capabilities` agrega o que pode ser feito agora sem virar um schema alternativo
+- `/schemas/filtered` e a superficie estrutural lida por interfaces tradicionais e generativas para materializacao em runtime
+- `/schemas/catalog` e `/schemas/domain` organizam semantica de dominio, relacionamentos, exemplos e governanca (`@DomainGovernance`, `@AiUsagePolicy`) para exploracao humana e grounding de agentes de IA
+- `/schemas/surfaces` e `/schemas/actions` publicam catalogos semanticos de projecoes e comandos de negocio
+- `/{resource}/capabilities` agrega o que pode ser feito agora por humanos, agentes e integracoes sem virar um schema alternativo
 
 ## 2. Baseline De Modelagem
 

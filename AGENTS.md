@@ -7,7 +7,7 @@ Escopo e Heranca
 - Nao editar por padrao: `target/`, `docs/apidocs/`, `.m2repo/` e `.flattened-pom.xml`, salvo quando a tarefa for explicitamente sobre artefato gerado ou release.
 
 Premissa Local
-- Neste starter, tratar metadata e discovery como base de grounding para uma plataforma de decisoes semanticas authoradas por IA.
+- Neste starter, tratar metadata e discovery como fundacao semantica da Praxis Platform — uma plataforma semanticamente orientada para aplicacoes corporativas AI-native, em que recursos, regras, acoes, dados e politicas sao descritos uma vez e operados por interfaces tradicionais, interfaces generativas, agentes de IA e integracoes (construindo aplicacoes que, por definicao, ja sejam legiveis e operaveis por IA).
 - O papel do modulo nao e virar rule engine nem editor de config, mas publicar a semantica estrutural, contextual e regulatoria que a IA e os runtimes precisam para authorar, validar e explicar decisoes canônicas.
 
 Inventario Local de Aderencia Antes de Novo Contrato

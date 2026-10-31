@@ -7,8 +7,11 @@
 
 ## Objetivo
 
-Este guia orienta a implementacao de um recurso backend metadata-driven alinhado
-ao core atual do `praxis-metadata-starter`.
+Este guia orienta a implementacao de um recurso backend alinhado ao core atual
+do `praxis-metadata-starter`, descrevendo recursos, regras, acoes, dados e
+politicas uma unica vez para que o novo recurso seja imediatamente legivel e
+operavel por **interfaces tradicionais** (`@praxisui/*`), **interfaces
+generativas**, **agentes de IA** e **integracoes**.
 
 Ele foca no caso mais comum: a aplicacao ja existe, e a LLM precisa adicionar um
 novo recurso no baseline atual sem gerar codigo incompleto.

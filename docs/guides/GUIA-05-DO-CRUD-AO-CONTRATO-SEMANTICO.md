@@ -3,15 +3,18 @@
 ## Objetivo
 
 Este guia mostra visualmente por que o `praxis-metadata-starter` nao deve ser
-lido como "CRUD com DTO anotado".
+lido como "CRUD com DTO anotado", mas como a fundacao de contratos de uma
+**plataforma semanticamente orientada para aplicacoes corporativas AI-native** —
+onde nao se constroi IA ao lado da aplicacao, e sim uma aplicacao que, por
+definicao, ja nasce legivel e operavel por IA, humanos e integracoes.
 
 O ponto central e este:
 
-- `resource` continua sendo o contrato canonico
-- `surface` adiciona descoberta semantica de experiencia
-- `workflow action` adiciona descoberta semantica de comando de negocio
-- `capabilities` agrega o que pode ser feito agora
-- tudo isso continua apontando para operacoes HTTP reais e schemas canonicos
+- `resource` descreve o contrato canonico do recurso, dados e governanca de campo uma unica vez
+- `surface` adiciona descoberta semantica de experiencia (leitura, projecao 360°, formulario parcial)
+- `workflow action` adiciona descoberta semantica de comando de negocio governado
+- `capabilities` agrega o que pode ser feito agora para a colecao ou instancia
+- tudo isso aponta para operacoes HTTP reais e schemas canonicos consumidos por **interfaces tradicionais**, **interfaces generativas**, **agentes de IA** e **integracoes**
 
 ## A leitura correta do contrato
 
@@ -28,18 +31,23 @@ O contrato canonico do starter e:
 ```mermaid
 flowchart LR
     resource["Resource HTTP real"] --> filtered["/schemas/filtered"]
-    resource --> catalog["/schemas/catalog"]
+    resource --> catalog["/schemas/catalog + /schemas/domain"]
     resource --> surfaces["/schemas/surfaces"]
     resource --> actions["/schemas/actions"]
     surfaces --> capabilities["/{resource}/capabilities"]
     actions --> capabilities
-    filtered --> runtime["Runtime Angular"]
-    catalog --> docs["Docs, examples, RAG"]
-    capabilities --> clients["Clientes semanticos e assistentes"]
+    filtered --> uiTrad["Interfaces Tradicionais (@praxisui/*)"]
+    filtered --> uiGen["Interfaces Generativas / Compostas"]
+    catalog --> agents["Agentes de IA + Grounding RAG"]
+    capabilities --> uiTrad
+    capabilities --> uiGen
+    capabilities --> agents
+    capabilities --> integrations["Integracoes HTTP"]
 ```
 
 Praxis continua tendo CRUD quando o recurso realmente e CRUD.
-O ganho da plataforma esta no que aparece em volta dele.
+O ganho estrategico da plataforma esta em descrever recursos, regras, acoes,
+dados e politicas uma vez para que multiplos canais operem sobre a mesma verdade.
 
 ## Camada 1 - Resource continua sendo a fonte da verdade
 

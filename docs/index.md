@@ -1,6 +1,8 @@
 # Praxis Metadata Starter — Documentação Oficial
 
-Bem-vindo à documentação pública do **`praxis-metadata-starter`**, a biblioteca Spring Boot canônica da plataforma Praxis para publicação de **contratos autodescritivos (*self-describing APIs*)**, enriquecimento OpenAPI com `x-ui`, descoberta semântica (`domain`, `surfaces`, `actions`, `capabilities`) e governança de metadados para UIs dinâmicas e agentes de IA.
+Bem-vindo à documentação pública do **`praxis-metadata-starter`**, a biblioteca Spring Boot canônica da **Praxis Platform** — uma **plataforma semanticamente orientada para aplicações corporativas AI-native**, em que recursos, regras, ações, dados e políticas são descritos uma vez e podem ser operados por **interfaces tradicionais, interfaces generativas, agentes de IA e integrações**.
+
+Em vez de construir IA ao lado da aplicação, o `praxis-metadata-starter` permite construir uma aplicação que, por definição, já nasce legível e operável por IA, publicando **contratos autodescritivos (*self-describing APIs*)**, enriquecimento OpenAPI com `x-ui`, descoberta semântica (`domain`, `surfaces`, `actions`, `capabilities`) e governança de metadados em tempo de execução.
 
 - **Demonstração ao vivo (Zero Install):** [Abrir o Praxis Cockpit](https://praxis-api-quickstart.onrender.com/praxis/cockpit)
 - **Repositório no GitHub:** [codexrodrigues/praxis-metadata-starter](https://github.com/codexrodrigues/praxis-metadata-starter)

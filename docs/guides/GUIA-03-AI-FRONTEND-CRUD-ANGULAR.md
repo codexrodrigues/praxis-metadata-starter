@@ -2,9 +2,11 @@
 
 ## Objetivo
 
-Este guia orienta uma LLM a gerar o frontend Angular canonico para um recurso
-CRUD que ja publica corretamente o contrato metadata-driven do
-`praxis-metadata-starter`.
+Este guia orienta uma LLM a gerar o frontend Angular canonico (`@praxisui/*`)
+para um recurso que ja publica corretamente o contrato semantico do
+`praxis-metadata-starter` — operando como o canal de **interfaces tradicionais e
+generativas** da **Praxis Platform**, sobre os mesmos recursos, regras, acoes,
+dados e politicas tambem operados por agentes de IA e integracoes.
 
 O objetivo nao e montar "qualquer tela Angular que compile". O objetivo e gerar
 um host **fino (zero-boilerplate)** alinhado ao runtime oficial da plataforma,

@@ -11,7 +11,12 @@
 
 Este guia existe para uma LLM conseguir gerar, com alta chance de sucesso, uma
 nova aplicacao Spring Boot baseada no baseline atual do
-`praxis-metadata-starter`.
+`praxis-metadata-starter` — parte da **Praxis Platform**, uma plataforma
+semanticamente orientada para aplicacoes corporativas AI-native em que recursos,
+regras, acoes, dados e politicas sao descritos uma vez e operados por interfaces
+tradicionais, interfaces generativas, agentes de IA e integracoes (sem construir
+IA ao lado da aplicacao, mas tornando a propria aplicacao legivel e operavel por
+IA por definicao).
 
 A aplicacao nova deve nascer sobre:
 
