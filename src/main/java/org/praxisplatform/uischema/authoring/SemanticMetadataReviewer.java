@@ -40,13 +40,31 @@ public class SemanticMetadataReviewer {
         }
 
         List<SemanticMetadataReviewIssue> issues = new ArrayList<>();
+        java.util.Set<String> reviewedPropertyNames = new java.util.HashSet<>();
         Class<?> currentType = targetType;
         while (currentType != null && currentType != Object.class && currentType != Record.class) {
             for (Field field : currentType.getDeclaredFields()) {
                 if (Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) {
                     continue;
                 }
+                reviewedPropertyNames.add(field.getName());
                 reviewField(targetType, currentType, field, issues);
+            }
+            for (Method method : currentType.getDeclaredMethods()) {
+                if (Modifier.isStatic(method.getModifiers()) || method.isSynthetic() || method.isBridge() || method.getParameterCount() != 0) {
+                    continue;
+                }
+                String propName = extractGetterPropertyName(method);
+                if (propName == null || reviewedPropertyNames.contains(propName)) {
+                    continue;
+                }
+                if (method.isAnnotationPresent(Schema.class)
+                        || method.isAnnotationPresent(UISchema.class)
+                        || method.isAnnotationPresent(DomainGovernance.class)
+                        || method.isAnnotationPresent(org.praxisplatform.uischema.annotation.MicroVisualization.class)) {
+                    reviewedPropertyNames.add(propName);
+                    reviewGetterProperty(targetType, propName, method, issues);
+                }
             }
             reviewResourceFactsOnType(targetType, currentType, issues);
             currentType = currentType.getSuperclass();
@@ -124,6 +142,37 @@ public class SemanticMetadataReviewer {
                     "@ResourceFact(label) exceeds 36 chars or ends with a period; move detailed explanation to description."
             ));
         }
+
+        for (org.praxisplatform.uischema.annotation.Threshold threshold : fact.thresholds()) {
+            boolean minUnset = Double.isNaN(threshold.min());
+            boolean maxUnset = Double.isNaN(threshold.max());
+            if (minUnset && maxUnset) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "resource-fact-threshold-bounds-missing",
+                        targetType.getName(),
+                        memberName,
+                        "@ResourceFact threshold must declare at least min or max."
+                ));
+            } else if (!minUnset && !maxUnset && threshold.min() > threshold.max()) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "resource-fact-threshold-range-inverted",
+                        targetType.getName(),
+                        memberName,
+                        "@ResourceFact threshold min (" + threshold.min() + ") cannot exceed max (" + threshold.max() + ")."
+                ));
+            }
+            if (normalize(threshold.tone()).isBlank()) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "resource-fact-threshold-tone-missing",
+                        targetType.getName(),
+                        memberName,
+                        "@ResourceFact threshold requires a non-blank semantic tone."
+                ));
+            }
+        }
     }
 
     private void reviewField(Class<?> targetType, Class<?> declaringType, Field field, List<SemanticMetadataReviewIssue> issues) {
@@ -199,6 +248,56 @@ public class SemanticMetadataReviewer {
                     targetType,
                     field,
                     "UI presentation preset does not replace explicit domain documentation."
+            ));
+        }
+    }
+
+    private String extractGetterPropertyName(Method method) {
+        String name = method.getName();
+        if (name.startsWith("get") && name.length() > 3 && Character.isUpperCase(name.charAt(3)) && !name.equals("getClass")) {
+            return Character.toLowerCase(name.charAt(3)) + name.substring(4);
+        }
+        if (name.startsWith("is") && name.length() > 2 && Character.isUpperCase(name.charAt(2))
+                && (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class)) {
+            return Character.toLowerCase(name.charAt(2)) + name.substring(3);
+        }
+        return null;
+    }
+
+    private void reviewGetterProperty(Class<?> targetType, String propertyName, Method getter, List<SemanticMetadataReviewIssue> issues) {
+        Schema schema = getter.getAnnotation(Schema.class);
+        var ignored = getter.getAnnotation(com.fasterxml.jackson.annotation.JsonIgnore.class);
+        if (schema != null && schema.hidden() && ignored != null && ignored.value()) {
+            return;
+        }
+        UISchema uiSchema = getter.getAnnotation(UISchema.class);
+        String description = schema == null ? "" : normalize(schema.description());
+        String label = uiSchema == null ? "" : normalize(uiSchema.label());
+
+        if (description.isBlank()) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "schema-description-missing",
+                    targetType.getName(),
+                    propertyName,
+                    "Computed getter property requires explicit business-domain @Schema(description)."
+            ));
+        } else if (!label.isBlank() && sameMeaning(description, label)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "schema-description-copies-ui-label",
+                    targetType.getName(),
+                    propertyName,
+                    "@Schema(description) appears to repeat the UI label instead of explaining business meaning."
+            ));
+        }
+        if (!label.isBlank() && (label.length() > 36 || label.endsWith("."))) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "ui-label-looks-like-sentence",
+                    targetType.getName(),
+                    propertyName,
+                    "@UISchema(label) exceeds 36 chars or ends with a period; keep label concise and move explanation to helpText or @Schema(description)."
             ));
         }
     }

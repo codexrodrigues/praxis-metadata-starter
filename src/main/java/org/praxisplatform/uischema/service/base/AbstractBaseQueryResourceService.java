@@ -133,6 +133,7 @@ public abstract class AbstractBaseQueryResourceService<
                 comparison,
                 export,
                 BaseResourceQueryService.super.getStructuralCapabilities().duplicateDraft(),
+                supportsCursorPagination(),
                 statsInfrastructure
                         ? StatsCapability.from(
                                 registry,
@@ -392,7 +393,11 @@ public abstract class AbstractBaseQueryResourceService<
     }
 
     @Override
+    @Transactional(readOnly = true)
     public OptionalLong locate(FilterDTO filter, Sort sort, ID id) {
+        if (supportsCursorPagination()) {
+            return executeDefaultLocate(filter, sort, id);
+        }
         return OptionalLong.empty();
     }
 
@@ -760,7 +765,233 @@ public abstract class AbstractBaseQueryResourceService<
     }
 
     protected CursorPage<E> filterEntitiesByCursor(FilterDTO filter, Sort sort, String after, String before, int size) {
+        if (supportsCursorPagination()) {
+            return executeDefaultCursorPagination(filter, sort, after, before, size);
+        }
         throw new UnsupportedOperationException("Cursor pagination not implemented");
+    }
+
+    protected CursorPage<E> executeDefaultCursorPagination(
+            FilterDTO filter,
+            Sort sort,
+            String after,
+            String before,
+            int size
+    ) {
+        int requestedSize = Math.max(size, 1);
+        int start = 0;
+        int maxItems = requestedSize;
+        if (after != null && !after.isBlank()) {
+            start = Math.max(0, decodeDefaultCursorPosition(after) + 1);
+        } else if (before != null && !before.isBlank()) {
+            int beforeIndex = Math.max(0, decodeDefaultCursorPosition(before));
+            start = Math.max(0, beforeIndex - requestedSize);
+            maxItems = Math.min(requestedSize, Math.max(0, beforeIndex - start));
+        }
+
+        if (maxItems == 0) {
+            return new CursorPage<>(List.of(), null, null, requestedSize);
+        }
+
+        if (entityManager != null) {
+            return executeBoundedCursorPagination(filter, sort, start, maxItems, requestedSize);
+        }
+
+        List<E> ordered = findFilteredEntitiesForCursor(filter, sort);
+        if (ordered.isEmpty() || start >= ordered.size()) {
+            return new CursorPage<>(List.of(), null, null, requestedSize);
+        }
+
+        int end = Math.min(start + maxItems, ordered.size());
+        String next = end < ordered.size() ? encodeDefaultCursorPosition(end - 1) : null;
+        String prev = start > 0 ? encodeDefaultCursorPosition(start) : null;
+
+        return new CursorPage<>(ordered.subList(start, end), next, prev, requestedSize);
+    }
+
+    protected OptionalLong executeDefaultLocate(FilterDTO filter, Sort sort, ID id) {
+        if (id == null) {
+            throw getNotFoundException();
+        }
+        if (entityManager != null) {
+            return executeBoundedLocate(filter, sort, id);
+        }
+        List<E> ordered = findFilteredEntitiesForCursor(filter, sort);
+        for (int index = 0; index < ordered.size(); index++) {
+            if (Objects.equals(id, extractId(ordered.get(index)))) {
+                return OptionalLong.of(index);
+            }
+        }
+        throw getNotFoundException();
+    }
+
+    private CursorPage<E> executeBoundedCursorPagination(
+            FilterDTO filter,
+            Sort sort,
+            int start,
+            int maxItems,
+            int requestedSize
+    ) {
+        ResolvedCursorQuery<E> resolved = resolveCursorQuery(filter, sort);
+        jakarta.persistence.criteria.CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        jakarta.persistence.criteria.CriteriaQuery<E> cq = cb.createQuery(entityClass);
+        jakarta.persistence.criteria.Root<E> root = cq.from(entityClass);
+
+        jakarta.persistence.criteria.Predicate predicate = resolved.specification() == null
+                ? null
+                : resolved.specification().toPredicate(root, cq, cb);
+        if (predicate != null) {
+            cq.where(predicate);
+        }
+        List<jakarta.persistence.criteria.Order> orders = buildCriteriaOrders(cb, root, resolved.sort());
+        if (!orders.isEmpty()) {
+            cq.orderBy(orders);
+        }
+
+        jakarta.persistence.TypedQuery<E> typedQuery = entityManager.createQuery(cq);
+        typedQuery.setFirstResult(start);
+        typedQuery.setMaxResults(maxItems + 1);
+        List<E> window = typedQuery.getResultList();
+        if (window.isEmpty()) {
+            return new CursorPage<>(List.of(), null, null, requestedSize);
+        }
+
+        boolean hasMoreAfter = window.size() > maxItems;
+        List<E> content = hasMoreAfter ? List.copyOf(window.subList(0, maxItems)) : List.copyOf(window);
+        int end = start + content.size();
+        String next = hasMoreAfter ? encodeDefaultCursorPosition(end - 1) : null;
+        String prev = start > 0 ? encodeDefaultCursorPosition(start) : null;
+
+        return new CursorPage<>(content, next, prev, requestedSize);
+    }
+
+    private OptionalLong executeBoundedLocate(FilterDTO filter, Sort sort, ID id) {
+        ResolvedCursorQuery<E> resolved = resolveCursorQuery(filter, sort);
+        jakarta.persistence.criteria.CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        jakarta.persistence.criteria.CriteriaQuery<jakarta.persistence.Tuple> cq = cb.createTupleQuery();
+        jakarta.persistence.criteria.Root<E> root = cq.from(entityClass);
+
+        jakarta.persistence.criteria.Predicate predicate = resolved.specification() == null
+                ? null
+                : resolved.specification().toPredicate(root, cq, cb);
+        if (predicate != null) {
+            cq.where(predicate);
+        }
+
+        jakarta.persistence.criteria.Path<?> idPath = JpaCriteriaPathSupport.resolvePath(root, getIdFieldName(), true);
+        List<jakarta.persistence.criteria.Selection<?>> selections = new ArrayList<>();
+        selections.add(idPath);
+
+        List<jakarta.persistence.criteria.Order> orders = new ArrayList<>();
+        if (resolved.sort() != null && resolved.sort().isSorted()) {
+            for (Sort.Order sortOrder : resolved.sort()) {
+                jakarta.persistence.criteria.Path<?> sortPath = JpaCriteriaPathSupport.resolvePath(
+                        root,
+                        sortOrder.getProperty(),
+                        true
+                );
+                orders.addAll(JpaCriteriaPathSupport.buildOrders(cb, sortPath, sortOrder.isAscending()));
+                if (cq.isDistinct() && !Objects.equals(sortOrder.getProperty(), getIdFieldName())) {
+                    selections.add(sortPath);
+                }
+            }
+        }
+        cq.multiselect(selections);
+        if (!orders.isEmpty()) {
+            cq.orderBy(orders);
+        }
+
+        List<jakarta.persistence.Tuple> rows = entityManager.createQuery(cq).getResultList();
+        for (int index = 0; index < rows.size(); index++) {
+            Object candidateId = rows.get(index).get(0);
+            if (Objects.equals(id, candidateId)
+                    || Objects.equals(CompositeIdSupport.stringify(id), CompositeIdSupport.stringify(candidateId))) {
+                return OptionalLong.of(index);
+            }
+        }
+        throw getNotFoundException();
+    }
+
+    private List<jakarta.persistence.criteria.Order> buildCriteriaOrders(
+            jakarta.persistence.criteria.CriteriaBuilder cb,
+            jakarta.persistence.criteria.Root<E> root,
+            Sort sort
+    ) {
+        if (sort == null || !sort.isSorted()) {
+            return List.of();
+        }
+        List<jakarta.persistence.criteria.Order> orders = new ArrayList<>();
+        for (Sort.Order sortOrder : sort) {
+            jakarta.persistence.criteria.Path<?> sortPath = JpaCriteriaPathSupport.resolvePath(
+                    root,
+                    sortOrder.getProperty(),
+                    true
+            );
+            orders.addAll(JpaCriteriaPathSupport.buildOrders(cb, sortPath, sortOrder.isAscending()));
+        }
+        return orders;
+    }
+
+    private ResolvedCursorQuery<E> resolveCursorQuery(FilterDTO filter, Sort sort) {
+        Sort effectiveSort = (sort != null && sort.isSorted()) ? sort : getDefaultSort();
+        ResourceFilterQuery<E> query = resolveResourceFilterQuery(filter, PageRequest.of(0, 1, effectiveSort));
+        Sort resolvedSort = query.pageable() != null && query.pageable().getSort() != null
+                ? query.pageable().getSort()
+                : effectiveSort;
+        Sort deterministicSort = ensureDeterministicIdTieBreaker(resolvedSort);
+        return new ResolvedCursorQuery<>(query.effectiveSpecification(), deterministicSort);
+    }
+
+    private Sort ensureDeterministicIdTieBreaker(Sort sort) {
+        String idField = getIdFieldName();
+        Sort tieBreaker = JpaCriteriaPathSupport.expandCompositeSort(
+                getEntityClass(),
+                Sort.by(Sort.Order.asc(idField))
+        );
+        if (sort == null || !sort.isSorted()) {
+            return tieBreaker;
+        }
+        Set<String> existingProperties = sort.stream()
+                .map(Sort.Order::getProperty)
+                .collect(Collectors.toSet());
+        List<Sort.Order> missingIdOrders = tieBreaker.stream()
+                .filter(order -> !existingProperties.contains(order.getProperty()))
+                .toList();
+        if (missingIdOrders.isEmpty()) {
+            return sort;
+        }
+        List<Sort.Order> combined = new ArrayList<>();
+        sort.forEach(combined::add);
+        combined.addAll(missingIdOrders);
+        return Sort.by(combined);
+    }
+
+    private record ResolvedCursorQuery<E>(
+            Specification<E> specification,
+            Sort sort
+    ) {
+    }
+
+    private List<E> findFilteredEntitiesForCursor(FilterDTO filter, Sort sort) {
+        ResolvedCursorQuery<E> resolved = resolveCursorQuery(filter, sort);
+        return repository.findAll(resolved.specification(), resolved.sort());
+    }
+
+    protected String encodeDefaultCursorPosition(int position) {
+        return java.util.Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(("offset:" + position).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    protected int decodeDefaultCursorPosition(String cursor) {
+        String decoded = new String(
+                java.util.Base64.getUrlDecoder().decode(cursor),
+                java.nio.charset.StandardCharsets.UTF_8
+        );
+        if (!decoded.startsWith("offset:")) {
+            throw new IllegalArgumentException("Unsupported cursor format");
+        }
+        return Integer.parseInt(decoded.substring("offset:".length()));
     }
 
     protected ID extractId(E entity) {

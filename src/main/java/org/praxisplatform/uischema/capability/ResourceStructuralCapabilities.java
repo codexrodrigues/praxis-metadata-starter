@@ -25,6 +25,7 @@ public record ResourceStructuralCapabilities(
         boolean statsComparison,
         boolean export,
         boolean duplicateDraft,
+        boolean cursorPagination,
         StatsCapability stats,
         CollectionExportCapability exportCapability
 ) {
@@ -36,9 +37,36 @@ public record ResourceStructuralCapabilities(
         }
     }
 
+    public ResourceStructuralCapabilities(
+            boolean options,
+            boolean optionSources,
+            boolean statsGroupBy,
+            boolean statsTimeSeries,
+            boolean statsDistribution,
+            boolean statsComparison,
+            boolean export,
+            boolean duplicateDraft,
+            StatsCapability stats,
+            CollectionExportCapability exportCapability
+    ) {
+        this(
+                options,
+                optionSources,
+                statsGroupBy,
+                statsTimeSeries,
+                statsDistribution,
+                statsComparison,
+                export,
+                duplicateDraft,
+                false,
+                stats,
+                exportCapability
+        );
+    }
+
     public static ResourceStructuralCapabilities unsupported() {
         return new ResourceStructuralCapabilities(
-                false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false,
                 StatsCapability.empty(), null
         );
     }

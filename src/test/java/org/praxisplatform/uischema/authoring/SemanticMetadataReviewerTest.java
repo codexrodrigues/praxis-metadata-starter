@@ -105,6 +105,34 @@ class SemanticMetadataReviewerTest {
         assertTrue(codes.contains("resource-fact-description-missing"));
         assertTrue(codes.contains("resource-fact-label-missing"));
         assertTrue(codes.contains("resource-fact-label-looks-like-sentence"));
+        assertTrue(codes.contains("resource-fact-threshold-range-inverted"));
+        assertTrue(codes.contains("resource-fact-threshold-bounds-missing"));
+        assertTrue(codes.contains("resource-fact-threshold-tone-missing"));
+    }
+
+    @Test
+    void reviewsComputedGetterProperties() {
+        SemanticMetadataReviewReport report = new SemanticMetadataReviewer().review(ComputedGetterDTO.class);
+        assertTrue(report.hasErrors());
+        Set<String> codes = report.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(codes.contains("schema-description-missing"));
+        assertTrue(codes.contains("ui-label-looks-like-sentence"));
+        assertTrue(report.issues().stream().noneMatch(i -> i.fieldName().equals("taxaOcupacaoPct")));
+    }
+
+    private static class ComputedGetterDTO {
+        @Schema(description = "Percentual calculado de vagas ocupadas em relacao ao total de vagas autorizadas.")
+        @UISchema(label = "Taxa de ocupação", readOnly = true)
+        public Double getTaxaOcupacaoPct() {
+            return 85.0;
+        }
+
+        @UISchema(label = "Este rotulo calculado tem mais de trinta e seis caracteres e ponto final.")
+        public String getIndicadorSemDescricao() {
+            return "ALERTA";
+        }
     }
 
     private record GoodRecordDTO(
@@ -166,7 +194,11 @@ class SemanticMetadataReviewerTest {
                 key = "sem-rotulo",
                 resourceKey = "administracao-pessoal.cargos",
                 label = "",
-                description = "Descricao valida do segundo fato deterministico."
+                description = "Descricao valida do segundo fato deterministico.",
+                thresholds = {
+                        @org.praxisplatform.uischema.annotation.Threshold(min = 90.0, max = 50.0, tone = ""),
+                        @org.praxisplatform.uischema.annotation.Threshold(tone = "danger")
+                }
         )
         public void computeFacts() {}
     }

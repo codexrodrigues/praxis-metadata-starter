@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.fact;
 
+import org.praxisplatform.uischema.annotation.Threshold;
 import java.lang.annotation.*;
 
 /** Declarative fact metadata; catalog discovery never invokes the annotated method. */
@@ -13,6 +14,10 @@ public @interface ResourceFact {
     String description() default "";
     String dataType() default "string";
     String unit() default "";
+    String icon() default "";
+    String tone() default "";
+    String valuePresentation() default "";
+    Threshold[] thresholds() default {};
     String[] parameters() default {};
     boolean deterministic() default true;
     String sourceKind() default "computed";

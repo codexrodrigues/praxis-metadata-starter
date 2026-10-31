@@ -57,8 +57,13 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
                 false, false, false, false, false, false, false,
                 this instanceof DuplicateDraftResourceCommandService<?, ?> duplicateDraftService
                         && duplicateDraftService.supportsDuplicateDraft(),
+                supportsCursorPagination(),
                 null, null
         );
+    }
+
+    default boolean supportsCursorPagination() {
+        return false;
     }
 
     String getIdFieldName();

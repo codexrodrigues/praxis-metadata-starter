@@ -19,7 +19,7 @@ import java.lang.annotation.Target;
  * declarado aqui ou em {@code presentation.visualization.fallbackText} via extraProperties.
  * </p>
  */
-@Target({ElementType.FIELD, ElementType.METHOD})
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface MicroVisualization {

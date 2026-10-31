@@ -125,7 +125,7 @@ import java.lang.annotation.Target;
  * </ul>
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.FIELD)
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT})
 public @interface Filterable {
 
     /**

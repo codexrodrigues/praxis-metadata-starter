@@ -146,6 +146,26 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertEquals(7000.0, distributionBody.path("data").path("buckets").get(2).path("from").asDouble());
         assertEquals(8000.0, distributionBody.path("data").path("buckets").get(2).path("to").asDouble());
         assertEquals(1, distributionBody.path("data").path("buckets").get(2).path("value").asInt());
+
+        ResponseEntity<String> percentileGroupByResponse = postJson("/employees/stats/group-by", """
+                {
+                  "filter": {},
+                  "field": "department",
+                  "metrics": [
+                    { "operation": "MEDIAN", "field": "salario", "alias": "medianSalario" },
+                    { "operation": "PERCENTILE_90", "field": "salario", "alias": "p90Salario" },
+                    { "operation": "PERCENTILE_95", "field": "salario", "alias": "p95Salario" }
+                  ],
+                  "orderBy": "KEY_ASC"
+                }
+                """);
+        assertEquals(200, percentileGroupByResponse.getStatusCode().value());
+        JsonNode percentileBuckets = body(percentileGroupByResponse).path("data").path("buckets");
+        assertEquals(2, percentileBuckets.size());
+        // Human Resources has Alice (5000), Carol (6050), Eve (7200) -> median = 6050.0, p90 = 6970.0, p95 = 7085.0
+        assertEquals(6050.0, percentileBuckets.get(0).path("values").path("medianSalario").asDouble(), 0.01);
+        assertEquals(6970.0, percentileBuckets.get(0).path("values").path("p90Salario").asDouble(), 0.01);
+        assertEquals(7085.0, percentileBuckets.get(0).path("values").path("p95Salario").asDouble(), 0.01);
     }
 
     @Test

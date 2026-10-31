@@ -5,9 +5,16 @@ import java.util.*;
 /** Metadata only: providers describe facts without evaluating them. */
 public record ResourceFactDescriptor(String key, String resourceKey, String label, String description,
         String dataType, String unit, Map<String, Object> parameters, boolean deterministic,
-        String sourceKind, Map<String, Object> governance) {
+        String sourceKind, Map<String, Object> governance,
+        String icon, String tone, String valuePresentation, List<Map<String, Object>> thresholds) {
+    public ResourceFactDescriptor(String key, String resourceKey, String label, String description,
+            String dataType, String unit, Map<String, Object> parameters, boolean deterministic,
+            String sourceKind, Map<String, Object> governance) {
+        this(key, resourceKey, label, description, dataType, unit, parameters, deterministic,
+                sourceKind, governance, "", "", "", List.of());
+    }
     public ResourceFactDescriptor {
-        if (key == null || !key.matches("[A-Za-z][A-Za-z0-9_]{0,63}"))
+        if (key == null || !key.matches("[A-Za-z][A-Za-z0-9_-]{0,63}"))
             throw new IllegalArgumentException("Invalid resource fact key");
         if (resourceKey == null || resourceKey.isBlank())
             throw new IllegalArgumentException("Resource fact resourceKey is required");
@@ -15,6 +22,10 @@ public record ResourceFactDescriptor(String key, String resourceKey, String labe
             throw new IllegalArgumentException("Resource fact dataType is required");
         parameters = parameters == null ? Map.of() : immutableMap(parameters);
         governance = governance == null ? Map.of() : immutableMap(governance);
+        icon = icon == null ? "" : icon;
+        tone = tone == null ? "" : tone;
+        valuePresentation = valuePresentation == null ? "" : valuePresentation;
+        thresholds = thresholds == null ? List.of() : thresholds.stream().map(ResourceFactDescriptor::immutableMap).toList();
     }
     private static Map<String, Object> immutableMap(Map<String, Object> value) {
         Map<String, Object> copy = new LinkedHashMap<>();

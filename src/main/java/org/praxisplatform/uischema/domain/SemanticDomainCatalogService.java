@@ -272,7 +272,10 @@ public class SemanticDomainCatalogService {
                 addExtension(resource, context, resource + ".fact." + fact.key(), "fact", "resource_fact",
                         firstText(fact.label(), fact.key()), fact.description(),
                         mapOfNonNull("resourceKey", resource, "factPath", "facts." + fact.key(), "dataType", fact.dataType(),
-                                "unit", fact.unit(), "parameters", fact.parameters(), "deterministic", fact.deterministic(),
+                                "unit", fact.unit(), "icon", blankToNull(fact.icon()),
+                                "tone", blankToNull(fact.tone()), "valuePresentation", blankToNull(fact.valuePresentation()),
+                                "thresholds", fact.thresholds() == null || fact.thresholds().isEmpty() ? null : fact.thresholds(),
+                                "parameters", fact.parameters(), "deterministic", fact.deterministic(),
                                 "sourceKind", fact.sourceKind()), fact.governance(), nodes, edges, bindings, evidence, governance);
             }
         }

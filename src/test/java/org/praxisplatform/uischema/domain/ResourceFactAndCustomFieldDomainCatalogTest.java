@@ -196,9 +196,23 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
         assertThat(provider.findFacts(RESOURCE, "a")).singleElement().satisfies(f -> {
             assertThat(f.key()).isEqualTo("tenure");
             assertThat(f.parameters()).containsKey("asOf");
+            assertThat(f.icon()).isEqualTo("lucide:clock");
+            assertThat(f.tone()).isEqualTo("info");
+            assertThat(f.valuePresentation()).isEqualTo("number");
+            assertThat(f.thresholds()).hasSize(1);
+            assertThat(f.thresholds().get(0)).containsEntry("max", 5.0d).containsEntry("tone", "warning");
         });
         assertThat(factory.containsSingleton("facts")).isFalse();
         assertThat(provider.findFacts("other", "a")).isEmpty();
+
+        var catalogService = service(null, provider, () -> Optional.of("a"));
+        var domainCatalog = catalogService.findByResourceKey(RESOURCE);
+        assertThat(domainCatalog.nodes()).filteredOn(n -> "resource_fact".equals(n.source())).singleElement().satisfies(n -> {
+            assertThat(n.metadata()).containsEntry("icon", "lucide:clock")
+                    .containsEntry("tone", "info")
+                    .containsEntry("valuePresentation", "number")
+                    .containsKey("thresholds");
+        });
     }
 
     @Test void publishesTenantCatalogThroughExistingHttpContract() throws Exception {
@@ -233,7 +247,18 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
     }
     static class DeclaredFacts {
         DeclaredFacts() { throw new AssertionError("Catalog must not instantiate fact beans"); }
-        @ResourceFact(key = "tenure", resourceKey = RESOURCE, dataType = "number", parameters = "asOf")
+        @ResourceFact(
+                key = "tenure",
+                resourceKey = RESOURCE,
+                dataType = "number",
+                parameters = "asOf",
+                icon = "lucide:clock",
+                tone = "info",
+                valuePresentation = "number",
+                thresholds = {
+                        @org.praxisplatform.uischema.annotation.Threshold(max = 5.0d, tone = "warning", label = "Inicial")
+                }
+        )
         public int tenure() { throw new AssertionError("Catalog must not evaluate facts"); }
     }
 }

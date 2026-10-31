@@ -111,7 +111,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 || request.hasExplicitDimensions()
                 || window != null
                 || Boolean.TRUE.equals(request.fillGaps())
-                || resolvedMetrics.stream().anyMatch(m -> m.metric().operation() == StatsMetric.AVG_PER_CYCLE_OCCURRENCE)
+                || resolvedMetrics.stream().anyMatch(m -> m.metric().operation() == StatsMetric.AVG_PER_CYCLE_OCCURRENCE
+                        || m.metric().operation().isPercentile())
                 || dimensions.stream().anyMatch(dim -> isCompositePropertyPath(entityManager, entityClass, dim.descriptor().keyPropertyPath()))
                 || resolvedMetrics.stream().anyMatch(m -> m.metric().operation() == StatsMetric.DISTINCT_COUNT
                         && m.descriptor() != null
@@ -237,6 +238,10 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         for (int m = 0; m < resolvedMetrics.size(); m++) {
             ResolvedStatsMetric metric = resolvedMetrics.get(m);
             if (metric.descriptor() != null) {
+                if (metric.metric().operation() != StatsMetric.COUNT
+                        && metric.metric().operation() != StatsMetric.DISTINCT_COUNT) {
+                    resolveNumericPath(root, metric.descriptor().keyPropertyPath());
+                }
                 metricSlots[m] = registerSelectionSlot(root, metric.descriptor().keyPropertyPath(), selections, selectionSlotByPropertyPath);
             } else {
                 metricSlots[m] = null;
@@ -719,7 +724,11 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             if (resolvedMetric.descriptor() == null) {
                 continue;
             }
-            selections.add(resolvePath(root, resolvedMetric.descriptor().keyPropertyPath()).alias(metricTupleAlias(index)));
+            Path<?> metricPath = resolvedMetric.metric().operation() != StatsMetric.COUNT
+                    && resolvedMetric.metric().operation() != StatsMetric.DISTINCT_COUNT
+                    ? resolveNumericPath(root, resolvedMetric.descriptor().keyPropertyPath())
+                    : resolvePath(root, resolvedMetric.descriptor().keyPropertyPath());
+            selections.add(metricPath.alias(metricTupleAlias(index)));
         }
         query.multiselect(selections);
 
@@ -783,6 +792,17 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         if (request.mode() == DistributionMode.HISTOGRAM) {
             return executeHistogramDistribution(entityManager, entityClass, specification, distributionDescriptor, request, maxBuckets);
         }
+        if (request.metric() != null && request.metric().operation() != null && request.metric().operation().isPercentile()) {
+            return executePercentileTermsDistribution(
+                    entityManager,
+                    entityClass,
+                    specification,
+                    distributionDescriptor,
+                    metricDescriptor,
+                    request,
+                    maxBuckets
+            );
+        }
 
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
@@ -811,6 +831,78 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                     long count = ((Number) tuple.get("bucketCount")).longValue();
                     return new DistributionBucket(null, null, key, key == null ? "null" : String.valueOf(key), value, count);
                 })
+                .toList();
+
+        return new DistributionStatsResponse(distributionDescriptor.field(), request.mode(), request.metric(), buckets);
+    }
+
+    private <E> DistributionStatsResponse executePercentileTermsDistribution(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            StatsFieldDescriptor distributionDescriptor,
+            StatsFieldDescriptor metricDescriptor,
+            DistributionStatsRequest<?> request,
+            int maxBuckets
+    ) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> query = cb.createTupleQuery();
+        Root<E> root = query.from(entityClass);
+        Path<?> groupPath = resolvePath(root, distributionDescriptor.keyPropertyPath());
+        Path<Number> metricPath = resolveNumericPath(root, Objects.requireNonNull(metricDescriptor).keyPropertyPath());
+
+        Predicate predicate = specification == null ? null : specification.toPredicate(root, query, cb);
+        if (predicate != null) {
+            query.where(predicate);
+        }
+        query.multiselect(groupPath.alias("bucketKey"), metricPath.alias("metricValue"));
+        List<Tuple> tuples = entityManager.createQuery(query).getResultList();
+
+        Map<Object, CellAggregateValue> aggregates = new LinkedHashMap<>();
+        for (Tuple tuple : tuples) {
+            Object key = normalizeStatsKeyValue(tuple.get("bucketKey"));
+            CellAggregateValue aggregate = aggregates.computeIfAbsent(key, ignored -> CellAggregateValue.empty(true));
+            aggregate.accumulate(request.metric().operation(), tuple.get("metricValue"));
+        }
+
+        StatsBucketOrder effectiveOrder = request.orderBy() == null ? StatsBucketOrder.VALUE_DESC : request.orderBy();
+        Comparator<DistributionBucket> keyComparator = (left, right) -> compareCoordinateKey(left.key(), right.key());
+        Comparator<DistributionBucket> comparator;
+        if (effectiveOrder == StatsBucketOrder.KEY_ASC) {
+            comparator = keyComparator;
+        } else if (effectiveOrder == StatsBucketOrder.KEY_DESC) {
+            comparator = keyComparator.reversed();
+        } else {
+            Comparator<DistributionBucket> valueComparator = (left, right) -> {
+                Number leftVal = left.value();
+                Number rightVal = right.value();
+                if (leftVal == null && rightVal == null) {
+                    return 0;
+                }
+                if (leftVal == null) {
+                    return 1;
+                }
+                if (rightVal == null) {
+                    return -1;
+                }
+                int cmp = new BigDecimal(leftVal.toString()).compareTo(new BigDecimal(rightVal.toString()));
+                return effectiveOrder == StatsBucketOrder.VALUE_DESC ? -cmp : cmp;
+            };
+            comparator = valueComparator.thenComparing(keyComparator);
+        }
+
+        int limit = request.limit() == null ? maxBuckets : Math.min(request.limit(), maxBuckets);
+        List<DistributionBucket> buckets = aggregates.entrySet().stream()
+                .map(entry -> new DistributionBucket(
+                        null,
+                        null,
+                        entry.getKey(),
+                        entry.getKey() == null ? "null" : String.valueOf(entry.getKey()),
+                        entry.getValue().value(request.metric().operation(), null),
+                        entry.getValue().rowCount
+                ))
+                .sorted(comparator)
+                .limit(limit)
                 .toList();
 
         return new DistributionStatsResponse(distributionDescriptor.field(), request.mode(), request.metric(), buckets);
@@ -1216,6 +1308,25 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         }
     }
 
+    private static Double computeLinearPercentile(List<Double> samples, double quantile) {
+        if (samples == null || samples.isEmpty()) {
+            return null;
+        }
+        if (samples.size() == 1) {
+            return samples.get(0);
+        }
+        List<Double> sorted = new ArrayList<>(samples);
+        sorted.sort(Double::compareTo);
+        double pos = quantile * (sorted.size() - 1);
+        int lower = (int) Math.floor(pos);
+        int upper = (int) Math.ceil(pos);
+        if (lower == upper) {
+            return sorted.get(lower);
+        }
+        double weight = pos - lower;
+        return sorted.get(lower) * (1.0d - weight) + sorted.get(upper) * weight;
+    }
+
     private static final class CellAggregateValue {
         private long rowCount;
         private long numericCount;
@@ -1223,6 +1334,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         private Double min;
         private Double max;
         private final Set<Object> distinctValues = new HashSet<>();
+        private final List<Double> samples = new ArrayList<>();
         private final boolean hasMetricField;
 
         private CellAggregateValue(boolean hasMetricField) {
@@ -1255,6 +1367,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             sum += numeric;
             min = min == null ? numeric : Math.min(min, numeric);
             max = max == null ? numeric : Math.max(max, numeric);
+            if (metric.isPercentile()) {
+                samples.add(numeric);
+            }
         }
 
         Number value(StatsMetric metric, Long cycleOccurrences) {
@@ -1278,6 +1393,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             }
             if (metric == StatsMetric.MAX) {
                 return max;
+            }
+            if (metric.isPercentile()) {
+                return computeLinearPercentile(samples, metric.percentileQuantile());
             }
             if (metric == StatsMetric.AVG_PER_CYCLE_OCCURRENCE) {
                 if (cycleOccurrences == null || cycleOccurrences <= 0L) {
@@ -1370,6 +1488,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         private Double min;
         private Double max;
         private final Set<Object> distinctValues = new HashSet<>();
+        private final List<Double> samples = new ArrayList<>();
 
         static AggregateValue empty() {
             return new AggregateValue();
@@ -1396,6 +1515,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             sum += numeric;
             min = min == null ? numeric : Math.min(min, numeric);
             max = max == null ? numeric : Math.max(max, numeric);
+            if (metric.isPercentile()) {
+                samples.add(numeric);
+            }
         }
 
         Number value(StatsMetric metric) {
@@ -1413,6 +1535,10 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             }
             if (metric == StatsMetric.MIN) {
                 return min == null ? 0d : min;
+            }
+            if (metric.isPercentile()) {
+                Double percentile = computeLinearPercentile(samples, metric.percentileQuantile());
+                return percentile == null ? 0d : percentile;
             }
             return max == null ? 0d : max;
         }

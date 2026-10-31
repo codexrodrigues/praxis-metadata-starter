@@ -505,45 +505,8 @@ class EmployeeService extends AbstractBaseResourceService<
     }
 
     @Override
-    protected CursorPage<EmployeeEntity> filterEntitiesByCursor(
-            EmployeeFilterDTO filter,
-            Sort sort,
-            String after,
-            String before,
-            int size
-    ) {
-        int requestedSize = Math.max(size, 1);
-        List<EmployeeEntity> ordered = findFilteredEmployees(filter, effectiveSort(sort));
-        if (ordered.isEmpty()) {
-            return new CursorPage<>(List.of(), null, null, requestedSize);
-        }
-
-        int start = 0;
-        if (after != null && !after.isBlank()) {
-            start = decodeCursor(after) + 1;
-        } else if (before != null && !before.isBlank()) {
-            start = Math.max(0, decodeCursor(before) - requestedSize);
-        }
-
-        start = Math.min(Math.max(start, 0), ordered.size());
-        int end = Math.min(start + requestedSize, ordered.size());
-
-        String next = end < ordered.size() ? encodeCursor(end - 1) : null;
-        String prev = start > 0 ? encodeCursor(start) : null;
-
-        return new CursorPage<>(ordered.subList(start, end), next, prev, requestedSize);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public OptionalLong locate(EmployeeFilterDTO filter, Sort sort, Long id) {
-        List<EmployeeEntity> ordered = findFilteredEmployees(filter, effectiveSort(sort));
-        for (int index = 0; index < ordered.size(); index++) {
-            if (id.equals(ordered.get(index).getId())) {
-                return OptionalLong.of(index);
-            }
-        }
-        throw getNotFoundException();
+    public boolean supportsCursorPagination() {
+        return true;
     }
 
     @Transactional
@@ -602,35 +565,6 @@ class EmployeeService extends AbstractBaseResourceService<
         result.setApprovedCount(approvedIds.size());
         result.setApprovedEmployeeIds(approvedIds);
         return result;
-    }
-
-    private List<EmployeeEntity> findFilteredEmployees(EmployeeFilterDTO filter, Sort sort) {
-        GenericSpecification<EmployeeEntity> specification = getSpecificationsBuilder().buildSpecification(
-                filter,
-                PageRequest.of(0, 1, sort)
-        );
-        return getRepository().findAll(specification.spec(), specification.pageable().getSort());
-    }
-
-    private Sort effectiveSort(Sort requestedSort) {
-        if (requestedSort != null && requestedSort.isSorted()) {
-            return requestedSort;
-        }
-        return getDefaultSort();
-    }
-
-    private String encodeCursor(int position) {
-        return Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(("offset:" + position).getBytes(StandardCharsets.UTF_8));
-    }
-
-    private int decodeCursor(String cursor) {
-        String decoded = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
-        if (!decoded.startsWith("offset:")) {
-            throw new IllegalArgumentException("Unsupported cursor format");
-        }
-        return Integer.parseInt(decoded.substring("offset:".length()));
     }
 }
 

@@ -84,12 +84,21 @@
       "additionalProperties": false,
       "required": ["mode", "sourcePaths"],
       "properties": {
-        "mode": { "const": "on-change" },
+        "mode": { "enum": ["on-init", "on-change", "on-init-and-change"] },
         "sourcePaths": {
           "type": "array",
           "items": { "$ref": "#/$defs/fieldPointer" },
-          "minItems": 1,
           "uniqueItems": true
+        }
+      },
+      "if": {
+        "properties": {
+          "mode": { "enum": ["on-change", "on-init-and-change"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "sourcePaths": { "minItems": 1 }
         }
       }
     },

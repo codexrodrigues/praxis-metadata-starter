@@ -118,6 +118,60 @@ class ReactiveDeterminationMetadataCompilerTest {
     }
 
     @Test
+    void compilesOnInitAndOnInitAndChangeTriggerModes() {
+        ReactiveDeterminationDefinition onInit = new ReactiveDeterminationDefinition(
+                "defaults.on-init",
+                List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                "determineCustomerAddress",
+                ReactiveDeterminationTriggerMode.ON_INIT,
+                List.of(),
+                List.of(new ReactiveDeterminationInputBinding("/country", "/country")),
+                List.of(new ReactiveDeterminationOutputBinding("/state", "/address/state")),
+                provenance()
+        );
+        ReactiveDeterminationDefinition onInitAndChange = new ReactiveDeterminationDefinition(
+                "address.on-init-and-change",
+                List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                "determineCustomerAddress",
+                ReactiveDeterminationTriggerMode.ON_INIT_AND_CHANGE,
+                List.of("/postalCode"),
+                List.of(new ReactiveDeterminationInputBinding("/postalCode", "/postalCode")),
+                List.of(new ReactiveDeterminationOutputBinding("/city", "/address/city")),
+                provenance()
+        );
+
+        List<Map<String, Object>> metadata = compiler(List.of(onInit, onInitAndChange)).compile(
+                operationResolver.resolveByOperationId("createCustomer").orElseThrow(),
+                "request",
+                document,
+                document.path("components").path("schemas").path("CustomerDraft")
+        );
+
+        assertEquals(2, metadata.size());
+        Map<?, ?> firstTrigger = (Map<?, ?>) metadata.get(0).get("trigger");
+        assertEquals("on-init-and-change", firstTrigger.get("mode"));
+        assertEquals(List.of("/postalCode"), firstTrigger.get("sourcePaths"));
+
+        Map<?, ?> secondTrigger = (Map<?, ?>) metadata.get(1).get("trigger");
+        assertEquals("on-init", secondTrigger.get("mode"));
+        assertEquals(List.of(), secondTrigger.get("sourcePaths"));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> compile(new ReactiveDeterminationDefinition(
+                        "invalid.on-init-and-change-empty",
+                        List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                        "determineCustomerAddress",
+                        ReactiveDeterminationTriggerMode.ON_INIT_AND_CHANGE,
+                        List.of(),
+                        List.of(new ReactiveDeterminationInputBinding("/postalCode", "/postalCode")),
+                        List.of(new ReactiveDeterminationOutputBinding("/city", "/address/city")),
+                        provenance()
+                ))
+        );
+    }
+
+    @Test
     void publishesOnlyOnTheExactRequestSchema() {
         ReactiveDeterminationMetadataCompiler compiler = compiler(List.of(addressDefinition()));
         CanonicalOperationRef schemaOperation = operationResolver.resolveByOperationId("createCustomer").orElseThrow();

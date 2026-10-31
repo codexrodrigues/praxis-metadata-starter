@@ -130,7 +130,7 @@
         "field": { "type": "string", "minLength": 1 },
         "aggregation": {
           "type": "string",
-          "enum": ["count", "distinct-count", "sum", "avg", "min", "max", "avg-per-cycle-occurrence"]
+          "enum": ["count", "distinct-count", "sum", "avg", "min", "max", "median", "percentile-90", "percentile-95", "avg-per-cycle-occurrence"]
         },
         "label": { "type": "string", "minLength": 1 }
       }

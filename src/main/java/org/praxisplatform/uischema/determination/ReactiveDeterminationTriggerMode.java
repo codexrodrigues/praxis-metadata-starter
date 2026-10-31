@@ -8,7 +8,9 @@ package org.praxisplatform.uischema.determination;
  * introduzidos como aliases de eventos locais de UI.</p>
  */
 public enum ReactiveDeterminationTriggerMode {
-    ON_CHANGE("on-change");
+    ON_INIT("on-init"),
+    ON_CHANGE("on-change"),
+    ON_INIT_AND_CHANGE("on-init-and-change");
 
     private final String metadataValue;
 
@@ -18,5 +20,9 @@ public enum ReactiveDeterminationTriggerMode {
 
     public String metadataValue() {
         return metadataValue;
+    }
+
+    public boolean requiresSourcePaths() {
+        return this != ON_INIT;
     }
 }

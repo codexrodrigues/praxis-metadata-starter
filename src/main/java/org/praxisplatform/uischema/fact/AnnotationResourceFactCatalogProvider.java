@@ -165,7 +165,9 @@ public final class AnnotationResourceFactCatalogProvider implements ResourceFact
                 parameters.put(parameter, Map.of("type", "string"));
             }
             var descriptor = new ResourceFactDescriptor(fact.key(), fact.resourceKey(), fact.label(),
-                    fact.description(), fact.dataType(), fact.unit(), parameters, fact.deterministic(), fact.sourceKind(), governance(element));
+                    fact.description(), fact.dataType(), fact.unit(), parameters, fact.deterministic(),
+                    fact.sourceKind(), governance(element), fact.icon(), fact.tone(),
+                    fact.valuePresentation(), thresholds(fact));
             String key = descriptor.resourceKey() + ".fact." + descriptor.key();
             var previous = facts.putIfAbsent(key, descriptor);
             if (previous != null && !previous.equals(descriptor)) throw new IllegalStateException("Conflicting fact declaration: " + key);
@@ -181,6 +183,22 @@ public final class AnnotationResourceFactCatalogProvider implements ResourceFact
                         "trainingUse", value.aiUsage().trainingUse().wireValue(),
                         "ruleAuthoring", value.aiUsage().ruleAuthoring().wireValue(),
                         "reasoningUse", value.aiUsage().reasoningUse().wireValue()));
+    }
+
+    private List<Map<String, Object>> thresholds(ResourceFact fact) {
+        if (fact.thresholds() == null || fact.thresholds().length == 0) return List.of();
+        List<Map<String, Object>> items = new ArrayList<>(fact.thresholds().length);
+        for (org.praxisplatform.uischema.annotation.Threshold threshold : fact.thresholds()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            if (!Double.isNaN(threshold.min())) entry.put("min", threshold.min());
+            if (!Double.isNaN(threshold.max())) entry.put("max", threshold.max());
+            if (!Double.isNaN(threshold.value())) entry.put("value", threshold.value());
+            if (threshold.equalsValue() != null && !threshold.equalsValue().isBlank()) entry.put("equals", threshold.equalsValue());
+            if (threshold.tone() != null && !threshold.tone().isBlank()) entry.put("tone", threshold.tone());
+            if (threshold.label() != null && !threshold.label().isBlank()) entry.put("label", threshold.label());
+            if (!entry.isEmpty()) items.add(Collections.unmodifiableMap(entry));
+        }
+        return List.copyOf(items);
     }
 
 }

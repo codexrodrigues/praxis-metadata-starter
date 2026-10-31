@@ -114,7 +114,9 @@ public class ReactiveDeterminationMetadataCompiler {
         requireStableId(definition.operationId(), "operationId");
         validateProvenance(id, definition.provenance());
 
-        List<String> sourcePaths = requireList(id, "sourcePaths", definition.sourcePaths());
+        List<String> sourcePaths = definition.triggerMode().requiresSourcePaths()
+                ? requireList(id, "sourcePaths", definition.sourcePaths())
+                : (definition.sourcePaths() == null ? List.of() : definition.sourcePaths());
         List<ReactiveDeterminationInputBinding> inputs = requireList(id, "inputs", definition.inputs());
         List<ReactiveDeterminationOutputBinding> outputs = requireList(id, "outputs", definition.outputs());
         if ((long) inputs.size() + outputs.size() > MAX_BINDINGS) {
@@ -190,7 +192,7 @@ public class ReactiveDeterminationMetadataCompiler {
 
         Map<String, Object> trigger = new LinkedHashMap<>();
         trigger.put("mode", definition.triggerMode().metadataValue());
-        trigger.put("sourcePaths", List.copyOf(definition.sourcePaths()));
+        trigger.put("sourcePaths", definition.sourcePaths() == null ? List.of() : List.copyOf(definition.sourcePaths()));
 
         Map<String, Object> publishedScope = new LinkedHashMap<>();
         publishedScope.put("schemaOperationId", scope.schemaOperationId());

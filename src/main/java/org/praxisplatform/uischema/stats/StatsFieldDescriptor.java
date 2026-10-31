@@ -138,7 +138,10 @@ public record StatsFieldDescriptor(
                 StatsMetric.SUM,
                 StatsMetric.AVG,
                 StatsMetric.MIN,
-                StatsMetric.MAX
+                StatsMetric.MAX,
+                StatsMetric.MEDIAN,
+                StatsMetric.PERCENTILE_90,
+                StatsMetric.PERCENTILE_95
         ));
     }
 
@@ -152,7 +155,10 @@ public record StatsFieldDescriptor(
                 StatsMetric.SUM,
                 StatsMetric.AVG,
                 StatsMetric.MIN,
-                StatsMetric.MAX
+                StatsMetric.MAX,
+                StatsMetric.MEDIAN,
+                StatsMetric.PERCENTILE_90,
+                StatsMetric.PERCENTILE_95
         ));
     }
 
