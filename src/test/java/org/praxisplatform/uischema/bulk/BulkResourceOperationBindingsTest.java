@@ -32,6 +32,60 @@ import org.praxisplatform.uischema.annotation.BulkOperation;
 
 class BulkResourceOperationBindingsTest {
 
+    private static OpenApiDocumentService documentService() {
+        var documents = mock(OpenApiDocumentService.class);
+        when(documents.withSchemaCacheReadLock(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(call -> ((java.util.function.Supplier<?>) call.getArgument(0)).get());
+        return documents;
+    }
+
+    @Test
+    void multiGroupIdentityIsValidatedInsideOneCoherentDocumentFence() {
+        try (var context = context(CompleteBulkController.class)) {
+            var documents = documentService();
+            var held = new java.util.concurrent.atomic.AtomicBoolean();
+            var fences = new java.util.concurrent.atomic.AtomicInteger();
+            org.mockito.Mockito.doAnswer(call -> {
+                assertTrue(held.compareAndSet(false, true));
+                fences.incrementAndGet();
+                try { return ((java.util.function.Supplier<?>) call.getArgument(0)).get(); }
+                finally { held.set(false); }
+            }).when(documents).withSchemaCacheReadLock(org.mockito.ArgumentMatchers.any());
+            when(documents.resolveGroupFromPath(anyString())).thenReturn("inventory");
+            when(documents.getDocumentForGroupStrict(anyString())).thenAnswer(call -> {
+                assertTrue(held.get(), "All groups must belong to the same protected publication");
+                return openApiDocument("items.bulk.proposal", false);
+            });
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc,
+                    BulkResourceOperationBindings.from(mvc), List.of("inventory", "other"));
+            assertEquals("items.bulk.proposal", resolver.requireResourceOperation(
+                    "inventory.items", "items.bulk.proposal", "GET").operationId());
+            assertEquals(1, fences.get());
+            assertFalse(held.get());
+        }
+    }
+
+    @Test
+    void publicationInvalidatedAtTheFinalFenceCannotReturnAValidatedIdentity() {
+        try (var context = context(CompleteBulkController.class)) {
+            var documents = documentService();
+            when(documents.resolveGroupFromPath(anyString())).thenReturn("inventory");
+            when(documents.getDocumentForGroupStrict(anyString()))
+                    .thenReturn(openApiDocument("items.bulk.proposal", false));
+            org.mockito.Mockito.doAnswer(call -> {
+                ((java.util.function.Supplier<?>) call.getArgument(0)).get();
+                throw new IllegalStateException("publication changed after the last group read");
+            }).when(documents).withSchemaCacheReadLock(org.mockito.ArgumentMatchers.any());
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc,
+                    BulkResourceOperationBindings.from(mvc), List.of("inventory", "other"));
+            var failure = org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> resolver.requireResourceOperation("inventory.items", "items.bulk.proposal", "GET"));
+            assertEquals("publication changed after the last group read", failure.getMessage());
+        }
+    }
+
     @Test
     void fourUpdateBindingsShareOnlyTheFiveBodylessLifecycleHandlers() {
         try (var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.AtomicCrudController.class)) {
@@ -63,7 +117,7 @@ class BulkResourceOperationBindingsTest {
             BulkResourceOperationBindings bindings = BulkResourceOperationBindings.from(mvc);
             assertTrue(bindings.diagnostics().isEmpty(), bindings.diagnostics().toString());
 
-            OpenApiDocumentService documents = mock(OpenApiDocumentService.class);
+            OpenApiDocumentService documents = documentService();
             when(documents.resolveGroupFromPath(anyString())).thenReturn("inventory");
             when(documents.getDocumentForGroupStrict("inventory")).thenReturn(openApiDocument("items.bulk.proposal", false));
             var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);
@@ -98,7 +152,7 @@ class BulkResourceOperationBindingsTest {
             assertTrue(bindings.requiresBodylessLifecycle("items.bulk.proposal"));
             assertFalse(bindings.requiresBodylessLifecycle("items.bulk-approve"));
 
-            OpenApiDocumentService actionDocuments = mock(OpenApiDocumentService.class);
+            OpenApiDocumentService actionDocuments = documentService();
             when(actionDocuments.resolveGroupFromPath(anyString())).thenReturn("inventory");
             when(actionDocuments.getDocumentForGroupStrict("inventory")).thenReturn(openApiDocumentWithBulkAction());
             var actionResolver = new OpenApiCanonicalOperationResolver(actionDocuments, mvc, bindings);
@@ -175,7 +229,7 @@ class BulkResourceOperationBindingsTest {
             assertTrue(bindings.operationIdFor(handler(context.getBean(RequestMappingHandlerMapping.class), "readProposal"))
                     .isEmpty());
 
-            OpenApiDocumentService documents = mock(OpenApiDocumentService.class);
+            OpenApiDocumentService documents = documentService();
             CanonicalOperationResolver resolver = new OpenApiCanonicalOperationResolver(documents,
                     context.getBean(RequestMappingHandlerMapping.class), bindings);
             org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
@@ -226,7 +280,7 @@ class BulkResourceOperationBindingsTest {
         try (AnnotationConfigWebApplicationContext context = context(CompleteBulkController.class)) {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
-            OpenApiDocumentService documents = mock(OpenApiDocumentService.class);
+            OpenApiDocumentService documents = documentService();
             when(documents.resolveGroupFromPath(anyString())).thenReturn("inventory");
             when(documents.getDocumentForGroupStrict("inventory")).thenReturn(openApiDocument("rewritten.by.host", false));
 
@@ -241,7 +295,7 @@ class BulkResourceOperationBindingsTest {
         try (AnnotationConfigWebApplicationContext context = context(CompleteBulkController.class)) {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
-            OpenApiDocumentService documents = mock(OpenApiDocumentService.class);
+            OpenApiDocumentService documents = documentService();
             when(documents.resolveGroupFromPath(anyString())).thenReturn("inventory");
             when(documents.getDocumentForGroupStrict("inventory")).thenReturn(openApiDocument("items.bulk.proposal", true));
 
@@ -256,7 +310,7 @@ class BulkResourceOperationBindingsTest {
         try (AnnotationConfigWebApplicationContext context = context(CompleteBulkController.class)) {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
-            OpenApiDocumentService documents = mock(OpenApiDocumentService.class);
+            OpenApiDocumentService documents = documentService();
             when(documents.resolveGroupFromPath(anyString())).thenReturn("inventory");
             when(documents.getDocumentForGroupStrict("inventory")).thenReturn(openApiDocument("items.bulk.proposal", false));
             when(documents.getDocumentForGroupStrict("other")).thenReturn(openApiDocument("items.bulk.proposal", true));
@@ -272,7 +326,7 @@ class BulkResourceOperationBindingsTest {
         try (AnnotationConfigWebApplicationContext context = context(CompleteBulkController.class)) {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
-            OpenApiDocumentService documents = mock(OpenApiDocumentService.class);
+            OpenApiDocumentService documents = documentService();
             when(documents.resolveGroupFromPath(anyString())).thenReturn("inventory");
             when(documents.getDocumentForGroupStrict("inventory"))
                     .thenReturn(openApiDocument("items.bulk.proposal", false));
@@ -297,7 +351,7 @@ class BulkResourceOperationBindingsTest {
         try (AnnotationConfigWebApplicationContext context = context(CompleteBulkController.class)) {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
-            OpenApiDocumentService documents = mock(OpenApiDocumentService.class);
+            OpenApiDocumentService documents = documentService();
             when(documents.resolveGroupFromPath(anyString())).thenReturn("inventory");
             when(documents.getDocumentForGroupStrict("inventory"))
                     .thenReturn(openApiDocument("items.bulk.proposal", false));
@@ -319,7 +373,7 @@ class BulkResourceOperationBindingsTest {
             var mvc = context.getBean(RequestMappingHandlerMapping.class);
             var bindings = BulkResourceOperationBindings.from(mvc);
             for (boolean webhook : List.of(false, true)) {
-                OpenApiDocumentService documents = mock(OpenApiDocumentService.class);
+                OpenApiDocumentService documents = documentService();
                 when(documents.resolveGroupFromPath(anyString())).thenReturn("inventory");
                 when(documents.getDocumentForGroupStrict("inventory")).thenReturn(openApiDocumentWithNonPathCollision(webhook));
                 var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings);

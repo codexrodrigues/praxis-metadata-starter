@@ -443,8 +443,9 @@ public final class BulkOperationLifecycle {
                     });
                 });
             } catch (RuntimeException unavailableProjection) {
-                if (rejection == null) rejection = unavailableProjection;
-                else if (rejection != unavailableProjection) rejection.addSuppressed(unavailableProjection);
+                // A projection that lost its operational proof must never escape as
+                // a JDBC/transaction 500 or publish the partially verified response.
+                if (rejection == null) rejection = new BulkDiscoveryUnavailableException();
                 throw rejection;
             }
         }

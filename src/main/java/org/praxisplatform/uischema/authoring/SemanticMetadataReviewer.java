@@ -44,6 +44,10 @@ public class SemanticMetadataReviewer {
 
     private void reviewField(Class<?> targetType, Field field, List<SemanticMetadataReviewIssue> issues) {
         Schema schema = field.getAnnotation(Schema.class);
+        var ignored = field.getAnnotation(com.fasterxml.jackson.annotation.JsonIgnore.class);
+        // Internal state must be excluded from both wire JSON and documentation.
+        // Hiding a schema alone must not exempt an undocumented public property.
+        if (schema != null && schema.hidden() && ignored != null && ignored.value()) return;
         UISchema uiSchema = field.getAnnotation(UISchema.class);
         DomainGovernance governance = field.getAnnotation(DomainGovernance.class);
 

@@ -12,6 +12,32 @@ import static org.mockito.Mockito.*;
 
 /** The former ACL-only phase now shares eight catalog reads with the structural checks. */
 class BulkTableAclSnapshotTest {
+    @Test void groupedTransportPreservesEveryPrivilegeAndItsAuthorityFlags() {
+        for (boolean owner : List.of(false, true)) for (boolean grantable : List.of(false, true)) {
+            var group = new BulkCatalogPhase.Fact(Map.of("relname", "unexpected_table", "role", "PUBLIC",
+                    "is_owner", owner, "is_grantable", grantable,
+                    "permissions", new String[]{"T:SELECT", "C:unusual:field:UPDATE", "T:SELECT"}));
+            var expanded = BulkCatalogPhase.expandTableAcl(group);
+            assertThat(expanded).extracting(f -> f.text("permission"))
+                    .containsExactly("T:SELECT", "C:unusual:field:UPDATE", "T:SELECT");
+            assertThat(expanded).allSatisfy(f -> {
+                assertThat(f.text("relname")).isEqualTo("unexpected_table");
+                assertThat(f.text("role")).isEqualTo("PUBLIC");
+                assertThat(f.flag("is_owner")).isEqualTo(owner);
+                assertThat(f.flag("is_grantable")).isEqualTo(grantable);
+            });
+        }
+    }
+
+    @Test void malformedGroupedAclFailsClosed() {
+        for (Object permissions : List.of("T:SELECT", new String[0], new Object[]{null}, new Object[]{42})) {
+            assertThatThrownBy(() -> BulkCatalogPhase.expandTableAcl(
+                    new BulkCatalogPhase.Fact(Map.of("permissions", permissions))))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+        assertThatThrownBy(() -> BulkCatalogPhase.expandTableAcl(new BulkCatalogPhase.Fact(Map.of())))
+                .isInstanceOf(IllegalStateException.class);
+    }
     private static final BulkExecutionRoleConfiguration ROLES = new BulkExecutionRoleConfiguration(
             "owner", Set.of("runtime"), Set.of(), Set.of("control"));
 

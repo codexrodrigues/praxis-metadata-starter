@@ -4,6 +4,12 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### Presença de PATCH e recusa de discovery
+- `PartialUpdateInput` distingue omissão de null explícito sem alterar o JSON dos DTOs; nullabilidade e invariantes permanecem sob responsabilidade do contrato e domínio.
+- Projeções de discovery que perdem a prova operacional final retornam 503 com `BULK_DISCOVERY_UNAVAILABLE`, sem causas internas ou snapshot parcial.
+- O revisor semântico exclui estado explicitamente ignorado no JSON e oculto no schema; ocultação documental isolada não dispensa descrição.
+- Contrato e limites: [atualizações parciais tipadas](docs/spec/PARTIAL-UPDATE-PRESENCE.md). Candidato ainda não publicado.
+
 ### API Java neutra de rascunho de duplicação — T01
 
 - Substitui `DuplicateDraftLegacyBackedResourceCommandService`, `DuplicateDraftLegacyBackedResourceService`

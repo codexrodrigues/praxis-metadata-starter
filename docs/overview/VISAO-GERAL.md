@@ -1,6 +1,8 @@
 # Visão Geral — Praxis Metadata Starter
 
-O `praxis-metadata-starter` publica o contrato canônico metadata-driven do backend Praxis para aplicações Spring Boot.
+A **Praxis** é uma **plataforma semanticamente orientada para aplicações corporativas *AI-native***, em que **recursos, regras, ações, dados e políticas são descritos uma vez** e podem ser operados por **interfaces tradicionais, interfaces generativas, agentes e integrações** — construindo aplicações que, por definição, já nascem legíveis e operáveis por IA em vez de acoplar IA ao lado de código opaco.
+
+Dentro dessa arquitetura, o `praxis-metadata-starter` publica o contrato canônico de recursos, esquemas, superfícies, ações, capacidades e governança de domínio do backend Praxis para aplicações Spring Boot.
 
 Hoje esse contrato vai muito além de "DTO anotado + CRUD". O baseline atual da plataforma combina cinco pilares (`resource + surface + action + capability + HATEOAS`) e expõe:
 

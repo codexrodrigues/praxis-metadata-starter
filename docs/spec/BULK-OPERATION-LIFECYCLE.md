@@ -1,5 +1,26 @@
 # Lifecycle governado de operações em lote
 
+## Diagnóstico privado da recusa de publicação
+
+`GovernedOpenApiPublicationUnavailableException` conserva a causa privada e o
+contrato HTTP 503 existente. Ao classificar a falha, emite o código
+`GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE` com a cadeia limitada a doze tipos de
+exceção canônicos e SQLSTATE válido, quando presente. Tipos externos são `OTHER`.
+Não registra mensagens de exceção, stack trace, SQL, URL, identidade ou payload.
+Ciclos e falhas do observador não substituem a recusa original. Esse diagnóstico
+não autoriza retry de escrita, recaptura de OpenAPI nem ampliação de deadline.
+
+O registro distingue, por exemplo, deadline transacional de falha de conexão;
+ele não prova sozinho que o banco está saturado ou que o request não gravou.
+Após uma confirmação incerta, consultar o protocolo de recibos/idempotência.
+
+A verificação estrita de uma identidade bulk em múltiplos grupos OpenAPI usa um
+único `withSchemaCacheReadLock` canônico para toda a composição. No serviço governado,
+isso mantém a mesma fotografia imutável, com autoridade LIVE na entrada e na saída,
+em vez de abrir uma verificação independente por documento. A invalidação no fence
+final continua impedindo o retorno da identidade. Não há cache de autorização,
+relaxamento de prazo ou trabalho de domínio dentro desse escopo.
+
 ## Estado e fronteira
 
 As seções históricas descrevem o corte R2/V15. O artefato público rc.154 inclui a seleção QUERY delimitada descrita adiante; o host já usa a coordenada pública, com verify integral e aceite de adoção ainda em curso. As provas focais anteriores contra o candidato privado não equivalem a esse aceite nem liberam Angular. O planejamento e as evidências versionadas ficam em `internal-planning/bulk-operations` no host de referência.

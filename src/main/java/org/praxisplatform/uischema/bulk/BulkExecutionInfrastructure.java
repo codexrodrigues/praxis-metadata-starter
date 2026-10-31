@@ -52,6 +52,7 @@ public final class BulkExecutionInfrastructure {
         this.deploymentId = deploymentId;
         validateBinding();
         this.jdbc = new JdbcTemplate(dataSource);
+        BulkExecutionMigrator.prepareLiveAttestation();
     }
 
     public DataSource dataSource() { return dataSource; }

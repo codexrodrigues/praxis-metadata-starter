@@ -19,9 +19,13 @@
 
 ## O que é o `praxis-metadata-starter`?
 
+A **Praxis** é uma **plataforma semanticamente orientada para aplicações corporativas *AI-native***, em que **recursos, regras, ações, dados e políticas são descritos uma vez** e podem ser operados por **interfaces tradicionais, interfaces generativas, agentes e integrações**.
+
+> **Tese central da plataforma:** Não construir IA ao lado da aplicação. Construir uma aplicação que, por definição, já seja legível e operável por IA — entregando de forma limpa e aberta (sobre Java/Spring Boot, Angular, OpenAPI e JSON Logic) a capacidade semântica que gigantes como Salesforce, SAP e ServiceNow levaram décadas de metadados acumulados para construir.
+
 Em arquiteturas tradicionais, o backend e o frontend duplicam continuamente a semântica do domínio: tipos de campos, rótulos, máscaras, validações, filtros permitidos, combos relacionais, permissões de tela e fluxos de negócio precisam ser codificados duas vezes. Quando entra Inteligência Artificial no produto, essa fragmentação piora — agentes precisam adivinhar o que a API faz lendo código-fonte ou tentando payloads por tentativa e erro.
 
-O **`praxis-metadata-starter`** é a biblioteca Spring Boot canônica da plataforma Praxis que resolve esse problema na origem. Ele transforma recursos REST em **contratos autodescritivos (*self-describing APIs*)** que guiam tanto **UIs dinâmicas em tempo de execução** (como o `@praxisui/*` em Angular) quanto **agentes e fluxos de IA governados**, sem geração estática de código e sem acoplamento frágil.
+O **`praxis-metadata-starter`** é a biblioteca Spring Boot canônica da plataforma Praxis que resolve esse problema na origem. Ele transforma recursos REST em **contratos autodescritivos (*self-describing APIs*)** que guiam simultaneamente **UIs tradicionais e generativas em tempo de execução** (como o `@praxisui/*` em Angular e o `/praxis/cockpit`), **agentes de IA governados** e **integrações corporativas**, sem geração estática de código, sem expor entidades JPA diretamente e sem acoplamento frágil.
 
 Não é apenas um gerador de CRUD. O baseline atual da plataforma organiza cada recurso sobre cinco pilares:
 

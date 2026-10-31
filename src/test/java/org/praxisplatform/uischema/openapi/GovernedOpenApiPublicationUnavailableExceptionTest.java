@@ -13,6 +13,50 @@ import static org.assertj.core.api.Assertions.assertThat;
 class GovernedOpenApiPublicationUnavailableExceptionTest {
 
     @Test
+    void privateObservationContainsTypesAndSqlStateWithoutExceptionTextOrStack() {
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(
+                GovernedOpenApiPublicationUnavailableException.class);
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start(); logger.addAppender(appender);
+        try {
+            var sql = new java.sql.SQLException("PRIVATE_SQL password=PRIVATE_SECRET", "08006");
+            var cause = new IllegalStateException("PRIVATE_PAYLOAD", sql);
+            var exception = new GovernedOpenApiPublicationUnavailableException(cause);
+            assertThat(exception.getCause()).isSameAs(cause);
+            assertThat(appender.list).hasSize(1);
+            assertThat(appender.list.getFirst().getFormattedMessage())
+                    .contains("java.lang.IllegalStateException", "java.sql.SQLException:08006")
+                    .doesNotContain("PRIVATE", "password", "payload");
+            assertThat(appender.list.getFirst().getThrowableProxy()).isNull();
+        } finally { logger.detachAppender(appender); appender.stop(); }
+    }
+
+    @Test
+    void diagnosticFailureCannotReplaceTheOriginalRefusal() {
+        var hostile = new IllegalStateException("PRIVATE") {
+            @Override public synchronized Throwable getCause() { throw new IllegalStateException("observer failure"); }
+        };
+        assertThat(new GovernedOpenApiPublicationUnavailableException(hostile).getCause()).isSameAs(hostile);
+    }
+
+    @Test
+    void diagnosticTraversalIsBoundedAndRejectsNonSqlStateText() {
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(
+                GovernedOpenApiPublicationUnavailableException.class);
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start(); logger.addAppender(appender);
+        try {
+            var sql = new java.sql.SQLException("PRIVATE", "PRIVATE_SQL_STATE\nsecret");
+            var cause = new IllegalStateException("PRIVATE", sql);
+            sql.initCause(cause);
+            new GovernedOpenApiPublicationUnavailableException(cause);
+            assertThat(appender.list).hasSize(1);
+            assertThat(appender.list.getFirst().getFormattedMessage()).doesNotContain("PRIVATE", "secret", "\n");
+            assertThat(appender.list.getFirst().getThrowableProxy()).isNull();
+        } finally { logger.detachAppender(appender); appender.stop(); }
+    }
+
+    @Test
     void unavailablePublicationReturnsSafe503WhileRetainingThePrivateDiagnosticCause() throws Exception {
         var privateCause = new IllegalStateException(
                 "PRIVATE_SQL: select document_digest from praxis_bulk.praxis_bulk_openapi_publication; "

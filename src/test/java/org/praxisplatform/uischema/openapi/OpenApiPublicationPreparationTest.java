@@ -18,6 +18,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OpenApiPublicationPreparationTest {
+    @Test void producerFailureIsTypedUnavailableWithoutPreparingAPartialCandidate() {
+        var source=new LocalSource() {
+            @Override public OpenApiDocumentCapture captureProducerResponse(RestTemplate client, String path,
+                    Logger logger, ObjectMapper parser) {
+                throw new IllegalStateException("producer deadline expired");
+            }
+        };
+        try(var client=client()) {
+            var service=service(client,new ObjectMapper(),source);
+            assertThatThrownBy(()->service.prepareBulkOpenApiPublication(Set.of("a")))
+                .isInstanceOf(GovernedOpenApiPublicationUnavailableException.class);
+        }
+    }
     private static final String BASE = "/v3/api-docs";
     private static final String OAS = " {\"openapi\":\"3.1.0\",\"info\":{\"title\":\"Pilot\",\"version\":\"1\"},\"x-count\":7,\"paths\":{}}\n";
     private static final String CONFIG = "{\"urls\":[{\"name\":\"a\",\"url\":\"/v3/api-docs/a\"},{\"name\":\"other\",\"url\":\"/v3/api-docs/other\"}]}";

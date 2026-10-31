@@ -88,3 +88,11 @@ da campanha, sem promover essas verificações parciais a aceite integral.
 Somente as expectativas imutáveis derivadas das migrations deste artefato são
 compartilhadas entre atestações LIVE. Inventários de catálogo, identidade, grants,
 controle e autorização continuam sendo lidos e verificados em cada chamada.
+
+A preparação dessas expectativas e do dicionário de corpos acontece na construção
+da infraestrutura, sem acesso ao banco, antes de iniciar transações operacionais.
+A captura LIVE agrupa permissões por tabela, papel, grant option e propriedade no
+transporte JDBC, reconstruindo os mesmos fatos individuais antes da validação.
+Não filtra tabelas ou papéis inesperados, não elimina grants de coluna ou duplicatas
+e não compartilha resultados de autorização entre chamadas. Os limites transacionais
+e de statements permanecem inalterados.
