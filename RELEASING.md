@@ -20,9 +20,13 @@ Este documento descreve como publicar um Release Candidate (RC) e versões finai
 O JSON do assignment usa `schemaVersion=1`, `repository`, `baseCommit` (SHA-40 da
 main antes do dispatch), `expectedTag`, `runAttempt`, `validFrom`, `expiresAt`,
 `owner` (`role`, `database`, `createdOnChild=true`) e `controlPlane` com
-`observedAt`, `branch` (`id`, `project_id`, `parent_id`, `protected=false`) e
+`observedAt`, `branch` (`id`, `project_id`, `parent_id`, `protected=false`, `expires_at`) e
 `endpoint` (`id`, `project_id`, `branch_id`, `host`, `type=read_write`,
-`pooler_enabled` conforme observado, `true` ou `false`). Esse campo informa a
+`pooler_enabled` conforme observado, `true` ou `false`). A branch filha deve ser
+criada diretamente a partir de uma branch estrutural (`development` ou `production`,
+nunca encadeada sobre outra child efêmera) e com `--expires-at` (`expires_at` no
+control plane entre `expiresAt` e no máximo `validFrom + 24h`), garantindo expurgo
+automático no Neon após o gate. Esse campo `pooler_enabled` informa a
 disponibilidade de pooling no compute; a conexão direta é fixada pela igualdade
 da URI com `endpoint.host` sem `-pooler`. `controlPlaneSha256` é o SHA-256 do objeto
 `controlPlane` em JSON canônico (`sort_keys=true`, separadores compactos,

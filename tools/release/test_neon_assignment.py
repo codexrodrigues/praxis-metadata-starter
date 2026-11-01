@@ -29,7 +29,8 @@ class NeonAssignmentOfflineTest(unittest.TestCase):
         self.receipt = {
             "observedAt": (self.now - timedelta(minutes=2)).isoformat(),
             "branch": {"id": "br-child-a123", "project_id": "project-test-123",
-                       "parent_id": "br-parent-b456", "protected": False},
+                       "parent_id": "br-parent-b456", "protected": False,
+                       "expires_at": (self.now + timedelta(hours=4)).isoformat()},
             "endpoint": {"id": "ep-child-c789", "host": "ep-child-c789.aws.neon.tech",
                          "project_id": "project-test-123", "branch_id": "br-child-a123",
                          "type": "read_write", "pooler_enabled": False},
@@ -110,7 +111,23 @@ class NeonAssignmentOfflineTest(unittest.TestCase):
         self.assertNotIn("password", encoded)
         self.assertEqual(projection["controlPlane"]["branch"]["parent_id"],
                          "br-parent-b456")
+        self.assertEqual(projection["controlPlane"]["branch"]["expires_at"],
+                         (self.now + timedelta(hours=4)).isoformat())
         self.assertEqual(projection["owner"]["role"], "owner_child")
+
+    def test_requires_bounded_control_plane_branch_expiration(self):
+        for bad_expires in (None,
+                            (self.now + timedelta(minutes=30)).isoformat(),
+                            (self.now + timedelta(hours=25)).isoformat()):
+            assignment = self.assignment()
+            if bad_expires is None:
+                assignment["controlPlane"]["branch"].pop("expires_at", None)
+            else:
+                assignment["controlPlane"]["branch"]["expires_at"] = bad_expires
+            assignment["controlPlaneSha256"] = hashlib.sha256(json.dumps(
+                assignment["controlPlane"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            with self.subTest(bad_expires=bad_expires), self.assertRaises(GateError):
+                self.validate(assignment=assignment)
 
     def test_proof_binds_exact_commit_without_a_release_tag(self):
         document = self.assignment()

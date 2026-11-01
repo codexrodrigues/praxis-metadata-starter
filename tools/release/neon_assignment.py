@@ -99,6 +99,9 @@ def validate_assignment(document, owner_uri, repo, expected_tag, expected_versio
         raise GateError("Neon project/branch/parent/endpoint ID invalid")
     if branch_id == parent_id or branch.get("protected") is not False:
         raise GateError("assignment is not an unprotected child")
+    branch_expires = timestamp(branch.get("expires_at"))
+    if not (expires <= branch_expires <= valid_from + timedelta(hours=24)):
+        raise GateError("Neon child branch requires bounded control-plane expires_at")
     if (endpoint.get("project_id") != project_id or endpoint.get("branch_id") != branch_id or
             endpoint.get("type") != "read_write" or
             not isinstance(endpoint.get("pooler_enabled"), bool)):
@@ -149,7 +152,8 @@ def public_projection(document, validated):
         "controlPlaneSha256": document["controlPlaneSha256"],
         "controlPlane": {
             "observedAt": control["observedAt"],
-            "branch": {key: branch[key] for key in ("id", "project_id", "parent_id", "protected")},
+            "branch": {key: branch[key] for key in
+                       ("id", "project_id", "parent_id", "protected", "expires_at")},
             "endpoint": {key: endpoint[key] for key in
                          ("id", "project_id", "branch_id", "host", "type", "pooler_enabled")},
         },
