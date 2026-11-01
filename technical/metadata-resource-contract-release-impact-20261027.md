@@ -568,3 +568,22 @@ landed on `main` across five bounded functional areas:
      historical dependency digests, while occupancy's POM-free dependency digest and
      all three historical ZIP artifacts remain unchanged).
 
+## 2026-11-01 reconciliation: composite-ID lookup selection, 20-Pillars validation/stats epics, and request-scoped operation availability
+
+Between `08dc7fa90e` and the `v8.0.0-rc.187` release candidate, four increments
+landed on `main`:
+
+1. **Composite-ID `@EmbeddedId` selection in `JpaOptionSourceQueryExecutor` (`364b1c5056`, `e39b7fa267`):**
+   - Selects the root entity when the JPA key attribute is an `@EmbeddedId` (`isCompoundSelection()`) so Hibernate 6 Tuple-backed multi-column projections do not fail on `root.get(keyField)` during `/options/filter` and `/options/by-ids`.
+   - Covered by `JpaLookupSelectionAliasTest` (`no_db`) and `CompositeKeyResourceNeonHttpE2ETest` (`resource-contracts`).
+2. **JsonLogic `round` arity alignment and static expression/semantic metadata reviewer expansion (`bb5639d1c9`):**
+   - `JsonLogicExpressionValidator`, `PraxisExpressionStaticValidator`, `SemanticMetadataReviewer`, and `UISchema`.
+   - Covered by `PraxisExpressionStaticValidatorTest` and `SemanticMetadataReviewerTest` (`no_db`).
+3. **20 Canonical Pillars Epics A, B, and C (`96eb83b00c`):**
+   - Adds `MEDIAN`, `PERCENTILE_90`, and `PERCENTILE_95` metrics across `StatsMetric`, `StatsFieldDescriptor`, and `JpaStatsQueryExecutor`; expands `ReactiveDeterminationMetadataCompiler`, `ResourceFact`, `ResourceStructuralCapabilities`, and `AbstractBaseQueryResourceService`.
+   - Covered by `CapabilityServiceTest`, `ReactiveDeterminationMetadataCompilerTest`, `ResourceFactAndCustomFieldDomainCatalogTest`, `SemanticMetadataReviewerTest` (`no_db`), and `StatsE2ETest`.
+4. **Request-scoped operation availability resolution (`withOperationAvailabilityScope`):**
+   - Adds re-entrant request-scoped operation map reuse in `ResourceOperationAvailabilityEvaluator.withOperations`, `CapabilityService.withOperationAvailabilityScope`, `DefaultCapabilityService`, `SurfaceCatalogService.withAvailabilityOnly`, and controller HATEOAS/batch operation scopes (`AbstractResourceQueryController`, `AbstractCreateUpdateResourceController`, `AbstractResourceController`, `AbstractDuplicateDraftResourceController`) so collection responses (`getAll`, `filter`, `filterCursor`) and batch guards resolve the resource's canonical operation map and collection surface baseline once per HTTP request instead of `O(N)` times per item.
+   - Covered by `DiscoveryPublishedPhotographTest` and `CapabilityServiceTest` (`no_db`).
+
+

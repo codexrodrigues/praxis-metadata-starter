@@ -1535,6 +1535,74 @@ dependency digest and all three historical ZIP artifacts remain
 unchanged).</li>
 </ul></li>
 </ol>
+<h2
+id="reconciliation-composite-id-lookup-selection-20-pillars-validationstats-epics-and-request-scoped-operation-availability">2026-11-01
+reconciliation: composite-ID lookup selection, 20-Pillars
+validation/stats epics, and request-scoped operation availability</h2>
+<p>Between <code>08dc7fa90e</code> and the <code>v8.0.0-rc.187</code>
+release candidate, four increments landed on <code>main</code>:</p>
+<ol type="1">
+<li><strong>Composite-ID <code>@EmbeddedId</code> selection in
+<code>JpaOptionSourceQueryExecutor</code> (<code>364b1c5056</code>,
+<code>e39b7fa267</code>):</strong>
+<ul>
+<li>Selects the root entity when the JPA key attribute is an
+<code>@EmbeddedId</code> (<code>isCompoundSelection()</code>) so
+Hibernate 6 Tuple-backed multi-column projections do not fail on
+<code>root.get(keyField)</code> during <code>/options/filter</code> and
+<code>/options/by-ids</code>.</li>
+<li>Covered by <code>JpaLookupSelectionAliasTest</code>
+(<code>no_db</code>) and
+<code>CompositeKeyResourceNeonHttpE2ETest</code>
+(<code>resource-contracts</code>).</li>
+</ul></li>
+<li><strong>JsonLogic <code>round</code> arity alignment and static
+expression/semantic metadata reviewer expansion
+(<code>bb5639d1c9</code>):</strong>
+<ul>
+<li><code>JsonLogicExpressionValidator</code>,
+<code>PraxisExpressionStaticValidator</code>,
+<code>SemanticMetadataReviewer</code>, and <code>UISchema</code>.</li>
+<li>Covered by <code>PraxisExpressionStaticValidatorTest</code> and
+<code>SemanticMetadataReviewerTest</code> (<code>no_db</code>).</li>
+</ul></li>
+<li><strong>20 Canonical Pillars Epics A, B, and C
+(<code>96eb83b00c</code>):</strong>
+<ul>
+<li>Adds <code>MEDIAN</code>, <code>PERCENTILE_90</code>, and
+<code>PERCENTILE_95</code> metrics across <code>StatsMetric</code>,
+<code>StatsFieldDescriptor</code>, and
+<code>JpaStatsQueryExecutor</code>; expands
+<code>ReactiveDeterminationMetadataCompiler</code>,
+<code>ResourceFact</code>, <code>ResourceStructuralCapabilities</code>,
+and <code>AbstractBaseQueryResourceService</code>.</li>
+<li>Covered by <code>CapabilityServiceTest</code>,
+<code>ReactiveDeterminationMetadataCompilerTest</code>,
+<code>ResourceFactAndCustomFieldDomainCatalogTest</code>,
+<code>SemanticMetadataReviewerTest</code> (<code>no_db</code>), and
+<code>StatsE2ETest</code>.</li>
+</ul></li>
+<li><strong>Request-scoped operation availability resolution
+(<code>withOperationAvailabilityScope</code>):</strong>
+<ul>
+<li>Adds re-entrant request-scoped operation map reuse in
+<code>ResourceOperationAvailabilityEvaluator.withOperations</code>,
+<code>CapabilityService.withOperationAvailabilityScope</code>,
+<code>DefaultCapabilityService</code>,
+<code>SurfaceCatalogService.withAvailabilityOnly</code>, and controller
+HATEOAS/batch operation scopes
+(<code>AbstractResourceQueryController</code>,
+<code>AbstractCreateUpdateResourceController</code>,
+<code>AbstractResourceController</code>,
+<code>AbstractDuplicateDraftResourceController</code>) so collection
+responses (<code>getAll</code>, <code>filter</code>,
+<code>filterCursor</code>) and batch guards resolve the resource’s
+canonical operation map and collection surface baseline once per HTTP
+request instead of <code>O(N)</code> times per item.</li>
+<li>Covered by <code>DiscoveryPublishedPhotographTest</code> and
+<code>CapabilityServiceTest</code> (<code>no_db</code>).</li>
+</ul></li>
+</ol>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

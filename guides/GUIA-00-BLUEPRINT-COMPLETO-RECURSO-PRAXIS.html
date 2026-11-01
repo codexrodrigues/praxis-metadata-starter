@@ -375,10 +375,13 @@ e
 e
 <code>AbstractReadOnlyResourceController&lt;ResponseDTO, ID, FilterDTO&gt;</code>.</li>
 <li>Entidade com <code>@OptionLabel</code> e
-<code>@DefaultSortColumn</code> determinístico (indispensável para
-<code>/filter/cursor</code> e <code>/locate</code>). Chaves compostas
-imutáveis usam <code>@Embeddable</code> <code>record</code>
-implementando <code>CompositeResourceId</code>.</li>
+<code>@DefaultSortColumn</code> determinístico, e
+<code>supportsCursorPagination() = true</code> no <code>Service</code>
+para habilitar <code>/filter/cursor</code> (keyset pagination) e
+<code>/locate</code> nativos sem boilerplate manual, respeitando
+<code>ResourceFilterAccessScope</code>. Chaves compostas imutáveis usam
+<code>@Embeddable</code> <code>record</code> implementando
+<code>CompositeResourceId</code>.</li>
 </ul></li>
 <li><strong>Contabilidade de 100% das Colunas da Entidade
 (<code>Entity-to-DTO Coverage Gate</code>):</strong>
@@ -429,9 +432,12 @@ validados por <code>PraxisExpressionStaticValidator</code>.</li>
 <li><strong>Governança de Domínio, LGPD &amp;
 <code>fieldAccess</code>:</strong>
 <ul>
-<li><code>@DomainGovernance(domain, subdomain, dataCategory, classification, sensitiveData, maskPattern, exportable, filterable, analyticsEligible, aiPolicy = @AiUsagePolicy(...))</code>
+<li><code>@DomainGovernance(kind = DomainGovernanceKind.PRIVACY | SECURITY | COMPLIANCE, classification = DomainClassification.PUBLIC | INTERNAL | CONFIDENTIAL | RESTRICTED, dataCategory = DomainDataCategory.PERSONAL | SENSITIVE_PERSONAL | FINANCIAL | CREDENTIAL | OPERATIONAL | LEGAL, complianceTags = {"LGPD", "PII"}, aiUsage = @AiUsagePolicy(visibility = AiVisibilityMode.MASK | SUMMARIZE_ONLY | ALLOW | DENY, trainingUse = AiTrainingUseMode.DENY, ruleAuthoring = AiControlledUseMode.REVIEW_REQUIRED, reasoningUse = AiControlledUseMode.ALLOW), reason = "...")</code>
 +
-<code>@UISchema(visibleForAuthorities = {...}, editableForAuthorities = {...}, fieldAccessReason = "...")</code>.</li>
+<code>@UISchema(visibleForAuthorities = {...}, editableForAuthorities = {...}, fieldAccessReason = "...")</code>
+(metadados declarativos consumidos por <code>/schemas/domain</code>,
+fluxos de IA e pelo futuro Sidecar de Políticas de Segurança
+OPA/Rego).</li>
 </ul></li>
 <li><strong>Identidade Rica (<code>@ResourceIdentity</code>):</strong>
 <ul>
@@ -534,25 +540,26 @@ por subbloco cadastral.</li>
 <code>VersionedCreateUpdateResourceService</code> (<code>ETag</code> +
 <code>If-Match</code>) e <code>Idempotency-Key</code>
 (<code>GovernedResourceCommandExecutor</code>).</li>
-<li><strong>Regra de Decisão (<code>duplicate-draft</code>
-vs. <code>@WorkflowAction</code> Deep Clone):</strong> Para duplicação
-assistida em que o operador revisa e complementa um novo registro antes
-de salvar (catálogos, cargos, tabelas paramétricas, pré-preenchimento
-organizacional), usar
+<li><strong>Regra de Decisão (<code>duplicate-draft</code> vs. clonagem
+profunda):</strong> Para duplicação assistida em que o operador revisa e
+complementa um novo registro antes de salvar (catálogos, cargos, tabelas
+paramétricas, pré-preenchimento organizacional), usar
 <code>AbstractDuplicateDraftResourceController&lt;R, ID, F, C, U, D&gt;</code>
 + <code>DuplicateDraftResourceService&lt;R, ID, F, C, U, D&gt;</code>
-(<code>DuplicateDraftResourceCommandService&lt;ID, D&gt;</code>),
-expondo <code>POST /{resource}/{id}/duplicate-draft</code> sem efeitos
-colaterais de persistência, com <code>DuplicateDraftDTO</code> explícito
-(zerando chaves únicas/pessoais e usando
-<code>@Schema(nullable = true)</code> nos campos zerados cujo
-preenchimento é obrigatório em <code>CreateDTO</code>) e
-<code>ResourceOperationAvailabilityEvaluator</code>
-(<code>ResourceStructuralCapabilities.DUPLICATE_DRAFT_OPERATION</code>).
-Usar <code>@WorkflowAction</code> somente quando o domínio exigir
-clonagem profunda transacional imediata no servidor (ex.: clonar
-cabeçalho + coleções filhas <code>1:N</code> em uma única
-transação).</li>
+(<code>DuplicateDraftResourceCommandService&lt;ID, D&gt;</code>). O
+<code>POST /{resource}/{id}/duplicate-draft</code> prepara um DTO
+explícito compatível com create, sem persistir nem alterar a origem; a
+política backend limpa identidade, versão e campos únicos/protegidos e
+publica nulabilidade real sem enfraquecer <code>CreateDTO</code>.
+Suporte exige opt-in e mapping POST;
+<code>ResourceOperationAvailabilityEvaluator</code> compõe decisões
+afirmativas de create/view/duplicate-draft, falhando fechado. Só a
+confirmação envia o POST de criação separado. Clonagem profunda
+transacional imediata (cabeçalho + coleções <code>1:N</code>) é uma
+<code>@WorkflowAction</code> distinta. A annotation
+<code>@WorkflowAction(id="duplicate-draft")</code> da base continua útil
+ao discovery e não significa persistência. Consulte <a
+href="DUPLICATE-DRAFT-ADOPTION.md">adoção e provas</a>.</li>
 </ul></li>
 <li><strong>Operações em Lote Governadas (<code>Bulking</code> — 3 Modos
 Além do Óbvio):</strong>
@@ -581,7 +588,10 @@ reenquadramento paramétrico) no protocolo de 2 fases
 <li><strong>Fatos Determinísticos (<code>@ResourceFact</code>):</strong>
 <ul>
 <li>Indicadores calculados publicados em <code>/schemas/domain</code>
-com <code>label</code> curto (≤ 35 caracteres, sem ponto final).</li>
+com <code>label</code> curto (≤ 35 caracteres, sem ponto final) e
+metadados visuais executivos (<code>icon</code>, <code>tone</code>,
+<code>valuePresentation</code>,
+<code>thresholds = {@Threshold(...)}</code>).</li>
 </ul></li>
 <li><strong>Analytics (<code>StatsFieldRegistry</code> +
 <code>@UiAnalytics</code> / <code>@AnalyticsProjection</code>):</strong>
@@ -589,9 +599,14 @@ com <code>label</code> curto (≤ 35 caracteres, sem ponto final).</li>
 <li><code>StatsFieldRegistry</code> e <code>StatsSupportMode.AUTO</code>
 no <code>Service</code> (<code>/stats/group-by</code>,
 <code>/stats/timeseries</code>, <code>/stats/distribution</code>,
-<code>/stats/comparison</code>) +
-<code>@UiAnalytics(projections = {@AnalyticsProjection(...)})</code> no
-Controller com <code>@AnalyticsRecordOpen</code> apontando para a
+<code>/stats/comparison</code>, incluindo métricas <code>COUNT</code>,
+<code>DISTINCT_COUNT</code>, <code>SUM</code>, <code>AVG</code>,
+<code>MIN</code>, <code>MAX</code>, <code>MEDIAN</code>,
+<code>PERCENTILE_90</code>, <code>PERCENTILE_95</code> e
+<code>AVG_PER_CYCLE_OCCURRENCE</code> em
+<code>numericMeasureField</code>/<code>numericHistogramMeasureField</code>)
++ <code>@UiAnalytics(projections = {@AnalyticsProjection(...)})</code>
+no Controller com <code>@AnalyticsRecordOpen</code> apontando para a
 surface 360°.</li>
 </ul></li>
 <li><strong>Exportação Governada (<code>CollectionExport</code> +
@@ -599,23 +614,40 @@ surface 360°.</li>
 <ul>
 <li>Formatos <code>CSV</code>, <code>JSON</code> e <code>EXCEL</code>,
 escopos <code>AUTO</code>, <code>SELECTED</code>, <code>FILTERED</code>,
-<code>CURRENT_PAGE</code>, <code>ALL</code>, respeitando
-<code>exportable = false</code> de <code>@DomainGovernance</code> e
-aplicando <code>CollectionExportFieldPresentation</code> (moeda, data,
+<code>CURRENT_PAGE</code>, <code>ALL</code>, respeitando as políticas de
+<code>@DomainGovernance</code> / <code>visibleForAuthorities</code> e
+allowlists de exportação do servidor, além de aplicar
+<code>CollectionExportFieldPresentation</code> (moeda, data,
 booleanos).</li>
 </ul></li>
 </ol>
 <h3
-id="fase-3-regras-de-negócio-determinações-reativas-motor-de-regras-e-gates-automatizados">Fase
+id="fase-3-regras-de-negócio-determinações-reativas-motor-de-regras-e-gates-automatizados-100-orientada-a-código">Fase
 3: Regras de Negócio, Determinações Reativas, Motor de Regras e Gates
-Automatizados</h3>
+Automatizados (100% Orientada a Código)</h3>
 <ol start="17" type="1">
-<li><strong>Invariantes Transacionais &amp; Contratos de Erro
-Estruturados (<code>409</code> / <code>422</code>):</strong>
+<li><strong>Invariantes Transacionais, Ciclo de Vida Completo
+(<code>CREATE</code>/<code>UPDATE</code>/<code>DELETE</code>) &amp;
+Contratos de Erro Estruturados (<code>409</code> /
+<code>422</code>):</strong>
 <ul>
 <li>Validações transacionais no <code>Service</code> retornando
 <code>409 Conflict</code> / <code>422 Unprocessable Entity</code> com
 <code>fieldErrors</code> estruturados.</li>
+<li><strong>Ordem Transacional Obrigatória no
+<code>Service</code>:</strong> (a) métodos de hidratação
+(<code>hydrate*</code>) devem executar <strong>antes</strong> do
+<code>RuleEngine</code> / validações, e atributos preenchidos por
+<code>hydrate*</code> no servidor jamais devem ter <code>@NotNull</code>
+bloqueante no <code>CreateDTO</code>/<code>UpdateDTO</code>; (b) todo
+<code>Service</code> mutável com regras de domínio deve implementar
+<code>beforeDelete</code> (ou <code>deleteById</code>) aplicando
+isolamento de escopo (<code>checkOrg</code>) e invariantes de exclusão
+(bloqueio por estado ou vínculo dependente); e (c) efeitos colaterais
+pós-persistência equivalentes a triggers <code>MAIN_POS</code> (ex.:
+recálculo/sincronização da entidade pai) devem ser executados em
+<code>afterCreate</code>, <code>afterUpdate</code> e
+<code>afterDelete</code>.</li>
 </ul></li>
 <li><strong>Determinações Reativas
 (<code>ReactiveDeterminationDefinitionProvider</code> — Além do
@@ -631,8 +663,10 @@ vinculando operações de formulário
 <code>POST</code> não-persistentes anotados com
 <code>@Operation(operationId = "determine...")</code>.</li>
 <li>Configurar <code>ReactiveDeterminationTriggerMode.ON_CHANGE</code>,
-<code>sourcePaths</code> (JSON Pointers iniciados por <code>"/"</code>,
-todos contidos em <code>inputs</code>),
+<code>ON_INIT</code> (<code>sourcePaths</code> opcionais para defaults
+iniciais) ou <code>ON_INIT_AND_CHANGE</code> (hidratação inicial +
+reação a mudanças), <code>sourcePaths</code> (JSON Pointers iniciados
+por <code>"/"</code>, todos contidos em <code>inputs</code>),
 <code>ReactiveDeterminationInputBinding(fieldPath, requestPath)</code>
 (podendo incluir <code>"/id"</code> em modo <code>EDIT</code> sem
 listá-lo em <code>sourcePaths</code>),
@@ -651,6 +685,35 @@ Decisões Governadas (<code>praxis-config-starter</code>):</strong>
 snapshots aprovados em <code>/api/praxis/config/domain-rules/**</code>
 (<code>ReactiveDeterminationProvenanceKind.PLATFORM</code> / decisões
 governadas).</li>
+<li><strong>Regras Estritas de Integridade de Regras de Negócio (Zero
+Burocracia de Arquivos Intermediários):</strong>
+<ol type="1">
+<li><em>Codificação Direta <code>1:1 KEEP_SEPARATE</code> a partir do
+Legado:</em> quando houver documentação/código legado (ex.:
+<code>.tab</code> e <code>PCK_*.PKB</code> em <code>docs-legado</code>),
+ler diretamente os fontes legados e codificar em Java mantendo paridade
+<code>1:1</code> entre cada
+<code>INSERE_ERRO</code>/<code>TRATA_ERRO</code> -&gt; descritor
+individual em <code>*RuleErrorCatalog.java</code> (com
+<code>plsqlLineage</code> no próprio código Java) -&gt;
+<code>DecisionBinding</code> atômico em <code>*RuleSet.java</code> -&gt;
+teste JUnit em <code>*Test.java</code>, sem aglutinar múltiplos códigos
+de erro em uma única entrada;</li>
+<li><em>Proibição de Split-Brain:</em> o <code>PraxisRulesEngine</code>
+é a <strong>autoridade única</strong> para todas as regras cobertas por
+um <code>*RuleSet.java</code> (preservando a capacidade de
+<code>REPLACE_EXACT</code> e <code>PARAMETRIC_TEMPLATE</code> por
+tenant). Classes <code>Invariants</code> devem restringir-se a guardas
+estruturais HTTP (<code>403</code> escopo/tenant, <code>404</code>
+existência de FK, <code>If-Match</code>, locks e recursos simples sem
+<code>RuleSet</code>), nunca duplicando nem curto-circuitando regras do
+<code>RuleSet</code>;</li>
+<li><em>Proibição de Booleanos de Fachada no
+<code>FactProvider</code>:</em> o provedor de fatos deve expor apenas
+fatos primitivos/estruturados de domínio e contagens obtidas do banco;
+toda comparação lógica ou relacional entre fatos pertence à árvore JSON
+Logic do <code>*RuleSet.java</code>.</li>
+</ol></li>
 </ul></li>
 <li><strong>Observabilidade, <code>/praxis/cockpit</code>, Orçamento N+1
 &amp; Gates Automatizados:</strong>
@@ -662,7 +725,12 @@ executar o <strong>Gate JUnit Nativo</strong>
 (<code>SemanticMetadataReviewer</code> +
 <code>PraxisExpressionStaticValidator</code> +
 <code>OptionSourcePublicationInventory</code>) e o auditor
-<code>scripts/workspace/audit-java-resource-completeness.py</code>.</li>
+<code>scripts/workspace/audit-java-resource-completeness.py</code>
+(incluindo os Checks 13 a 16 de <code>StatsFieldRegistry</code> JPA
+paths, <code>@NotNull</code> vs <code>hydrate*</code>, paridade
+<code>1:1</code>
+<code>RuleCatalog &lt;-&gt; RuleSet &lt;-&gt; Test</code> e cobertura de
+<code>beforeDelete</code>).</li>
 </ul></li>
 </ol>
 <hr />
