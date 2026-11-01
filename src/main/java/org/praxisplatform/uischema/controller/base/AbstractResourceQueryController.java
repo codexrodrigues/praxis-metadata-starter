@@ -319,6 +319,21 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         return capabilityService;
     }
 
+    /**
+     * Scopes canonical operation availability checks to a single OpenAPI operation photograph
+     * and resource state snapshot scope when backed by the canonical capability service.
+     */
+    protected final <T> T withOperationAvailabilityScope(java.util.function.Supplier<T> action) {
+        if (capabilityService instanceof org.praxisplatform.uischema.capability.DefaultCapabilityService
+                && StringUtils.hasText(getResourceKeyOrNull())
+                && StringUtils.hasText(getBasePath())) {
+            return capabilityService.withOperationAvailabilityScope(getBasePath(), action);
+        }
+        try (var ignored = org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.open()) {
+            return action.get();
+        }
+    }
+
     protected String getResourceKey() {
         String resourceKey = getResourceKeyOrNull();
         if (StringUtils.hasText(resourceKey)) {
@@ -342,12 +357,14 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return EntityModel.of(dto);
         }
 
-        ID id = getResponseId(dto);
-        List<Link> links = new ArrayList<>();
-        links.add(linkToSelf(id));
-        links.addAll(buildEntityActionLinks(id));
-        links.addAll(buildItemDiscoveryLinks(id));
-        return EntityModel.of(dto, links);
+        return withOperationAvailabilityScope(() -> {
+            ID id = getResponseId(dto);
+            List<Link> links = new ArrayList<>();
+            links.add(linkToSelf(id));
+            links.addAll(buildEntityActionLinks(id));
+            links.addAll(buildItemDiscoveryLinks(id));
+            return EntityModel.of(dto, links);
+        });
     }
 
     protected RestApiResource<ResponseDTO> toResourceModel(ResponseDTO dto) {
@@ -355,12 +372,14 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return RestApiResource.of(dto);
         }
 
-        ID id = getResponseId(dto);
-        List<Link> links = new ArrayList<>();
-        links.add(linkToSelf(id));
-        links.addAll(buildEntityActionLinks(id));
-        links.addAll(buildItemDiscoveryLinks(id));
-        return RestApiResource.of(dto, links);
+        return withOperationAvailabilityScope(() -> {
+            ID id = getResponseId(dto);
+            List<Link> links = new ArrayList<>();
+            links.add(linkToSelf(id));
+            links.addAll(buildEntityActionLinks(id));
+            links.addAll(buildItemDiscoveryLinks(id));
+            return RestApiResource.of(dto, links);
+        });
     }
 
     /**
@@ -455,16 +474,18 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (!isHateoasEnabled()) {
             return successEnvelope(ResponseEntity.ok(), result, null);
         }
-        Page<RestApiResource<ResponseDTO>> entityModels = result.map(this::toResourceModel);
+        return withOperationAvailabilityScope(() -> {
+            Page<RestApiResource<ResponseDTO>> entityModels = result.map(this::toResourceModel);
 
-        List<Link> links = new ArrayList<>();
-        addCollectionOperationLink(links, "all", linkToAll());
-        links.add(linkToUiSchema("/filter", "post", "request"));
-        links.add(linkToUiSchema("/filter", "post", "response"));
-        links.addAll(buildCollectionActionLinks());
-        links.addAll(buildCollectionDiscoveryLinks());
+            List<Link> links = new ArrayList<>();
+            addCollectionOperationLink(links, "all", linkToAll());
+            links.add(linkToUiSchema("/filter", "post", "request"));
+            links.add(linkToUiSchema("/filter", "post", "response"));
+            links.addAll(buildCollectionActionLinks());
+            links.addAll(buildCollectionDiscoveryLinks());
 
-        return successEnvelope(ResponseEntity.ok(), entityModels, Links.of(links));
+            return successEnvelope(ResponseEntity.ok(), entityModels, Links.of(links));
+        });
     }
 
     @PostMapping("/filter/cursor")
@@ -494,21 +515,23 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return successEnvelope(ResponseEntity.ok(), result, null);
         }
 
-        CursorPage<RestApiResource<ResponseDTO>> mapped = new CursorPage<>(
-                result.content().stream().map(this::toResourceModel).toList(),
-                result.next(),
-                result.prev(),
-                result.size()
-        );
+        return withOperationAvailabilityScope(() -> {
+            CursorPage<RestApiResource<ResponseDTO>> mapped = new CursorPage<>(
+                    result.content().stream().map(this::toResourceModel).toList(),
+                    result.next(),
+                    result.prev(),
+                    result.size()
+            );
 
-        List<Link> links = new ArrayList<>();
-        addCollectionOperationLink(links, "all", linkToAll());
-        links.add(linkToUiSchema("/filter/cursor", "post", "request"));
-        links.add(linkToUiSchema("/filter/cursor", "post", "response"));
-        links.addAll(buildCollectionActionLinks());
-        links.addAll(buildCollectionDiscoveryLinks());
+            List<Link> links = new ArrayList<>();
+            addCollectionOperationLink(links, "all", linkToAll());
+            links.add(linkToUiSchema("/filter/cursor", "post", "request"));
+            links.add(linkToUiSchema("/filter/cursor", "post", "response"));
+            links.addAll(buildCollectionActionLinks());
+            links.addAll(buildCollectionDiscoveryLinks());
 
-        return successEnvelope(ResponseEntity.ok(), mapped, Links.of(links));
+            return successEnvelope(ResponseEntity.ok(), mapped, Links.of(links));
+        });
     }
 
     @PostMapping("/locate")
@@ -779,18 +802,20 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return successEnvelope(ResponseEntity.ok(), dtos, null);
         }
 
-        List<RestApiResource<ResponseDTO>> entityModels = dtos.stream()
-                .map(this::toResourceModel)
-                .toList();
+        return withOperationAvailabilityScope(() -> {
+            List<RestApiResource<ResponseDTO>> entityModels = dtos.stream()
+                    .map(this::toResourceModel)
+                    .toList();
 
-        List<Link> links = new ArrayList<>();
-        addCollectionOperationLink(links, "filter", linkToFilter());
-        addCollectionOperationLink(links, "cursor", linkToFilterCursor());
-        links.add(linkToUiSchema("/all", "get", "response"));
-        links.addAll(buildCollectionActionLinks());
-        links.addAll(buildCollectionDiscoveryLinks());
+            List<Link> links = new ArrayList<>();
+            addCollectionOperationLink(links, "filter", linkToFilter());
+            addCollectionOperationLink(links, "cursor", linkToFilterCursor());
+            links.add(linkToUiSchema("/all", "get", "response"));
+            links.addAll(buildCollectionActionLinks());
+            links.addAll(buildCollectionDiscoveryLinks());
 
-        return successEnvelope(ResponseEntity.ok(), entityModels, Links.of(links));
+            return successEnvelope(ResponseEntity.ok(), entityModels, Links.of(links));
+        });
     }
 
     @GetMapping("/by-ids")
@@ -1230,14 +1255,17 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             result.requirePersistedVersion();
         }
 
-        List<Link> linkList = new ArrayList<>();
-        linkList.add(linkToSelf(id));
-        linkList.add(linkToAll());
-        linkList.add(linkToFilter());
-        linkList.add(linkToFilterCursor());
-        linkList.addAll(buildItemActionLinks(id));
-        linkList.addAll(buildItemDiscoveryLinks(id));
-        linkList.add(linkToUiSchema("/{id}", "get", "response"));
+        List<Link> linkList = withOperationAvailabilityScope(() -> {
+            List<Link> links = new ArrayList<>();
+            links.add(linkToSelf(id));
+            links.add(linkToAll());
+            links.add(linkToFilter());
+            links.add(linkToFilterCursor());
+            links.addAll(buildItemActionLinks(id));
+            links.addAll(buildItemDiscoveryLinks(id));
+            links.add(linkToUiSchema("/{id}", "get", "response"));
+            return links;
+        });
 
         return withResourceVersion(
                 ResponseEntity.ok(),

@@ -64,6 +64,7 @@ Fronteira Canonica Local
 - Mudancas semanticas devem privilegiar estruturas que melhorem o grounding de decisoes authoradas por IA, evitando empurrar logica de negocio para `x-ui` incidental ou para convenções locais do host.
 
 Baseline Resource-Oriented
+- Duplicação opt-in usa `AbstractDuplicateDraftResourceController` e `DuplicateDraftResourceService`/`DuplicateDraftResourceCommandService`, com DTO explícito compatível com create. O preparo é não persistente/não mutante; só o POST de criação posterior persiste. Política de campos/estado/escopo pertence ao backend. Exigir opt-in + mapping e decisões afirmativas create/view/duplicate-draft em guardas, links e discovery. Preservar a annotation real da base para discovery sem confundir com deep clone transacional `1:N`, que é uma action distinta. Revisar `docs/guides/DUPLICATE-DRAFT-ADOPTION.md` e as notas de suporte/availability; não prescrever bases públicas `LegacyBacked*` ou helpers de cópia inexistentes.
 - O starter publica uma unica hierarquia canonica resource-oriented.
 - Nao reintroduzir hierarquias paralelas por conveniencia. Se a necessidade for canonica, implementar na hierarquia `AbstractResource*` e nos servicos resource-oriented.
 

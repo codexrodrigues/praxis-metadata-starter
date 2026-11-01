@@ -141,4 +141,15 @@ public interface CapabilityService {
     ) {
         return AvailabilityDecision.allowAll();
     }
+
+    /**
+     * Abre um escopo limitado de disponibilidade de operacoes para um path de recurso,
+     * compartilhando a fotografia estrutural e a fence final durante a montagem de links/guardas.
+     */
+    default <T> T withOperationAvailabilityScope(
+            String resourcePath,
+            java.util.function.Supplier<T> action
+    ) {
+        return action.get();
+    }
 }

@@ -59,8 +59,11 @@ public abstract class AbstractResourceController<ResponseDTO, ID, FD extends Gen
                     "At least one resource id is required."
             ));
         }
-        assertCollectionOperationAvailable("delete");
-        ids.forEach(id -> assertItemOperationAvailable("delete", id));
+        withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("delete");
+            ids.forEach(id -> assertItemOperationAvailable("delete", id));
+            return null;
+        });
         getService().deleteAllById(ids);
         return ResponseEntity.noContent().build();
     }

@@ -66,14 +66,17 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
         ResponseDTO body = saved.body();
         Link selfLink = linkToSelf(newId);
 
-        List<Link> linkList = new ArrayList<>();
-        linkList.add(selfLink);
-        linkList.add(linkToAll());
-        linkList.add(linkToFilter());
-        linkList.add(linkToFilterCursor());
-        linkList.addAll(buildWriteResponseActionLinks(newId));
-        linkList.addAll(buildItemDiscoveryLinks(newId));
-        linkList.add(linkToUiSchema("/", "post", "request"));
+        List<Link> linkList = withOperationAvailabilityScope(() -> {
+            List<Link> links = new ArrayList<>();
+            links.add(selfLink);
+            links.add(linkToAll());
+            links.add(linkToFilter());
+            links.add(linkToFilterCursor());
+            links.addAll(buildWriteResponseActionLinks(newId));
+            links.addAll(buildItemDiscoveryLinks(newId));
+            links.add(linkToUiSchema("/", "post", "request"));
+            return links;
+        });
 
         return withVersion(
                 ResponseEntity.created(selfLink.toUri()),
@@ -120,14 +123,17 @@ public abstract class AbstractCreateUpdateResourceController<ResponseDTO, ID, FD
             updated = service.update(id, dto);
         }
 
-        List<Link> linkList = new ArrayList<>();
-        linkList.add(linkToSelf(id));
-        linkList.add(linkToAll());
-        linkList.add(linkToFilter());
-        linkList.add(linkToFilterCursor());
-        linkList.addAll(buildWriteResponseActionLinks(id));
-        linkList.addAll(buildItemDiscoveryLinks(id));
-        linkList.add(linkToUiSchema("/{id}", "put", "request"));
+        List<Link> linkList = withOperationAvailabilityScope(() -> {
+            List<Link> links = new ArrayList<>();
+            links.add(linkToSelf(id));
+            links.add(linkToAll());
+            links.add(linkToFilter());
+            links.add(linkToFilterCursor());
+            links.addAll(buildWriteResponseActionLinks(id));
+            links.addAll(buildItemDiscoveryLinks(id));
+            links.add(linkToUiSchema("/{id}", "put", "request"));
+            return links;
+        });
 
         if (versioned) {
             return withResourceVersion(

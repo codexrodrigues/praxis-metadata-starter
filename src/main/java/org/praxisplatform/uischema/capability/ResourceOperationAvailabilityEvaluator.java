@@ -18,6 +18,25 @@ import java.util.function.Function;
  * and enforce field/scope policy before preparing a draft.
  */
 public final class ResourceOperationAvailabilityEvaluator {
+    private static final ThreadLocal<ActiveOperations> ACTIVE_OPERATIONS = new ThreadLocal<>();
+
+    private static final class ActiveOperations {
+        private final ResourceOperationAvailabilityEvaluator owner;
+        private final String path;
+        private final Map<String, CapabilityOperation> operations;
+        private final Map<String, CapabilityOperation> collectionSurfaceBaselines = new LinkedHashMap<>();
+
+        private ActiveOperations(
+                ResourceOperationAvailabilityEvaluator owner,
+                String path,
+                Map<String, CapabilityOperation> operations
+        ) {
+            this.owner = owner;
+            this.path = path;
+            this.operations = operations;
+        }
+    }
+
     private final CanonicalCapabilityResolver resolver;
     private final OpenApiDocumentService documents;
     private final ResourceOperationAvailabilityProvider provider;
@@ -36,6 +55,10 @@ public final class ResourceOperationAvailabilityEvaluator {
 
     /** Captures structural operations; availability is evaluated after releasing the lock. */
     public <T> T withOperations(String path, Function<Map<String, CapabilityOperation>, T> consumer) {
+        ActiveOperations existing = ACTIVE_OPERATIONS.get();
+        if (existing != null && existing.owner == this && java.util.Objects.equals(existing.path, path)) {
+            return consumer.apply(existing.operations);
+        }
         if (documents.hasLocalPublishedBulkOpenApiPublication()
                 && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
             throw new IllegalStateException("Discovery projection must start outside operational transactions");
@@ -56,7 +79,17 @@ public final class ResourceOperationAvailabilityEvaluator {
                 capture.fence = published ? documents.captureBulkLifecycleDocumentFence() : null;
                 return detached;
             });
-            T result = consumer.apply(operations);
+            ACTIVE_OPERATIONS.set(new ActiveOperations(this, path, operations));
+            T result;
+            try {
+                result = consumer.apply(operations);
+            } finally {
+                if (existing != null) {
+                    ACTIVE_OPERATIONS.set(existing);
+                } else {
+                    ACTIVE_OPERATIONS.remove();
+                }
+            }
             if (capture.fence != null) capture.fence.read(() -> null);
             return result;
         }
@@ -122,18 +155,33 @@ public final class ResourceOperationAvailabilityEvaluator {
             String key, String id, Object resourceId) {
         if (operation == null || !operation.supported() || surfaces == null
                 || !("create".equals(id) || "view".equals(id))) return operation;
+        boolean collectionBaseline = "create".equals(id) || resourceId == null;
+        ActiveOperations active = ACTIVE_OPERATIONS.get();
+        String cacheKey = key + ":" + id;
+        if (collectionBaseline && active != null && active.owner == this
+                && active.collectionSurfaceBaselines.containsKey(cacheKey)) {
+            return active.collectionSurfaceBaselines.get(cacheKey);
+        }
         try {
-            var candidates = "create".equals(id) || resourceId == null
+            var candidates = SurfaceCatalogService.withAvailabilityOnly(() -> collectionBaseline
                     ? surfaces.findByResourceKey(key).surfaces()
-                    : surfaces.findItemSurfaces(key, resourceId).surfaces();
+                    : surfaces.findItemSurfaces(key, resourceId).surfaces());
             var selected = selectSurface(candidates, id);
-            if (selected == null) return operation;
-            return new CapabilityOperation(operation.id(), operation.supported(), operation.scope(),
-                    selected.method() != null && !selected.method().isBlank()
-                            ? selected.method() : operation.preferredMethod(), operation.preferredRel(),
-                    combine(operation.availability(), selected.availability()), operation.formats(),
-                    operation.scopes(), operation.maxRows(), operation.async(), operation.bulk());
+            CapabilityOperation enriched = selected == null
+                    ? operation
+                    : new CapabilityOperation(operation.id(), operation.supported(), operation.scope(),
+                            selected.method() != null && !selected.method().isBlank()
+                                    ? selected.method() : operation.preferredMethod(), operation.preferredRel(),
+                            combine(operation.availability(), selected.availability()), operation.formats(),
+                            operation.scopes(), operation.maxRows(), operation.async(), operation.bulk());
+            if (collectionBaseline && active != null && active.owner == this) {
+                active.collectionSurfaceBaselines.put(cacheKey, enriched);
+            }
+            return enriched;
         } catch (SurfaceCatalogNotFoundException ex) {
+            if (collectionBaseline && active != null && active.owner == this) {
+                active.collectionSurfaceBaselines.put(cacheKey, operation);
+            }
             return operation;
         }
     }

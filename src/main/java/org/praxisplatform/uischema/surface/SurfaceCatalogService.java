@@ -31,6 +31,25 @@ import java.util.Map;
 public class SurfaceCatalogService {
 
     private static final Logger logger = LoggerFactory.getLogger(SurfaceCatalogService.class);
+    private static final ThreadLocal<Boolean> AVAILABILITY_ONLY = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * Executes surface catalog reads for operation-availability baselines without resolving
+     * related child OpenAPI documents.
+     */
+    public static <T> T withAvailabilityOnly(java.util.function.Supplier<T> action) {
+        boolean previous = Boolean.TRUE.equals(AVAILABILITY_ONLY.get());
+        AVAILABILITY_ONLY.set(true);
+        try {
+            return action.get();
+        } finally {
+            if (previous) {
+                AVAILABILITY_ONLY.set(true);
+            } else {
+                AVAILABILITY_ONLY.remove();
+            }
+        }
+    }
 
     private final SurfaceDefinitionRegistry surfaceDefinitionRegistry;
     private final SurfaceAvailabilityEvaluator availabilityEvaluator;
@@ -218,6 +237,9 @@ public class SurfaceCatalogService {
     // A bounded structural phase owns the photograph; contextual resolvers never run under it.
     private <T> T withRelatedProjection(List<SurfaceDefinition> definitions,
             java.util.function.Function<RelatedProjection, T> consumer) {
+        if (Boolean.TRUE.equals(AVAILABILITY_ONLY.get())) {
+            return consumer.apply(new RelatedProjection(Map.of(), null));
+        }
         if (canonicalCapabilityResolver == null || definitions.stream().noneMatch(definition ->
                 definition.relatedResource() != null && definition.relatedResource().present())) return consumer.apply(null);
         if (documents == null) return consumer.apply(null);

@@ -61,16 +61,18 @@ capabilities não remove paths, não modifica schemas e não desregistra handler
 O schema de resposta do preparo continua sendo o `DraftDTO` concreto; o schema de
 request da criação continua pertencendo ao POST de criação.
 
-T02 trata apenas suporte estrutural. A composição de disponibilidade com `create`,
-autorização da origem, guardas, links e o catálogo de actions é dependência de T03.
-A annotation existente de workflow não é removida nem seu catálogo certificado aqui.
+Esta nota descreve suporte estrutural. A composição atual de disponibilidade com
+`create`, `view` da origem, guardas, links e catálogo de actions está documentada em
+[disponibilidade](DUPLICATE-DRAFT-AVAILABILITY.md). A base preserva a annotation
+de workflow para discovery, sem transformar o preparo em clonagem persistente.
 `supported=true` não concede autorização, prova ausência de persistência no adaptador
 ou aceita globalmente a jornada. Criação deve ser revalidada no POST final.
 
 Os testes deste corte são locais, com fixtures, mocks e conversão de schema; não
 certificam HTTP implantado, banco, pilotos de domínio ou execução Angular.
-Migrações dos pilotos, guidance amplo e validação integrada pertencem aos cortes
-T05–T12 do plano de duplicação.
+Aceites locais dos pilotos e a documentação de adoção não certificam integração
+VM, implantação ou dependência pública. Registrar esses gates separadamente;
+um checklist de preparação não é execução integrada.
 
 ## Conflitos na criação posterior ao preparo
 

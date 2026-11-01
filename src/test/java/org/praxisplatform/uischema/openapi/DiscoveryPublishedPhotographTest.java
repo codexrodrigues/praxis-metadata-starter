@@ -45,6 +45,17 @@ class DiscoveryPublishedPhotographTest {
             var service = f.capabilities(() -> { f.assertUnlocked(); calls.incrementAndGet(); });
             assertThat(service.itemOperationAvailability(RESOURCE, PATH, "view", 42).allowed()).isTrue();
             assertThat(calls).hasValue(1);
+            assertThat(f.guards).hasValue(4);
+            f.assertFencesClosed();
+            f.guards.set(0);
+            service.withOperationAvailabilityScope(PATH, () -> {
+                for (int id = 1; id <= 10; id++) {
+                    assertThat(service.itemOperationAvailability(RESOURCE, PATH, "view", id).allowed()).isTrue();
+                    assertThat(service.collectionOperationAvailability(RESOURCE, PATH, "all").allowed()).isTrue();
+                }
+                return null;
+            });
+            assertThat(f.guards).hasValue(4);
             f.assertFencesClosed();
             var drifting = f.capabilities(() -> { f.assertUnlocked(); f.generation.incrementAndGet(); });
             assertThatThrownBy(() -> drifting.itemOperationAvailability(RESOURCE, PATH, "view", 42))

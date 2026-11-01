@@ -487,6 +487,11 @@ public class DefaultCapabilityService implements CapabilityService {
     }
 
     @Override
+    public <T> T withOperationAvailabilityScope(String resourcePath, java.util.function.Supplier<T> action) {
+        return operationAvailability.withOperations(resourcePath, ignored -> action.get());
+    }
+
+    @Override
     public AvailabilityDecision collectionOperationAvailability(
             String resourceKey,
             String resourcePath,

@@ -220,7 +220,7 @@ class CapabilityServiceTest {
 
         StatsFieldCapability salario = snapshot.stats().fields().get(2);
         assertEquals("salario", salario.field());
-        assertEquals(List.of("COUNT", "DISTINCT_COUNT", "SUM", "AVG", "MIN", "MAX"), salario.metrics());
+        assertEquals(List.of("COUNT", "DISTINCT_COUNT", "SUM", "AVG", "MIN", "MAX", "MEDIAN", "PERCENTILE_90", "PERCENTILE_95"), salario.metrics());
         assertEquals(List.of("DISTRIBUTION_HISTOGRAM", "METRIC_FIELD"), salario.modes());
     }
 

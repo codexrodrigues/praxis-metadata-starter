@@ -90,24 +90,24 @@ public abstract class AbstractDuplicateDraftResourceController<ResponseDTO, ID, 
 
     @Override
     protected List<Link> buildItemActionLinks(ID id) {
-        try (var ignored = ResourceStateSnapshotScope.open()) {
+        return withOperationAvailabilityScope(() -> {
             List<Link> links = new ArrayList<>(super.buildItemActionLinks(id));
             if (getService().supportsDuplicateDraft() && isDuplicateDraftAvailable(id)) {
                 links.add(linkToDuplicateDraft(id));
             }
             return links;
-        }
+        });
     }
 
     @Override
     protected List<Link> buildEntityActionLinks(ID id) {
-        try (var ignored = ResourceStateSnapshotScope.open()) {
+        return withOperationAvailabilityScope(() -> {
             List<Link> links = new ArrayList<>(super.buildEntityActionLinks(id));
             if (getService().supportsDuplicateDraft() && isDuplicateDraftAvailable(id)) {
                 links.add(linkToDuplicateDraft(id));
             }
             return links;
-        }
+        });
     }
 
     // Duplication requires affirmative decisions. Generic CRUD helpers retain their existing
@@ -118,9 +118,10 @@ public abstract class AbstractDuplicateDraftResourceController<ResponseDTO, ID, 
         if (id == null || capabilities == null || !StringUtils.hasText(resourceKey)
                 || !StringUtils.hasText(getBasePath())) return false;
         try {
-            return isAllowed(capabilities.collectionOperationAvailability(resourceKey, getBasePath(), "create"))
-                    && isAllowed(capabilities.itemOperationAvailability(resourceKey, getBasePath(), "view", id))
-                    && isAllowed(capabilities.itemOperationAvailability(resourceKey, getBasePath(), "duplicate-draft", id));
+            return withOperationAvailabilityScope(() ->
+                    isAllowed(capabilities.collectionOperationAvailability(resourceKey, getBasePath(), "create"))
+                            && isAllowed(capabilities.itemOperationAvailability(resourceKey, getBasePath(), "view", id))
+                            && isAllowed(capabilities.itemOperationAvailability(resourceKey, getBasePath(), "duplicate-draft", id)));
         } catch (RuntimeException ex) {
             return false;
         }

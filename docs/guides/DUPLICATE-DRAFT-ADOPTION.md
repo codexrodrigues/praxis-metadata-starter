@@ -1,5 +1,49 @@
 # Adoção de preparo de rascunho
 
+## Contrato neutro e jornada
+
+`AbstractDuplicateDraftResourceController<ResponseDTO, ID, FilterDTO, CreateDTO,
+UpdateDTO, DraftDTO>` estende a hierarquia resource-oriented. Seu serviço
+`DuplicateDraftResourceService<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO,
+DraftDTO>` agrega `DuplicateDraftResourceCommandService<ID, DraftDTO>`; o serviço
+pode usar JPA ou um adapter privado. Não usar as antigas bases públicas
+`LegacyBacked*` como orientação para recursos novos ou migrados.
+
+O `POST /{resource}/{id}/duplicate-draft` é uma preparação ITEM não persistente
+e não mutante. Retorna `RestApiResponse<DraftDTO>`; não cria registro, reserva
+chave, modifica a origem ou executa os efeitos do create. O DTO explícito é
+compatível com os campos de criação, mas pode ser parcial. A porta não impõe um
+nome de classe `DuplicateDraftDTO` nem exige reutilizar o request obrigatório.
+O backend aplica a política de cópia por allowlist, limpando identidade, versão,
+campos únicos, pessoais/protegidos e estado conforme o domínio. Não depender de
+`DeepCloneUtils`, `DuplicateDraftUtils` ou de um atributo `copyOnDuplicate`:
+esses não são contratos deste fluxo.
+
+O consumidor abre CREATE com seu schema de request e o draft como valor inicial.
+Somente revisão/confirmação envia o `POST /{resource}` separado, que revalida
+autorização e regras. Descartar o draft não exige um endpoint mutante de cancel.
+Clonar imediatamente um agregado e suas coleções `1:N` é outro comando de
+negócio transacional, modelado por `@WorkflowAction` com suas próprias guardas.
+A base de duplicate-draft também mantém `@WorkflowAction(id="duplicate-draft")`
+para discovery: essa annotation real não torna o preparo persistente e não deve
+ser removida por confusão terminológica com deep clone.
+
+Suporte estrutural exige opt-in do serviço e mapping POST publicado. Disponibilidade
+contextual exige decisões afirmativas de create COLLECTION, view ITEM da origem
+e duplicate-draft ITEM, além das restrições da action. Ausência/falha/nulidade na
+composição não autoriza duplicação. Capabilities, catálogo contextual, links e
+execução devem concordar, sem fazer do discovery um substituto da guarda do host.
+
+No Angular, o owner é `@praxisui/crud`: segue `_links['duplicate-draft']`, prepara
+uma única abertura e passa um seed independente para `@praxisui/dynamic-form`.
+Um objeto `initialValue` create, inclusive `{}`, suprime defaults omitidos mesmo
+em rebuild; sem objeto seed o create ordinário mantém defaults. Não copiar a
+política do backend para a UI nem abrir formulário vazio em erro. Create com seed
+em rota requer `createCrudFormRoute`; edit/view do host mantém seu fluxo de leitura.
+O handoff privado CRUD é efêmero e single-use, sem payload em URL/history/storage.
+
+## Decisão de domínio e schema
+
 O dono do contrato é o Metadata Starter. Antes de adotar `duplicate-draft`,
 registre a decisão do domínio: campos sugeridos por allowlist, campos limpos,
 defaults deliberados, estados de origem permitidos, escopo e autorização. Uma
@@ -58,8 +102,10 @@ negócio. A composição canônica de availability continua falhando fechada.
   diferenças locais legítimas e vincule o recibo ao código final. Não transfira
   automaticamente o resultado de uma árvore isolada para outro checkout.
 
-Um inventário de adoção passa de pendente a implementada somente após decisão
-atribuída, implementação integrada e provas revisadas. O hash do parecer comprova
+Um inventário deve declarar o gate que sustenta o status de implementação:
+decisão atribuída, código adotado no checkout e provas revisadas. Um aceite
+estático/local autorizado pode registrar implementação local, mantendo o gate
+de runtime separado e pendente; não significa integração executada. O hash do parecer comprova
 sua integridade; não certifica runtime. Preserve decisões históricas e mantenha
 separados aceite backend, runtime Angular/browser e publicação. Não classifique
 como não aplicável uma jornada aplicável apenas para obter um gate verde.
