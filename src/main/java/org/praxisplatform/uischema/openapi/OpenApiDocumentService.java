@@ -166,6 +166,15 @@ public interface OpenApiDocumentService {
     default Object localPublishedBulkOpenApiPublicationToken() {
         return hasLocalPublishedBulkOpenApiPublication() ? Boolean.TRUE : null;
     }
+
+    /**
+     * Returns an opaque cache token representing the current local state of the given OpenAPI
+     * group document, or {@code null} when the current scope uses an ephemeral/uncached snapshot
+     * that must not be memoized across calls.
+     */
+    default Object groupDocumentCacheToken(String groupName) {
+        return null;
+    }
     /**
      * Structural composition against the locally installed, durably validated photograph; no HTTP.
      * Group getters return defensive copies of the requested group only. Bound operational reads

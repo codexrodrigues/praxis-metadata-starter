@@ -56,6 +56,8 @@ public class SurfaceCatalogService {
     private final SurfaceAvailabilityContextResolver contextResolver;
     private final CanonicalCapabilityResolver canonicalCapabilityResolver;
     private final OpenApiDocumentService documents;
+    private final java.util.concurrent.ConcurrentHashMap<String, CachedChildCapabilities> childCapabilitiesByPath =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public SurfaceCatalogService(
             SurfaceDefinitionRegistry surfaceDefinitionRegistry,
@@ -284,9 +286,33 @@ public class SurfaceCatalogService {
 
     private ChildCapabilities resolveChildCapabilities(String path) {
         try {
-            var document = documents.getDocumentForGroup(documents.resolveGroupFromPath(path));
-            return new ChildCapabilities(Map.copyOf(canonicalCapabilityResolver.resolve(document, path)),
-                    Map.copyOf(canonicalCapabilityResolver.resolveCrudOperations(document, path)));
+            String group = documents.resolveGroupFromPath(path);
+            Object token = documents.groupDocumentCacheToken(group);
+            if (token != null) {
+                CachedChildCapabilities cached = childCapabilitiesByPath.get(path);
+                if (cached != null && token.equals(cached.token())) {
+                    return cached.capabilities();
+                }
+            }
+            var document = documents.getDocumentForGroup(group);
+            if (token == null && document != null) {
+                token = documents.groupDocumentCacheToken(group);
+                if (token == null) {
+                    CachedChildCapabilities cached = childCapabilitiesByPath.get(path);
+                    if (cached != null && cached.token() == document) {
+                        return cached.capabilities();
+                    }
+                    token = document;
+                }
+            }
+            ChildCapabilities resolved = new ChildCapabilities(
+                    Map.copyOf(canonicalCapabilityResolver.resolve(document, path)),
+                    Map.copyOf(canonicalCapabilityResolver.resolveCrudOperations(document, path))
+            );
+            if (token != null) {
+                childCapabilitiesByPath.put(path, new CachedChildCapabilities(token, resolved));
+            }
+            return resolved;
         } catch (GovernedOpenApiPublicationUnavailableException unavailable) {
             throw unavailable;
         } catch (RuntimeException ex) {
@@ -300,12 +326,33 @@ public class SurfaceCatalogService {
             return new ChildCapabilities(Map.of(), Map.of());
         }
         try {
+            Object token = null;
+            String group = null;
+            if (documents != null) {
+                group = documents.resolveGroupFromPath(childResourcePath);
+                token = documents.groupDocumentCacheToken(group);
+                if (token != null) {
+                    CachedChildCapabilities cached = childCapabilitiesByPath.get(childResourcePath);
+                    if (cached != null && token.equals(cached.token())) {
+                        return cached.capabilities();
+                    }
+                }
+            }
             Map<String, Boolean> capabilities = canonicalCapabilityResolver.resolve(childResourcePath);
             Map<String, CapabilityOperation> crudOperations = canonicalCapabilityResolver.resolveCrudOperations(childResourcePath);
-            return new ChildCapabilities(
+            ChildCapabilities resolved = new ChildCapabilities(
                     capabilities == null ? Map.of() : Map.copyOf(capabilities),
-                    crudOperations == null ? Map.of() : Map.copyOf(crudOperations)
+                    crudOperations == null ? Map.copyOf(Map.of()) : Map.copyOf(crudOperations)
             );
+            if (documents != null) {
+                if (token == null && group != null) {
+                    token = documents.groupDocumentCacheToken(group);
+                }
+                if (token != null) {
+                    childCapabilitiesByPath.put(childResourcePath, new CachedChildCapabilities(token, resolved));
+                }
+            }
+            return resolved;
         } catch (GovernedOpenApiPublicationUnavailableException unavailable) {
             throw unavailable;
         } catch (RuntimeException ex) {
@@ -332,6 +379,7 @@ public class SurfaceCatalogService {
     }
 
     private record ChildCapabilities(Map<String, Boolean> indicators, Map<String, CapabilityOperation> operations) {}
+    private record CachedChildCapabilities(Object token, ChildCapabilities capabilities) {}
     private record RelatedProjection(Map<SurfaceDefinition, RelatedResourceSurface> related,
             OpenApiDocumentService.BulkLifecycleDocumentFence fence) {}
 

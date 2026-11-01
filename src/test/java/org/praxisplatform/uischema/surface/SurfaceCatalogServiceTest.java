@@ -278,6 +278,108 @@ class SurfaceCatalogServiceTest {
         assertThrows(IllegalStateException.class, () -> service.findByResourceKey("example.employees"));
     }
 
+    @Test
+    void cachesChildCapabilitiesAcrossCallsWhenDocumentTokenIsStableAndInvalidatesOnTokenChange() {
+        SurfaceDefinition related = new SurfaceDefinition(
+                "payment-lines",
+                "example.purchase-orders",
+                "/purchase-orders",
+                "example",
+                SurfaceKind.READ_PROJECTION,
+                SurfaceScope.ITEM,
+                "Payment lines",
+                "",
+                "payment-lines",
+                "response",
+                SurfaceResponseCardinality.COLLECTION,
+                new CanonicalOperationRef("example", "listPaymentLines", "/purchase-orders/{id}/payment-lines", "GET"),
+                new CanonicalSchemaRef("payment-line-response", "response", "/schemas/filtered?path=/purchase-orders/{id}/payment-lines"),
+                20,
+                List.of(),
+                List.of(),
+                List.of("related"),
+                new RelatedResourceSurface(
+                        "example.purchase-orders",
+                        "id",
+                        "example.payment-lines",
+                        "/payment-lines",
+                        "purchaseOrderId",
+                        true,
+                        "id",
+                        List.of(RelatedResourceChildOperation.LIST, RelatedResourceChildOperation.CREATE)
+                )
+        );
+        SurfaceDefinitionRegistry registry = new MapSurfaceDefinitionRegistry(
+                Map.of("example.purchase-orders", List.of(related)),
+                Map.of()
+        );
+        AtomicInteger resolveCalls = new AtomicInteger();
+        AtomicInteger crudCalls = new AtomicInteger();
+        CanonicalCapabilityResolver childCapabilities = new StaticCanonicalCapabilityResolver(
+                Map.of("all", true, "filter", true),
+                Map.of("create", operation("create", true))
+        ) {
+            @Override
+            public Map<String, Boolean> resolve(String resourcePath) {
+                resolveCalls.incrementAndGet();
+                return super.resolve(resourcePath);
+            }
+
+            @Override
+            public Map<String, CapabilityOperation> resolveCrudOperations(String resourcePath) {
+                crudCalls.incrementAndGet();
+                return super.resolveCrudOperations(resourcePath);
+            }
+        };
+        java.util.concurrent.atomic.AtomicReference<Object> currentToken =
+                new java.util.concurrent.atomic.AtomicReference<>("token-v1");
+        org.praxisplatform.uischema.openapi.OpenApiDocumentService documents =
+                new org.praxisplatform.uischema.openapi.OpenApiDocumentService() {
+                    @Override
+                    public String resolveGroupFromPath(String path) {
+                        return "example";
+                    }
+
+                    @Override
+                    public JsonNode getDocumentForGroup(String groupName) {
+                        return null;
+                    }
+
+                    @Override
+                    public Object groupDocumentCacheToken(String groupName) {
+                        return currentToken.get();
+                    }
+
+                    @Override
+                    public String getOrComputeSchemaHash(String schemaId, java.util.function.Supplier<JsonNode> payloadSupplier) {
+                        return "unused";
+                    }
+
+                    @Override
+                    public void clearCaches() {
+                        currentToken.set("token-v2");
+                    }
+                };
+        SurfaceCatalogService service = new SurfaceCatalogService(
+                registry,
+                allowAllEvaluator(),
+                contextualResolver(),
+                childCapabilities,
+                documents
+        );
+
+        service.findItemSurfaces("example.purchase-orders", 7L);
+        service.findItemSurfaces("example.purchase-orders", 8L);
+        assertEquals(1, resolveCalls.get());
+        assertEquals(1, crudCalls.get());
+
+        documents.clearCaches();
+        service.findItemSurfaces("example.purchase-orders", 9L);
+        assertEquals(2, resolveCalls.get());
+        assertEquals(2, crudCalls.get());
+    }
+
+    // End of cache invalidation test
     private SurfaceAvailabilityEvaluator allowAllEvaluator() {
         return (definition, context) -> AvailabilityDecision.allow(java.util.Map.of("surfaceId", definition.id()));
     }

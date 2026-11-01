@@ -466,6 +466,53 @@ class OpenApiCanonicalCapabilityResolverTest {
         org.mockito.Mockito.verify(structural, org.mockito.Mockito.times(1)).resolve("/employees");
     }
 
+    @Test
+    void cachesResolvedPathCapabilitiesAcrossCallsWhenDocumentTokenIsStableAndInvalidatesOnChange() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {"paths":{"/employees":{"post":{}},"/employees/{id}":{"get":{}}}}
+                """);
+        java.util.concurrent.atomic.AtomicInteger docFetchCount = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<Object> currentToken =
+                new java.util.concurrent.atomic.AtomicReference<>("token-v1");
+        OpenApiDocumentService documents = new OpenApiDocumentService() {
+            @Override
+            public String resolveGroupFromPath(String path) {
+                return "human-resources";
+            }
+
+            @Override
+            public JsonNode getDocumentForGroup(String groupName) {
+                docFetchCount.incrementAndGet();
+                return document;
+            }
+
+            @Override
+            public Object groupDocumentCacheToken(String groupName) {
+                return currentToken.get();
+            }
+
+            @Override
+            public String getOrComputeSchemaHash(String schemaId, java.util.function.Supplier<JsonNode> payloadSupplier) {
+                return "unused";
+            }
+
+            @Override
+            public void clearCaches() {
+                currentToken.set("token-v2");
+            }
+        };
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(documents);
+
+        assertTrue(resolver.resolve("/employees").get("create"));
+        assertTrue(resolver.resolveCrudOperations("/employees").get("view").supported());
+        assertTrue(resolver.resolveOperations("/employees").get("byId").supported());
+        assertEquals(1, docFetchCount.get());
+
+        documents.clearCaches();
+        assertTrue(resolver.resolve("/employees").get("create"));
+        assertEquals(2, docFetchCount.get());
+    }
+
     private void assertOperation(
             Map<String, CapabilityOperation> operations,
             String id,

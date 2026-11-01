@@ -488,6 +488,28 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     }
 
     @Override
+    public Object groupDocumentCacheToken(String groupName) {
+        if (groupName == null || lifecycleSnapshot.get() != null) {
+            return null;
+        }
+        PublishedSnapshot publication = publishedScope.get();
+        if (publication != null) {
+            if (!publication.candidate().groups().contains(groupName)) {
+                return null;
+            }
+            return new GroupDocumentCacheToken(cacheInvalidationEpoch, publication, groupName, null);
+        }
+        if (publicationGuard != null) {
+            return null;
+        }
+        CachedDocument cached = documentCache.get(groupName);
+        if (cached == null) {
+            return null;
+        }
+        return new GroupDocumentCacheToken(cacheInvalidationEpoch, null, groupName, cached);
+    }
+
+    @Override
     public <T> T withPublishedBulkOpenApiPublication(java.util.function.BiFunction<OpenApiPublicationCandidate, Long, T> composition) {
         java.util.Objects.requireNonNull(composition, "composition");
         if (lifecycleSnapshot.get() != null || publishedScope.get() != null
@@ -714,4 +736,11 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         @Override
         public JsonNode document() { return document.deepCopy(); }
     }
+
+    private record GroupDocumentCacheToken(
+            long invalidationEpoch,
+            Object publication,
+            String groupName,
+            CachedDocument cachedDocument
+    ) {}
 }

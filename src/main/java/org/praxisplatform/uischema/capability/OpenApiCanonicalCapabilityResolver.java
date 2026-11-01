@@ -7,6 +7,8 @@ import org.springframework.util.StringUtils;
 import java.util.LinkedHashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Resolve o mapa canonicamente publicado de operacoes a partir do OpenAPI agrupado.
@@ -23,6 +25,15 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
 
     private final OpenApiDocumentService openApiDocumentService;
     private final ResourceStructuralCapabilityResolver structuralCapabilityResolver;
+    private final Map<String, CachedPathCapabilities> capabilitiesByPath = new ConcurrentHashMap<>();
+
+    private record CachedPathCapabilities(
+            Object token,
+            ResourceStructuralCapabilities structural,
+            Map<String, Boolean> indicators,
+            Map<String, CapabilityOperation> crudOperations,
+            Map<String, CapabilityOperation> allOperations
+    ) {}
 
     public OpenApiCanonicalCapabilityResolver(OpenApiDocumentService openApiDocumentService) {
         this(openApiDocumentService, new NoOpResourceStructuralCapabilityResolver());
@@ -40,9 +51,7 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
 
     @Override
     public Map<String, Boolean> resolve(String resourcePath) {
-        String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
-        JsonNode openApiDocument = openApiDocumentService.getDocumentForGroup(group);
-        return resolve(openApiDocument, resourcePath);
+        return resolveCachedOrCompute(resourcePath).indicators();
     }
 
     @Override
@@ -50,7 +59,14 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         String basePath = normalizePath(resourcePath);
         JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
         ResourceStructuralCapabilities structural = structuralCapabilityResolver.resolve(basePath);
+        return resolveIndicators(pathsNode, basePath, structural);
+    }
 
+    private Map<String, Boolean> resolveIndicators(
+            JsonNode pathsNode,
+            String basePath,
+            ResourceStructuralCapabilities structural
+    ) {
         Map<String, Boolean> capabilities = new LinkedHashMap<>();
         capabilities.put("create", hasOperation(pathsNode, basePath, "post"));
         capabilities.put("update", hasOperation(pathsNode, basePath + "/{id}", "put")
@@ -90,16 +106,44 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
 
     @Override
     public Map<String, CapabilityOperation> resolveCrudOperations(String resourcePath) {
-        String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
-        JsonNode openApiDocument = openApiDocumentService.getDocumentForGroup(group);
-        return resolveCrudOperations(openApiDocument, resourcePath);
+        return resolveCachedOrCompute(resourcePath).crudOperations();
     }
 
     @Override
     public Map<String, CapabilityOperation> resolveOperations(String resourcePath) {
+        return resolveCachedOrCompute(resourcePath).allOperations();
+    }
+
+    private CachedPathCapabilities resolveCachedOrCompute(String resourcePath) {
+        String basePath = normalizePath(resourcePath);
         String group = openApiDocumentService.resolveGroupFromPath(resourcePath);
+        ResourceStructuralCapabilities structural = structuralCapabilityResolver.resolve(basePath);
+        Object token = openApiDocumentService.groupDocumentCacheToken(group);
+        if (token != null) {
+            CachedPathCapabilities cached = capabilitiesByPath.get(basePath);
+            if (cached != null && token.equals(cached.token()) && Objects.equals(structural, cached.structural())) {
+                return cached;
+            }
+        }
         JsonNode openApiDocument = openApiDocumentService.getDocumentForGroup(group);
-        return resolveOperations(openApiDocument, resourcePath);
+        if (token == null) {
+            token = openApiDocumentService.groupDocumentCacheToken(group);
+        }
+        JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
+        Map<String, Boolean> indicators = resolveIndicators(pathsNode, basePath, structural);
+        Map<String, CapabilityOperation> crudOperations = resolveCrudOperations(pathsNode, basePath, structural);
+        Map<String, CapabilityOperation> allOperations = resolveAllOperations(pathsNode, basePath, structural, crudOperations);
+        CachedPathCapabilities computed = new CachedPathCapabilities(
+                token,
+                structural,
+                indicators,
+                crudOperations,
+                allOperations
+        );
+        if (token != null) {
+            capabilitiesByPath.put(basePath, computed);
+        }
+        return computed;
     }
 
     @Override
@@ -107,9 +151,17 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
         String basePath = normalizePath(resourcePath);
         JsonNode pathsNode = openApiDocument == null ? null : openApiDocument.path(PATHS);
         ResourceStructuralCapabilities structural = structuralCapabilityResolver.resolve(basePath);
-        Map<String, CapabilityOperation> operations = new LinkedHashMap<>(
-                resolveCrudOperations(pathsNode, basePath, structural)
-        );
+        Map<String, CapabilityOperation> crudOperations = resolveCrudOperations(pathsNode, basePath, structural);
+        return resolveAllOperations(pathsNode, basePath, structural, crudOperations);
+    }
+
+    private Map<String, CapabilityOperation> resolveAllOperations(
+            JsonNode pathsNode,
+            String basePath,
+            ResourceStructuralCapabilities structural,
+            Map<String, CapabilityOperation> crudOperations
+    ) {
+        Map<String, CapabilityOperation> operations = new LinkedHashMap<>(crudOperations);
 
         boolean byId = hasOperation(pathsNode, basePath + "/{id}", "get");
         operations.put("byId", operation("byId", byId, "ITEM", byId ? "GET" : null, "self"));
