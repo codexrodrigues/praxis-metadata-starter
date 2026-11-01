@@ -54,7 +54,10 @@ public class ApiResourceIdentityResolver {
                 return Optional.of(toMap(methodIdentity));
             }
 
-            Class<?> dtoClass = resolveResponseDtoClass(ResolvableType.forMethodReturnType(handlerMethod.getMethod()));
+            // Inherited resource handlers declare ResponseDTO on a generic base class.
+            // Resolve it against the concrete MVC controller before unwrapping the response.
+            Class<?> dtoClass = resolveResponseDtoClass(ResolvableType.forMethodReturnType(
+                    handlerMethod.getMethod(), handlerMethod.getBeanType()));
             if (dtoClass != null) {
                 ResourceIdentity dtoIdentity = AnnotationUtils.findAnnotation(dtoClass, ResourceIdentity.class);
                 if (dtoIdentity != null && isConfigured(dtoIdentity)) {

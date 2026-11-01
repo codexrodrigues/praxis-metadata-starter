@@ -4,6 +4,15 @@ All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
 
+### Identidade de recurso em respostas de handlers herdados
+
+- Resolve o DTO genérico de resposta usando a classe concreta do controller MVC.
+  GETs herdados passam a publicar a identidade já declarada no DTO, assim como
+  overrides concretos de listagem/filtro; preserva as precedências existentes de
+  método, DTO de projeção e fallback do recurso, sem inferência por nomes.
+- Correção de fonte validada por testes unitários do resolver; publicação do starter,
+  adoção no host e prova HTTP da versão corrigida permanecem etapas separadas.
+
 ### Presença de PATCH e recusa de discovery
 - `PartialUpdateInput` distingue omissão de null explícito sem alterar o JSON dos DTOs; nullabilidade e invariantes permanecem sob responsabilidade do contrato e domínio.
 - Projeções de discovery que perdem a prova operacional final retornam 503 com `BULK_DISCOVERY_UNAVAILABLE`, sem causas internas ou snapshot parcial.

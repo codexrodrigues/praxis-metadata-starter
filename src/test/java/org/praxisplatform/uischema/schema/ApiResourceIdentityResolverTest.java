@@ -8,6 +8,8 @@ import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.surface.SurfaceKind;
 import org.praxisplatform.uischema.surface.SurfaceScope;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.data.domain.Page;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
@@ -153,6 +155,127 @@ class ApiResourceIdentityResolverTest {
             assertTrue(context.containsBean("apiResourceIdentityResolver"));
         }
     }
+
+    @Test
+    void resolvesInheritedItemDtoIdentityAcrossMultipleGenericControllerLayers() throws Exception {
+        var resolver = resolverForGenericController(new ContractIdentityController());
+
+        Map<String, Object> identity = resolver.resolve(
+                "/api/contracts", "/api/contracts/{id}", "get").orElseThrow();
+
+        assertEquals(Map.of(
+                "keyField", "id",
+                "titleField", "number",
+                "subtitleField", "supplierName",
+                "metadataFields", java.util.List.of("status", "currency"),
+                "displayLabelField", "number"
+        ), identity);
+    }
+
+    @Test
+    void keepsConcreteCollectionOverrideAlignedWithInheritedItemIdentity() throws Exception {
+        var resolver = resolverForGenericController(new ContractIdentityController());
+
+        Map<String, Object> itemIdentity = resolver.resolve(
+                "/api/contracts", "/api/contracts/{id}", "get").orElseThrow();
+        Map<String, Object> filterIdentity = resolver.resolve(
+                "/api/contracts", "/api/contracts/filter", "post").orElseThrow();
+
+        assertEquals("number", filterIdentity.get("titleField"));
+        assertEquals(filterIdentity, itemIdentity);
+    }
+
+    @Test
+    void preservesMethodIdentityPrecedenceOverResolvedDtoAndResourceIdentity() throws Exception {
+        var resolver = resolverForGenericController(new ContractIdentityController());
+
+        assertEquals(Map.of("titleField", "methodTitle"), resolver.resolve(
+                "/api/contracts", "/api/contracts/{id}/method-identity", "get").orElseThrow());
+    }
+
+    @Test
+    void preservesProjectionDtoIdentityInsteadOfUsingParentResourceIdentity() throws Exception {
+        var resolver = resolverForGenericController(new ContractIdentityController());
+
+        assertEquals(Map.of("keyField", "contractId", "titleField", "summaryTitle"), resolver.resolve(
+                "/api/contracts", "/api/contracts/{id}/summary", "get").orElseThrow());
+    }
+
+    @Test
+    void retainsApiResourceFallbackWhenTheResolvedDtoHasNoIdentity() throws Exception {
+        var resolver = resolverForGenericController(new FallbackIdentityController());
+
+        assertEquals(Map.of("keyField", "id", "titleField", "fallbackTitle"), resolver.resolve(
+                "/api/contracts", "/api/contracts/{id}", "get").orElseThrow());
+    }
+
+    @Test
+    void doesNotInferIdentityFromUnannotatedDtoFieldsOrUnresolvedGenericReturn() throws Exception {
+        var unannotatedResolver = resolverForGenericController(new NoIdentityController());
+        var unresolvedResolver = resolverForGenericController(new UnresolvedIdentityController<>());
+
+        assertTrue(unannotatedResolver.resolve("/api/contracts", "/api/contracts/{id}", "get").isEmpty());
+        assertTrue(unresolvedResolver.resolve("/api/contracts", "/api/contracts/{id}", "get").isEmpty());
+    }
+
+    private ApiResourceIdentityResolver resolverForGenericController(Object controller) throws Exception {
+        RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
+        Method itemMethod = GenericIdentityController.class.getDeclaredMethod("getById", String.class);
+        Method filterMethod = controller instanceof ContractIdentityController
+                ? ContractIdentityController.class.getDeclaredMethod("filter")
+                : GenericIdentityController.class.getDeclaredMethod("filter");
+        when(mapping.getHandlerMethods()).thenReturn(Map.of(
+                RequestMappingInfo.paths("/api/contracts/{id}").methods(RequestMethod.GET).build(),
+                new HandlerMethod(controller, itemMethod),
+                RequestMappingInfo.paths("/api/contracts/filter").methods(RequestMethod.POST).build(),
+                new HandlerMethod(controller, filterMethod),
+                RequestMappingInfo.paths("/api/contracts/{id}/method-identity").methods(RequestMethod.GET).build(),
+                new HandlerMethod(controller, GenericIdentityController.class.getDeclaredMethod("methodIdentity")),
+                RequestMappingInfo.paths("/api/contracts/{id}/summary").methods(RequestMethod.GET).build(),
+                new HandlerMethod(controller, GenericIdentityController.class.getDeclaredMethod("summary"))));
+        return new ApiResourceIdentityResolver(mapping);
+    }
+
+    static class GenericIdentityController<ResponseDTO, ProjectionDTO> {
+        public ResponseEntity<RestApiResponse<ResponseDTO>> getById(String id) { return null; }
+
+        public ResponseEntity<RestApiResponse<Page<EntityModel<ResponseDTO>>>> filter() { return null; }
+
+        @ResourceIdentity(titleField = "methodTitle")
+        public ResponseEntity<RestApiResponse<ResponseDTO>> methodIdentity() { return null; }
+
+        @UiSurface(id = "summary", title = "Summary", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM)
+        public ResponseEntity<RestApiResponse<ProjectionDTO>> summary() { return null; }
+    }
+
+    static class IntermediateIdentityController<ResponseDTO, ProjectionDTO>
+            extends GenericIdentityController<ResponseDTO, ProjectionDTO> { }
+
+    @ApiResource(value = "/api/contracts", resourceKey = "test.contracts",
+            identity = @ResourceIdentity(keyField = "id", titleField = "parentTitle"))
+    static class ContractIdentityController extends IntermediateIdentityController<ContractIdentityDto, ContractSummaryDto> {
+        @Override
+        public ResponseEntity<RestApiResponse<Page<EntityModel<ContractIdentityDto>>>> filter() { return null; }
+    }
+
+    @ApiResource(value = "/api/contracts", resourceKey = "test.contracts",
+            identity = @ResourceIdentity(keyField = "id", titleField = "fallbackTitle"))
+    static class FallbackIdentityController extends IntermediateIdentityController<UnannotatedIdentityDto, UnannotatedIdentityDto> { }
+
+    @ApiResource(value = "/api/contracts", resourceKey = "test.contracts")
+    static class NoIdentityController extends IntermediateIdentityController<UnannotatedIdentityDto, UnannotatedIdentityDto> { }
+
+    @ApiResource(value = "/api/contracts", resourceKey = "test.contracts")
+    static class UnresolvedIdentityController<T> extends IntermediateIdentityController<T, T> { }
+
+    @ResourceIdentity(keyField = "id", titleField = "number", subtitleField = "supplierName",
+            metadataFields = {"status", "currency"}, displayLabelField = "number")
+    record ContractIdentityDto(String id, String number, String supplierName, String status, String currency) { }
+
+    @ResourceIdentity(keyField = "contractId", titleField = "summaryTitle")
+    record ContractSummaryDto(String contractId, String summaryTitle) { }
+
+    record UnannotatedIdentityDto(String id, String name, String number) { }
 
     @ApiResource(
             value = "/api/records",
