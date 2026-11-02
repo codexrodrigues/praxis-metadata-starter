@@ -41,6 +41,37 @@ public final class ResourceStateSnapshotScope implements AutoCloseable {
         return new ResourceStateSnapshotScope(null, created);
     }
 
+    public static boolean isOpen() {
+        return CURRENT.get() != null;
+    }
+
+    public static void seedServiceSnapshot(
+            Object serviceInstance,
+            Object resourceId,
+            Optional<ResourceStateSnapshot> snapshot
+    ) {
+        ScopeState scope = CURRENT.get();
+        if (scope == null || serviceInstance == null || resourceId == null) {
+            return;
+        }
+        scope.serviceSnapshots.put(new ServiceCacheKey(serviceInstance, resourceId), normalize(snapshot));
+    }
+
+    public static Optional<Optional<ResourceStateSnapshot>> findSeededServiceSnapshot(
+            Object serviceInstance,
+            Object resourceId
+    ) {
+        ScopeState scope = CURRENT.get();
+        if (scope == null || serviceInstance == null || resourceId == null) {
+            return Optional.empty();
+        }
+        ServiceCacheKey key = new ServiceCacheKey(serviceInstance, resourceId);
+        if (!scope.serviceSnapshots.containsKey(key)) {
+            return Optional.empty();
+        }
+        return Optional.of(scope.serviceSnapshots.get(key));
+    }
+
     public static Optional<ResourceStateSnapshot> resolve(
             ResourceStateSnapshotProvider provider,
             String resourceKey,
@@ -84,6 +115,26 @@ public final class ResourceStateSnapshotScope implements AutoCloseable {
 
     private static final class ScopeState {
         private final Map<CacheKey, Optional<ResourceStateSnapshot>> cache = new HashMap<>();
+        private final Map<ServiceCacheKey, Optional<ResourceStateSnapshot>> serviceSnapshots = new HashMap<>();
+    }
+
+    private record ServiceCacheKey(Object serviceInstance, Object resourceId) {
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof ServiceCacheKey other)) {
+                return false;
+            }
+            return this.serviceInstance == other.serviceInstance
+                    && Objects.equals(this.resourceId, other.resourceId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(System.identityHashCode(serviceInstance), resourceId);
+        }
     }
 
     private record CacheKey(ResourceStateSnapshotProvider provider, String resourceKey, Object resourceId) {

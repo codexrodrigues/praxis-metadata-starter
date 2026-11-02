@@ -66,6 +66,57 @@ O valor da plataforma Praxis reside em publicar um **contrato semântico complet
 
 ---
 
+### 2.1. APIs canônicas das Ondas 1–3 por pilar
+
+Estas APIs fazem parte da hierarquia acima. O host fornece domínio, segurança,
+infraestrutura e políticas; os helpers preservam a semântica compartilhada.
+
+| Pilar | API canônica | Adoção e limite de responsabilidade |
+| :--- | :--- | :--- |
+| **1, 5, 9** | `assertEntityAccessAllowed` | Sobrescrever no service para validar o tenant/escopo do registro. Combinar com `resolveResourceFilterAccessScope()` para restringir coleções antes de paginação, contagem, stats e exportação. O starter aplica o guarda também a locate, itens fixados por `includeIds` e exportação. A carga por ID distingue inexistência (`404`) de acesso negado (`403`); mutações validam acesso antes do lock e novamente após o refresh sob `PESSIMISTIC_WRITE`. |
+| **8** | `EntityLookupDescriptor.directoryBuilder` | Construir o lookup rico a partir de `entityKey`, código e descrições reais. Personalizar status, seleção, dependências em cascata e surfaces de detalhe; o builder materializa os subcontratos de seleção, detalhe, exibição e filtro sem passar `null` a cada construtor. O registro da fonte e os endpoints continuam explícitos em `OptionSourceRegistry` e `ApiPaths` do host. |
+| **8** | `LookupCapabilities.standardDirectory` | Perfil de diretório com busca, resolução por IDs, detalhe, navegação e multisseleção. Não anuncia criação nem edição; permissões reais continuam no backend. `directoryBuilder` já usa esse perfil como default. |
+| **10** | `filterRelatedChildResource` | Implementar o endpoint real da coleção filha com o helper do controller base: autoriza o pai, vincula seu ID ao filtro da filha e preserva paginação/envelope/links. Declarar `relatedChildResourceKey`, `relatedChildResourcePath` e `relatedChildParentField` na surface. O child service mantém seu próprio escopo obrigatório. |
+| **11** | `executeVersionedItemPatch` | Executar o `@ResourceIntent` ITEM com `If-Match` e retornar a representação com ETag da revisão persistida. O endpoint PATCH e a surface `PARTIAL_FORM` continuam explícitos; o callback usa o service transacional e o domínio autorizado. |
+| **12** | `executeVersionedItemCommand` | Executar a `@WorkflowAction` ITEM pelo executor governado, com precondição de versão, availability, resposta e ETag canônicos. Fornecer `Idempotency-Key`, payload e store quando o comando exigir reexecução idempotente. Não duplicar a montagem HTTP no host. |
+| **12** | `JdbcResourceCommandReceiptStore` | Store opt-in PostgreSQL de recibos de comandos unitários, com o mesmo datasource/transaction manager da mutação. Instalar explicitamente `db/praxis-command-receipts.sql`; o starter não executa DDL nem migrações de recibos automaticamente. O recibo e o efeito de domínio compartilham a transação. |
+| **13** | `AbstractBulkGovernedResourceController` | Publicar as nove rotas canônicas de avaliação, confirmação, propostas, execuções, resultados e cancelamento para `SYNC`/`PER_ITEM`. Declarar `@BulkResourceOperations`, `UPDATE_SOURCE` e campos protegidos; não copiar o protocolo no host. Com infraestrutura explícita, `BulkOperationStatusLookup` usa `BulkOperationIdentityDiscovery` para resolver os IDs retidos no namespace/recurso correto; a leitura continua sujeita à autorização atual. |
+| **13** | `JpaResourceBulkEngine` | Compor com `bulkDomainAdapter`, codecs, campos editáveis, infraestrutura e política do host. Avaliar candidatos destacados em `REPEATABLE_READ`, descartar alterações acidentais da avaliação e confirmar por item com lock, versão e recibo durável. Falhas funcionais surgidas na gravação revertem todo o item antes de registrar `CONFLICT`/`INVALID`/`DENIED`, permitindo os itens seguintes. Falhas técnicas e resultado de commit incerto mantêm o tratamento conservador do kernel. Migração, publicação READY, ASYNC/ATOMIC e workers são composições explícitas. |
+| **18** | `ReactiveDeterminationDefinition.forCrudResource` | Definir uma determinação com os `operationId` reais de CREATE, UPDATE e cálculo; o builder publica scopes `CREATE` e `EDIT`. Declarar sources/inputs/outputs por JSON Pointer e provenance. Os campos devem existir nos DTOs; inputs/outputs não se sobrepõem. A prévia não persiste nem substitui regras transacionais. |
+| **19** | `GovernedRuleEngineTemplate` | Compilar/cachear o plano por escopo autenticado e executar o engine determinístico com fatos capturados, instante e timezone explícitos. `evaluate` preserva os cinco estados; `enforce` autoriza somente `ALLOW`. O host continua dono da seleção do snapshot governado, hidratação, transação e efeitos. |
+| **19** | `RuleErrorCatalog` | Registrar cada erro atômico com código, campo público, mensagem de domínio, lineage e categoria seguros. `PraxisRuleViolationException` conserva apenas as causas da decisão consolidada e usa a primeira mensagem resolvida. `category="CONFLICT"` em todas as violações sugere HTTP `409`; categorias mistas, ausentes ou outras sugerem `422`, com default `BUSINESS_LOGIC`. As propriedades de diagnóstico incluem a categoria por violação, sem fatos nem causas privadas. |
+| **19** | `PraxisFactTreeBuilder` | Capturar fatos primitivos/estruturados destacados, sem comparações de regra no provider. `put` valida apenas o novo valor; `build` valida o limite agregado da árvore. Para objetos persistentes já carregados, preferir `putScalarBean`/`toScalarObjectNode`: escalares, enum, datas, UUID, coleções escalares e `@Embedded` simples, ignorando propriedades de associações JPA antes de invocar seus getters. Propriedades de objetos arbitrários não são percorridas; os getters escalares devem ser puros. |
+
+Exemplo de diretório rico, sem anúncios de escrita implícitos:
+
+```java
+var directory = EntityLookupDescriptor.directoryBuilder("departments", "code", "name")
+        .status("status")
+        .dependencies(Map.of("companyId", "companyId"))
+        .detailSurface("detail", "preview")
+        .build();
+```
+
+O host define `LookupSelectionPolicy` para os estados realmente selecionáveis,
+mantendo `allowRetainInvalidExistingValue` quando necessário. `sortOptions` e
+`defaultSort` devem usar a mesma dimensão publicada pelo lookup, sem misturar
+nomes de propriedades da entidade com aliases da apresentação.
+
+Em custom fields, CREATE rejeita qualquer atribuição read-only. PUT e bulk
+aceitam o snapshot read-only idêntico ao persistido, mas rejeitam alteração ou
+limpeza explícita; valores omitidos permanecem protegidos pelo lifecycle.
+O draft de UPDATE aplica o DTO a uma cópia destacada do registro autorizado e
+projeta a resposta, combinando novos valores com estado hidratado. Regras locais
+de campos opcionais vazios não são aplicáveis; regras cross-field ainda avaliam
+com `value=null` para preservar obrigatoriedade condicional. Incompatibilidade
+de tipo nessa avaliação vazia não vira HTTP `500`. Uma expressão que depende
+de `entity` exige estado confiável no update e não pode ser validada standalone;
+`{"var":""}` dentro do predicado de um iterador representa seu item local.
+
+Cursores de recursos vinculam a tupla à ordenação efetiva (propriedade, direção,
+tratamento de null e case sensitivity). Trocar a ordenação exige novo cursor;
+um cursor incompatível é payload inválido, sem reinterpretar sua posição.
+
 ## 3. Gate JUnit Nativo de Completude (Para Todo Projeto Host — Interno ou Externo)
 
 Todo projeto Java que utiliza `praxis-metadata-starter` deve incluir um teste JUnit executando os **3 validadores nativos embarcados no próprio JAR do starter**:
@@ -166,6 +217,27 @@ O agente nunca deve escolher apenas 2 ou 3 campos óbvios para `@BulkEditable`. 
      - *Reestruturação/Movimentação Coletiva:* realocar equipe entre departamentos/unidades, transferir carteira entre centros de custo ou migrar vínculos de um cargo/plano para outro;
      - *Ciclo de Vida e Homologação Coletiva:* aprovar/homologar período de experiência ou avaliação em lote, suspender/reativar/encerrar registros em lote com justificativa;
      - *Revisão Paramétrica Coletiva:* aplicar nova jornada, tabela ou política de benefícios a um recorte filtrado.
+
+#### Composição declarativa HTTP/JPA
+
+Para `SYNC`/`PER_ITEM`, herdar `AbstractBulkGovernedResourceController<R, ID, F, C, U>`:
+a base publica as nove rotas de avaliação, confirmação, propostas, execuções,
+resultados e cancelamento no envelope `RestApiResponse.data`/`_links`. Declarar
+`@BulkResourceOperations` e o PUT unitário `UPDATE_SOURCE` com `operationId`
+explícito, preservando campos protegidos. Compor `JpaResourceBulkEngine` com
+`AbstractBaseResourceService.bulkDomainAdapter`, infraestrutura e política de
+autorização do host. A avaliação usa candidato destacado em `REPEATABLE_READ`;
+a confirmação usa o update versionado sob lock e o kernel de recibos duráveis.
+
+O starter auto-configura `PraxisBulkProtocolHttpMessageConverter`, resolve o codec
+pelo ID real e normaliza os filtros aninhados. `BulkOperationIdentityDiscovery`
+elimina listas manuais de operações na instalação. O documento OpenAPI sintetiza
+os três schemas tipados de avaliação; não criar envelopes de schema por host.
+Para `DOMAIN_COMMAND`, declarar a action de coleção e seus endpoints reais,
+DTO de parâmetros e `BulkDomainCommandAdapter`, usando os helpers da base.
+Migração, publicação READY e workers continuam explícitos. ASYNC e ATOMIC usam
+as composições específicas existentes do SDK. Guia de adoção no repositório:
+`docs/guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md`.
 
 ### 4.3. Criação de Novos Endpoints, Projeções Analíticas Cross-Entity e Subdomínios
 Ao analisar os relacionamentos entre entidades (`Entidade A <-> Entidade B <-> Entidade C`), o agente deve ir além dos endpoints CRUD óbvios:

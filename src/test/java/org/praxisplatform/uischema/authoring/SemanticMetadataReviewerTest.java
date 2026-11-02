@@ -249,4 +249,104 @@ class SemanticMetadataReviewerTest {
         @UISchema(label = "Codigo", preset = UISchemaPreset.ENTERPRISE_CODE)
         String codigo;
     }
+
+    @Test
+    void flagsResourceIdentityOverlapMissingIdentityFieldsAndMissingReferenceValueFields() {
+        SemanticMetadataReviewReport report = new SemanticMetadataReviewer().review(BadQuickViewIdentityDTO.class);
+        assertTrue(report.hasErrors());
+        Set<String> codes = report.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(codes.contains("quick-view-repeats-identity-field"));
+        assertTrue(codes.contains("resource-identity-field-missing"));
+        assertTrue(codes.contains("resource-reference-value-field-missing"));
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(
+            keyField = "id",
+            titleField = "nome",
+            subtitleField = "subtituloInexistente",
+            metadataFields = {"situacao"}
+    )
+    private static class BadQuickViewIdentityDTO {
+        @Schema(description = "Identificador unico do registro cadastral.")
+        @UISchema(label = "ID")
+        Long id;
+
+        @Schema(description = "Nome completo do registro para exibicao principal.")
+        @UISchema(label = "Nome")
+        String nome;
+
+        @Schema(description = "Situacao operacional do registro no ciclo de vida.")
+        @UISchema(label = "Situação", quickViewVisible = true, quickViewOrder = 1)
+        String situacao;
+
+        @Schema(description = "Nome do departamento de lotacao do registro.")
+        @UISchema(label = "Departamento", quickViewVisible = true, quickViewOrder = 2)
+        @org.praxisplatform.uischema.annotation.ResourceReference(
+                resourceKey = "human-resources.departamentos",
+                valueField = "departamentoIdInexistente",
+                surfaceId = "detail",
+                previewSurfaceId = "detail"
+        )
+        String departamentoNome;
+    }
+
+    @Test
+    void honorsSubclassGetterOverridesForQuickViewAndResourceReference() {
+        SemanticMetadataReviewReport report = new SemanticMetadataReviewer().review(SubclassOverrideQuickViewDTO.class);
+        assertFalse(report.hasErrors(), report.issues().toString());
+        assertTrue(report.issues().isEmpty(), report.issues().toString());
+    }
+
+    private static class BaseQuickViewDatosDTO {
+        @Schema(description = "Descricao funcional completa do assentamento no historico do servidor.")
+        @UISchema(label = "Descrição")
+        String descricao;
+
+        @Schema(description = "Nome civil ou social da pessoa vinculada ao assentamento funcional.")
+        @UISchema(label = "Pessoa")
+        String pessoaNome;
+
+        @Schema(description = "Situacao cadastral vigente do assentamento funcional.")
+        @UISchema(label = "Situação", quickViewVisible = true, quickViewOrder = 1)
+        String situacao;
+
+        public String getDescricao() {
+            return descricao;
+        }
+
+        public String getSituacao() {
+            return situacao;
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(
+            keyField = "id",
+            titleField = "descricao",
+            subtitleField = "pessoaNome",
+            metadataFields = {"situacao"}
+    )
+    private static class SubclassOverrideQuickViewDTO extends BaseQuickViewDatosDTO {
+        @Schema(description = "Identificador unico imutavel do assentamento funcional.")
+        @UISchema(label = "ID")
+        Long id;
+
+        @Override
+        @org.praxisplatform.uischema.annotation.ResourceReference(
+                resourceKey = "administracao-pessoal.averbacoes",
+                valueField = "id",
+                surfaceId = "detail",
+                previewSurfaceId = "detail"
+        )
+        public String getDescricao() {
+            return super.getDescricao();
+        }
+
+        @Override
+        @UISchema(label = "Situação", quickViewVisible = false)
+        public String getSituacao() {
+            return super.getSituacao();
+        }
+    }
 }

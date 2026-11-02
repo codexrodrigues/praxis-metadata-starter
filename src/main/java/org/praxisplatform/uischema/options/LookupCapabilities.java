@@ -19,6 +19,11 @@ public record LookupCapabilities(
         boolean auditSnapshot
 ) {
 
+    /** Read, search and inspect an existing directory; does not advertise writes or private UI storage. */
+    public static LookupCapabilities standardDirectory() {
+        return new LookupCapabilities(true, true, true, false, false, true, true, false, false, false);
+    }
+
     public static LookupCapabilities defaults() {
         return new LookupCapabilities(true, true, false, false, false, false, false, false, false, false);
     }

@@ -63,18 +63,37 @@ public class DefaultActionAvailabilityContextResolver implements ActionAvailabil
 
     private Principal resolvePrincipal() {
         if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes servletRequestAttributes) {
-            return servletRequestAttributes.getRequest().getUserPrincipal();
+            Principal principal = servletRequestAttributes.getRequest().getUserPrincipal();
+            if (principal != null) {
+                return principal;
+            }
         }
-        return null;
+        Object authentication = resolveSecurityContextAuthentication();
+        return authentication instanceof Principal principal ? principal : null;
     }
 
     private Set<String> resolveAuthorities(Principal principal) {
-        if (principal == null) {
-            return Set.of();
-        }
         LinkedHashSet<String> authorities = new LinkedHashSet<>();
-        extractAuthorities(principal, authorities);
+        if (principal != null) {
+            extractAuthorities(principal, authorities);
+        }
+        if (authorities.isEmpty()) {
+            extractAuthorities(resolveSecurityContextAuthentication(), authorities);
+        }
         return Set.copyOf(authorities);
+    }
+
+    private Object resolveSecurityContextAuthentication() {
+        try {
+            Class<?> holderClass = Class.forName("org.springframework.security.core.context.SecurityContextHolder");
+            Object context = holderClass.getMethod("getContext").invoke(null);
+            if (context == null) {
+                return null;
+            }
+            return context.getClass().getMethod("getAuthentication").invoke(context);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return null;
+        }
     }
 
     private void extractAuthorities(Object source, Collection<String> sink) {

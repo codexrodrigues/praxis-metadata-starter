@@ -21,6 +21,7 @@ class DefaultSurfaceAvailabilityContextResolverTest {
     @AfterEach
     void tearDown() {
         RequestContextHolder.resetRequestAttributes();
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
         Locale.setDefault(Locale.ROOT);
     }
 
@@ -61,6 +62,52 @@ class DefaultSurfaceAvailabilityContextResolverTest {
 
         assertEquals("qa-user", context.principal().getName());
         assertEquals(java.util.Set.of(), context.authorities());
+    }
+
+
+    @Test
+    void fallsBackToSecurityContextAuthenticationWhenRequestPrincipalIsNullOrLacksAuthorities() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "sec-user",
+                        "n/a",
+                        List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_HR_AUDITOR"))
+                )
+        );
+
+        DefaultSurfaceAvailabilityContextResolver surfaceResolver = new DefaultSurfaceAvailabilityContextResolver();
+        SurfaceAvailabilityContext surfaceCtx = surfaceResolver.resolve("example.employees", "/employees", 42L);
+        assertEquals("sec-user", surfaceCtx.principal().getName());
+        assertIterableEquals(List.of("ROLE_HR_AUDITOR"), surfaceCtx.authorities());
+
+        org.praxisplatform.uischema.action.DefaultActionAvailabilityContextResolver actionResolver =
+                new org.praxisplatform.uischema.action.DefaultActionAvailabilityContextResolver();
+        org.praxisplatform.uischema.action.ActionAvailabilityContext actionCtx =
+                actionResolver.resolve("example.employees", "/employees", 42L);
+        assertEquals("sec-user", actionCtx.principal().getName());
+        assertIterableEquals(List.of("ROLE_HR_AUDITOR"), actionCtx.authorities());
+    }
+
+    @Test
+    void reusesSeededServiceSnapshotWithinResourceStateSnapshotScope() {
+        Object fakeService = new Object();
+        ResourceStateSnapshot seeded = ResourceStateSnapshot.of("ACTIVE", Map.of("id", 99L));
+        try (var ignored = org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.open()) {
+            org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.seedServiceSnapshot(
+                    fakeService,
+                    99L,
+                    Optional.of(seeded)
+            );
+            Optional<Optional<ResourceStateSnapshot>> resolved =
+                    org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.findSeededServiceSnapshot(fakeService, 99L);
+            assertEquals(Optional.of(Optional.of(seeded)), resolved);
+        }
+        assertEquals(
+                Optional.empty(),
+                org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.findSeededServiceSnapshot(fakeService, 99L)
+        );
     }
 
     private record TestAuthority(String authority) {

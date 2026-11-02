@@ -36,6 +36,37 @@ public record LookupDetailDescriptor(
         this(hrefTemplate, routeTemplate, openDetailMode, kind, surfaceId, presentation, preferredWidget, mode, null, null);
     }
 
+    public static LookupDetailDescriptor forSurface(
+            String resourceKey,
+            String surfaceId,
+            String previewSurfaceId
+    ) {
+        return forSurface(resourceKey, surfaceId, previewSurfaceId, "drawer", null, "view");
+    }
+
+    public static LookupDetailDescriptor forSurface(
+            String resourceKey,
+            String surfaceId,
+            String previewSurfaceId,
+            String presentation,
+            String preferredWidget,
+            String mode
+    ) {
+        String effectivePresentation = normalize(presentation) != null ? normalize(presentation) : "drawer";
+        return new LookupDetailDescriptor(
+                null,
+                null,
+                effectivePresentation,
+                "surface",
+                surfaceId,
+                effectivePresentation,
+                preferredWidget,
+                normalize(mode) != null ? normalize(mode) : "view",
+                resourceKey,
+                normalize(previewSurfaceId) != null ? normalize(previewSurfaceId) : surfaceId
+        );
+    }
+
     public LookupDetailDescriptor {
         hrefTemplate = normalize(hrefTemplate);
         routeTemplate = normalize(routeTemplate);

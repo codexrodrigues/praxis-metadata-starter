@@ -40,36 +40,178 @@ public class SemanticMetadataReviewer {
         }
 
         List<SemanticMetadataReviewIssue> issues = new ArrayList<>();
-        java.util.Set<String> reviewedPropertyNames = new java.util.HashSet<>();
+        java.util.Map<String, Field> fieldsByName = new java.util.LinkedHashMap<>();
+        java.util.Set<String> allPropertyNames = new java.util.LinkedHashSet<>();
+        java.util.Map<String, Method> annotatedGetterProperties = new java.util.LinkedHashMap<>();
+
         Class<?> currentType = targetType;
         while (currentType != null && currentType != Object.class && currentType != Record.class) {
             for (Field field : currentType.getDeclaredFields()) {
                 if (Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) {
                     continue;
                 }
-                reviewedPropertyNames.add(field.getName());
-                reviewField(targetType, currentType, field, issues);
+                fieldsByName.putIfAbsent(field.getName(), field);
+                allPropertyNames.add(field.getName());
             }
             for (Method method : currentType.getDeclaredMethods()) {
                 if (Modifier.isStatic(method.getModifiers()) || method.isSynthetic() || method.isBridge() || method.getParameterCount() != 0) {
                     continue;
                 }
                 String propName = extractGetterPropertyName(method);
-                if (propName == null || reviewedPropertyNames.contains(propName)) {
+                if (propName == null) {
                     continue;
                 }
-                if (method.isAnnotationPresent(Schema.class)
-                        || method.isAnnotationPresent(UISchema.class)
-                        || method.isAnnotationPresent(DomainGovernance.class)
-                        || method.isAnnotationPresent(org.praxisplatform.uischema.annotation.MicroVisualization.class)) {
-                    reviewedPropertyNames.add(propName);
-                    reviewGetterProperty(targetType, propName, method, issues);
+                allPropertyNames.add(propName);
+                if (hasSemanticAnnotation(method)) {
+                    annotatedGetterProperties.putIfAbsent(propName, method);
                 }
             }
             reviewResourceFactsOnType(targetType, currentType, issues);
             currentType = currentType.getSuperclass();
         }
+
+        java.util.Set<String> quickViewVisibleFields = new java.util.LinkedHashSet<>();
+        java.util.Map<String, String> resourceReferenceValueFields = new java.util.LinkedHashMap<>();
+
+        for (Field field : fieldsByName.values()) {
+            String propName = field.getName();
+            UISchema ui = findMemberAnnotation(targetType, field, UISchema.class);
+            if (ui != null && ui.quickViewVisible()) {
+                quickViewVisibleFields.add(propName);
+            }
+            org.praxisplatform.uischema.annotation.ResourceReference ref =
+                    findMemberAnnotation(targetType, field, org.praxisplatform.uischema.annotation.ResourceReference.class);
+            if (ref != null && !normalize(ref.valueField()).isBlank()) {
+                resourceReferenceValueFields.putIfAbsent(propName, normalize(ref.valueField()));
+            }
+            reviewField(targetType, targetType, field, issues);
+        }
+
+        for (var entry : annotatedGetterProperties.entrySet()) {
+            String propName = entry.getKey();
+            if (fieldsByName.containsKey(propName)) {
+                continue;
+            }
+            UISchema ui = findGetterAnnotation(targetType, propName, UISchema.class);
+            if (ui != null && ui.quickViewVisible()) {
+                quickViewVisibleFields.add(propName);
+            }
+            org.praxisplatform.uischema.annotation.ResourceReference ref =
+                    findGetterAnnotation(targetType, propName, org.praxisplatform.uischema.annotation.ResourceReference.class);
+            if (ref != null && !normalize(ref.valueField()).isBlank()) {
+                resourceReferenceValueFields.putIfAbsent(propName, normalize(ref.valueField()));
+            }
+            reviewGetterProperty(targetType, propName, issues);
+        }
+
+        reviewQuickViewAndResourceIdentity(
+                targetType,
+                allPropertyNames,
+                quickViewVisibleFields,
+                resourceReferenceValueFields,
+                issues
+        );
         return new SemanticMetadataReviewReport(targetType, issues);
+    }
+
+    private boolean hasSemanticAnnotation(Method method) {
+        return method.isAnnotationPresent(Schema.class)
+                || method.isAnnotationPresent(UISchema.class)
+                || method.isAnnotationPresent(DomainGovernance.class)
+                || method.isAnnotationPresent(org.praxisplatform.uischema.annotation.MicroVisualization.class)
+                || method.isAnnotationPresent(org.praxisplatform.uischema.annotation.ResourceReference.class);
+    }
+
+    private void reviewQuickViewAndResourceIdentity(
+            Class<?> targetType,
+            Set<String> reviewedPropertyNames,
+            Set<String> quickViewVisibleFields,
+            java.util.Map<String, String> resourceReferenceValueFields,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        for (var entry : resourceReferenceValueFields.entrySet()) {
+            if (!reviewedPropertyNames.contains(entry.getValue())) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "resource-reference-value-field-missing",
+                        targetType.getName(),
+                        entry.getKey(),
+                        "@ResourceReference.valueField '" + entry.getValue() + "' does not exist on " + targetType.getSimpleName() + "."
+                ));
+            }
+        }
+
+        org.praxisplatform.uischema.annotation.ResourceIdentity identity = findTypeAnnotation(
+                targetType,
+                org.praxisplatform.uischema.annotation.ResourceIdentity.class
+        );
+        if (identity == null) {
+            return;
+        }
+        java.util.Set<String> identitySummaryFields = new java.util.LinkedHashSet<>();
+        checkIdentityFieldExists(targetType, "keyField", identity.keyField(), reviewedPropertyNames, issues);
+        if (checkIdentityFieldExists(targetType, "titleField", identity.titleField(), reviewedPropertyNames, issues)) {
+            identitySummaryFields.add(normalize(identity.titleField()));
+        }
+        if (checkIdentityFieldExists(targetType, "subtitleField", identity.subtitleField(), reviewedPropertyNames, issues)) {
+            identitySummaryFields.add(normalize(identity.subtitleField()));
+        }
+        checkIdentityFieldExists(targetType, "avatarField", identity.avatarField(), reviewedPropertyNames, issues);
+        checkIdentityFieldExists(targetType, "displayLabelField", identity.displayLabelField(), reviewedPropertyNames, issues);
+        if (identity.metadataFields() != null) {
+            for (String metaField : identity.metadataFields()) {
+                if (checkIdentityFieldExists(targetType, "metadataFields", metaField, reviewedPropertyNames, issues)) {
+                    identitySummaryFields.add(normalize(metaField));
+                }
+            }
+        }
+        for (String quickViewField : quickViewVisibleFields) {
+            if (identitySummaryFields.contains(quickViewField)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "quick-view-repeats-identity-field",
+                        targetType.getName(),
+                        quickViewField,
+                        "@UISchema(quickViewVisible = true) must not repeat a field already declared in @ResourceIdentity(titleField/subtitleField/metadataFields)."
+                ));
+            }
+        }
+    }
+
+    private boolean checkIdentityFieldExists(
+            Class<?> targetType,
+            String attributeName,
+            String fieldName,
+            Set<String> reviewedPropertyNames,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        String normalized = normalize(fieldName);
+        if (normalized.isBlank()) {
+            return false;
+        }
+        if (!reviewedPropertyNames.contains(normalized)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-identity-field-missing",
+                    targetType.getName(),
+                    "@ResourceIdentity." + attributeName,
+                    "@ResourceIdentity." + attributeName + " references unknown property '" + normalized + "' on " + targetType.getSimpleName() + "."
+            ));
+            return false;
+        }
+        return true;
+    }
+
+    private <A extends Annotation> A findTypeAnnotation(Class<?> targetType, Class<A> annotationType) {
+        Class<?> current = targetType;
+        while (current != null && current != Object.class && current != Record.class) {
+            A found = current.getAnnotation(annotationType);
+            if (found != null) {
+                return found;
+            }
+            current = current.getSuperclass();
+        }
+        return null;
     }
 
     public SemanticMetadataReviewReport reviewResourceFacts(Class<?> targetType) {
@@ -264,13 +406,13 @@ public class SemanticMetadataReviewer {
         return null;
     }
 
-    private void reviewGetterProperty(Class<?> targetType, String propertyName, Method getter, List<SemanticMetadataReviewIssue> issues) {
-        Schema schema = getter.getAnnotation(Schema.class);
-        var ignored = getter.getAnnotation(com.fasterxml.jackson.annotation.JsonIgnore.class);
+    private void reviewGetterProperty(Class<?> targetType, String propertyName, List<SemanticMetadataReviewIssue> issues) {
+        Schema schema = findGetterAnnotation(targetType, propertyName, Schema.class);
+        var ignored = findGetterAnnotation(targetType, propertyName, com.fasterxml.jackson.annotation.JsonIgnore.class);
         if (schema != null && schema.hidden() && ignored != null && ignored.value()) {
             return;
         }
-        UISchema uiSchema = getter.getAnnotation(UISchema.class);
+        UISchema uiSchema = findGetterAnnotation(targetType, propertyName, UISchema.class);
         String description = schema == null ? "" : normalize(schema.description());
         String label = uiSchema == null ? "" : normalize(uiSchema.label());
 
@@ -290,6 +432,14 @@ public class SemanticMetadataReviewer {
                     propertyName,
                     "@Schema(description) appears to repeat the UI label instead of explaining business meaning."
             ));
+        } else if (sameMeaning(description, splitCamelCase(propertyName))) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "schema-description-derived-from-field-name",
+                    targetType.getName(),
+                    propertyName,
+                    "@Schema(description) appears derived from the Java property name."
+            ));
         }
         if (!label.isBlank() && (label.length() > 36 || label.endsWith("."))) {
             issues.add(new SemanticMetadataReviewIssue(
@@ -302,30 +452,57 @@ public class SemanticMetadataReviewer {
         }
     }
 
-    private <A extends Annotation> A findMemberAnnotation(Class<?> declaringType, Field field, Class<A> annotationType) {
-        A direct = field.getAnnotation(annotationType);
-        if (direct != null) {
-            return direct;
-        }
-        if (declaringType.isRecord() && declaringType.getRecordComponents() != null) {
-            for (RecordComponent component : declaringType.getRecordComponents()) {
-                if (component.getName().equals(field.getName())) {
-                    A fromComponent = component.getAnnotation(annotationType);
-                    if (fromComponent != null) {
-                        return fromComponent;
-                    }
-                    Method accessor = component.getAccessor();
-                    if (accessor != null) {
-                        A fromAccessor = accessor.getAnnotation(annotationType);
-                        if (fromAccessor != null) {
-                            return fromAccessor;
+    private <A extends Annotation> A findMemberAnnotation(Class<?> targetType, Field field, Class<A> annotationType) {
+        String propertyName = field.getName();
+        Class<?> current = targetType != null ? targetType : field.getDeclaringClass();
+        while (current != null && current != Object.class && current != Record.class) {
+            A fromGetter = findDeclaredAccessorAnnotation(current, propertyName, annotationType);
+            if (fromGetter != null) {
+                return fromGetter;
+            }
+            if (current == field.getDeclaringClass()) {
+                A direct = field.getAnnotation(annotationType);
+                if (direct != null) {
+                    return direct;
+                }
+                if (current.isRecord() && current.getRecordComponents() != null) {
+                    for (RecordComponent component : current.getRecordComponents()) {
+                        if (component.getName().equals(propertyName)) {
+                            A fromComponent = component.getAnnotation(annotationType);
+                            if (fromComponent != null) {
+                                return fromComponent;
+                            }
+                            Method accessor = component.getAccessor();
+                            if (accessor != null) {
+                                A fromAccessor = accessor.getAnnotation(annotationType);
+                                if (fromAccessor != null) {
+                                    return fromAccessor;
+                                }
+                            }
                         }
                     }
                 }
             }
+            current = current.getSuperclass();
         }
+        return field.getAnnotation(annotationType);
+    }
+
+    private <A extends Annotation> A findGetterAnnotation(Class<?> targetType, String propertyName, Class<A> annotationType) {
+        Class<?> current = targetType;
+        while (current != null && current != Object.class && current != Record.class) {
+            A found = findDeclaredAccessorAnnotation(current, propertyName, annotationType);
+            if (found != null) {
+                return found;
+            }
+            current = current.getSuperclass();
+        }
+        return null;
+    }
+
+    private <A extends Annotation> A findDeclaredAccessorAnnotation(Class<?> type, String propertyName, Class<A> annotationType) {
         try {
-            Method accessor = declaringType.getDeclaredMethod(field.getName());
+            Method accessor = type.getDeclaredMethod(propertyName);
             A fromMethod = accessor.getAnnotation(annotationType);
             if (fromMethod != null) {
                 return fromMethod;
@@ -333,12 +510,12 @@ public class SemanticMetadataReviewer {
         } catch (NoSuchMethodException ignored) {
             // Not a record-style accessor; check standard JavaBean getter below.
         }
-        String capitalized = field.getName().isEmpty()
+        String capitalized = propertyName.isEmpty()
                 ? ""
-                : Character.toUpperCase(field.getName().charAt(0)) + field.getName().substring(1);
+                : Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
         for (String prefix : List.of("get", "is")) {
             try {
-                Method getter = declaringType.getDeclaredMethod(prefix + capitalized);
+                Method getter = type.getDeclaredMethod(prefix + capitalized);
                 A fromGetter = getter.getAnnotation(annotationType);
                 if (fromGetter != null) {
                     return fromGetter;
