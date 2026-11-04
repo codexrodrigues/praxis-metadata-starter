@@ -447,6 +447,9 @@ public class ApiDocsController {
         // segunda copia do contrato. Apenas o compiler canonico pode publicar determinacoes.
         xUiMap.remove(LEGACY_FORM_EFFECTS);
         xUiMap.remove(REACTIVE_DETERMINATIONS);
+        if (!"response".equalsIgnoreCase(schemaType)) {
+            xUiMap.remove("hierarchy");
+        }
         Map<String, Object> operationExamples = resolveOperationExamples(pathsNode, xUiMap, schemaType);
         if (!operationExamples.isEmpty()) {
             xUiMap.put(OPERATION_EXAMPLES, operationExamples);
@@ -495,6 +498,10 @@ public class ApiDocsController {
         // Record identity describes materialized resources. Request schemas model
         // filters and commands, and must not publish an identity their DTO cannot satisfy.
         if ("response".equalsIgnoreCase(schemaType) && apiResourceIdentityResolver != null) {
+            var hierarchy = apiResourceIdentityResolver.resolveHierarchy(canonicalPath, normalizedOperation);
+            if (hierarchy.isPresent()) {
+                xUiMap.put("hierarchy", hierarchy.get());
+            }
             Optional<Map<String, Object>> resolvedIdentity = apiResourceIdentityResolver.resolve(
                     basePath,
                     canonicalPath,

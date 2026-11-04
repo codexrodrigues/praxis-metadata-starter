@@ -129,6 +129,8 @@ public record DomainCatalogResponse(
             String classification,
             String dataCategory,
             List<String> complianceTags,
+            @io.swagger.v3.oas.annotations.media.Schema(description = "Whether the declared governance permits collection export of this field; false also reflects NON_EXPORTABLE compliance tags.")
+            Boolean exportable,
             String owner,
             String steward,
             String retentionPolicy,

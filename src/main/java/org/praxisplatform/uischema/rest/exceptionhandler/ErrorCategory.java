@@ -13,6 +13,7 @@ package org.praxisplatform.uischema.rest.exceptionhandler;
  */
 public enum ErrorCategory {
     BUSINESS_LOGIC,
+    CONFLICT,
     VALIDATION,
     SYSTEM,
     SECURITY,

@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.schema;
 
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.ResourceIdentity;
+import org.praxisplatform.uischema.annotation.ResourceHierarchy;
 import org.praxisplatform.uischema.annotation.UiSurface;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -85,6 +86,44 @@ public class ApiResourceIdentityResolver {
             }
         }
         return resolve(basePath);
+    }
+
+    public Optional<Map<String, Object>> resolveHierarchy(String canonicalPath, String httpMethod) {
+        return findHandlerMethod(canonicalPath, httpMethod).flatMap(handler -> {
+            Class<?> dto = resolveResponseDtoClass(ResolvableType.forMethodReturnType(
+                    handler.getMethod(), handler.getBeanType()));
+            ResourceHierarchy hierarchy = dto == null ? null : AnnotationUtils.findAnnotation(dto, ResourceHierarchy.class);
+            if (hierarchy == null) {
+                hierarchy = AnnotationUtils.findAnnotation(handler.getBeanType(), ResourceHierarchy.class);
+            }
+            return Optional.ofNullable(hierarchy).map(ApiResourceIdentityResolver::hierarchyMetadata);
+        });
+    }
+
+    public static Map<String, Object> hierarchyMetadata(ResourceHierarchy hierarchy) {
+        Map<String, Object> metadata = new java.util.LinkedHashMap<>();
+        putHierarchyField(metadata, "parentField", hierarchy.parentField());
+        putHierarchyField(metadata, "parentLabelField", hierarchy.parentLabelField());
+        putHierarchyField(metadata, "hierarchyPathField", hierarchy.hierarchyPathField());
+        putHierarchyField(metadata, "levelField", hierarchy.levelField());
+        putHierarchyField(metadata, "childrenCountField", hierarchy.childrenCountField());
+        putHierarchyField(metadata, "leafIndicatorField", hierarchy.leafIndicatorField());
+        putHierarchyField(metadata, "effectiveFromField", hierarchy.effectiveFromField());
+        putHierarchyField(metadata, "effectiveToField", hierarchy.effectiveToField());
+        putHierarchyField(metadata, "extinctField", hierarchy.extinctField());
+        putHierarchyField(metadata, "referenceDateFilterField", hierarchy.referenceDateFilterField());
+        putHierarchyField(metadata, "subtreeFilterField", hierarchy.subtreeFilterField());
+        putHierarchyField(metadata, "includeSubtreeFilterField", hierarchy.includeSubtreeFilterField());
+        putHierarchyField(metadata, "hierarchyKindFilterField", hierarchy.hierarchyKindFilterField());
+        metadata.put("auxiliaryParentFields", java.util.Arrays.stream(hierarchy.auxiliaryParentFields())
+                .filter(StringUtils::hasText).map(String::trim).distinct().toList());
+        return metadata;
+    }
+
+    private static void putHierarchyField(Map<String, Object> metadata, String key, String value) {
+        if (StringUtils.hasText(value)) {
+            metadata.put(key, value.trim());
+        }
     }
 
     /** Resolves semantic resource identity independently of optional presentation metadata. */

@@ -8,5 +8,6 @@ public enum SurfaceKind {
     PARTIAL_FORM,
     VIEW,
     READ_PROJECTION,
-    CHART
+    CHART,
+    HIERARCHY_TREE
 }

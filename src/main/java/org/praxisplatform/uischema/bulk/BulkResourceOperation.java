@@ -20,7 +20,10 @@ public @interface BulkResourceOperation {
         EXECUTION_RESULTS("GET"),
         CANCEL("POST"),
         /** Unit update source, never a bodyless lifecycle or protocol role. */
-        UPDATE_SOURCE("PUT");
+        UPDATE_SOURCE("PUT"),
+        /** Typed protocol handlers inherited from AbstractBulkGovernedResourceController. */
+        UNIFORM_EVALUATION("POST"), UNIFORM_CONFIRMATION("POST"),
+        ITEM_EVALUATION("POST"), ITEM_CONFIRMATION("POST");
 
         private final String httpMethod;
 

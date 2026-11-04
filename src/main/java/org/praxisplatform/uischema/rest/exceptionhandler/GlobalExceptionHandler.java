@@ -35,6 +35,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springdoc.api.OpenApiResourceNotFoundException;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.praxisplatform.rules.violation.PraxisRuleViolationException;
 
 import java.net.URI;
 import java.util.List;
@@ -74,6 +75,32 @@ public class GlobalExceptionHandler {
     private static final String ERROR_CODE_DATA_INTEGRITY_VIOLATION = "DATA_INTEGRITY_VIOLATION";
     private static final String ERROR_CODE_INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR";
     private static final String ERROR_CODE_ENTITY_NOT_FOUND = "RESOURCE_NOT_FOUND";
+
+    /** Preserves the five-state outcome and public slot provenance in the canonical RFC 7807 envelope. */
+    @ExceptionHandler(PraxisRuleViolationException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleRuleViolation(PraxisRuleViolationException ex, WebRequest request) {
+        HttpStatus status = HttpStatus.valueOf(ex.getHttpStatus());
+        List<CustomProblemDetail> errors = new java.util.ArrayList<>();
+        for (var violation : ex.getViolations()) {
+            CustomProblemDetail problem = new CustomProblemDetail(violation.messagePtBr());
+            problem.setDetail(violation.messagePtBr());
+            problem.setStatus(status);
+            problem.setTitle("Rule evaluation rejected the operation");
+            problem.setType(URI.create("https://example.com/probs/rule-violation"));
+            problem.setInstance(instanceUri(request));
+            problem.setCategory(ex.getHttpStatus() == 409 ? ErrorCategory.CONFLICT : ErrorCategory.BUSINESS_LOGIC);
+            problem.setCode(violation.code());
+            problem.setTarget(violation.targetField());
+            // Publish the aggregate once. Repeating it for every field would amplify N reasons to N².
+            if (errors.isEmpty()) ex.toDiagnosticProperties().forEach(problem::setProperty);
+            else problem.setProperty("decision", ex.getDecision().name());
+            if (violation.targetField() != null) problem.setProperty("targetField", violation.targetField());
+            enrichErrorDetails(problem, request, null);
+            errors.add(problem);
+        }
+        return ResponseEntity.status(status)
+                .body(RestApiResponse.failure(ex.getMessage(), errors));
+    }
 
     @ExceptionHandler(org.praxisplatform.uischema.customfields.CustomFieldValidationException.class)
     public ResponseEntity<RestApiResponse<Object>> handleCustomFieldValidation(

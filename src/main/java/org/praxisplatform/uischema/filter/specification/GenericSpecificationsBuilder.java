@@ -200,6 +200,20 @@ public class GenericSpecificationsBuilder<E> {
             Object value = field.get(filter);
             if (value != null) {
                 Filterable filterable = field.getAnnotation(Filterable.class);
+                if (filterable.operation() == Filterable.FilterOperation.EFFECTIVE_ON_DATE) {
+                    if (filterable.relations().length != 0) {
+                        throw new IllegalArgumentException("EFFECTIVE_ON_DATE requires relation and endRelation, not relations.");
+                    }
+                    String start = filterable.relation().isBlank() ? "dtini" : filterable.relation().trim();
+                    String end = filterable.endRelation().isBlank() ? "dtfim" : filterable.endRelation().trim();
+                    var startPath = org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, start, true);
+                    var endPath = org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, end, true);
+                    predicates.add(effectiveOnDate(criteriaBuilder, startPath, endPath, value));
+                    if (query != null && (start.contains(".") || end.contains("."))) {
+                        query.distinct(true);
+                    }
+                    return;
+                }
                 String[] multiRelations = filterable.relations();
                 if (multiRelations != null && multiRelations.length > 0) {
                     List<Predicate> orPredicates = new ArrayList<>();
@@ -245,6 +259,22 @@ public class GenericSpecificationsBuilder<E> {
         }
     }
 
+
+    private static Predicate effectiveOnDate(CriteriaBuilder cb, jakarta.persistence.criteria.Path<?> start,
+            jakarta.persistence.criteria.Path<?> end, Object value) {
+        if (!(value instanceof Comparable<?> comparable)
+                || !start.getJavaType().isInstance(value) || !end.getJavaType().isInstance(value)) {
+            throw new IllegalArgumentException("EFFECTIVE_ON_DATE requires a comparable value compatible with both interval fields.");
+        }
+        return compareValidity(cb, start, end, comparable);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Predicate compareValidity(CriteriaBuilder cb,
+            jakarta.persistence.criteria.Path<?> start, jakarta.persistence.criteria.Path<?> end, Comparable reference) {
+        return cb.and(cb.lessThanOrEqualTo((jakarta.persistence.criteria.Path) start, reference),
+                cb.or(cb.isNull(end), cb.greaterThanOrEqualTo((jakarta.persistence.criteria.Path) end, reference)));
+    }
 
     /**
      * Resolve o caminho para uma propriedade, incluindo múltiplos níveis de relacionamentos (e.g., "tipoSexo.nome").

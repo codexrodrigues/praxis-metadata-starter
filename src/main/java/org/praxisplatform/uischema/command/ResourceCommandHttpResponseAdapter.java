@@ -70,6 +70,7 @@ public class ResourceCommandHttpResponseAdapter {
     ) {
         ResourceOperationFailureKind kind = switch (outcome) {
             case VALIDATION_FAILED -> ResourceOperationFailureKind.INVALID_INPUT;
+            case INVALID_ENTITY -> ResourceOperationFailureKind.INVALID_ENTITY;
             case PERMISSION_DENIED -> ResourceOperationFailureKind.PERMISSION_DENIED;
             case NOT_FOUND -> ResourceOperationFailureKind.NOT_FOUND;
             case CONFLICT_DUPLICATE -> ResourceOperationFailureKind.CONFLICT_DUPLICATE;
@@ -86,6 +87,7 @@ public class ResourceCommandHttpResponseAdapter {
     private String title(ResourceCommandOutcome outcome) {
         return switch (outcome) {
             case VALIDATION_FAILED -> "Command validation failed";
+            case INVALID_ENTITY -> "Command entity is invalid";
             case PERMISSION_DENIED -> "Command is not available";
             case NOT_FOUND -> "Command target not found";
             case CONFLICT_DUPLICATE -> "Command conflicts with existing data";

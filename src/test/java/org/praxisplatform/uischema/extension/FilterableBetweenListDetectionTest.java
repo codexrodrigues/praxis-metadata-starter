@@ -138,6 +138,8 @@ class FilterableBetweenListDetectionTest {
             @Override
             public String relation() { return ""; }
             @Override
+            public String endRelation() { return "dtfim"; }
+            @Override
             public String[] relations() { return new String[0]; }
         };
     }

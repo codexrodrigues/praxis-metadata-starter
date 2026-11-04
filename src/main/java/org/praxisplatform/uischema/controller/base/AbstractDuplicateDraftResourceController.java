@@ -67,26 +67,8 @@ public abstract class AbstractDuplicateDraftResourceController<ResponseDTO, ID, 
             tags = {"duplicate-draft", "draft", "business-command"}
     )
     public ResponseEntity<RestApiResponse<DraftDTO>> duplicateDraft(@PathVariable ID id) {
-        try (var ignored = ResourceStateSnapshotScope.open()) {
-            if (!getService().supportsDuplicateDraft()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "duplicate-draft is not supported by this resource.");
-            }
-            if (!isDuplicateDraftAvailable(id)) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "duplicate-draft-unavailable");
-            }
-            DraftDTO draft = getService().duplicateDraft(id);
-
-            List<Link> linkList = new ArrayList<>();
-            linkList.add(linkToSelf(id));
-            if (isDuplicateDraftCreateAvailable()) {
-                linkList.add(linkToCreate());
-            }
-            linkList.add(linkToUiSchema("/{id}/duplicate-draft", "post", "request"));
-            linkList.add(linkToUiSchema("/{id}/duplicate-draft", "post", "response"));
-
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(draft, hateoasOrNull(Links.of(linkList))));
-        }
-    }
+        return DuplicateDraftEndpointSupport.prepare(this, getService(), id);
+  }
 
     @Override
     protected List<Link> buildItemActionLinks(ID id) {
@@ -113,34 +95,12 @@ public abstract class AbstractDuplicateDraftResourceController<ResponseDTO, ID, 
     // Duplication requires affirmative decisions. Generic CRUD helpers retain their existing
     // optional-discovery semantics; their permissive null fallback is not suitable here.
     private boolean isDuplicateDraftAvailable(ID id) {
-        var capabilities = getCapabilityService();
-        String resourceKey = getResourceKeyOrNull();
-        if (id == null || capabilities == null || !StringUtils.hasText(resourceKey)
-                || !StringUtils.hasText(getBasePath())) return false;
-        try {
-            return withOperationAvailabilityScope(() ->
-                    isAllowed(capabilities.collectionOperationAvailability(resourceKey, getBasePath(), "create"))
-                            && isAllowed(capabilities.itemOperationAvailability(resourceKey, getBasePath(), "view", id))
-                            && isAllowed(capabilities.itemOperationAvailability(resourceKey, getBasePath(), "duplicate-draft", id)));
-        } catch (RuntimeException ex) {
-            return false;
-        }
-    }
+        return DuplicateDraftEndpointSupport.available(this, id);
+  }
 
-    private boolean isDuplicateDraftCreateAvailable() {
-        var capabilities = getCapabilityService();
-        String resourceKey = getResourceKeyOrNull();
-        if (capabilities == null || !StringUtils.hasText(resourceKey)) return false;
-        try {
-            return isAllowed(capabilities.collectionOperationAvailability(resourceKey, getBasePath(), "create"));
-        } catch (RuntimeException ex) {
-            return false;
-        }
-    }
 
-    private static boolean isAllowed(AvailabilityDecision decision) {
-        return decision != null && decision.allowed();
-    }
+
+
 
     protected Link linkToDuplicateDraft(ID id) {
         return Link.of(resourcePath(id, "duplicate-draft"), "duplicate-draft");

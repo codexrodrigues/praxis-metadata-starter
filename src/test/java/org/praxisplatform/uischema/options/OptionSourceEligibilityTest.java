@@ -13,6 +13,19 @@ class OptionSourceEligibilityTest {
     private final OptionSourceEligibility eligibility = new OptionSourceEligibility();
 
     @Test
+    void semanticReviewReportsTheSameInvalidSourceRejectedAtRuntime() {
+        var source = new OptionSourceDescriptor("payrollProfile", OptionSourceType.DISTINCT_DIMENSION,
+                "/api/payroll", null, null, null, null, null, OptionSourcePolicy.defaults());
+        var reviewer = new org.praxisplatform.uischema.authoring.SemanticMetadataReviewer();
+        var issue = reviewer.review(OptionSourceEligibilityTest.class, List.of(source), StatsFieldRegistry.builder().build())
+                .issues().stream().filter(i -> i.code().equals("option-source-ineligible")).findFirst().orElseThrow();
+        assertEquals("payrollProfile", issue.fieldName());
+        var stats = StatsFieldRegistry.builder().categoricalGroupByBucket("payrollProfile", "payrollProfile").build();
+        assertEquals(List.of(), reviewer.review(OptionSourceEligibilityTest.class, List.of(source), stats).issues()
+                .stream().filter(i -> i.code().equals("option-source-ineligible")).toList());
+    }
+
+    @Test
     void enrichesPropertyPathFromStatsRegistry() {
         OptionSourceDescriptor descriptor = new OptionSourceDescriptor(
                 "payrollProfile",

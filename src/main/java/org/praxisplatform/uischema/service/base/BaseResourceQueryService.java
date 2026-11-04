@@ -46,6 +46,16 @@ import java.util.OptionalLong;
  */
 public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends GenericFilterDTO> {
 
+    /** Stable semantic resource identity for service-backed availability discovery. */
+    default String getResourceKey() {
+        return org.praxisplatform.uischema.customfields.CustomFieldSupport.resourceKey(getClass(), getClass().getSimpleName());
+    }
+
+    /** Optional state snapshot, resolved inside the service's item-authorization boundary. */
+    default Optional<org.praxisplatform.uischema.capability.ResourceStateSnapshot> findResourceStateSnapshot(ID id) {
+        return Optional.empty();
+    }
+
     /**
      * Publica o suporte estrutural executavel das operacoes opcionais do recurso.
      * Implementacoes diretas devem optar explicitamente pelas operacoes que realmente executam.

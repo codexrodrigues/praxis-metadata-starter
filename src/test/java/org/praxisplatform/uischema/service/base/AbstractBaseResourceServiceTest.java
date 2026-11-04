@@ -55,12 +55,12 @@ class AbstractBaseResourceServiceTest {
         BaseCrudRepository<SortableEntity, Long> repository = mockRepository();
         SortableService service = new SortableService(repository);
 
-        when(repository.findAll(any(Sort.class))).thenReturn(List.of(sortableEntity(1L, "Alpha")));
+        when(repository.findAll(any(Specification.class), any(Sort.class))).thenReturn(List.of(sortableEntity(1L, "Alpha")));
 
         List<TestResponseDTO> response = service.findAll();
 
         assertEquals(List.of(new TestResponseDTO(1L, "Alpha")), response);
-        verify(repository).findAll(service.getDefaultSort());
+        verify(repository).findAll(any(Specification.class), org.mockito.ArgumentMatchers.eq(service.getDefaultSort()));
     }
 
     @Test
@@ -165,6 +165,7 @@ class AbstractBaseResourceServiceTest {
         });
         TestEntity existing = entity(31L, "Before");
         when(repository.findById(31L)).thenReturn(Optional.of(existing));
+        when(repository.findById(32L)).thenReturn(Optional.of(entity(32L, "Second")));
 
         service.create(new TestCreateDTO("Created"));
         service.update(31L, new TestUpdateDTO("Updated"));
@@ -179,10 +180,14 @@ class AbstractBaseResourceServiceTest {
                 "beforeDelete:31:Updated",
                 "afterDelete:31:Updated",
                 "beforeDeleteAll:31,32",
+                "beforeDelete:31:Updated",
+                "afterDelete:31:Updated",
+                "beforeDelete:32:Second",
+                "afterDelete:32:Second",
                 "afterDeleteAll:31,32"
         ), service.events);
-        verify(repository).delete(existing);
-        verify(repository).deleteAllById(List.of(31L, 32L));
+        verify(repository, org.mockito.Mockito.times(2)).delete(existing);
+        verify(repository, org.mockito.Mockito.never()).deleteAllById(any());
     }
 
     @Test

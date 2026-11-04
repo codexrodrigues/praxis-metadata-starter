@@ -10,6 +10,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,6 +21,48 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GovernedResourceCommandExecutorTest {
+
+    @Test void unprocessableProviderFailureRemains422ThroughTheHttpAdapter() {
+        var request = ResourceCommandExecutionRequest.item("example.requests", "/api/example/requests", "approve", 42L,
+                null, ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT);
+        var executor = new GovernedResourceCommandExecutor(ignored -> {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Limite excedido.");
+        });
+        var result = executor.execute(request);
+        assertEquals(ResourceCommandOutcome.INVALID_ENTITY, result.outcome());
+        var response = new ResourceCommandHttpResponseAdapter().toResponse(result);
+        assertEquals(422, response.getStatusCode().value());
+        var body = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().valueToTree(response.getBody());
+        assertEquals(422, body.at("/errors/0/status").asInt());
+        assertEquals("Limite excedido.", body.at("/errors/0/message").asText());
+    }
+
+    @Test void preservesTypedCustomFieldFailuresInsteadOfSanitizingThemAs500() {
+        var failure = new org.praxisplatform.uischema.customfields.CustomFieldValidationException(List.of(
+                new org.springframework.validation.FieldError("customFields", "customFields.amount", "Valor inválido")));
+        var executor = new GovernedResourceCommandExecutor(ignored -> { throw failure; });
+        var request = ResourceCommandExecutionRequest.item("example.requests", "/requests", "approve", 42L,
+                null, ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT);
+        assertSame(failure, assertThrows(org.praxisplatform.uischema.customfields.CustomFieldValidationException.class,
+                () -> executor.execute(request)));
+    }
+
+    @Test
+    void preservesStructuredRuleViolationsForTheCanonicalHttpHandler() {
+        for (var decision : org.praxisplatform.rules.contract.RuleDecision.values()) {
+            if (decision == org.praxisplatform.rules.contract.RuleDecision.ALLOW) continue;
+            var violation = new org.praxisplatform.rules.violation.PraxisRuleViolationException(
+                    new org.praxisplatform.rules.violation.SlotViolationDetail("LIMIT", "limit", "limit.product",
+                            org.praxisplatform.rules.contract.DecisionSource.PRODUCT,
+                            org.praxisplatform.rules.contract.DecisionStage.DOMAIN_DECISION,
+                            decision, "amount", "Limite excedido.", "policy:limit"));
+            var executor = new GovernedResourceCommandExecutor(request -> { throw violation; });
+            var request = ResourceCommandExecutionRequest.item("example.requests", "/api/example/requests", "approve", 42L,
+                    Map.of("amount", 10), ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT);
+            assertSame(violation, assertThrows(org.praxisplatform.rules.violation.PraxisRuleViolationException.class,
+                    () -> executor.execute(request)));
+        }
+    }
 
     @Test
     void executesProviderAndPreservesReadAfterWritePolicy() {

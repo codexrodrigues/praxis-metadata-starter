@@ -178,7 +178,7 @@ public final class AnnotationResourceFactCatalogProvider implements ResourceFact
         if (value == null) return Map.of();
         return Map.of("annotationType", value.kind().wireValue(), "classification", value.classification().wireValue(),
                 "dataCategory", value.dataCategory().wireValue(), "complianceTags", List.of(value.complianceTags()),
-                "reason", value.reason(), "confidence", value.confidence(),
+                "exportable", value.exportable(), "reason", value.reason(), "confidence", value.confidence(),
                 "aiUsage", Map.of("visibility", value.aiUsage().visibility().wireValue(),
                         "trainingUse", value.aiUsage().trainingUse().wireValue(),
                         "ruleAuthoring", value.aiUsage().ruleAuthoring().wireValue(),

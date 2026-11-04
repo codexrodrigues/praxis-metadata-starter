@@ -24,6 +24,26 @@ status de uma materializacao Config ou identidade de uma decisao aplicada nao po
 provider nem na projecao. Quando empresas diferentes usam politicas diferentes, a mesma capability
 backend resolve a decisao aplicada sob o principal autenticado.
 
+## Valores informativos e contexto de edição
+
+Um output somente informativo pode existir no request schema para que o compiler
+e o formulário encontrem seu `fieldPath`. `@Schema(READ_ONLY)` e
+`@UISchema(readOnly=true)` descrevem essa apresentação; não controlam sozinhos a
+desserialização Java. Para resultados que não são entrada de escrita, publique
+também `@JsonProperty(access=READ_ONLY)`: o servidor ignora o valor recebido e
+recalcula os dados de negócio. Não dependa de remover campos por nome no frontend
+nem de omitir globalmente todo read-only, pois outros contratos permitem seu
+round-trip inalterado. Um `@Null` defensivo não pode rejeitar um output enviado
+pelo runtime oficial depois que a prévia o preencheu.
+
+Uma prévia de EDIT que depende do consumo atual precisa da identidade carregada
+do item, além dos campos em edição. Ela pode usar um input adicional `/id` do
+request schema, somente leitura, sem torná-lo uma source de mudança. O endpoint
+resolve esse ID no servidor, confere autorização e pertencimento ao agregado e
+recupera o consumo anterior. Não aceite um valor de crédito fornecido pelo cliente
+nem desconte duas vezes o consumo já incorporado ao saldo persistido. Na criação,
+esse contexto permanece nulo; a prévia nunca autoriza a gravação final.
+
 ## Exemplo Java
 
 ```java

@@ -1,17 +1,102 @@
 # Changelog - praxis-metadata-starter
 
+## Não publicado — Correções da revisão P5-B
+
+- Comandos versionados capturam definições e fatos anteriores pelo contrato DTO,
+  sem exigir marker JPA ou snapshot do grafo. Validam o resultado de domínio e
+  permitem determinações read-only do servidor; guardas de entrada permanecem.
+- PATCH tipado resolve nomes públicos com o ObjectMapper, preservando renames,
+  estratégias de nomes, aliases admitidos e presença explícita.
+- `assertEntitiesAccessAllowed` permite autorização em lote nas fronteiras de
+  consulta sem remover escopo SQL nem guardas individuais.
+
+## Não publicado — Blindagem pós-auditorias (P5-A)
+
+- Correções R01–R07: origem estruturada de operandos nulos; fatos JPA escalares
+  com custom fields preservados; classificação coerente de ausência, conflito e
+  falha técnica entre admissão/mutação; erros de payload bulk tipados; autorização
+  global antes da correlação de status; precedência de nulos no fallback keyset.
+  Evidências e limites em `docs/technical/P5-A-CORRECTIONS-2026-11-02.md`.
+- Integração P5-B: `ResourceStateCopySupport.copySuppliedPatchProperties` centraliza
+  patches tipados preservando omissão e valores explícitos. Comandos versionados
+  validam custom fields na projeção DTO resultante contra o estado anterior autorizado.
+- Violações de regras preservam categoria, mensagem e HTTP `409`/`422`; comandos
+  mantêm falhas tipadas de custom fields e traduzem `422` em `INVALID_ENTITY`.
+- PUT/bulk aceitam snapshots read-only inalterados; comparações com opcionais
+  vazios são dispensadas somente com origem nula comprovada no próprio `value`.
+  Regras condicionais continuam ativas e outros erros permanecem técnicos.
+- Draft de update aplica os novos valores à cópia destacada do estado autorizado.
+- Locate, exportação e includeIds aplicam a guarda por item; acesso precede lock
+  e é revalidado após refresh. Cursores são vinculados ao Sort efetivo.
+- Bulk descarta estado de avaliação sujo e reverte rejeições funcionais durante a
+  escrita antes de registrar falha por item. Discovery resolve status por escopo.
+- Blueprint embarcado e GUIA-00 são cópias integrais com as APIs das Ondas 1–3.
+- Validação e limites deste recorte em `docs/technical/P5-A-HARDENING.md`.
+
+## Não publicado — Correções de adoção de campos dinâmicos (P4 / R1–R3)
+
+- Omissão opcional dispensa somente constraints locais de valor; regras condicionais
+  entre campos continuam ativas, com análise do dialeto em vez de heurística textual.
+- `CustomFieldValidationRules.validate` unifica admissão de authoring e publicação;
+  operadores contextuais sem contexto são recusados antes de gravar a definição.
+- Preparo explícito de draft hidratado em create/update/bulk mantém guardas primitivas,
+  acesso, versão, estado persistido e preservação de campos protegidos independentes.
+- [Contrato e adoção](docs/guides/GOVERNED-RULE-BRIDGE.md). Candidato local, sem publicação.
+
+## Não publicado — Kernel declarativo de operações em lote (Onda 3 / P3)
+
+- Conversor HTTP bulk auto-configurado com codec do ID real, limites estritos e normalização dos filtros aninhados.
+- Descoberta estrutural das identidades de confirmação, sem listas manuais ou ativação automática de infraestrutura.
+- Base com nove endpoints, helpers de DOMAIN_COMMAND, adapter do service e engine JPA sobre propostas e recibos duráveis existentes.
+- Schemas de avaliação tipados sintetizados no documento OpenAPI canônico; campos editáveis comparados ao contrato publicado e protegido.
+- BOM dos binários de teste embedded PostgreSQL alinhado a 17.11.0 também no Windows.
+- [Adoção, políticas e limites](docs/guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md). Implementação local; consumidores e publicação pertencem a gates posteriores.
+
+## Não publicado — Ponte governada de regras (Onda 2 / P2)
+
+- Correções da revisão: update usa a entidade autorizada, preservando precondições
+  e um único snapshot de definições; create declara `entity = null` e validação standalone
+  recusa referências à raiz indisponível. Violações preservam apenas as causas
+  consolidadas do engine. Operadores contextuais sem contexto são recusados na admissão.
+  [Correções e regressões](docs/technical/GOVERNED-RULE-BRIDGE-P2-CORRECTIONS.md);
+  [parecer histórico](docs/technical/GOVERNED-RULE-BRIDGE-P2-REVIEW.md).
+
+- Tradução canônica de `PraxisRuleViolationException` para HTTP 422 com códigos,
+  campo alvo, decisão original e proveniência dos slots, sem facts/outputs privados.
+- `CustomFieldDescriptor.validationRules.jsonLogic` validado e executado pelo runtime
+  Java canônico; projeção no schema de escrita, fingerprint e exclusão nos filtros.
+- Dependência do engine `0.1.0-beta.17` neste candidato local; instalação local não
+  equivale a disponibilidade de release. [Guia da ponte](docs/guides/GOVERNED-RULE-BRIDGE.md).
+
+## Revisão local P1 — 2026-11-01
+
+- Governança de exportação percorre containers genéricos e subtipos e rejeita JSON opaco; campos monetários deixam de inferir BRL.
+- Preconditions são vinculadas ao ID da escrita; recibos validam DataSource/conexão/isolation reais e autorizam o item na transação, inclusive no replay.
+- Inclusão de IDs suporta `@IdClass` e filtros unpaged; identidades embutidas de componente único e leitura de proxies são tratadas no keyset/locate.
+- Snapshot anterior separa valores mutáveis suportados e exige hook explícito para associações; exclusões múltiplas adquirem locks em ordem estável.
+- Coleções filhas usam sua própria versão de dataset; exportações limitadas publicam aviso de corte. Leituras by-ids exigem existência de todos os alvos.
+- Evidência e restrições de adoção: `docs/technical/CORE-RESOURCE-P1-REVIEW.md`.
+
+## Não publicado — Core Resource Service (Onda 1 / P1)
+
+- Keyset JPA para identidade simples/composta, sort `id` expandido e locate por COUNT SQL.
+- Escopo obrigatório em coleções e hook de autorização de item, enriquecimento em lote e exportação
+  nos cinco escopos com allowlist governada e defaults de `@UISchema`.
+- Update versionado padrão, revisão `@Version` introspectada, locks e comandos/intents com ETag
+  capturado; recibos PostgreSQL opt-in com replay histórico e atomicidade transacional.
+- Snapshot de estado delegado ao serviço, stats AUTO por registry e builders de lookup/determinação.
+- Mudança de comportamento: cursores posicionais antigos deixam de ser aceitos; exclusões de IDs
+  inexistentes retornam 404 e exclusão múltipla executa hooks por item. Consumidores devem iniciar
+  nova navegação após atualizar o starter. Adoção em hosts pertence às ondas posteriores.
+- `@DomainGovernance.exportable` é publicado no schema e nos itens de governança do catálogo;
+  o record Java `DomainGovernanceItem` ganha esse componente. O POM atual ainda precisa de
+  alinhamento dos binários embedded Windows/Linux ao requisito PG17 do kernel Bulk.
+- Guia: [Core resource service e comandos versionados](docs/guides/CORE-RESOURCE-SERVICE.md).
+
+
 All notable changes to this module will be documented in this file.
 
 ## [Unreleased] — candidatos de capacidade
-
-### Identidade de recurso em respostas de handlers herdados
-
-- Resolve o DTO genérico de resposta usando a classe concreta do controller MVC.
-  GETs herdados passam a publicar a identidade já declarada no DTO, assim como
-  overrides concretos de listagem/filtro; preserva as precedências existentes de
-  método, DTO de projeção e fallback do recurso, sem inferência por nomes.
-- Correção de fonte validada por testes unitários do resolver; publicação do starter,
-  adoção no host e prova HTTP da versão corrigida permanecem etapas separadas.
 
 ### Presença de PATCH e recusa de discovery
 - `PartialUpdateInput` distingue omissão de null explícito sem alterar o JSON dos DTOs; nullabilidade e invariantes permanecem sob responsabilidade do contrato e domínio.

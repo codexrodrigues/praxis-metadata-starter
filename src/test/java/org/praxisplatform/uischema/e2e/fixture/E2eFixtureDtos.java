@@ -34,6 +34,9 @@ class DepartmentSummaryDTO {
     }
 }
 
+@org.praxisplatform.uischema.annotation.ResourceHierarchy(
+        parentField = "departmentId", parentLabelField = "departmentName",
+        effectiveFromField = "admissionDate", effectiveToField = "")
 class EmployeeResponseDTO {
 
     private Long id;
@@ -345,6 +348,30 @@ class BulkApproveEmployeesResultDTO {
 }
 
 class EmployeeFilterDTO implements GenericFilterDTO {
+
+    @Filterable(operation = Filterable.FilterOperation.EFFECTIVE_ON_DATE,
+            relation = "admissionDate", endRelation = "validityEnd")
+    private java.time.LocalDate effectiveDate;
+
+    @Filterable(operation = Filterable.FilterOperation.EFFECTIVE_ON_DATE,
+            relation = "department.dtini", endRelation = "department.dtfim")
+    private java.time.LocalDate departmentEffectiveDate;
+
+    public java.time.LocalDate getDepartmentEffectiveDate() {
+        return departmentEffectiveDate;
+    }
+
+    public void setDepartmentEffectiveDate(java.time.LocalDate departmentEffectiveDate) {
+        this.departmentEffectiveDate = departmentEffectiveDate;
+    }
+
+    public java.time.LocalDate getEffectiveDate() {
+        return effectiveDate;
+    }
+
+    public void setEffectiveDate(java.time.LocalDate effectiveDate) {
+        this.effectiveDate = effectiveDate;
+    }
 
     @Filterable(operation = Filterable.FilterOperation.LIKE)
     private String nome;

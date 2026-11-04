@@ -111,7 +111,7 @@ final class BulkOperationStructuralCompiler {
                 || (binding.mode() == BulkMode.DOMAIN_COMMAND ? workflow == null : workflow != null)
                 || !binding.resourceKey().equals(resource.resourceKey())
                 || !binding.mode().equals(declaration.mode()) || binding.atomicity() != declaration.atomicity()
-                || !binding.evaluationOperationId().equals(declaration.evaluationOperationId())) {
+                || !binding.evaluationOperationId().equals(BulkControllerOperationIds.evaluationId(binding.confirmationHandler(), declaration))) {
             throw invalid("Bulk binding no longer matches its canonical controller annotations");
         }
         if (!binding.confirmationOperationId().equals(operationId(binding.confirmationHandler()))
@@ -401,13 +401,13 @@ final class BulkOperationStructuralCompiler {
             case EXECUTION -> BulkOperationStructuralDescriptor.Role.EXECUTION;
             case EXECUTION_RESULTS -> BulkOperationStructuralDescriptor.Role.EXECUTION_RESULTS;
             case CANCEL -> BulkOperationStructuralDescriptor.Role.CANCEL;
-            case UPDATE_SOURCE -> throw invalid("Unit update source is not a bulk protocol role");
+            default -> throw invalid("Unit update source or evaluation marker is not a lifecycle role");
         };
     }
 
     private static String operationId(HandlerMethod handler) {
         Operation operation = AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(), Operation.class);
-        return operation == null ? null : operation.operationId();
+        return BulkControllerOperationIds.operationId(handler);
     }
 
     private String returnJavaType(HandlerMethod handler) {

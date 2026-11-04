@@ -31,9 +31,9 @@ class CustomFieldResourceLifecycleTest {
         @Override protected String resolveResourceKey() { return key; }
         @Override protected void beforeCreate(Request dto, Entity entity) { hookCalled = true; }
         @Override protected void beforeUpdate(Long id, Entity entity, Request dto) { hookCalled = true; updateHook.accept(entity); }
-        @Override protected Set<String> validateCustomFields(Object dto, String schemaType) {
+        @Override protected CustomFieldValidator.PreparedValidation prepareCustomFields(Object dto, String schemaType) {
             validationCalls++;
-            return super.validateCustomFields(dto, schemaType);
+            return super.prepareCustomFields(dto, schemaType);
         }
     }
     static class GetterEntity extends Entity {
@@ -112,17 +112,19 @@ class CustomFieldResourceLifecycleTest {
         assertTrue(service.hookCalled);
         assertEquals(1,service.validationCalls);
     }
-    @Test void rejectsEveryReadOnlyAssignmentBeforeLoadingOrRunningHooks() {
+    @Test void rejectsReadOnlyCreatesAndChecksPersistedStateBeforeRejectingUpdateAssignments() {
         BaseCrudRepository<Entity,Long> repository = mock(BaseCrudRepository.class);
         Service service = new Service(repository);
         ReflectionTestUtils.setField(service,"customFieldValidator",new CustomFieldValidator((r,t,s) -> List.of(audit(),note())));
         Map<String,Object> explicitNull = new LinkedHashMap<>(); explicitNull.put("auditFlag",null);
         for (Map<String,Object> input : List.of(Map.<String,Object>of("auditFlag",true),explicitNull)) {
             assertThrows(CustomFieldValidationException.class,() -> service.create(new Request(input)));
-            assertThrows(CustomFieldValidationException.class,() -> service.update(1L,new Request(input)));
+            assertThrows(jakarta.persistence.EntityNotFoundException.class,() -> service.update(1L,new Request(input)));
         }
         assertFalse(service.hookCalled);
-        verifyNoInteractions(repository,service.mapper);
+        verify(repository,times(2)).findById(1L);
+        verifyNoMoreInteractions(repository);
+        verifyNoInteractions(service.mapper);
     }
     @Test void hookChangesAndRemovalsBecomeTheServerOwnedSnapshot() {
         Entity changed = new Entity(); changed.customFields = new LinkedHashMap<>(Map.of("auditFlag",true));

@@ -68,7 +68,14 @@ public final class CustomFieldSchemaEnricher {
         boolean staticallyRequired = schema.get("required") instanceof Collection<?> existing
                 && existing.contains("customFields");
         requireContainer(schema, !filterRequest && (staticallyRequired || !required.isEmpty()));
-        return SchemaHashUtil.sha256Hex(new org.praxisplatform.uischema.hash.SchemaCanonicalizer().canonicalize(mapper.valueToTree(container)));
+        Map<String, Object> privateRules = new TreeMap<>();
+        if (!filterRequest) {
+            for (var definition : definitions)
+                if (!definition.validationRules().isEmpty()) privateRules.put(definition.key(), definition.validationRules());
+        }
+        // Keep cache invalidation sensitive to rule changes without serializing their ASTs into the schema.
+        Object fingerprintInput = privateRules.isEmpty() ? container : Map.of("schema", container, "rules", privateRules);
+        return SchemaHashUtil.sha256Hex(new org.praxisplatform.uischema.hash.SchemaCanonicalizer().canonicalize(mapper.valueToTree(fingerprintInput)));
     }
 
     private static void requireContainer(Map<String, Object> schema, boolean required) {
@@ -86,7 +93,7 @@ public final class CustomFieldSchemaEnricher {
         projected.keySet().removeAll(Set.of("minimum", "maximum", "minLength", "maxLength", "pattern", "default", "readOnly"));
         Map<String, Object> ui = (Map<String, Object>) projected.get("x-ui");
         ui.keySet().removeAll(Set.of("min", "max", "minLength", "maxLength", "pattern", "patternMessage",
-                "requiredMessage", "defaultValue"));
+                "requiredMessage", "defaultValue", "validationMode"));
         ui.put("required", false);
         ui.put("readOnly", false);
         Map<String, Object> operand = new LinkedHashMap<>();
@@ -153,6 +160,8 @@ public final class CustomFieldSchemaEnricher {
         put(ui, "minLength", d.minLength()); put(ui, "maxLength", d.maxLength());
         put(ui, "pattern", d.pattern()); put(ui, "patternMessage", d.patternMessage());
         put(ui, "requiredMessage", d.requiredMessage()); put(ui, "defaultValue", d.defaultValue());
+        // Definitions are server rules and may reference private facts or contain private literals.
+        if (!d.validationRules().isEmpty()) ui.put("validationMode", "json-logic");
         if (!d.options().isEmpty()) ui.put("options", d.options());
         if (d.optionSource() != null) ui.put("optionSource", d.optionSource().toMetadataMap());
         if (!d.governance().isEmpty()) field.put("x-domain-governance", d.governance());

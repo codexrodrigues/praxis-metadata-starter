@@ -72,6 +72,12 @@ public class CustomOpenApiResolver extends ModelResolver {
         super(mapper);
     }
 
+    /** Materializes typed resource bulk requests in the same document consumed by filtered schemas and discovery. */
+    public void synthesizeBulkEvaluationSchemas(io.swagger.v3.oas.models.OpenAPI document,
+            org.praxisplatform.uischema.bulk.BulkResourceOperationBindings bindings) {
+        org.praxisplatform.uischema.bulk.BulkEvaluationSchemaSynthesizer.synthesize(document, bindings, _mapper);
+    }
+
     @Override
     public Schema resolve(io.swagger.v3.core.converter.AnnotatedType type, io.swagger.v3.core.converter.ModelConverterContext context, java.util.Iterator<io.swagger.v3.core.converter.ModelConverter> next) {
         Class<?> rawClass = extractRawClass(type);
@@ -116,6 +122,14 @@ public class CustomOpenApiResolver extends ModelResolver {
                                         io.swagger.v3.core.converter.ModelConverterContext context,
                                         java.util.Iterator<io.swagger.v3.core.converter.ModelConverter> next) {
         super.resolveSchemaMembers(schema, annotatedType, context, next);
+        Class<?> rawClass = extractRawClass(annotatedType);
+        if (schema != null && annotatedType != null && !annotatedType.isSchemaProperty() && rawClass != null) {
+            var hierarchy = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.ResourceHierarchy.class);
+            if (hierarchy != null) {
+                getUIExtensionMap(schema).put("hierarchy",
+                        org.praxisplatform.uischema.schema.ApiResourceIdentityResolver.hierarchyMetadata(hierarchy));
+            }
+        }
         if (isOpenapi31() || schema == null || annotatedType == null || annotatedType.getType() == null
                 || !Boolean.TRUE.equals(schema.getNullable()) || schema.get$ref() != null
                 || schema.getEnum() == null || schema.getEnum().isEmpty()) return;
@@ -2038,6 +2052,7 @@ public class CustomOpenApiResolver extends ModelResolver {
                 "classification", governance.classification().wireValue(),
                 "dataCategory", governance.dataCategory().wireValue(),
                 "complianceTags", List.of(governance.complianceTags()),
+                "exportable", governance.exportable(),
                 "aiUsage", Map.of(
                         "visibility", governance.aiUsage().visibility().wireValue(),
                         "trainingUse", governance.aiUsage().trainingUse().wireValue(),

@@ -48,6 +48,7 @@ O resolver OpenAPI materializa a anotacao em `x-domain-governance`:
   "classification": "confidential",
   "dataCategory": "financial",
   "complianceTags": ["LGPD", "INTERNAL_POLICY"],
+  "exportable": false,
   "aiUsage": {
     "visibility": "mask",
     "trainingUse": "deny",
@@ -89,3 +90,47 @@ conhecida pelo dominio.
 Consumidores devem tratar itens de governanca como sinais para explicacao,
 mascaramento, indexacao, RAG e authoring assistido. A decisao operacional final
 continua pertencendo ao runtime ou a fronteira governada que consome o catalogo.
+
+`x-domain-governance.exportable` é booleano (default Java `true`). Valor `false` ou a tag
+`NON_EXPORTABLE` exclui o campo da allowlist de exportação na base de serviços, inclusive
+quando o host sobrescreve `exportFields()`. A lista do cliente não pode relaxar essa política.
+
+Os itens de `governance` do catálogo também preservam `exportable`; quando não há declaração
+nem tag de restrição, o valor é ausente/null. `NON_EXPORTABLE` sempre resulta em `false`.
+
+## Knowledge Graph, Glossario De Negocio E Data Products (`v0.2`)
+
+O `SemanticDomainCatalogService` sintetiza automaticamente o Knowledge Graph corporativo e os Data Products do dominio a partir das anotacoes canonicas do starter (`@ApiResource`, `@ResourceReference`, `@UiSurface`, `@ResourceFact`, `@UiAnalytics`, `StatsFieldRegistry` e `OptionSourceRegistry`), sem exigir YAML manual no host:
+
+- **Nos do grafo (`nodes`)**:
+  - `concept`: conceito central do recurso, enriquecido com `businessGlossary` (`preferredTerm`, `synonyms`, `domain`, `description`, `stewardRole`) e `metadata`:
+    - `conceptRole`: `operational_concept` (recursos transacionais/cadastrais) ou `analytical_data_product` (projecoes analiticas read-only `Radar*` / `@UiAnalytics` sem operacoes de escrita).
+    - `relatedConcepts`, `parentConcepts`, `childConcepts`: vizinhanca semantica derivada de `@ResourceReference` e `relatedResource` em `@UiSurface`.
+    - `analyzesConcepts` e `analyzedByDataProducts`: conexao bidirecional deterministica entre conceitos operacionais e os Data Products analiticos que os monitoram.
+    - `ontologicalFactRoots` e `conceptFactRootMap`: raizes ontologicas da arvore de fatos (`PraxisFactTreeBuilder` — `draft`, `current`, raizes `<conceito>` em 1-hop derivadas de FKs/lookups, `neighborhood` e `context`) e o mapa `conceptFactRootMap` (`<conceito> -> referencedResourceKey`), conectando a macro-ontologia do Knowledge Graph a micro-ontologia do motor de regras (`praxis-rules-engine`).
+    - `governedRuleSets`, `governedOperations` e `governedReasonCodes`: resumo dos `RuleSetDefinition`s (SHACL NodeShapes) que governam o conceito.
+    - `dataProduct`: manifesto do produto de dados analitico (`kind`, `domain`, `resourceKey`, `resourcePath`, `readOnly`, `supportedStatsOperations`, `metricsCount`, `factsCount`, `projectionsCount`, `recommendedCharts`, `analyzesConcepts`).
+  - `field`: campos do contrato, enriquecidos com `businessGlossary` (incluindo sinonimos humanos de busca ampla quando houver `@Filterable(relations = ...)`), `metadata.resourceReference` e `metadata.optionSource` (`key`, `type`, `resourcePath`, `dependsOn`, `dependencyFilterMap`, `searchStrategies`, `selectionPolicy`).
+  - `fact`: fatos deterministicos declarados via `@ResourceFact` (`factId`, `valueType`, `unit`, `category`).
+  - `surface`: experiencias de UI declaradas via `@UiSurface`.
+  - `action`: transicoes e comandos declarados via `@WorkflowAction` / `@ResourceIntent`.
+  - `stats`: capacidades analiticas (`group-by`, `timeseries`, `distribution`, `comparison`) e `analyticsProjections` (`@UiAnalytics`).
+  - `capability`: operacoes estruturais publicadas para o recurso.
+  - `policy_hint`: dicas de governanca, politicas de selecao (`option-source`) e `RuleSetDefinition`s governados (`source = "rule-set"`, `metadata.policyKind = "domain_rule_set"` via `DomainRuleSetCatalogProvider` / `DomainRuleSetDescriptor`, com `availableRoots`, `referencedFactPaths`, `slots`, `rules`, `reasonCodes` e `targetFields`).
+- **Arestas do grafo (`edges`)**:
+  - Estruturais do recurso: `has_field`, `has_fact`, `has_surface`, `has_action`, `has_stats`, `has_capability`, `has_policy`, `governed_by` (do `concept` e dos `field`s de `targetFields` para o no `policy_hint` do `RuleSet`, com binding `rule_definition`) e `materializes` (`analytical_data_product -> operational_resource`).
+  - Relacionais cross-resource (Knowledge Graph):
+    - `references` (`concept -> targetConcept`) e `part_of` (`field -> targetConcept`): derivados de `@ResourceReference` e lookups `RESOURCE_ENTITY`.
+    - `contains` (`parentConcept -> childConcept`): derivado de `@UiSurface(relatedChildResourceKey = ...)`.
+    - `depends_on` (`field -> dependencyField`): derivado de `dependsOn` / `dependencyFilterMap` em `OptionSourceDescriptor`.
+    - `related_to` (`analytical_data_product -> operational_concept`): derivado do cruzamento de FKs, `@ResourceReference` e prefixo de dominio em Data Products analiticos.
+
+## Sincronizacao Zero-Config E Visao 360° De Dominio (`praxis-config-starter`)
+
+Quando o host inclui `praxis-metadata-starter` e `praxis-config-starter` no mesmo processo:
+
+- `DomainCatalogLocalSourceProvider` expoe os catalogos escopados de `SemanticDomainCatalogService` diretamente em memoria (sem round-trip HTTP).
+- `DomainCatalogAutoSyncService` ingere automaticamente os catalogos locais na inicializacao (`ApplicationReadyEvent`), controlado por `praxis.domain-catalog.auto-sync.enabled=true` (habilitado por padrao quando ambos os starters estao presentes).
+- `GET /api/praxis/config/domain-360` projeta a visao consolidada 360° de um conceito (`?resourceKey=...`) ou de todo o dominio (`?group=...`), reunindo glossario, vizinhanca do Knowledge Graph (`relatedConcepts`, `parentConcepts`, `childConcepts`), Data Products (`analyzesConcepts`, `analyzedByDataProducts`), campos, fatos, surfaces, actions, analytics e governanca.
+- O grounding de IA (`DomainCatalogPromptContextService`, `AgenticAuthoringDomainCatalogCandidateEnhancer` e `AgenticAuthoringConsultativeApiCatalogProjectionService`) consome esses sinais para expandir automaticamente candidatos com Data Products analiticos relacionados e rotular recursos `analytical_data_product` como `role = "analytical"`.
+

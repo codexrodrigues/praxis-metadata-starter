@@ -1,0 +1,108 @@
+package org.praxisplatform.uischema.controller.base;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.praxisplatform.uischema.action.ActionScope;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshotScope;
+import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.springframework.util.StringUtils;
+import org.praxisplatform.uischema.action.EmptyWorkflowActionRequest;
+import org.praxisplatform.uischema.annotation.WorkflowAction;
+import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.praxisplatform.uischema.service.base.DuplicateDraftResourceService;
+import org.springframework.hateoas.Link;
+import org.springframework.hateoas.Links;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Opt-in base for resources that publish the optional, non-persistent duplicate-draft command.
+ *
+ * <p>
+ * Keeping this endpoint out of {@link AbstractResourceController} prevents OpenAPI,
+ * capabilities and _links from advertising duplicate-draft for resources whose command port does
+ * not actually implement it.
+ * </p>
+ * <p>The service may use JPA or delegate to an external adapter. The draft type is independent
+ * of the persisted response type and must be compatible with the resource's create payload.</p>
+ */
+public abstract class AbstractBulkGovernedDuplicateDraftResourceController<ResponseDTO, ID, FD extends GenericFilterDTO, CreateDTO, UpdateDTO, DraftDTO>
+        extends AbstractBulkGovernedResourceController<ResponseDTO, ID, FD, CreateDTO, UpdateDTO> {
+
+    @Override
+    protected abstract DuplicateDraftResourceService<ResponseDTO, ID, FD, CreateDTO, UpdateDTO, DraftDTO> getService();
+
+    @SuppressWarnings("unchecked")
+    protected Class<? extends AbstractBulkGovernedDuplicateDraftResourceController<ResponseDTO, ID, FD, CreateDTO, UpdateDTO, DraftDTO>> getBulkDuplicateDraftResourceControllerClass() {
+        return (Class<? extends AbstractBulkGovernedDuplicateDraftResourceController<ResponseDTO, ID, FD, CreateDTO, UpdateDTO, DraftDTO>>) getClass();
+    }
+
+    @PostMapping("/{id}/duplicate-draft")
+    @Operation(
+            summary = "Duplicar item como rascunho",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = false,
+                    description = "Sem payload de entrada; o rascunho e preparado a partir do identificador do recurso no path.",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = EmptyWorkflowActionRequest.class)
+                    )
+            )
+    )
+    @WorkflowAction(
+            id = "duplicate-draft",
+            title = "Duplicar como rascunho",
+            description = "Prepara um rascunho editavel a partir do registro atual, sem gravar alteracao ate que o usuario confirme a criacao.",
+            scope = ActionScope.ITEM,
+            order = 90,
+            successMessage = "Rascunho de duplicacao preparado",
+            tags = {"duplicate-draft", "draft", "business-command"}
+    )
+    public ResponseEntity<RestApiResponse<DraftDTO>> duplicateDraft(@PathVariable ID id) {
+        return DuplicateDraftEndpointSupport.prepare(this, getService(), id);
+  }
+
+    @Override
+    protected List<Link> buildItemActionLinks(ID id) {
+        return withOperationAvailabilityScope(() -> {
+            List<Link> links = new ArrayList<>(super.buildItemActionLinks(id));
+            if (getService().supportsDuplicateDraft() && isDuplicateDraftAvailable(id)) {
+                links.add(linkToDuplicateDraft(id));
+            }
+            return links;
+        });
+    }
+
+    @Override
+    protected List<Link> buildEntityActionLinks(ID id) {
+        return withOperationAvailabilityScope(() -> {
+            List<Link> links = new ArrayList<>(super.buildEntityActionLinks(id));
+            if (getService().supportsDuplicateDraft() && isDuplicateDraftAvailable(id)) {
+                links.add(linkToDuplicateDraft(id));
+            }
+            return links;
+        });
+    }
+
+    // Duplication requires affirmative decisions. Generic CRUD helpers retain their existing
+    // optional-discovery semantics; their permissive null fallback is not suitable here.
+    private boolean isDuplicateDraftAvailable(ID id) {
+        return DuplicateDraftEndpointSupport.available(this, id);
+  }
+
+
+
+
+
+    protected Link linkToDuplicateDraft(ID id) {
+        return Link.of(resourcePath(id, "duplicate-draft"), "duplicate-draft");
+    }
+}

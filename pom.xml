@@ -49,7 +49,26 @@
     </properties>
 
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- Test-only embedded binaries must use the same supported PostgreSQL on every OS. -->
+            <dependency>
+                <groupId>io.zonky.test.postgres</groupId>
+                <artifactId>embedded-postgres-binaries-bom</artifactId>
+                <version>17.11.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
+        <!-- Canonical pure Java runtime for custom-field rules and structured violations. -->
+        <dependency>
+            <groupId>io.github.codexrodrigues</groupId>
+            <artifactId>praxis-rules-engine</artifactId>
+            <version>0.1.0-beta.17</version>
+        </dependency>
         <!-- Real Servlet security-chain integration proof; not a runtime security policy. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -265,6 +284,7 @@
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
+                    <parameters>true</parameters>
                     <encoding>${project.build.sourceEncoding}</encoding>
                     <annotationProcessorPaths>
                         <path>

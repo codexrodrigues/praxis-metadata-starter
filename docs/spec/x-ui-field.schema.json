@@ -153,6 +153,19 @@
     "hidden": { "type": "boolean" },
     "tableHidden": { "type": "boolean" },
     "formHidden": { "type": "boolean" },
+    "quickViewVisible": {
+      "type": "boolean",
+      "description": "Marks this property as part of the executive body summary of a QuickView 360 popover."
+    },
+    "quickViewOrder": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Explicit display order for properties marked with quickViewVisible in a QuickView 360 popover."
+    },
+    "resourceReference": {
+      "$ref": "#/definitions/resourceReference",
+      "description": "Declarative hypermedia reference linking a display or title property to a target resource QuickView preview and 360 detail surface."
+    },
     "fieldAccess": {
       "$ref": "#/definitions/fieldAccess",
       "description": "Declarative field-level access policy. It guides runtime rendering and backend validation, but does not replace server-side authorization."
@@ -626,6 +639,16 @@
     "showInlineErrors": { "type": "boolean" },
     "errorPosition": { "type": "string" },
 
+    "validationRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["jsonLogic"],
+      "properties": {
+        "jsonLogic": { "type": "object", "minProperties": 1, "maxProperties": 1 },
+        "message": { "type": "string", "minLength": 1, "pattern": "\\S" }
+      },
+      "description": "Server-enforced custom-field constraint using context-free operators from the canonical Praxis JSON Logic dialect. Explicit roots: value, customFields, draft and trusted server entity. Resource updates supply the authorized persisted entity; create supplies explicit null. Standalone validation without server state does not expose the entity root. Contextual operators are rejected at definition admission because this adapter has no temporal context. A false result is a field validation error; invalid configuration or evaluation failures remain technical failures."
+    },
     "validation": {
       "type": "object",
       "additionalProperties": false,
@@ -985,7 +1008,9 @@
           "type": "string",
           "enum": ["surface", "route", "href"]
         },
+        "resourceKey": { "type": "string", "minLength": 1 },
         "surfaceId": { "type": "string", "minLength": 1 },
+        "previewSurfaceId": { "type": "string", "minLength": 1 },
         "presentation": {
           "type": "string",
           "enum": ["drawer", "modal"]
@@ -993,6 +1018,21 @@
         "preferredWidget": { "type": "string", "minLength": 1 },
         "mode": { "type": "string", "minLength": 1 }
       }
+    },
+    "resourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resourceKey": { "type": "string", "minLength": 1 },
+        "valueField": { "type": "string", "minLength": 1 },
+        "surfaceId": { "type": "string", "minLength": 1 },
+        "previewSurfaceId": { "type": "string", "minLength": 1 },
+        "detailPresentation": {
+          "type": "string",
+          "enum": ["drawer", "modal", "fullscreen", "route"]
+        }
+      },
+      "required": ["resourceKey"]
     },
     "lookupCreate": {
       "type": "object",

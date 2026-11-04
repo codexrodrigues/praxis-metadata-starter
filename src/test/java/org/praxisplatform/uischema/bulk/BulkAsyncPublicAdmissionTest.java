@@ -268,7 +268,7 @@ class BulkAsyncPublicAdmissionTest {
             var constructor=BulkOperationLifecycle.ReadyAdmission.class.getDeclaredConstructors()[0];constructor.setAccessible(true);
             return (BulkOperationLifecycle.ReadyAdmission)constructor.newInstance(new BulkOperationControlIdentity(scope.namespaceId(),scope.operationRef().operationId()),
                     BulkSnapshotStorageCodecTest.CONTROL_EXPECTATION,BulkMode.UNIFORM_UPDATE,ActionCollectionAtomicity.PER_ITEM,
-                    BulkExecutionMode.ASYNC,BulkSelectionMode.EXPLICIT,profile(10000),runtime,scope.resourceKey(),scope.operationRef(),Optional.of(binding(1)),snapshot.codecId());
+                    BulkExecutionMode.ASYNC,BulkSelectionMode.EXPLICIT,profile(10000),runtime,scope.resourceKey(),scope.operationRef(),Optional.of(binding(1)),snapshot.codecId(),null);
         }
     }
 }

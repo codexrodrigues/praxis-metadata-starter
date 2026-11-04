@@ -143,6 +143,9 @@ public @interface Filterable {
      */
     String relation() default "";
 
+    /** End of the inclusive validity interval for EFFECTIVE_ON_DATE. */
+    String endRelation() default "dtfim";
+
     /**
      * Múltiplos caminhos de atributos/relacionamentos na entidade combinados por disjunção ({@code OR})
      * para busca ampla (omnibox) num único campo de filtro.
@@ -269,6 +272,8 @@ public @interface Filterable {
         /**
          * Campo booleano falso.
          */
-        IS_FALSE
+        IS_FALSE,
+        /** Inclusive validity on a reference date. A null end represents open validity. */
+        EFFECTIVE_ON_DATE
     }
 }

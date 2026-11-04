@@ -645,10 +645,10 @@ class BulkOperationStructuralCompilerTest {
                 var context = context(); var fixture = discoveryFixture(postgres, context)) {
             var calls = new AtomicInteger();
             var providerReadsAfterCaughtFailure = new AtomicInteger();
-            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
+            assertThrows(BulkDiscoveryUnavailableException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
                 calls.incrementAndGet();
                 fixture.provider.revision = "provider.r2";
-                assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(fixture.identity));
+                assertThrows(BulkDiscoveryUnavailableException.class, () -> fixture.lifecycle.requireReady(fixture.identity));
                 fixture.provider.revision = "provider.r1";
                 providerReadsAfterCaughtFailure.set(fixture.provider.providerRevisionReads.get());
                 return false; // The real host rule also catches readiness failures and returns denied.
@@ -659,7 +659,7 @@ class BulkOperationStructuralCompilerTest {
             assertFalse(fixture.lifecycle.projectReadyActions(List.of(fixture.action)).isEmpty());
 
             calls.set(0);
-            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
+            assertThrows(BulkDiscoveryUnavailableException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
                 calls.incrementAndGet();
                 assertEquals(fixture.ready, fixture.lifecycle.requireReady(fixture.identity));
                 fixture.control.withConnection(connection -> {
@@ -670,13 +670,13 @@ class BulkOperationStructuralCompilerTest {
                             fixture.ready.structuralRevision(), BulkPostgresTestSupport.publication(fixture.owner, fixture.identity.namespaceId()).generation(), BulkPostgresTestSupport.publication(fixture.owner, fixture.identity.namespaceId()).documentDigest()).applied());
                     return null;
                 });
-                assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(fixture.identity));
+                assertThrows(BulkDiscoveryUnavailableException.class, () -> fixture.lifecycle.requireReady(fixture.identity));
                 return false;
             }));
             assertEquals(1, calls.get());
             assertEquals(3, fixture.lifecycle.requireReady(fixture.identity).generation());
 
-            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
+            assertThrows(BulkDiscoveryUnavailableException.class, () -> fixture.lifecycle.projectReadyActions(List.of(fixture.action), contracts -> {
                 fixture.control.withConnection(connection -> JdbcBulkOperationControl.transition(connection,
                         fixture.identity.namespaceId(), ACTION_ID, 3, JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null));
                 return true; // No scoped readiness call: the final durable fence must catch this.

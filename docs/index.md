@@ -104,3 +104,15 @@ Quando houver dúvida sobre a superfície publicada:
 1. Priorize os guias principais desta home (`Guia 01` a `Guia 06`) e a [Visão Arquitetural](architecture-overview.html).
 2. Trate `/schemas/filtered` como a única fonte estrutural de request/response e `/capabilities` como o snapshot agregado de disponibilidade.
 3. Consulte o [Status Consolidado do SDK Bulk e Candidatos de Release](technical/BULK-AND-RELEASE-CANDIDATES-STATUS.html) para distinguir capacidades já publicadas no Maven Central de candidatos internos em validação.
+
+## Core resource service
+
+Consulte a [ponte governada de regras](guides/GOVERNED-RULE-BRIDGE.md) para rejeições
+estruturadas e validação JSON Logic de campos customizados.
+
+Consulte o [guia de consultas, exportação e comandos versionados](guides/CORE-RESOURCE-SERVICE.md) para adotar os hooks e templates canônicos.
+Os limites e cenários de adoção corporativa estão na [revisão do core resource service](technical/CORE-RESOURCE-P1-REVIEW.md).
+
+## Bulk declarativo no core resource-oriented
+
+Consulte o [guia de operações em lote](guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md) para adotar a base de controller, o adapter JPA e a composição explícita de políticas e infraestrutura.

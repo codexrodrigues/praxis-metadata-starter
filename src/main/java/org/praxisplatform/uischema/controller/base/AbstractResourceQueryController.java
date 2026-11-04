@@ -24,6 +24,12 @@ import org.praxisplatform.uischema.capability.CapabilitySnapshot;
 import org.praxisplatform.uischema.capability.ResourceStructuralCapabilities;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
 import org.praxisplatform.uischema.command.GovernedResourceCommandExecutor;
+import org.praxisplatform.uischema.command.ResourceCommandIdempotencyStore;
+import org.praxisplatform.uischema.command.ResourceCommandFingerprint;
+import org.praxisplatform.uischema.command.ResourceCommandExecutionResult;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.function.BiConsumer;
 import org.praxisplatform.uischema.command.ResourceCommandEvidenceSanitizer;
 import org.praxisplatform.uischema.command.ResourceCommandExecutionProvider;
 import org.praxisplatform.uischema.command.ResourceCommandExecutionRequest;
@@ -129,6 +135,9 @@ import java.util.stream.Collectors;
  * </p>
  */
 public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extends GenericFilterDTO> {
+
+    @Autowired(required = false)
+    private ResourceCommandIdempotencyStore resourceCommandIdempotencyStore;
 
     private static final Logger logger = LoggerFactory.getLogger(AbstractResourceQueryController.class);
     private static final String SCHEMAS_PATH = "/schemas";
@@ -246,6 +255,13 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @Autowired(required = false)
     private ResourceVersionScopeProvider resourceVersionScopeProvider;
+
+    /** Optional constructor wiring for hosts; the same services are otherwise supplied by Spring. */
+    protected final void configureResourceVersioning(ResourceVersionEtagService etags, ResourceVersionScopeProvider scopes) {
+        this.resourceVersionEtagService = Objects.requireNonNull(etags, "etags");
+        this.resourceVersionScopeProvider = Objects.requireNonNull(scopes, "scopes");
+    }
+
 
     private String detectedBasePath;
 
@@ -1250,12 +1266,12 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     @GetMapping("/{id}")
     @Operation(summary = "Abrir item")
     public ResponseEntity<RestApiResponse<ResponseDTO>> getById(@PathVariable ID id) {
-        ResourceRepresentationResult<ResponseDTO> result = getService().findById(id);
-        if (getService() instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>) {
-            result.requirePersistedVersion();
-        }
+        return withOperationAvailabilityScope(() -> {
+            ResourceRepresentationResult<ResponseDTO> result = getService().findById(id);
+            if (getService() instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>) {
+                result.requirePersistedVersion();
+            }
 
-        List<Link> linkList = withOperationAvailabilityScope(() -> {
             List<Link> links = new ArrayList<>();
             links.add(linkToSelf(id));
             links.add(linkToAll());
@@ -1264,36 +1280,39 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             links.addAll(buildItemActionLinks(id));
             links.addAll(buildItemDiscoveryLinks(id));
             links.add(linkToUiSchema("/{id}", "get", "response"));
-            return links;
-        });
 
-        return withResourceVersion(
-                ResponseEntity.ok(),
-                id,
-                new ResourceRepresentationResult<>(
-                        RestApiResponse.success(result.body(), hateoasOrNull(Links.of(linkList))),
-                        result.persistedVersion())
-        );
+            return withResourceVersion(
+                    ResponseEntity.ok(),
+                    id,
+                    new ResourceRepresentationResult<>(
+                            RestApiResponse.success(result.body(), hateoasOrNull(Links.of(links))),
+                            result.persistedVersion())
+            );
+        });
     }
 
     @GetMapping("/{id}/surfaces")
     @Operation(summary = "Descobrir surfaces contextuais do registro")
     public ResponseEntity<SurfaceCatalogResponse> getItemSurfaces(@PathVariable ID id) {
+        try (var ignored = org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.open()) {
         if (surfaceCatalogService == null) {
             throw new IllegalStateException("SurfaceCatalogService is not configured for contextual discovery.");
         }
         getService().findById(id);
-        return withVersion(ResponseEntity.ok(), surfaceCatalogService.findItemSurfaces(getResourceKey(), id));
+            return withVersion(ResponseEntity.ok(), surfaceCatalogService.findItemSurfaces(getResourceKey(), id));
+        }
     }
 
     @GetMapping("/{id}/actions")
     @Operation(summary = "Descobrir workflow actions contextuais do registro")
     public ResponseEntity<ActionCatalogResponse> getItemActions(@PathVariable ID id) {
+        try (var ignored = org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.open()) {
         if (actionCatalogService == null) {
             throw new IllegalStateException("ActionCatalogService is not configured for contextual discovery.");
         }
         getService().findById(id);
-        return withVersion(ResponseEntity.ok(), actionCatalogService.findItemActions(getResourceKey(), id));
+            return withVersion(ResponseEntity.ok(), actionCatalogService.findItemActions(getResourceKey(), id));
+        }
     }
 
     @GetMapping("/actions")
@@ -1321,6 +1340,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     @GetMapping("/{id}/capabilities")
     @Operation(summary = "Descobrir capabilities unificadas do registro")
     public ResponseEntity<CapabilitySnapshot> getItemCapabilities(@PathVariable ID id) {
+        return withOperationAvailabilityScope(() -> executeGetItemCapabilities(id));
+    }
+
+    private ResponseEntity<CapabilitySnapshot> executeGetItemCapabilities(ID id) {
         if (capabilityService == null) {
             throw new IllegalStateException("CapabilityService is not configured for contextual discovery.");
         }
@@ -1464,6 +1487,90 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 publicMetadata
         );
         return executeGovernedCommand(request, provider, itemCommandLinks(commandId, id));
+    }
+
+    /** Versioned item command with optional, transactionally durable idempotency receipts. */
+    protected ResponseEntity<?> executeVersionedItemCommand(String actionId, ID id, String ifMatch,
+            String idempotencyKey, Object payload,
+            Function<ResourceVersionUpdatePrecondition<ID>, ResourceRepresentationResult<ResponseDTO>> mutation) {
+        Objects.requireNonNull(mutation, "mutation");
+        if (idempotencyKey != null && !StringUtils.hasText(idempotencyKey))
+            throw new IllegalArgumentException("Idempotency-Key must not be blank");
+        var precondition = resourceVersionUpdatePrecondition(id, ifMatch);
+        var request = new ResourceCommandExecutionRequest(getResourceKey(), getBasePath(), actionId,
+                ResourceCommandScope.ITEM, id, payload, ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT, Map.of());
+        Supplier<ResourceRepresentationResult<ResponseDTO>> execute = () -> {
+            var executor = new GovernedResourceCommandExecutor(command -> {
+                var result = Objects.requireNonNull(mutation.apply(precondition));
+                result.requirePersistedVersion();
+                return ResourceCommandExecutionResult.success(command, id, result, Map.of());
+            }, this::evaluateResourceCommandAvailability, ResourceCommandEvidenceSanitizer.defaults());
+            ResourceCommandExecutionResult result = executor.execute(request);
+            if (!result.successful()) throw new VersionedCommandRejected(result);
+            @SuppressWarnings("unchecked")
+            ResourceRepresentationResult<ResponseDTO> representation = (ResourceRepresentationResult<ResponseDTO>) result.body();
+            return representation;
+        };
+        try {
+            ResourceRepresentationResult<ResponseDTO> result;
+            if (StringUtils.hasText(idempotencyKey)) {
+                if (resourceCommandIdempotencyStore == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Idempotent resource commands are not configured");
+                Class<?> responseType = ResolvableType.forClass(getClass()).as(AbstractResourceQueryController.class).getGeneric(0).resolve();
+                if (responseType == null) throw new IllegalStateException("Versioned command response type is unresolved");
+                var identity = new ResourceCommandIdempotencyStore.Identity(resourceVersionScope().value(),
+                        resourceCommandActor(), getResourceKey(), org.praxisplatform.uischema.id.CompositeIdSupport.stringify(id), actionId, idempotencyKey);
+                ObjectMapper mapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
+                Map<String, Object> fingerprint = new LinkedHashMap<>();
+                fingerprint.put("payload", payload);
+                fingerprint.put("ifMatch", ifMatch);
+                @SuppressWarnings("unchecked") Class<ResponseDTO> bodyType = (Class<ResponseDTO>) responseType;
+                result = resourceCommandIdempotencyStore.execute(identity, ResourceCommandFingerprint.of(mapper, fingerprint), bodyType,
+                        () -> getService().findById(id), execute);
+            } else result = execute.get();
+            return withResourceVersion(ResponseEntity.ok(), id, new ResourceRepresentationResult<>(
+                    RestApiResponse.success(result.body(), hateoasOrNull(Links.of(linkToSelf(id), linkToAll()))), result.persistedVersion()));
+        } catch (VersionedCommandRejected rejected) {
+            return withCommandDatasetVersion(new ResourceCommandHttpResponseAdapter().toResponse(rejected.result));
+        }
+    }
+
+    /** Trusted actor identity; hosts with non-servlet authentication may override this hook. */
+    protected String resourceCommandActor() {
+        var attributes = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (attributes instanceof org.springframework.web.context.request.ServletRequestAttributes servlet) {
+            var principal = servlet.getRequest().getUserPrincipal();
+            if (principal != null) return principal.getName();
+        }
+        return "anonymous";
+    }
+
+    protected ResponseEntity<?> executeVersionedItemPatch(String intentId, ID id, String ifMatch,
+            Function<ResourceVersionUpdatePrecondition<ID>, ResourceRepresentationResult<ResponseDTO>> mutation) {
+        return executeVersionedItemCommand(intentId, id, ifMatch, null, null, mutation);
+    }
+
+    private static final class VersionedCommandRejected extends RuntimeException {
+        private final ResourceCommandExecutionResult result;
+        private VersionedCommandRejected(ResourceCommandExecutionResult result) { this.result = result; }
+    }
+
+    /** Shared master-detail query boundary. The child service retains its own mandatory scope. */
+    protected <ChildDTO, ChildID, ChildFilter extends GenericFilterDTO>
+    ResponseEntity<RestApiResponse<Page<ChildDTO>>> filterRelatedChildResource(ID parentId,
+            BaseResourceQueryService<ChildDTO, ChildID, ChildFilter> childService, String childPath,
+            Supplier<ChildFilter> filterFactory, BiConsumer<ChildFilter, ID> parentBinder, int page, int size) {
+        getService().findById(parentId);
+        if (page < 0 || size < 1 || size > 200) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid child resource pagination");
+        if (!StringUtils.hasText(childPath) || !childPath.startsWith("/") || childPath.startsWith("//")
+                || childPath.contains("?") || childPath.contains("#")) throw new IllegalArgumentException("Child collection path must be absolute and local");
+        ChildFilter filter = Objects.requireNonNull(filterFactory.get(), "child filter");
+        parentBinder.accept(filter, parentId);
+        Page<ChildDTO> children = childService.filter(filter,
+                org.springframework.data.domain.PageRequest.of(page, size, childService.getDefaultSort()), List.of());
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+        childService.getDatasetVersion().ifPresent(version -> response.header(HDR, version));
+        return response.body(RestApiResponse.success(children, hateoasOrNull(Links.of(Link.of(childPath, "collection")))));
     }
 
     private ResponseEntity<?> executeGovernedCommand(

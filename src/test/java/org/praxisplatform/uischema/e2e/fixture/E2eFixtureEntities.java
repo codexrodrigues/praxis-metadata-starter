@@ -37,6 +37,14 @@ class DepartmentEntity {
 
     private String code;
 
+    private LocalDate dtini;
+    private LocalDate dtfim;
+
+    void setValidity(LocalDate start, LocalDate end) {
+        this.dtini = start;
+        this.dtfim = end;
+    }
+
     DepartmentEntity() {
     }
 
@@ -95,6 +103,12 @@ class EmployeeEntity {
     private BigDecimal salario;
 
     private LocalDate admissionDate;
+
+    private LocalDate validityEnd;
+
+    public void setValidityEnd(LocalDate validityEnd) {
+        this.validityEnd = validityEnd;
+    }
 
     private Instant lastCheckInAt;
 

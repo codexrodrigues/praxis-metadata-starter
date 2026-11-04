@@ -97,6 +97,7 @@ class CustomOpenApiResolverTest {
                 classification = DomainClassification.CONFIDENTIAL,
                 dataCategory = DomainDataCategory.PERSONAL,
                 complianceTags = {"LGPD", "GDPR"},
+                exportable = false,
                 aiUsage = @AiUsagePolicy(
                         visibility = AiVisibilityMode.MASK,
                         trainingUse = AiTrainingUseMode.DENY,
@@ -496,6 +497,7 @@ class CustomOpenApiResolverTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> governanceMap = (Map<String, Object>) rawGovernance;
         assertEquals("privacy", governanceMap.get("annotationType"));
+        assertEquals(false, governanceMap.get("exportable"));
         assertEquals("confidential", governanceMap.get("classification"));
         assertEquals("personal", governanceMap.get("dataCategory"));
         assertEquals("java.annotation", governanceMap.get("source"));

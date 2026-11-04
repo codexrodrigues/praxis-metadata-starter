@@ -280,6 +280,35 @@ Use acentos e portugues correto em textos publicos. O contrato pode conter nomes
 tecnicos em ingles (`resourceKey`, `id`, enum, path), mas `title`, `summary` e
 `description` devem ser escritos como documentacao de produto.
 
+### 8. Habilite investigacoes operacionais complexas (`operational_investigation`) com vocabulario humano e predicados de ausencia
+
+Quando um operador ou gestor pergunta ao assistente de IA algo como *"quero
+investigar servidores da saude que tiveram aumento superior a 30% sem
+movimentacao funcional nos ultimos 3 meses"*, o motor de grounding (`api_metadata`
++ `/schemas/filtered` + `/schemas/domain`) depende de tres propriedades no
+contrato publicado:
+
+1. **Vocabulario humano nos filtros relacionais de organizacao e classificacao:**
+   um usuario nunca pergunta por `setor = "03.01.01"` ou `empCodigo = 1`. O
+   `FilterDTO` precisa publicar filtros relacionais sobre nomes legiveis, tipos
+   de unidade e categorias de negocio (`lotacao.nome`, `lotacao.tipoSetor`,
+   `vinculo.categoria`, `cargoEntidade.nome`) e descrever explicitamente no
+   `@Schema(description = ...)` os valores de dominio aceitos (ex.: `SAUDE`,
+   `MAGISTERIO`, `GUARDA_MUNICIPAL`, `UNIDADE_SAUDE`, `ESCOLA`) para que o RAG
+   e o planejador da LLM saibam traduzir a linguagem natural em predicados exatos;
+2. **Predicados explicitos de ausencia, omissao ou estagnacao (`IS_NULL`,
+   `IS_FALSE`, janelas anti-evento):** alem de janelas positivas (`IN_LAST_DAYS`,
+   `IN_NEXT_DAYS`), documente claramente os filtros que provam a *ausencia* de
+   um evento ou estado (ex.: `semHomologacaoEstagio`, `semSubstitutoDesignado`,
+   `semParcelaProgramada`, `diasSemMovimentacaoFuncionalMin`), explicando no
+   `@Schema(description)` qual omissao ou inatividade aquele filtro audita;
+3. **Projecoes analiticas cross-domain (`Radar*`):** perguntas que cruzam
+   multiplos subdominios com calculos agregados ou temporais devem ser atendidas
+   por recursos read-only consolidados (`AbstractReadOnlyResourceController`)
+   cujo `@Schema(description)` no DTO e na operacao `/filter` declare
+   explicitamente as dimensoes cruzadas, os indicadores pre-calculados
+   (`@ResourceFact`) e as projecoes analiticas (`@UiAnalytics`).
+
 ## Como preencher `@Operation`
 
 ### `summary`

@@ -165,12 +165,14 @@ public final class BulkOperationLifecycle {
                     executionMode, selectionMode, profile, descriptor.infrastructure(),
                     descriptor.structural().resourceKey(),
                     descriptor.structural().operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference(),
-                    descriptor.asynchronousCapacityBinding(), descriptor.codecId());
+                    descriptor.asynchronousCapacityBinding(), descriptor.codecId(),
+                    descriptor.structural().mode() == BulkMode.DOMAIN_COMMAND ? null : descriptor.structural().update().editableFields());
         });
     }
 
     @com.fasterxml.jackson.annotation.JsonIgnoreType
     public static final class ReadyAdmission {
+        private final BulkEditableFields editableFields;
         private final BulkOperationControlIdentity identity;
         private final BulkOperationControlExpectation expectation;
         private final BulkMode mode;
@@ -190,7 +192,8 @@ public final class BulkOperationLifecycle {
                 BulkExecutionMode executionMode, BulkSelectionMode selectionMode,
                 BulkOperationalProfile profile, BulkExecutionInfrastructure infrastructure,
                 String resourceKey, org.praxisplatform.uischema.openapi.CanonicalOperationRef operationRef,
-                java.util.Optional<BulkCapacityBinding> capacityBinding, String codecId) {
+                java.util.Optional<BulkCapacityBinding> capacityBinding, String codecId, BulkEditableFields editableFields) {
+            this.editableFields = editableFields;
             this.identity = identity;
             this.expectation = expectation;
             this.mode = mode;
@@ -205,6 +208,7 @@ public final class BulkOperationLifecycle {
             this.codecId = codecId;
         }
         boolean matchesCodec(BulkIntentSnapshot snapshot) { return codecId.equals(snapshot.codecId()); }
+        BulkEditableFields editableFields() { return editableFields; }
         boolean matchesScope(BulkFingerprintContext scope) {
             return identity.namespaceId().equals(scope.namespaceId())
                     && resourceKey.equals(scope.resourceKey()) && operationRef.equals(scope.operationRef())

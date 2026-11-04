@@ -4,6 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.praxisplatform.rules.contract.DecisionBinding;
+import org.praxisplatform.rules.contract.DecisionSlot;
+import org.praxisplatform.rules.contract.RuleSetDefinition;
+import org.praxisplatform.rules.contract.RuleSetRef;
+import org.praxisplatform.rules.facts.PraxisFactTreeBuilder;
 import org.praxisplatform.uischema.customfields.CustomFieldDescriptor;
 import org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider;
 import org.praxisplatform.uischema.customfields.ResourceTenantContextResolver;
@@ -21,6 +26,7 @@ import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
 import org.praxisplatform.uischema.schema.FilteredSchemaProjection;
+import org.praxisplatform.uischema.surface.RelatedResourceSurface;
 import org.praxisplatform.uischema.surface.SurfaceDefinition;
 import org.praxisplatform.uischema.surface.SurfaceDefinitionRegistry;
 import org.springframework.util.StringUtils;
@@ -30,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -67,6 +74,7 @@ public class SemanticDomainCatalogService {
     private final CustomFieldDefinitionProvider customFieldDefinitionProvider;
     private final ResourceFactCatalogProvider resourceFactCatalogProvider;
     private final ResourceTenantContextResolver tenantContextResolver;
+    private final DomainRuleSetCatalogProvider domainRuleSetCatalogProvider;
     private final Clock clock;
     private final String serviceKey;
     private final String serviceName;
@@ -108,7 +116,7 @@ public class SemanticDomainCatalogService {
             String serviceVersion
     ) {
         this(actionDefinitionRegistry, surfaceDefinitionRegistry, optionSourceRegistry, openApiDocumentService,
-                canonicalCapabilityResolver, clock, serviceKey, serviceName, serviceVersion, null, null, null);
+                canonicalCapabilityResolver, clock, serviceKey, serviceName, serviceVersion, null, null, null, null);
     }
 
     public SemanticDomainCatalogService(
@@ -120,9 +128,37 @@ public class SemanticDomainCatalogService {
             ResourceFactCatalogProvider resourceFactCatalogProvider,
             ResourceTenantContextResolver tenantContextResolver
     ) {
+        this(
+                actionDefinitionRegistry,
+                surfaceDefinitionRegistry,
+                optionSourceRegistry,
+                openApiDocumentService,
+                canonicalCapabilityResolver,
+                clock,
+                serviceKey,
+                serviceName,
+                serviceVersion,
+                customFieldDefinitionProvider,
+                resourceFactCatalogProvider,
+                tenantContextResolver,
+                null
+        );
+    }
+
+    public SemanticDomainCatalogService(
+            ActionDefinitionRegistry actionDefinitionRegistry, SurfaceDefinitionRegistry surfaceDefinitionRegistry,
+            OptionSourceRegistry optionSourceRegistry, OpenApiDocumentService openApiDocumentService,
+            CanonicalCapabilityResolver canonicalCapabilityResolver, Clock clock,
+            String serviceKey, String serviceName, String serviceVersion,
+            CustomFieldDefinitionProvider customFieldDefinitionProvider,
+            ResourceFactCatalogProvider resourceFactCatalogProvider,
+            ResourceTenantContextResolver tenantContextResolver,
+            DomainRuleSetCatalogProvider domainRuleSetCatalogProvider
+    ) {
         this.customFieldDefinitionProvider = customFieldDefinitionProvider;
         this.resourceFactCatalogProvider = resourceFactCatalogProvider;
         this.tenantContextResolver = tenantContextResolver;
+        this.domainRuleSetCatalogProvider = domainRuleSetCatalogProvider;
         this.actionDefinitionRegistry = actionDefinitionRegistry;
         this.surfaceDefinitionRegistry = surfaceDefinitionRegistry;
         this.optionSourceRegistry = optionSourceRegistry == null ? OptionSourceRegistry.empty() : optionSourceRegistry;
@@ -145,11 +181,14 @@ public class SemanticDomainCatalogService {
     private DomainCatalogResponse findCatalog(String resourceKey, String group) {
         String tenant = tenantContextResolver == null ? null : tenantContextResolver.resolveTenant().orElse(null);
         String baseKey = resourceKey != null ? "resource:" + resourceKey : "group:" + firstText(group, "");
-        if (tenant == null && customFieldDefinitionProvider == null && resourceFactCatalogProvider == null) {
+        if (tenant == null
+                && customFieldDefinitionProvider == null
+                && resourceFactCatalogProvider == null
+                && domainRuleSetCatalogProvider == null) {
             return catalogCache.computeIfAbsent(baseKey, ignored -> build(resourceKey, group,
                     resourceKey != null ? safe(actionDefinitionRegistry.findByResourceKey(resourceKey)) : safe(actionDefinitionRegistry.findByGroup(group)),
                     resourceKey != null ? safe(surfaceDefinitionRegistry.findByResourceKey(resourceKey)) : safe(surfaceDefinitionRegistry.findByGroup(group)),
-                    Map.of(), Map.of()));
+                    Map.of(), Map.of(), Map.of()));
         }
         List<ActionDefinition> actions = resourceKey != null ? safe(actionDefinitionRegistry.findByResourceKey(resourceKey)) : safe(actionDefinitionRegistry.findByGroup(group));
         List<SurfaceDefinition> surfaces = resourceKey != null ? safe(surfaceDefinitionRegistry.findByResourceKey(resourceKey)) : safe(surfaceDefinitionRegistry.findByGroup(group));
@@ -159,6 +198,7 @@ public class SemanticDomainCatalogService {
         surfaces.forEach(s -> resources.add(s.resourceKey()));
         Map<String, List<CustomFieldDescriptor>> fields = new LinkedHashMap<>();
         Map<String, List<ResourceFactDescriptor>> facts = new LinkedHashMap<>();
+        Map<String, List<DomainRuleSetDescriptor>> ruleSets = new LinkedHashMap<>();
         for (String resource : resources) {
             if (customFieldDefinitionProvider != null) {
                 List<CustomFieldDescriptor> definitions = safe(customFieldDefinitionProvider.findDefinitions(resource, tenant));
@@ -177,13 +217,35 @@ public class SemanticDomainCatalogService {
                 }
                 if (!definitions.isEmpty()) facts.put(resource, definitions.stream().sorted(Comparator.comparing(ResourceFactDescriptor::key)).toList());
             }
+            if (domainRuleSetCatalogProvider != null) {
+                List<DomainRuleSetDescriptor> definitions = safe(domainRuleSetCatalogProvider.findRuleSets(resource, tenant));
+                Set<String> keys = new LinkedHashSet<>();
+                for (DomainRuleSetDescriptor ruleSet : definitions) {
+                    if (ruleSet == null
+                            || !resource.equals(ruleSet.resourceKey())
+                            || !keys.add(ruleSet.ruleSetKey() + "::" + ruleSet.operationKey())) {
+                        throw new IllegalStateException("Invalid or duplicate rule set for resource " + resource);
+                    }
+                }
+                if (!definitions.isEmpty()) {
+                    ruleSets.put(resource, definitions.stream()
+                            .sorted(Comparator.comparing(DomainRuleSetDescriptor::ruleSetKey)
+                                    .thenComparing(DomainRuleSetDescriptor::operationKey))
+                            .toList());
+                }
+            }
         }
         String cacheKey = baseKey;
-        if (StringUtils.hasText(tenant) || !fields.isEmpty() || !facts.isEmpty()) {
+        if (StringUtils.hasText(tenant) || !fields.isEmpty() || !facts.isEmpty() || !ruleSets.isEmpty()) {
             cacheKey += ":extensions:" + SchemaHashUtil.sha256Hex(HASH_CANONICALIZER.canonicalize(
-                    HASH_OBJECT_MAPPER.valueToTree(mapOfNonNull("tenant", tenant, "fields", fields, "facts", facts))));
+                    HASH_OBJECT_MAPPER.valueToTree(mapOfNonNull(
+                            "tenant", tenant,
+                            "fields", fields,
+                            "facts", facts,
+                            "ruleSets", ruleSetHashSummaries(ruleSets)
+                    ))));
         }
-        return catalogCache.computeIfAbsent(cacheKey, ignored -> build(resourceKey, group, actions, surfaces, fields, facts));
+        return catalogCache.computeIfAbsent(cacheKey, ignored -> build(resourceKey, group, actions, surfaces, fields, facts, ruleSets));
     }
 
     private DomainCatalogResponse build(
@@ -192,7 +254,8 @@ public class SemanticDomainCatalogService {
             List<ActionDefinition> actions,
             List<SurfaceDefinition> surfaces,
             Map<String, List<CustomFieldDescriptor>> customFields,
-            Map<String, List<ResourceFactDescriptor>> resourceFacts
+            Map<String, List<ResourceFactDescriptor>> resourceFacts,
+            Map<String, List<DomainRuleSetDescriptor>> domainRuleSets
     ) {
         Map<String, DomainCatalogResponse.DomainContextItem> contexts = new LinkedHashMap<>();
         Map<String, DomainCatalogResponse.DomainNodeItem> nodes = new LinkedHashMap<>();
@@ -215,9 +278,9 @@ public class SemanticDomainCatalogService {
                     nodes, edges, bindings, evidence, capabilitiesByResourcePath, analyticCapabilitiesAdded);
             addAction(action, contextKey, nodes, edges, bindings, evidence);
             addSchemaFields(action.resourceKey(), contextKey, action.group(), action.requestSchema(), "request",
-                    nodes, edges, bindings, evidence, governance);
+                    canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance);
             addSchemaFields(action.resourceKey(), contextKey, action.group(), action.responseSchema(), "response",
-                    nodes, edges, bindings, evidence, governance);
+                    canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance);
         }
 
         for (SurfaceDefinition surface : sortSurfaces(surfaces)) {
@@ -230,7 +293,7 @@ public class SemanticDomainCatalogService {
                     nodes, edges, bindings, evidence, capabilitiesByResourcePath, analyticCapabilitiesAdded);
             addSurface(surface, contextKey, nodes, edges, bindings, evidence);
             addSchemaFields(surface.resourceKey(), contextKey, surface.group(), surface.schema(), surface.schemaType(),
-                    nodes, edges, bindings, evidence, governance);
+                    canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance);
         }
 
         for (OptionSourceDescriptor descriptor : optionSourceRegistry.descriptors()) {
@@ -255,6 +318,7 @@ public class SemanticDomainCatalogService {
 
         Set<String> extendedResources = new LinkedHashSet<>(customFields.keySet());
         extendedResources.addAll(resourceFacts.keySet());
+        extendedResources.addAll(domainRuleSets.keySet());
         for (String resource : extendedResources) {
             String context = nodes.containsKey(resource) ? nodes.get(resource).contextKey() : contextKey(resource, requestedGroup);
             ensureContext(contexts, context, requestedGroup);
@@ -278,8 +342,12 @@ public class SemanticDomainCatalogService {
                                 "parameters", fact.parameters(), "deterministic", fact.deterministic(),
                                 "sourceKind", fact.sourceKind()), fact.governance(), nodes, edges, bindings, evidence, governance);
             }
+            for (DomainRuleSetDescriptor ruleSet : domainRuleSets.getOrDefault(resource, List.of())) {
+                addRuleSet(resource, context, ruleSet, nodes, edges, bindings, evidence);
+            }
         }
 
+        enrichConceptKnowledgeGraphMetadata(contexts, nodes, edges, requestedGroup, capabilitiesByResourcePath);
         List<DomainCatalogResponse.DomainContextItem> contextItems = List.copyOf(contexts.values());
         List<DomainCatalogResponse.DomainNodeItem> nodeItems = List.copyOf(nodes.values());
         List<DomainCatalogResponse.DomainEdgeItem> edgeItems = List.copyOf(edges.values());
@@ -329,7 +397,7 @@ public class SemanticDomainCatalogService {
         metadata.put("sourceType", source);
         nodes.put(nodeKey, new DomainCatalogResponse.DomainNodeItem(nodeKey, context, type, label, description,
                 "active", source, 1.0, metadata, List.of(source), null, context, "active",
-                glossary(label, description, List.of(source)), resolution(nodeKey, List.of(label), "exact-key"), List.of(evidenceKey)));
+                glossary(label, description, List.of(source)), resolution(nodeKey, matchKeys(label), "exact-key"), List.of(evidenceKey)));
         putEdge(edges, resource + "." + type + ":" + nodeKey, resource, nodeKey,
                 "fact".equals(type) ? "provides_fact" : "has_field", label, 1.0, List.of(evidenceKey));
         bindings.put("binding:" + nodeKey, new DomainCatalogResponse.DomainBindingItem("binding:" + nodeKey,
@@ -340,6 +408,256 @@ public class SemanticDomainCatalogService {
         DomainCatalogResponse.DomainGovernanceItem explicitGovernance =
                 explicitGovernance(nodeKey, declaration, null, null, source, false);
         if (explicitGovernance != null) governance.put(explicitGovernance.governanceKey(), explicitGovernance);
+    }
+
+    private void addRuleSet(
+            String resourceKey,
+            String contextKey,
+            DomainRuleSetDescriptor descriptor,
+            Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
+            Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
+            Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
+            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence
+    ) {
+        RuleSetDefinition definition = descriptor.ruleSetDefinition();
+        RuleSetRef ref = definition.ref();
+        String ruleSetKey = descriptor.ruleSetKey();
+        String baseRuleKeyPart = keyPart(ruleSetKey);
+        String policyNodeKey = resourceKey + ".policy.ruleset." + baseRuleKeyPart;
+        if (nodes.containsKey(policyNodeKey) && StringUtils.hasText(descriptor.operationKey())) {
+            baseRuleKeyPart = baseRuleKeyPart + "." + keyPart(descriptor.operationKey());
+            policyNodeKey = resourceKey + ".policy.ruleset." + baseRuleKeyPart;
+        }
+        String evidenceKey = "evidence:" + policyNodeKey + ":rule-set";
+
+        List<String> availableRoots = List.copyOf(descriptor.availableRoots());
+        List<String> conceptRoots = List.copyOf(descriptor.conceptRoots());
+        List<String> referencedFactPaths = List.copyOf(descriptor.referencedFactPaths());
+        Map<String, List<String>> factPathsByRoot = descriptor.factPathsByRoot();
+        Map<String, DomainRuleSetDescriptor.RuleReasonDescriptor> reasonsByCode = descriptor.reasonDescriptors();
+        Map<String, DecisionSlot> slotsByKey = new LinkedHashMap<>();
+        List<Map<String, Object>> slotItems = new ArrayList<>();
+        Set<String> reasonCodes = new LinkedHashSet<>();
+        Set<String> targetFields = new LinkedHashSet<>();
+
+        for (DecisionSlot slot : safe(definition.slots())) {
+            slotsByKey.put(slot.slotKey(), slot);
+            slotItems.add(mapOfNonNull(
+                    "slotKey", slot.slotKey(),
+                    "stage", slot.stage() != null ? slot.stage().name() : null,
+                    "cardinality", slot.cardinality() != null ? slot.cardinality().name() : null,
+                    "overridePolicy", slot.overridePolicy() != null ? slot.overridePolicy().name() : null,
+                    "aggregationPolicy", slot.aggregationPolicy() != null ? slot.aggregationPolicy().name() : null,
+                    "parameterizable", slot.parameterTemplate() != null ? Boolean.TRUE : null,
+                    "templateKey", slot.parameterTemplate() != null ? blankToNull(slot.parameterTemplate().templateKey()) : null,
+                    "templateReasonCode", slot.parameterTemplate() != null ? blankToNull(slot.parameterTemplate().falseReasonCode()) : null
+            ));
+        }
+
+        if (safe(definition.bindings()).isEmpty()) {
+            for (DomainRuleSetDescriptor.RuleReasonDescriptor reason : reasonsByCode.values()) {
+                reasonCodes.add(reason.code());
+                if (StringUtils.hasText(reason.targetField())) {
+                    targetFields.add(reason.targetField());
+                }
+            }
+        }
+
+        for (String factPath : referencedFactPaths) {
+            if (factPath.startsWith(PraxisFactTreeBuilder.ROOT_DRAFT + ".")) {
+                String candidate = factPath.substring((PraxisFactTreeBuilder.ROOT_DRAFT + ".").length());
+                if (!candidate.contains(".") && nodes.containsKey(resourceKey + ".field." + keyPart(candidate))) {
+                    targetFields.add(candidate);
+                }
+            } else if (factPath.startsWith(PraxisFactTreeBuilder.ROOT_CURRENT + ".")) {
+                String candidate = factPath.substring((PraxisFactTreeBuilder.ROOT_CURRENT + ".").length());
+                if (!candidate.contains(".") && nodes.containsKey(resourceKey + ".field." + keyPart(candidate))) {
+                    targetFields.add(candidate);
+                }
+            }
+        }
+
+        List<Map<String, Object>> ruleItems = new ArrayList<>();
+        for (DecisionBinding binding : safe(definition.bindings())) {
+            DecisionSlot slot = slotsByKey.get(binding.slotKey());
+            String codeCandidate = blankToNull(binding.falseReasonCode());
+            if (codeCandidate == null && slot != null && slot.parameterTemplate() != null) {
+                codeCandidate = blankToNull(slot.parameterTemplate().falseReasonCode());
+            }
+            if (binding.enabled() && codeCandidate != null) {
+                reasonCodes.add(codeCandidate);
+            }
+            DomainRuleSetDescriptor.RuleReasonDescriptor matchedReason = codeCandidate != null
+                    ? reasonsByCode.get(codeCandidate)
+                    : reasonsByCode.get(binding.bindingKey());
+            if (matchedReason == null) {
+                for (DomainRuleSetDescriptor.RuleReasonDescriptor candidate : reasonsByCode.values()) {
+                    if (binding.slotKey().equals(candidate.slotKey())) {
+                        matchedReason = candidate;
+                        break;
+                    }
+                }
+            }
+            if (binding.enabled() && matchedReason != null && StringUtils.hasText(matchedReason.targetField())) {
+                targetFields.add(matchedReason.targetField());
+            }
+            String effectiveFalseDecision = binding.falseDecision() != null
+                    ? binding.falseDecision().name()
+                    : (slot != null && slot.parameterTemplate() != null && slot.parameterTemplate().falseDecision() != null
+                            ? slot.parameterTemplate().falseDecision().name()
+                            : null);
+            List<String> effectiveRequiredFactPaths = !safe(binding.requiredFactPaths()).isEmpty()
+                    ? List.copyOf(safe(binding.requiredFactPaths()))
+                    : (slot != null && slot.parameterTemplate() != null
+                            ? List.copyOf(safe(slot.parameterTemplate().requiredFactPaths()))
+                            : List.of());
+            JsonNode effectiveExpression = binding.executor() != null && binding.executor().expression() != null
+                    ? binding.executor().expression()
+                    : (slot != null && slot.parameterTemplate() != null && slot.parameterTemplate().executor() != null
+                            ? slot.parameterTemplate().executor().expression()
+                            : null);
+            Set<String> bindingReferencedPaths = new LinkedHashSet<>(
+                    PraxisFactTreeBuilder.extractReferencedFactPaths(effectiveExpression));
+            for (String reqPath : effectiveRequiredFactPaths) {
+                if (reqPath != null && reqPath.contains(".")) {
+                    bindingReferencedPaths.add(reqPath);
+                }
+            }
+            ruleItems.add(mapOfNonNull(
+                    "bindingKey", binding.bindingKey(),
+                    "slotKey", binding.slotKey(),
+                    "source", binding.source() != null ? binding.source().name() : null,
+                    "compositionPolicy", binding.compositionPolicy() != null ? binding.compositionPolicy().name() : null,
+                    "order", binding.order(),
+                    "enabled", binding.enabled(),
+                    "parameterized", binding.parameterization() != null ? Boolean.TRUE : null,
+                    "falseDecision", effectiveFalseDecision,
+                    "reasonCode", matchedReason != null ? matchedReason.code() : codeCandidate,
+                    "targetField", matchedReason != null ? matchedReason.targetField() : null,
+                    "message", matchedReason != null ? matchedReason.message() : null,
+                    "origin", matchedReason != null ? matchedReason.origin() : null,
+                    "lineage", matchedReason != null ? matchedReason.lineage() : null,
+                    "requiredFactPaths", effectiveRequiredFactPaths.isEmpty() ? null : effectiveRequiredFactPaths,
+                    "referencedFactPaths", bindingReferencedPaths.isEmpty() ? null : List.copyOf(bindingReferencedPaths)
+            ));
+        }
+
+        Map<String, Object> metadata = mapOfNonNull(
+                "policyKind", "domain_rule_set",
+                "resourceKey", resourceKey,
+                "domainKey", ref != null ? blankToNull(ref.domainKey()) : null,
+                "boundedContextKey", ref != null ? blankToNull(ref.boundedContextKey()) : null,
+                "ruleSetKey", ruleSetKey,
+                "operationKey", descriptor.operationKey(),
+                "version", ref != null ? Integer.valueOf(ref.version()) : null,
+                "failPolicy", definition.failPolicy() != null ? definition.failPolicy().name() : null,
+                "availableRoots", availableRoots.isEmpty() ? null : availableRoots,
+                "conceptRoots", conceptRoots.isEmpty() ? null : conceptRoots,
+                "referencedFactPaths", referencedFactPaths.isEmpty() ? null : referencedFactPaths,
+                "factPathsByRoot", factPathsByRoot.isEmpty() ? null : factPathsByRoot,
+                "slotCount", slotItems.size(),
+                "bindingCount", ruleItems.size(),
+                "slots", slotItems.isEmpty() ? null : List.copyOf(slotItems),
+                "rules", ruleItems.isEmpty() ? null : List.copyOf(ruleItems),
+                "reasonCodes", reasonCodes.isEmpty() ? null : List.copyOf(reasonCodes),
+                "targetFields", targetFields.isEmpty() ? null : List.copyOf(targetFields)
+        );
+
+        List<String> tags = new ArrayList<>(List.of("rule-set", "domain-rules", "shacl-shape"));
+        if (StringUtils.hasText(descriptor.operationKey())) {
+            tags.add(descriptor.operationKey().toLowerCase(Locale.ROOT));
+        }
+
+        nodes.putIfAbsent(policyNodeKey, new DomainCatalogResponse.DomainNodeItem(
+                policyNodeKey,
+                contextKey,
+                "policy_hint",
+                descriptor.label(),
+                descriptor.description(),
+                "active",
+                "rule-set",
+                0.98,
+                metadata,
+                List.copyOf(tags),
+                null,
+                contextKey,
+                "active",
+                glossary(descriptor.label(), descriptor.description(), tags),
+                resolution(policyNodeKey, matchKeys(ruleSetKey, descriptor.label(), descriptor.operationKey()), "exact-key-or-alias"),
+                List.of(evidenceKey)
+        ));
+
+        putEdge(edges, resourceKey + ".governed-by." + baseRuleKeyPart, resourceKey, policyNodeKey,
+                "governed_by", "Governado por RuleSet " + ruleSetKey, 0.98, List.of(evidenceKey));
+
+        for (String targetField : targetFields) {
+            String fieldNodeKey = resourceKey + ".field." + keyPart(targetField);
+            if (nodes.containsKey(fieldNodeKey)) {
+                putEdge(edges, fieldNodeKey + ".governed-by." + baseRuleKeyPart, fieldNodeKey, policyNodeKey,
+                        "governed_by", "Campo " + targetField + " governado por RuleSet " + ruleSetKey, 0.96, List.of(evidenceKey));
+            }
+        }
+
+        bindings.putIfAbsent("binding:" + policyNodeKey + ":rule-set", new DomainCatalogResponse.DomainBindingItem(
+                "binding:" + policyNodeKey + ":rule-set",
+                policyNodeKey,
+                "rule_definition",
+                mapOfNonNull(
+                        "resourceKey", resourceKey,
+                        "domainKey", ref != null ? blankToNull(ref.domainKey()) : null,
+                        "boundedContextKey", ref != null ? blankToNull(ref.boundedContextKey()) : null,
+                        "ruleSetKey", ruleSetKey,
+                        "operationKey", descriptor.operationKey(),
+                        "version", ref != null ? Integer.valueOf(ref.version()) : null,
+                        "failPolicy", definition.failPolicy() != null ? definition.failPolicy().name() : null,
+                        "availableRoots", availableRoots.isEmpty() ? null : availableRoots,
+                        "conceptRoots", conceptRoots.isEmpty() ? null : conceptRoots,
+                        "referencedFactPaths", referencedFactPaths.isEmpty() ? null : referencedFactPaths,
+                        "factPathsByRoot", factPathsByRoot.isEmpty() ? null : factPathsByRoot,
+                        "reasonCodes", reasonCodes.isEmpty() ? null : List.copyOf(reasonCodes),
+                        "targetFields", targetFields.isEmpty() ? null : List.copyOf(targetFields)
+                ),
+                List.of(),
+                List.of(evidenceKey)
+        ));
+
+        evidence.putIfAbsent(evidenceKey, evidence(
+                evidenceKey,
+                "inference",
+                mapOfNonNull(
+                        "kind", "praxis.rules.ruleset",
+                        "resourceKey", resourceKey,
+                        "domainKey", ref != null ? blankToNull(ref.domainKey()) : null,
+                        "boundedContextKey", ref != null ? blankToNull(ref.boundedContextKey()) : null,
+                        "ruleSetKey", ruleSetKey,
+                        "operationKey", descriptor.operationKey(),
+                        "version", ref != null ? Integer.valueOf(ref.version()) : null
+                ),
+                "Política determinística derivada de RuleSetDefinition (" + ruleSetKey + ") para o recurso " + resourceKey + ".",
+                0.98
+        ));
+    }
+
+    private Map<String, Object> ruleSetHashSummaries(Map<String, List<DomainRuleSetDescriptor>> ruleSets) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        for (Map.Entry<String, List<DomainRuleSetDescriptor>> entry : ruleSets.entrySet()) {
+            List<Map<String, Object>> items = new ArrayList<>();
+            for (DomainRuleSetDescriptor descriptor : entry.getValue()) {
+                RuleSetDefinition def = descriptor.ruleSetDefinition();
+                items.add(mapOfNonNull(
+                        "ruleSetKey", descriptor.ruleSetKey(),
+                        "operationKey", descriptor.operationKey(),
+                        "version", def.ref() != null ? def.ref().version() : null,
+                        "availableRoots", List.copyOf(descriptor.availableRoots()),
+                        "conceptRoots", List.copyOf(descriptor.conceptRoots()),
+                        "referencedFactPaths", List.copyOf(descriptor.referencedFactPaths()),
+                        "factPathsByRoot", descriptor.factPathsByRoot(),
+                        "reasonDescriptors", descriptor.reasonDescriptors()
+                ));
+            }
+            summary.put(entry.getKey(), List.copyOf(items));
+        }
+        return Map.copyOf(summary);
     }
 
     private void addAction(
@@ -373,7 +691,7 @@ public class SemanticDomainCatalogService {
                 action.group(),
                 "active",
                 glossary(firstText(action.title(), action.id()), action.description(), action.tags()),
-                resolution(actionNodeKey, List.of(action.id(), action.title()), "exact-key-or-alias"),
+                resolution(actionNodeKey, matchKeys(action.id(), action.title()), "exact-key-or-alias"),
                 List.of(evidenceKey)
         ));
 
@@ -416,6 +734,22 @@ public class SemanticDomainCatalogService {
         String resourceNodeKey = surface.resourceKey();
         String surfaceNodeKey = resourceNodeKey + ".surface." + keyPart(surface.id());
         String evidenceKey = "evidence:" + surfaceNodeKey + ":ui-surface";
+        RelatedResourceSurface relatedResource = surface.relatedResource();
+        boolean hasRelatedChild = relatedResource != null
+                && relatedResource.present()
+                && StringUtils.hasText(relatedResource.childResourceKey());
+        String relatedChildKey = hasRelatedChild ? relatedResource.childResourceKey().trim() : null;
+
+        Map<String, Object> surfaceMetadata = mapOfNonNull(
+                "surfaceId", surface.id(),
+                "kind", surface.kind() != null ? surface.kind().name() : null,
+                "scope", surface.scope() != null ? surface.scope().name() : null,
+                "intent", surface.intent(),
+                "resourceKey", surface.resourceKey(),
+                "relatedChildResourceKey", relatedChildKey,
+                "relatedChildResourcePath", hasRelatedChild ? blankToNull(relatedResource.childResourcePath()) : null,
+                "relatedChildParentField", hasRelatedChild ? blankToNull(relatedResource.childParentField()) : null
+        );
 
         nodes.putIfAbsent(surfaceNodeKey, new DomainCatalogResponse.DomainNodeItem(
                 surfaceNodeKey,
@@ -426,24 +760,28 @@ public class SemanticDomainCatalogService {
                 "active",
                 "ui-surface",
                 0.95,
-                mapOfNonNull(
-                        "surfaceId", surface.id(),
-                        "kind", surface.kind() != null ? surface.kind().name() : null,
-                        "scope", surface.scope() != null ? surface.scope().name() : null,
-                        "intent", surface.intent(),
-                        "resourceKey", surface.resourceKey()
-                ),
+                surfaceMetadata,
                 nonNullList(surface.tags()),
                 null,
                 surface.group(),
                 "active",
                 glossary(firstText(surface.title(), surface.id()), surface.description(), surface.tags()),
-                resolution(surfaceNodeKey, List.of(surface.id(), surface.title(), surface.intent()), "exact-key-or-alias"),
+                resolution(surfaceNodeKey, matchKeys(surface.id(), surface.title(), surface.intent()), "exact-key-or-alias"),
                 List.of(evidenceKey)
         ));
 
         putEdge(edges, resourceNodeKey + ".has-surface." + keyPart(surface.id()), resourceNodeKey, surfaceNodeKey,
                 "has_surface", "Possui surface " + firstText(surface.title(), surface.id()), 0.95, List.of(evidenceKey));
+
+        if (hasRelatedChild) {
+            putEdge(edges, surfaceNodeKey + ".references-child." + keyPart(relatedChildKey), surfaceNodeKey, relatedChildKey,
+                    "references", "Expõe coleção relacionada " + relatedChildKey, 0.95, List.of(evidenceKey));
+            if (!relatedChildKey.equals(resourceNodeKey)) {
+                putEdge(edges, resourceNodeKey + ".references-child." + keyPart(relatedChildKey), resourceNodeKey, relatedChildKey,
+                        "references", "Possui coleção relacionada " + relatedChildKey + " via surface " + firstText(surface.title(), surface.id()),
+                        0.95, List.of(evidenceKey));
+            }
+        }
 
         for (String allowedState : nonNullList(surface.allowedStates())) {
             String stateNodeKey = stateNodeKey(resourceNodeKey, allowedState);
@@ -452,11 +790,24 @@ public class SemanticDomainCatalogService {
                     "allowed_in_state", "Disponivel no estado " + allowedState, 0.95, List.of(evidenceKey));
         }
 
+        Map<String, Object> target = new LinkedHashMap<>(
+                operationTarget(surface.id(), surface.resourceKey(), surface.resourcePath(), surface.operation())
+        );
+        if (hasRelatedChild) {
+            target.put("relatedChildResourceKey", relatedChildKey);
+            if (StringUtils.hasText(relatedResource.childResourcePath())) {
+                target.put("relatedChildResourcePath", relatedResource.childResourcePath().trim());
+            }
+            if (StringUtils.hasText(relatedResource.childParentField())) {
+                target.put("relatedChildParentField", relatedResource.childParentField().trim());
+            }
+        }
+
         bindings.putIfAbsent("binding:" + surfaceNodeKey + ":ui-surface", new DomainCatalogResponse.DomainBindingItem(
                 "binding:" + surfaceNodeKey + ":ui-surface",
                 surfaceNodeKey,
                 "ui_surface",
-                operationTarget(surface.id(), surface.resourceKey(), surface.resourcePath(), surface.operation()),
+                Map.copyOf(target),
                 schemaLinks(surface.schema()),
                 List.of(evidenceKey)
         ));
@@ -464,7 +815,12 @@ public class SemanticDomainCatalogService {
         evidence.putIfAbsent(evidenceKey, evidence(
                 evidenceKey,
                 "annotation",
-                mapOfNonNull("kind", "java.annotation", "annotation", "UiSurface", "surfaceId", surface.id()),
+                mapOfNonNull(
+                        "kind", "java.annotation",
+                        "annotation", "UiSurface",
+                        "surfaceId", surface.id(),
+                        "relatedChildResourceKey", relatedChildKey
+                ),
                 "Surface derivada de @UiSurface para o recurso " + surface.resourceKey() + ".",
                 0.98
         ));
@@ -499,7 +855,7 @@ public class SemanticDomainCatalogService {
                 contextKey,
                 "active",
                 glossary("Politica de selecao " + descriptor.key(), "Politica documental de selecao publicada por option-source.", List.of("option-source", "selection-policy")),
-                resolution(policyNodeKey, List.of(descriptor.key(), descriptor.resourcePath()), "exact-key-or-alias"),
+                resolution(policyNodeKey, matchKeys(descriptor.key(), descriptor.resourcePath()), "exact-key-or-alias"),
                 List.of(evidenceKey)
         ));
 
@@ -577,70 +933,227 @@ public class SemanticDomainCatalogService {
             Map.Entry<String, JsonNode> entry = entries.next();
             String path = entry.getKey();
             String capabilityKind = statsCapabilityKind(resourcePath, path);
-            if (!StringUtils.hasText(capabilityKind)) {
+            if (StringUtils.hasText(capabilityKind) && isStatsCapabilitySupported(canonicalCapabilities, capabilityKind)) {
+                String method = firstText(firstMethod(entry.getValue()), "POST");
+                String nodeKey = resourceKey + ".stats." + keyPart(capabilityKind);
+                String evidenceKey = "evidence:" + nodeKey + ":openapi-stats";
+                nodes.putIfAbsent(nodeKey, new DomainCatalogResponse.DomainNodeItem(
+                        nodeKey,
+                        contextKey,
+                        "stats",
+                        labelFromKey(capabilityKind),
+                        "Capability analitica publicada pelo endpoint " + path + ".",
+                        "active",
+                        "openapi-stats",
+                        0.9,
+                        mapOfNonNull(
+                                "capabilityKey", "stats." + capabilityKind,
+                                "resourceKey", resourceKey,
+                                "resourcePath", resourcePath,
+                                "path", path,
+                                "method", method,
+                                "group", group
+                        ),
+                        List.of("stats", "analytics", capabilityKind),
+                        null,
+                        contextKey,
+                        "active",
+                        glossary(labelFromKey(capabilityKind), "Capability analitica publicada pelo endpoint " + path + ".", List.of("stats", "analytics")),
+                        resolution(nodeKey, matchKeys(capabilityKind, "stats", path), "exact-key-or-alias"),
+                        List.of(evidenceKey)
+                ));
+                putEdge(edges, resourceKey + ".has-stats." + keyPart(capabilityKind), resourceKey, nodeKey,
+                        "has_stats", "Possui capability analitica " + labelFromKey(capabilityKind), 0.9, List.of(evidenceKey));
+                bindings.putIfAbsent("binding:" + nodeKey + ":openapi-stats", new DomainCatalogResponse.DomainBindingItem(
+                        "binding:" + nodeKey + ":openapi-stats",
+                        nodeKey,
+                        "stats_endpoint",
+                        mapOfNonNull(
+                                "capabilityKey", "stats." + capabilityKind,
+                                "resourceKey", resourceKey,
+                                "resourcePath", resourcePath,
+                                "path", path,
+                                "method", method,
+                                "group", group
+                        ),
+                        List.of(),
+                        List.of(evidenceKey)
+                ));
+                evidence.putIfAbsent(evidenceKey, evidence(
+                        evidenceKey,
+                        "openapi_stats",
+                        mapOfNonNull(
+                                "kind", "openapi.operation",
+                                "capabilityKey", "stats." + capabilityKind,
+                                "resourceKey", resourceKey,
+                                "path", path,
+                                "method", method
+                        ),
+                        "Capability stats derivada do endpoint OpenAPI " + path + ".",
+                        0.95
+                ));
+            }
+            addUiAnalyticsProjectionsFromPathItem(
+                    resourceKey,
+                    contextKey,
+                    group,
+                    resourcePath,
+                    normalizedResourcePath,
+                    path,
+                    entry.getValue(),
+                    nodes,
+                    edges,
+                    bindings,
+                    evidence
+            );
+        }
+    }
+
+    private void addUiAnalyticsProjectionsFromPathItem(
+            String resourceKey,
+            String contextKey,
+            String group,
+            String resourcePath,
+            String normalizedResourcePath,
+            String path,
+            JsonNode pathItem,
+            Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
+            Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
+            Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
+            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence
+    ) {
+        if (pathItem == null || !pathItem.isObject()) {
+            return;
+        }
+        String normalizedPath = normalizeResourcePath(path);
+        if (!StringUtils.hasText(normalizedPath)
+                || !(normalizedPath.equals(normalizedResourcePath)
+                || normalizedPath.startsWith(normalizedResourcePath + "/"))) {
+            return;
+        }
+        for (String method : List.of("post", "get", "put", "patch", "delete")) {
+            JsonNode operation = pathItem.path(method);
+            if (!operation.isObject()) {
                 continue;
             }
-            if (!isStatsCapabilitySupported(canonicalCapabilities, capabilityKind)) {
+            JsonNode projections = operation.path("x-ui").path("analytics").path("projections");
+            if (!projections.isArray()) {
                 continue;
             }
-            String method = firstText(firstMethod(entry.getValue()), "POST");
-            String nodeKey = resourceKey + ".stats." + keyPart(capabilityKind);
-            String evidenceKey = "evidence:" + nodeKey + ":openapi-stats";
-            nodes.putIfAbsent(nodeKey, new DomainCatalogResponse.DomainNodeItem(
-                    nodeKey,
-                    contextKey,
-                    "stats",
-                    labelFromKey(capabilityKind),
-                    "Capability analitica publicada pelo endpoint " + path + ".",
-                    "active",
-                    "openapi-stats",
-                    0.9,
-                    mapOfNonNull(
-                            "capabilityKey", "stats." + capabilityKind,
-                            "resourceKey", resourceKey,
-                            "resourcePath", resourcePath,
-                            "path", path,
-                            "method", method,
-                            "group", group
-                    ),
-                    List.of("stats", "analytics", capabilityKind),
-                    null,
-                    contextKey,
-                    "active",
-                    glossary(labelFromKey(capabilityKind), "Capability analitica publicada pelo endpoint " + path + ".", List.of("stats", "analytics")),
-                    resolution(nodeKey, List.of(capabilityKind, "stats", path), "exact-key-or-alias"),
-                    List.of(evidenceKey)
-            ));
-            putEdge(edges, resourceKey + ".has-stats." + keyPart(capabilityKind), resourceKey, nodeKey,
-                    "has_stats", "Possui capability analitica " + labelFromKey(capabilityKind), 0.9, List.of(evidenceKey));
-            bindings.putIfAbsent("binding:" + nodeKey + ":openapi-stats", new DomainCatalogResponse.DomainBindingItem(
-                    "binding:" + nodeKey + ":openapi-stats",
-                    nodeKey,
-                    "stats_endpoint",
-                    mapOfNonNull(
-                            "capabilityKey", "stats." + capabilityKind,
-                            "resourceKey", resourceKey,
-                            "resourcePath", resourcePath,
-                            "path", path,
-                            "method", method,
-                            "group", group
-                    ),
-                    List.of(),
-                    List.of(evidenceKey)
-            ));
-            evidence.putIfAbsent(evidenceKey, evidence(
-                    evidenceKey,
-                    "openapi_stats",
-                    mapOfNonNull(
-                            "kind", "openapi.operation",
-                            "capabilityKey", "stats." + capabilityKind,
-                            "resourceKey", resourceKey,
-                            "path", path,
-                            "method", method
-                    ),
-                    "Capability stats derivada do endpoint OpenAPI " + path + ".",
-                    0.95
-            ));
+            for (JsonNode projection : projections) {
+                if (!projection.isObject()) {
+                    continue;
+                }
+                String projectionId = blankToNull(projection.path("id").asText(null));
+                if (!StringUtils.hasText(projectionId)) {
+                    continue;
+                }
+                String label = firstText(projection.path("label").asText(null), labelFromKey(projectionId));
+                String description = firstText(
+                        projection.path("description").asText(null),
+                        "Projeção analítica curada (" + label + ") publicada via @UiAnalytics para o recurso " + resourceKey + "."
+                );
+                String intent = blankToNull(projection.path("intent").asText(null));
+                String defaultFamily = blankToNull(projection.path("preferredVisualization").path("defaultFamily").asText(null));
+                String sourceKind = blankToNull(projection.path("source").path("kind").asText(null));
+                String sourceOperation = blankToNull(projection.path("source").path("operation").asText(null));
+                String sourcePath = firstText(projection.path("source").path("path").asText(null), path);
+                String primaryDimensionField = blankToNull(projection.path("semantics").path("primaryDimension").path("field").asText(null));
+                String primaryDimensionLabel = blankToNull(projection.path("semantics").path("primaryDimension").path("label").asText(null));
+                JsonNode primaryMetrics = projection.path("semantics").path("primaryMetrics");
+                String primaryMetricField = primaryMetrics.isArray() && !primaryMetrics.isEmpty()
+                        ? blankToNull(primaryMetrics.get(0).path("field").asText(null))
+                        : null;
+                String primaryMetricAggregation = primaryMetrics.isArray() && !primaryMetrics.isEmpty()
+                        ? blankToNull(primaryMetrics.get(0).path("aggregation").asText(null))
+                        : null;
+                JsonNode recordOpen = projection.path("interactions").path("recordOpen");
+                String recordOpenResourceKey = recordOpen.isObject()
+                        ? blankToNull(recordOpen.path("target").path("resourceKey").asText(null))
+                        : null;
+                String recordOpenSurfaceId = recordOpen.isObject()
+                        ? blankToNull(recordOpen.path("target").path("surfaceId").asText(null))
+                        : null;
+
+                String nodeKey = resourceKey + ".stats.projection." + keyPart(projectionId);
+                String evidenceKey = "evidence:" + nodeKey + ":ui-analytics";
+                Map<String, Object> metadata = mapOfNonNull(
+                        "statsKind", "analytics_projection",
+                        "projectionId", projectionId,
+                        "intent", intent,
+                        "defaultFamily", defaultFamily,
+                        "sourceKind", sourceKind,
+                        "sourceOperation", sourceOperation,
+                        "sourcePath", sourcePath,
+                        "primaryDimensionField", primaryDimensionField,
+                        "primaryDimensionLabel", primaryDimensionLabel,
+                        "primaryMetricField", primaryMetricField,
+                        "primaryMetricAggregation", primaryMetricAggregation,
+                        "recordOpenResourceKey", recordOpenResourceKey,
+                        "recordOpenSurfaceId", recordOpenSurfaceId,
+                        "resourceKey", resourceKey,
+                        "resourcePath", resourcePath,
+                        "group", group
+                );
+
+                List<String> tags = new ArrayList<>(List.of("stats", "analytics", "analytics-projection"));
+                if (intent != null) {
+                    tags.add(intent);
+                }
+                if (sourceOperation != null) {
+                    tags.add(sourceOperation);
+                }
+
+                nodes.putIfAbsent(nodeKey, new DomainCatalogResponse.DomainNodeItem(
+                        nodeKey,
+                        contextKey,
+                        "stats",
+                        label,
+                        description,
+                        "active",
+                        "ui-analytics",
+                        0.95,
+                        metadata,
+                        List.copyOf(tags),
+                        null,
+                        contextKey,
+                        "active",
+                        glossary(label, description, tags),
+                        resolution(nodeKey, matchKeys(projectionId, label, intent, primaryDimensionField, primaryMetricField), "exact-key-or-alias"),
+                        List.of(evidenceKey)
+                ));
+                putEdge(edges, resourceKey + ".has-stats.projection." + keyPart(projectionId), resourceKey, nodeKey,
+                        "has_stats", "Possui projeção analítica curada " + label, 0.95, List.of(evidenceKey));
+                if (recordOpenResourceKey != null) {
+                    putEdge(edges, nodeKey + ".references." + keyPart(recordOpenResourceKey), nodeKey, recordOpenResourceKey,
+                            "references", "Drill-down analítico abre recurso " + recordOpenResourceKey, 0.92, List.of(evidenceKey));
+                    if (!recordOpenResourceKey.equals(resourceKey)) {
+                        putEdge(edges, resourceKey + ".references." + keyPart(recordOpenResourceKey), resourceKey, recordOpenResourceKey,
+                                "references", "Projeção analítica " + label + " referencia " + recordOpenResourceKey + " em drill-down", 0.92, List.of(evidenceKey));
+                    }
+                }
+                bindings.putIfAbsent("binding:" + nodeKey + ":ui-analytics", new DomainCatalogResponse.DomainBindingItem(
+                        "binding:" + nodeKey + ":ui-analytics",
+                        nodeKey,
+                        "stats_endpoint",
+                        metadata,
+                        List.of(),
+                        List.of(evidenceKey)
+                ));
+                evidence.putIfAbsent(evidenceKey, evidence(
+                        evidenceKey,
+                        "openapi_stats",
+                        mapOfNonNull(
+                                "kind", "java.annotation",
+                                "annotation", "UiAnalytics",
+                                "projectionId", projectionId,
+                                "resourceKey", resourceKey,
+                                "path", sourcePath
+                        ),
+                        "Projeção analítica curada derivada de @UiAnalytics (" + projectionId + ") para o recurso " + resourceKey + ".",
+                        0.98
+                ));
+            }
         }
     }
 
@@ -650,6 +1163,7 @@ public class SemanticDomainCatalogService {
             String group,
             CanonicalSchemaRef schemaRef,
             String schemaRole,
+            Map<String, String> canonicalResourceKeysByPath,
             Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
             Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
             Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
@@ -672,7 +1186,8 @@ public class SemanticDomainCatalogService {
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> field = fields.next();
             addField(resourceKey, contextKey, schemaRef, schemaRole, field.getKey(), field.getValue(),
-                    requiredFields.contains(field.getKey()), nodes, edges, bindings, evidence, governance);
+                    requiredFields.contains(field.getKey()), canonicalResourceKeysByPath,
+                    nodes, edges, bindings, evidence, governance);
         }
     }
 
@@ -684,6 +1199,7 @@ public class SemanticDomainCatalogService {
             String fieldName,
             JsonNode fieldSchema,
             boolean required,
+            Map<String, String> canonicalResourceKeysByPath,
             Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
             Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
             Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
@@ -694,61 +1210,179 @@ public class SemanticDomainCatalogService {
         String evidenceKey = "evidence:" + fieldNodeKey + ":" + keyPart(schemaRef.schemaId());
         JsonNode effectiveSchema = unwrapArray(fieldSchema);
         String type = firstText(effectiveSchema.path("type").asText(null), fieldSchema.path("type").asText(null));
+        JsonNode resourceRefNode = effectiveSchema.path("x-ui").path("resourceReference");
+        String referencedResourceKey = resourceRefNode.isObject()
+                ? blankToNull(resourceRefNode.path("resourceKey").asText(null))
+                : null;
+        Map<String, Object> resourceReferenceMetadata = referencedResourceKey != null
+                ? mapOfNonNull(
+                        "resourceKey", referencedResourceKey,
+                        "valueField", blankToNull(resourceRefNode.path("valueField").asText(null)),
+                        "surfaceId", blankToNull(resourceRefNode.path("surfaceId").asText(null)),
+                        "previewSurfaceId", blankToNull(resourceRefNode.path("previewSurfaceId").asText(null)),
+                        "detailPresentation", blankToNull(resourceRefNode.path("detailPresentation").asText(null))
+                )
+                : null;
 
-        nodes.putIfAbsent(fieldNodeKey, new DomainCatalogResponse.DomainNodeItem(
-                fieldNodeKey,
-                contextKey,
-                "field",
-                labelFromKey(fieldName),
-                effectiveSchema.path("description").asText(null),
-                "active",
-                "dto_schema",
-                0.85,
-                mapOfNonNull(
-                        "fieldName", fieldName,
-                        "schemaId", schemaRef.schemaId(),
-                        "schemaRole", schemaRole,
-                        "schemaType", schemaRef.schemaType(),
-                        "type", type,
-                        "format", effectiveSchema.path("format").asText(null),
-                        "required", required,
-                        "enum", textValues(effectiveSchema.path("enum")),
-                        "minimum", numericValue(effectiveSchema.path("minimum")),
-                        "maximum", numericValue(effectiveSchema.path("maximum")),
-                        "minLength", numericValue(effectiveSchema.path("minLength")),
-                        "maxLength", numericValue(effectiveSchema.path("maxLength")),
-                        "pattern", effectiveSchema.path("pattern").asText(null)
-                ),
-                List.of("dto-field", schemaRole),
-                null,
-                contextKey,
-                "active",
-                glossary(labelFromKey(fieldName), effectiveSchema.path("description").asText(null), List.of("dto-field", schemaRole)),
-                resolution(fieldNodeKey, List.of(fieldName, labelFromKey(fieldName), schemaRef.schemaId()), "exact-key-or-alias"),
-                List.of(evidenceKey)
-        ));
+        JsonNode optionSourceNode = effectiveSchema.path("x-ui").path("optionSource");
+        Map<String, Object> optionSourceMetadata = null;
+        if (optionSourceNode.isObject()) {
+            String optionSourceKey = blankToNull(optionSourceNode.path("key").asText(null));
+            String optionSourceType = blankToNull(optionSourceNode.path("type").asText(null));
+            String optionSourceResourcePath = blankToNull(optionSourceNode.path("resourcePath").asText(null));
+            String optionSourceEntityKey = blankToNull(optionSourceNode.path("entityKey").asText(null));
+            List<String> optionSourceDependsOn = textValues(optionSourceNode.path("dependsOn"));
+            if (referencedResourceKey == null && "RESOURCE_ENTITY".equalsIgnoreCase(optionSourceType)) {
+                String normalizedOptionPath = normalizeResourcePath(optionSourceResourcePath);
+                String canonicalFromPath = normalizedOptionPath != null && canonicalResourceKeysByPath != null
+                        ? canonicalResourceKeysByPath.get(normalizedOptionPath)
+                        : null;
+                String detailResourceKey = blankToNull(optionSourceNode.path("detail").path("resourceKey").asText(null));
+                if (StringUtils.hasText(canonicalFromPath)) {
+                    referencedResourceKey = canonicalFromPath;
+                } else if (detailResourceKey != null && detailResourceKey.contains(".")) {
+                    referencedResourceKey = detailResourceKey;
+                } else if (StringUtils.hasText(optionSourceResourcePath)) {
+                    referencedResourceKey = resourceKeyForPath(
+                            optionSourceResourcePath,
+                            canonicalResourceKeysByPath != null ? canonicalResourceKeysByPath : Map.of()
+                    );
+                }
+            }
+            if (optionSourceKey != null || optionSourceType != null || optionSourceResourcePath != null) {
+                optionSourceMetadata = mapOfNonNull(
+                        "key", optionSourceKey,
+                        "type", optionSourceType,
+                        "resourcePath", optionSourceResourcePath,
+                        "entityKey", optionSourceEntityKey,
+                        "referencedResourceKey", referencedResourceKey,
+                        "dependsOn", optionSourceDependsOn != null && !optionSourceDependsOn.isEmpty() ? optionSourceDependsOn : null
+                );
+            }
+        }
+
+        Map<String, Object> fieldMetadata = mapOfNonNull(
+                "fieldName", fieldName,
+                "resourceKey", resourceKey,
+                "schemaId", schemaRef.schemaId(),
+                "schemaRole", schemaRole,
+                "schemaType", schemaRef.schemaType(),
+                "type", type,
+                "format", effectiveSchema.path("format").asText(null),
+                "required", required,
+                "enum", textValues(effectiveSchema.path("enum")),
+                "minimum", numericValue(effectiveSchema.path("minimum")),
+                "maximum", numericValue(effectiveSchema.path("maximum")),
+                "minLength", numericValue(effectiveSchema.path("minLength")),
+                "maxLength", numericValue(effectiveSchema.path("maxLength")),
+                "pattern", effectiveSchema.path("pattern").asText(null),
+                "referencedResourceKey", referencedResourceKey,
+                "resourceReference", resourceReferenceMetadata,
+                "optionSource", optionSourceMetadata
+        );
+
+        DomainCatalogResponse.DomainNodeItem existingFieldNode = nodes.get(fieldNodeKey);
+        if (existingFieldNode == null) {
+            nodes.put(fieldNodeKey, new DomainCatalogResponse.DomainNodeItem(
+                    fieldNodeKey,
+                    contextKey,
+                    "field",
+                    labelFromKey(fieldName),
+                    effectiveSchema.path("description").asText(null),
+                    "active",
+                    "dto_schema",
+                    0.85,
+                    fieldMetadata,
+                    List.of("dto-field", schemaRole),
+                    null,
+                    contextKey,
+                    "active",
+                    glossary(labelFromKey(fieldName), effectiveSchema.path("description").asText(null), List.of("dto-field", schemaRole)),
+                    resolution(fieldNodeKey, matchKeys(fieldName, labelFromKey(fieldName), schemaRef.schemaId()), "exact-key-or-alias"),
+                    List.of(evidenceKey)
+            ));
+        } else {
+            Map<String, Object> existingMeta = existingFieldNode.metadata() != null ? existingFieldNode.metadata() : Map.of();
+            boolean shouldUpdateReferencedKey = referencedResourceKey != null && !existingMeta.containsKey("referencedResourceKey");
+            boolean shouldUpdateResourceRef = resourceReferenceMetadata != null && !existingMeta.containsKey("resourceReference");
+            boolean shouldUpdateOptionSource = optionSourceMetadata != null && !existingMeta.containsKey("optionSource");
+            if (shouldUpdateReferencedKey || shouldUpdateResourceRef || shouldUpdateOptionSource) {
+                Map<String, Object> mergedMetadata = new LinkedHashMap<>(existingMeta);
+                if (shouldUpdateReferencedKey) {
+                    mergedMetadata.put("referencedResourceKey", referencedResourceKey);
+                }
+                if (shouldUpdateResourceRef) {
+                    mergedMetadata.put("resourceReference", resourceReferenceMetadata);
+                }
+                if (shouldUpdateOptionSource) {
+                    mergedMetadata.put("optionSource", optionSourceMetadata);
+                }
+                nodes.put(fieldNodeKey, new DomainCatalogResponse.DomainNodeItem(
+                        existingFieldNode.nodeKey(),
+                        existingFieldNode.contextKey(),
+                        existingFieldNode.nodeType(),
+                        existingFieldNode.label(),
+                        firstText(existingFieldNode.description(), effectiveSchema.path("description").asText(null)),
+                        existingFieldNode.status(),
+                        existingFieldNode.source(),
+                        existingFieldNode.confidence(),
+                        Map.copyOf(mergedMetadata),
+                        existingFieldNode.tags(),
+                        existingFieldNode.owner(),
+                        existingFieldNode.semanticOwner(),
+                        existingFieldNode.lifecycle(),
+                        existingFieldNode.businessGlossary(),
+                        existingFieldNode.resolution(),
+                        existingFieldNode.sourceEvidenceKeys()
+                ));
+            }
+        }
 
         putEdge(edges, resourceKey + ".has-field." + keyPart(fieldName), resourceKey, fieldNodeKey,
                 "has_field", "Possui campo " + fieldName, 0.85, List.of(evidenceKey));
 
-        bindings.putIfAbsent("binding:" + fieldNodeKey + ":dto-field", new DomainCatalogResponse.DomainBindingItem(
-                "binding:" + fieldNodeKey + ":dto-field",
-                fieldNodeKey,
-                "dto_field",
-                mapOfNonNull(
-                        "schemaId", schemaRef.schemaId(),
-                        "schemaType", schemaRef.schemaType(),
-                        "schemaRole", schemaRole,
-                        "fieldName", fieldName
-                ),
-                List.of(new DomainCatalogResponse.DomainSchemaLink(
-                        schemaRole,
-                        schemaRef.url(),
-                        schemaRef.schemaId(),
-                        schemaRef.schemaType()
-                )),
-                List.of(evidenceKey)
-        ));
+        if (referencedResourceKey != null) {
+            putEdge(edges, fieldNodeKey + ".references." + keyPart(referencedResourceKey), fieldNodeKey, referencedResourceKey,
+                    "references", "Campo " + fieldName + " referencia " + referencedResourceKey, 0.95, List.of(evidenceKey));
+            if (!referencedResourceKey.equals(resourceKey)) {
+                putEdge(edges, resourceKey + ".references." + keyPart(referencedResourceKey), resourceKey, referencedResourceKey,
+                        "references", "Referencia " + referencedResourceKey + " via campo " + fieldName, 0.95, List.of(evidenceKey));
+            }
+        }
+
+        String bindingKey = "binding:" + fieldNodeKey + ":dto-field";
+        DomainCatalogResponse.DomainBindingItem existingBinding = bindings.get(bindingKey);
+        if (existingBinding == null || (referencedResourceKey != null
+                && (existingBinding.target() == null || !existingBinding.target().containsKey("referencedResourceKey")))) {
+            Map<String, Object> mergedTarget = new LinkedHashMap<>(
+                    existingBinding != null && existingBinding.target() != null ? existingBinding.target() : Map.of()
+            );
+            mergedTarget.putIfAbsent("resourceKey", resourceKey);
+            mergedTarget.putIfAbsent("schemaId", schemaRef.schemaId());
+            mergedTarget.putIfAbsent("schemaType", schemaRef.schemaType());
+            mergedTarget.putIfAbsent("schemaRole", schemaRole);
+            mergedTarget.putIfAbsent("fieldName", fieldName);
+            if (referencedResourceKey != null) {
+                mergedTarget.put("referencedResourceKey", referencedResourceKey);
+            }
+            bindings.put(bindingKey, new DomainCatalogResponse.DomainBindingItem(
+                    bindingKey,
+                    fieldNodeKey,
+                    "dto_field",
+                    Map.copyOf(mergedTarget),
+                    existingBinding != null && existingBinding.schemaLinks() != null && !existingBinding.schemaLinks().isEmpty()
+                            ? existingBinding.schemaLinks()
+                            : List.of(new DomainCatalogResponse.DomainSchemaLink(
+                                    schemaRole,
+                                    schemaRef.url(),
+                                    schemaRef.schemaId(),
+                                    schemaRef.schemaType()
+                            )),
+                    existingBinding != null && existingBinding.evidenceKeys() != null && !existingBinding.evidenceKeys().isEmpty()
+                            ? existingBinding.evidenceKeys()
+                            : List.of(evidenceKey)
+            ));
+        }
 
         evidence.putIfAbsent(evidenceKey, evidence(
                 evidenceKey,
@@ -757,7 +1391,8 @@ public class SemanticDomainCatalogService {
                         "kind", "openapi.schema.property",
                         "schemaId", schemaRef.schemaId(),
                         "schemaRole", schemaRole,
-                        "fieldName", fieldName
+                        "fieldName", fieldName,
+                        "referencedResourceKey", referencedResourceKey
                 ),
                 "Campo derivado do schema OpenAPI " + schemaRef.schemaId() + ".",
                 0.9
@@ -768,6 +1403,371 @@ public class SemanticDomainCatalogService {
         if (fieldGovernance != null) {
             governance.putIfAbsent(fieldGovernance.governanceKey(), fieldGovernance);
         }
+    }
+
+    /**
+     * Sintetiza a topologia de Knowledge Graph e Data Products (System of Context) diretamente
+     * nos nós {@code concept} a partir das arestas e capacidades já extraídas, sem exigir
+     * configuração manual nos hosts.
+     */
+    private void enrichConceptKnowledgeGraphMetadata(
+            Map<String, DomainCatalogResponse.DomainContextItem> contexts,
+            Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
+            Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
+            String requestedGroup,
+            Map<String, Map<String, Boolean>> capabilitiesByResourcePath
+    ) {
+        for (DomainCatalogResponse.DomainEdgeItem edge : new ArrayList<>(edges.values())) {
+            if (!"references".equals(edge.edgeType())) {
+                continue;
+            }
+            String targetKey = edge.targetNodeKey();
+            if (StringUtils.hasText(targetKey) && !nodes.containsKey(targetKey)) {
+                String targetContext = contextKey(targetKey, requestedGroup);
+                ensureContext(contexts, targetContext, requestedGroup);
+                ensureConcept(
+                        nodes,
+                        targetKey,
+                        targetContext,
+                        null,
+                        requestedGroup,
+                        List.of("referenced-concept"),
+                        null,
+                        capabilitiesByResourcePath
+                );
+            }
+        }
+
+        Map<String, Set<String>> referencedByConcept = new LinkedHashMap<>();
+        Map<String, Set<String>> childConceptsByConcept = new LinkedHashMap<>();
+        Map<String, Set<String>> parentConceptsByConcept = new LinkedHashMap<>();
+        Map<String, Map<String, String>> conceptFactRootMapByConcept = new LinkedHashMap<>();
+        Map<String, Set<String>> governedRuleSetsByConcept = new LinkedHashMap<>();
+        Map<String, Set<String>> governedOperationsByConcept = new LinkedHashMap<>();
+        Map<String, Set<String>> governedReasonCodesByConcept = new LinkedHashMap<>();
+        Map<String, Set<String>> explicitRuleSetRootsByConcept = new LinkedHashMap<>();
+        Map<String, Map<String, Set<String>>> factPathsByRootByConcept = new LinkedHashMap<>();
+        Set<String> conceptsWithAnalytics = new LinkedHashSet<>();
+        Set<String> conceptsWithActions = new LinkedHashSet<>();
+
+        for (DomainCatalogResponse.DomainNodeItem node : nodes.values()) {
+            if (!"field".equals(node.nodeType()) || node.metadata() == null) {
+                continue;
+            }
+            Object resourceKeyObj = node.metadata().get("resourceKey");
+            Object fieldNameObj = node.metadata().get("fieldName");
+            Object refResourceKeyObj = node.metadata().get("referencedResourceKey");
+            if (resourceKeyObj instanceof String resKey
+                    && fieldNameObj instanceof String fName
+                    && refResourceKeyObj instanceof String refKey
+                    && StringUtils.hasText(resKey)
+                    && StringUtils.hasText(fName)
+                    && StringUtils.hasText(refKey)
+                    && !resKey.equals(refKey)) {
+                String factRoot = conceptFactRootFromField(fName, refKey);
+                if (StringUtils.hasText(factRoot)) {
+                    conceptFactRootMapByConcept
+                            .computeIfAbsent(resKey, ignored -> new LinkedHashMap<>())
+                            .putIfAbsent(factRoot, refKey);
+                }
+            }
+        }
+
+        for (DomainCatalogResponse.DomainEdgeItem edge : edges.values()) {
+            String src = edge.sourceNodeKey();
+            String dst = edge.targetNodeKey();
+            if ("has_stats".equals(edge.edgeType()) || "provides_fact".equals(edge.edgeType())) {
+                conceptsWithAnalytics.add(src);
+            }
+            if ("has_action".equals(edge.edgeType())) {
+                conceptsWithActions.add(src);
+            }
+            if ("governed_by".equals(edge.edgeType())) {
+                DomainCatalogResponse.DomainNodeItem srcNode = nodes.get(src);
+                DomainCatalogResponse.DomainNodeItem policyNode = nodes.get(dst);
+                if (srcNode != null
+                        && "concept".equals(srcNode.nodeType())
+                        && policyNode != null
+                        && policyNode.metadata() != null) {
+                    Object ruleSetKeyObj = policyNode.metadata().get("ruleSetKey");
+                    if (ruleSetKeyObj instanceof String ruleSetKey && StringUtils.hasText(ruleSetKey)) {
+                        governedRuleSetsByConcept.computeIfAbsent(src, ignored -> new LinkedHashSet<>()).add(ruleSetKey);
+                    }
+                    Object opKeyObj = policyNode.metadata().get("operationKey");
+                    if (opKeyObj instanceof String opKey && StringUtils.hasText(opKey)) {
+                        governedOperationsByConcept.computeIfAbsent(src, ignored -> new LinkedHashSet<>()).add(opKey);
+                    }
+                    Object reasonCodesObj = policyNode.metadata().get("reasonCodes");
+                    if (reasonCodesObj instanceof List<?> reasons) {
+                        for (Object item : reasons) {
+                            if (item instanceof String code && StringUtils.hasText(code)) {
+                                governedReasonCodesByConcept.computeIfAbsent(src, ignored -> new LinkedHashSet<>()).add(code);
+                            }
+                        }
+                    }
+                    Object conceptRootsObj = policyNode.metadata().get("conceptRoots");
+                    if (conceptRootsObj instanceof List<?> roots) {
+                        for (Object item : roots) {
+                            if (item instanceof String root && StringUtils.hasText(root)) {
+                                explicitRuleSetRootsByConcept.computeIfAbsent(src, ignored -> new LinkedHashSet<>()).add(root);
+                            }
+                        }
+                    }
+                    Object factPathsByRootObj = policyNode.metadata().get("factPathsByRoot");
+                    if (factPathsByRootObj instanceof Map<?, ?> pathsByRoot) {
+                        Map<String, Set<String>> targetMap = factPathsByRootByConcept
+                                .computeIfAbsent(src, ignored -> new LinkedHashMap<>());
+                        for (Map.Entry<?, ?> rootEntry : pathsByRoot.entrySet()) {
+                            if (rootEntry.getKey() instanceof String root && StringUtils.hasText(root)) {
+                                Set<String> rootPaths = targetMap.computeIfAbsent(root, ignored -> new java.util.TreeSet<>());
+                                if (rootEntry.getValue() instanceof List<?> pathList) {
+                                    for (Object pathObj : pathList) {
+                                        if (pathObj instanceof String path && StringUtils.hasText(path)) {
+                                            rootPaths.add(path);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if ("references".equals(edge.edgeType())) {
+                DomainCatalogResponse.DomainNodeItem srcNode = nodes.get(src);
+                if (srcNode != null && "concept".equals(srcNode.nodeType()) && !src.equals(dst)) {
+                    referencedByConcept.computeIfAbsent(src, ignored -> new LinkedHashSet<>()).add(dst);
+                    if (edge.edgeKey() != null && edge.edgeKey().contains(".references-child.")) {
+                        childConceptsByConcept.computeIfAbsent(src, ignored -> new LinkedHashSet<>()).add(dst);
+                        parentConceptsByConcept.computeIfAbsent(dst, ignored -> new LinkedHashSet<>()).add(src);
+                    }
+                }
+            }
+        }
+
+        Map<String, Set<String>> analyzedByDataProducts = new LinkedHashMap<>();
+        Map<String, String> semanticRoleByConcept = new LinkedHashMap<>();
+
+        for (DomainCatalogResponse.DomainNodeItem node : nodes.values()) {
+            if (!"concept".equals(node.nodeType())) {
+                continue;
+            }
+            String conceptKey = node.nodeKey();
+            boolean readOnly = node.metadata() != null
+                    && Boolean.TRUE.equals(node.metadata().get("readOnly"))
+                    && !conceptsWithActions.contains(conceptKey);
+            boolean hasAnalytics = conceptsWithAnalytics.contains(conceptKey);
+            Set<String> refs = referencedByConcept.getOrDefault(conceptKey, Set.of());
+            boolean isDataProduct = readOnly && hasAnalytics && !refs.isEmpty();
+
+            String semanticRole = isDataProduct
+                    ? "analytical_data_product"
+                    : (readOnly ? "reference_or_read_projection" : "operational_resource");
+            semanticRoleByConcept.put(conceptKey, semanticRole);
+
+            if (isDataProduct) {
+                for (String targetConcept : refs) {
+                    analyzedByDataProducts.computeIfAbsent(targetConcept, ignored -> new LinkedHashSet<>()).add(conceptKey);
+                    putEdge(
+                            edges,
+                            conceptKey + ".materializes." + keyPart(targetConcept),
+                            conceptKey,
+                            targetConcept,
+                            "materializes",
+                            "Data Product analítico consolida e analisa " + targetConcept,
+                            0.95,
+                            node.sourceEvidenceKeys()
+                    );
+                }
+            }
+        }
+
+        for (Map.Entry<String, DomainCatalogResponse.DomainNodeItem> entry : new ArrayList<>(nodes.entrySet())) {
+            DomainCatalogResponse.DomainNodeItem node = entry.getValue();
+            if (!"concept".equals(node.nodeType())) {
+                continue;
+            }
+            String conceptKey = node.nodeKey();
+            String semanticRole = semanticRoleByConcept.getOrDefault(conceptKey, "operational_resource");
+            Set<String> refs = referencedByConcept.getOrDefault(conceptKey, Set.of());
+            Set<String> children = childConceptsByConcept.getOrDefault(conceptKey, Set.of());
+            Set<String> parents = parentConceptsByConcept.getOrDefault(conceptKey, Set.of());
+            Set<String> dataProducts = analyzedByDataProducts.getOrDefault(conceptKey, Set.of());
+            Set<String> governedRuleSets = governedRuleSetsByConcept.getOrDefault(conceptKey, Set.of());
+            Set<String> governedOperations = governedOperationsByConcept.getOrDefault(conceptKey, Set.of());
+            Set<String> governedReasonCodes = governedReasonCodesByConcept.getOrDefault(conceptKey, Set.of());
+            Set<String> explicitRuleSetRoots = explicitRuleSetRootsByConcept.getOrDefault(conceptKey, Set.of());
+
+            Map<String, String> conceptFactRoots = new LinkedHashMap<>(
+                    conceptFactRootMapByConcept.getOrDefault(conceptKey, Map.of())
+            );
+            for (String refConcept : refs) {
+                if (children.contains(refConcept) || conceptFactRoots.containsValue(refConcept)) {
+                    continue;
+                }
+                String derivedRoot = conceptFactRootFromResourceKey(refConcept);
+                if (StringUtils.hasText(derivedRoot)) {
+                    conceptFactRoots.putIfAbsent(derivedRoot, refConcept);
+                }
+            }
+
+            Map<String, Object> updatedMeta = new LinkedHashMap<>(node.metadata() != null ? node.metadata() : Map.of());
+            updatedMeta.put("semanticRole", semanticRole);
+            if ("analytical_data_product".equals(semanticRole)) {
+                updatedMeta.put("dataProduct", Boolean.TRUE);
+                updatedMeta.put("analyzesConcepts", refs.stream().sorted().toList());
+            }
+            if (!refs.isEmpty()) {
+                updatedMeta.put("referencedConcepts", refs.stream().sorted().toList());
+            }
+            if (!children.isEmpty()) {
+                updatedMeta.put("childConcepts", children.stream().sorted().toList());
+            }
+            if (!parents.isEmpty()) {
+                updatedMeta.put("parentConcepts", parents.stream().sorted().toList());
+            }
+            if (!dataProducts.isEmpty()) {
+                updatedMeta.put("analyzedByDataProducts", dataProducts.stream().sorted().toList());
+            }
+            if (!conceptFactRoots.isEmpty()) {
+                updatedMeta.put("conceptFactRootMap", Collections.unmodifiableMap(conceptFactRoots));
+            }
+            if ("operational_resource".equals(semanticRole) || !governedRuleSets.isEmpty()) {
+                Set<String> ontologicalFactRoots = new LinkedHashSet<>();
+                ontologicalFactRoots.add(PraxisFactTreeBuilder.ROOT_DRAFT);
+                ontologicalFactRoots.add(PraxisFactTreeBuilder.ROOT_CURRENT);
+                ontologicalFactRoots.addAll(conceptFactRoots.keySet());
+                for (String explicitRoot : explicitRuleSetRoots) {
+                    if (!Set.of(
+                            PraxisFactTreeBuilder.ROOT_DRAFT,
+                            PraxisFactTreeBuilder.ROOT_CURRENT,
+                            PraxisFactTreeBuilder.ROOT_NEIGHBORHOOD,
+                            PraxisFactTreeBuilder.ROOT_CONTEXT
+                    ).contains(explicitRoot)) {
+                        ontologicalFactRoots.add(explicitRoot);
+                    }
+                }
+                ontologicalFactRoots.add(PraxisFactTreeBuilder.ROOT_NEIGHBORHOOD);
+                ontologicalFactRoots.add(PraxisFactTreeBuilder.ROOT_CONTEXT);
+                updatedMeta.put("ontologicalFactRoots", List.copyOf(ontologicalFactRoots));
+                Map<String, Set<String>> conceptPathsByRoot = factPathsByRootByConcept.getOrDefault(conceptKey, Map.of());
+                if (!conceptPathsByRoot.isEmpty()) {
+                    Map<String, List<String>> orderedPathsByRoot = new LinkedHashMap<>();
+                    for (String root : ontologicalFactRoots) {
+                        Set<String> paths = conceptPathsByRoot.getOrDefault(root, Set.of());
+                        orderedPathsByRoot.put(root, List.copyOf(paths));
+                    }
+                    for (Map.Entry<String, Set<String>> rootEntry : conceptPathsByRoot.entrySet()) {
+                        if (!orderedPathsByRoot.containsKey(rootEntry.getKey()) && !rootEntry.getValue().isEmpty()) {
+                            orderedPathsByRoot.put(rootEntry.getKey(), List.copyOf(rootEntry.getValue()));
+                        }
+                    }
+                    updatedMeta.put("ontologicalFactPathsByRoot", Collections.unmodifiableMap(orderedPathsByRoot));
+                }
+            }
+            if (!governedRuleSets.isEmpty()) {
+                updatedMeta.put("governedRuleSets", governedRuleSets.stream().sorted().toList());
+                if (!governedOperations.isEmpty()) {
+                    updatedMeta.put("governedOperations", governedOperations.stream().sorted().toList());
+                }
+                if (!governedReasonCodes.isEmpty()) {
+                    updatedMeta.put("governedReasonCodes", governedReasonCodes.stream().sorted().toList());
+                }
+            }
+
+            List<String> updatedTags = new ArrayList<>(node.tags() != null ? node.tags() : List.of());
+            if ("analytical_data_product".equals(semanticRole)) {
+                if (!updatedTags.contains("data-product")) {
+                    updatedTags.add("data-product");
+                }
+                if (!updatedTags.contains("analytical-projection")) {
+                    updatedTags.add("analytical-projection");
+                }
+            }
+            if (!governedRuleSets.isEmpty() && !updatedTags.contains("rule-governed")) {
+                updatedTags.add("rule-governed");
+            }
+
+            nodes.put(conceptKey, new DomainCatalogResponse.DomainNodeItem(
+                    node.nodeKey(),
+                    node.contextKey(),
+                    node.nodeType(),
+                    node.label(),
+                    node.description(),
+                    node.status(),
+                    node.source(),
+                    node.confidence(),
+                    Map.copyOf(updatedMeta),
+                    List.copyOf(updatedTags),
+                    node.owner(),
+                    node.semanticOwner(),
+                    node.lifecycle(),
+                    node.businessGlossary(),
+                    node.resolution(),
+                    node.sourceEvidenceKeys()
+            ));
+        }
+    }
+
+    private String conceptFactRootFromField(String fieldName, String referencedResourceKey) {
+        if (StringUtils.hasText(fieldName)) {
+            String trimmed = fieldName.trim();
+            for (String suffix : List.of("Id", "Codigo", "Key", "Ref")) {
+                if (trimmed.length() > suffix.length() && trimmed.endsWith(suffix)) {
+                    String candidate = trimmed.substring(0, trimmed.length() - suffix.length());
+                    if (StringUtils.hasText(candidate)) {
+                        return Character.toLowerCase(candidate.charAt(0)) + candidate.substring(1);
+                    }
+                }
+            }
+        }
+        return conceptFactRootFromResourceKey(referencedResourceKey);
+    }
+
+    private String conceptFactRootFromResourceKey(String resourceKey) {
+        String segment = lastSegment(resourceKey);
+        if (!StringUtils.hasText(segment)) {
+            return null;
+        }
+        String[] parts = segment.trim().split("[-_\\s]+");
+        StringBuilder camel = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+            if (!StringUtils.hasText(part)) {
+                continue;
+            }
+            if (i == parts.length - 1) {
+                part = singularizeSegment(part);
+            }
+            if (camel.isEmpty()) {
+                camel.append(Character.toLowerCase(part.charAt(0))).append(part.substring(1));
+            } else {
+                camel.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+            }
+        }
+        return camel.isEmpty() ? null : camel.toString();
+    }
+
+    private String singularizeSegment(String word) {
+        if (!StringUtils.hasText(word) || word.length() <= 3) {
+            return word;
+        }
+        String lower = word.toLowerCase(Locale.ROOT);
+        if (lower.endsWith("oes") && word.length() > 4) {
+            return word.substring(0, word.length() - 3) + "ao";
+        }
+        if (lower.endsWith("aes") && word.length() > 4) {
+            return word.substring(0, word.length() - 3) + "ao";
+        }
+        if (lower.endsWith("ies") && word.length() > 4) {
+            return word.substring(0, word.length() - 3) + "y";
+        }
+        if (lower.endsWith("res") && word.length() > 4) {
+            return word.substring(0, word.length() - 2);
+        }
+        if (lower.endsWith("s") && !lower.endsWith("ss") && !lower.endsWith("us")) {
+            return word.substring(0, word.length() - 1);
+        }
+        return word;
     }
 
     private DomainCatalogResponse.DomainGovernanceItem classifyFieldGovernance(
@@ -878,10 +1878,13 @@ public class SemanticDomainCatalogService {
         }
         if (schemaRef != null && schemaRef.schemaId() != null) aiUsage.put("schemaId", schemaRef.schemaId());
         if (schemaRole != null) aiUsage.put("schemaRole", schemaRole);
+        List<String> declaredComplianceTags = textValues(governanceNode.path("complianceTags"));
         return new DomainCatalogResponse.DomainGovernanceItem(
                 "governance:" + nodeKey + (staticSchemaDeclaration ? ":" + annotationType : ""),
                 nodeKey, annotationType, classification, dataCategory,
-                textValues(governanceNode.path("complianceTags")),
+                declaredComplianceTags,
+                declaredComplianceTags != null && declaredComplianceTags.stream().anyMatch("NON_EXPORTABLE"::equalsIgnoreCase)
+                        ? Boolean.FALSE : governanceNode.path("exportable").isBoolean() ? governanceNode.path("exportable").booleanValue() : null,
                 governanceNode.path("owner").asText(null), governanceNode.path("steward").asText(null),
                 governanceNode.path("retentionPolicy").asText(null), aiUsage,
                 firstText(governanceNode.path("source").asText(null), defaultSource),
@@ -912,6 +1915,7 @@ public class SemanticDomainCatalogService {
                 classification,
                 dataCategory,
                 complianceTags,
+                complianceTags.stream().anyMatch("NON_EXPORTABLE"::equalsIgnoreCase) ? Boolean.FALSE : null,
                 null,
                 null,
                 null,
@@ -990,8 +1994,8 @@ public class SemanticDomainCatalogService {
                 capabilitiesByResourcePath
         );
         Boolean readOnly = capabilities != null && !capabilities.isEmpty()
-                ? FilteredSchemaProjection.readOnly(null, capabilities)
-                : null;
+                ? Boolean.valueOf(FilteredSchemaProjection.readOnly(null, capabilities))
+                : inferReadOnlyFromOpenApiPaths(group, resourcePath);
 
         nodes.put(resourceKey, new DomainCatalogResponse.DomainNodeItem(
                 resourceKey,
@@ -1014,9 +2018,48 @@ public class SemanticDomainCatalogService {
                 contextKey,
                 "active",
                 glossary(labelFromKey(lastSegment(resourceKey)), blankToNull(description), tags),
-                resolution(resourceKey, java.util.stream.Stream.of(resourceKey, resourcePath, lastSegment(resourceKey)).filter(Objects::nonNull).toList(), "exact-key-or-alias"),
+                resolution(resourceKey, matchKeys(resourceKey, resourcePath, lastSegment(resourceKey)), "exact-key-or-alias"),
                 List.of()
         ));
+    }
+
+    private Boolean inferReadOnlyFromOpenApiPaths(String group, String resourcePath) {
+        if (!StringUtils.hasText(resourcePath) || openApiDocumentService == null) {
+            return null;
+        }
+        String normalizedResourcePath = normalizeResourcePath(resourcePath);
+        if (!StringUtils.hasText(normalizedResourcePath)) {
+            return null;
+        }
+        JsonNode paths = openApiPaths(group, resourcePath);
+        if (paths == null || !paths.isObject()) {
+            return null;
+        }
+        boolean hasAnyOperation = false;
+        Iterator<Map.Entry<String, JsonNode>> entries = paths.fields();
+        while (entries.hasNext()) {
+            Map.Entry<String, JsonNode> entry = entries.next();
+            String normalizedPath = normalizeResourcePath(entry.getKey());
+            if (!StringUtils.hasText(normalizedPath)
+                    || !(normalizedPath.equals(normalizedResourcePath)
+                    || normalizedPath.startsWith(normalizedResourcePath + "/"))) {
+                continue;
+            }
+            JsonNode pathItem = entry.getValue();
+            if (pathItem == null || !pathItem.isObject()) {
+                continue;
+            }
+            hasAnyOperation = true;
+            if ((normalizedPath.equals(normalizedResourcePath) && pathItem.has("post"))
+                    || pathItem.has("put")
+                    || pathItem.has("patch")
+                    || pathItem.has("delete")
+                    || normalizedPath.contains("/actions/")
+                    || normalizedPath.contains("/bulk/")) {
+                return Boolean.FALSE;
+            }
+        }
+        return hasAnyOperation ? Boolean.TRUE : null;
     }
 
     private void ensureState(
@@ -1042,7 +2085,7 @@ public class SemanticDomainCatalogService {
                 contextKey,
                 "active",
                 glossary(labelFromKey(state), null, List.of("state")),
-                resolution(stateNodeKey, List.of(state, labelFromKey(state)), "exact-key-or-alias"),
+                resolution(stateNodeKey, matchKeys(state, labelFromKey(state)), "exact-key-or-alias"),
                 List.of(evidenceKey)
         ));
     }
@@ -1144,6 +2187,10 @@ public class SemanticDomainCatalogService {
             if (surfaceId instanceof String value) {
                 addAlias(aliases, node.nodeKey(), value, "ui-surface-id", node.confidence());
             }
+            Object ruleSetKey = node.metadata() != null ? node.metadata().get("ruleSetKey") : null;
+            if (ruleSetKey instanceof String value) {
+                addAlias(aliases, node.nodeKey(), value, "rule-set-key", node.confidence());
+            }
         }
         return List.copyOf(aliases.values());
     }
@@ -1187,6 +2234,13 @@ public class SemanticDomainCatalogService {
                 "matchKeys", nonNullList(matchKeys),
                 "ambiguityPolicy", ambiguityPolicy
         );
+    }
+
+    private List<String> matchKeys(String... values) {
+        if (values == null || values.length == 0) {
+            return List.of();
+        }
+        return nonNullList(java.util.Arrays.asList(values));
     }
 
     private Map<String, Object> operationTarget(

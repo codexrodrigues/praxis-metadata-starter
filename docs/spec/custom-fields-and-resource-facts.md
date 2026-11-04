@@ -9,7 +9,9 @@ não declara release publicada ou adoção no Quickstart, Angular ou Policy Stud
 O metadata starter publica definições estruturais e grounding semântico.
 `CustomFieldDefinitionProvider` fornece definições ativas por `resourceKey`, tenant
 e tipo de schema; a persistência e a autorização dessas definições pertencem ao
-host. Não há dependência de `praxis-config-starter` ou `praxis-rules-engine`.
+host. Não há dependência de `praxis-config-starter`. A validação executável de
+`validationRules.jsonLogic` usa o runtime canônico `praxis-rules-engine`, conforme
+a [ponte governada](../guides/GOVERNED-RULE-BRIDGE.md).
 
 `/schemas/filtered` permanece a fonte estrutural. `/schemas/domain` publica nós,
 bindings, evidências e governança derivados das mesmas definições. Um fato descrito
@@ -123,12 +125,16 @@ ilustra o container. As chaves `x-ui` são verificadas por
 ## Escrita, filtro e exportação
 
 `AbstractBaseResourceService` valida DTOs anotados antes de `beforeCreate` e
-`beforeUpdate`: rejeita chaves desconhecidas, valores em campos read-only e violações
+`beforeUpdate`: rejeita chaves desconhecidas, atribuições read-only em CREATE,
+alterações/limpezas read-only em UPDATE e violações
 de obrigatoriedade, tipo, limites, tamanho e pattern. Erros são publicados pelo
 handler canônico com o caminho `customFields.<key>`. Defaults são metadata;
 o validador não preenche valores automaticamente.
 
-Na atualização padrão, a base consulta as definições uma vez, executa `beforeUpdate`,
+Na atualização padrão, a base consulta as definições uma vez e prepara um snapshot
+do request. Após carregar e autorizar a entidade (e conferir a precondição no update
+versionado), avalia JSON Logic com o estado de servidor em `entity`, antes de
+`beforeUpdate`, mapper ou persistência. Em seguida executa `beforeUpdate`,
 captura os valores `readOnly` e restaura esses valores após `ResourceMapper.applyUpdate`,
 antes de salvar. Também preserva a ausência: o mapper não pode inventar um campo
 protegido ausente. Alterações legítimas feitas pelo hook de domínio são preservadas.
@@ -138,21 +144,66 @@ mutável. Uma restauração impossível falha antes do save.
 
 Exemplo: estado persistido `{"numero_calcado":42,"auditFlag":true}` e PUT com
 `{"customFields":{"numero_calcado":43}}` resultam em
-`{"numero_calcado":43,"auditFlag":true}`. Enviar `auditFlag`, mesmo com `null`,
-continua sendo erro de escrita; a UI deve omitir campos protegidos no submit.
+`{"numero_calcado":43,"auditFlag":true}`. Enviar `auditFlag=true` nesse snapshot
+é válido em PUT/bulk; enviar `false` ou `null` tenta alterar/limpar o valor e é
+rejeitado. Omissão preserva o valor do servidor. CREATE rejeita qualquer envio
+de campo read-only.
 
 A chave do recurso pode ser explicitada na anotação ou no método protegido
 `resolveResourceKey()`. Use a mesma chave publicada pelo `@ApiResource` do controller.
 Recursos sem container anotado mantêm seu ciclo existente. Implementações de escrita
-próprias do host, incluindo o overload de atualização versionada, devem chamar
-`validateCustomFields(dto, "request")` antes de seus hooks e preservar os valores
-protegidos através do mapper. Esse helper retorna `Set<String>` das chaves readonly
-validadas; overrides devem conservar as chaves retornadas por `super`. Escritores
+próprias do host devem chamar `prepareCustomFields(dto, "request")`, carregar e
+autorizar o estado existente e chamar `prepared.validateForUpdate(entity)` antes
+de seus hooks, conservando as chaves readonly retornadas. Na criação, devem usar
+`prepared.validateForCreate()`, que declara `entity = null`. O helper
+`validateCustomFields` é standalone e recusa expressões que exijam `entity`;
+não deve substituir a preparação do ciclo de escrita. Extensões devem decorar
+`prepareCustomFields`, preservando a preparação retornada por `super`. Escritores
 próprios usam `CustomFieldSupport.snapshotReadOnlyValues(entity, keys)` após o hook
 e `restoreReadOnlyValues(entity, keys, snapshot)` após o mapper, na mesma transação,
 antes de persistir. Isso não substitui precondição/versionamento ou autorização.
-Não existe implementação canônica concreta do overload versionado para interceptar
-automaticamente.
+As duas variantes de update da base já aplicam esse contrato.
+
+Para regras sobre dados hidratados, a base oferece
+`prepareCreateValidationDraft(dto, candidate)` e
+`prepareUpdateValidationDraft(id, candidate, dto)`. O default mantém o request.
+O host pode hidratar o candidato e devolver uma projeção DTO explícita, sem
+escrita nem efeitos de negócio. No update o candidato é destacado e o estado
+persistido em `entity` permanece independente. O helper protegido
+`validatePreparedCustomFieldsForUpdate` aplica esse preparo também a escritores
+especializados; bulk usa o mesmo lifecycle. As definições e valores enviados
+permanecem no snapshot inicial; a projeção altera somente a raiz `draft`.
+
+### Comandos de domínio versionados
+
+`executeVersionedMutation` não trata a resposta do callback como uma atribuição
+do cliente. Antes do callback, `CustomFieldValidator.prepareDomainMutation`
+captura o contrato DTO publicado e uma única lista de definições. Quando alguma
+regra observa `entity`, captura os fatos escalares autorizados e o container JSON
+anterior; não copia um grafo JPA. Regras somente de `value`/`draft` dispensam essa
+captura. O marker na entidade não é requisito para admitir o contrato do DTO.
+
+Após o callback, valida os valores e as expressões na projeção DTO resultante,
+antes do save final. `entity` permanece o estado anterior, inclusive quando o
+callback altera o Map em memória. Alterações read-only calculadas pelo servidor
+são permitidas, como no hook de um PUT; não são uma permissão para mapear entradas
+arbitrárias do cliente. Requests que permitem custom fields continuam exigindo
+`prepareCustomFields` e as guardas read-only antes dos efeitos. Escritores
+especializados, como PATCHs financeiros, não ficam dispensados desse lifecycle.
+
+O método público chamador deve manter a transação da mutação: uma rejeição deve
+reverter também eventuais flushes/efeitos de banco executados pelo callback.
+Um comando pode corrigir um valor antigo incompatível com a definição vigente;
+a validação governa o resultado, sem rejeitar antecipadamente o estado a reparar.
+
+Quando um campo opcional é omitido, somente suas restrições locais de `value`
+são dispensadas. Regras entre campos, defaults que observam outras raízes e
+`var` do contexto completo continuam ativas. `null` explícito e zero não são
+omissão. A admissão antes da persistência usa
+`CustomFieldValidationRules.validate` — a mesma usada pelo descriptor. Operadores com
+pureza contextual no engine (como `now` e `daysSince`) são rejeitados na construção
+do descriptor: esse adapter não fornece relógio/timezone. Consulte o
+[contrato da ponte](../guides/GOVERNED-RULE-BRIDGE.md) para roots e semântica de erros.
 
 O filtro usa `GenericSpecificationsBuilder` e `jsonb_extract_path_text` sobre o
 atributo anotado da entidade. Somente chaves declaradas e `filterable` são admitidas.

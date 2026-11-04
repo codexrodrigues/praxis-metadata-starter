@@ -683,6 +683,17 @@ class AbstractResourceControllerJpaWriteIntegrationTest {
             EmployeeResourceMapper.class
     })
     static class TestConfig {
+        // Internal OpenAPI discovery uses the request's LOCAL origin; MockMvc must model the real listener.
+        @org.springframework.context.annotation.Bean
+        org.springframework.boot.test.autoconfigure.web.servlet.MockMvcBuilderCustomizer actualServerOrigin(
+                org.springframework.core.env.Environment environment) {
+            return builder -> builder.defaultRequest(get("/").with(request -> {
+                int listenerPort = environment.getRequiredProperty("local.server.port", Integer.class);
+                request.setLocalPort(listenerPort);
+                request.setServerPort(listenerPort);
+                return request;
+            }));
+        }
     }
 }
 

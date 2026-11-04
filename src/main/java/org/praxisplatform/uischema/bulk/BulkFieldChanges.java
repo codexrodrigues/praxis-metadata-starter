@@ -34,24 +34,24 @@ public final class BulkFieldChanges {
             throw new IllegalArgumentException("Clearable fields must be a subset of writable fields.");
         }
         if (changes == null || changes.isEmpty()) {
-            throw new IllegalArgumentException("At least one bulk field change is required.");
+            throw new BulkFieldChangeValidationException("At least one bulk field change is required.");
         }
 
         Set<String> changedFields = new HashSet<>();
         for (BulkFieldChange change : changes) {
             if (change == null) {
-                throw new IllegalArgumentException("Bulk field changes must not contain null entries.");
+                throw new BulkFieldChangeValidationException("Bulk field changes must not contain null entries.");
             }
 
             String field = change.field();
             if (!changedFields.add(field)) {
-                throw new IllegalArgumentException("Bulk field changes must not repeat fields.");
+                throw new BulkFieldChangeValidationException("Bulk field changes must not repeat fields.");
             }
             if (!writableFields.contains(field)) {
-                throw new IllegalArgumentException("Bulk field is not writable.");
+                throw new BulkFieldChangeValidationException("Bulk field is not writable.");
             }
             if (change.operator() == BulkChangeOperator.CLEAR && !clearableFields.contains(field)) {
-                throw new IllegalArgumentException("Bulk field is not clearable.");
+                throw new BulkFieldChangeValidationException("Bulk field is not clearable.");
             }
         }
     }

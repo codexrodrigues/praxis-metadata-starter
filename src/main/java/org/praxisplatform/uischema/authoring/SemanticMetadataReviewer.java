@@ -5,6 +5,9 @@ import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 import org.praxisplatform.uischema.fact.ResourceFact;
+import org.praxisplatform.uischema.options.OptionSourceDescriptor;
+import org.praxisplatform.uischema.options.OptionSourceEligibility;
+import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -35,6 +38,12 @@ public class SemanticMetadataReviewer {
     );
 
     public SemanticMetadataReviewReport review(Class<?> targetType) {
+        return review(targetType, List.of(), null);
+    }
+
+    /** Reviews the DTO and its resource-owned sources against the same eligibility used at execution. */
+    public SemanticMetadataReviewReport review(Class<?> targetType, Iterable<OptionSourceDescriptor> sources,
+            StatsFieldRegistry statsFields) {
         if (targetType == null) {
             return new SemanticMetadataReviewReport(null, List.of());
         }
@@ -111,6 +120,16 @@ public class SemanticMetadataReviewer {
                 resourceReferenceValueFields,
                 issues
         );
+        var eligibility = new OptionSourceEligibility();
+        for (OptionSourceDescriptor source : sources) {
+            try {
+                eligibility.resolveEffectiveDescriptor(source, statsFields);
+            } catch (IllegalArgumentException ex) {
+                issues.add(new SemanticMetadataReviewIssue(SemanticMetadataIssueSeverity.ERROR,
+                        "option-source-ineligible", targetType.getName(), source == null ? null : source.key(),
+                        ex.getMessage()));
+            }
+        }
         return new SemanticMetadataReviewReport(targetType, issues);
     }
 

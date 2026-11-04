@@ -142,8 +142,14 @@ Validacao Minima por Escopo
   - `mvn "-Dtest=AnnotationDrivenActionDefinitionRegistryTest,DefaultActionAvailabilityContextResolverTest,DefaultActionAvailabilityEvaluatorTest,ActionCatalogServiceTest,ActionCatalogE2ETest,WorkflowNegativePathsE2ETest" test`
 - Capabilities e hypermedia:
   - `mvn "-Dtest=OpenApiCanonicalCapabilityResolverTest,CapabilityServiceTest,CapabilityE2ETest,CapabilityConsistencyE2ETest,HypermediaDiscoveryE2ETest,HateoasAndPayloadSizeE2ETest" test`
-- Validacao ampla do starter:
-  - `mvn verify`
+- Core resource service, keyset cursor, custom fields, commands e bulk declarativo/JPA (H2/MockMvc rápido):
+  - `mvn "-Dtest=CoreResourceEvolutionIntegrationTest,ResourceKeysetSupportTest,CustomFieldJsonLogicTest,CustomFieldAdoptionRegressionTest,CustomFieldResourceLifecycleTest,GovernedResourceCommandExecutorTest,RuleViolationHttpTest,JpaResourceBulkEngineTest,BulkDeclarativeProtocolTest,BulkDeclarativeJpaHttpTest,BulkOperationStatusLookupTest" test`
+- Regressao ampla rapida do starter no Windows (~1.830 testes em ~2 min, sem subir dezenas de clusters `EmbeddedPostgres` nem `Neon`):
+  - `mvn test "-Dtest=!*Neon*,!*PostgresTest,!BulkCapacityLocalAdministrationMainTest,!BulkCapacityProvisioningMainTest,!BulkConsumerArtifactIntegrationTest"`
+- Regra Estrita para `*PostgresTest` (`EmbeddedPostgres`) e `*Neon*`:
+  - **PROIBIDO** rodar todas as classes `*PostgresTest` em lote quando a tarefa nao alterou o motor SQL/Flyway de Bulk (`JdbcBulkDurableExecution`, `BulkExecutionMigrator`, `db/praxis-bulk-migrations/**`). Cada classe `*PostgresTest` sobe multiplos clusters PostgreSQL 17 no Windows (podendo adicionar 25 a 45 minutos de I/O em codigo nao alterado, como `BulkAtomicExecutionPostgresTest`).
+  - Se a tarefa alterar diretamente uma capacidade persistida em PostgreSQL do Bulk, execute **apenas a classe `*PostgresTest` especifica afetada** (ex.: `mvn "-Dtest=BulkDurableExecutionPostgresTest" test`).
+  - Testes `*Neon*`, `BulkCapacityAuthorityRollbackPostgresTest`, `BulkCapacityLocalAdministrationMainTest`, `BulkCapacityProvisioningMainTest` e `BulkConsumerArtifactIntegrationTest` exigem ambiente externo/POSIX/arvore Git limpa dedicada e nao devem ser executados em validacoes locais rotineiras no Windows.
 
 Artefatos Derivados e Sincronizacao
 - Se a mudanca alterar contrato publico, revisar no minimo:

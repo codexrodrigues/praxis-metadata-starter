@@ -131,8 +131,8 @@ public final class BulkResourceOperationBindings {
                     if (action.declaration.mode() == BulkMode.UNIFORM_UPDATE || action.declaration.mode() == BulkMode.PER_ITEM_UPDATE)
                         declaredUpdateIds.add(confirmationId);
                 }
-                if (StringUtils.hasText(action.declaration.evaluationOperationId()))
-                    declaredIds.add(action.declaration.evaluationOperationId());
+                if (StringUtils.hasText(BulkControllerOperationIds.evaluationId(action.handler, action.declaration)))
+                    declaredIds.add(BulkControllerOperationIds.evaluationId(action.handler, action.declaration));
             });
             List<String> errors = validate(candidate, mapping);
             if (errors.isEmpty()) valid.add(bind(candidate, mapping));
@@ -356,7 +356,7 @@ public final class BulkResourceOperationBindings {
             } else if (!uniqueIds.add(confirmationId)) {
                 errors.add("bulk confirmation and lifecycle operationIds must be unique");
             }
-            String evaluationId = action.declaration.evaluationOperationId();
+            String evaluationId = BulkControllerOperationIds.evaluationId(action.handler, action.declaration);
             if (!isCanonicalText(evaluationId)) {
                 errors.add("bulk evaluationOperationId must be canonical nonblank text");
             } else if (!uniqueIds.add(evaluationId)) {
@@ -455,10 +455,10 @@ public final class BulkResourceOperationBindings {
             String confirmationId = explicitOperationId(action.handler);
             HandlerMethod evaluationHandler = registry.getHandlerMethods().values().stream()
                     .filter(handler -> handler.getBeanType().equals(candidate.controllerType))
-                    .filter(handler -> action.declaration.evaluationOperationId().equals(explicitOperationId(handler)))
+                    .filter(handler -> BulkControllerOperationIds.evaluationId(action.handler, action.declaration).equals(explicitOperationId(handler)))
                     .findFirst().orElseThrow();
             return new BulkOperationBinding(resource.resourceKey(), confirmationId,
-                    action.declaration.evaluationOperationId(), action.declaration.mode(),
+                    BulkControllerOperationIds.evaluationId(action.handler, action.declaration), action.declaration.mode(),
                     action.declaration.atomicity(), action.handler, evaluationHandler,
                     candidate.declaration.updateSourceOperationId().isEmpty() ? null : candidate.declaration.updateSourceOperationId(),
                     candidate.declaration.updateSourceOperationId().isEmpty() ? null
@@ -483,7 +483,7 @@ public final class BulkResourceOperationBindings {
 
     private static String explicitOperationId(HandlerMethod handler) {
         Operation operation = AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(), Operation.class);
-        return operation == null ? null : operation.operationId();
+        return BulkControllerOperationIds.operationId(handler);
     }
 
     private static final class ResourceCandidate {

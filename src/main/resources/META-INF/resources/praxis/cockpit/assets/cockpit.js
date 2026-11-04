@@ -3792,7 +3792,7 @@
       if (incoming.some((edge) => edge.type === 'related_resource')) return 4;
       if (incoming.some((edge) => edge.type === 'emits_result')) return 4;
       if (node.type === 'action') return 3;
-      if (node.type === 'field' || node.type === 'capability') return 2;
+      if (node.type === 'field' || node.type === 'capability' || node.type === 'fact' || node.type === 'policy_hint') return 2;
       if (incoming.some((edge) => edge.type === 'uses_schema' || edge.type === 'materializes_field')) return 2;
       if (outgoing.some((edge) => edge.type === 'allows_action')) return 2;
       if (node.type === 'surface' || node.type === 'stats') return 1;
@@ -3804,7 +3804,7 @@
       const lane = laneForNode(node);
       lanes.set(lane, [...(lanes.get(lane) || []), node]);
     }
-    const typeOrder = { root: 0, surface: 1, stats: 2, capability: 3, field: 4, action: 5, journey: 6, concept: 7 };
+    const typeOrder = { root: 0, surface: 1, stats: 2, fact: 3, capability: 4, policy_hint: 5, field: 6, action: 7, journey: 8, concept: 9 };
     for (const [lane, laneNodes] of lanes) {
       laneNodes.sort((a, b) => {
         if (a.id === rootKey) return -1;
@@ -4014,6 +4014,8 @@
       for (const target of resources) {
         if (target.key === owner.key) continue;
         const evidence = [];
+        const kgHit = knowledgeGraphReferencesResource(owner, target);
+        if (kgHit) evidence.push(kgHit);
         for (const field of fields) {
           const hit = fieldReferencesResource(field, target);
           if (hit) evidence.push(hit);
@@ -4024,8 +4026,10 @@
         edges.push({
           from: byKey.get(target.key),
           to: byKey.get(owner.key),
-          score: evidence.length,
-          detail: `${target.label} aparece como referência, filtro ou fonte de opção em ${owner.label}.`,
+          score: evidence.length + (kgHit ? 2 : 0),
+          detail: kgHit
+            ? kgHit.detail
+            : `${target.label} aparece como referência, filtro ou fonte de opção em ${owner.label}.`,
           evidence: evidence.slice(0, 3)
         });
       }
@@ -4033,7 +4037,58 @@
     return edges.sort((a, b) => b.score - a.score);
   }
 
+  function knowledgeGraphReferencesResource(owner, target) {
+    const targetResourceKey = target.resourceKey || target.key;
+    if (!targetResourceKey) return null;
+    const graph = owner.domainGraph;
+    if (!graph) return null;
+    const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+    const ownerRoot = nodes.find((node) => node.nodeKey === (owner.resourceKey || owner.key))
+      || nodes.find((node) => node.metadata?.resourceKey === (owner.resourceKey || owner.key) && node.nodeType === 'concept')
+      || nodes[0];
+    const meta = ownerRoot?.metadata || {};
+    const listContains = (values) => Array.isArray(values) && values.includes(targetResourceKey);
+    if (listContains(meta.parentConcepts) || listContains(meta.relatedConcepts)) {
+      return {
+        label: 'knowledge graph',
+        detail: `${owner.label} referencia canonicamente ${target.label} no Knowledge Graph de domínio.`
+      };
+    }
+    if (listContains(meta.analyzesConcepts)) {
+      return {
+        label: 'data product',
+        detail: `${owner.label} atua como Data Product analítico sobre ${target.label}.`
+      };
+    }
+    if (listContains(meta.childConcepts) || listContains(meta.analyzedByDataProducts)) {
+      return {
+        label: 'knowledge graph',
+        detail: `${target.label} expande ou analisa o conceito ${owner.label} no Knowledge Graph.`
+      };
+    }
+    const edges = Array.isArray(graph.edges) ? graph.edges : [];
+    const semanticEdge = edges.find((edge) =>
+      (edge.sourceNodeKey === (owner.resourceKey || owner.key) && edge.targetNodeKey === targetResourceKey)
+      || (edge.targetNodeKey === (owner.resourceKey || owner.key) && edge.sourceNodeKey === targetResourceKey)
+    );
+    if (semanticEdge) {
+      return {
+        label: relationTypeLabel(semanticEdge.edgeType),
+        detail: `${owner.label} mantém relação canônica (${relationTypeLabel(semanticEdge.edgeType)}) com ${target.label}.`
+      };
+    }
+    return null;
+  }
+
   function fieldReferencesResource(field, target) {
+    const targetResourceKey = target.resourceKey || target.key;
+    const refResourceKey = field?.xui?.resourceReference?.resourceKey;
+    if (targetResourceKey && refResourceKey && refResourceKey === targetResourceKey) {
+      return {
+        label: 'resource reference',
+        detail: `${field.name} referencia canonicamente ${target.label} via @ResourceReference.`
+      };
+    }
     const fieldName = normalizeSearch(field?.name).replace(/[^a-z0-9]/g, '');
     const targetAliases = resourceReferenceAliases(target);
     if (fieldName) {
@@ -4129,6 +4184,8 @@
       surface: 4,
       action: 4,
       stats: 4,
+      fact: 4,
+      policy_hint: 3,
       field: 3,
       journey: 7
     }[type] || 2;
@@ -4207,6 +4264,8 @@
       surface: { color: '#35d4ad', border: '#a8ffe0', glow: '#73efb5' },
       action: { color: '#9b7cff', border: '#e2d7ff', glow: '#b7a5ff' },
       stats: { color: '#e2b84d', border: '#ffe7a8', glow: '#ffd166' },
+      fact: { color: '#f48c4b', border: '#ffd0b0', glow: '#ffa868' },
+      policy_hint: { color: '#d96b98', border: '#ffc4df', glow: '#f48cb6' },
       journey: { color: '#28e0c4', border: '#d6fff6', glow: '#73efb5' },
       capability: { color: '#e85c86', border: '#ffc4d2', glow: '#ff6d91' }
     };
@@ -4217,9 +4276,15 @@
     if (type === 'has_surface') return 'rgba(115, 239, 181, .72)';
     if (type === 'has_action') return 'rgba(183, 165, 255, .76)';
     if (type === 'has_stats') return 'rgba(255, 209, 102, .76)';
+    if (type === 'has_fact' || type === 'provides_fact') return 'rgba(244, 140, 75, .78)';
+    if (type === 'has_policy' || type === 'governed_by') return 'rgba(217, 107, 152, .76)';
+    if (type === 'materializes') return 'rgba(255, 209, 102, .86)';
     if (type === 'has_field') return 'rgba(98, 216, 255, .68)';
     if (type === 'has_capability') return 'rgba(255, 109, 145, .68)';
     if (type === 'business_journey') return 'rgba(115, 239, 181, .92)';
+    if (type === 'references' || type === 'contains' || type === 'part_of' || type === 'depends_on' || type === 'related_to') {
+      return 'rgba(115, 239, 181, .84)';
+    }
     if (type === 'uses_schema') return 'rgba(255, 109, 145, .74)';
     if (type === 'materializes_field') return 'rgba(98, 216, 255, .56)';
     if (type === 'related_resource') return 'rgba(115, 239, 181, .84)';
@@ -4233,9 +4298,19 @@
       'has_surface',
       'has_action',
       'has_stats',
+      'has_fact',
+      'provides_fact',
+      'has_policy',
+      'governed_by',
+      'materializes',
       'has_field',
       'has_capability',
       'business_journey',
+      'references',
+      'contains',
+      'part_of',
+      'depends_on',
+      'related_to',
       'uses_schema',
       'materializes_field',
       'related_resource',
@@ -4294,18 +4369,29 @@
     const confidence = root?.confidence || graph?.governance?.confidence;
     const label = normalizePortugueseLabel(root?.businessGlossary?.preferredTerm || root?.label || resource.label);
     const description = readableText(root?.description || root?.businessGlossary?.description || resource.description);
+    const isDataProduct = root?.metadata?.conceptRole === 'analytical_data_product' || root?.metadata?.semanticRole === 'analytical_data_product';
+    const analyzes = Array.isArray(root?.metadata?.analyzesConcepts) ? root.metadata.analyzesConcepts : [];
+    const analyzedBy = Array.isArray(root?.metadata?.analyzedByDataProducts) ? root.metadata.analyzedByDataProducts : [];
+    const semanticHint = isDataProduct
+      ? `<small>Data Product analítico${analyzes.length ? ` · analisa ${escapeHtml(analyzes.join(', '))}` : ''}</small>`
+      : analyzedBy.length
+        ? `<small>Analisado por Data Product(s): ${escapeHtml(analyzedBy.join(', '))}</small>`
+        : '';
     return `
       <article class="topology-root">
-        <span>${escapeHtml(nodeTypeLabel(root?.nodeType || 'concept'))}</span>
+        <span>${escapeHtml(isDataProduct ? 'Data Product analítico' : nodeTypeLabel(root?.nodeType || 'concept'))}</span>
         <strong>${escapeHtml(label)}</strong>
         <p>${escapeHtml(description || 'Conceito central do recurso selecionado.')}</p>
+        ${semanticHint}
+        ${Array.isArray(root?.metadata?.ontologicalFactRoots) && root.metadata.ontologicalFactRoots.length ? `<small>Raízes ontológicas: ${escapeHtml(root.metadata.ontologicalFactRoots.join(', '))}</small>` : ''}
+        ${Array.isArray(root?.metadata?.governedRuleSets) && root.metadata.governedRuleSets.length ? `<small>RuleSet(s): ${escapeHtml(root.metadata.governedRuleSets.join(', '))}</small>` : ''}
         <small>${escapeHtml(resource.resourceKey || resource.resourcePath || 'recurso')} · ${escapeHtml(confidenceText(confidence))}</small>
       </article>
     `;
   }
 
   function groupNodesByType(nodes) {
-    const order = ['field', 'surface', 'stats', 'action', 'capability', 'concept'];
+    const order = ['field', 'fact', 'surface', 'stats', 'action', 'capability', 'policy_hint', 'concept'];
     const byType = new Map();
     for (const node of nodes) {
       const type = node.nodeType || 'concept';
@@ -4342,7 +4428,29 @@
   }
 
   function topologyNodeDetail(node) {
-    if (node.metadata?.fieldName) return `${node.metadata.fieldName} · ${node.metadata.type || 'campo'} ${node.metadata.required ? 'obrigatório' : 'opcional'}`;
+    if (node.metadata?.conceptRole === 'analytical_data_product' || node.metadata?.semanticRole === 'analytical_data_product') {
+      const analyzes = Array.isArray(node.metadata.analyzesConcepts) ? node.metadata.analyzesConcepts.join(', ') : '';
+      const charts = Array.isArray(node.metadata.dataProduct?.recommendedCharts) ? node.metadata.dataProduct.recommendedCharts.join(', ') : '';
+      return ['Data Product analítico', analyzes ? `analisa ${analyzes}` : '', charts ? `charts ${charts}` : ''].filter(Boolean).join(' · ');
+    }
+    if (node.nodeType === 'fact') {
+      return `Fato determinístico · ${node.metadata?.valueType || 'valor calculado'}`;
+    }
+    if (node.nodeType === 'policy_hint') {
+      if (node.metadata?.policyKind === 'domain_rule_set') {
+        const roots = Array.isArray(node.metadata.availableRoots) && node.metadata.availableRoots.length ? ` · raízes ${node.metadata.availableRoots.join(', ')}` : '';
+        return `RuleSet ${node.metadata.ruleSetKey || node.label || 'governado'} · ${node.metadata.slotCount || 0} slot(s)${roots}`;
+      }
+      return `Governança · ${node.metadata?.classification || 'política'} · IA ${node.metadata?.aiVisibility || 'governada'}`;
+    }
+    if (node.metadata?.fieldName) {
+      const ref = node.metadata?.resourceReference?.resourceKey
+        ? ` · ref ${node.metadata.resourceReference.resourceKey}`
+        : node.metadata?.optionSource?.key
+          ? ` · lookup ${node.metadata.optionSource.key}`
+          : '';
+      return `${node.metadata.fieldName} · ${node.metadata.type || 'campo'} ${node.metadata.required ? 'obrigatório' : 'opcional'}${ref}`;
+    }
     if (node.metadata?.kind || node.metadata?.scope) return `${node.metadata.kind || 'surface'} · ${node.metadata.scope || 'escopo'}`;
     if (node.metadata?.path) return `${node.metadata.method || '--'} ${node.metadata.path}`;
     return node.source ? `Fonte: ${node.source}` : 'Nó semântico publicado pelo domínio.';
@@ -4386,6 +4494,8 @@
       root: 'Recurso central',
       concept: 'Conceito central',
       field: 'Campos de contrato',
+      fact: 'Fatos determinísticos',
+      policy_hint: 'Políticas de governança',
       surface: 'Experiências de UI',
       stats: 'Capacidades analíticas',
       journey: 'Jornada de negócio',
@@ -4399,10 +4509,20 @@
   function relationTypeLabel(type) {
     const labels = {
       has_field: 'possui campo',
+      has_fact: 'publica fato',
+      provides_fact: 'publica fato',
+      has_policy: 'aplica governança',
+      governed_by: 'governado por RuleSet',
+      materializes: 'materializa Data Product',
       has_surface: 'possui surface',
       has_stats: 'possui analytics',
       has_action: 'possui ação',
       has_capability: 'possui capability',
+      references: 'referencia conceito',
+      contains: 'contém recurso filho',
+      part_of: 'pertence ao conceito',
+      depends_on: 'depende em cascata',
+      related_to: 'analisa conceito',
       business_journey: 'encadeia jornada',
       uses_schema: 'usa contrato',
       materializes_field: 'materializa campo',
@@ -4419,7 +4539,8 @@
       annotation: 'Anotação Java',
       dto_schema: 'Schema DTO',
       openapi_stats: 'OpenAPI analytics',
-      openapi_operation: 'Operação OpenAPI'
+      openapi_operation: 'Operação OpenAPI',
+      inference: 'RuleSet / Inferência'
     };
     return labels[type] || titleize(type || 'evidência');
   }
@@ -5032,6 +5153,13 @@
           title: 'Domínio do recurso',
           description: 'Grafo semântico escopado com conceitos, relações e evidências.',
           href: `/schemas/domain?resourceKey=${encodeURIComponent(resourceKey)}`,
+          icon: 'domain',
+          group: 'semantic'
+        },
+        {
+          title: 'Visão 360° de domínio',
+          description: 'Grafo consolidado 360° com Data Products, fatos, ações e governança.',
+          href: `/api/praxis/config/domain-360?resourceKey=${encodeURIComponent(resourceKey)}`,
           icon: 'domain',
           group: 'semantic'
         },

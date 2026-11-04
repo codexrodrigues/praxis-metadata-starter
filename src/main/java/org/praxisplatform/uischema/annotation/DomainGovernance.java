@@ -45,6 +45,9 @@ public @interface DomainGovernance {
      */
     String[] complianceTags() default {};
 
+    /** Whether the field may leave the resource through a governed collection export. */
+    boolean exportable() default true;
+
     /**
      * Politicas de uso por IA associadas ao campo.
      */

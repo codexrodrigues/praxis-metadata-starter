@@ -8,7 +8,6 @@ import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.capability.AnnotationDrivenResourceStructuralCapabilityResolver;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.capability.DefaultCapabilityService;
-import org.praxisplatform.uischema.capability.NoOpResourceStateSnapshotProvider;
 import org.praxisplatform.uischema.capability.NoOpResourceOperationAvailabilityProvider;
 import org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityProvider;
@@ -23,6 +22,9 @@ import org.praxisplatform.uischema.controller.docs.ActionCatalogController;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
 import org.praxisplatform.uischema.controller.docs.SemanticDomainCatalogController;
 import org.praxisplatform.uischema.controller.docs.SurfaceCatalogController;
+import org.praxisplatform.rules.contract.RuleSetDefinition;
+import org.praxisplatform.uischema.domain.DomainRuleSetCatalogProvider;
+import org.praxisplatform.uischema.domain.DomainRuleSetDescriptor;
 import org.praxisplatform.uischema.domain.SemanticDomainCatalogService;
 import org.praxisplatform.uischema.determination.DefaultReactiveDeterminationDefinitionRegistry;
 import org.praxisplatform.uischema.determination.ReactiveDeterminationDefinitionProvider;
@@ -678,8 +680,9 @@ public class OpenApiUiSchemaAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public ResourceStateSnapshotProvider resourceStateSnapshotProvider() {
-        return new NoOpResourceStateSnapshotProvider();
+    public ResourceStateSnapshotProvider resourceStateSnapshotProvider(
+            ObjectProvider<BaseResourceQueryService<?, ?, ?>> services) {
+        return new org.praxisplatform.uischema.capability.ResourceServiceDelegatingStateSnapshotProvider(services);
     }
 
     @Bean
@@ -863,6 +866,20 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(DomainRuleSetCatalogProvider.class)
+    public DomainRuleSetCatalogProvider domainRuleSetCatalogProvider(
+            ObjectProvider<DomainRuleSetDescriptor> ruleSetDescriptors,
+            ObjectProvider<RuleSetDefinition> ruleSetDefinitions,
+            ObjectProvider<org.praxisplatform.rules.violation.RuleErrorCatalog> ruleErrorCatalog
+    ) {
+        return DomainRuleSetCatalogProvider.of(
+                ruleSetDescriptors.orderedStream().toList(),
+                ruleSetDefinitions.orderedStream().toList(),
+                ruleErrorCatalog.getIfAvailable()
+        );
+    }
+
+    @Bean
     @ConditionalOnBean({ActionDefinitionRegistry.class, SurfaceDefinitionRegistry.class})
     @ConditionalOnMissingBean
     public SemanticDomainCatalogService semanticDomainCatalogService(
@@ -876,7 +893,8 @@ public class OpenApiUiSchemaAutoConfiguration {
             @Value("${praxis.metadata.domain.service-version:}") String serviceVersion,
             CustomFieldDefinitionProvider customFieldDefinitions,
             ResourceFactCatalogProvider resourceFacts,
-            ResourceTenantContextResolver tenantResolver
+            ResourceTenantContextResolver tenantResolver,
+            DomainRuleSetCatalogProvider domainRuleSetCatalogProvider
     ) {
         return new SemanticDomainCatalogService(
                 actionDefinitionRegistry,
@@ -890,7 +908,8 @@ public class OpenApiUiSchemaAutoConfiguration {
                 serviceVersion,
                 customFieldDefinitions,
                 resourceFacts,
-                tenantResolver
+                tenantResolver,
+                domainRuleSetCatalogProvider
         );
     }
 

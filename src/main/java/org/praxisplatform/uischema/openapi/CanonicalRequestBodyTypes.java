@@ -40,7 +40,25 @@ final class CanonicalRequestBodyTypes {
         }
         if (body == null) throw invalid("A direct @RequestBody DTO is required");
         Map<TypeVariable, Type> variables = GenericTypeResolver.getTypeVariableMap(handler.getBeanType());
-        JavaType type = concrete(body.getGenericParameterType(), variables, factory, new HashSet<>(), 0);
+        JavaType type;
+        Class<?> bodyClass = body.getParameterType();
+        if (org.praxisplatform.uischema.controller.base.AbstractResourceQueryController.class.isAssignableFrom(handler.getBeanType())
+                && (bodyClass == org.praxisplatform.uischema.bulk.BulkUniformEvaluationRequest.class
+                || bodyClass == org.praxisplatform.uischema.bulk.BulkItemEvaluationRequest.class
+                || bodyClass == org.praxisplatform.uischema.bulk.BulkCommandEvaluationRequest.class)) {
+            var declared = org.springframework.core.ResolvableType.forMethodParameter(body.withContainingClass(handler.getBeanType()));
+            var codec = org.praxisplatform.uischema.bulk.BulkResourceTypes.identityCodec(
+                    org.praxisplatform.uischema.bulk.BulkResourceTypes.identityType(handler.getBeanType()));
+            JavaType wire = factory.constructType("integer".equals(codec.codecId()) ? Integer.class : String.class);
+            if (bodyClass == org.praxisplatform.uischema.bulk.BulkItemEvaluationRequest.class)
+                type = factory.constructParametricType(bodyClass, wire);
+            else if (bodyClass == org.praxisplatform.uischema.bulk.BulkUniformEvaluationRequest.class)
+                type = factory.constructParametricType(bodyClass, wire,
+                        concrete(org.springframework.core.GenericTypeResolver.resolveType(declared.getGeneric(1).getType(), handler.getBeanType()), variables, factory, new HashSet<>(), 0));
+            else type = factory.constructParametricType(bodyClass,
+                        concrete(org.springframework.core.GenericTypeResolver.resolveType(declared.getGeneric(0).getType(), handler.getBeanType()), variables, factory, new HashSet<>(), 0), wire,
+                        concrete(org.springframework.core.GenericTypeResolver.resolveType(declared.getGeneric(2).getType(), handler.getBeanType()), variables, factory, new HashSet<>(), 0));
+        } else type = concrete(body.getGenericParameterType(), variables, factory, new HashSet<>(), 0);
         Class<?> raw = type.getRawClass();
         if (raw == Object.class || raw.isPrimitive() || raw.isEnum() || raw.isArray()
                 || raw.isInterface() || Modifier.isAbstract(raw.getModifiers()) || BeanUtils.isSimpleValueType(raw)

@@ -556,6 +556,21 @@ public final class JdbcBulkDurableExecution {
         try {
             write = unitTransaction(connection ->
                     applyAndReceipt(connection, control, preparation.attempt(), admission, callback));
+        } catch (BulkUnitRejectedException rejected) {
+            // Only a known target rejection reaches here, after the domain transaction rolled back.
+            // A fresh fenced transaction records the rejection; no success receipt is fabricated.
+            try {
+                write = unitTransaction(connection -> {
+                    ApplyPrefix prefix = applyPrefix(connection, control, preparation.attempt());
+                    AdmissionRecord recorded = persistAdmission(connection, prefix.execution(), preparation.attempt(),
+                            prefix.evidence(), rejected.admission());
+                    return new UnitWrite(null, recorded, null, snapshot(row(connection, control.executionId(), false)));
+                });
+            } catch (RuntimeException error) {
+                BulkDurableExecutionException.Reason knownReason = error instanceof BulkDurableExecutionException durable
+                        ? durable.reason() : null;
+                return resolveFailedUnit(control, preparation.attempt(), knownReason);
+            }
         } catch (RuntimeException error) {
             BulkDurableExecutionException.Reason knownReason = error instanceof BulkDurableExecutionException durable
                     ? durable.reason() : null;
@@ -1752,6 +1767,8 @@ public final class JdbcBulkDurableExecution {
         BulkUnitMutationResult result;
         try {
             result = Objects.requireNonNull(callback.apply(unit), "callback result");
+        } catch (BulkUnitRejectedException rejected) {
+            throw rejected;
         } catch (RuntimeException error) {
             throw new CallbackFailure();
         }

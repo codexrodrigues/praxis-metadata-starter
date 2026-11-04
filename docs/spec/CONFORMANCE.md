@@ -261,3 +261,14 @@ verifica a resolução MVC e a equivalência de schemaType. O E2E remoto cobre
 preservação readonly no PUT, schema de filtro versus payload HTTP, IN/IS_NULL no
 PostgreSQL e container obrigatório. O catálogo possui regressões para proxy/lazy,
 datas ISO e governança parcial/completa; ausência de execução de domínio é invariante.
+
+### Exportação governada no core
+
+A base resource-oriented aplica o escopo de acesso nos cinco escopos de exportação.
+`@DomainGovernance(exportable = false)` e `NON_EXPORTABLE` são restrições do servidor,
+publicadas em `x-domain-governance` e reaplicadas à curadoria do host. Ver
+[Core Resource Service](../guides/CORE-RESOURCE-SERVICE.md).
+
+### Kernel declarativo HTTP/JPA de lote
+
+`BulkDeclarativeProtocolTest` cobre auto-configuração, override do host, parser estrito, normalização de filtro e bindings herdados. `BulkDeclarativeJpaHttpTest` cobre o documento Springdoc e o ciclo HTTP com PostgreSQL/JPA, incluindo avaliação destacada, confirmações por modo, replays, conflitos e rollback junto ao recibo. Consulte [adoção e limites](../guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md).

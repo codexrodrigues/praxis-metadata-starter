@@ -15,7 +15,8 @@ public record CustomFieldDescriptor(
         BigDecimal minimum, BigDecimal maximum, Integer minLength, Integer maxLength,
         String pattern, String patternMessage, String requiredMessage, List<String> enumValues,
         List<Map<String, Object>> options, OptionSourceDescriptor optionSource,
-        Filterable.FilterOperation filterOperation, Map<String, Object> governance) {
+        Filterable.FilterOperation filterOperation, Map<String, Object> governance,
+        Map<String, Object> validationRules) {
     private static final Set<String> RESERVED_KEYS = Set.of(
             "constructor", "prototype", "hasOwnProperty", "isPrototypeOf",
             "propertyIsEnumerable", "toLocaleString", "toString", "valueOf");
@@ -37,7 +38,22 @@ public record CustomFieldDescriptor(
             throw new IllegalArgumentException("ENUM custom fields require non-empty enumValues");
         options = options == null ? List.of() : options.stream().map(CustomFieldDescriptor::immutableMap).toList();
         governance = governance == null ? Map.of() : immutableMap(governance);
+        validationRules = validationRules == null || validationRules.isEmpty() ? Map.of()
+                : immutableMap(CustomFieldJsonLogic.snapshot(validationRules));
+        CustomFieldValidationRules.validate(validationRules);
         defaultValue = immutableValue(defaultValue);
+    }
+    /** Defines a field without additional JSON Logic constraints. */
+    public CustomFieldDescriptor(String key, String label, String description, CustomFieldDataType dataType,
+            FieldControlType controlType, String group, int order, boolean required, boolean readOnly,
+            boolean filterable, boolean sortable, boolean exportable, Object defaultValue,
+            BigDecimal minimum, BigDecimal maximum, Integer minLength, Integer maxLength,
+            String pattern, String patternMessage, String requiredMessage, List<String> enumValues,
+            List<Map<String, Object>> options, OptionSourceDescriptor optionSource,
+            Filterable.FilterOperation filterOperation, Map<String, Object> governance) {
+        this(key, label, description, dataType, controlType, group, order, required, readOnly, filterable,
+                sortable, exportable, defaultValue, minimum, maximum, minLength, maxLength, pattern,
+                patternMessage, requiredMessage, enumValues, options, optionSource, filterOperation, governance, Map.of());
     }
     public static void requireSafeKey(String key) {
         if (key == null || !key.matches("[a-zA-Z][a-zA-Z0-9_]{0,63}") || RESERVED_KEYS.contains(key))

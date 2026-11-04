@@ -498,3 +498,15 @@ Ao publicar ou validar um recurso mutável no baseline atual, confira no mínimo
 ## Política de CI e Publicação
 
 Durante o desenvolvimento, execute validações focais localmente com Maven (`mvn test`); os workflows do GitHub Actions são reservados exclusivamente para o fechamento autorizado de versões e publicação no Maven Central. Consulte [ACTIONS-RELEASE-POLICY.md](ACTIONS-RELEASE-POLICY.md) e [RELEASING.md](RELEASING.md) para os gates de release, assinatura e verificação.
+
+## Core resource service
+
+O starter integra [regras governadas e validação JSON Logic de campos customizados](docs/guides/GOVERNED-RULE-BRIDGE.md)
+com erros estruturados e campos de correção no contrato HTTP.
+
+Consulte o [guia de consultas, exportação e comandos versionados](docs/guides/CORE-RESOURCE-SERVICE.md) para adotar os hooks e templates canônicos.
+Os limites e cenários de adoção corporativa estão na [revisão do core resource service](docs/technical/CORE-RESOURCE-P1-REVIEW.md).
+
+## Bulk declarativo no core resource-oriented
+
+O [guia de operações em lote](docs/guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md) descreve conversão HTTP estrita, avaliação JPA destacada, confirmação durável e schemas tipados no candidato local da Onda 3.

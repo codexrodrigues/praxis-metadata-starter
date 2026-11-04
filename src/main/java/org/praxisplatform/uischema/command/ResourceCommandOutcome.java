@@ -7,6 +7,7 @@ public enum ResourceCommandOutcome {
     SUCCESS(null),
     ACCEPTED(null),
     VALIDATION_FAILED(ResourceCommandErrorCategory.VALIDATION),
+    INVALID_ENTITY(ResourceCommandErrorCategory.VALIDATION),
     PERMISSION_DENIED(ResourceCommandErrorCategory.PERMISSION),
     NOT_FOUND(ResourceCommandErrorCategory.NOT_FOUND),
     CONFLICT_DUPLICATE(ResourceCommandErrorCategory.CONFLICT_DUPLICATE),

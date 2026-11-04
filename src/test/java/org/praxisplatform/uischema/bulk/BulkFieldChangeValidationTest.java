@@ -22,6 +22,14 @@ class BulkFieldChangeValidationTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
+    @Test void callerContractFailuresAreDistinctFromBrokenServerAllowlists() {
+        assertThrows(BulkFieldChangeValidationException.class, () -> BulkFieldChanges.validate(
+                List.of(BulkFieldChange.set("protected",mapper.getNodeFactory().textNode("x"))),Set.of("name"),Set.of()));
+        var configuration = assertThrows(IllegalArgumentException.class, () -> BulkFieldChanges.validate(
+                List.of(BulkFieldChange.set("name",mapper.getNodeFactory().textNode("x"))),Set.of("name"),Set.of("other")));
+        assertFalse(configuration instanceof BulkFieldChangeValidationException);
+    }
+
     @Test
     void setPreservesFalseZeroEmptyStringAndEmptyArray() {
         ObjectNode candidate = BulkFieldChanges.applyTo(

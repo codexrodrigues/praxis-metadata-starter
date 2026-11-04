@@ -269,6 +269,32 @@ class BulkDurableExecutionPostgresTest {
     }
 
     @Test
+    void targetRejectionAfterJpaFlushRollsBackOnlyThatItemAndContinuesTheSuffix() {
+        var infrastructure = new BulkExecutionInfrastructure(runtimeDataSource, jpaManager,
+                CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID, BulkPostgresTestSupport.testRoleConfiguration());
+        var kernel = new JdbcBulkDurableExecution(infrastructure);
+        var reservation = reserve(kernel, persist(twoTargetEvaluation()), "jpa-target-rejection", "owner-a");
+        var calls = new ArrayList<Integer>();
+        kernel.advance(reservation, unit -> BulkUnitAdmission.admit(), unit -> {
+            calls.add(unit.ordinal());
+            var entityManager = EntityManagerFactoryUtils.getTransactionalEntityManager(entityManagerFactory);
+            entityManager.find(BulkDurableJpaDomainRow.class, unit.ordinal() + 1L).recordWrite();
+            entityManager.flush();
+            if (unit.ordinal() == 0) throw new BulkUnitRejectedException(
+                    BulkUnitAdmission.conflict(BulkUnitReasonCode.TARGET_VERSION_CONFLICT));
+            return BulkUnitMutationResult.confirmed();
+        });
+        assertThat(calls).containsExactly(0,1);
+        assertThat(writes("bulk_durable_jpa_domain",1)).isZero();
+        assertThat(writes("bulk_durable_jpa_domain",2)).isEqualTo(1);
+        assertThat(count("praxis_bulk_item_receipt")).isEqualTo(1);
+        assertThat(count("praxis_bulk_admission")).isEqualTo(1);
+        var completed = kernel.find(CONTEXT,reservation.executionId()).orElseThrow();
+        assertThat(completed.status()).isEqualTo(BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS);
+        assertThat(completed.nextOrdinal()).isEqualTo(2);
+    }
+
+    @Test
     void advanceReplaysAnOlderPrefixWhilePendingAckAndRequiresAnotherRequestForTheSuffix() {
         var faults = new BulkCommitFaultDataSource(runtimeDataSource);
         var faultManager = new DataSourceTransactionManager(faults);

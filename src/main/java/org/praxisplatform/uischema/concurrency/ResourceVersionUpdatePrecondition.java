@@ -7,7 +7,7 @@ import java.util.Objects;
  *
  * <p>The controller binds the public {@code If-Match} value to the canonical resource identity,
  * while the command service decides when the persisted version is read. Implementations must call
- * {@link #requireMatch(long)} inside the same transaction and lock scope used by the update.</p>
+ * {@link #requireMatch(Object, long)} inside the same transaction and lock scope used by the update.</p>
  */
 public final class ResourceVersionUpdatePrecondition<ID> {
 
@@ -38,6 +38,12 @@ public final class ResourceVersionUpdatePrecondition<ID> {
         this.scope = Objects.requireNonNull(scope, "scope must not be null");
         this.resourceKey = Objects.requireNonNull(resourceKey, "resourceKey must not be null");
         this.resourceId = Objects.requireNonNull(resourceId, "resourceId must not be null");
+    }
+
+    /** Rejects a precondition accidentally bound to a different item before applying any mutation. */
+    public void requireMatch(ID targetId, long currentVersion) {
+        if (!Objects.equals(resourceId, targetId)) throw ResourceVersionPreconditionException.stale();
+        requireMatch(currentVersion);
     }
 
     /** Validates the bound header against the version read under the command transaction. */

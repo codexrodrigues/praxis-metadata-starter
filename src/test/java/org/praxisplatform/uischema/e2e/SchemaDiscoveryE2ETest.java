@@ -15,6 +15,48 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SchemaDiscoveryE2ETest extends AbstractE2eH2Test {
 
     @Test
+    void filterMatchesInclusiveAndOpenValidity() throws Exception {
+        var response = postJson("/employees/filter?size=10", """
+                {"effectiveDate":"2023-02-15"}
+                """);
+        assertEquals(200, response.getStatusCode().value(), response.getBody());
+        var names = body(response).findValuesAsText("nome");
+        assertTrue(names.containsAll(java.util.List.of("Alice", "Bob", "Diana")), names.toString());
+        assertFalse(names.contains("Carol"), names.toString());
+        assertFalse(names.contains("Eve"), names.toString());
+    }
+
+    @Test
+    void filterResolvesBothJoinedBounds() throws Exception {
+        var response = postJson("/employees/filter?size=10", """
+                {"departmentEffectiveDate":"2023-02-15"}
+                """);
+        assertEquals(200, response.getStatusCode().value(), response.getBody());
+        var names = body(response).findValuesAsText("nome");
+        assertTrue(names.containsAll(java.util.List.of("Alice", "Carol", "Eve")), names.toString());
+        assertFalse(names.contains("Bob"), names.toString());
+        assertFalse(names.contains("Diana"), names.toString());
+    }
+
+    @Test
+    void hierarchyIsPublishedOnTheResponseSchemaOnly() throws Exception {
+        var response = get("/schemas/filtered?path=/employees/all&operation=get&schemaType=response");
+        assertEquals(200, response.getStatusCode().value());
+        var hierarchy = body(response).path("x-ui").path("hierarchy");
+        assertEquals("departmentId", hierarchy.path("parentField").asText());
+        assertEquals("admissionDate", hierarchy.path("effectiveFromField").asText());
+        assertFalse(hierarchy.has("effectiveToField"));
+
+        var tableSchema = get("/schemas/filtered?path=/employees/filter&operation=post&schemaType=response");
+        assertEquals(200, tableSchema.getStatusCode().value(), tableSchema.getBody());
+        assertEquals(hierarchy, body(tableSchema).path("x-ui").path("hierarchy"));
+        assertFalse(body(get("/schemas/filtered?path=/employees/filter&operation=post&schemaType=request"))
+                .path("x-ui").has("hierarchy"));
+        assertFalse(body(get("/schemas/filtered?path=/departments/all&operation=get&schemaType=response"))
+                .path("x-ui").has("hierarchy"));
+    }
+
+    @Test
     void filteredSchemasRemainCanonicalForNewControllers() throws Exception {
         ResponseEntity<String> createRequestResponse = get("/schemas/filtered?path=/employees&operation=post&schemaType=request");
         assertEquals(200, createRequestResponse.getStatusCode().value());

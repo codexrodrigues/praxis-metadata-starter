@@ -6,6 +6,8 @@ import org.praxisplatform.uischema.capability.NoOpResourceOperationAvailabilityP
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityContext;
 import org.praxisplatform.uischema.capability.ResourceOperationAvailabilityProvider;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
+import org.praxisplatform.rules.violation.PraxisRuleViolationException;
+import org.praxisplatform.uischema.customfields.CustomFieldValidationException;
 import org.praxisplatform.uischema.rest.failure.ResourceOperationFailureException;
 import org.praxisplatform.uischema.rest.failure.ResourceOperationFailureKind;
 import org.springframework.http.HttpStatus;
@@ -82,10 +84,10 @@ public class GovernedResourceCommandExecutor {
             // Existing functional kinds have no command translation in this boundary.
             return ResourceCommandExecutionResult.unexpected(request, "provider-exception",
                     Map.of("exceptionType", ex.getClass().getSimpleName()));
-        } catch (ResourceVersionPreconditionException ex) {
+        } catch (ResourceVersionPreconditionException | PraxisRuleViolationException | CustomFieldValidationException ex) {
             // Preserve the canonical typed failure so GlobalExceptionHandler can materialize its
-            // exact 400/412/428 status and stable public code. Converting it to a generic command
-            // outcome would collapse distinct concurrency decisions into one HTTP response.
+            // exact status, code, field targets and rule provenance. A generic command outcome
+            // would collapse concurrency decisions or erase the five-state rule evaluation.
             throw ex;
         } catch (EntityNotFoundException ex) {
             return ResourceCommandExecutionResult.failure(
@@ -131,6 +133,7 @@ public class GovernedResourceCommandExecutor {
             case 404 -> ResourceCommandOutcome.NOT_FOUND;
             case 409 -> ResourceCommandOutcome.CONFLICT_DEPENDENCY;
             case 412 -> ResourceCommandOutcome.PRECONDITION_FAILED;
+            case 422 -> ResourceCommandOutcome.INVALID_ENTITY;
             case 503 -> ResourceCommandOutcome.UNAVAILABLE;
             default -> ResourceCommandOutcome.UNEXPECTED_SANITIZED;
         };

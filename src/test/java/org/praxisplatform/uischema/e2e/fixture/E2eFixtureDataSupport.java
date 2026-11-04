@@ -36,6 +36,9 @@ public class E2eFixtureDataSupport {
         DepartmentEntity hr = departmentRepository.save(new DepartmentEntity("Human Resources", "HR"));
         DepartmentEntity ops = departmentRepository.save(new DepartmentEntity("Operations", "OPS"));
 
+        hr.setValidity(LocalDate.of(2023, 2, 15), null);
+        ops.setValidity(LocalDate.of(2020, 1, 1), LocalDate.of(2023, 2, 14));
+
         Map<String, Long> employeeIdsByName = new LinkedHashMap<>();
         employeeIdsByName.put(
                 "Alice",
@@ -171,6 +174,11 @@ public class E2eFixtureDataSupport {
         entity.setStatus(status);
         entity.setSalario(salario);
         entity.setAdmissionDate(admissionDate);
+        if ("Alice".equals(nome)) {
+            entity.setValidityEnd(LocalDate.of(2023, 2, 15));
+        } else if ("Carol".equals(nome)) {
+            entity.setValidityEnd(LocalDate.of(2023, 2, 14));
+        }
         entity.setLastCheckInAt(lastCheckInAt);
         entity.setDepartment(department);
         return employeeRepository.save(entity);
