@@ -144,6 +144,37 @@ public class SemanticMetadataReviewer {
             }
         }
 
+        boolean isFilterDto = org.praxisplatform.uischema.filter.dto.GenericFilterDTO.class.isAssignableFrom(targetType)
+                || targetType.getSimpleName().endsWith("FilterDTO")
+                || targetType.getSimpleName().endsWith("Filter");
+        if (!isFilterDto) {
+            List<String> sortedGroupKeys = new ArrayList<>(groupsByLowerName.keySet());
+            java.util.Collections.sort(sortedGroupKeys);
+            for (String groupKey : sortedGroupKeys) {
+                if (groupKey.contains(" ") || groupKey.length() < 4) {
+                    continue;
+                }
+                List<String> collidingSpecificGroups = new ArrayList<>();
+                for (String otherKey : sortedGroupKeys) {
+                    if (!otherKey.equals(groupKey) && otherKey.startsWith(groupKey + " ")) {
+                        collidingSpecificGroups.add(groupsByLowerName.get(otherKey).iterator().next());
+                    }
+                }
+                if (!collidingSpecificGroups.isEmpty()) {
+                    String genericGroup = groupsByLowerName.get(groupKey).iterator().next();
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-group-prefix-collision",
+                            targetType.getName(),
+                            firstPropertyByLowerGroup.get(groupKey),
+                            "@UISchema(group) declares generic single-word group '" + genericGroup
+                                    + "' that collides by prefix with " + collidingSpecificGroups
+                                    + " on " + targetType.getSimpleName() + "; unify into the specific group name."
+                    ));
+                }
+            }
+        }
+
         reviewQuickViewAndResourceIdentity(
                 targetType,
                 allPropertyNames,

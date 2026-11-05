@@ -262,6 +262,7 @@ class SemanticMetadataReviewerTest {
         assertTrue(codes.contains("resource-identity-field-missing"));
         assertTrue(codes.contains("resource-reference-value-field-missing"));
         assertTrue(codes.contains("uischema-group-case-divergence"));
+        assertTrue(codes.contains("uischema-group-prefix-collision"));
     }
 
     @org.praxisplatform.uischema.annotation.ResourceIdentity(
@@ -280,11 +281,11 @@ class SemanticMetadataReviewerTest {
         String nome;
 
         @Schema(description = "Situacao operacional do registro no ciclo de vida.")
-        @UISchema(label = "Situação", quickViewVisible = true, quickViewOrder = 1)
+        @UISchema(label = "Situação", group = "Identificação", quickViewVisible = true, quickViewOrder = 1)
         String situacao;
 
         @Schema(description = "Nome do departamento de lotacao do registro.")
-        @UISchema(label = "Departamento", quickViewVisible = true, quickViewOrder = 2)
+        @UISchema(label = "Departamento", group = "Identificação civil", quickViewVisible = true, quickViewOrder = 2)
         @org.praxisplatform.uischema.annotation.ResourceReference(
                 resourceKey = "human-resources.departamentos",
                 valueField = "departamentoIdInexistente",
