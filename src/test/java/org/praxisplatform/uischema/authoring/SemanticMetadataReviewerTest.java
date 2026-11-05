@@ -272,11 +272,11 @@ class SemanticMetadataReviewerTest {
     )
     private static class BadQuickViewIdentityDTO {
         @Schema(description = "Identificador unico do registro cadastral.")
-        @UISchema(label = "ID", group = "Quadro de vagas")
+        @UISchema(label = "ID", group = "endereco")
         Long id;
 
         @Schema(description = "Nome completo do registro para exibicao principal.")
-        @UISchema(label = "Nome", group = "Quadro de Vagas")
+        @UISchema(label = "Nome", group = "Endereço")
         String nome;
 
         @Schema(description = "Situacao operacional do registro no ciclo de vida.")

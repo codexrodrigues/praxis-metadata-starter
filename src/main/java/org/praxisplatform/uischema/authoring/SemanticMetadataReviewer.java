@@ -93,9 +93,9 @@ public class SemanticMetadataReviewer {
                 }
                 String group = normalize(ui.group());
                 if (!group.isBlank()) {
-                    String lowerGroup = group.toLowerCase(java.util.Locale.ROOT);
-                    groupsByLowerName.computeIfAbsent(lowerGroup, ignored -> new java.util.LinkedHashSet<>()).add(group);
-                    firstPropertyByLowerGroup.putIfAbsent(lowerGroup, propName);
+                    String groupKey = normalizeGroupKey(group);
+                    groupsByLowerName.computeIfAbsent(groupKey, ignored -> new java.util.LinkedHashSet<>()).add(group);
+                    firstPropertyByLowerGroup.putIfAbsent(groupKey, propName);
                 }
             }
             org.praxisplatform.uischema.annotation.ResourceReference ref =
@@ -118,9 +118,9 @@ public class SemanticMetadataReviewer {
                 }
                 String group = normalize(ui.group());
                 if (!group.isBlank()) {
-                    String lowerGroup = group.toLowerCase(java.util.Locale.ROOT);
-                    groupsByLowerName.computeIfAbsent(lowerGroup, ignored -> new java.util.LinkedHashSet<>()).add(group);
-                    firstPropertyByLowerGroup.putIfAbsent(lowerGroup, propName);
+                    String groupKey = normalizeGroupKey(group);
+                    groupsByLowerName.computeIfAbsent(groupKey, ignored -> new java.util.LinkedHashSet<>()).add(group);
+                    firstPropertyByLowerGroup.putIfAbsent(groupKey, propName);
                 }
             }
             org.praxisplatform.uischema.annotation.ResourceReference ref =
@@ -646,6 +646,14 @@ public class SemanticMetadataReviewer {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String normalizeGroupKey(String value) {
+        String decomposed = java.text.Normalizer.normalize(normalize(value), java.text.Normalizer.Form.NFD);
+        return decomposed
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", " ");
     }
 
     private String normalizeToken(String value) {
