@@ -26,6 +26,7 @@ O nome do arquivo `GUIA-02-AI-BACKEND-CRUD-METADATA` permanece estável para lin
 - [Do CRUD ao Contrato Semântico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
 - [Redação Semântica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html)
 - [Semantic Metadata Authoring](SEMANTIC-METADATA-AUTHORING.html)
+- [Quick View 360° e Curadoria Executiva Inteligente](QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.html)
 - [Enterprise Availability Adoption](ENTERPRISE-AVAILABILITY-ADOPTION.html)
 - [Options e Option-Sources](OPTIONS-ENDPOINT.html)
 - [Implementando OptionSourceProvider externo](OPTION-SOURCE-PROVIDER-SPI.html)

@@ -258,23 +258,25 @@ class SemanticMetadataReviewerTest {
                 .map(SemanticMetadataReviewIssue::code)
                 .collect(Collectors.toSet());
         assertTrue(codes.contains("quick-view-repeats-identity-field"));
+        assertTrue(codes.contains("resource-identity-metadata-repeats-header-field"));
         assertTrue(codes.contains("resource-identity-field-missing"));
         assertTrue(codes.contains("resource-reference-value-field-missing"));
+        assertTrue(codes.contains("uischema-group-case-divergence"));
     }
 
     @org.praxisplatform.uischema.annotation.ResourceIdentity(
             keyField = "id",
             titleField = "nome",
             subtitleField = "subtituloInexistente",
-            metadataFields = {"situacao"}
+            metadataFields = {"id", "situacao"}
     )
     private static class BadQuickViewIdentityDTO {
         @Schema(description = "Identificador unico do registro cadastral.")
-        @UISchema(label = "ID")
+        @UISchema(label = "ID", group = "Quadro de vagas")
         Long id;
 
         @Schema(description = "Nome completo do registro para exibicao principal.")
-        @UISchema(label = "Nome")
+        @UISchema(label = "Nome", group = "Quadro de Vagas")
         String nome;
 
         @Schema(description = "Situacao operacional do registro no ciclo de vida.")

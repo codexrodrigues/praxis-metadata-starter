@@ -82,6 +82,7 @@ Use depois da geracao para validar build, endpoints, schemas e consumo.
 - [Do CRUD ao Contrato Semantico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
 - [Redacao Semantica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.md)
 - [Semantic Metadata Authoring](SEMANTIC-METADATA-AUTHORING.md)
+- [Quick View 360° e Curadoria Executiva Inteligente](QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.md)
 - [Prova Operacional dos Guias de IA](ai-proof/README.md)
 
 ## Papel desta pasta

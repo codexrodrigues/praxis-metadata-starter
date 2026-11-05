@@ -111,6 +111,15 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
      */
     ResourceRepresentationResult<ResponseDTO> findById(ID id);
 
+    /**
+     * Verifies existence and item access before contextual discovery or a child query.
+     * The default preserves host-specific checks in {@link #findById(Object)};
+     * implementations may omit representation mapping only when those checks are retained.
+     */
+    default void assertItemAccessible(ID id) {
+        findById(id);
+    }
+
     List<ResponseDTO> findAll();
 
     List<ResponseDTO> findAllById(Collection<ID> ids);

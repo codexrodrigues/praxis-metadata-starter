@@ -358,6 +358,37 @@ public abstract class AbstractBaseQueryResourceService<
                 .orElseThrow(() -> new UnknownOptionSourceException(getEntityClass(), sourceKey));
     }
 
+    private static final ClassValue<Boolean> OVERRIDES_FIND_BY_ID = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            for (Method method : type.getMethods()) {
+                if ("findById".equals(method.getName())
+                        && method.getParameterCount() == 1
+                        && !method.isBridge()
+                        && !method.isSynthetic()
+                        && method.getDeclaringClass() != AbstractBaseQueryResourceService.class
+                        && AbstractBaseQueryResourceService.class.isAssignableFrom(method.getDeclaringClass())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+
+    @Override
+    @Transactional(readOnly = true)
+    public void assertItemAccessible(ID id) {
+        if (OVERRIDES_FIND_BY_ID.get(getClass())) {
+            findById(id);
+            return;
+        }
+        E entity = findEntityById(id);
+        if (org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.isOpen()) {
+            org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.seedServiceSnapshot(
+                    this, id, toResourceStateSnapshot(entity));
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
     public ResourceRepresentationResult<ResponseDTO> findById(ID id) {
@@ -414,7 +445,13 @@ public abstract class AbstractBaseQueryResourceService<
     @Transactional(readOnly = true)
     public Optional<ResourceStateSnapshot> findResourceStateSnapshot(ID id) {
         return org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.findSeededServiceSnapshot(this, id)
-                .orElseGet(() -> toResourceStateSnapshot(findEntityById(id)));
+                .orElseGet(() -> {
+                    Optional<ResourceStateSnapshot> snapshot = toResourceStateSnapshot(findEntityById(id));
+                    if (org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.isOpen()) {
+                        org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.seedServiceSnapshot(this, id, snapshot);
+                    }
+                    return snapshot;
+                });
     }
 
     /** Stable semantic identity used by service-backed discovery. */

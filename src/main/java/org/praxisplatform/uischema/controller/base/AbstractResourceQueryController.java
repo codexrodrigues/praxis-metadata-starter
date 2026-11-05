@@ -1298,7 +1298,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (surfaceCatalogService == null) {
             throw new IllegalStateException("SurfaceCatalogService is not configured for contextual discovery.");
         }
-        getService().findById(id);
+
+        assertItemAccessible(id);
             return withVersion(ResponseEntity.ok(), surfaceCatalogService.findItemSurfaces(getResourceKey(), id));
         }
     }
@@ -1310,7 +1311,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (actionCatalogService == null) {
             throw new IllegalStateException("ActionCatalogService is not configured for contextual discovery.");
         }
-        getService().findById(id);
+
+        assertItemAccessible(id);
             return withVersion(ResponseEntity.ok(), actionCatalogService.findItemActions(getResourceKey(), id));
         }
     }
@@ -1347,11 +1349,23 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (capabilityService == null) {
             throw new IllegalStateException("CapabilityService is not configured for contextual discovery.");
         }
-        getService().findById(id);
-        return withVersion(
-                ResponseEntity.ok(),
-                capabilityService.itemCapabilities(getResourceKey(), getBasePath(), id)
-        );
+        try (var ignored = org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.open()) {
+            assertItemAccessible(id);
+            return withVersion(
+                    ResponseEntity.ok(),
+                    capabilityService.itemCapabilities(getResourceKey(), getBasePath(), id)
+            );
+        }
+    }
+
+    private void assertItemAccessible(ID id) {
+        BaseResourceQueryService<ResponseDTO, ID, FD> service = getService();
+        if (org.praxisplatform.uischema.service.base.AbstractBaseQueryResourceService.class.isAssignableFrom(
+                org.springframework.aop.support.AopUtils.getTargetClass(service))) {
+            service.assertItemAccessible(id);
+            return;
+        }
+        service.findById(id);
     }
 
     @GetMapping(SCHEMAS_PATH)
@@ -1560,7 +1574,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     ResponseEntity<RestApiResponse<Page<ChildDTO>>> filterRelatedChildResource(ID parentId,
             BaseResourceQueryService<ChildDTO, ChildID, ChildFilter> childService, String childPath,
             Supplier<ChildFilter> filterFactory, BiConsumer<ChildFilter, ID> parentBinder, int page, int size) {
-        getService().findById(parentId);
+        assertItemAccessible(parentId);
         if (page < 0 || size < 1 || size > 200) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid child resource pagination");
         if (!StringUtils.hasText(childPath) || !childPath.startsWith("/") || childPath.startsWith("//")
                 || childPath.contains("?") || childPath.contains("#")) throw new IllegalArgumentException("Child collection path must be absolute and local");

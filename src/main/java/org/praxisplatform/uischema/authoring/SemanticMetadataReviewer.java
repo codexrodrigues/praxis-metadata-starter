@@ -81,12 +81,22 @@ public class SemanticMetadataReviewer {
 
         java.util.Set<String> quickViewVisibleFields = new java.util.LinkedHashSet<>();
         java.util.Map<String, String> resourceReferenceValueFields = new java.util.LinkedHashMap<>();
+        java.util.Map<String, java.util.Set<String>> groupsByLowerName = new java.util.LinkedHashMap<>();
+        java.util.Map<String, String> firstPropertyByLowerGroup = new java.util.LinkedHashMap<>();
 
         for (Field field : fieldsByName.values()) {
             String propName = field.getName();
             UISchema ui = findMemberAnnotation(targetType, field, UISchema.class);
-            if (ui != null && ui.quickViewVisible()) {
-                quickViewVisibleFields.add(propName);
+            if (ui != null) {
+                if (ui.quickViewVisible()) {
+                    quickViewVisibleFields.add(propName);
+                }
+                String group = normalize(ui.group());
+                if (!group.isBlank()) {
+                    String lowerGroup = group.toLowerCase(java.util.Locale.ROOT);
+                    groupsByLowerName.computeIfAbsent(lowerGroup, ignored -> new java.util.LinkedHashSet<>()).add(group);
+                    firstPropertyByLowerGroup.putIfAbsent(lowerGroup, propName);
+                }
             }
             org.praxisplatform.uischema.annotation.ResourceReference ref =
                     findMemberAnnotation(targetType, field, org.praxisplatform.uischema.annotation.ResourceReference.class);
@@ -102,8 +112,16 @@ public class SemanticMetadataReviewer {
                 continue;
             }
             UISchema ui = findGetterAnnotation(targetType, propName, UISchema.class);
-            if (ui != null && ui.quickViewVisible()) {
-                quickViewVisibleFields.add(propName);
+            if (ui != null) {
+                if (ui.quickViewVisible()) {
+                    quickViewVisibleFields.add(propName);
+                }
+                String group = normalize(ui.group());
+                if (!group.isBlank()) {
+                    String lowerGroup = group.toLowerCase(java.util.Locale.ROOT);
+                    groupsByLowerName.computeIfAbsent(lowerGroup, ignored -> new java.util.LinkedHashSet<>()).add(group);
+                    firstPropertyByLowerGroup.putIfAbsent(lowerGroup, propName);
+                }
             }
             org.praxisplatform.uischema.annotation.ResourceReference ref =
                     findGetterAnnotation(targetType, propName, org.praxisplatform.uischema.annotation.ResourceReference.class);
@@ -111,6 +129,19 @@ public class SemanticMetadataReviewer {
                 resourceReferenceValueFields.putIfAbsent(propName, normalize(ref.valueField()));
             }
             reviewGetterProperty(targetType, propName, issues);
+        }
+
+        for (var groupEntry : groupsByLowerName.entrySet()) {
+            if (groupEntry.getValue().size() > 1) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "uischema-group-case-divergence",
+                        targetType.getName(),
+                        firstPropertyByLowerGroup.get(groupEntry.getKey()),
+                        "@UISchema(group) declares case-divergent variants " + groupEntry.getValue()
+                                + " on " + targetType.getSimpleName() + "; unify into a single canonical group name."
+                ));
+            }
         }
 
         reviewQuickViewAndResourceIdentity(
@@ -167,20 +198,43 @@ public class SemanticMetadataReviewer {
         if (identity == null) {
             return;
         }
+        java.util.Set<String> headerIdentityFields = new java.util.LinkedHashSet<>();
         java.util.Set<String> identitySummaryFields = new java.util.LinkedHashSet<>();
-        checkIdentityFieldExists(targetType, "keyField", identity.keyField(), reviewedPropertyNames, issues);
+        if (checkIdentityFieldExists(targetType, "keyField", identity.keyField(), reviewedPropertyNames, issues)) {
+            String normalizedKey = normalize(identity.keyField());
+            headerIdentityFields.add(normalizedKey);
+            identitySummaryFields.add(normalizedKey);
+        }
         if (checkIdentityFieldExists(targetType, "titleField", identity.titleField(), reviewedPropertyNames, issues)) {
-            identitySummaryFields.add(normalize(identity.titleField()));
+            String normalizedTitle = normalize(identity.titleField());
+            headerIdentityFields.add(normalizedTitle);
+            identitySummaryFields.add(normalizedTitle);
         }
         if (checkIdentityFieldExists(targetType, "subtitleField", identity.subtitleField(), reviewedPropertyNames, issues)) {
-            identitySummaryFields.add(normalize(identity.subtitleField()));
+            String normalizedSubtitle = normalize(identity.subtitleField());
+            headerIdentityFields.add(normalizedSubtitle);
+            identitySummaryFields.add(normalizedSubtitle);
         }
-        checkIdentityFieldExists(targetType, "avatarField", identity.avatarField(), reviewedPropertyNames, issues);
+        if (checkIdentityFieldExists(targetType, "avatarField", identity.avatarField(), reviewedPropertyNames, issues)) {
+            String normalizedAvatar = normalize(identity.avatarField());
+            headerIdentityFields.add(normalizedAvatar);
+            identitySummaryFields.add(normalizedAvatar);
+        }
         checkIdentityFieldExists(targetType, "displayLabelField", identity.displayLabelField(), reviewedPropertyNames, issues);
         if (identity.metadataFields() != null) {
             for (String metaField : identity.metadataFields()) {
                 if (checkIdentityFieldExists(targetType, "metadataFields", metaField, reviewedPropertyNames, issues)) {
-                    identitySummaryFields.add(normalize(metaField));
+                    String normalizedMeta = normalize(metaField);
+                    if (headerIdentityFields.contains(normalizedMeta)) {
+                        issues.add(new SemanticMetadataReviewIssue(
+                                SemanticMetadataIssueSeverity.ERROR,
+                                "resource-identity-metadata-repeats-header-field",
+                                targetType.getName(),
+                                normalizedMeta,
+                                "@ResourceIdentity.metadataFields must not repeat a header identity field (keyField/titleField/subtitleField/avatarField)."
+                        ));
+                    }
+                    identitySummaryFields.add(normalizedMeta);
                 }
             }
         }
@@ -191,7 +245,7 @@ public class SemanticMetadataReviewer {
                         "quick-view-repeats-identity-field",
                         targetType.getName(),
                         quickViewField,
-                        "@UISchema(quickViewVisible = true) must not repeat a field already declared in @ResourceIdentity(titleField/subtitleField/metadataFields)."
+                        "@UISchema(quickViewVisible = true) must not repeat a field already declared in @ResourceIdentity(keyField/titleField/subtitleField/avatarField/metadataFields)."
                 ));
             }
         }
