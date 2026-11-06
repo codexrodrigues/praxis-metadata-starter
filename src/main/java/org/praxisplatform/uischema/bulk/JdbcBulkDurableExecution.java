@@ -492,30 +492,29 @@ public final class JdbcBulkDurableExecution {
         Objects.requireNonNull(reservation, "reservation");
         Objects.requireNonNull(admission, "admission");
         Objects.requireNonNull(mutation, "mutation");
-        final boolean terminal;
+        final Preparation firstPreparation;
+        var preparing = new java.util.concurrent.atomic.AtomicBoolean();
         try {
-            terminal = unitTransaction(connection -> {
-                ExecutionRow execution = lockControl(connection, reservation.control());
-                if (!execution.executionId().equals(reservation.executionId())
-                        || !execution.proposalId().equals(reservation.proposalId())
-                        || execution.targetCount() != reservation.targetCount()
-                        || reservation.nextOrdinal() < 0
-                        || reservation.nextOrdinal() > execution.nextOrdinal())
-                    throw failure(BulkDurableExecutionException.Reason.CONFLICT);
-                return execution.status() == BulkDurableExecutionStatus.COMPLETED
-                        || execution.status() == BulkDurableExecutionStatus.COMPLETED_WITH_ERRORS
-                        || execution.status() == BulkDurableExecutionStatus.STOPPED;
+            firstPreparation = unitTransaction(connection -> {
+                var read = preparationRead(connection, reservation.control(), reservation.nextOrdinal(), reservation);
+                ExecutionRow execution = read.execution();
+                if (terminal(execution.status()) || reservation.nextOrdinal() >= reservation.targetCount()) return null;
+                preparing.set(true);
+                return prepare(connection, reservation.control(), reservation.nextOrdinal(), read);
             });
         } catch (BulkDurableExecutionException error) {
             throw error;
         } catch (RuntimeException error) {
-            throw failure(BulkDurableExecutionException.Reason.UNAVAILABLE);
+            throw failure(preparing.get() ? BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED
+                    : BulkDurableExecutionException.Reason.UNAVAILABLE);
         }
-        if (terminal) return;
+        if (firstPreparation == null) return;
 
         int ordinal = reservation.nextOrdinal();
         while (ordinal < reservation.targetCount()) {
-            BulkUnitExecutionResult result = executeUnit(reservation.control(), ordinal, admission, mutation);
+            BulkUnitExecutionResult result = ordinal == reservation.nextOrdinal()
+                    ? executePreparedUnit(reservation.control(), ordinal, firstPreparation, admission, mutation)
+                    : executeUnit(reservation.control(), ordinal, admission, mutation);
             // Includes ACK readback after a later unit in this call: its suffix requires another
             // explicit request, even when the acknowledged durable state is already RUNNING.
             if (result.replayed() || result.status() != BulkDurableExecutionStatus.RUNNING) return;
@@ -544,6 +543,11 @@ public final class JdbcBulkDurableExecution {
             throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
         }
 
+        return executePreparedUnit(control, expectedOrdinal, preparation, admission, callback);
+    }
+
+    private BulkUnitExecutionResult executePreparedUnit(BulkExecutionControl control, int expectedOrdinal,
+            Preparation preparation, BulkUnitAdmissionCallback admission, BulkUnitMutationCallback callback) {
         if (preparation.receipt() != null) {
             return acknowledgeReceipt(control, expectedOrdinal, preparation.receipt(), true);
         }
@@ -1475,10 +1479,10 @@ public final class JdbcBulkDurableExecution {
             String keyDigest, String owner, String revision, Instant deadline,
             BulkOperationLifecycle.ReadyAdmission queryAdmission, Evaluation evaluation) throws SQLException {
         requireSynchronous(evaluation);
-        JdbcBulkCapacityOccupancy.lockMarker(connection);
+        boolean reservationPresent = lockAndProbeReservation(connection, scope, proposalId, keyDigest);
         BulkOperationControlExpectation expectation = evaluation.proposal().controlExpectation();
         String reservationFingerprint = reservationFingerprint(evaluation, revision);
-        if (reservationExists(connection, scope, proposalId, keyDigest)) {
+        if (reservationPresent) {
             Optional<BulkExecutionSnapshot> existing = findReservation(connection, scope, proposalId,
                     keyDigest, reservationFingerprint);
             if (existing.isEmpty()) throw failure(BulkDurableExecutionException.Reason.CONFLICT);
@@ -1512,11 +1516,13 @@ public final class JdbcBulkDurableExecution {
         if (!"SYNC".equals(evaluation.proposal().snapshot().intent().path("executionMode").asText()))
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         validateExecutionSubset(evaluation);
-        Instant databaseNow = clock(connection);
+        var capacity = BulkQuotaLedger.executionCapacity(connection, quota);
+        Instant databaseNow = capacity.observedAt();
         if (!databaseNow.isBefore(evaluation.proposal().expiresAt()))
             throw failure(BulkDurableExecutionException.Reason.EXPIRED);
         if (!deadline.isAfter(databaseNow)) throw failure(BulkDurableExecutionException.Reason.DEADLINE_EXCEEDED);
-        BulkQuotaLedger.requireExecutionRoom(connection, quota);
+        if (capacity.active() >= BulkQuotaLedger.MAX_ACTIVE_DEPLOYMENT)
+            throw failure(BulkDurableExecutionException.Reason.CAPACITY);
         UUID executionId = UUID.randomUUID();
         int inserted;
         try (var statement = connection.prepareStatement("""
@@ -1548,11 +1554,25 @@ public final class JdbcBulkDurableExecution {
             statement.setString(17, evaluation.proposal().snapshot().context().atomicity().name());
             inserted = statement.executeUpdate();
         }
-        if (inserted == 1) BulkQuotaLedger.activateExecution(connection, scope, proposalId, executionId, quota);
+        if (inserted == 1) return new ReservationWrite(activateAndReadReservation(connection, scope,
+                proposalId, executionId, quota, keyDigest, reservationFingerprint), true);
         Optional<BulkExecutionSnapshot> selected = findReservation(connection, scope, proposalId, keyDigest,
                 reservationFingerprint);
         if (selected.isEmpty()) throw failure(BulkDurableExecutionException.Reason.CONFLICT);
         return new ReservationWrite(selected.orElseThrow(), inserted == 1);
+    }
+
+    private BulkExecutionSnapshot activateAndReadReservation(Connection connection, BulkFingerprintContext scope,
+            UUID proposalId, UUID executionId, BulkQuotaLedger.Scope quota, String keyDigest, String binding)
+            throws SQLException {
+        try(var statement=connection.prepareStatement(BulkQuotaLedger.ACTIVATE_EXECUTION_SQL+";\n"+RESERVATION_ROW_SQL)) {
+            int index=BulkQuotaLedger.bindActivation(statement,scope,proposalId,executionId,quota);
+            bindScope(statement,scope,index);statement.setObject(index+4,proposalId);statement.setString(index+5,keyDigest);
+            var batch=new JdbcBulkUnitBatch(statement);
+            batch.rows(rows->{BulkQuotaLedger.requireActivation(rows);return null;});
+            var snapshot=batch.rows(rows->{single(rows,BulkDurableExecutionException.Reason.CONFLICT);var execution=row(rows);if(rows.next()||!binding.equals(execution.reservationFingerprint()))throw failure(BulkDurableExecutionException.Reason.CONFLICT);return snapshot(execution);});
+            batch.end();return snapshot;
+        }
     }
 
     private static boolean matchesQueryAdmission(BulkOperationLifecycle.ReadyAdmission admission,
@@ -1572,6 +1592,22 @@ public final class JdbcBulkDurableExecution {
                 && evaluation.snapshot().targets().size() <= admission.maxTargets();
     }
 
+    private boolean lockAndProbeReservation(Connection connection, BulkFingerprintContext scope,
+            UUID proposalId, String keyDigest) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select praxis_bulk.lock_capacity_marker();
+                select exists (select 1 from praxis_bulk.praxis_bulk_execution e
+                  where e.namespace_id=? and e.subject_id=? and e.resource_key=? and e.operation_id=?
+                    and (e.proposal_id=? or e.idempotency_key_digest=?))
+                """)) {
+            bindScope(statement, scope, 1); statement.setObject(5, proposalId); statement.setString(6, keyDigest);
+            var batch = new JdbcBulkUnitBatch(statement);
+            batch.rows(rows -> { single(rows, BulkDurableExecutionException.Reason.CORRUPT); rows.getString(1); noMore(rows); return null; });
+            boolean exists = batch.rows(rows -> { single(rows, BulkDurableExecutionException.Reason.CORRUPT); boolean value=rows.getBoolean(1); if(rows.wasNull()) throw failure(BulkDurableExecutionException.Reason.CORRUPT); noMore(rows); return value; });
+            batch.end(); return exists;
+        }
+    }
+
     private boolean reservationExists(Connection connection, BulkFingerprintContext scope, UUID proposalId,
             String keyDigest) throws SQLException {
         try (var statement = connection.prepareStatement("""
@@ -1588,9 +1624,7 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
-    private Optional<BulkExecutionSnapshot> findReservation(Connection connection, BulkFingerprintContext scope,
-            UUID proposalId, String keyDigest, String expectedBinding) throws SQLException {
-        try (var statement = connection.prepareStatement("""
+    private static final String RESERVATION_ROW_SQL = """
                 select e.*, (case when e.atomicity='ATOMIC' then
                             (select count(*) from praxis_bulk.praxis_bulk_atomic_item_result r
                              where r.execution_id=e.execution_id)
@@ -1602,7 +1636,11 @@ public final class JdbcBulkDurableExecution {
                   and (e.proposal_id=? or e.idempotency_key_digest=?)
                 order by e.execution_id
                 for update
-                """)) {
+                """;
+
+    private Optional<BulkExecutionSnapshot> findReservation(Connection connection, BulkFingerprintContext scope,
+            UUID proposalId, String keyDigest, String expectedBinding) throws SQLException {
+        try (var statement = connection.prepareStatement(RESERVATION_ROW_SQL)) {
             bindScope(statement, scope, 1);
             statement.setObject(5, proposalId); statement.setString(6, keyDigest);
             try (ResultSet rows = statement.executeQuery()) {
@@ -1616,15 +1654,97 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
+    /** Fresh protected reads share one submission; all locks survive until preparation commits. */
+    private PreparationRead preparationRead(Connection connection, BulkExecutionControl control, int ordinal)
+            throws SQLException {
+        return preparationRead(connection, control, ordinal, null);
+    }
+
+    private PreparationRead preparationRead(Connection connection, BulkExecutionControl control, int ordinal,
+            BulkExecutionReservation reservation) throws SQLException {
+        String scoped = "with scoped as materialized (select * from praxis_bulk.praxis_bulk_execution where execution_id=? and namespace_id=?) ";
+        String permitted = "with permitted as materialized (select * from praxis_bulk.praxis_bulk_execution where execution_id=? and namespace_id=? and owner_id=? and owner_epoch=?) ";
+        String sql = String.join(";\n",
+                "select praxis_bulk.lock_capacity_marker()",
+                "select operation_id from praxis_bulk.praxis_bulk_execution where execution_id=? and namespace_id=?",
+                scoped + "select e.operation_id,c.state,c.generation,c.descriptor_fingerprint,c.structural_revision from scoped e left join lateral praxis_bulk.lock_operation_control(e.namespace_id,e.operation_id) c on true",
+                EXECUTION_ROW_SQL + " for update",
+                permitted + "select r.unit_ordinal,r.target_digest,r.expected_version,r.attempt_id,r.owner_epoch,r.outcome,r.confirmed_at,r.unit_deadline_at from praxis_bulk.praxis_bulk_item_receipt r join permitted e on e.execution_id=r.execution_id where r.unit_ordinal=?",
+                permitted + "select a.unit_ordinal,a.target_digest,a.expected_version,a.attempt_id,a.owner_epoch,a.outcome,a.reason_code,a.recorded_at from praxis_bulk.praxis_bulk_admission a join permitted e on e.execution_id=a.execution_id where a.unit_ordinal=?",
+                permitted + "select p.created_at,p.expires_at,p.fingerprint,p.payload,p.control_generation,p.control_descriptor_fingerprint,p.control_structural_revision,v.evaluation_fingerprint,v.payload,p.atomicity,p.protocol_version,p.execution_mode from permitted x join praxis_bulk.praxis_bulk_proposal p on p.proposal_id=x.proposal_id and p.namespace_id=x.namespace_id and p.subject_id=x.subject_id and p.resource_key=x.resource_key and p.operation_id=x.operation_id join praxis_bulk.praxis_bulk_evaluation v on v.proposal_id=p.proposal_id and v.input_fingerprint=p.fingerprint",
+                permitted + "select r.unit_ordinal,r.target_digest,r.expected_version,r.attempt_id,r.owner_epoch,r.outcome,r.confirmed_at,r.unit_deadline_at from praxis_bulk.praxis_bulk_item_receipt r join permitted e on e.execution_id=r.execution_id order by r.unit_ordinal",
+                permitted + "select a.unit_ordinal,a.target_digest,a.expected_version,a.attempt_id,a.owner_epoch,a.outcome,a.reason_code,a.recorded_at from praxis_bulk.praxis_bulk_admission a join permitted e on e.execution_id=a.execution_id order by a.unit_ordinal",
+                permitted + "select clock_timestamp() from permitted");
+        try (var statement = connection.prepareStatement(sql)) {
+            int index=1;
+            for(int query=1;query<=9;query++) {
+                statement.setObject(index++,control.executionId());statement.setString(index++,infrastructure.namespace());
+                if(query>=4) {statement.setString(index++,control.ownerId());statement.setLong(index++,control.epoch());}
+                if(query==4 || query==5) statement.setInt(index++,ordinal);
+            }
+            var batch=new JdbcBulkUnitBatch(statement);
+            batch.rows(rows->{single(rows,BulkDurableExecutionException.Reason.CORRUPT);rows.getString(1);noMore(rows);return null;});
+            String operation=batch.rows(rows->{single(rows,BulkDurableExecutionException.Reason.NOT_FOUND);String v=rows.getString(1);noMore(rows);return v;});
+            var current=batch.rows(rows -> preparationControl(rows, operation));
+            ExecutionRow execution=batch.rows(rows->{single(rows,BulkDurableExecutionException.Reason.NOT_FOUND);var v=row(rows);noMore(rows);return v;});
+            if(!infrastructure.namespace().equals(execution.namespaceId())) throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
+            if(!Objects.equals(operation,execution.operationId())) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            if(!control.ownerId().equals(execution.ownerId()) || control.epoch()!=execution.ownerEpoch()) throw failure(BulkDurableExecutionException.Reason.FENCED);
+            if (reservation != null) {
+                if (!execution.executionId().equals(reservation.executionId())
+                        || !execution.proposalId().equals(reservation.proposalId())
+                        || execution.targetCount() != reservation.targetCount()
+                        || reservation.nextOrdinal() < 0 || reservation.nextOrdinal() > execution.nextOrdinal())
+                    throw failure(BulkDurableExecutionException.Reason.CONFLICT);
+                if (terminal(execution.status()) || reservation.nextOrdinal() >= reservation.targetCount()) {
+                    // Terminal no-op requires the locked header and fencing, not payload decoding.
+                    for (int i=0;i<6;i++) batch.rows(rows->{while(rows.next()) { } return null;});
+                    batch.end();
+                    return new PreparationRead(execution,current,Optional.empty(),Optional.empty(),null,List.of(),List.of(),null);
+                }
+            }
+            Optional<Receipt> receipt=batch.rows(JdbcBulkDurableExecution::optionalReceipt);
+            Optional<AdmissionRecord> admission=batch.rows(JdbcBulkDurableExecution::optionalAdmission);
+            var ref=new org.praxisplatform.uischema.openapi.CanonicalOperationRef(null,execution.operationId(),"/protected","POST");
+            var scope=new BulkFingerprintContext(execution.namespaceId(),execution.subjectId(),execution.resourceKey(),ref,execution.structuralRevision(),execution.atomicity());
+            Evaluation evaluation=requireEvaluation(execution,batch.rows(rows->evaluation(rows,scope,execution.proposalId())));
+            List<Receipt> receipts=batch.rows(rows->{var values=new ArrayList<Receipt>();while(rows.next())values.add(receipt(rows));return List.copyOf(values);});
+            List<AdmissionRecord> admissions=batch.rows(rows->{var values=new ArrayList<AdmissionRecord>();while(rows.next())values.add(admission(rows));return List.copyOf(values);});
+            Instant observed=batch.rows(JdbcBulkDurableExecution::singleClock);batch.end();
+            return new PreparationRead(execution,current,receipt,admission,evaluation,receipts,admissions,observed);
+        }
+    }
+
+    private record PreparationRead(ExecutionRow execution, JdbcBulkOperationControl.Snapshot control,
+            Optional<Receipt> receipt, Optional<AdmissionRecord> admission, Evaluation evaluation,
+            List<Receipt> receipts, List<AdmissionRecord> admissions, Instant observedAt) { }
+
+    static JdbcBulkOperationControl.Snapshot preparationControl(ResultSet rows, String operation)
+            throws SQLException {
+        single(rows, BulkDurableExecutionException.Reason.NOT_FOUND);
+        if (operation == null || !operation.equals(rows.getString(1)))
+            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+        Long generation = rows.getObject(3, Long.class);
+        var control = generation == null ? null : new JdbcBulkOperationControl.Snapshot(
+                rows.getString(2), generation, rows.getString(4), rows.getString(5));
+        noMore(rows);
+        return control;
+    }
+
     private Preparation prepare(Connection connection, BulkExecutionControl control, int ordinal) throws SQLException {
-        ExecutionRow execution = lockControl(connection, control);
+        return prepare(connection, control, ordinal, preparationRead(connection, control, ordinal));
+    }
+
+    private Preparation prepare(Connection connection, BulkExecutionControl control, int ordinal, PreparationRead read)
+            throws SQLException {
+        ExecutionRow execution = read.execution();
         if (execution.atomicity() != ActionCollectionAtomicity.PER_ITEM)
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
-        Optional<Receipt> existing = findReceipt(connection, control.executionId(), ordinal);
-        Optional<AdmissionRecord> existingAdmission = findAdmission(connection, control.executionId(), ordinal);
+        Optional<Receipt> existing = read.receipt();
+        Optional<AdmissionRecord> existingAdmission = read.admission();
         if (existing.isPresent() && existingAdmission.isPresent())
             throw failure(BulkDurableExecutionException.Reason.CORRUPT);
-        Evaluation evaluation = loadEvaluation(connection, execution, false);
+        Evaluation evaluation = read.evaluation();
         if (existing.isPresent()) {
             if (!receiptReplayable(execution, existing.orElseThrow())
                     || !validReceipt(execution, evaluation, existing.orElseThrow()))
@@ -1641,7 +1761,7 @@ public final class JdbcBulkDurableExecution {
         // execution may enter a fresh callback after the non-rolling V16 cutover.
         if (execution.protocolVersion() != 2)
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
-        if (!durablePrefixConsistent(connection, execution, evaluation))
+        if (!durablePrefixConsistent(read.receipts(), read.admissions(), execution, evaluation))
             throw failure(BulkDurableExecutionException.Reason.RECONCILIATION_REQUIRED);
         if (execution.cancelRequestedAt() != null) {
             if (execution.status() == BulkDurableExecutionStatus.RUNNING)
@@ -1655,9 +1775,9 @@ public final class JdbcBulkDurableExecution {
         }
         if (execution.status() != BulkDurableExecutionStatus.RUNNING || ordinal != execution.nextOrdinal())
             throw failure(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
-        requireReadyControlFence(connection, execution, evaluation);
+        requireReadyControlFence(read.control(), execution, evaluation);
         requireCapacityUnit(connection, execution, evaluation);
-        if (!clock(connection).isBefore(execution.deadlineAt())) {
+        if (!read.observedAt().isBefore(execution.deadlineAt())) {
             try (var statement = connection.prepareStatement("""
                     with terminal_clock as materialized (select clock_timestamp() as observed_at)
                     update praxis_bulk.praxis_bulk_execution
@@ -2427,30 +2547,50 @@ public final class JdbcBulkDurableExecution {
 
     private ExecutionRow lockControl(Connection connection, BulkExecutionControl control) throws SQLException {
         JdbcBulkCapacityOccupancy.lockMarker(connection);
-        String operationId;
-        try (var statement = connection.prepareStatement("""
-                select operation_id from praxis_bulk.praxis_bulk_execution
-                where execution_id=? and namespace_id=?
-                """)) {
-            statement.setObject(1, control.executionId());
-            statement.setString(2, infrastructure.namespace());
-            try (ResultSet rows = statement.executeQuery()) {
-                if (!rows.next()) throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
+        // Fixed submissions preserve identity-read -> namespace/global/control SHARE ->
+        // execution UPDATE order. The locked operation identity is checked independently.
+        String sql = """
+                select operation_id from praxis_bulk.praxis_bulk_execution where execution_id=? and namespace_id=?;
+                select e.operation_id,c.state,c.generation,c.descriptor_fingerprint,c.structural_revision
+                from praxis_bulk.praxis_bulk_execution e
+                left join lateral praxis_bulk.lock_operation_control(e.namespace_id,e.operation_id) c on true
+                where e.execution_id=? and e.namespace_id=?;
+                """ + EXECUTION_ROW_SQL + " for update";
+        try (var statement = connection.prepareStatement(sql)) {
+            for (int i = 1; i <= 5; i += 2) {
+                statement.setObject(i, control.executionId()); statement.setString(i + 1, infrastructure.namespace());
+            }
+            if (!statement.execute()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            String operationId;
+            try (var rows = statement.getResultSet()) {
+                if (rows == null || !rows.next()) throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
                 operationId = rows.getString(1);
+                if (operationId == null || rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+            if (!statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT))
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            try (var rows = statement.getResultSet()) {
+                if (rows == null || !rows.next()) throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
+                if (!operationId.equals(rows.getString(1)) || rows.next())
+                    throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            }
+            if (!statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT))
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            ExecutionRow execution;
+            try (var rows = statement.getResultSet()) {
+                if (rows == null || !rows.next()) throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
+                execution = row(rows);
                 if (rows.next()) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
             }
+            if (statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT) || statement.getUpdateCount() != -1)
+                throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            if (!infrastructure.namespace().equals(execution.namespaceId()))
+                throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
+            if (!operationId.equals(execution.operationId())) throw failure(BulkDurableExecutionException.Reason.CORRUPT);
+            if (!control.ownerId().equals(execution.ownerId()) || control.epoch() != execution.ownerEpoch())
+                throw failure(BulkDurableExecutionException.Reason.FENCED);
+            return execution;
         }
-        // This non-locking identity read is followed by the durable V6 share lock and only then
-        // the execution FOR UPDATE lock. The execution binding is checked again after locking.
-        JdbcBulkOperationControl.lockForAdmission(connection, infrastructure.namespace(), operationId);
-        ExecutionRow execution = row(connection, control.executionId(), true);
-        if (!infrastructure.namespace().equals(execution.namespaceId()))
-            throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);
-        if (!operationId.equals(execution.operationId()))
-            throw failure(BulkDurableExecutionException.Reason.CORRUPT);
-        if (!control.ownerId().equals(execution.ownerId()) || control.epoch() != execution.ownerEpoch())
-            throw failure(BulkDurableExecutionException.Reason.FENCED);
-        return execution;
     }
 
     /** Same lifecycle lock order as V9 retention, without requiring a READY descriptor. */
@@ -2911,9 +3051,7 @@ public final class JdbcBulkDurableExecution {
         }
     }
 
-    private ExecutionRow row(Connection connection, UUID executionId, boolean lock) throws SQLException {
-        String suffix = lock ? " for update" : "";
-        try (var statement = connection.prepareStatement("""
+    private static final String EXECUTION_ROW_SQL = """
                 select e.*, (case when e.atomicity='ATOMIC' then
                             (select count(*) from praxis_bulk.praxis_bulk_atomic_item_result r
                              where r.execution_id=e.execution_id)
@@ -2921,7 +3059,11 @@ public final class JdbcBulkDurableExecution {
                              where r.execution_id=e.execution_id) end) receipt_count,
                        (select count(*) from praxis_bulk.praxis_bulk_admission a where a.execution_id=e.execution_id) admission_count
                 from praxis_bulk.praxis_bulk_execution e where e.execution_id=? and e.namespace_id=?
-                """ + suffix)) {
+                """;
+
+    private ExecutionRow row(Connection connection, UUID executionId, boolean lock) throws SQLException {
+        String suffix = lock ? " for update" : "";
+        try (var statement = connection.prepareStatement(EXECUTION_ROW_SQL + suffix)) {
             statement.setObject(1, executionId); statement.setString(2, infrastructure.namespace());
             try (ResultSet rows = statement.executeQuery()) {
                 if (!rows.next()) throw failure(BulkDurableExecutionException.Reason.NOT_FOUND);

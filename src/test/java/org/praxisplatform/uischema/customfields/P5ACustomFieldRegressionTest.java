@@ -104,7 +104,7 @@ class P5ACustomFieldRegressionTest {
                             {"type":"object","properties":{"note":{"type":"string"},"owner":{"type":"integer"},"customFields":{"type":"object"}}}
                             """), io.swagger.v3.oas.models.SpecVersion.V30, Set.of("owner", "customFields"));
                     adapter.evaluate(1L, etags.create("allocations",1L,4), List.of(BulkFieldChange.set("note",mapper.valueToTree("new"))),
-                            BulkMode.UNIFORM_UPDATE, fields);
+                            org.praxisplatform.uischema.service.base.ResourceMutationContext.bulkEvaluation(BulkMode.UNIFORM_UPDATE,java.time.Instant.EPOCH), fields);
                     assertEquals("old", entity.note);
                     assertEquals(7, entity.owner);
                     verify(repository, never()).save(any());

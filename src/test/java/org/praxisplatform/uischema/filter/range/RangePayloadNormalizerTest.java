@@ -335,6 +335,24 @@ class RangePayloadNormalizerTest {
         assertEquals("18:00", payload.path("horarioBetween").get(1).asText());
     }
 
+    @Test
+    void shouldNormalizeInheritedRange() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("{\"valor\":{\"minPrice\":10,\"maxPrice\":20}}");
+        assertTrue(normalizer.normalizeInPlace(payload, InheritedRangeFilter.class));
+        assertEquals("[10,20]", payload.path("valorBetween").toString());
+        assertFalse(payload.has("valor"));
+    }
+
+    @Test
+    void shouldNotNormalizeParentRangeShadowedByUnannotatedChild() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("{\"valorBetween\":\"description\"}");
+        assertFalse(normalizer.normalizeInPlace(payload, ShadowedRangeFilter.class));
+        assertEquals("description", payload.path("valorBetween").asText());
+    }
+
+    static class InheritedRangeFilter extends RangeFilterDTO { }
+    static class ShadowedRangeFilter extends RangeFilterDTO { private String valorBetween; }
+
     static class RangeFilterDTO implements GenericFilterDTO {
         @UISchema(numericFormat = NumericFormat.CURRENCY)
         @Filterable(operation = Filterable.FilterOperation.BETWEEN, relation = "valor")

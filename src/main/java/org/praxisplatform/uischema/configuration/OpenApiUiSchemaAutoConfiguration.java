@@ -880,7 +880,20 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean({ActionDefinitionRegistry.class, SurfaceDefinitionRegistry.class})
+    @ConditionalOnBean(org.praxisplatform.uischema.schema.ApiResourceIdentityResolver.class)
+    @ConditionalOnMissingBean
+    public org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource reactiveDeterminationCatalogSource(
+            ReactiveDeterminationDefinitionRegistry registry, ReactiveDeterminationMetadataCompiler compiler,
+            CanonicalOperationResolver operations, OpenApiDocumentService documents,
+            org.praxisplatform.uischema.schema.ApiResourceIdentityResolver identities, SchemaReferenceResolver schemas,
+            CanonicalCapabilityResolver capabilities, ObjectMapper mapper) {
+        return new org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource(
+                registry, compiler, operations, documents, identities, schemas, capabilities, mapper);
+    }
+
+    @Bean
+    @ConditionalOnBean({ActionDefinitionRegistry.class, SurfaceDefinitionRegistry.class,
+            org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource.class})
     @ConditionalOnMissingBean
     public SemanticDomainCatalogService semanticDomainCatalogService(
             ActionDefinitionRegistry actionDefinitionRegistry,
@@ -894,7 +907,8 @@ public class OpenApiUiSchemaAutoConfiguration {
             CustomFieldDefinitionProvider customFieldDefinitions,
             ResourceFactCatalogProvider resourceFacts,
             ResourceTenantContextResolver tenantResolver,
-            DomainRuleSetCatalogProvider domainRuleSetCatalogProvider
+            DomainRuleSetCatalogProvider domainRuleSetCatalogProvider,
+            org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource determinationCatalogSource
     ) {
         return new SemanticDomainCatalogService(
                 actionDefinitionRegistry,
@@ -909,7 +923,8 @@ public class OpenApiUiSchemaAutoConfiguration {
                 customFieldDefinitions,
                 resourceFacts,
                 tenantResolver,
-                domainRuleSetCatalogProvider
+                domainRuleSetCatalogProvider,
+                determinationCatalogSource
         );
     }
 

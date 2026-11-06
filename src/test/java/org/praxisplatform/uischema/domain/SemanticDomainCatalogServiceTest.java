@@ -54,6 +54,75 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SemanticDomainCatalogServiceTest {
 
     @Test
+    void projectsMandatoryControlDependenciesFromTheCanonicalSlot() {
+        String resource = "human-resources.folhas-pagamento";
+        var condition = new ObjectMapper().createObjectNode().put("var", "context.allowed");
+        var slots = List.of(
+                new DecisionSlot("guard", DecisionStage.PROTECTED_GUARD, SlotCardinality.SINGLE,
+                        OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of()),
+                new DecisionSlot("rule", DecisionStage.DOMAIN_DECISION, SlotCardinality.SINGLE,
+                        OverridePolicy.REPLACEABLE, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of("product.guard")));
+        var bindings = List.of(
+                new DecisionBinding("product.guard", "guard", DecisionSource.PRODUCT, null,
+                        RuleExecutorRef.jsonLogic(condition),
+                        List.of(), 0, true, RuleDecision.NOT_APPLICABLE, "OUTSIDE_SCOPE", List.of("context.allowed"), null),
+                new DecisionBinding("product.rule", "rule", DecisionSource.PRODUCT, null,
+                        RuleExecutorRef.jsonLogic(condition),
+                        List.of("product.guard"), 1, true, RuleDecision.DENY, "RULE_DENIED", List.of("context.allowed"), null));
+        var definition = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", resource, resource + ".validate", "CREATE", 1),
+                slots, bindings, RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED);
+        var descriptor = DomainRuleSetDescriptor.of(resource, definition, List.of(), Map.of());
+        var service = new SemanticDomainCatalogService(new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(), optionSources(), new StubOpenApiDocumentService(), null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart", "Praxis API Quickstart", "test", null, null, null,
+                (key, tenant) -> resource.equals(key) ? List.of(descriptor) : List.of());
+        var node = service.findByResourceKey(resource).nodes().stream()
+                .filter(item -> (resource + ".validate").equals(item.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat(node.metadata().get("slots")).asList().hasSize(2);
+        assertThat(node.metadata().get("slots")).asList().filteredOn(item ->
+                "rule".equals(((Map<?, ?>) item).get("slotKey"))).singleElement().satisfies(item ->
+                assertThat(((Map<?, ?>) item).get("requiredControlDependencies"))
+                        .isEqualTo(List.of("product.guard")));
+    }
+
+    @Test
+    void indexesAllHostDeclaredJavaReasonsOnlyForEnabledSlots() {
+        String resource = "human-resources.folhas-pagamento";
+        var slots = List.of("payroll.java", "payroll.disabled").stream().map(key ->
+                new DecisionSlot(key, DecisionStage.DOMAIN_DECISION, SlotCardinality.SINGLE,
+                        OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, java.util.List.of())).toList();
+        var bindings = slots.stream().map(slot -> new DecisionBinding(
+                "product." + slot.slotKey(), slot.slotKey(), DecisionSource.PRODUCT, null,
+                RuleExecutorRef.java("payroll:" + slot.slotKey(), "1.0"), List.of(), 1,
+                slot.slotKey().equals("payroll.java"), null, null, List.of("draft.valorLiquido"), null)).toList();
+        var definition = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", resource, resource + ".validate", "CREATE", 1),
+                slots, bindings, RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED);
+        var reasons = List.of(
+                new DomainRuleSetDescriptor.RuleReasonDescriptor("JAVA-001", "payroll.java", "valorLiquido",
+                        "Liquid amount exceeds the payable balance.", "payroll:balance@1.0", "balance comparison"),
+                new DomainRuleSetDescriptor.RuleReasonDescriptor("JAVA-002", "payroll.java", "valorBruto",
+                        "Gross amount exceeds the authorized ceiling.", "payroll:balance@1.0", "ceiling comparison"),
+                new DomainRuleSetDescriptor.RuleReasonDescriptor("JAVA-OFF", "payroll.disabled", "valorLiquido",
+                        "Disabled decision.", "payroll:disabled@1.0", "disabled"));
+        var descriptor = DomainRuleSetDescriptor.of(resource, definition, reasons, Map.of());
+        var service = new SemanticDomainCatalogService(new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(), optionSources(), new StubOpenApiDocumentService(), null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart", "Praxis API Quickstart", "test", null, null, null,
+                (key, tenant) -> resource.equals(key) ? List.of(descriptor) : List.of());
+        var node = service.findByResourceKey(resource).nodes().stream()
+                .filter(item -> (resource + ".validate").equals(item.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat(node.metadata()).containsEntry("reasonCodes", List.of("JAVA-001", "JAVA-002"));
+        assertThat(node.metadata().get("targetFields")).asList().contains("valorLiquido", "valorBruto");
+        assertThat(bindings).allSatisfy(binding -> assertThat(binding.falseReasonCode()).isNull());
+    }
+
+    @Test
     void buildsSemanticCatalogFromActionsSurfacesAndOptionSources() {
         SemanticDomainCatalogService service = new SemanticDomainCatalogService(
                 new StubActionDefinitionRegistry(),
@@ -562,18 +631,7 @@ class SemanticDomainCatalogServiceTest {
                 .containsEntry("childConcepts", List.of("ergon.periodos-aquisitivos-ferias"))
                 .containsEntry("referencedConcepts", List.of("ergon.cargos", "ergon.periodos-aquisitivos-ferias", "ergon.setores"))
                 .containsEntry("analyzedByDataProducts", List.of("ergon.radar-ferias-prescricao"))
-                .containsEntry("conceptFactRootMap", Map.of(
-                        "cargo", "ergon.cargos",
-                        "setor", "ergon.setores"
-                ))
-                .containsEntry("ontologicalFactRoots", List.of(
-                        "draft",
-                        "current",
-                        "cargo",
-                        "setor",
-                        "neighborhood",
-                        "context"
-                ));
+                .doesNotContainKeys("conceptFactRootMap", "ontologicalFactRoots");
 
         DomainCatalogResponse.DomainNodeItem cargoField = catalog.nodes().stream()
                 .filter(node -> "ergon.vinculos.field.cargo-id".equals(node.nodeKey()))
@@ -604,8 +662,9 @@ class SemanticDomainCatalogServiceTest {
                 .orElseThrow();
         assertThat(feriasConcept.nodeType()).isEqualTo("concept");
         assertThat(feriasConcept.metadata())
-                .containsEntry("parentConcepts", List.of("ergon.vinculos"))
-                .containsEntry("analyzedByDataProducts", List.of("ergon.radar-ferias-prescricao"));
+                .containsEntry("projectionRole", "REFERENCE")
+                .containsEntry("ownerServiceKey", "ergon-host")
+                .doesNotContainKeys("capabilities", "semanticRole", "readOnly");
     }
 
     @Test
@@ -634,7 +693,7 @@ class SemanticDomainCatalogServiceTest {
                         OverridePolicy.FORBIDDEN,
                         DecisionAggregationPolicy.SINGLE_RESULT,
                         null
-                )),
+                , java.util.List.of())),
                 List.of(new DecisionBinding(
                         "product.payroll.erg-folha-001",
                         "payroll.erg-folha-001",
@@ -669,7 +728,8 @@ class SemanticDomainCatalogServiceTest {
                         "Valor líquido inválido ou fornecedor inativo.",
                         "PCK_FOLHA.VALIDA_FOLHA",
                         "draft.valorLiquido != null && fornecedor.status == ACTIVE"
-                ))
+                )),
+                Map.of("fornecedor", new ConceptRootBinding("fornecedor", "praxis-api-quickstart", "partners", "partners.fornecedores"))
         );
 
         SemanticDomainCatalogService service = new SemanticDomainCatalogService(
@@ -693,7 +753,7 @@ class SemanticDomainCatalogServiceTest {
         DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
 
         DomainCatalogResponse.DomainNodeItem ruleSetNode = response.nodes().stream()
-                .filter(node -> "human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate".equals(node.nodeKey()))
+                .filter(node -> "human-resources.folhas-pagamento.validate".equals(node.metadata().get("ruleSetKey")))
                 .findFirst()
                 .orElseThrow();
         assertThat(ruleSetNode.nodeType()).isEqualTo("policy_hint");
@@ -724,21 +784,21 @@ class SemanticDomainCatalogServiceTest {
                 )
                 .contains(
                         org.assertj.core.groups.Tuple.tuple(
-                                "human-resources.folhas-pagamento.governed-by.human-resources.folhas-pagamento.validate",
+                                "human-resources.folhas-pagamento.governed-by." + ruleSetNode.nodeKey().substring("ruleset:".length()),
                                 "human-resources.folhas-pagamento",
-                                "human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate",
+                                ruleSetNode.nodeKey(),
                                 "governed_by"
                         ),
                         org.assertj.core.groups.Tuple.tuple(
-                                "human-resources.folhas-pagamento.field.valor-liquido.governed-by.human-resources.folhas-pagamento.validate",
+                                "human-resources.folhas-pagamento.field.valor-liquido.governed-by." + ruleSetNode.nodeKey().substring("ruleset:".length()),
                                 "human-resources.folhas-pagamento.field.valor-liquido",
-                                "human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate",
+                                ruleSetNode.nodeKey(),
                                 "governed_by"
                         )
                 );
 
         assertThat(response.bindings())
-                .filteredOn(b -> "binding:human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate:rule-set".equals(b.bindingKey()))
+                .filteredOn(b -> ("binding:" + ruleSetNode.nodeKey() + ":rule-set").equals(b.bindingKey()))
                 .singleElement()
                 .satisfies(binding -> assertThat(binding.bindingType()).isEqualTo("rule_definition"));
 
@@ -809,7 +869,7 @@ class SemanticDomainCatalogServiceTest {
                         OverridePolicy.PARAMETERIZABLE,
                         DecisionAggregationPolicy.SINGLE_RESULT,
                         template
-                )),
+                , java.util.List.of())),
                 List.of(new DecisionBinding(
                         "customer.config.payroll.erg-folha-002",
                         "payroll.erg-folha-002",
@@ -860,7 +920,7 @@ class SemanticDomainCatalogServiceTest {
         DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
 
         DomainCatalogResponse.DomainNodeItem ruleSetNode = response.nodes().stream()
-                .filter(node -> "human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate".equals(node.nodeKey()))
+                .filter(node -> "human-resources.folhas-pagamento.validate".equals(node.metadata().get("ruleSetKey")))
                 .findFirst()
                 .orElseThrow();
         assertThat(ruleSetNode.metadata())

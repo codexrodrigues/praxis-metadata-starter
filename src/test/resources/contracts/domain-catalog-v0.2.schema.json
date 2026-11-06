@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://praxisplatform.org/schemas/domain-catalog/praxis-domain-catalog-v0.2.schema.json",
+  "title": "Praxis Domain Catalog v0.2",
+  "type": "object",
+  "required": ["schemaVersion", "service", "release", "contexts", "nodes", "edges", "bindings", "aliases", "evidence", "governance"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "praxis.domain-catalog/v0.2" },
+    "service": { "$ref": "#/$defs/service" },
+    "release": { "$ref": "#/$defs/release" },
+    "resourceKey": { "type": ["string", "null"], "minLength": 1, "maxLength": 255 },
+    "contexts": { "type": "array", "items": { "$ref": "#/$defs/context" } },
+    "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } },
+    "bindings": { "type": "array", "items": { "$ref": "#/$defs/binding" } },
+    "aliases": { "type": "array", "items": { "$ref": "#/$defs/alias" } },
+    "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+    "governance": { "type": "array", "items": { "$ref": "#/$defs/governance" } }
+  },
+  "$defs": {
+    "service": {
+      "type": "object",
+      "required": ["serviceKey"],
+      "additionalProperties": false,
+      "properties": {
+        "serviceKey": { "$ref": "#/$defs/key" },
+        "name": { "type": ["string", "null"] },
+        "version": { "type": ["string", "null"] }
+      }
+    },
+    "release": {
+      "type": "object",
+      "required": ["releaseKey", "generatedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "releaseKey": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "sourceHash": { "type": ["string", "null"], "maxLength": 128 }
+      }
+    },
+    "context": {
+      "type": "object",
+      "required": ["contextKey", "label", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "contextKey": { "$ref": "#/$defs/key" },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "type": ["string", "null"] },
+        "owner": { "type": ["string", "null"] },
+        "source": { "type": ["string", "null"] },
+        "status": { "$ref": "#/$defs/status" },
+        "tags": { "$ref": "#/$defs/stringArray" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "semanticOwner": { "type": ["string", "null"] },
+        "lifecycle": { "$ref": "#/$defs/lifecycleNullable" },
+        "businessGlossary": { "$ref": "#/$defs/businessGlossary" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": ["nodeKey", "contextKey", "nodeType", "label", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "nodeKey": { "$ref": "#/$defs/key" },
+        "contextKey": { "$ref": "#/$defs/key" },
+        "nodeType": {
+          "enum": ["concept", "resource", "entity", "field", "fact", "state", "operation", "action", "surface", "stats", "relationship", "policy_hint", "llm_visibility"]
+        },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "type": ["string", "null"] },
+        "status": { "$ref": "#/$defs/status" },
+        "source": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "metadata": { "$ref": "#/$defs/freeObject" },
+        "tags": { "$ref": "#/$defs/stringArray" },
+        "owner": { "type": ["string", "null"] },
+        "semanticOwner": { "type": ["string", "null"] },
+        "lifecycle": { "$ref": "#/$defs/lifecycleNullable" },
+        "businessGlossary": { "$ref": "#/$defs/businessGlossary" },
+        "resolution": { "$ref": "#/$defs/resolution" },
+        "sourceEvidenceKeys": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["edgeKey", "sourceNodeKey", "targetNodeKey", "edgeType"],
+      "additionalProperties": false,
+      "properties": {
+        "edgeKey": { "$ref": "#/$defs/key" },
+        "sourceNodeKey": { "$ref": "#/$defs/key" },
+        "targetNodeKey": { "$ref": "#/$defs/key" },
+        "edgeType": {
+          "enum": ["has_field", "provides_fact", "has_state", "has_action", "has_surface", "has_stats", "allowed_in_state", "selectable_when", "blocked_when", "uses_concept", "same_as", "depends_on", "references", "owned_by", "governed_by", "materializes"]
+        },
+        "label": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "evidenceKeys": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "required": ["bindingKey", "nodeKey", "bindingType", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "bindingKey": { "$ref": "#/$defs/key" },
+        "nodeKey": { "$ref": "#/$defs/key" },
+        "bindingType": {
+          "enum": ["api_resource", "api_operation", "dto_schema", "dto_field", "resource_fact", "workflow_action", "approval_policy", "ui_surface", "option_source", "stats_endpoint", "form_config", "rule_definition", "external_reference"]
+        },
+        "target": { "$ref": "#/$defs/freeObject" },
+        "schemaLinks": { "type": "array", "items": { "$ref": "#/$defs/schemaLink" } },
+        "evidenceKeys": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "schemaLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rel": { "type": ["string", "null"] },
+        "href": { "type": ["string", "null"] },
+        "schemaId": { "type": ["string", "null"] },
+        "schemaType": { "type": ["string", "null"] }
+      }
+    },
+    "alias": {
+      "type": "object",
+      "required": ["aliasKey", "nodeKey", "alias"],
+      "additionalProperties": false,
+      "properties": {
+        "aliasKey": { "$ref": "#/$defs/key" },
+        "nodeKey": { "$ref": "#/$defs/key" },
+        "alias": { "$ref": "#/$defs/nonEmptyString" },
+        "locale": { "type": ["string", "null"] },
+        "source": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["evidenceKey", "evidenceType", "sourceRef"],
+      "additionalProperties": false,
+      "properties": {
+        "evidenceKey": { "$ref": "#/$defs/key" },
+        "evidenceType": { "enum": ["annotation", "openapi", "openapi_stats", "dto_schema", "option_source", "resource_fact", "custom_field", "manual", "inference", "external"] },
+        "sourceRef": { "$ref": "#/$defs/freeObject" },
+        "summary": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "required": ["governanceKey", "nodeKey", "annotationType"],
+      "additionalProperties": false,
+      "properties": {
+        "governanceKey": { "$ref": "#/$defs/key" },
+        "nodeKey": { "$ref": "#/$defs/key" },
+        "annotationType": { "enum": ["privacy", "compliance", "ownership", "security", "llm_visibility", "retention", "quality"] },
+        "classification": { "enum": ["public", "internal", "confidential", "restricted", null] },
+        "dataCategory": { "enum": ["none", "personal", "sensitive_personal", "financial", "health", "credential", "legal", "operational", null] },
+        "complianceTags": { "$ref": "#/$defs/stringArray" },
+        "exportable": { "type": ["boolean", "null"] },
+        "owner": { "type": ["string", "null"] },
+        "steward": { "type": ["string", "null"] },
+        "retentionPolicy": { "type": ["string", "null"] },
+        "aiUsage": { "$ref": "#/$defs/aiUsage" },
+        "source": { "type": ["string", "null"] },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "businessGlossary": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "preferredTerm": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "examples": { "$ref": "#/$defs/stringArray" },
+        "negativeExamples": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "resolution": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "canonicalKey": { "type": ["string", "null"] },
+        "matchKeys": { "$ref": "#/$defs/stringArray" },
+        "ambiguityPolicy": { "enum": ["exact-key", "exact-key-or-alias", "require-clarification", "deny-ambiguous", null] }
+      }
+    },
+    "aiUsage": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "visibility": { "enum": ["allow", "mask", "summarize_only", "deny", null] },
+        "trainingUse": { "enum": ["allow", "deny", null] },
+        "ruleAuthoring": { "enum": ["allow", "review_required", "deny", null] },
+        "reasoningUse": { "enum": ["allow", "review_required", "deny", null] },
+        "maskingStrategy": { "type": ["string", "null"] },
+        "notes": { "type": ["string", "null"] },
+        "reason": { "type": ["string", "null"] },
+        "schemaId": { "type": ["string", "null"] },
+        "schemaRole": { "type": ["string", "null"] }
+      }
+    },
+    "status": { "enum": ["draft", "active", "deprecated", "retired"] },
+    "lifecycleNullable": { "enum": ["draft", "candidate", "active", "deprecated", "retired", null] },
+    "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "key": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "stringArray": {
+      "type": ["array", "null"],
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "freeObject": { "type": ["object", "null"], "additionalProperties": true }
+  }
+}

@@ -17,6 +17,24 @@ class OpenApiUiSchemaAutoConfigurationModelResolverTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(OpenApiUiSchemaAutoConfiguration.class));
 
+    @Test
+    void mvcMetadataContextWiresTheDeterminationCatalogAndNonWebContextDoesNot() {
+        new org.springframework.boot.test.context.runner.WebApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(OpenApiUiSchemaAutoConfiguration.class))
+                .withBean(com.fasterxml.jackson.databind.ObjectMapper.class, com.fasterxml.jackson.databind.ObjectMapper::new)
+                .withBean("requestMappingHandlerMapping", org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping.class,
+                        org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping::new)
+                .run(context -> {
+                    assertNull(context.getStartupFailure());
+                    org.assertj.core.api.Assertions.assertThat(context).hasSingleBean(org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource.class)
+                            .hasSingleBean(org.praxisplatform.uischema.domain.SemanticDomainCatalogService.class);
+                });
+        runner.run(context -> {
+            assertNull(context.getStartupFailure());
+            org.assertj.core.api.Assertions.assertThat(context).doesNotHaveBean(org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource.class);
+        });
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void resolverUsesTheExistingSpringdocDialect(boolean openApi31) {

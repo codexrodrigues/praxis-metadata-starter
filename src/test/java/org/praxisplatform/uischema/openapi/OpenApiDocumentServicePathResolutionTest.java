@@ -13,6 +13,34 @@ class OpenApiDocumentServicePathResolutionTest {
     private final OpenApiDocumentService service = new TestOpenApiDocumentService();
 
     @Test
+    void literalPrefixFilteringPreservesNormalizedAliasesAndAmbiguity() throws Exception {
+        JsonNode paths = objectMapper.readTree("""
+                {"/api/other/{id}": {"get": {}}, "/api/foobar/{id}": {"get": {}},
+                 "api//foo/{id}/children/{child}": {"get": {}},
+                 "/api/foo/{key}/children/{other}": {"post": {}}}
+                """);
+        assertEquals("api//foo/{id}/children/{child}", service.resolveDocumentPath(paths,
+                "/api/foo/{code}/children/{number}", "get"));
+        assertEquals("/api/foo/{key}/children/{other}", service.resolveDocumentPath(paths,
+                "/api/foo/{code}/children/{number}", "post"));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) paths).putObject("/api/foo/{another}/children/{last}")
+                .putObject("get");
+        assertThrows(IllegalArgumentException.class, () -> service.resolveDocumentPath(paths,
+                "/api/foo/{code}/children/{number}", "get"));
+    }
+
+    @Test
+    void normalizationPreservesWhitespaceRepeatedSlashesAndTemplateSemantics() throws Exception {
+        assertEquals("/api/foo/{id}", service.normalizeOpenApiPath("  api//foo///{id}/  "));
+        assertEquals("/", service.normalizeOpenApiPath(" /// "));
+        JsonNode paths = objectMapper.readTree("""
+                {"/api/foo/{id}": {"get": {}}, "/api/foo/{}": {"post": {}}}
+                """);
+        assertEquals("/api/foo/{id}", service.resolveDocumentPath(paths, "/api/foo/{code}", "get"));
+        assertEquals("/api/foo/{}", service.resolveDocumentPath(paths, "/api/foo/{code}", "post"));
+    }
+
+    @Test
     void resolveDocumentPathPrefersExactMatchBeforeStructuralEquivalence() throws Exception {
         JsonNode paths = objectMapper.readTree("""
                 {

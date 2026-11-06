@@ -48,6 +48,19 @@ Content-Type: application/json
 
 </details>
 
+### Campos herdados
+
+Um `GenericFilterDTO` pode herdar critérios de uma ou mais superclasses. Declare
+`@Filterable` no campo que contém o valor da requisição: a execução dos predicados,
+os aliases de ordenação e a normalização de ranges e períodos relativos percorrem
+a hierarquia. Não é necessário repetir os campos no DTO concreto.
+
+Se uma subclasse declarar outro campo com o mesmo nome, essa declaração prevalece,
+inclusive quando não tiver `@Filterable`. Campos estáticos e sintéticos são
+ignorados. Evite ocultar critérios herdados sem intenção explícita, pois isso muda
+a pergunta representada pelo filtro. A herança não transforma filtros enviados
+pelo cliente em autorização; mantenha `ResourceFilterAccessScope` no serviço.
+
 <a id="escopo-de-acesso"></a>
 <details>
 <summary><strong>Escopo de acesso server-side</strong></summary>

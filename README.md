@@ -1,5 +1,7 @@
 # Praxis Metadata Starter
 
+O catálogo `/schemas/domain` publica [identidades conceituais e determinações por formulário](docs/guides/DOMAIN-CATALOG-ONTOLOGY.md), com bindings explícitos, governança e validação semântica no formato v0.2.
+
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.15-6DB33F?logo=spring-boot)
 ![Java](https://img.shields.io/badge/Java-21%2B-007396?logo=openjdk)
@@ -407,6 +409,10 @@ Para campos de seleção remota, autocompletes em cascata e *Entity Lookups* cor
 - **Spring HATEOAS e Proxy Headers**: `RestApiResponse` publica `_links` efetivos (desativável via `praxis.hateoas.enabled=false`). O starter registra suporte padrão a headers `Forwarded` e `X-Forwarded-*` para preservar origem, protocolo e porta em links HATEOAS atrás de proxies/gateways.
 
 ### 9. Concorrência em Recursos Versionados, Workflow Actions e Operações em Lote (Bulk SDK)
+
+A [admissão contextual de mutações](docs/guides/RESOURCE-MUTATION-ADMISSION.md)
+conserva a origem da operação entre preparação, avaliação e escrita, permitindo
+decisões de domínio e revalidação de evidências no lifecycle nativo.
 
 - **Workflow Actions e Controle de Versão (`If-Match`)**: Toda `@WorkflowAction` publica um bloco `execution` em `/schemas/actions` e `/capabilities` com modo de interação (`DIRECT`, `CONFIRM`, `FORM`), risco, pré-condições (`Idempotency-Key`, `X-Correlation-ID`, versão persistida), bindings de seleção, outcome e projections a atualizar.
   - Para comandos de item, `resourceVersionTransport = IF_MATCH` e `resourceVersionField` indicam o ETag da revisão persistida (nunca confunda ETag de schema com versão do registro).

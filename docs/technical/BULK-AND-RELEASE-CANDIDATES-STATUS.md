@@ -6,6 +6,16 @@ Este documento consolida o estado técnico, as provas de integração, os limite
 
 ---
 
+## Admissão contextual de mutações — candidato local G3
+
+O contrato Java encaminha `ResourceMutationContext` entre avaliação,
+revalidação e escrita. A evidência de `validateUpdate` pode integrar a fotografia
+protegida comparada na confirmação. DELETE em lote admite todos os alvos antes
+de remover ou executar efeitos. A adoção e a migração incompatível dos adapters
+estão em [RESOURCE-MUTATION-ADMISSION](../guides/RESOURCE-MUTATION-ADMISSION.md).
+O incremento não publica versão nem ativa políticas de consumidores. Os gates
+do domínio e do contexto de execução permanecem separados dos testes do SDK.
+
 ## 1. Visão Consolidada dos Cortes Publicados e Candidatos
 
 | Marco / Corte | Escopo Principal | Especificação / Registro Técnico | Estado de Publicação e Adoção |
@@ -65,3 +75,7 @@ O contrato Java candidato `B4-R1` pareia corpo e revisão persistida de um recur
   * [Migração owner e cutover do worker durável — candidato privado B5b.2](BULK-DURABLE-WORKER-OWNER-UPGRADE.md)
   * [Composição explícita do worker — candidato B5b.3](BULK-WORKER-EXPLICIT-COMPOSITION.md)
   * [Adoção de operações em lote por owner gerenciado (PostgreSQL 17+)](../spec/BULK-MANAGED-OWNER-ADOPTION-PLAN.md)
+
+## Candidato local — Captura JPA e checkpoint ontológico 8.22
+
+A correção alinha o prazo da avaliação JPA com o teto já existente de 30s da captura protegida e conserva `unitDeadline <= 5s` para mutações. O diagnóstico foi provado contra o JAR privado fixado: a avaliação anterior esgotava o saldo do chamador durante `MANIFEST`. A confirmação do host e os resultados finais pertencem ao [checkpoint 8.22 do Showcase](../../../praxis-ergon-showcase/docs/rules/ontology/g3/bulk-openapi-gate/README.md). Este candidato não constitui publicação ou adoção de coordenada pública; nenhuma migração SQL é introduzida.

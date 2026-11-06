@@ -26,6 +26,20 @@ reservados de `BulkProtocolReader`. Filtros `selection.filter` passam pelos
 `FilterPayloadNormalizer` ordenados antes da conversão ao FilterDTO concreto.
 O ObjectMapper global não é modificado. A saída continua usando Jackson ordinário.
 
+A leitura do DTO de atualização mantém os tipos estritos na avaliação e na confirmação.
+Antes de aplicar as mudanças, o adaptador reconstrói o DTO pelo hook `toBulkUpdate`.
+A projeção da resposta persistida preserva as conversões configuradas pelo host e lê
+o decimal textual mesmo com a coerção escalar desativada. Uma resposta que publica
+um decimal nativo também pode projetá-lo para um DTO de atualização textual.
+Um `BigDecimal` explicitamente declarado com `@JsonFormat(shape = STRING)` usa sua
+representação decimal textual também no plano confirmado, preservando precisão e escala.
+SET exige uma string decimal válida dentro do limite de comprimento numérico do mapper.
+Um token JSON numérico nesse campo é rejeitado. Omitir a mudança conserva o valor anterior,
+CLEAR autorizado produz null e a string `"0"` representa zero.
+Essa declaração não admite strings em números comuns, IDs ou booleans. Deserializers
+customizados do host continuam responsáveis por seus próprios contratos; não é
+necessário habilitar coerções gerais para transportar um decimal exato.
+
 ## Adoção do controller e dos schemas
 
 Herde `AbstractBulkGovernedResourceController<R, ID, F, C, U>` e declare
@@ -112,6 +126,8 @@ de confirmações precisa acompanhar novos controllers.
 
 ## Avaliação, confirmação e extensões de domínio
 
+A avaliação captura o lote sob o teto de 30s do protocolo de propostas, conservando o menor saldo do chamador e a expiração. Esse orçamento é diferente de `BulkOperationalProfile.unitDeadline`, limitado a 5s para cada unidade PER_ITEM ou para o conjunto inteiro em ATOMIC. O adapter usa uma única constante do store para a transação e o deadline monotônico; não renova o prazo por alvo e não faz retry automático da captura. Consulte [persistência protegida](../spec/BULK-PROPOSAL-STORAGE.md) para os clamps, locks e limites de cancelamento.
+
 A seleção aplica o FilterDTO e `resolveResourceFilterAccessScope` nas consultas
 QUERY e EXPLICIT, com limite e exclusões. O hook
 `resolveBulkResourceFilterAccessScope` pode acrescentar um escopo obrigatório da
@@ -129,6 +145,12 @@ dirty checking rejeita alterações incidentais em entidades gerenciadas.
 Sobrescreva `toBulkUpdate` quando os shapes de response e update diferirem e
 `snapshotBeforeMutation` quando o domínio exigir cópias de associações mutáveis.
 O default recusa associações que não consegue copiar com segurança.
+
+Para decisões dependentes da operação, use a
+[admissão contextual de mutações](RESOURCE-MUTATION-ADMISSION.md): avaliação e
+confirmação encaminham o modo real, a etapa e o instante do servidor. A
+revalidação de confirmação usa o contexto de confirmação, e a evidência retornada
+por `validateUpdate` integra a fotografia protegida comparada antes da escrita.
 
 Falhas previsíveis bloqueiam o alvo. Violações de regras preservam códigos,
 mensagens e campos de correção do catálogo da Onda 2 na evidência protegida.

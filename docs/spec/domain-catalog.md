@@ -117,6 +117,7 @@ O `SemanticDomainCatalogService` sintetiza automaticamente o Knowledge Graph cor
   - `stats`: capacidades analiticas (`group-by`, `timeseries`, `distribution`, `comparison`) e `analyticsProjections` (`@UiAnalytics`).
   - `capability`: operacoes estruturais publicadas para o recurso.
   - `policy_hint`: dicas de governanca, politicas de selecao (`option-source`) e `RuleSetDefinition`s governados (`source = "rule-set"`, `metadata.policyKind = "domain_rule_set"` via `DomainRuleSetCatalogProvider` / `DomainRuleSetDescriptor`, com `availableRoots`, `referencedFactPaths`, `slots`, `rules`, `reasonCodes` e `targetFields`).
+    - Para executores Java, o host declara os resultados possíveis em `DomainRuleSetDescriptor.reasonDescriptors`, associados ao slot. O índice `reasonCodes` e os `targetFields` incluem todos os descritores dos slots Java habilitados, inclusive quando há vários resultados possíveis. Slots Java desabilitados não acrescentam resultados ao índice ativo. Não preencher `DecisionBinding.falseReasonCode` para simular um resultado JSON Logic nem inferir códigos pelo nome da implementação.
 - **Arestas do grafo (`edges`)**:
   - Estruturais do recurso: `has_field`, `has_fact`, `has_surface`, `has_action`, `has_stats`, `has_capability`, `has_policy`, `governed_by` (do `concept` e dos `field`s de `targetFields` para o no `policy_hint` do `RuleSet`, com binding `rule_definition`) e `materializes` (`analytical_data_product -> operational_resource`).
   - Relacionais cross-resource (Knowledge Graph):

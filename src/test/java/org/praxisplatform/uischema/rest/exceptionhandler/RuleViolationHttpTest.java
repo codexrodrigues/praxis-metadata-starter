@@ -166,9 +166,9 @@ class RuleViolationHttpTest {
             RuleDecision requested = mixed ? RuleDecision.DENY : RuleDecision.valueOf(decision);
             var definition = new RuleSetDefinition(new RuleSetRef("enterprise", "requests", "requests.limit", "create", 1),
                     List.of("draft"), List.of(new DecisionSlot("limit", DecisionStage.DOMAIN_DECISION, SlotCardinality.SINGLE,
-                    OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null),
+                    OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, java.util.List.of()),
                     new DecisionSlot("capacity", DecisionStage.DOMAIN_DECISION, SlotCardinality.SINGLE,
-                            OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null)),
+                            OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, java.util.List.of())),
                     List.of(new DecisionBinding("limit.product", "limit", DecisionSource.PRODUCT, null,
                     new RuleExecutorRef(RuleExecutorType.JSON_LOGIC, null, "1.0", JSON.readTree("{\"==\":[{\"var\":\"draft.valid\"},true]}")),
                     List.of(), 0, true, mixed ? RuleDecision.valueOf(decision.substring("MIXED_".length()))

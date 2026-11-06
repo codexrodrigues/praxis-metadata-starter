@@ -13,7 +13,7 @@
 
     <groupId>io.github.codexrodrigues</groupId>
     <artifactId>praxis-metadata-starter</artifactId>
-    <version>8.0.0-rc.188</version>
+    <version>8.0.0-rc.188-ergon.20261106.1</version>
     <packaging>jar</packaging>
 
     <name>Praxis Metadata Starter</name>
@@ -41,6 +41,7 @@
     </scm>
 
     <properties>
+        <project.build.outputTimestamp>2026-11-06T20:30:00Z</project.build.outputTimestamp>
         <apache-poi.version>5.5.1</apache-poi.version>
         <!-- Align the existing compile dependency with Commons Compress and embedded PostgreSQL. -->
         <commons-lang3.version>3.20.0</commons-lang3.version>
@@ -67,7 +68,7 @@
         <dependency>
             <groupId>io.github.codexrodrigues</groupId>
             <artifactId>praxis-rules-engine</artifactId>
-            <version>0.1.0-beta.17</version>
+            <version>0.1.0-beta.19-ergon.20261106.1</version>
         </dependency>
         <!-- Real Servlet security-chain integration proof; not a runtime security policy. -->
         <dependency>

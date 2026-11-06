@@ -12,9 +12,10 @@ public interface BulkDomainResourceAdapter<ID, F> {
     List<ID> selectBulkIdentities(F filter, Collection<ID> included, Collection<ID> excluded, int maxTargets);
     String currentVersion(ID id);
     Candidate evaluate(ID id, String expectedVersion, List<BulkFieldChange> changes,
-                       BulkMode mode, BulkEditableFields fields);
+                       org.praxisplatform.uischema.service.base.ResourceMutationContext context, BulkEditableFields fields);
     /** Locks, checks version and executes the same lifecycle as the unit update. */
-    void update(ID id, String expectedVersion, JsonNode candidate);
+    void update(ID id, String expectedVersion, JsonNode candidate,
+                org.praxisplatform.uischema.service.base.ResourceMutationContext context);
     /**
      * Discards accidental evaluation-only changes without flushing them. Stateless adapters have
      * nothing to discard; persistence adapters must restore a clean context before the next target.

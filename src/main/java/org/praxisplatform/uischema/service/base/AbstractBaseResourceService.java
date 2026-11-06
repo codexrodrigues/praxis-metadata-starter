@@ -133,6 +133,7 @@ public abstract class AbstractBaseResourceService<
             customFields.validateForCreate(draft);
         }
         beforeCreate(dto, entity);
+        validateCreate(ResourceMutationContext.create(), dto, entity);
         E saved = refreshManaged(getRepository().save(entity));
         afterCreate(dto, saved);
         return new BaseResourceCommandService.SavedResult<>(extractId(saved), enrichSingleResponse(getResourceMapper().toResponse(saved)));
@@ -153,6 +154,7 @@ public abstract class AbstractBaseResourceService<
         E existing = findEntityById(id);
         Set<String> readOnlyKeys = validatePreparedCustomFieldsForUpdate(customFields, id, existing, dto);
         beforeUpdate(id, existing, dto);
+        validateUpdate(ResourceMutationContext.update(), id, existing, dto);
         // Domain hooks own server-side decisions. Protect their result from the request mapper.
         var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(existing, readOnlyKeys);
         applyResourceUpdate(id, existing, dto);
@@ -180,6 +182,11 @@ public abstract class AbstractBaseResourceService<
     @Transactional
     public ResourceRepresentationResult<ResponseDTO> update(ID id, UpdateDTO dto,
             ResourceVersionUpdatePrecondition<ID> precondition) {
+        return updateWithContext(id, dto, precondition, ResourceMutationContext.update());
+    }
+
+    private ResourceRepresentationResult<ResponseDTO> updateWithContext(ID id, UpdateDTO dto,
+            ResourceVersionUpdatePrecondition<ID> precondition, ResourceMutationContext context) {
         requirePrecondition(precondition);
         requireCleanVersionedContext();
         var customFields = prepareCustomFields(dto, "request");
@@ -187,6 +194,7 @@ public abstract class AbstractBaseResourceService<
         precondition.requireMatch(id, requireEntityVersion(existing));
         Set<String> readOnlyKeys = validatePreparedCustomFieldsForUpdate(customFields, id, existing, dto);
         beforeUpdate(id, existing, dto);
+        validateUpdate(context, id, existing, dto);
         var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(existing, readOnlyKeys);
         applyResourceUpdate(id, existing, dto);
         org.praxisplatform.uischema.customfields.CustomFieldSupport.restoreReadOnlyValues(existing, readOnlyKeys, readOnlyValues);
@@ -299,7 +307,8 @@ public abstract class AbstractBaseResourceService<
         var filterType = org.springframework.core.ResolvableType.forClass(org.springframework.util.ClassUtils.getUserClass(this))
                 .as(AbstractBaseResourceService.class).getGeneric(3);
         var filterJavaType = mapper.constructType(org.springframework.core.GenericTypeResolver.resolveType(filterType.getType(), org.springframework.util.ClassUtils.getUserClass(this)));
-        var updateMapper = mapper.copy().disable(com.fasterxml.jackson.databind.MapperFeature.ALLOW_COERCION_OF_SCALARS);
+        var projectionMapper = BulkUpdateMapper.projectionCopy(mapper);
+        var updateMapper = BulkUpdateMapper.strictCopy(mapper);
         return new org.praxisplatform.uischema.bulk.BulkDomainResourceAdapter<>() {
             public FilterDTO readFilter(com.fasterxml.jackson.databind.JsonNode filter) {
                 return mapper.convertValue(filter, filterJavaType);
@@ -316,14 +325,16 @@ public abstract class AbstractBaseResourceService<
                     getEntityManager().clear();
             }
             public Candidate evaluate(ID id, String expected, List<org.praxisplatform.uischema.bulk.BulkFieldChange> changes,
-                                      org.praxisplatform.uischema.bulk.BulkMode mode,
+                                      ResourceMutationContext context,
                                       org.praxisplatform.uischema.bulk.BulkEditableFields fields) {
+                context.requireBulk();
+                var mode = context.bulkMode();
                 requireCleanVersionedContext();
                 E existing = findEntityById(id);
                 String observed = version(id, existing);
                 if (!observed.equals(expected)) throw org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException.stale();
                 E candidate = snapshotBeforeMutation(existing);
-                var current = mapper.<com.fasterxml.jackson.databind.node.ObjectNode>valueToTree(toBulkUpdate(candidate, mapper, updateType));
+                var current = mapper.<com.fasterxml.jackson.databind.node.ObjectNode>valueToTree(toBulkUpdate(candidate, projectionMapper, updateType));
                 var plan = org.praxisplatform.uischema.bulk.BulkFieldChanges.applyTo(current, changes,
                         fields.writableFields(mode), fields.clearableFields(mode));
                 UpdateDTO dto;
@@ -336,17 +347,25 @@ public abstract class AbstractBaseResourceService<
                 validateBulkCandidate(dto);
                 validatePreparedCustomFieldsForUpdate(prepareCustomFields(dto, "request"), id, existing, dto);
                 beforeUpdate(id, candidate, dto);
+                var admissionEvidence = validateUpdate(context, id, candidate, dto);
                 // A domain hook may hydrate request values. Validate and capture those exact decisions.
                 validateBulkCandidate(dto);
                 applyResourceUpdate(id, candidate, dto);
                 requireCleanVersionedContext();
-                return new Candidate(observed, current, mapper.valueToTree(dto));
+                com.fasterxml.jackson.databind.JsonNode facts = current;
+                if (admissionEvidence != null) {
+                    facts = mapper.createObjectNode().set("resource", current);
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) facts).set("admission", admissionEvidence.deepCopy());
+                }
+                return new Candidate(observed, facts, mapper.valueToTree(dto));
             }
             private void validateBulkCandidate(UpdateDTO dto) {
                 var violations = validator.validate(dto);
                 if (!violations.isEmpty()) throw new jakarta.validation.ConstraintViolationException(violations);
             }
-            public void update(ID id, String expected, com.fasterxml.jackson.databind.JsonNode plan) {
+            public void update(ID id, String expected, com.fasterxml.jackson.databind.JsonNode plan, ResourceMutationContext context) {
+                context.requireBulk();
+                if (context.stage() != ResourceMutationContext.Stage.CONFIRMATION) throw new IllegalArgumentException("Confirmation context required");
                 requireCleanVersionedContext();
                 if (getEntityManager() == null) throw new IllegalStateException("JPA bulk mutation requires an EntityManager");
                 if (!usePessimisticLockOnVersionedWrite()) {
@@ -358,7 +377,7 @@ public abstract class AbstractBaseResourceService<
                 }
                 var precondition = new ResourceVersionUpdatePrecondition<>(etags, expected,
                         Objects.requireNonNull(scope.get()), resolveResourceKey(), id);
-                AbstractBaseResourceService.this.update(id, updateMapper.convertValue(plan, updateType), precondition);
+                AbstractBaseResourceService.this.updateWithContext(id, updateMapper.convertValue(plan, updateType), precondition, context);
             }
         };
     }
@@ -383,6 +402,7 @@ public abstract class AbstractBaseResourceService<
     public void deleteById(ID id) {
         E entity = findEntityForMutation(id);
         beforeDelete(id, entity);
+        validateDelete(ResourceMutationContext.delete(), id, entity);
         getRepository().delete(entity);
         afterDelete(id, entity);
     }
@@ -398,10 +418,17 @@ public abstract class AbstractBaseResourceService<
                 .forEach(id -> locked.put(id, findEntityForMutation(id)));
         List<E> entities = distinctIds.stream().map(locked::get).toList();
         beforeDeleteAllById(distinctIds);
+        var admissionContext = ResourceMutationContext.deleteBatch();
         for (int index = 0; index < entities.size(); index++) {
             E entity = entities.get(index);
             ID id = distinctIds.get(index);
             beforeDelete(id, entity);
+            validateDelete(admissionContext, id, entity);
+        }
+        // No target is scheduled for deletion until every locked target has been admitted.
+        for (int index = 0; index < entities.size(); index++) {
+            E entity = entities.get(index);
+            ID id = distinctIds.get(index);
             getRepository().delete(entity);
             afterDelete(id, entity);
         }
@@ -409,8 +436,21 @@ public abstract class AbstractBaseResourceService<
     }
 
     /**
-     * Hook transacional chamado depois que o mapper cria a entidade e antes do primeiro save.
+     * Read-only domain admission after hydration/access hooks and before the first save.
      */
+    protected void validateCreate(ResourceMutationContext context, CreateDTO dto, E entity) { }
+
+    /**
+     * Read-only domain admission after hydration/access hooks and before applying the request.
+     * Return bounded private dependency evidence from that exact admission, or null when none
+     * is required. Bulk compares it again at confirmation; it is never a public projection.
+     */
+    protected com.fasterxml.jackson.databind.JsonNode validateUpdate(ResourceMutationContext context, ID id, E current, UpdateDTO dto) { return null; }
+
+    /** Read-only domain admission under the native deletion lock; collection origin is explicit. */
+    protected void validateDelete(ResourceMutationContext context, ID id, E current) { }
+
+    /** Structural preparation and hydration before create admission. */
     protected void beforeCreate(CreateDTO dto, E entity) {
     }
 

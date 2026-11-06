@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.ZoneOffset;
+import java.time.Instant;
 import java.util.UUID;
 
 /** Transactional lifecycle accounting over immutable scope buckets and append-only allocations. */
@@ -19,6 +20,7 @@ final class BulkQuotaLedger {
             BulkStoredProposal proposal, boolean proposalMustExist, boolean enforcePendingCapacity) throws SQLException {
         var context = proposal.snapshot().context();
         String deployment;
+        if (enforcePendingCapacity) {
         try (var statement = connection.prepareStatement("""
                 select deployment_id from praxis_bulk.praxis_bulk_namespace_binding
                 where namespace_id=? for share
@@ -40,51 +42,92 @@ final class BulkQuotaLedger {
                 || !expected.descriptorFingerprint().equals(control.descriptorFingerprint())
                 || !expected.structuralRevision().equals(control.structuralRevision()))
             throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
-        lockDeployment(connection, deployment, enforcePendingCapacity);
+        lockDeployment(connection, deployment, true);
+        } else {
+            deployment = lockExecutionAdmission(connection, infrastructure, proposal);
+        }
         String subjectDigest = BulkScopeDigests.subjectQuotaDigest(deployment, context.subjectId());
         String authorizationDigest = BulkScopeDigests.authorizationScopeDigest(context.namespaceId(),
                 context.subjectId(), context.resourceKey(), context.operationRef().operationId());
-        try (var statement = connection.prepareStatement("""
+        // Namespace/control/deployment have already been validated and remain locked.
+        // These statements keep the original subject -> proposal order and all result checks.
+        String sql = """
                 insert into praxis_bulk.praxis_bulk_subject_bucket
                     (deployment_id, subject_scope_digest_version, subject_scope_digest)
-                values (?, ?, ?) on conflict do nothing
-                """)) {
-            statement.setString(1, deployment);
-            statement.setInt(2, BulkScopeDigests.VERSION);
-            statement.setString(3, subjectDigest);
-            statement.executeUpdate();
-        }
-        try (var statement = connection.prepareStatement("""
+                values (?, ?, ?) on conflict do nothing;
                 select deployment_id from praxis_bulk.praxis_bulk_subject_bucket
-                where deployment_id=? and subject_scope_digest_version=? and subject_scope_digest=? for update
-                """)) {
-            statement.setString(1, deployment);
-            statement.setInt(2, BulkScopeDigests.VERSION);
-            statement.setString(3, subjectDigest);
-            try (var rows = statement.executeQuery()) {
-                if (!rows.next() || rows.next()) throw new BulkProposalStorageException(
-                        BulkProposalStorageException.Reason.CORRUPT);
-            }
-        }
-        try (var statement = connection.prepareStatement("""
+                where deployment_id=? and subject_scope_digest_version=? and subject_scope_digest=? for update;
                 select namespace_id, subject_id, resource_key, operation_id
                   from praxis_bulk.praxis_bulk_proposal where proposal_id=? for update
-                """)) {
-            statement.setObject(1, proposal.id());
-            try (var rows = statement.executeQuery()) {
+                """;
+        try (var statement = connection.prepareStatement(sql)) {
+            statement.setString(1, deployment); statement.setInt(2, BulkScopeDigests.VERSION); statement.setString(3, subjectDigest);
+            statement.setString(4, deployment); statement.setInt(5, BulkScopeDigests.VERSION); statement.setString(6, subjectDigest);
+            statement.setObject(7, proposal.id());
+            if (statement.execute() || statement.getUpdateCount() < 0 || statement.getUpdateCount() > 1)
+                throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+            if (!statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT))
+                throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+            try (var rows = statement.getResultSet()) {
+                if (rows == null || !rows.next() || !deployment.equals(rows.getString(1)) || rows.next())
+                    throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+            }
+            if (!statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT))
+                throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+            try (var rows = statement.getResultSet()) {
+                if (rows == null) throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
                 boolean found = rows.next();
-                if (found != proposalMustExist) throw new BulkProposalStorageException(
-                        proposalMustExist ? BulkProposalStorageException.Reason.CONFLICT
-                                : BulkProposalStorageException.Reason.CONFLICT);
+                if (found != proposalMustExist)
+                    throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CONFLICT);
                 if (found && (!context.namespaceId().equals(rows.getString(1))
                         || !context.subjectId().equals(rows.getString(2))
                         || !context.resourceKey().equals(rows.getString(3))
                         || !context.operationRef().operationId().equals(rows.getString(4)) || rows.next()))
                     throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
             }
+            if (statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT) || statement.getUpdateCount() != -1)
+                throw new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
         }
         if (enforcePendingCapacity) requirePendingRoom(connection, deployment, subjectDigest);
         return new Scope(deployment, subjectDigest, authorizationDigest);
+    }
+
+    private static String lockExecutionAdmission(Connection connection, BulkExecutionInfrastructure infrastructure,
+            BulkStoredProposal proposal) throws SQLException {
+        var context=proposal.snapshot().context();
+        try(var statement=connection.prepareStatement("""
+                select deployment_id from praxis_bulk.praxis_bulk_namespace_binding where namespace_id=? for share;
+                select state,generation,descriptor_fingerprint,structural_revision from praxis_bulk.lock_operation_control(?,?);
+                select deployment_id from praxis_bulk.praxis_bulk_deployment_bucket where deployment_id=? for update
+                """)) {
+            statement.setString(1,context.namespaceId());statement.setString(2,context.namespaceId());
+            statement.setString(3,context.operationRef().operationId());statement.setString(4,infrastructure.deploymentId());
+            var batch=new JdbcBulkUnitBatch(statement);
+            String deployment=batch.rows(rows->{if(!rows.next())throw corrupt();String value=rows.getString(1);if(!infrastructure.deploymentId().equals(value)||rows.next())throw corrupt();return value;});
+            batch.rows(rows->{var expected=proposal.controlExpectation();if(!rows.next()||expected==null||!"READY".equals(rows.getString(1))||expected.generation()!=rows.getLong(2)||!expected.descriptorFingerprint().equals(rows.getString(3))||!expected.structuralRevision().equals(rows.getString(4)))throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);if(rows.next())throw corrupt();return null;});
+            batch.rows(rows->{if(!rows.next()||!deployment.equals(rows.getString(1))||rows.next())throw corrupt();return null;});
+            batch.end();return deployment;
+        }
+    }
+
+    private static BulkProposalStorageException corrupt() {
+        return new BulkProposalStorageException(BulkProposalStorageException.Reason.CORRUPT);
+    }
+
+    record ExecutionCapacity(Instant observedAt, long active) { }
+    static ExecutionCapacity executionCapacity(Connection connection, Scope scope) throws SQLException {
+        try(var statement=connection.prepareStatement("""
+                select clock_timestamp(),(select count(*) from praxis_bulk.praxis_bulk_allocation
+                  where deployment_id=? and kind='EXECUTION_ACTIVE' and state='ACTIVE')
+                """)) {
+            statement.setString(1,scope.deploymentId());
+            try(var rows=statement.executeQuery()) {
+                if(!rows.next())throw new BulkDurableExecutionException(BulkDurableExecutionException.Reason.CORRUPT);
+                var observed=rows.getObject(1,java.time.OffsetDateTime.class);long active=rows.getLong(2);
+                if(observed==null||rows.wasNull()||active<0||rows.next())throw new BulkDurableExecutionException(BulkDurableExecutionException.Reason.CORRUPT);
+                return new ExecutionCapacity(observed.toInstant(),active);
+            }
+        }
     }
 
     static void insertPending(Connection connection, BulkStoredProposal proposal, Scope scope) throws SQLException {
@@ -122,46 +165,48 @@ final class BulkQuotaLedger {
         }
     }
 
+    static final String ACTIVATE_EXECUTION_SQL = """
+            with consumed as (
+                update praxis_bulk.praxis_bulk_allocation set state='CONSUMED'
+                where proposal_id=? and kind='PROPOSAL_PENDING' and state='PENDING'
+                  and namespace_id=? and deployment_id=?
+                  and subject_scope_digest_version=? and subject_scope_digest=?
+                  and authorization_scope_digest_version=? and authorization_scope_digest=?
+                returning proposal_id
+            ), activated as (
+                insert into praxis_bulk.praxis_bulk_allocation
+                (allocation_id,namespace_id,deployment_id,subject_scope_digest_version,subject_scope_digest,
+                 authorization_scope_digest_version,authorization_scope_digest,kind,proposal_id,execution_id,state,created_at)
+                select ?,e.namespace_id,?,?,?,?,?,'EXECUTION_ACTIVE',null,e.execution_id,'ACTIVE',e.created_at
+                from praxis_bulk.praxis_bulk_execution e join consumed p on p.proposal_id=e.proposal_id
+                where e.execution_id=? and e.proposal_id=? returning allocation_id
+            )
+            select (select count(*) from consumed),(select count(*) from activated)
+            """;
+
+    static int bindActivation(java.sql.PreparedStatement statement, BulkFingerprintContext context,
+            UUID proposalId, UUID executionId, Scope scope) throws SQLException {
+        statement.setObject(1,proposalId);statement.setString(2,context.namespaceId());statement.setString(3,scope.deploymentId());
+        statement.setInt(4,BulkScopeDigests.VERSION);statement.setString(5,scope.subjectDigest());
+        statement.setInt(6,BulkScopeDigests.VERSION);statement.setString(7,scope.authorizationDigest());
+        statement.setObject(8,allocationId("EXECUTION_ACTIVE",executionId));statement.setString(9,scope.deploymentId());
+        statement.setInt(10,BulkScopeDigests.VERSION);statement.setString(11,scope.subjectDigest());
+        statement.setInt(12,BulkScopeDigests.VERSION);statement.setString(13,scope.authorizationDigest());
+        statement.setObject(14,executionId);statement.setObject(15,proposalId);return 16;
+    }
+
+    static void requireActivation(java.sql.ResultSet rows) throws SQLException {
+        if(!rows.next() || rows.getLong(1)!=1 || rows.wasNull())
+            throw new BulkDurableExecutionException(BulkDurableExecutionException.Reason.EXPIRED);
+        if(rows.getLong(2)!=1 || rows.wasNull() || rows.next())
+            throw new BulkDurableExecutionException(BulkDurableExecutionException.Reason.CORRUPT);
+    }
+
     static void activateExecution(Connection connection, BulkFingerprintContext context,
             UUID proposalId, UUID executionId, Scope scope) throws SQLException {
-        try (var statement = connection.prepareStatement("""
-                update praxis_bulk.praxis_bulk_allocation
-                   set state='CONSUMED'
-                 where proposal_id=? and kind='PROPOSAL_PENDING' and state='PENDING'
-                   and namespace_id=? and deployment_id=?
-                   and subject_scope_digest_version=? and subject_scope_digest=?
-                   and authorization_scope_digest_version=? and authorization_scope_digest=?
-                """)) {
-            statement.setObject(1, proposalId);
-            statement.setString(2, context.namespaceId());
-            statement.setString(3, scope.deploymentId());
-            statement.setInt(4, BulkScopeDigests.VERSION);
-            statement.setString(5, scope.subjectDigest());
-            statement.setInt(6, BulkScopeDigests.VERSION);
-            statement.setString(7, scope.authorizationDigest());
-            if (statement.executeUpdate() != 1)
-                throw new BulkDurableExecutionException(BulkDurableExecutionException.Reason.EXPIRED);
-        }
-        try (var statement = connection.prepareStatement("""
-                insert into praxis_bulk.praxis_bulk_allocation
-                    (allocation_id, namespace_id, deployment_id, subject_scope_digest_version,
-                     subject_scope_digest, authorization_scope_digest_version, authorization_scope_digest,
-                     kind, proposal_id, execution_id, state, created_at)
-                select ?, e.namespace_id, ?, ?, ?, ?, ?, 'EXECUTION_ACTIVE', null, e.execution_id,
-                       'ACTIVE', e.created_at
-                  from praxis_bulk.praxis_bulk_execution e
-                 where e.execution_id=? and e.proposal_id=?
-                """)) {
-            statement.setObject(1, allocationId("EXECUTION_ACTIVE", executionId));
-            statement.setString(2, scope.deploymentId());
-            statement.setInt(3, BulkScopeDigests.VERSION);
-            statement.setString(4, scope.subjectDigest());
-            statement.setInt(5, BulkScopeDigests.VERSION);
-            statement.setString(6, scope.authorizationDigest());
-            statement.setObject(7, executionId);
-            statement.setObject(8, proposalId);
-            if (statement.executeUpdate() != 1)
-                throw new BulkDurableExecutionException(BulkDurableExecutionException.Reason.CORRUPT);
+        try(var statement=connection.prepareStatement(ACTIVATE_EXECUTION_SQL)) {
+            bindActivation(statement,context,proposalId,executionId,scope);
+            try(var rows=statement.executeQuery()) { requireActivation(rows); }
         }
     }
 

@@ -24,12 +24,7 @@ public interface DomainRuleSetCatalogProvider {
         if (descriptors == null || descriptors.isEmpty()) {
             return empty();
         }
-        List<DomainRuleSetDescriptor> valid = descriptors.stream()
-                .filter(java.util.Objects::nonNull)
-                .toList();
-        return (resourceKey, tenantId) -> valid.stream()
-                .filter(d -> d.resourceKey().equals(resourceKey))
-                .toList();
+        return of(descriptors, List.of(), null);
     }
 
     static DomainRuleSetCatalogProvider ofDefinitions(Collection<RuleSetDefinition> definitions) {
@@ -52,14 +47,18 @@ public interface DomainRuleSetCatalogProvider {
         if (explicitDescriptors != null) {
             for (DomainRuleSetDescriptor descriptor : explicitDescriptors) {
                 if (descriptor != null) {
-                    byKey.put(descriptor.ruleSetKey() + "::" + descriptor.operationKey(), descriptor);
+                    String key = descriptor.ruleSetKey() + "::" + descriptor.operationKey();
+                    if (byKey.putIfAbsent(key, descriptor) != null)
+                        throw new IllegalArgumentException("Duplicate RuleSet operation descriptor: " + key);
                 }
             }
         }
         if (definitions != null) {
             for (RuleSetDefinition definition : definitions) {
                 if (definition != null) {
-                    DomainRuleSetDescriptor derived = DomainRuleSetDescriptor.of(definition, errorCatalog);
+                    String key = definition.ref().ruleSetKey() + "::" + definition.ref().operationKey();
+                    if (byKey.containsKey(key)) continue;
+                    DomainRuleSetDescriptor derived = DomainRuleSetDescriptor.of(definition, errorCatalog, java.util.Map.of());
                     byKey.putIfAbsent(derived.ruleSetKey() + "::" + derived.operationKey(), derived);
                 }
             }

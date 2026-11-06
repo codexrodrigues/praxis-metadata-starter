@@ -259,15 +259,7 @@ public class RelativePeriodPayloadNormalizer implements FilterPayloadNormalizer 
     }
 
     private List<Field> collectFields(Class<?> type) {
-        List<Field> fields = new ArrayList<>();
-        Class<?> current = type;
-        while (current != null && current != Object.class) {
-            for (Field field : current.getDeclaredFields()) {
-                fields.add(field);
-            }
-            current = current.getSuperclass();
-        }
-        return fields;
+        return org.praxisplatform.uischema.filter.FilterFieldIntrospector.fields(type);
     }
 
     private enum BetweenElementKind {

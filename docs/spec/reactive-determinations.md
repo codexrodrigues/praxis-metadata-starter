@@ -1,5 +1,7 @@
 # Reactive Determinations
 
+A publicação derivada em `/schemas/domain` preserva esta configuração integralmente por `schemaOperationId` e `formMode`. O [guia de ontologia](../guides/DOMAIN-CATALOG-ONTOLOGY.md) define os bindings `api_operation`/`form_config`, identidade do nó, caminhos aninhados, governança e testes de equivalência HTTP. Não há mudança no wire format de `x-ui.reactiveDeterminations`.
+
 `x-ui.reactiveDeterminations` e a projecao estrutural e tenant-neutral que liga um draft de
 formulario a uma operacao backend deterministica e nao persistente.
 

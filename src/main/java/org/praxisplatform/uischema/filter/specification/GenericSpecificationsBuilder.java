@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.filter.specification;
 
 import org.praxisplatform.uischema.filter.annotation.Filterable;
+import org.praxisplatform.uischema.filter.FilterFieldIntrospector;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import jakarta.persistence.criteria.*;
@@ -133,9 +134,13 @@ public class GenericSpecificationsBuilder<E> {
         // Using {@code get()} would fail to compile on newer versions where the
         // method does not exist. The stream is then mapped to keep the original
         // direction while replacing the property when a relation is configured.
+        List<Field> fields = FilterFieldIntrospector.fields(filter.getClass());
         List<Sort.Order> orderList = sort.stream().map(order -> {
-            try {
-                Field field = filter.getClass().getDeclaredField(order.getProperty());
+                Field field = fields.stream().filter(candidate -> candidate.getName().equals(order.getProperty()))
+                        .findFirst().orElse(null);
+                if (field == null) {
+                    return order;
+                }
                 Filterable filterable = field.getAnnotation(Filterable.class);
                 if (filterable == null) {
                     return order;
@@ -147,9 +152,6 @@ public class GenericSpecificationsBuilder<E> {
                     return order.withProperty(filterable.relations()[0].trim());
                 }
                 return order;
-            } catch (NoSuchFieldException e) {
-                return order;
-            }
         }).toList();
         if (oldPageable instanceof PageRequest pageRequest) {
             return pageRequest.withSort(Sort.by(orderList));
@@ -167,13 +169,8 @@ public class GenericSpecificationsBuilder<E> {
      * @return Lista de campos anotados.
      */
     private <FDT extends GenericFilterDTO> List<Field> getAnnotatedFields(FDT filter) {
-        List<Field> annotatedFields = new ArrayList<>();
-        for (Field field : filter.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(Filterable.class)) {
-                annotatedFields.add(field);
-            }
-        }
-        return annotatedFields;
+        return FilterFieldIntrospector.fields(filter.getClass()).stream()
+                .filter(field -> field.isAnnotationPresent(Filterable.class)).toList();
     }
 
     /**

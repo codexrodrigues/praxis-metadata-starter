@@ -1,5 +1,7 @@
 # Praxis Metadata Starter — Documentação Oficial
 
+- [Ontologia do catálogo de domínio](guides/DOMAIN-CATALOG-ONTOLOGY.md): adoção de bindings por operação, determinações compiladas e fronteiras do G2.
+
 Bem-vindo à documentação pública do **`praxis-metadata-starter`**, a biblioteca Spring Boot canônica da **Praxis Platform** — uma **plataforma semanticamente orientada para aplicações corporativas AI-native**, em que recursos, regras, ações, dados e políticas são descritos uma vez e podem ser operados por **interfaces tradicionais, interfaces generativas, agentes de IA e integrações**.
 
 Em vez de construir IA ao lado da aplicação, o `praxis-metadata-starter` permite construir uma aplicação que, por definição, já nasce legível e operável por IA, publicando **contratos autodescritivos (*self-describing APIs*)**, enriquecimento OpenAPI com `x-ui`, descoberta semântica (`domain`, `surfaces`, `actions`, `capabilities`) e governança de metadados em tempo de execução.
@@ -68,6 +70,8 @@ O baseline canônico atual da plataforma organiza cada recurso sobre cinco pilar
 - [Guia de Composição de Lote (`BULK-COMPOSITION-GUIDE`)](technical/BULK-COMPOSITION-GUIDE.html)
 
 #### Especificações Técnicas do Protocolo de Lote (Bulk SDK) e Lifecycle Governado
+
+- [Admissão contextual de mutações e migração dos adapters](guides/RESOURCE-MUTATION-ADMISSION.html)
 
 - **Protocolo, Binding e Contratos CRUD Bulk**:
   - [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html)

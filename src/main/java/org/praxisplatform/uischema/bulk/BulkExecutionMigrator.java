@@ -3497,10 +3497,16 @@ public final class BulkExecutionMigrator {
      */
     static void validateLiveRuntimeRoleAccess(Connection connection,
             BulkExecutionRoleConfiguration roles) {
+        validateLiveRuntimeRoleAccess(connection, roles, null);
+    }
+
+    static void validateLiveRuntimeRoleAccess(Connection connection,
+            BulkExecutionRoleConfiguration roles, BulkCatalogPhase.LiveTimeout timeout) {
         Objects.requireNonNull(connection, "connection");
         BulkExecutionRoleConfiguration configuration = Objects.requireNonNull(roles, "roles");
         try {
-            var catalog = BulkCatalogPhase.captureLive(connection, configuration);
+            var catalog = timeout == null ? BulkCatalogPhase.captureLive(connection, configuration)
+                    : BulkCatalogPhase.captureLive(connection, configuration, timeout);
             validateConnectionIdentity(catalog, configuration.runtimeGranteeRoles(), null);
             MigrationExpectations expectations = CanonicalLiveExpectations.VALUE;
             validateV5Functions(connection, configuration, Map.of(), expectations, catalog);
