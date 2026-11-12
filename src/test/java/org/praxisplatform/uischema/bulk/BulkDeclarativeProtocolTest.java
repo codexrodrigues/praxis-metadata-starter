@@ -85,14 +85,166 @@ class BulkDeclarativeProtocolTest {
         }
     }
 
+    @Test void distinctUniformShapesHaveStableReferencesAndEqualShapesShareOneComponent() {
+        try (var context = mvcContext(UniformVariantsController.class)) {
+            var bindings = BulkResourceOperationBindings.from(context.getBean(RequestMappingHandlerMapping.class));
+            assertTrue(bindings.diagnostics().isEmpty(), bindings.diagnostics().toString());
+            var uniform = bindings.bulkOperations().stream()
+                    .filter(binding -> binding.mode() == BulkMode.UNIFORM_UPDATE).toList();
+            assertEquals(3, uniform.size());
+            var paths = new LinkedHashMap<String, String>();
+            for (var binding : uniform)
+                paths.put(binding.evaluationOperationId(), bindings.mappingFor(binding.evaluationHandler())
+                        .orElseThrow().getPatternValues().iterator().next());
+
+            var document = new OpenAPI().paths(new Paths());
+            paths.forEach((id, path) -> document.getPaths().addPathItem(path, new PathItem().post(new Operation().operationId(id))));
+            var customizer = new CustomOpenApiResolver(mapper);
+            customizer.synthesizeBulkEvaluationSchemas(document, bindings);
+            String atomicPath = paths.get("p3.atomic/evaluate");
+            String atomicRef = requestRef(document, atomicPath);
+            assertEquals("#/components/schemas/UniformVariantsBulkUniformEvaluationRequest.p3.atomic_2f_evaluate", atomicRef);
+            assertEquals(atomicRef, requestRef(document, paths.get("p3.atomicZ.secondary")));
+            String typedPath = paths.entrySet().stream().filter(entry -> !entry.getKey().startsWith("p3.atomic"))
+                    .findFirst().orElseThrow().getValue();
+            String typedRef = requestRef(document, typedPath);
+            assertNotEquals(atomicRef, typedRef);
+            var schemas = document.getComponents().getSchemas();
+            var atomic = mapper.valueToTree(schemas.get(atomicRef.substring("#/components/schemas/".length())));
+            assertEquals("EXPLICIT", atomic.at("/properties/selection/properties/mode/enum/0").asText());
+            assertEquals(1, atomic.at("/properties/selection/properties/mode/enum").size());
+            assertTrue(atomic.at("/properties/selection/properties/filter").isMissingNode());
+            assertTrue(atomic.at("/properties/selection/properties/excludedIds").isMissingNode());
+            var typed = mapper.valueToTree(schemas.get(typedRef.substring("#/components/schemas/".length())));
+            assertFalse(typed.at("/properties/selection/properties/filter").isMissingNode());
+
+            var group = new OpenAPI().paths(new Paths().addPathItem(atomicPath, new PathItem().post(new Operation())));
+            customizer.synthesizeBulkEvaluationSchemas(group, bindings);
+            assertEquals(atomicRef, requestRef(group, atomicPath));
+            assertEquals(1, group.getComponents().getSchemas().size());
+            customizer.synthesizeBulkEvaluationSchemas(document, bindings);
+            assertEquals(typedRef, requestRef(document, typedPath));
+
+            group.getComponents().addSchemas("UniformVariantsBulkUniformEvaluationRequest",
+                    new io.swagger.v3.oas.models.media.StringSchema());
+            assertThrows(IllegalStateException.class, () -> customizer.synthesizeBulkEvaluationSchemas(group, bindings));
+        }
+    }
+
+    @Test void rejectsDistinctDomainDtosThatReuseOneReferenceName() {
+        try (var context = mvcContext(ConflictingFilterController.class)) {
+            var bindings = BulkResourceOperationBindings.from(context.getBean(RequestMappingHandlerMapping.class));
+            assertTrue(bindings.diagnostics().isEmpty(), bindings.diagnostics().toString());
+            var document = new OpenAPI().paths(new Paths());
+            for (var binding : bindings.bulkOperations()) {
+                var path = bindings.mappingFor(binding.evaluationHandler()).orElseThrow()
+                        .getPatternValues().iterator().next();
+                document.getPaths().addPathItem(path, new PathItem().post(new Operation()));
+            }
+            var failure = assertThrows(IllegalStateException.class,
+                    () -> new CustomOpenApiResolver(mapper).synthesizeBulkEvaluationSchemas(document, bindings));
+            assertEquals("Conflicting typed bulk domain schema: Filter", failure.getMessage());
+        }
+    }
+
+    @io.swagger.v3.oas.annotations.media.Schema(name = "Filter")
+    record ConflictingFilter(int distinctField) { }
+
+    @org.springframework.boot.test.context.TestComponent
+    @org.springframework.web.bind.annotation.RestController
+    static class ConflictingFilterController extends UniformVariantsController {
+        @org.springframework.web.bind.annotation.PostMapping("/conflicting-filter/evaluate")
+        @io.swagger.v3.oas.annotations.Operation(operationId = "p3.conflicting-filter.evaluate")
+        public void conflictingFilter(@org.springframework.web.bind.annotation.RequestBody
+                BulkUniformEvaluationRequest<String, ConflictingFilter> request) { }
+
+        @org.springframework.web.bind.annotation.PostMapping("/conflicting-filter")
+        @io.swagger.v3.oas.annotations.Operation(operationId = "p3.conflicting-filter")
+        @org.praxisplatform.uischema.annotation.BulkOperation(mode = BulkMode.UNIFORM_UPDATE,
+                evaluationOperationId = "p3.conflicting-filter.evaluate",
+                atomicity = org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM)
+        public void confirmConflictingFilter(@org.springframework.web.bind.annotation.RequestBody BulkConfirmationRequest request) { }
+    }
+
+    @Test void rejectsADomainReferenceThatWouldBeOverwrittenByItsOwnTypedRoot() {
+        try (var context = mvcContext(RootCollisionController.class)) {
+            var bindings = BulkResourceOperationBindings.from(context.getBean(RequestMappingHandlerMapping.class));
+            assertTrue(bindings.diagnostics().isEmpty(), bindings.diagnostics().toString());
+            var document = new OpenAPI().paths(new Paths());
+            var evaluation = bindings.bulkOperations().stream()
+                    .filter(binding -> binding.evaluationOperationId().equals("p3.root-collision.evaluate"))
+                    .findFirst().orElseThrow();
+            var path = bindings.mappingFor(evaluation.evaluationHandler()).orElseThrow().getPatternValues().iterator().next();
+            document.getPaths().addPathItem(path, new PathItem().post(new Operation()));
+            var failure = assertThrows(IllegalStateException.class,
+                    () -> new CustomOpenApiResolver(mapper).synthesizeBulkEvaluationSchemas(document, bindings));
+            assertEquals("Conflicting typed bulk schema: RootCollisionBulkUniformEvaluationRequest.p3.root-collision.evaluate",
+                    failure.getMessage());
+        }
+    }
+
+    @io.swagger.v3.oas.annotations.media.Schema(name = "RootCollisionBulkUniformEvaluationRequest.p3.root-collision.evaluate")
+    record RootCollisionFilter(int distinctField) { }
+
+    @org.springframework.boot.test.context.TestComponent
+    @org.springframework.web.bind.annotation.RestController
+    static class RootCollisionController extends BulkDeclarativeJpaHttpTest.ItemController {
+        @org.springframework.web.bind.annotation.PostMapping("/root-collision/evaluate")
+        @io.swagger.v3.oas.annotations.Operation(operationId = "p3.root-collision.evaluate")
+        public void rootCollision(@org.springframework.web.bind.annotation.RequestBody
+                BulkUniformEvaluationRequest<String, RootCollisionFilter> request) { }
+
+        @org.springframework.web.bind.annotation.PostMapping("/root-collision")
+        @io.swagger.v3.oas.annotations.Operation(operationId = "p3.root-collision")
+        @org.praxisplatform.uischema.annotation.BulkOperation(mode = BulkMode.UNIFORM_UPDATE,
+                evaluationOperationId = "p3.root-collision.evaluate",
+                atomicity = org.praxisplatform.uischema.action.ActionCollectionAtomicity.PER_ITEM)
+        public void confirmRootCollision(@org.springframework.web.bind.annotation.RequestBody BulkConfirmationRequest request) { }
+    }
+
+    private static String requestRef(OpenAPI document, String path) {
+        return document.getPaths().get(path).getPost().getRequestBody().getContent()
+                .get("application/json").getSchema().get$ref();
+    }
+
+    @org.springframework.boot.test.context.TestComponent
+    @org.springframework.web.bind.annotation.RestController
+    static class UniformVariantsController extends BulkDeclarativeJpaHttpTest.ItemController {
+        @org.springframework.web.bind.annotation.PostMapping("/atomic/evaluate")
+        @io.swagger.v3.oas.annotations.Operation(operationId = "p3.atomic/evaluate")
+        public void atomicEvaluation(@org.springframework.web.bind.annotation.RequestBody BulkUniformEvaluationRequest<String, Void> request) { }
+
+        @org.springframework.web.bind.annotation.PostMapping("/atomic")
+        @io.swagger.v3.oas.annotations.Operation(operationId = "p3.atomic")
+        @org.praxisplatform.uischema.annotation.BulkOperation(mode = BulkMode.UNIFORM_UPDATE,
+                evaluationOperationId = "p3.atomic/evaluate",
+                atomicity = org.praxisplatform.uischema.action.ActionCollectionAtomicity.ATOMIC)
+        public void atomicConfirmation(@org.springframework.web.bind.annotation.RequestBody BulkConfirmationRequest request) { }
+
+        @org.springframework.web.bind.annotation.PostMapping("/atomic-secondary/evaluate")
+        @io.swagger.v3.oas.annotations.Operation(operationId = "p3.atomicZ.secondary")
+        public void secondaryEvaluation(@org.springframework.web.bind.annotation.RequestBody BulkUniformEvaluationRequest<String, Void> request) { }
+
+        @org.springframework.web.bind.annotation.PostMapping("/atomic-secondary")
+        @io.swagger.v3.oas.annotations.Operation(operationId = "p3.atomicZ.secondary.confirm")
+        @org.praxisplatform.uischema.annotation.BulkOperation(mode = BulkMode.UNIFORM_UPDATE,
+                evaluationOperationId = "p3.atomicZ.secondary",
+                atomicity = org.praxisplatform.uischema.action.ActionCollectionAtomicity.ATOMIC)
+        public void secondaryConfirmation(@org.springframework.web.bind.annotation.RequestBody BulkConfirmationRequest request) { }
+    }
+
     private static org.springframework.web.context.support.AnnotationConfigWebApplicationContext mvcContext() {
+        return mvcContext(BulkDeclarativeJpaHttpTest.ItemController.class);
+    }
+
+    private static org.springframework.web.context.support.AnnotationConfigWebApplicationContext mvcContext(Class<?> controller) {
         var context = new org.springframework.web.context.support.AnnotationConfigWebApplicationContext();
         context.setServletContext(new org.springframework.mock.web.MockServletContext());
         context.addBeanFactoryPostProcessor(factory -> {
             factory.registerSingleton("objectMapper", new ObjectMapper().findAndRegisterModules());
             factory.registerSingleton("operations", mock(CanonicalOperationResolver.class));
         });
-        context.register(Mvc.class, BulkDeclarativeJpaHttpTest.ItemController.class);
+        context.register(Mvc.class, controller);
         context.refresh(); return context;
     }
     @org.springframework.context.annotation.Configuration
