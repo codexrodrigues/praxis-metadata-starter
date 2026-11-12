@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -79,8 +80,7 @@ public class ReactiveDeterminationMetadataCompiler {
             return List.of();
         }
 
-        validateGraph(definitions, schemaOperation.operationId());
-        List<Map<String, Object>> compiled = new ArrayList<>();
+        Map<String, Map<String, Object>> metadataById = new LinkedHashMap<>();
         for (ReactiveDeterminationDefinition definition : definitions) {
             ReactiveDeterminationScope scope = definition.scopes().stream()
                     .filter(candidate -> schemaOperation.operationId().equals(candidate.schemaOperationId()))
@@ -93,10 +93,11 @@ public class ReactiveDeterminationMetadataCompiler {
                     schemaDocument,
                     formSchema
             );
-            compiled.add(toMetadata(definition, scope, determinationOperation.operation()));
+            metadataById.put(definition.id(), toMetadata(definition, scope, determinationOperation.operation()));
         }
-        compiled.sort(Comparator.comparing(item -> String.valueOf(item.get("id"))));
-        return List.copyOf(compiled);
+        return topologicallyOrder(definitions, schemaOperation.operationId()).stream()
+                .map(metadataById::get)
+                .toList();
     }
 
     private ResolvedOperation validateDefinition(
@@ -400,19 +401,17 @@ public class ReactiveDeterminationMetadataCompiler {
         return org.praxisplatform.uischema.schema.DomainSchemaGovernance.inherit(current, result);
     }
 
-    private void validateGraph(
+    private List<String> topologicallyOrder(
             List<ReactiveDeterminationDefinition> definitions,
             String schemaOperationId
     ) {
         Map<String, String> writerByTarget = new LinkedHashMap<>();
+        Map<String, Set<String>> edges = new LinkedHashMap<>();
+        Map<String, Integer> incoming = new HashMap<>();
         for (ReactiveDeterminationDefinition definition : definitions) {
-            if (definition.outputs() == null) {
-                continue;
-            }
+            edges.put(definition.id(), new LinkedHashSet<>());
+            incoming.put(definition.id(), 0);
             for (ReactiveDeterminationOutputBinding output : definition.outputs()) {
-                if (output == null || output.fieldPath() == null) {
-                    continue;
-                }
                 for (Map.Entry<String, String> existing : writerByTarget.entrySet()) {
                     if (pathsOverlap(existing.getKey(), output.fieldPath())) {
                         throw new IllegalArgumentException(
@@ -425,28 +424,37 @@ public class ReactiveDeterminationMetadataCompiler {
             }
         }
 
-        Map<String, Set<String>> edges = new LinkedHashMap<>();
-        for (ReactiveDeterminationDefinition definition : definitions) {
-            edges.put(definition.id(), new LinkedHashSet<>());
-        }
-        for (ReactiveDeterminationDefinition writer : definitions) {
-            if (writer.outputs() == null) {
-                continue;
-            }
-            for (ReactiveDeterminationDefinition reader : definitions) {
-                if (reader.sourcePaths() == null) {
-                    continue;
-                }
-                boolean dependency = writer.outputs().stream()
-                        .filter(output -> output != null)
-                        .anyMatch(output -> reader.sourcePaths().stream()
-                                .anyMatch(source -> source != null && pathsOverlap(output.fieldPath(), source)));
-                if (dependency) {
-                    edges.get(writer.id()).add(reader.id());
+        for (ReactiveDeterminationDefinition reader : definitions) {
+            for (Map.Entry<String, String> writer : writerByTarget.entrySet()) {
+                boolean dependency = reader.inputs().stream()
+                        .anyMatch(input -> pathsOverlap(writer.getKey(), input.fieldPath()));
+                if (dependency && edges.get(writer.getValue()).add(reader.id())) {
+                    incoming.compute(reader.id(), (id, count) -> count + 1);
                 }
             }
         }
-        detectCycle(edges, schemaOperationId);
+
+        PriorityQueue<String> ready = new PriorityQueue<>();
+        incoming.forEach((id, count) -> {
+            if (count == 0) {
+                ready.add(id);
+            }
+        });
+        List<String> ordered = new ArrayList<>(definitions.size());
+        while (!ready.isEmpty()) {
+            String id = ready.remove();
+            ordered.add(id);
+            for (String target : edges.get(id)) {
+                int remaining = incoming.compute(target, (key, count) -> count - 1);
+                if (remaining == 0) {
+                    ready.add(target);
+                }
+            }
+        }
+        if (ordered.size() != definitions.size()) {
+            detectCycle(edges, schemaOperationId);
+        }
+        return ordered;
     }
 
     private void detectCycle(Map<String, Set<String>> edges, String schemaOperationId) {
