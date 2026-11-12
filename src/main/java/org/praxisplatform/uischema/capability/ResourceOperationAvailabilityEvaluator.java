@@ -123,8 +123,9 @@ public final class ResourceOperationAvailabilityEvaluator {
         try {
             var state = resourceId == null ? null
                     : ResourceStateSnapshotScope.resolve(states, key, resourceId).orElse(null);
+            var snapshotDecision = DefaultResourceAvailabilityService.INSTANCE.evaluateOperationSnapshot(id, state, Map.of());
             var decision = provider.evaluate(ResourceOperationAvailabilityContext.item(key, path, id, resourceId, state));
-            return decision == null ? AvailabilityDecision.allowAll() : decision;
+            return combine(snapshotDecision, decision == null ? AvailabilityDecision.allowAll() : decision);
         } catch (RuntimeException ex) {
             return AvailabilityDecision.deny("availability-provider-error", Map.of("operationId", id));
         }
@@ -139,11 +140,13 @@ public final class ResourceOperationAvailabilityEvaluator {
             ResourceStateSnapshot state = item && resourceId != null
                     ? ResourceStateSnapshotScope.resolve(states, key, resourceId).orElse(null) : null;
             if (!surfaceBaselinesResolved) operation = withSurfaceAvailability(operation, key, id, resourceId);
+            AvailabilityDecision snapshotDecision = DefaultResourceAvailabilityService.INSTANCE.evaluateOperationSnapshot(
+                    id, state, Map.of());
             AvailabilityDecision decision = provider.evaluate(new ResourceOperationAvailabilityContext(
                     key, path, id, scope, item ? resourceId : null, state,
                     operation == null ? Map.of() : metadata(operation)));
             if (decision == null) decision = required ? deny("availability-provider-error") : AvailabilityDecision.allowAll();
-            return combine(operation == null ? null : operation.availability(), decision);
+            return combine(combine(operation == null ? null : operation.availability(), snapshotDecision), decision);
         } catch (RuntimeException ex) {
             return AvailabilityDecision.deny("availability-provider-error", Map.of("operationId", id));
         }

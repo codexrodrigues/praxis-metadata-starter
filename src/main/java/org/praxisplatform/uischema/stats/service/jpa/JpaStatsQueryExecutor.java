@@ -219,6 +219,12 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         SelectionSlot[] dimKeySlots = new SelectionSlot[dimensions.size()];
         SelectionSlot[] dimLabelSlots = new SelectionSlot[dimensions.size()];
         boolean[] hasDistinctLabel = new boolean[dimensions.size()];
+        boolean canSqlGroupBy = dimensions.stream().allMatch(dim -> dim.extraction() == StatsDimensionExtraction.NONE)
+                && resolvedMetrics.stream().allMatch(m -> !m.metric().operation().isPercentile()
+                        && m.metric().operation() != StatsMetric.AVG_PER_CYCLE_OCCURRENCE);
+
+        List<Expression<?>> groupByExpressions = new ArrayList<>();
+        Set<String> groupedPropertyPaths = new HashSet<>();
         for (int d = 0; d < dimensions.size(); d++) {
             ResolvedStatsDimension dim = dimensions.get(d);
             Path<?> keyPath = resolvePath(root, dim.descriptor().keyPropertyPath());
@@ -228,26 +234,55 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 );
             }
             dimKeySlots[d] = registerSelectionSlot(root, dim.descriptor().keyPropertyPath(), selections, selectionSlotByPropertyPath);
+            if (dimKeySlots[d].compositeType() != null) {
+                canSqlGroupBy = false;
+            } else if (groupedPropertyPaths.add(dim.descriptor().keyPropertyPath())) {
+                groupByExpressions.add(keyPath);
+            }
             if (dim.extraction() == StatsDimensionExtraction.NONE
                     && !Objects.equals(dim.descriptor().keyPropertyPath(), dim.descriptor().labelPropertyPath())) {
                 hasDistinctLabel[d] = true;
+                Path<?> labelPath = resolvePath(root, dim.descriptor().labelPropertyPath());
                 dimLabelSlots[d] = registerSelectionSlot(root, dim.descriptor().labelPropertyPath(), selections, selectionSlotByPropertyPath);
+                canSqlGroupBy = false;
             }
         }
-        SelectionSlot[] metricSlots = new SelectionSlot[resolvedMetrics.size()];
-        for (int m = 0; m < resolvedMetrics.size(); m++) {
-            ResolvedStatsMetric metric = resolvedMetrics.get(m);
+        for (ResolvedStatsMetric metric : resolvedMetrics) {
             if (metric.descriptor() != null) {
+                Path<?> mPath = resolvePath(root, metric.descriptor().keyPropertyPath());
+                if (mPath != null && CompositeIdSupport.isCompositeIdType(mPath.getJavaType())) {
+                    canSqlGroupBy = false;
+                }
                 if (metric.metric().operation() != StatsMetric.COUNT
                         && metric.metric().operation() != StatsMetric.DISTINCT_COUNT) {
                     resolveNumericPath(root, metric.descriptor().keyPropertyPath());
                 }
-                metricSlots[m] = registerSelectionSlot(root, metric.descriptor().keyPropertyPath(), selections, selectionSlotByPropertyPath);
-            } else {
-                metricSlots[m] = null;
             }
         }
-        query.multiselect(selections);
+
+        int sqlCountTupleIndex = -1;
+        int[] sqlMetricTupleIndices = new int[resolvedMetrics.size()];
+        SelectionSlot[] metricSlots = new SelectionSlot[resolvedMetrics.size()];
+        if (canSqlGroupBy) {
+            sqlCountTupleIndex = selections.size();
+            selections.add(cb.count(root));
+            for (int m = 0; m < resolvedMetrics.size(); m++) {
+                sqlMetricTupleIndices[m] = selections.size();
+                selections.add(resolveValueExpression(cb, root, resolvedMetrics.get(m)));
+            }
+            query.multiselect(selections);
+            query.groupBy(groupByExpressions);
+        } else {
+            for (int m = 0; m < resolvedMetrics.size(); m++) {
+                ResolvedStatsMetric metric = resolvedMetrics.get(m);
+                if (metric.descriptor() != null) {
+                    metricSlots[m] = registerSelectionSlot(root, metric.descriptor().keyPropertyPath(), selections, selectionSlotByPropertyPath);
+                } else {
+                    metricSlots[m] = null;
+                }
+            }
+            query.multiselect(selections);
+        }
 
         ZoneId zoneId = resolveExecutionZone(request.timezone(), window);
         List<Tuple> tuples = entityManager.createQuery(query).getResultList();
@@ -290,7 +325,12 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                     coordinateKey,
                     k -> MultiDimensionCellAggregate.empty(keys, labels, resolvedMetrics)
             );
-            cell.accumulate(tuple, resolvedMetrics, metricSlots);
+            if (canSqlGroupBy) {
+                long bucketCount = ((Number) tuple.get(sqlCountTupleIndex)).longValue();
+                cell.accumulateSqlGroup(tuple, bucketCount, resolvedMetrics, sqlMetricTupleIndices);
+            } else {
+                cell.accumulate(tuple, resolvedMetrics, metricSlots);
+            }
         }
 
         boolean usesCellCeiling = dimensions.size() > 1
@@ -1337,12 +1377,21 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         private final List<Double> samples = new ArrayList<>();
         private final boolean hasMetricField;
 
+        private Number sqlAggregatedValue;
+        private boolean hasSqlAggregatedValue;
+
         private CellAggregateValue(boolean hasMetricField) {
             this.hasMetricField = hasMetricField;
         }
 
         static CellAggregateValue empty(boolean hasMetricField) {
             return new CellAggregateValue(hasMetricField);
+        }
+
+        void setSqlAggregateValue(long bucketRowCount, Number aggregatedValue) {
+            this.rowCount = bucketRowCount;
+            this.sqlAggregatedValue = aggregatedValue;
+            this.hasSqlAggregatedValue = true;
         }
 
         void accumulate(StatsMetric metric, Object value) {
@@ -1375,6 +1424,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         Number value(StatsMetric metric, Long cycleOccurrences) {
             if (cycleOccurrences != null && cycleOccurrences <= 0L) {
                 return null;
+            }
+            if (hasSqlAggregatedValue) {
+                return sqlAggregatedValue;
             }
             if (metric == StatsMetric.COUNT) {
                 return rowCount;
@@ -1451,6 +1503,15 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 SelectionSlot slot = metricSlots[index];
                 Object value = slot == null ? null : extractSelectionValue(tuple, slot);
                 aggregates.get(metric.alias()).accumulate(metric.metric().operation(), value);
+            }
+        }
+
+        void accumulateSqlGroup(Tuple tuple, long bucketRowCount, List<ResolvedStatsMetric> metrics, int[] sqlMetricTupleIndices) {
+            this.count = bucketRowCount;
+            for (int index = 0; index < metrics.size(); index++) {
+                ResolvedStatsMetric metric = metrics.get(index);
+                Number aggVal = (Number) tuple.get(sqlMetricTupleIndices[index]);
+                aggregates.get(metric.alias()).setSqlAggregateValue(bucketRowCount, aggVal);
             }
         }
 

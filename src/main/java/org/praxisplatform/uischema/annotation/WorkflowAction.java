@@ -144,4 +144,16 @@ public @interface WorkflowAction {
 
     /** Additional canonical resource keys whose projections become stale after success. */
     String[] invalidatesResourceKeys() default {};
+
+    /**
+     * Canonical legal treatment purpose governing the execution of this workflow command
+     * (e.g., official health expertise, payroll compliance, statutory legal obligation).
+     */
+    LegalTreatmentPurpose legalPurpose() default LegalTreatmentPurpose.UNSPECIFIED;
+
+    /**
+     * Statutory or regulatory reference backing the declared {@link #legalPurpose()}
+     * (e.g., {@code "LGPD Art. 11, II, 'a'"}).
+     */
+    String legalBasisRef() default "";
 }

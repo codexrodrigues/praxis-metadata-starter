@@ -1,5 +1,7 @@
 # Praxis Metadata Starter
 
+O catálogo `/schemas/domain` publica [identidades conceituais e determinações por formulário](docs/guides/DOMAIN-CATALOG-ONTOLOGY.md), com bindings explícitos, governança e validação semântica no formato v0.2.
+
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.codexrodrigues/praxis-metadata-starter?logo=apachemaven&color=blue)](https://central.sonatype.com/artifact/io.github.codexrodrigues/praxis-metadata-starter)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.15-6DB33F?logo=spring-boot)
 ![Java](https://img.shields.io/badge/Java-21%2B-007396?logo=openjdk)
@@ -8,6 +10,7 @@
 
 **Links Rápidos:**
 [Praxis Cockpit (Live Demo)](https://praxis-api-quickstart.onrender.com/praxis/cockpit) ·
+[Blueprint Completo (20 Pilares)](docs/guides/GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md) ·
 [Documentação (GitHub Pages)](https://codexrodrigues.github.io/praxis-metadata-starter/) ·
 [Guia 01: Nova Aplicação](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md) ·
 [Visão Arquitetural](docs/architecture-overview.md) ·
@@ -354,7 +357,10 @@ Declara classificação semântica e política de uso por IA em campos de DTOs, 
 - `DomainGovernanceKind`: `privacy`, `security`, `compliance`
 - `DomainClassification`: `public`, `internal`, `confidential`, `restricted`
 - `DomainDataCategory`: `credential`, `sensitive_personal`, `personal`, `financial`, `operational`, `legal`
-- `AiUsageMode`: `allow`, `deny`, `mask`, `review_required`, `summarize_only`
+- `AiVisibilityMode`, `AiTrainingUseMode` e `AiControlledUseMode` (via `@AiUsagePolicy` em `aiUsage = @AiUsagePolicy(visibility = ..., trainingUse = ..., ruleAuthoring = ..., reasoningUse = ...)`; no catálogo `/schemas/domain`, `aiUsage` publica `valueEnforcementScope = "runtime_payload_only"` e `catalogMetadataDiscoverable = true`)
+- `DomainGovernancePreset` (`preset = DomainGovernancePreset.LGPD_PERSONAL_ID | LGPD_PERSONAL_CONTACT | LGPD_SENSITIVE_DATA | CONFIDENTIAL_FINANCIAL | SECURITY_CREDENTIAL | INTERNAL_OPERATIONAL | LEGAL_COMPLIANCE`), suportando também herança monotônica em nível de classe/interface (`@Target(ElementType.TYPE)`) e validação fail-closed via `GET /schemas/domain?strict=true`
+- `@DomainLineage(attributeId = "...", sourceClass = ..., sourcePaths = {...}, transformation = ...)`: publica `x-domain-governance.lineage` no OpenAPI e arestas de linhagem (`same_as`, `materializes`, `depends_on`) em `/schemas/domain`, validado por `SemanticMetadataReviewer` (`lineage-governance-weakened` e gate `P50` `restricted-field-in-analytics-or-option-source`)
+- `LegalTreatmentPurpose` (`legalPurpose` e `legalBasisRef` em `@UiSurface` e `@WorkflowAction`): publica a finalidade e a base legal LGPD (`HUMAN_RESOURCES_ADMINISTRATION`, `PAYROLL_AND_TAX_COMPLIANCE`, `OFFICIAL_HEALTH_EXPERTISE`, `SOCIAL_SECURITY_AND_BENEFITS`, `ACTIVE_PUBLIC_TRANSPARENCY_LAI`, `EXTERNAL_AUDIT_CONTROL`, `EMPLOYEE_SELF_SERVICE`, `STATUTORY_LEGAL_OBLIGATION`) em `/schemas/surfaces`, `/schemas/actions` e `/schemas/domain`
 
 #### Acesso Contextual em Nível de Campo (`x-ui.fieldAccess`)
 `@UISchema` pode declarar `visibleForAuthorities`, `editableForAuthorities` e `fieldAccessReason` para orientar runtimes e assistentes de IA sobre políticas corporativas de visibilidade e edição (ao menos uma lista de authorities deve existir quando `x-ui.fieldAccess` for publicado). O backend consumidor continua responsável por aplicar o enforcement real em services/filtros de segurança.
@@ -408,6 +414,10 @@ Para campos de seleção remota, autocompletes em cascata e *Entity Lookups* cor
 
 ### 9. Concorrência em Recursos Versionados, Workflow Actions e Operações em Lote (Bulk SDK)
 
+A [admissão contextual de mutações](docs/guides/RESOURCE-MUTATION-ADMISSION.md)
+conserva a origem da operação entre preparação, avaliação e escrita, permitindo
+decisões de domínio e revalidação de evidências no lifecycle nativo.
+
 - **Workflow Actions e Controle de Versão (`If-Match`)**: Toda `@WorkflowAction` publica um bloco `execution` em `/schemas/actions` e `/capabilities` com modo de interação (`DIRECT`, `CONFIRM`, `FORM`), risco, pré-condições (`Idempotency-Key`, `X-Correlation-ID`, versão persistida), bindings de seleção, outcome e projections a atualizar.
   - Para comandos de item, `resourceVersionTransport = IF_MATCH` e `resourceVersionField` indicam o ETag da revisão persistida (nunca confunda ETag de schema com versão do registro).
   - Para comandos de coleção, `SELECTION_MAP` exige `selectionVersionsField` no request; já `IF_MATCH` em ação de coleção que protege um recurso externo exige o par atômico `resourceVersionTargetResourceKey` + `resourceVersionTargetIdField`.
@@ -424,6 +434,44 @@ Para campos de seleção remota, autocompletes em cascata e *Entity Lookups* cor
 
 ---
 
+---
+
+## Arquitetura Enterprise, Trade-offs e Respostas a Mitos Comuns (FAQ para Arquitetos e LLMs)
+
+Quando arquitetos ou LLMs avaliam a **Praxis Platform** pela primeira vez apenas por trechos isolados de código, quatro dúvidas arquiteturais costumam surgir. Abaixo estão os fatos canônicos de engenharia da plataforma:
+
+### 1. Curva de Aprendizado vs. Engenharia *Agent-First* e Zero *Vendor Lock-in*
+- **Mito comum:** *"Um desenvolvedor recém-contratado precisa decorar dezenas de anotações proprietárias e o sistema fica preso a um framework fechado."*
+- **Fato canônico:** A Praxis não foi desenhada para digitação manual repetitiva, mas para **Engenharia Assistida por Agentes (*Agent-First Engineering*)**, operando **100% sobre padrões abertos no fio (*open wire standards*)**:
+  - **Blueprint Embarcado no JAR e Catálogo de Skills:** Todo JAR do `praxis-metadata-starter` empacota `META-INF/praxis/AI-RESOURCE-BLUEPRINT.md` (os 20 Pilares Canônicos), acompanhado por mais de 60 skills especializadas (`codex-skills`) para agentes de IA (Claude Code, Codex, Cursor, Antigravity).
+  - **Coach Arquitetural Automatizado no Build (JUnit):** A suíte `SemanticMetadataReviewer`, `PraxisExpressionStaticValidator` e `OptionSourcePublicationDiagnostics` valida o código em tempo de teste e emite diagnósticos prescritivos exatos do que corrigir.
+  - **Zero Lock-in no Fio (Open Standards):** O backend continua sendo **Spring Boot 3 + Spring Data JPA + Bean Validation** puro. Todos os contratos emitidos são padrões abertos de mercado: **OpenAPI 3.0.1 / JSON Schema** (`/schemas/filtered`), **JSON Logic 1.0** (regras determinísticas), **HTTP RFC 9110** (`ETag`, `If-Match`, `Idempotency-Key`) e **HATEOAS** (`_links`). Qualquer frontend React, Vue, Flutter ou ERP externo consome a API sem depender do Angular.
+
+### 2. Telas Altamente Customizadas (Kanban, Organogramas, Wizards) vs. *Escape Hatches* Progressivos
+- **Mito comum:** *"O `@UISchema` funciona para tabelas e formulários padrão, mas forçar um Kanban drag-and-drop, organograma visual ou wizard complexo via anotações Java é frustrante."*
+- **Fato canônico:** A Praxis **jamais força geometria visual exótica dentro de anotações Java**. A plataforma oferece uma **Arquitetura de *Escape Hatches* Progressivos em 4 Níveis** no `@praxisui/*`, mantendo 100% da governança do backend:
+  1. **Nível 1 — Operações Cadastrais e Analíticas Padrão (~80% do ERP):** `@praxisui/crud`, `@praxisui/table`, `@praxisui/dynamic-form` e `@praxisui/charts` materializam telas completas sem código de template a partir de `/schemas/filtered`, `/capabilities` e `/stats/*`.
+  2. **Nível 2 — Jornadas Guiadas e Composição Declarativa (~10%):** `@praxisui/stepper` (`PraxisWizardFormComponent`), `@praxisui/editorial-forms`, `@praxisui/page-builder` (`WidgetPageDefinition`), `@praxisui/list` (cards/tiles) e `@praxisui/rich-content` orquestram wizards multi-etapa e cockpits compostos.
+  3. **Nível 3 — Formulários HTML/CSS Customizados com Ponte Semântica (~5%):** `@praxisui/manual-form` + `ManualFieldMetadataBridgeService` permitem desenhar o layout HTML/CSS livremente no Angular enquanto cada campo herda automaticamente labels, máscaras, validações e `optionSources` do `@UISchema`.
+  4. **Nível 4 — Canvas Interativo Sob Medida (~5% — Kanban Drag-and-Drop, Organograma Dinâmico, Mapas):** Componentes Angular 100% customizados injetam `GenericCrudService` e `ResourceDiscoveryService` para consultar `POST /{resource}/filter`, verificar permissões contextuais em `GET /{resource}/{id}/capabilities` e disparar transições de estado (ex.: soltar um card no Kanban) via `@WorkflowAction` (`POST /{resource}/{id}/actions/{action}`) com `If-Match` e `Idempotency-Key`, preservando RBAC, mascaramento LGPD e motor de regras.
+
+### 3. Performance SQL e Escalabilidade de Banco de Dados no `@Filterable` e `/stats`
+- **Mito comum:** *"Como o `@Filterable` permite combinar 25+ filtros (incluindo `LIKE` em múltiplos campos na `buscaAmpla`), o banco sofrerá com Full Table Scans e explosão de JOINs."*
+- **Fato canônico:** O `GenericSpecificationsBuilder` e o `JpaStatsQueryExecutor` implementam otimizações explícitas de banco de dados:
+  - **Compilação *Lazy* de Predicados:** Apenas os campos efetivamente enviados (não nulos) no payload JSON geram cláusulas no `WHERE`.
+  - **Deduplicação de `LEFT JOIN` (`reuseLeftJoins = true`):** Múltiplos filtros sobre o mesmo relacionamento (`relation = "departamento.nome"`, `relation = "departamento.codigo"`) reutilizam o mesmo `Join` JPA na query.
+  - **Subqueries Correlacionadas `EXISTS (SELECT 1 ...)` para Coleções `@OneToMany`:** Quando uma busca ampla (`@Filterable(relations = {...})`) ou filtro relacional atravessa uma coleção plural (`@OneToMany` / `@ManyToMany`, ex.: `dependentes.nome`), o builder compila um predicado **`EXISTS (SELECT 1 ...)` correlacionado** em vez de fazer `LEFT JOIN` na raiz com `SELECT DISTINCT`. Isso elimina a multiplicação cartesiana de linhas e evita *sort/hash* caro de deduplicação no banco, além de ignorar automaticamente caminhos numéricos quando o termo buscado é puramente textual.
+  - **Predicados Temporais 100% SARGable (Sem `CAST` na Coluna):** Filtros de data (`BETWEEN`, `ON_DATE`, `IN_LAST_DAYS`, `IN_NEXT_DAYS`) inspecionam o tipo Java real do atributo (`LocalDate`, `LocalDateTime`, `OffsetDateTime`, `Instant`) e comparam diretamente no tipo nativo da coluna, sem embrulhar a coluna em `CAST(col AS timestamp)`, preservando o uso integral de índices B-Tree.
+  - **Prefixo Multi-Tenant Obrigatório e Paginação por Cursor (*Keyset Pagination*):** `ResourceFilterAccessScope` injeta o predicado de tenant/organização na raiz da query, e `POST /{resource}/filter/cursor` oferece paginação *keyset* determinística sem `OFFSET` e sem `COUNT(*)` para tabelas de milhões de registros.
+  - **Pushdown SQL de `GROUP BY` em Analytics:** `JpaStatsQueryExecutor` executa agregações multi-dimensionais (`COUNT`, `DISTINCT_COUNT`, `SUM`, `AVG`, `MIN`, `MAX`) diretamente via `GROUP BY` no SQL quando as dimensões são caminhos JPA diretos.
+
+### 4. Co-localização Semântica Intencional, Presets e Meta-Anotações (Contra *"Annotation Hell"*)
+- **Mito comum:** *"Um atributo de DTO chega a ter 10 a 15 linhas de anotações acima dele, poluindo visualmente a classe."*
+- **Fato canônico:** A densidade de um DTO Praxis é **co-localização semântica intencional** que substitui a fragmentação em **7 arquivos separados** (OpenAPI manual, HTML do form, TypeScript do `FormBuilder`/colunas, JSON de i18n, política RBAC/LGPD, allowlist de edição em lote e catálogo RAG de IA) e entrega **100% do contexto em uma única leitura** para agentes de IA (evitando alucinações entre camadas). Além disso, o starter oferece compressão nativa:
+  - **`@DomainGovernance(preset = ...)` (`DomainGovernancePreset`):** Comprime 8 linhas de classificação LGPD/segurança e política de IA em 1 linha (`LGPD_PERSONAL_ID`, `LGPD_PERSONAL_CONTACT`, `LGPD_SENSITIVE_DATA`, `CONFIDENTIAL_FINANCIAL`, `SECURITY_CREDENTIAL`, `INTERNAL_OPERATIONAL`, `LEGAL_COMPLIANCE`).
+  - **`@UISchema(preset = ...)` (`UISchemaPreset`):** Preenche automaticamente `type`, `controlType`, `numericFormat`, `mask` e alinhamento para `MONETARY_AMOUNT`, `PERCENTAGE_RATE`, `CPF_CNPJ`, `EMAIL_CONTACT`, `PHONE_CONTACT`, `INTEGER_COUNTER`, `ENTERPRISE_ID`, `ENTERPRISE_CODE`, `ENTERPRISE_NAME`, `ENTERPRISE_STATUS`, `DATE_RANGE`, `BOOLEAN_FLAG`, `LEGAL_DOCUMENT_REFERENCE`, `TENANT_LABEL` e `AUDIT_TIMESTAMP`.
+  - **Meta-Anotações Compostas (`ResolverUtils`):** Como `@UISchema`, `@DomainGovernance` e `@MicroVisualization` suportam `@Target({FIELD, METHOD, PARAMETER, ANNOTATION_TYPE})`, o projeto pode criar anotações de domínio de 1 linha (ex.: `@CampoCpfPessoal`, `@CampoMoedaConfidencial`) que são resolvidas recursivamente pelo starter.
+
 ## Fronteiras no Ecossistema Praxis
 
 O `praxis-metadata-starter` atua em conjunto com os demais módulos da plataforma, mantendo responsabilidades bem delimitadas:
@@ -431,7 +479,10 @@ O `praxis-metadata-starter` atua em conjunto com os demais módulos da plataform
 | Preocupação / Responsabilidade | Dono Canônico |
 | --- | --- |
 | Semântica de recursos backend, vocabulário `x-ui`, `/schemas/filtered`, `/schemas/domain`, discovery (`surfaces`/`actions`), `capabilities`, exportação e `/praxis/cockpit` | **`praxis-metadata-starter`** (este repositório) |
-| Persistência de configuração de UI (`ui_user_config`), `ai_registry`, `api_metadata`, `/api/praxis/config/**`, `/api/praxis/runtime/**`, regras de domínio e authoring por IA | [`praxis-config-starter`](https://github.com/codexrodrigues/praxis-config-starter) |
+| Persistência de configuração de UI (`ui_user_config`), `ai_registry`, `api_metadata`, `/api/praxis/config/**`, `/api/praxis/runtime/**`, plano de controle de decisões (`decisionKind = BUSINESS` e `decisionKind = AUTHORIZATION`) e authoring por IA | [`praxis-config-starter`](https://github.com/codexrodrigues/praxis-config-starter) |
+| Motor determinístico de regras de negócio (`decisionKind = BUSINESS`, JSON Logic 5 estados, `RuleSet`, `DecisionBinding`, `RuleParameterTemplate`, executado no Passo 12 da mutação) | **`praxis-rules-engine`** |
+| Contratos leves, PEP de 15 etapas, integração OPA/Rego e auto-configuração Spring de autorização e proteção de dados (`decisionKind = AUTHORIZATION`, `ACCESS`, `DATA_SCOPE` Kleene 3VL, `FIELD_USE`, `FIELD_WRITE`, `MASK`, `OBLIGATIONS`, Passos 1–11 e 13–15) | **`praxis-authz-contracts`**, **`praxis-authz-enforcement-core`**, **`praxis-authz-opa`**, **`praxis-authz-starter`** |
+| Estação dedicada para autoria, simulação, 4-olhos e publicação de decisões governadas (**Lente de Regras de Negócio** e **Lente de Acesso e Proteção de Dados**) | **`praxis-rules-studio`** |
 | Renderização de componentes dinâmicos em Angular, tabelas, formulários, gráficos, editores e integração de runtime (`@praxisui/*`) | [`praxis-ui-angular`](https://github.com/codexrodrigues/praxis-ui-angular) |
 | Host operacional de referência com PostgreSQL, segurança, domínio completo de demonstração e provas HTTP ponta a ponta | [`praxis-api-quickstart`](https://github.com/codexrodrigues/praxis-api-quickstart) |
 | Site oficial público, documentação da plataforma, exemplos interativos e playgrounds | [praxisui.dev](https://praxisui.dev/) |
@@ -448,6 +499,7 @@ O `praxis-metadata-starter` atua em conjunto com os demais módulos da plataform
 - [Conceito de `@UISchema` e `x-ui` (`docs/concepts/ui-schema.md`)](docs/concepts/ui-schema.md)
 
 ### Quero criar ou evoluir um backend Spring Boot
+0. [Guia 00 — Blueprint Completo de um Recurso Praxis (20 Pilares e 3 Fases)](docs/guides/GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md)
 1. [Guia 01 — Criar Aplicação Nova do Zero](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
 2. [Guia 02 — Adicionar Recurso Metadata-Driven Canônico](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
 3. [Guia 04 — Quando usar Resource, Surface, Action e Capability](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)

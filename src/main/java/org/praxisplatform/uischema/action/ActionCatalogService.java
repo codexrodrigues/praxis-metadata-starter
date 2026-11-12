@@ -177,11 +177,26 @@ public class ActionCatalogService {
         } else {
             availability = availabilityEvaluator.evaluate(definition, context);
         }
+        String effectiveTitle = resolveContextualMetadataText(
+                availability,
+                org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService.KEY_CUSTOM_TITLE,
+                definition.title()
+        );
+        String effectiveLegalPurpose = resolveContextualMetadataText(
+                availability,
+                org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService.KEY_LEGAL_PURPOSE,
+                definition.legalPurpose()
+        );
+        String effectiveLegalBasis = resolveContextualMetadataText(
+                availability,
+                org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService.KEY_LEGAL_BASIS,
+                definition.legalBasisRef()
+        );
         return new ActionCatalogItem(
                 definition.id(),
                 definition.resourceKey(),
                 definition.scope(),
-                definition.title(),
+                effectiveTitle,
                 definition.description(),
                 definition.operation().operationId(),
                 definition.operation().path(),
@@ -195,8 +210,20 @@ public class ActionCatalogService {
                 definition.order(),
                 definition.successMessage(),
                 definition.tags(),
-                executions.getOrDefault(definition.operation().operationId(), definition.execution().withBulk(null))
+                executions.getOrDefault(definition.operation().operationId(), definition.execution().withBulk(null)),
+                effectiveLegalPurpose,
+                effectiveLegalBasis
         );
+    }
+
+    private String resolveContextualMetadataText(AvailabilityDecision availability, String key, String fallback) {
+        if (availability != null && availability.metadata() != null) {
+            Object candidate = availability.metadata().get(key);
+            if (candidate != null && StringUtils.hasText(candidate.toString())) {
+                return candidate.toString().trim();
+            }
+        }
+        return fallback;
     }
 
     /** Evaluates only declared action rules, never a catalog or a capability snapshot. */
@@ -217,7 +244,7 @@ public class ActionCatalogService {
             ActionAvailabilityContext context) {
         try {
             var decision = availabilityEvaluator.evaluate(definition, context);
-            return decision != null && decision.allowed() ? AvailabilityDecision.allowAll()
+            return decision != null && decision.allowed() ? decision
                     : AvailabilityDecision.deny("duplicate-draft-unavailable", Map.of());
         } catch (RuntimeException ex) {
             return AvailabilityDecision.deny("duplicate-draft-unavailable", Map.of());

@@ -48,6 +48,19 @@ Content-Type: application/json
 
 </details>
 
+### Campos herdados
+
+Um `GenericFilterDTO` pode herdar critérios de uma ou mais superclasses. Declare
+`@Filterable` no campo que contém o valor da requisição: a execução dos predicados,
+os aliases de ordenação e a normalização de ranges e períodos relativos percorrem
+a hierarquia. Não é necessário repetir os campos no DTO concreto.
+
+Se uma subclasse declarar outro campo com o mesmo nome, essa declaração prevalece,
+inclusive quando não tiver `@Filterable`. Campos estáticos e sintéticos são
+ignorados. Evite ocultar critérios herdados sem intenção explícita, pois isso muda
+a pergunta representada pelo filtro. A herança não transforma filtros enviados
+pelo cliente em autorização; mantenha `ResourceFilterAccessScope` no serviço.
+
 <a id="escopo-de-acesso"></a>
 <details>
 <summary><strong>Escopo de acesso server-side</strong></summary>
@@ -248,6 +261,30 @@ Content-Type: application/json
 ```
 
 ---
+
+</details>
+
+<a id="performance-sql-escalabilidade"></a>
+<details open>
+<summary><strong>Arquitetura de Performance SQL, Índices e Escalabilidade (SARGability &amp; Subqueries EXISTS)</strong></summary>
+
+O motor `GenericSpecificationsBuilder` foi projetado para suportar `FilterDTO`s corporativos densos (25 a 40 campos de filtro e busca ampla omnibox) sem degradar o plano de execução do banco de dados:
+
+1. **Compilação *Lazy* Estrita (`value != null`):** Ter 30 campos anotados com `@Filterable` no DTO tem custo zero quando não preenchidos. Apenas os filtros efetivamente enviados na requisição geram predicados na cláusula `WHERE`.
+2. **Reuso Automático de `LEFT JOIN` (`reuseLeftJoins = true`):** Quando múltiplos filtros navegam pela mesma associação (`relation = "lotacao.nome"`, `relation = "lotacao.sigla"`), `JpaCriteriaPathSupport` reutiliza a mesma instância de `Join` na árvore Criteria, evitando `LEFT JOIN`s duplicados na mesma tabela.
+3. **Subqueries Correlacionadas `EXISTS (SELECT 1 ...)` para Coleções `@OneToMany` / `@ManyToMany`:**
+   - Em buscas amplas (`@Filterable(operation = LIKE, relations = {"nomeCompleto", "cpf", "dependentes.nome", "cargo.nome"})`) ou filtros sobre coleções filhas, caminhos que atravessam atributos plurais (`@OneToMany`/`@ManyToMany`) são compilados automaticamente em **subqueries correlacionadas `EXISTS (SELECT 1 FROM ... WHERE parent_id = root.id AND ...)`**.
+   - Isso evita que um `LEFT JOIN` de coleção multiplique as linhas da entidade raiz e **elimina a necessidade de forçar `SELECT DISTINCT`** na query principal (que exigiria ordenação/hash pesado de todas as colunas da projeção no PostgreSQL/Oracle).
+   - Além disso, quando o termo de uma busca ampla (`relations = {...}`) não contém dígitos e a operação é textual (`LIKE`/`STARTS_WITH`/`ENDS_WITH`), caminhos numéricos (`Long`, `Integer`, `BigDecimal`) são ignorados automaticamente sem gerar `CAST` inútil no SQL.
+4. **Comparações Temporais 100% SARGable (Preservação de Índices B-Tree):**
+   - Os builders `BETWEEN`, `BETWEEN_EXCLUSIVE`, `NOT_BETWEEN`, `OUTSIDE_RANGE`, `ON_DATE`, `IN_LAST_DAYS` e `IN_NEXT_DAYS` inspecionam `path.getJavaType()` e convertem o parâmetro de entrada para o tipo nativo da coluna (`LocalDate`, `LocalDateTime`, `OffsetDateTime` ou `Instant`).
+   - A coluna da tabela **nunca** sofre `CAST(coluna AS timestamp)` no SQL gerado, permitindo *Index Range Scan* direto nos índices B-Tree.
+5. **Prefixo Multi-Tenant (`ResourceFilterAccessScope`) e Paginação por Cursor (`/{resource}/filter/cursor`):**
+   - `resolveResourceFilterAccessScope()` injeta o predicado de isolamento organizacional (`tenantId` / `empresaId`) na raiz de todas as consultas, garantindo que índices compostos `(empresa_id, ...)` sejam sempre aproveitados.
+   - Para listagens profundas ou *infinite scroll* sobre milhões de registros, utilize `POST /{resource}/filter/cursor` (*Keyset Pagination*), que navega por chave de ordenação estável sem `OFFSET` linear e sem `COUNT(*)` global.
+6. **Auditoria Estática e Derivação Automática de Índices B-Tree e PostgreSQL GIN (`FilterableIndexAdvisor`):**
+   - A classe `org.praxisplatform.uischema.filter.index.FilterableIndexAdvisor` inspeciona estaticamente a entidade JPA, o `FilterDTO` (`@Filterable`) e o `StatsFieldRegistry` (`analyze(Entity.class, FilterDTO.class, statsFieldRegistry)`), verificando se as colunas de igualdade, intervalos SARGable, chaves estrangeiras `@ManyToOne` e FKs inversas de correlação `EXISTS` (`@OneToMany` / `@OneToOne(mappedBy)`) já possuem cobertura em `@Table(indexes = ...)` (`missingRecommendations()`).
+   - Além disso, `report.toPostgresDdl()` gera automaticamente o DDL idempotente para Flyway/Liquibase contendo `CREATE EXTENSION IF NOT EXISTS pg_trgm;`, índices `USING gin (LOWER(<col>) gin_trgm_ops)` para colunas textuais de `LIKE` / `ENDS_WITH` / `buscaAmpla` (`relations = {...}`), `varchar_pattern_ops` para `STARTS_WITH` e índices B-Tree para chaves e intervalos.
 
 </details>
 

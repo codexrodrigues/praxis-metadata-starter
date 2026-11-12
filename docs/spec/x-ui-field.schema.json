@@ -128,7 +128,12 @@
         "boolean-flag",
         "legal-document-reference",
         "tenant-label",
-        "audit-timestamp"
+        "audit-timestamp",
+        "cpf-cnpj",
+        "email-contact",
+        "phone-contact",
+        "integer-counter",
+        "percentage-rate"
       ]
     },
     "group": { "type": "string" },

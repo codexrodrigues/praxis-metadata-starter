@@ -128,12 +128,33 @@ public class ExcelCollectionExportEngine extends AbstractTabularCollectionExport
             cell.setCellValue(bool);
             return;
         }
+        // Textual public fields stay textual even when their Java values are numeric.
+        if (value instanceof Number && field != null && "string".equalsIgnoreCase(field.type())) {
+            if (value instanceof BigDecimal decimal) cell.setCellValue(decimal.toPlainString());
+            else if (value instanceof BigInteger || value instanceof Long || value instanceof Integer
+                    || value instanceof Short || value instanceof Byte) cell.setCellValue(value.toString());
+            else writeStringCell(cell, normalizeValue(value));
+            return;
+        }
         if (value instanceof BigDecimal decimal) {
-            cell.setCellValue(decimal.doubleValue());
+            double number = decimal.doubleValue();
+            if (decimal.stripTrailingZeros().precision() <= 15 && Double.isFinite(number)
+                    && (number == 0 || Math.abs(number) >= Double.MIN_NORMAL)
+                    && Math.abs(number) <= 9.99999999999999E307
+                    && BigDecimal.valueOf(number).compareTo(decimal) == 0) {
+                cell.setCellValue(number);
+            } else {
+                cell.setCellValue(decimal.toPlainString());
+            }
             return;
         }
         if (value instanceof BigInteger integer) {
-            cell.setCellValue(integer.doubleValue());
+            if (integer.abs().toString().length() <= 15) cell.setCellValue(integer.doubleValue());
+            else cell.setCellValue(integer.toString());
+            return;
+        }
+        if (value instanceof Long integer && (integer < -999_999_999_999_999L || integer > 999_999_999_999_999L)) {
+            cell.setCellValue(integer.toString());
             return;
         }
         if (value instanceof Number number) {

@@ -167,22 +167,39 @@ public final class AnnotationResourceFactCatalogProvider implements ResourceFact
             var descriptor = new ResourceFactDescriptor(fact.key(), fact.resourceKey(), fact.label(),
                     fact.description(), fact.dataType(), fact.unit(), parameters, fact.deterministic(),
                     fact.sourceKind(), governance(element), fact.icon(), fact.tone(),
-                    fact.valuePresentation(), thresholds(fact));
+                    fact.valuePresentation(), thresholds(fact),
+                    fact.authority(), fact.evaluationPhase(), fact.missingValuePolicy(), fact.scope());
             String key = descriptor.resourceKey() + ".fact." + descriptor.key();
             var previous = facts.putIfAbsent(key, descriptor);
             if (previous != null && !previous.equals(descriptor)) throw new IllegalStateException("Conflicting fact declaration: " + key);
         }
     }
+    @SuppressWarnings("unchecked")
     private Map<String, Object> governance(AnnotatedElement element) {
-        DomainGovernance value = AnnotatedElementUtils.findMergedAnnotation(element, DomainGovernance.class);
-        if (value == null) return Map.of();
-        return Map.of("annotationType", value.kind().wireValue(), "classification", value.classification().wireValue(),
-                "dataCategory", value.dataCategory().wireValue(), "complianceTags", List.of(value.complianceTags()),
-                "exportable", value.exportable(), "reason", value.reason(), "confidence", value.confidence(),
-                "aiUsage", Map.of("visibility", value.aiUsage().visibility().wireValue(),
-                        "trainingUse", value.aiUsage().trainingUse().wireValue(),
-                        "ruleAuthoring", value.aiUsage().ruleAuthoring().wireValue(),
-                        "reasoningUse", value.aiUsage().reasoningUse().wireValue()));
+        Class<?> ownerClass = element instanceof Method method
+                ? method.getDeclaringClass()
+                : (element instanceof Class<?> clazz ? clazz : null);
+        com.fasterxml.jackson.databind.node.ObjectNode ownerTypeGov = ownerClass != null
+                ? org.praxisplatform.uischema.schema.DomainLineageResolver.resolveTypeGovernance(ownerClass)
+                : null;
+        org.praxisplatform.uischema.annotation.DomainLineage lineage =
+                AnnotatedElementUtils.findMergedAnnotation(element, org.praxisplatform.uischema.annotation.DomainLineage.class);
+        DomainGovernance directGov = AnnotatedElementUtils.findMergedAnnotation(element, DomainGovernance.class);
+        if (lineage != null) {
+            var resolved = org.praxisplatform.uischema.schema.DomainLineageResolver.resolve(lineage, directGov, ownerTypeGov);
+            if (resolved.weakeningAttempted()) {
+                throw new IllegalArgumentException(resolved.weakeningReason());
+            }
+            Map<String, Object> ext = org.praxisplatform.uischema.schema.DomainLineageResolver.toExtensionMap(resolved.effectiveGovernance());
+            return ext != null ? ext : Map.of();
+        }
+        com.fasterxml.jackson.databind.node.ObjectNode directNode =
+                org.praxisplatform.uischema.schema.DomainLineageResolver.toGovernanceNode(directGov);
+        com.fasterxml.jackson.databind.node.ObjectNode merged =
+                org.praxisplatform.uischema.schema.DomainSchemaGovernance.mergeOrCopy(ownerTypeGov, directNode);
+        if (merged == null) return Map.of();
+        Map<String, Object> ext = org.praxisplatform.uischema.schema.DomainLineageResolver.toExtensionMap(merged);
+        return ext != null ? ext : Map.of();
     }
 
     private List<Map<String, Object>> thresholds(ResourceFact fact) {

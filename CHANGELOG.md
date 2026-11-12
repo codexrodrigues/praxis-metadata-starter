@@ -1,5 +1,59 @@
 # Changelog - praxis-metadata-starter
 
+## Não publicado — Confirmação Bulk com leituras agrupadas
+
+- A atestação viva do runtime captura e limita `statement_timeout` no mesmo envio JDBC do catálogo. O limite anterior, inclusive quando inferior a 250 ms, é restaurado junto da verificação do vínculo de namespace antes da callback. Nenhuma decisão de autorização é armazenada em cache.
+- Locks de quota e leituras protegidas da preparação PER_ITEM compartilham envios JDBC com resultados ordenados e validação de cardinalidade, escopo, versão do protocolo, geração e fencing. Domínio e receipt continuam na mesma transação; ACK permanece posterior ao commit.
+- `advance` valida a reserva e confirma o primeiro marcador na mesma transação de controle. O retorno terminal continua exigindo leitura durável e fencing; o domínio só começa após o commit desse marcador. Incerteza desse commit exige reconciliação, sem redespacho automático.
+- A admissão da quota de execução agrupa somente leituras/locks antes de qualquer escrita. A captura pendente conserva o toque MVCC do bucket; relógio e contagem de execuções ativas são lidos juntos sob o lock já adquirido.
+- A leitura protegida da primeira preparação fornece também a conferência da reserva; terminal sem trabalho consome os resultados sem exigir decodificação do payload. A ativação técnica depende do consumo da proposta via `RETURNING`, valida ambas as contagens e lê a reserva no mesmo envio, conservando rollback integral em qualquer divergência.
+- Os prazos absolutos de execução, unidade e conjunto ATOMIC, os limites de SQL/lock e a recusa por revogação permanecem obrigatórios. A prova HTTP focal exige captura sem efeito, conclusão, persistência única e replay da mesma execução antes de admitir a suíte integral; o resultado de integração fica no checkpoint 8.23 do host.
+
+## Não publicado — Orçamento de captura no adapter JPA
+
+- A avaliação declarativa usa o teto canônico de captura protegida de 30 segundos, compartilhado com `JdbcBulkProposalStore`, em vez de confundi-lo com os 5 segundos de cada unidade de mutação. A mudança efetiva do adapter é de 5 para 30 segundos; o teto do protocolo já existente e o limite por unidade permanecem os mesmos.
+- O store continua usando o menor saldo entre chamador, captura e expiração, sem renovar prazos, relaxar locks ou repetir callbacks. Falhas técnicas conservam rollback e `UNAVAILABLE` sanitizado.
+- A captura registra diagnóstico privado limitado à etapa, classes e origem confiável da exceção; não registra mensagem, SQL, payload ou identificadores de negócio. Uma falha do observador não substitui a falha original.
+
+## Não publicado — Decimais textuais na confirmação de lote
+
+- O leitor estrito do DTO de update preserva `BigDecimal` explicitamente declarado com `@JsonFormat(shape = STRING)`, permitindo confirmar o plano sem perder precisão.
+- Campos numéricos comuns, IDs e booleans continuam rejeitando coerções textuais implícitas. NULL, zero e deserializers próprios do host conservam seus contratos; o ObjectMapper global não é alterado.
+
+## Não publicado — Admissão contextual de mutações
+
+- `ResourceMutationContext` identifica lifecycle, modo, etapa e instante do servidor; os hooks de admissão rodam após preparação e antes de persistir, sob locks/versão quando aplicáveis.
+- Os adapters de lote encaminham o contexto na avaliação, revalidação e escrita; evidência adicional de domínio integra a fotografia protegida comparada na confirmação.
+- Exclusão em lote admite todos os alvos antes da primeira remoção/efeito. Migração Java de `BulkDomainResourceAdapter` exige atualizar implementações e decoradores no mesmo corte; não altera o payload HTTP. Consulte [RESOURCE-MUTATION-ADMISSION](docs/guides/RESOURCE-MUTATION-ADMISSION.md).
+
+## Não publicado — Razões declaradas de executores Java
+
+- O catálogo de domínio inclui em `reasonCodes` e `targetFields` as razões declaradas pelo host para slots Java ativos, inclusive múltiplos resultados sem `falseReasonCode` de JSON Logic.
+- Bindings Java desabilitados não acrescentam razões ao índice ativo. A declaração permanece no `DomainRuleSetDescriptor` do host; o starter não executa nem infere regras de negócio.
+
+## Não publicado — Execução de filtros herdados
+
+- Predicados e aliases de ordenação reconhecem campos `@Filterable` nas superclasses do DTO, evitando ignorar recortes funcionais publicados pelo contrato herdado.
+- Execução, ranges e períodos relativos compartilham a descoberta dos campos efetivos: declaração mais específica prevalece; campos estáticos e sintéticos não são critérios da requisição.
+- O escopo autenticado continua sendo responsabilidade de `ResourceFilterAccessScope`; herança do filtro não substitui autorização.
+
+## Não publicado — Ontologia G2 no catálogo de domínio
+
+- Descritores exigem bindings conceituais por operação, com identidade e papel explícitos; consumidores do monorepo migrados no mesmo corte beta.
+- Determinações usam o compilador e o seletor canônicos do formulário, com bindings `api_operation`/`form_config` e grafo tipado no contrato v0.2 existente.
+- Publicação preserva caminhos aninhados, governança dos ancestrais, referências e self-reference; valida integridade do grafo e mantém captura sob o lock de schemas.
+- Migração Java incompatível do construtor; não há publicação de versão neste incremento. Adoção e limites em [DOMAIN-CATALOG-ONTOLOGY](docs/guides/DOMAIN-CATALOG-ONTOLOGY.md).
+
+## Não publicado — Composição estrutural na confirmação bulk QUERY
+
+- O snapshot de uma publicação OpenAPI imutável reutiliza seu índice global de
+  operações durante a mesma composição, evitando recópias e reindexação por binding.
+  Publicação, grupos, mappings MVC, providers e admissão durável continuam revalidados.
+- Normalização de caminhos reutiliza expressões regulares compiladas, preservando
+  aliases estruturais e a detecção de colisões em paths, callbacks e webhooks.
+- O prazo de reserva permanece em cinco segundos, sem retries ou alteração de
+  contratos HTTP, políticas públicas e estados READY. Candidato local sem publicação.
+
 ## Não publicado — Correções da revisão P5-B
 
 - Comandos versionados capturam definições e fatos anteriores pelo contrato DTO,

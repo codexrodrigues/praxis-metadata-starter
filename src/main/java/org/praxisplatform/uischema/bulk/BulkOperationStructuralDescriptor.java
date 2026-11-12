@@ -31,6 +31,7 @@ final class BulkOperationStructuralDescriptor {
     private final Action action;
     private final Update update;
     private final List<Operation> operations;
+    private volatile String structuralRevision;
 
     BulkOperationStructuralDescriptor(String resourceKey, String openApiGroup, BulkMode mode,
             ActionCollectionAtomicity atomicity, Action action, List<Operation> operations) {
@@ -74,6 +75,15 @@ final class BulkOperationStructuralDescriptor {
 
     Operation operation(Role role) {
         return operations.get(Objects.requireNonNull(role, "role").ordinal());
+    }
+
+    String structuralRevision() {
+        String computed = structuralRevision;
+        if (computed == null) {
+            computed = BulkCanonicalJson.structuralDescriptorDigest(BulkStructuralSegmentDigest.canonicalContent(this));
+            structuralRevision = computed;
+        }
+        return computed;
     }
 
     /** Captured unit-update source; it is not an eighth bulk protocol role or executable authority. */

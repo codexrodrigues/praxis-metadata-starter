@@ -46,11 +46,56 @@ public abstract class AbstractBaseResourceService<
 > extends AbstractBaseQueryResourceService<E, ResponseDTO, ID, FilterDTO>
         implements BaseResourceService<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> {
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper FALLBACK_OBJECT_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                    .findAndRegisterModules()
+                    .registerModule(new org.praxisplatform.uischema.id.CompositeIdJacksonModule());
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.fasterxml.jackson.databind.ObjectMapper resourceObjectMapper;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private jakarta.validation.Validator resourceValidator;
+
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.praxisplatform.uischema.customfields.CustomFieldValidator customFieldValidator;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.praxisplatform.uischema.customfields.ResourceTenantContextResolver resourceTenantContextResolver;
+
+    private static final Object BULK_CONFIRMATION_TX_KEY = new Object();
+
+    private final ThreadLocal<E> prevalidatedBulkConfirmationCandidate = new ThreadLocal<>();
+
+    private static Object currentBulkConfirmationTransactionToken() {
+        if (!org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()
+                || !org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            return null;
+        }
+        Object token = org.springframework.transaction.support.TransactionSynchronizationManager.getResource(BULK_CONFIRMATION_TX_KEY);
+        if (token == null) {
+            final Object created = new Object();
+            org.springframework.transaction.support.TransactionSynchronizationManager.bindResource(BULK_CONFIRMATION_TX_KEY, created);
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCompletion(int status) {
+                            org.springframework.transaction.support.TransactionSynchronizationManager.unbindResourceIfPossible(BULK_CONFIRMATION_TX_KEY);
+                        }
+                    });
+            token = created;
+        }
+        return token;
+    }
+
+    /**
+     * Returns the detached candidate already validated in the current bulk confirmation
+     * transaction when {@code evaluate(CONFIRMATION)} immediately precedes {@code update(CONFIRMATION)},
+     * or {@code null} when a write must execute full domain validation on its own.
+     */
+    protected final E prevalidatedBulkConfirmationCandidate() {
+        return prevalidatedBulkConfirmationCandidate.get();
+    }
 
     /**
      * Standalone validation without a persisted entity root. Resource writes use
@@ -133,6 +178,7 @@ public abstract class AbstractBaseResourceService<
             customFields.validateForCreate(draft);
         }
         beforeCreate(dto, entity);
+        validateCreate(ResourceMutationContext.create(), dto, entity);
         E saved = refreshManaged(getRepository().save(entity));
         afterCreate(dto, saved);
         return new BaseResourceCommandService.SavedResult<>(extractId(saved), enrichSingleResponse(getResourceMapper().toResponse(saved)));
@@ -153,6 +199,7 @@ public abstract class AbstractBaseResourceService<
         E existing = findEntityById(id);
         Set<String> readOnlyKeys = validatePreparedCustomFieldsForUpdate(customFields, id, existing, dto);
         beforeUpdate(id, existing, dto);
+        validateUpdate(ResourceMutationContext.update(), id, existing, dto);
         // Domain hooks own server-side decisions. Protect their result from the request mapper.
         var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(existing, readOnlyKeys);
         applyResourceUpdate(id, existing, dto);
@@ -180,6 +227,11 @@ public abstract class AbstractBaseResourceService<
     @Transactional
     public ResourceRepresentationResult<ResponseDTO> update(ID id, UpdateDTO dto,
             ResourceVersionUpdatePrecondition<ID> precondition) {
+        return updateWithContext(id, dto, precondition, ResourceMutationContext.update());
+    }
+
+    private ResourceRepresentationResult<ResponseDTO> updateWithContext(ID id, UpdateDTO dto,
+            ResourceVersionUpdatePrecondition<ID> precondition, ResourceMutationContext context) {
         requirePrecondition(precondition);
         requireCleanVersionedContext();
         var customFields = prepareCustomFields(dto, "request");
@@ -187,13 +239,16 @@ public abstract class AbstractBaseResourceService<
         precondition.requireMatch(id, requireEntityVersion(existing));
         Set<String> readOnlyKeys = validatePreparedCustomFieldsForUpdate(customFields, id, existing, dto);
         beforeUpdate(id, existing, dto);
+        validateUpdate(context, id, existing, dto);
         var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(existing, readOnlyKeys);
         applyResourceUpdate(id, existing, dto);
         org.praxisplatform.uischema.customfields.CustomFieldSupport.restoreReadOnlyValues(existing, readOnlyKeys, readOnlyValues);
         E saved = refreshManaged(getRepository().save(existing));
         afterUpdate(id, saved, dto);
         // afterUpdate may change managed state. Certify only the last persisted revision.
-        saved = refreshManaged(saved);
+        if (isPersistenceContextDirty(saved)) {
+            saved = refreshManaged(saved);
+        }
         ResourceRepresentationResult<ResponseDTO> result = toResourceRepresentation(saved);
         result.requirePersistedVersion();
         return result;
@@ -279,11 +334,97 @@ public abstract class AbstractBaseResourceService<
         var projected = mapper.createObjectNode();
         for (var property : mapper.getDeserializationConfig().introspect(updateType).findProperties()) {
             if (!property.couldDeserialize()) continue;
-            if (!response.has(property.getName()))
+            if (!response.has(property.getName())) {
+                if (isReadOnlyOrPreviewUpdateProperty(updateType.getRawClass(), property.getName())) {
+                    continue;
+                }
                 throw new IllegalStateException("Override toBulkUpdate for update properties absent from response");
+            }
             projected.set(property.getName(), response.get(property.getName()).deepCopy());
         }
         return mapper.convertValue(projected, updateType);
+    }
+
+    private static boolean isReadOnlyOrPreviewUpdateProperty(Class<?> updateClass, String propertyName) {
+        for (Class<?> current = updateClass; current != null && current != Object.class; current = current.getSuperclass()) {
+            try {
+                java.lang.reflect.Field field = current.getDeclaredField(propertyName);
+                var ui = field.getAnnotation(org.praxisplatform.uischema.extension.annotation.UISchema.class);
+                if (ui != null && ui.readOnly()) {
+                    return true;
+                }
+                var schema = field.getAnnotation(io.swagger.v3.oas.annotations.media.Schema.class);
+                if (schema != null && schema.accessMode() == io.swagger.v3.oas.annotations.media.Schema.AccessMode.READ_ONLY) {
+                    return true;
+                }
+                return false;
+            } catch (NoSuchFieldException ignored) {
+                // continue walking hierarchy
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Applies a versioned partial update ({@link org.praxisplatform.uischema.dto.PartialUpdateInput})
+     * by projecting the persisted entity into {@code UpdateDTO}, copying only the supplied patch
+     * properties, and delegating to {@link #update(Object, Object, ResourceVersionUpdatePrecondition)}.
+     */
+    @Transactional
+    protected ResourceRepresentationResult<ResponseDTO> applyVersionedPatch(
+            ID id,
+            org.praxisplatform.uischema.dto.PartialUpdateInput patch,
+            ResourceVersionUpdatePrecondition<ID> precondition) {
+        if (precondition == null) {
+            throw org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException.required();
+        }
+        var type = org.springframework.core.ResolvableType.forClass(org.springframework.util.ClassUtils.getUserClass(this))
+                .as(AbstractBaseResourceService.class).getGeneric(5);
+        if (type.resolve() == null || type.resolve() == Object.class) {
+            throw new IllegalStateException("Update DTO must be concrete to applyVersionedPatch");
+        }
+        var mapper = resourceObjectMapper != null ? resourceObjectMapper : FALLBACK_OBJECT_MAPPER;
+        var updateType = mapper.constructType(org.springframework.core.GenericTypeResolver.resolveType(
+                type.getType(), org.springframework.core.ResolvableType.forClass(org.springframework.util.ClassUtils.getUserClass(this)).resolve()));
+        E entity = findEntityById(id);
+        assertEntityAccessAllowed(entity);
+        UpdateDTO dto = toBulkUpdate(entity, mapper, updateType);
+        ResourceStateCopySupport.copySuppliedPatchProperties(patch, dto, mapper);
+        if (resourceValidator != null) {
+            var violations = resourceValidator.validate(dto);
+            if (!violations.isEmpty()) {
+                throw new jakarta.validation.ConstraintViolationException(violations);
+            }
+        }
+        return update(id, dto, precondition);
+    }
+
+    /**
+     * Resolves the canonical {@link org.praxisplatform.uischema.bulk.BulkIdentityCodec} for the
+     * generic {@code ID} type of this service ({@code Integer}, {@code Long}, {@code String},
+     * {@code UUID}, or composite {@code @Embeddable} / {@code @CompositeResourceId}).
+     */
+    @SuppressWarnings("unchecked")
+    public org.praxisplatform.uischema.bulk.BulkIdentityCodec<?, ID> resolveBulkIdentityCodec() {
+        var idResolvable = org.springframework.core.ResolvableType.forClass(org.springframework.util.ClassUtils.getUserClass(this))
+                .as(AbstractBaseResourceService.class).getGeneric(2);
+        Class<?> idClass = idResolvable.resolve();
+        if (idClass == null || idClass == Object.class) {
+            throw new IllegalStateException("Resource ID type must be concrete to resolveBulkIdentityCodec");
+        }
+        if (idClass == Integer.class) {
+            return (org.praxisplatform.uischema.bulk.BulkIdentityCodec<?, ID>) org.praxisplatform.uischema.bulk.BulkIdentityCodecs.integers();
+        }
+        if (idClass == Long.class) {
+            return (org.praxisplatform.uischema.bulk.BulkIdentityCodec<?, ID>) org.praxisplatform.uischema.bulk.BulkIdentityCodecs.longs();
+        }
+        if (idClass == String.class) {
+            return (org.praxisplatform.uischema.bulk.BulkIdentityCodec<?, ID>) org.praxisplatform.uischema.bulk.BulkIdentityCodecs.strings();
+        }
+        if (idClass == java.util.UUID.class) {
+            return (org.praxisplatform.uischema.bulk.BulkIdentityCodec<?, ID>) org.praxisplatform.uischema.bulk.BulkIdentityCodecs.uuids();
+        }
+        return org.praxisplatform.uischema.bulk.BulkIdentityCodecs.composite((Class<ID>) idClass);
     }
 
     /** Creates a domain adapter without exposing repositories or protected lifecycle hooks to the host. */
@@ -299,8 +440,28 @@ public abstract class AbstractBaseResourceService<
         var filterType = org.springframework.core.ResolvableType.forClass(org.springframework.util.ClassUtils.getUserClass(this))
                 .as(AbstractBaseResourceService.class).getGeneric(3);
         var filterJavaType = mapper.constructType(org.springframework.core.GenericTypeResolver.resolveType(filterType.getType(), org.springframework.util.ClassUtils.getUserClass(this)));
-        var updateMapper = mapper.copy().disable(com.fasterxml.jackson.databind.MapperFeature.ALLOW_COERCION_OF_SCALARS);
+        var projectionMapper = BulkUpdateMapper.projectionCopy(mapper);
+        var updateMapper = BulkUpdateMapper.strictCopy(mapper);
+        record PreparedConfirmation<ID, E, UpdateDTO>(
+                Object transactionToken,
+                ID id,
+                String expectedVersion,
+                com.fasterxml.jackson.databind.JsonNode plan,
+                ResourceMutationContext context,
+                E lockedEntity,
+                E validatedCandidate,
+                UpdateDTO dto,
+                Set<String> readOnlyKeys
+        ) { }
+        record CertifiedVersion<ID>(
+                Object transactionToken,
+                ID id,
+                String version
+        ) { }
         return new org.praxisplatform.uischema.bulk.BulkDomainResourceAdapter<>() {
+            private final ThreadLocal<PreparedConfirmation<ID, E, UpdateDTO>> preparedConfirmation = new ThreadLocal<>();
+            private final ThreadLocal<CertifiedVersion<ID>> certifiedVersion = new ThreadLocal<>();
+
             public FilterDTO readFilter(com.fasterxml.jackson.databind.JsonNode filter) {
                 return mapper.convertValue(filter, filterJavaType);
             }
@@ -310,20 +471,71 @@ public abstract class AbstractBaseResourceService<
             private String version(ID id, E entity) {
                 return etags.create(Objects.requireNonNull(scope.get()), resolveResourceKey(), id, requireEntityVersion(entity));
             }
-            public String currentVersion(ID id) { return version(id, findEntityById(id)); }
+            public String currentVersion(ID id) {
+                CertifiedVersion<ID> certified = certifiedVersion.get();
+                certifiedVersion.remove();
+                Object txToken = certified == null ? null : currentBulkConfirmationTransactionToken();
+                if (certified != null && txToken != null
+                        && txToken.equals(certified.transactionToken())
+                        && Objects.equals(id, certified.id())) {
+                    return certified.version();
+                }
+                return version(id, findEntityById(id));
+            }
             public void discardEvaluationState() {
-                if (getEntityManager() != null && getEntityManager().unwrap(org.hibernate.Session.class).isDirty())
-                    getEntityManager().clear();
+                if (getEntityManager() == null) {
+                    preparedConfirmation.remove();
+                    certifiedVersion.remove();
+                    return;
+                }
+                PreparedConfirmation<ID, E, UpdateDTO> prepared = preparedConfirmation.get();
+                Object txToken = prepared == null ? null : currentBulkConfirmationTransactionToken();
+                if (prepared != null && txToken != null && txToken.equals(prepared.transactionToken())
+                        && getEntityManager().isJoinedToTransaction()
+                        && !getEntityManager().unwrap(org.hibernate.Session.class).isDirty()) {
+                    return;
+                }
+                preparedConfirmation.remove();
+                certifiedVersion.remove();
+                getEntityManager().clear();
             }
             public Candidate evaluate(ID id, String expected, List<org.praxisplatform.uischema.bulk.BulkFieldChange> changes,
-                                      org.praxisplatform.uischema.bulk.BulkMode mode,
+                                      ResourceMutationContext context,
                                       org.praxisplatform.uischema.bulk.BulkEditableFields fields) {
+                preparedConfirmation.remove();
+                certifiedVersion.remove();
+                context.requireBulk();
+                var mode = context.bulkMode();
                 requireCleanVersionedContext();
-                E existing = findEntityById(id);
+                Object confirmationTxToken = context.stage() == ResourceMutationContext.Stage.CONFIRMATION
+                        ? currentBulkConfirmationTransactionToken() : null;
+                E existing;
+                if (confirmationTxToken != null && getEntityManager() != null) {
+                    var persistenceContext = getEntityManager()
+                            .unwrap(org.hibernate.engine.spi.SharedSessionContractImplementor.class)
+                            .getPersistenceContext();
+                    if (persistenceContext.getNumberOfManagedEntities() == 0) {
+                        E entity = getEntityManager().find(getEntityClass(), id, LockModeType.PESSIMISTIC_WRITE);
+                        if (entity == null) throw getNotFoundException();
+                        entity = unproxyEntity(entity);
+                        assertEntityAccessAllowed(entity);
+                        existing = entity;
+                    } else {
+                        E entity = getEntityManager().find(getEntityClass(), id);
+                        if (entity == null) throw getNotFoundException();
+                        assertEntityAccessAllowed(unproxyEntity(entity));
+                        getEntityManager().refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+                        entity = unproxyEntity(entity);
+                        assertEntityAccessAllowed(entity);
+                        existing = entity;
+                    }
+                } else {
+                    existing = findEntityById(id);
+                }
                 String observed = version(id, existing);
                 if (!observed.equals(expected)) throw org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException.stale();
                 E candidate = snapshotBeforeMutation(existing);
-                var current = mapper.<com.fasterxml.jackson.databind.node.ObjectNode>valueToTree(toBulkUpdate(candidate, mapper, updateType));
+                var current = mapper.<com.fasterxml.jackson.databind.node.ObjectNode>valueToTree(toBulkUpdate(candidate, projectionMapper, updateType));
                 var plan = org.praxisplatform.uischema.bulk.BulkFieldChanges.applyTo(current, changes,
                         fields.writableFields(mode), fields.clearableFields(mode));
                 UpdateDTO dto;
@@ -334,21 +546,89 @@ public abstract class AbstractBaseResourceService<
                     throw invalid;
                 }
                 validateBulkCandidate(dto);
-                validatePreparedCustomFieldsForUpdate(prepareCustomFields(dto, "request"), id, existing, dto);
+                Set<String> readOnlyKeys = validatePreparedCustomFieldsForUpdate(prepareCustomFields(dto, "request"), id, existing, dto);
                 beforeUpdate(id, candidate, dto);
+                var admissionEvidence = validateUpdate(context, id, candidate, dto);
                 // A domain hook may hydrate request values. Validate and capture those exact decisions.
                 validateBulkCandidate(dto);
                 applyResourceUpdate(id, candidate, dto);
                 requireCleanVersionedContext();
-                return new Candidate(observed, current, mapper.valueToTree(dto));
+                com.fasterxml.jackson.databind.JsonNode facts = current;
+                if (admissionEvidence != null) {
+                    facts = mapper.createObjectNode().set("resource", current);
+                    ((com.fasterxml.jackson.databind.node.ObjectNode) facts).set("admission", admissionEvidence.deepCopy());
+                }
+                com.fasterxml.jackson.databind.JsonNode planNode = mapper.valueToTree(dto);
+                if (context.stage() == ResourceMutationContext.Stage.CONFIRMATION) {
+                    Object txToken = currentBulkConfirmationTransactionToken();
+                    if (txToken != null) {
+                        preparedConfirmation.set(new PreparedConfirmation<>(
+                                txToken, id, observed, planNode, context, existing, candidate, dto, readOnlyKeys));
+                    }
+                }
+                return new Candidate(observed, facts, planNode);
             }
             private void validateBulkCandidate(UpdateDTO dto) {
                 var violations = validator.validate(dto);
                 if (!violations.isEmpty()) throw new jakarta.validation.ConstraintViolationException(violations);
             }
-            public void update(ID id, String expected, com.fasterxml.jackson.databind.JsonNode plan) {
+            public void update(ID id, String expected, com.fasterxml.jackson.databind.JsonNode plan, ResourceMutationContext context) {
+                PreparedConfirmation<ID, E, UpdateDTO> prepared = preparedConfirmation.get();
+                preparedConfirmation.remove();
+                certifiedVersion.remove();
+                context.requireBulk();
+                if (context.stage() != ResourceMutationContext.Stage.CONFIRMATION) throw new IllegalArgumentException("Confirmation context required");
                 requireCleanVersionedContext();
                 if (getEntityManager() == null) throw new IllegalStateException("JPA bulk mutation requires an EntityManager");
+                var precondition = new ResourceVersionUpdatePrecondition<>(etags, expected,
+                        Objects.requireNonNull(scope.get()), resolveResourceKey(), id);
+                Object txToken = currentBulkConfirmationTransactionToken();
+                if (prepared != null
+                        && txToken != null
+                        && txToken.equals(prepared.transactionToken())
+                        && Objects.equals(id, prepared.id())
+                        && Objects.equals(expected, prepared.expectedVersion())
+                        && sameBulkPlan(plan, prepared.plan())
+                        && Objects.equals(context, prepared.context())) {
+                    E existing;
+                    if (prepared.lockedEntity() != null
+                            && getEntityManager().contains(prepared.lockedEntity())
+                            && getEntityManager().getLockMode(prepared.lockedEntity()) == LockModeType.PESSIMISTIC_WRITE) {
+                        existing = unproxyEntity(prepared.lockedEntity());
+                        assertEntityAccessAllowed(existing);
+                    } else {
+                        if (!usePessimisticLockOnVersionedWrite()) {
+                            E locked = getEntityManager().find(getEntityClass(), id);
+                            if (locked == null) throw getNotFoundException();
+                            assertEntityAccessAllowed(unproxyEntity(locked));
+                            getEntityManager().refresh(locked, LockModeType.PESSIMISTIC_WRITE);
+                            assertEntityAccessAllowed(unproxyEntity(locked));
+                        }
+                        existing = findEntityForMutation(id);
+                    }
+                    precondition.requireMatch(id, requireEntityVersion(existing));
+                    UpdateDTO dto = prepared.dto();
+                    Set<String> readOnlyKeys = prepared.readOnlyKeys();
+                    prevalidatedBulkConfirmationCandidate.set(prepared.validatedCandidate());
+                    try {
+                        beforeUpdate(id, existing, dto);
+                        validateUpdate(context, id, existing, dto);
+                        var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(existing, readOnlyKeys);
+                        applyResourceUpdate(id, existing, dto);
+                        org.praxisplatform.uischema.customfields.CustomFieldSupport.restoreReadOnlyValues(existing, readOnlyKeys, readOnlyValues);
+                    } finally {
+                        prevalidatedBulkConfirmationCandidate.remove();
+                    }
+                    E saved = flushManagedForBulkUpdate(getRepository().save(existing));
+                    afterUpdate(id, saved, dto);
+                    if (isPersistenceContextDirty(saved)) {
+                        saved = flushManagedForBulkUpdate(saved);
+                    }
+                    long persistedVersion = requireEntityVersion(saved);
+                    certifiedVersion.set(new CertifiedVersion<>(txToken, id,
+                            etags.create(Objects.requireNonNull(scope.get()), resolveResourceKey(), id, persistedVersion)));
+                    return;
+                }
                 if (!usePessimisticLockOnVersionedWrite()) {
                     E locked = getEntityManager().find(getEntityClass(), id);
                     if (locked == null) throw getNotFoundException();
@@ -356,11 +636,47 @@ public abstract class AbstractBaseResourceService<
                     getEntityManager().refresh(locked, LockModeType.PESSIMISTIC_WRITE);
                     assertEntityAccessAllowed(unproxyEntity(locked));
                 }
-                var precondition = new ResourceVersionUpdatePrecondition<>(etags, expected,
-                        Objects.requireNonNull(scope.get()), resolveResourceKey(), id);
-                AbstractBaseResourceService.this.update(id, updateMapper.convertValue(plan, updateType), precondition);
+                ResourceRepresentationResult<ResponseDTO> result = AbstractBaseResourceService.this.updateWithContext(
+                        id, updateMapper.convertValue(plan, updateType), precondition, context);
+                if (txToken != null) {
+                    certifiedVersion.set(new CertifiedVersion<>(txToken, id,
+                            etags.create(Objects.requireNonNull(scope.get()), resolveResourceKey(), id, result.requirePersistedVersion())));
+                }
             }
         };
+    }
+
+    private static boolean sameBulkPlan(
+            com.fasterxml.jackson.databind.JsonNode left,
+            com.fasterxml.jackson.databind.JsonNode right) {
+        if (left == right) return true;
+        if (left == null || right == null) return false;
+        if (left.isObject() && right.isObject()) {
+            if (left.size() != right.size()) return false;
+            var fields = left.fields();
+            while (fields.hasNext()) {
+                var entry = fields.next();
+                if (!right.has(entry.getKey())
+                        || !sameBulkPlan(entry.getValue(), right.get(entry.getKey()))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (left.isArray() && right.isArray()) {
+            if (left.size() != right.size()) return false;
+            for (int i = 0; i < left.size(); i++) {
+                if (!sameBulkPlan(left.get(i), right.get(i))) return false;
+            }
+            return true;
+        }
+        if (left.isIntegralNumber() && right.isIntegralNumber()) {
+            return left.bigIntegerValue().equals(right.bigIntegerValue());
+        }
+        if (left.isNumber() && right.isNumber()) {
+            return left.decimalValue().compareTo(right.decimalValue()) == 0;
+        }
+        return left.equals(right);
     }
 
     private void requireCleanVersionedContext() {
@@ -383,6 +699,7 @@ public abstract class AbstractBaseResourceService<
     public void deleteById(ID id) {
         E entity = findEntityForMutation(id);
         beforeDelete(id, entity);
+        validateDelete(ResourceMutationContext.delete(), id, entity);
         getRepository().delete(entity);
         afterDelete(id, entity);
     }
@@ -398,10 +715,17 @@ public abstract class AbstractBaseResourceService<
                 .forEach(id -> locked.put(id, findEntityForMutation(id)));
         List<E> entities = distinctIds.stream().map(locked::get).toList();
         beforeDeleteAllById(distinctIds);
+        var admissionContext = ResourceMutationContext.deleteBatch();
         for (int index = 0; index < entities.size(); index++) {
             E entity = entities.get(index);
             ID id = distinctIds.get(index);
             beforeDelete(id, entity);
+            validateDelete(admissionContext, id, entity);
+        }
+        // No target is scheduled for deletion until every locked target has been admitted.
+        for (int index = 0; index < entities.size(); index++) {
+            E entity = entities.get(index);
+            ID id = distinctIds.get(index);
             getRepository().delete(entity);
             afterDelete(id, entity);
         }
@@ -409,8 +733,21 @@ public abstract class AbstractBaseResourceService<
     }
 
     /**
-     * Hook transacional chamado depois que o mapper cria a entidade e antes do primeiro save.
+     * Read-only domain admission after hydration/access hooks and before the first save.
      */
+    protected void validateCreate(ResourceMutationContext context, CreateDTO dto, E entity) { }
+
+    /**
+     * Read-only domain admission after hydration/access hooks and before applying the request.
+     * Return bounded private dependency evidence from that exact admission, or null when none
+     * is required. Bulk compares it again at confirmation; it is never a public projection.
+     */
+    protected com.fasterxml.jackson.databind.JsonNode validateUpdate(ResourceMutationContext context, ID id, E current, UpdateDTO dto) { return null; }
+
+    /** Read-only domain admission under the native deletion lock; collection origin is explicit. */
+    protected void validateDelete(ResourceMutationContext context, ID id, E current) { }
+
+    /** Structural preparation and hydration before create admission. */
     protected void beforeCreate(CreateDTO dto, E entity) {
     }
 
@@ -535,5 +872,25 @@ public abstract class AbstractBaseResourceService<
         E managed = getEntityManager().contains(entity) ? entity : getEntityManager().merge(entity);
         getEntityManager().refresh(managed);
         return managed;
+    }
+
+    private E flushManagedForBulkUpdate(E entity) {
+        if (getEntityManager() == null) {
+            return entity;
+        }
+        E managed = getEntityManager().contains(entity) ? entity : getEntityManager().merge(entity);
+        getEntityManager().flush();
+        return managed;
+    }
+
+    private boolean isPersistenceContextDirty(E entity) {
+        if (getEntityManager() == null) {
+            return false;
+        }
+        if (!getEntityManager().contains(entity)) {
+            return true;
+        }
+        org.hibernate.Session session = getEntityManager().unwrap(org.hibernate.Session.class);
+        return session != null && session.isDirty();
     }
 }

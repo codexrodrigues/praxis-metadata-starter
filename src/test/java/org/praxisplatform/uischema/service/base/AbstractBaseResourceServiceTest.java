@@ -181,8 +181,8 @@ class AbstractBaseResourceServiceTest {
                 "afterDelete:31:Updated",
                 "beforeDeleteAll:31,32",
                 "beforeDelete:31:Updated",
-                "afterDelete:31:Updated",
                 "beforeDelete:32:Second",
+                "afterDelete:31:Updated",
                 "afterDelete:32:Second",
                 "afterDeleteAll:31,32"
         ), service.events);

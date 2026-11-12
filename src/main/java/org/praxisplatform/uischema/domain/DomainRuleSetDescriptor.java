@@ -22,6 +22,7 @@ import java.util.Objects;
  * @param definition contrato compilável do conjunto de regras (incluindo {@code availableRoots} e {@code referencedFactPaths})
  * @param label rótulo legível para exibição em catálogo e cockpit
  * @param description descrição funcional do conjunto de regras
+ * @param conceptRootBindings explicit root-to-role/owner identity for this RuleSet operation
  * @param reasonDescriptors mapa opcional indexado pelo {@code reasonCode} (ex.: {@code ERG-01151}) com campo-alvo e linhagem
  */
 public record DomainRuleSetDescriptor(
@@ -29,7 +30,8 @@ public record DomainRuleSetDescriptor(
         RuleSetDefinition definition,
         String label,
         String description,
-        Map<String, RuleReasonDescriptor> reasonDescriptors
+        Map<String, RuleReasonDescriptor> reasonDescriptors,
+        Map<String, ConceptRootBinding> conceptRootBindings
 ) {
 
     public DomainRuleSetDescriptor {
@@ -49,41 +51,46 @@ public record DomainRuleSetDescriptor(
         label = normalizeNullable(label) != null ? normalizeNullable(label) : defaultLabel;
         description = normalizeNullable(description) != null ? normalizeNullable(description) : defaultDescription;
         reasonDescriptors = immutableReasons(reasonDescriptors);
+        conceptRootBindings = validateConceptBindings(definition, conceptRootBindings);
     }
 
-    public static DomainRuleSetDescriptor of(RuleSetDefinition definition) {
-        return new DomainRuleSetDescriptor(null, definition, null, null, Map.of());
-    }
-
-    public static DomainRuleSetDescriptor of(
-            String resourceKey,
-            RuleSetDefinition definition
-    ) {
-        return new DomainRuleSetDescriptor(resourceKey, definition, null, null, Map.of());
-    }
-
-    public static DomainRuleSetDescriptor of(
-            RuleSetDefinition definition,
-            Collection<RuleReasonDescriptor> reasons
-    ) {
-        return of(null, definition, null, null, reasons);
+    public static DomainRuleSetDescriptor of(RuleSetDefinition definition, Map<String, ConceptRootBinding> conceptRootBindings) {
+        return new DomainRuleSetDescriptor(null, definition, null, null, Map.of(), conceptRootBindings);
     }
 
     public static DomainRuleSetDescriptor of(
             String resourceKey,
             RuleSetDefinition definition,
-            Collection<RuleReasonDescriptor> reasons
+            Map<String, ConceptRootBinding> conceptRootBindings
     ) {
-        return of(resourceKey, definition, null, null, reasons);
+        return new DomainRuleSetDescriptor(resourceKey, definition, null, null, Map.of(), conceptRootBindings);
+    }
+
+    public static DomainRuleSetDescriptor of(
+            RuleSetDefinition definition,
+            Collection<RuleReasonDescriptor> reasons,
+            Map<String, ConceptRootBinding> conceptRootBindings
+    ) {
+        return of(null, definition, null, null, reasons, conceptRootBindings);
+    }
+
+    public static DomainRuleSetDescriptor of(
+            String resourceKey,
+            RuleSetDefinition definition,
+            Collection<RuleReasonDescriptor> reasons,
+            Map<String, ConceptRootBinding> conceptRootBindings
+    ) {
+        return of(resourceKey, definition, null, null, reasons, conceptRootBindings);
     }
 
     public static DomainRuleSetDescriptor of(
             RuleSetDefinition definition,
             String label,
             String description,
-            Collection<RuleReasonDescriptor> reasons
+            Collection<RuleReasonDescriptor> reasons,
+            Map<String, ConceptRootBinding> conceptRootBindings
     ) {
-        return of(null, definition, label, description, reasons);
+        return of(null, definition, label, description, reasons, conceptRootBindings);
     }
 
     public static DomainRuleSetDescriptor of(
@@ -91,7 +98,8 @@ public record DomainRuleSetDescriptor(
             RuleSetDefinition definition,
             String label,
             String description,
-            Collection<RuleReasonDescriptor> reasons
+            Collection<RuleReasonDescriptor> reasons,
+            Map<String, ConceptRootBinding> conceptRootBindings
     ) {
         Map<String, RuleReasonDescriptor> byCode = new LinkedHashMap<>();
         if (reasons != null) {
@@ -101,22 +109,24 @@ public record DomainRuleSetDescriptor(
                 }
             }
         }
-        return new DomainRuleSetDescriptor(resourceKey, definition, label, description, byCode);
+        return new DomainRuleSetDescriptor(resourceKey, definition, label, description, byCode, conceptRootBindings);
     }
 
     public static DomainRuleSetDescriptor of(
             RuleSetDefinition definition,
-            RuleErrorCatalog errorCatalog
+            RuleErrorCatalog errorCatalog,
+            Map<String, ConceptRootBinding> conceptRootBindings
     ) {
-        return of(null, definition, null, null, errorCatalog);
+        return of(null, definition, null, null, errorCatalog, conceptRootBindings);
     }
 
     public static DomainRuleSetDescriptor of(
             String resourceKey,
             RuleSetDefinition definition,
-            RuleErrorCatalog errorCatalog
+            RuleErrorCatalog errorCatalog,
+            Map<String, ConceptRootBinding> conceptRootBindings
     ) {
-        return of(resourceKey, definition, null, null, errorCatalog);
+        return of(resourceKey, definition, null, null, errorCatalog, conceptRootBindings);
     }
 
     public static DomainRuleSetDescriptor of(
@@ -124,11 +134,12 @@ public record DomainRuleSetDescriptor(
             RuleSetDefinition definition,
             String label,
             String description,
-            RuleErrorCatalog errorCatalog
+            RuleErrorCatalog errorCatalog,
+            Map<String, ConceptRootBinding> conceptRootBindings
     ) {
         Objects.requireNonNull(definition, "definition is required");
         if (errorCatalog == null) {
-            return new DomainRuleSetDescriptor(resourceKey, definition, label, description, Map.of());
+            return new DomainRuleSetDescriptor(resourceKey, definition, label, description, Map.of(), conceptRootBindings);
         }
         Map<String, RuleReasonDescriptor> byCode = new LinkedHashMap<>();
         if (definition.slots() != null) {
@@ -159,7 +170,29 @@ public record DomainRuleSetDescriptor(
                 }
             }
         }
-        return new DomainRuleSetDescriptor(resourceKey, definition, label, description, byCode);
+        return new DomainRuleSetDescriptor(resourceKey, definition, label, description, byCode, conceptRootBindings);
+    }
+
+    private static Map<String, ConceptRootBinding> validateConceptBindings(
+            RuleSetDefinition definition, Map<String, ConceptRootBinding> input) {
+        Objects.requireNonNull(input, "conceptRootBindings is required; use an explicit empty map only without concepts");
+        var result = new java.util.TreeMap<String, ConceptRootBinding>();
+        var roles = new java.util.HashSet<String>();
+        var structural = java.util.Set.of("draft", "current", "neighborhood", "context", "tenant", "facts", "derived", "scope");
+        input.forEach((root, binding) -> {
+            if (root == null || !root.matches("[A-Za-z_][A-Za-z0-9_]*") || structural.contains(root)
+                    || !definition.availableRoots().contains(root) || binding == null) {
+                throw new IllegalArgumentException("Invalid concept root binding: " + root);
+            }
+            if (!roles.add(binding.role())) throw new IllegalArgumentException("Ambiguous concept role: " + binding.role());
+            result.put(root, binding);
+        });
+        var missing = new java.util.TreeSet<>(definition.conceptRoots());
+        missing.removeAll(result.keySet());
+        if (!missing.isEmpty()) throw new IllegalArgumentException("Missing concept root bindings: " + missing);
+        // Engine's legacy collection classification remains until the governed provider cut in G3.
+        // Explicit bindings are never filtered by name, including legitimate active*/existing* concepts.
+        return Collections.unmodifiableMap(result);
     }
 
     private static RuleReasonDescriptor toReasonDescriptor(RuleErrorDescriptor desc, String slotKey) {
@@ -190,7 +223,7 @@ public record DomainRuleSetDescriptor(
     }
 
     public List<String> conceptRoots() {
-        return definition.conceptRoots();
+        return List.copyOf(conceptRootBindings.keySet());
     }
 
     public List<String> referencedFactPaths() {

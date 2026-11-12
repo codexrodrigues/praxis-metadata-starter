@@ -42,7 +42,25 @@ class BulkExecutionInfrastructureTest {
         for (var wrapper : new DataSource[] {new DelegatingDataSource(ds), mock(AbstractRoutingDataSource.class)}) {
             assertThatThrownBy(() -> new BulkExecutionInfrastructure(wrapper, new DataSourceTransactionManager(wrapper), "x", "deployment-x", BulkPostgresTestSupport.testRoleConfiguration()))
                     .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> new SinglePoolSchemaRoutingDataSource(wrapper, SinglePoolSchemaRoutingDataSource.SchemaRoute::passthrough))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
+        var schemaRouted = new SinglePoolSchemaRoutingDataSource(
+                ds, () -> SinglePoolSchemaRoutingDataSource.SchemaRoute.of("tenant_a", "public", "public"));
+        var binding = new BulkExecutionInfrastructure(
+                schemaRouted,
+                new DataSourceTransactionManager(schemaRouted),
+                "x",
+                "deployment-x",
+                BulkPostgresTestSupport.testRoleConfiguration());
+        assertThat(binding.dataSource()).isSameAs(schemaRouted);
+        assertThatThrownBy(() -> new BulkControlPlaneInfrastructure(
+                schemaRouted,
+                new DataSourceTransactionManager(schemaRouted),
+                "x",
+                "deployment-x",
+                "praxis_bulk_control",
+                binding)).isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(ds);
     }
 

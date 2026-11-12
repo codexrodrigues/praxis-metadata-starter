@@ -17,6 +17,8 @@ import org.springframework.dao.DataAccessException;
 
 /** Append-only protected input storage. It does not evaluate, authorize, admit or execute a proposal. */
 public final class JdbcBulkProposalStore {
+    /** Capture-wide ceiling; distinct from the operational profile's per-mutation deadline. */
+    static final Duration CAPTURE_BUDGET_CEILING = Duration.ofSeconds(30);
     private final BulkExecutionInfrastructure infrastructure;
     public JdbcBulkProposalStore(BulkExecutionInfrastructure infrastructure) {
         this.infrastructure = Objects.requireNonNull(infrastructure, "infrastructure");
@@ -83,6 +85,8 @@ public final class JdbcBulkProposalStore {
             BiFunction<Connection, Supplier<Duration>, BulkEvaluationSnapshot> capture,
             Function<BulkEvaluationSnapshot, BulkPreviewProjection> project,
             Supplier<Duration> callerRemaining) {
+        var diagnostic = new BulkProposalCaptureDiagnostics();
+        try {
         Objects.requireNonNull(proposal, "proposal");
         Objects.requireNonNull(capture, "capture");
         Objects.requireNonNull(project, "project");
@@ -100,10 +104,12 @@ public final class JdbcBulkProposalStore {
             throw new BulkProposalStorageException(BulkProposalStorageException.Reason.UNAVAILABLE);
         long began = System.nanoTime();
         try {
+            diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.CONNECTION;
             return infrastructure.withConnection(connection -> {
                 requireCaptureTransaction(connection);
                 long initialBegan = System.nanoTime();
                 Duration initial = positive(callerRemaining.get());
+                diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.BUDGET;
                 CaptureBudget budget = new CaptureBudget(connection, proposal, callerRemaining,
                         began, initialBegan, initial);
                 Throwable failure = null;
@@ -116,10 +122,12 @@ public final class JdbcBulkProposalStore {
                                 admission.capacityBinding().orElseThrow(), true);
                         budget.check();
                     }
+                    diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.QUOTA;
                     BulkQuotaLedger.Scope quota = BulkQuotaLedger.lockProposal(
                             connection, infrastructure, proposal, false, true);
                     budget.check();
                     capturingSelection = true;
+                    diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.CAPTURE;
                     BulkEvaluationSnapshot evaluation = Objects.requireNonNull(capture.apply(connection, budget),
                             "capture returned no evaluation");
                     if (query && (evaluation.targets().isEmpty()
@@ -128,30 +136,39 @@ public final class JdbcBulkProposalStore {
                     capturingSelection = false;
                     requireCapturedProposal(proposal, evaluation.proposal());
                     budget.check();
+                    diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.PROJECTION;
                     BulkPreviewProjection preview = Objects.requireNonNull(project.apply(evaluation),
                             "project returned no preview");
                     preview.requireMatches(evaluation);
                     budget.check();
+                    diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.ENCODING;
                     byte[] evaluationPayload = BulkEvaluationStorageCodec.encode(evaluation);
                     budget.check();
+                    diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.PROPOSAL;
                     insertProposal(connection, proposal);
                     budget.check();
+                    diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.EVALUATION;
                     insertEvaluation(connection, proposal, evaluation, evaluationPayload);
                     budget.check();
+                    diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.MANIFEST;
                     BulkOrdinalManifest.insert(connection, evaluation);
                     budget.check();
+                    diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.PREVIEW;
                     BulkPreviewStorage.insert(connection, evaluation, preview);
                     budget.check();
+                    diagnostic.stage = BulkProposalCaptureDiagnostics.Stage.ALLOCATION;
                     BulkQuotaLedger.insertPending(connection, proposal, quota);
                     budget.check();
                     return evaluation;
                 } catch (RuntimeException error) {
+                    diagnostic.record(error);
                     failure = error;
                     if (error instanceof BulkProposalStorageException storage
                             && (storage.reason() != BulkProposalStorageException.Reason.INVALID_SELECTION
                                 || capturingSelection)) throw storage;
                     throw unavailable();
                 } catch (SQLException | Error error) {
+                    diagnostic.record(error);
                     failure = error;
                     throw error;
                 } finally {
@@ -161,6 +178,10 @@ public final class JdbcBulkProposalStore {
         } catch (DataAccessException error) { throw safe(error); }
         catch (BulkProposalStorageException safe) { throw safe; }
         catch (RuntimeException unsafe) { throw unavailable(); }
+        } catch (RuntimeException | Error original) {
+            diagnostic.record(original);
+            throw original;
+        } finally { diagnostic.emit(); }
     }
 
     private static void requireLegacySelection(BulkStoredProposal proposal) {
@@ -263,7 +284,7 @@ public final class JdbcBulkProposalStore {
         private Duration remaining() {
             Duration remaining = positive(caller.get());
             long now = System.nanoTime();
-            Duration own = Duration.ofSeconds(30).minusNanos(Math.max(0L, now - began));
+            Duration own = CAPTURE_BUDGET_CEILING.minusNanos(Math.max(0L, now - began));
             Duration original = initial.minusNanos(Math.max(0L, now - initialBegan));
             Duration expiry = expiryWindow.minusNanos(Math.max(0L, now - expiryBegan));
             remaining = least(remaining, least(own, least(original, expiry)));
@@ -437,11 +458,14 @@ public final class JdbcBulkProposalStore {
     public Optional<BulkEvaluationSnapshot> findEvaluation(BulkFingerprintContext scope, UUID id) {
         Objects.requireNonNull(id, "id");
         requireNamespace(scope);
-        Optional<BulkStoredProposal> proposal = find(scope, id);
-        if (proposal.isEmpty()) return Optional.empty();
-        BulkStoredProposal input = proposal.orElseThrow();
         try {
-            return infrastructure.withConnection(connection -> readEvaluation(connection, input));
+            return infrastructure.withConnection(connection -> {
+                Optional<BulkStoredProposal> proposal = readProposal(connection, scope, id);
+                if (proposal.isEmpty()) return Optional.empty();
+                BulkStoredProposal input = proposal.orElseThrow();
+                requireControlExpectation(input);
+                return readEvaluation(connection, input);
+            });
         } catch (DataAccessException error) { throw safe(error); }
     }
 

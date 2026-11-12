@@ -135,12 +135,35 @@ class VersionedItemCommandHelpersTest {
             return filterRelatedChildResource(parentId, child, "/children", ChildFilter::new, (filter, id) -> filter.parentId = id, page, size);
         }
     }
+    @Test void idempotentCommandCapturesDiscoveryOutsideTransactionWhenBulkPublicationIsActive() throws Exception {
+        CanonicalCapabilityResolver resolver = mock(CanonicalCapabilityResolver.class);
+        org.praxisplatform.uischema.openapi.OpenApiDocumentService documents = mock(org.praxisplatform.uischema.openapi.OpenApiDocumentService.class);
+        when(documents.hasLocalPublishedBulkOpenApiPublication()).thenReturn(true);
+        when(documents.withSchemaCacheReadLock(any())).thenAnswer(inv -> ((Supplier<?>) inv.getArgument(0)).get());
+        when(documents.resolveGroupFromPath("/helper-items")).thenReturn("helper");
+        when(documents.getDocumentForGroup("helper")).thenReturn(new ObjectMapper().createObjectNode());
+        var fence = mock(org.praxisplatform.uischema.openapi.OpenApiDocumentService.BulkLifecycleDocumentFence.class);
+        when(documents.captureBulkLifecycleDocumentFence()).thenReturn(fence);
+        when(resolver.resolveOperations(any(), eq("/helper-items"))).thenReturn(Map.of());
+        ReflectionTestUtils.setField(controller, "capabilityService", new DefaultCapabilityService(resolver, null, null, documents));
+        ReflectionTestUtils.setField(controller, "resourceCommandIdempotencyStore", new InMemoryReceipts());
+        mvc.perform(post("/helper-items/1/approve").header("If-Match", token(0)).header("Idempotency-Key", "bulk-pub-tx-1"))
+                .andExpect(status().isOk()).andExpect(header().string("ETag", token(1)))
+                .andExpect(jsonPath("$.data.state").value("APPROVED"));
+    }
+
     static class InMemoryReceipts implements ResourceCommandIdempotencyStore {
         private final Map<Identity, ResourceRepresentationResult<?>> receipts = new HashMap<>();
         @Override @SuppressWarnings("unchecked") public <T> ResourceRepresentationResult<T> execute(Identity identity, String fingerprint, Class<T> type, Runnable authorize,
                 Supplier<ResourceRepresentationResult<T>> mutation) {
-            authorize.run();
-            return (ResourceRepresentationResult<T>) receipts.computeIfAbsent(identity, ignored -> mutation.get());
+            boolean active = org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive();
+            org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                authorize.run();
+                return (ResourceRepresentationResult<T>) receipts.computeIfAbsent(identity, ignored -> mutation.get());
+            } finally {
+                org.springframework.transaction.support.TransactionSynchronizationManager.setActualTransactionActive(active);
+            }
         }
     }
 }

@@ -88,6 +88,16 @@ Todo atributo listado em `metadataFields` ou com `quickViewVisible = true` deve 
 - **Reuso de Payload (`sameAsItemEndpoint`):** quando a superfície `READ_PROJECTION` / `VIEW` de um recurso retorna o próprio `ResponseDTO` sem projeção reduzida distinta, prefira vinculá-la ao `GET /{id}` canônico (ou usar um DTO de projeção leve dedicado sem `enrichResponses` pesado), permitindo que o `ResourceRecordOpenService` reutilize o payload de `GET /{id}` e hidratando a gaveta 360° na metade do tempo.
 - **Deduplicação In-Flight no Frontend:** `ResourceDiscoveryService.getCapabilitiesByUrl` e `loadActionCatalog` deduplicam requisições concorrentes em voo (`shareReplay(1)` + limpeza em `finalize`) para a mesma chave de contexto/URL, evitando chamadas HTTP duplicadas na abertura de tabelas e gavetas 360°.
 
+### Regra 8 — Validação Nativa Determinística (`SemanticMetadataReviewer`)
+- O `SemanticMetadataReviewer` no `praxis-metadata-starter` valida programaticamente em tempo de build JUnit (`review(responseDtoClass)` e `reviewResourceController(controllerClass, responseDtoClass, filterDtoClass)`) todo o contrato Quick View 360° e `@ResourceIdentity`, emitindo erros bloqueantes (`SemanticMetadataIssueSeverity.ERROR`) para:
+  - `resource-identity-missing`: ausência de `@ResourceIdentity` (ou `keyField`/`titleField` em branco) no Controller ou no `ResponseDTO`;
+  - `resource-identity-controller-dto-mismatch`: divergência de atributos (`keyField`, `titleField`, `subtitleField`, `avatarField`, `displayLabelField`, `metadataFields`) entre o `@ResourceIdentity` do Controller e o do `ResponseDTO`;
+  - `resource-identity-subtitle-missing`: ausência de `subtitleField` em `@ResourceIdentity`;
+  - `resource-identity-metadata-duplicate` e `resource-identity-metadata-repeats-header-field`: duplicidade dentro de `metadataFields` ou repetição de campos do cabeçalho (`keyField`, `titleField`, `subtitleField`, `avatarField`);
+  - `resource-identity-metadata-count-out-of-range`: contagem de `metadataFields` fora da faixa executiva canônica (`2..3`, ou `1..3` quando o DTO possui apenas 1 atributo escalar elegível além do cabeçalho);
+  - `quick-view-repeats-identity-field` e `quick-view-field-count-out-of-range`: repetição de campos de `@ResourceIdentity` em `@UISchema(quickViewVisible = true)` ou quantidade de campos `quickViewVisible = true` fora da faixa executiva (`4..8`);
+  - `resource-reference-value-field-missing`, `resource-reference-preview-surface-missing`, `title-field-self-reference-missing` e `resource-reference-surface-unresolved`: `@ResourceReference` apontando para `valueField` inexistente, sem `previewSurfaceId` preenchido, campo `titleField` do próprio recurso sem auto-referência `@ResourceReference(resourceKey = "<resourceKey do próprio recurso>", ...)` ou `surfaceId`/`previewSurfaceId` não publicado como `@UiSurface` (`VIEW`/`READ_PROJECTION`) no Controller.
+
 ---
 
 ## 3. Exemplo Canônico Completo (`ResponseDTO` + `Controller`)

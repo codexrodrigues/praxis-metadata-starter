@@ -30,6 +30,52 @@ public record ActionDefinition(
         List<String> requiredAuthorities,
         List<String> allowedStates,
         List<String> tags,
-        ActionExecutionContract execution
+        ActionExecutionContract execution,
+        String legalPurpose,
+        String legalBasisRef
 ) {
+    public ActionDefinition {
+        legalPurpose = legalPurpose != null && !legalPurpose.isBlank() ? legalPurpose.trim() : null;
+        legalBasisRef = legalBasisRef != null && !legalBasisRef.isBlank() ? legalBasisRef.trim() : null;
+    }
+
+    public ActionDefinition(
+            String id,
+            String resourceKey,
+            String resourcePath,
+            String group,
+            ActionScope scope,
+            String title,
+            String description,
+            CanonicalOperationRef operation,
+            CanonicalSchemaRef requestSchema,
+            CanonicalSchemaRef responseSchema,
+            int order,
+            String successMessage,
+            List<String> requiredAuthorities,
+            List<String> allowedStates,
+            List<String> tags,
+            ActionExecutionContract execution
+    ) {
+        this(
+                id,
+                resourceKey,
+                resourcePath,
+                group,
+                scope,
+                title,
+                description,
+                operation,
+                requestSchema,
+                responseSchema,
+                order,
+                successMessage,
+                requiredAuthorities,
+                allowedStates,
+                tags,
+                execution,
+                null,
+                null
+        );
+    }
 }

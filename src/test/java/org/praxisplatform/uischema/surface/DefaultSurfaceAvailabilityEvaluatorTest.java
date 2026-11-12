@@ -232,6 +232,86 @@ class DefaultSurfaceAvailabilityEvaluatorTest {
         assertNull(decision.metadata().get("resourceState"));
     }
 
+    @Test
+    void propagatesConventionalSnapshotLegalAndCustomMetadataOnAllowedSurface() {
+        SurfaceDefinition definition = definition(
+                "periodos-aquisitivos",
+                SurfaceScope.ITEM,
+                List.of("employee:profile:update"),
+                List.of("ACTIVE")
+        );
+        ResourceStateSnapshot snapshot = ResourceStateSnapshot.of(
+                "ACTIVE",
+                java.util.Map.of(
+                        "surface.periodos-aquisitivos.allowed", true,
+                        "surface.periodos-aquisitivos.legalBasis", "Lei 11.788/2008, art. 13",
+                        "surface.periodos-aquisitivos.legalPurpose", "HUMAN_RESOURCES_ADMINISTRATION",
+                        "surface.periodos-aquisitivos.customTitle", "Recesso Remunerado (Lei 11.788/2008)"
+                )
+        );
+        SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
+                "example.employees",
+                "/employees",
+                10L,
+                "tenant-a",
+                Locale.forLanguageTag("pt-BR"),
+                () -> "qa-user",
+                java.util.Set.of("employee:profile:update"),
+                snapshot
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(definition, context);
+
+        assertTrue(decision.allowed());
+        assertNull(decision.reason());
+        assertEquals(true, decision.metadata().get("allowed"));
+        assertEquals("Lei 11.788/2008, art. 13", decision.metadata().get("legalBasis"));
+        assertEquals("HUMAN_RESOURCES_ADMINISTRATION", decision.metadata().get("legalPurpose"));
+        assertEquals("Recesso Remunerado (Lei 11.788/2008)", decision.metadata().get("customTitle"));
+    }
+
+    @Test
+    void deniesSurfaceWhenSnapshotMarksAllowedFalseAndPropagatesReasonAndLegalMetadata() {
+        SurfaceDefinition definition = definition(
+                "licenca-especial",
+                SurfaceScope.ITEM,
+                List.of("employee:profile:update"),
+                List.of("ACTIVE")
+        );
+        ResourceStateSnapshot snapshot = ResourceStateSnapshot.of(
+                "ACTIVE",
+                java.util.Map.of(
+                        "surface.licenca-especial.allowed", false,
+                        "surface.licenca-especial.reason", "Estagiários não acumulam quinquênio de licença-prêmio.",
+                        "surface.licenca-especial.legalBasis", "Lei 11.788/2008, art. 3º",
+                        "surface.licenca-especial.legalPurpose", "STATUTORY_COMPLIANCE",
+                        "surface.licenca-especial.customTitle", "Licença-Prêmio (Inaplicável)",
+                        "surface.licenca-especial.blockedByRule", "STATUTORY_REGIME_INCOMPATIBLE"
+                )
+        );
+        SurfaceAvailabilityContext context = new SurfaceAvailabilityContext(
+                "example.employees",
+                "/employees",
+                10L,
+                "tenant-a",
+                Locale.forLanguageTag("pt-BR"),
+                () -> "qa-user",
+                java.util.Set.of("employee:profile:update"),
+                snapshot
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(definition, context);
+
+        assertFalse(decision.allowed());
+        assertEquals("Estagiários não acumulam quinquênio de licença-prêmio.", decision.reason());
+        assertEquals(false, decision.metadata().get("allowed"));
+        assertEquals("Estagiários não acumulam quinquênio de licença-prêmio.", decision.metadata().get("reason"));
+        assertEquals("Lei 11.788/2008, art. 3º", decision.metadata().get("legalBasis"));
+        assertEquals("STATUTORY_COMPLIANCE", decision.metadata().get("legalPurpose"));
+        assertEquals("Licença-Prêmio (Inaplicável)", decision.metadata().get("customTitle"));
+        assertEquals("STATUTORY_REGIME_INCOMPATIBLE", decision.metadata().get("blockedByRule"));
+    }
+
     private SurfaceDefinition definition(
             String id,
             SurfaceScope scope,

@@ -29,6 +29,8 @@ public abstract class AbstractBulkGovernedResourceController<R, ID, F extends Ge
     @org.springframework.beans.factory.annotation.Autowired
     private CanonicalOperationResolver bulkOperations;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.praxisplatform.uischema.openapi.OpenApiDocumentService bulkOpenApiDocuments;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     private BulkOperationStatusLookup bulkStatusLookup;
     protected abstract JpaResourceBulkEngine<ID, F> getBulkEngine();
 
@@ -136,26 +138,34 @@ public abstract class AbstractBulkGovernedResourceController<R, ID, F extends Ge
 
     private ResponseEntity<RestApiResponse<BulkProposal>> proposalResponse(BulkProposal proposal) {
         var variables = Map.<String, Object>of("proposalId", proposal.proposalId());
-        return successEnvelope(ResponseEntity.ok(), proposal, Links.of(
-                readLink(declaration().proposalOperationId(), variables, "self", null, null),
-                readLink(declaration().proposalResultsOperationId(), variables, "results", null, null)));
+        var declaration = declaration();
+        return successEnvelope(ResponseEntity.ok(), proposal, withBulkLinkScope(() -> Links.of(
+                readLink(declaration.proposalOperationId(), variables, "self", null, null),
+                readLink(declaration.proposalResultsOperationId(), variables, "results", null, null))));
     }
 
     private ResponseEntity<RestApiResponse<BulkExecution>> executionResponse(BulkExecution execution) {
         var variables = Map.<String, Object>of("executionId", execution.executionId());
-        return successEnvelope(ResponseEntity.ok(), execution, Links.of(
-                readLink(declaration().executionOperationId(), variables, "self", null, null),
-                readLink(declaration().executionResultsOperationId(), variables, "results", null, null),
-                readLink(declaration().proposalOperationId(), Map.of("proposalId", execution.proposalId()), "proposal", null, null)));
+        var declaration = declaration();
+        return successEnvelope(ResponseEntity.ok(), execution, withBulkLinkScope(() -> Links.of(
+                readLink(declaration.executionOperationId(), variables, "self", null, null),
+                readLink(declaration.executionResultsOperationId(), variables, "results", null, null),
+                readLink(declaration.proposalOperationId(), Map.of("proposalId", execution.proposalId()), "proposal", null, null))));
     }
 
     private <T> ResponseEntity<RestApiResponse<CursorPage<T>>> resultsResponse(CursorPage<T> page, String operationId,
             Map<String, ?> variables, String after) {
-        var links = new ArrayList<Link>();
-        links.add(readLink(operationId, variables, "self", page.size(), after));
-        if (page.next() != null) links.add(readLink(operationId, variables, "next", page.size(), page.next()));
-        if (page.prev() != null) links.add(readLink(operationId, variables, "prev", page.size(), page.prev()));
-        return successEnvelope(ResponseEntity.ok(), page, Links.of(links));
+        return successEnvelope(ResponseEntity.ok(), page, withBulkLinkScope(() -> {
+            var links = new ArrayList<Link>();
+            links.add(readLink(operationId, variables, "self", page.size(), after));
+            if (page.next() != null) links.add(readLink(operationId, variables, "next", page.size(), page.next()));
+            if (page.prev() != null) links.add(readLink(operationId, variables, "prev", page.size(), page.prev()));
+            return Links.of(links);
+        }));
+    }
+
+    private <T> T withBulkLinkScope(java.util.function.Supplier<T> links) {
+        return bulkOpenApiDocuments != null ? bulkOpenApiDocuments.withSchemaCacheReadLock(links) : links.get();
     }
 
     /** Links identify authorized reads only; executable command affordances remain governed by capabilities. */

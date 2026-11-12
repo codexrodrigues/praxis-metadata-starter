@@ -51,6 +51,7 @@ import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.praxisplatform.uischema.options.UnknownOptionSourceException;
 import org.praxisplatform.uischema.rest.response.RestApiResource;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.praxisplatform.uischema.schema.QuickFilterDescriptor;
 import org.praxisplatform.uischema.rest.response.RestApiResponseDistributionStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseGroupByStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseTimeSeriesStatsResponse;
@@ -1525,28 +1526,30 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             ResourceRepresentationResult<ResponseDTO> representation = (ResourceRepresentationResult<ResponseDTO>) result.body();
             return representation;
         };
-        try {
-            ResourceRepresentationResult<ResponseDTO> result;
-            if (StringUtils.hasText(idempotencyKey)) {
-                if (resourceCommandIdempotencyStore == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                        "Idempotent resource commands are not configured");
-                Class<?> responseType = ResolvableType.forClass(getClass()).as(AbstractResourceQueryController.class).getGeneric(0).resolve();
-                if (responseType == null) throw new IllegalStateException("Versioned command response type is unresolved");
-                var identity = new ResourceCommandIdempotencyStore.Identity(resourceVersionScope().value(),
-                        resourceCommandActor(), getResourceKey(), org.praxisplatform.uischema.id.CompositeIdSupport.stringify(id), actionId, idempotencyKey);
-                ObjectMapper mapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
-                Map<String, Object> fingerprint = new LinkedHashMap<>();
-                fingerprint.put("payload", payload);
-                fingerprint.put("ifMatch", ifMatch);
-                @SuppressWarnings("unchecked") Class<ResponseDTO> bodyType = (Class<ResponseDTO>) responseType;
-                result = resourceCommandIdempotencyStore.execute(identity, ResourceCommandFingerprint.of(mapper, fingerprint), bodyType,
-                        () -> getService().findById(id), execute);
-            } else result = execute.get();
-            return withResourceVersion(ResponseEntity.ok(), id, new ResourceRepresentationResult<>(
-                    RestApiResponse.success(result.body(), hateoasOrNull(Links.of(linkToSelf(id), linkToAll()))), result.persistedVersion()));
-        } catch (VersionedCommandRejected rejected) {
-            return withCommandDatasetVersion(new ResourceCommandHttpResponseAdapter().toResponse(rejected.result));
-        }
+        return withOperationAvailabilityScope(() -> {
+            try {
+                ResourceRepresentationResult<ResponseDTO> result;
+                if (StringUtils.hasText(idempotencyKey)) {
+                    if (resourceCommandIdempotencyStore == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Idempotent resource commands are not configured");
+                    Class<?> responseType = ResolvableType.forClass(getClass()).as(AbstractResourceQueryController.class).getGeneric(0).resolve();
+                    if (responseType == null) throw new IllegalStateException("Versioned command response type is unresolved");
+                    var identity = new ResourceCommandIdempotencyStore.Identity(resourceVersionScope().value(),
+                            resourceCommandActor(), getResourceKey(), org.praxisplatform.uischema.id.CompositeIdSupport.stringify(id), actionId, idempotencyKey);
+                    ObjectMapper mapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
+                    Map<String, Object> fingerprint = new LinkedHashMap<>();
+                    fingerprint.put("payload", payload);
+                    fingerprint.put("ifMatch", ifMatch);
+                    @SuppressWarnings("unchecked") Class<ResponseDTO> bodyType = (Class<ResponseDTO>) responseType;
+                    result = resourceCommandIdempotencyStore.execute(identity, ResourceCommandFingerprint.of(mapper, fingerprint), bodyType,
+                            () -> getService().findById(id), execute);
+                } else result = execute.get();
+                return withResourceVersion(ResponseEntity.ok(), id, new ResourceRepresentationResult<>(
+                        RestApiResponse.success(result.body(), hateoasOrNull(Links.of(linkToSelf(id), linkToAll()))), result.persistedVersion()));
+            } catch (VersionedCommandRejected rejected) {
+                return withCommandDatasetVersion(new ResourceCommandHttpResponseAdapter().toResponse(rejected.result));
+            }
+        });
     }
 
     /** Trusted actor identity; hosts with non-servlet authentication may override this hook. */
@@ -1592,15 +1595,17 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             ResourceCommandExecutionProvider provider,
             Links successLinks
     ) {
-        GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(
-                provider,
-                this::evaluateResourceCommandAvailability,
-                ResourceCommandEvidenceSanitizer.defaults()
-        );
-        return withCommandDatasetVersion(new ResourceCommandHttpResponseAdapter().toResponse(
-                executor.execute(request),
-                hateoasOrNull(successLinks)
-        ));
+        return withOperationAvailabilityScope(() -> {
+            GovernedResourceCommandExecutor executor = new GovernedResourceCommandExecutor(
+                    provider,
+                    this::evaluateResourceCommandAvailability,
+                    ResourceCommandEvidenceSanitizer.defaults()
+            );
+            return withCommandDatasetVersion(new ResourceCommandHttpResponseAdapter().toResponse(
+                    executor.execute(request),
+                    hateoasOrNull(successLinks)
+            ));
+        });
     }
 
     private AvailabilityDecision evaluateResourceCommandAvailability(ResourceOperationAvailabilityContext context) {
@@ -1974,6 +1979,25 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             normalized = normalized.substring(0, normalized.length() - 1);
         }
         return normalized;
+    }
+
+    /**
+     * Hook programatico e type-safe opcional para declarar filtros rapidos do recurso sem literais
+     * de nome de campo, complementando {@code @ApiResource(quickFilters = ...)}.
+     *
+     * @return lista ordenada de descritores programaticos de filtro rapido
+     */
+    protected List<QuickFilterDescriptor<FD>> defineQuickFilters() {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Exposicao somente leitura dos filtros rapidos programaticos declarados pelo controller para o
+     * {@link org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver}.
+     */
+    public List<QuickFilterDescriptor<FD>> resolvedQuickFilterDescriptors() {
+        List<QuickFilterDescriptor<FD>> defined = defineQuickFilters();
+        return defined == null || defined.isEmpty() ? Collections.emptyList() : List.copyOf(defined);
     }
 
     private String extractBasePath(String[] values, String[] paths) {

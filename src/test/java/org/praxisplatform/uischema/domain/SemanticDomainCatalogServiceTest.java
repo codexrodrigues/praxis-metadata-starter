@@ -54,6 +54,75 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SemanticDomainCatalogServiceTest {
 
     @Test
+    void projectsMandatoryControlDependenciesFromTheCanonicalSlot() {
+        String resource = "human-resources.folhas-pagamento";
+        var condition = new ObjectMapper().createObjectNode().put("var", "context.allowed");
+        var slots = List.of(
+                new DecisionSlot("guard", DecisionStage.PROTECTED_GUARD, SlotCardinality.SINGLE,
+                        OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of()),
+                new DecisionSlot("rule", DecisionStage.DOMAIN_DECISION, SlotCardinality.SINGLE,
+                        OverridePolicy.REPLACEABLE, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of("product.guard")));
+        var bindings = List.of(
+                new DecisionBinding("product.guard", "guard", DecisionSource.PRODUCT, null,
+                        RuleExecutorRef.jsonLogic(condition),
+                        List.of(), 0, true, RuleDecision.NOT_APPLICABLE, "OUTSIDE_SCOPE", List.of("context.allowed"), null),
+                new DecisionBinding("product.rule", "rule", DecisionSource.PRODUCT, null,
+                        RuleExecutorRef.jsonLogic(condition),
+                        List.of("product.guard"), 1, true, RuleDecision.DENY, "RULE_DENIED", List.of("context.allowed"), null));
+        var definition = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", resource, resource + ".validate", "CREATE", 1),
+                slots, bindings, RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED);
+        var descriptor = DomainRuleSetDescriptor.of(resource, definition, List.of(), Map.of());
+        var service = new SemanticDomainCatalogService(new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(), optionSources(), new StubOpenApiDocumentService(), null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart", "Praxis API Quickstart", "test", null, null, null,
+                (key, tenant) -> resource.equals(key) ? List.of(descriptor) : List.of());
+        var node = service.findByResourceKey(resource).nodes().stream()
+                .filter(item -> (resource + ".validate").equals(item.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat(node.metadata().get("slots")).asList().hasSize(2);
+        assertThat(node.metadata().get("slots")).asList().filteredOn(item ->
+                "rule".equals(((Map<?, ?>) item).get("slotKey"))).singleElement().satisfies(item ->
+                assertThat(((Map<?, ?>) item).get("requiredControlDependencies"))
+                        .isEqualTo(List.of("product.guard")));
+    }
+
+    @Test
+    void indexesAllHostDeclaredJavaReasonsOnlyForEnabledSlots() {
+        String resource = "human-resources.folhas-pagamento";
+        var slots = List.of("payroll.java", "payroll.disabled").stream().map(key ->
+                new DecisionSlot(key, DecisionStage.DOMAIN_DECISION, SlotCardinality.SINGLE,
+                        OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, java.util.List.of())).toList();
+        var bindings = slots.stream().map(slot -> new DecisionBinding(
+                "product." + slot.slotKey(), slot.slotKey(), DecisionSource.PRODUCT, null,
+                RuleExecutorRef.java("payroll:" + slot.slotKey(), "1.0"), List.of(), 1,
+                slot.slotKey().equals("payroll.java"), null, null, List.of("draft.valorLiquido"), null)).toList();
+        var definition = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", resource, resource + ".validate", "CREATE", 1),
+                slots, bindings, RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED);
+        var reasons = List.of(
+                new DomainRuleSetDescriptor.RuleReasonDescriptor("JAVA-001", "payroll.java", "valorLiquido",
+                        "Liquid amount exceeds the payable balance.", "payroll:balance@1.0", "balance comparison"),
+                new DomainRuleSetDescriptor.RuleReasonDescriptor("JAVA-002", "payroll.java", "valorBruto",
+                        "Gross amount exceeds the authorized ceiling.", "payroll:balance@1.0", "ceiling comparison"),
+                new DomainRuleSetDescriptor.RuleReasonDescriptor("JAVA-OFF", "payroll.disabled", "valorLiquido",
+                        "Disabled decision.", "payroll:disabled@1.0", "disabled"));
+        var descriptor = DomainRuleSetDescriptor.of(resource, definition, reasons, Map.of());
+        var service = new SemanticDomainCatalogService(new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(), optionSources(), new StubOpenApiDocumentService(), null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart", "Praxis API Quickstart", "test", null, null, null,
+                (key, tenant) -> resource.equals(key) ? List.of(descriptor) : List.of());
+        var node = service.findByResourceKey(resource).nodes().stream()
+                .filter(item -> (resource + ".validate").equals(item.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat(node.metadata()).containsEntry("reasonCodes", List.of("JAVA-001", "JAVA-002"));
+        assertThat(node.metadata().get("targetFields")).asList().contains("valorLiquido", "valorBruto");
+        assertThat(bindings).allSatisfy(binding -> assertThat(binding.falseReasonCode()).isNull());
+    }
+
+    @Test
     void buildsSemanticCatalogFromActionsSurfacesAndOptionSources() {
         SemanticDomainCatalogService service = new SemanticDomainCatalogService(
                 new StubActionDefinitionRegistry(),
@@ -562,18 +631,7 @@ class SemanticDomainCatalogServiceTest {
                 .containsEntry("childConcepts", List.of("ergon.periodos-aquisitivos-ferias"))
                 .containsEntry("referencedConcepts", List.of("ergon.cargos", "ergon.periodos-aquisitivos-ferias", "ergon.setores"))
                 .containsEntry("analyzedByDataProducts", List.of("ergon.radar-ferias-prescricao"))
-                .containsEntry("conceptFactRootMap", Map.of(
-                        "cargo", "ergon.cargos",
-                        "setor", "ergon.setores"
-                ))
-                .containsEntry("ontologicalFactRoots", List.of(
-                        "draft",
-                        "current",
-                        "cargo",
-                        "setor",
-                        "neighborhood",
-                        "context"
-                ));
+                .doesNotContainKeys("conceptFactRootMap", "ontologicalFactRoots");
 
         DomainCatalogResponse.DomainNodeItem cargoField = catalog.nodes().stream()
                 .filter(node -> "ergon.vinculos.field.cargo-id".equals(node.nodeKey()))
@@ -582,13 +640,40 @@ class SemanticDomainCatalogServiceTest {
         assertThat(cargoField.metadata())
                 .containsEntry("resourceKey", "ergon.vinculos")
                 .containsEntry("referencedResourceKey", "ergon.cargos")
+                .containsEntry("schemaIds", List.of("VinculoCreateRequest", "VinculoResponse"))
+                .containsEntry("schemaRoles", List.of("request", "response"))
                 .containsKey("optionSource");
+        assertThat(cargoField.sourceEvidenceKeys()).containsExactly(
+                "evidence:ergon.vinculos.field.cargo-id:vinculo-create-request",
+                "evidence:ergon.vinculos.field.cargo-id:vinculo-response"
+        );
         assertThat(catalog.bindings())
                 .filteredOn(binding -> "binding:ergon.vinculos.field.cargo-id:dto-field".equals(binding.bindingKey()))
                 .singleElement()
-                .satisfies(binding -> assertThat(binding.target())
-                        .containsEntry("resourceKey", "ergon.vinculos")
-                        .containsEntry("referencedResourceKey", "ergon.cargos"));
+                .satisfies(binding -> {
+                    assertThat(binding.schemaLinks())
+                            .extracting(DomainCatalogResponse.DomainSchemaLink::schemaId, DomainCatalogResponse.DomainSchemaLink::schemaType)
+                            .containsExactly(
+                                    org.assertj.core.groups.Tuple.tuple("VinculoCreateRequest", "request"),
+                                    org.assertj.core.groups.Tuple.tuple("VinculoResponse", "response")
+                            );
+                    assertThat(binding.evidenceKeys()).containsExactly(
+                            "evidence:ergon.vinculos.field.cargo-id:vinculo-create-request",
+                            "evidence:ergon.vinculos.field.cargo-id:vinculo-response"
+                    );
+                    assertThat(binding.target())
+                            .containsEntry("resourceKey", "ergon.vinculos")
+                            .containsEntry("referencedResourceKey", "ergon.cargos");
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> representations =
+                            (List<Map<String, Object>>) binding.target().get("representations");
+                    assertThat(representations)
+                            .extracting(rep -> rep.get("schemaId"), rep -> rep.get("schemaRole"), rep -> rep.get("fieldPath"))
+                            .containsExactly(
+                                    org.assertj.core.groups.Tuple.tuple("VinculoCreateRequest", "request", "/cargoId"),
+                                    org.assertj.core.groups.Tuple.tuple("VinculoResponse", "response", "/cargoId")
+                            );
+                });
 
         java.util.Set<String> allNodeKeys = catalog.nodes().stream()
                 .map(DomainCatalogResponse.DomainNodeItem::nodeKey)
@@ -604,8 +689,9 @@ class SemanticDomainCatalogServiceTest {
                 .orElseThrow();
         assertThat(feriasConcept.nodeType()).isEqualTo("concept");
         assertThat(feriasConcept.metadata())
-                .containsEntry("parentConcepts", List.of("ergon.vinculos"))
-                .containsEntry("analyzedByDataProducts", List.of("ergon.radar-ferias-prescricao"));
+                .containsEntry("projectionRole", "REFERENCE")
+                .containsEntry("ownerServiceKey", "ergon-host")
+                .doesNotContainKeys("capabilities", "semanticRole", "readOnly");
     }
 
     @Test
@@ -634,7 +720,7 @@ class SemanticDomainCatalogServiceTest {
                         OverridePolicy.FORBIDDEN,
                         DecisionAggregationPolicy.SINGLE_RESULT,
                         null
-                )),
+                , java.util.List.of())),
                 List.of(new DecisionBinding(
                         "product.payroll.erg-folha-001",
                         "payroll.erg-folha-001",
@@ -669,7 +755,8 @@ class SemanticDomainCatalogServiceTest {
                         "Valor líquido inválido ou fornecedor inativo.",
                         "PCK_FOLHA.VALIDA_FOLHA",
                         "draft.valorLiquido != null && fornecedor.status == ACTIVE"
-                ))
+                )),
+                Map.of("fornecedor", new ConceptRootBinding("fornecedor", "praxis-api-quickstart", "partners", "partners.fornecedores"))
         );
 
         SemanticDomainCatalogService service = new SemanticDomainCatalogService(
@@ -693,7 +780,7 @@ class SemanticDomainCatalogServiceTest {
         DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
 
         DomainCatalogResponse.DomainNodeItem ruleSetNode = response.nodes().stream()
-                .filter(node -> "human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate".equals(node.nodeKey()))
+                .filter(node -> "human-resources.folhas-pagamento.validate".equals(node.metadata().get("ruleSetKey")))
                 .findFirst()
                 .orElseThrow();
         assertThat(ruleSetNode.nodeType()).isEqualTo("policy_hint");
@@ -724,21 +811,21 @@ class SemanticDomainCatalogServiceTest {
                 )
                 .contains(
                         org.assertj.core.groups.Tuple.tuple(
-                                "human-resources.folhas-pagamento.governed-by.human-resources.folhas-pagamento.validate",
+                                "human-resources.folhas-pagamento.governed-by." + ruleSetNode.nodeKey().substring("ruleset:".length()),
                                 "human-resources.folhas-pagamento",
-                                "human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate",
+                                ruleSetNode.nodeKey(),
                                 "governed_by"
                         ),
                         org.assertj.core.groups.Tuple.tuple(
-                                "human-resources.folhas-pagamento.field.valor-liquido.governed-by.human-resources.folhas-pagamento.validate",
+                                "human-resources.folhas-pagamento.field.valor-liquido.governed-by." + ruleSetNode.nodeKey().substring("ruleset:".length()),
                                 "human-resources.folhas-pagamento.field.valor-liquido",
-                                "human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate",
+                                ruleSetNode.nodeKey(),
                                 "governed_by"
                         )
                 );
 
         assertThat(response.bindings())
-                .filteredOn(b -> "binding:human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate:rule-set".equals(b.bindingKey()))
+                .filteredOn(b -> ("binding:" + ruleSetNode.nodeKey() + ":rule-set").equals(b.bindingKey()))
                 .singleElement()
                 .satisfies(binding -> assertThat(binding.bindingType()).isEqualTo("rule_definition"));
 
@@ -809,7 +896,7 @@ class SemanticDomainCatalogServiceTest {
                         OverridePolicy.PARAMETERIZABLE,
                         DecisionAggregationPolicy.SINGLE_RESULT,
                         template
-                )),
+                , java.util.List.of())),
                 List.of(new DecisionBinding(
                         "customer.config.payroll.erg-folha-002",
                         "payroll.erg-folha-002",
@@ -860,7 +947,7 @@ class SemanticDomainCatalogServiceTest {
         DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
 
         DomainCatalogResponse.DomainNodeItem ruleSetNode = response.nodes().stream()
-                .filter(node -> "human-resources.folhas-pagamento.policy.ruleset.human-resources.folhas-pagamento.validate".equals(node.nodeKey()))
+                .filter(node -> "human-resources.folhas-pagamento.validate".equals(node.metadata().get("ruleSetKey")))
                 .findFirst()
                 .orElseThrow();
         assertThat(ruleSetNode.metadata())
@@ -887,6 +974,517 @@ class SemanticDomainCatalogServiceTest {
             assertThat(rule).containsEntry("requiredFactPaths", List.of("draft.valorLiquido"));
             assertThat(rule).containsEntry("referencedFactPaths", List.of("draft.valorLiquido"));
         });
+    }
+
+    @Test
+    void explicitAnnotationGovernancePrevailsOverHeuristicAndResolvesMultiFacetLatticeWithoutCrashing() {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode explicitPersonal = mapper.valueToTree(new DomainCatalogResponse.DomainGovernanceItem(
+                "governance:ergon.servidores.field.conta-salario:privacy",
+                "ergon.servidores.field.conta-salario",
+                "privacy",
+                "confidential",
+                "personal",
+                List.of("LGPD"),
+                false,
+                "Gestão de Pessoas",
+                "DPO",
+                "10-years",
+                Map.of(
+                        "visibility", "mask",
+                        "trainingUse", "deny",
+                        "ruleAuthoring", "review_required",
+                        "reasoningUse", "allow",
+                        "reason", "explicit-domain-governance",
+                        "schemaId", "ServidorResponse",
+                        "schemaRole", "response"
+                ),
+                "java.annotation",
+                1.0d
+        ));
+        JsonNode heuristicFinancial = mapper.valueToTree(new DomainCatalogResponse.DomainGovernanceItem(
+                "governance:ergon.servidores.field.conta-salario:security",
+                "ergon.servidores.field.conta-salario",
+                "security",
+                "internal",
+                "financial",
+                List.of("INTERNAL_POLICY"),
+                null,
+                null,
+                null,
+                null,
+                Map.of(
+                        "visibility", "allow",
+                        "trainingUse", "deny",
+                        "ruleAuthoring", "review_required",
+                        "reasoningUse", "review_required",
+                        "reason", "financial-field-name",
+                        "schemaId", "ServidorFilter",
+                        "schemaRole", "request"
+                ),
+                "dto-field-heuristic",
+                0.72d
+        ));
+
+        for (JsonNode mergedNode : List.of(
+                org.praxisplatform.uischema.schema.DomainSchemaGovernance.merge(explicitPersonal, heuristicFinancial),
+                org.praxisplatform.uischema.schema.DomainSchemaGovernance.merge(heuristicFinancial, explicitPersonal))) {
+            DomainCatalogResponse.DomainGovernanceItem merged =
+                    mapper.convertValue(mergedNode, DomainCatalogResponse.DomainGovernanceItem.class);
+
+            assertThat(merged.source()).isEqualTo("java.annotation");
+            assertThat(merged.confidence()).isEqualTo(1.0d);
+            assertThat(merged.annotationType()).isEqualTo("privacy");
+            assertThat(merged.governanceKey()).isEqualTo("governance:ergon.servidores.field.conta-salario:privacy");
+            assertThat(merged.dataCategory()).isEqualTo("personal");
+            assertThat(merged.classification()).isEqualTo("confidential");
+            assertThat(merged.exportable()).isFalse();
+            assertThat(merged.owner()).isEqualTo("Gestão de Pessoas");
+            assertThat(merged.steward()).isEqualTo("DPO");
+            assertThat(merged.retentionPolicy()).isEqualTo("10-years");
+            assertThat(merged.complianceTags()).containsExactly("INTERNAL_POLICY", "LGPD");
+            assertThat(merged.aiUsage())
+                    .containsEntry("visibility", "mask")
+                    .containsEntry("reasoningUse", "review_required")
+                    .containsEntry("reason", "explicit-domain-governance")
+                    .containsEntry("schemaId", "ServidorResponse")
+                    .containsEntry("schemaRole", "response");
+        }
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                org.praxisplatform.uischema.schema.DomainSchemaGovernance.merge(
+                        mapper.readTree("{\"dataCategory\":\"financial\"}"),
+                        mapper.readTree("{\"dataCategory\":\"personal\"}")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Conflicting domain governance dataCategory");
+    }
+
+    @Test
+    void strictCatalogResolutionRequiresExactGroupDocumentAndCompleteSchemas() {
+        SemanticDomainCatalogService strictOkService = new SemanticDomainCatalogService(
+                new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(),
+                optionSources(),
+                new StubOpenApiDocumentService(),
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart",
+                "Praxis API Quickstart",
+                "test"
+        );
+        DomainCatalogResponse strictCatalog = strictOkService.findByResourceKeyStrict("human-resources.folhas-pagamento");
+        assertThat(strictCatalog.resourceKey()).isEqualTo("human-resources.folhas-pagamento");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> strictOkService.findByResourceKeyStrict(" "))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Explicit resourceKey is required");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> strictOkService.findByGroupStrict(" "))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Explicit OpenAPI group is required");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> strictOkService.findByResourceKeyStrict("unknown.resource"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no registered actions, surfaces, or determination forms");
+
+        OpenApiDocumentService missingSchemaOpenApi = new OpenApiDocumentService() {
+            private final ObjectMapper mapper = new ObjectMapper();
+
+            @Override
+            public String resolveGroupFromPath(String path) {
+                return "human-resources";
+            }
+
+            @Override
+            public JsonNode getDocumentForGroup(String groupName) {
+                return mapper.valueToTree(Map.of(
+                        "paths", Map.of(),
+                        "components", Map.of("schemas", Map.of())
+                ));
+            }
+
+            @Override
+            public JsonNode getDocumentForGroupStrict(String groupName) {
+                return getDocumentForGroup(groupName);
+            }
+
+            @Override
+            public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) {
+                return "hash:" + schemaId;
+            }
+
+            @Override
+            public void clearCaches() {
+            }
+        };
+        SemanticDomainCatalogService strictMissingSchemaService = new SemanticDomainCatalogService(
+                new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(),
+                optionSources(),
+                missingSchemaOpenApi,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart",
+                "Praxis API Quickstart",
+                "test"
+        );
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                strictMissingSchemaService.findByResourceKeyStrict("human-resources.folhas-pagamento"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Unresolved canonical schema in strict domain catalog: WorkflowRequest");
+    }
+
+    @Test
+    void synthesizesDomainLineageAcrossRequestResponseFilterAliasesAndDerivedFields() {
+        SurfaceDefinition createSurface = new SurfaceDefinition(
+                "create", "ergon.pessoas", "/api/ergon/pessoas", "ergon",
+                SurfaceKind.PARTIAL_FORM, SurfaceScope.COLLECTION, "Nova Pessoa", "Inclusao cadastral",
+                "create", "request", SurfaceResponseCardinality.OBJECT,
+                new CanonicalOperationRef("ergon", "createPessoa", "/api/ergon/pessoas", "POST"),
+                new CanonicalSchemaRef("PessoaCreateRequest", "request", "/schemas/filtered?path=/api/ergon/pessoas&operation=post&schemaType=request"),
+                10, List.of(), List.of(), List.of("pessoas")
+        );
+        SurfaceDefinition detailSurface = new SurfaceDefinition(
+                "detail", "ergon.pessoas", "/api/ergon/pessoas", "ergon",
+                SurfaceKind.VIEW, SurfaceScope.ITEM, "Detalhe Pessoa", "Visualizacao cadastral",
+                "detail", "response", SurfaceResponseCardinality.OBJECT,
+                new CanonicalOperationRef("ergon", "getPessoaById", "/api/ergon/pessoas/{id}", "GET"),
+                new CanonicalSchemaRef("PessoaDetailResponse", "response", "/schemas/filtered?path=/api/ergon/pessoas/{id}&operation=get&schemaType=response"),
+                20, List.of(), List.of(), List.of("pessoas")
+        );
+        SurfaceDefinition filterSurface = new SurfaceDefinition(
+                "filter", "ergon.pessoas", "/api/ergon/pessoas", "ergon",
+                SurfaceKind.VIEW, SurfaceScope.COLLECTION, "Filtro Pessoa", "Pesquisa cadastral",
+                "filter", "filter", SurfaceResponseCardinality.COLLECTION,
+                new CanonicalOperationRef("ergon", "filterPessoas", "/api/ergon/pessoas/filter", "POST"),
+                new CanonicalSchemaRef("PessoaFilterDTO", "filter", "/schemas/filtered?path=/api/ergon/pessoas/filter&operation=post&schemaType=request"),
+                30, List.of(), List.of(), List.of("pessoas")
+        );
+
+        Map<String, Object> cpfLineageGov = Map.of(
+                "annotationType", "privacy",
+                "classification", "confidential",
+                "dataCategory", "personal",
+                "complianceTags", List.of("LGPD", "PII_CPF"),
+                "exportable", false,
+                "aiUsage", Map.of("visibility", "mask", "trainingUse", "deny", "ruleAuthoring", "review_required", "reasoningUse", "allow"),
+                "reason", "CPF oficial protegido pela LGPD.",
+                "source", "java.lineage",
+                "confidence", 1.0d,
+                "lineage", Map.of(
+                        "attributeId", "ergon.pessoa.cpf",
+                        "sourceClass", "br.com.praxis.ergonshowcase.domain.entity.Pessoa",
+                        "sourceSimpleName", "Pessoa",
+                        "sourceResourceKey", "ergon.pessoas",
+                        "sourcePaths", List.of("cpf"),
+                        "transformation", "alias",
+                        "provenance", "declared_lineage"
+                )
+        );
+        Map<String, Object> cidAfastamentoGov = Map.of(
+                "annotationType", "privacy",
+                "classification", "restricted",
+                "dataCategory", "sensitive_personal",
+                "complianceTags", List.of("LGPD", "LGPD_ART_11"),
+                "exportable", false,
+                "aiUsage", Map.of("visibility", "deny", "trainingUse", "deny", "ruleAuthoring", "deny", "reasoningUse", "deny"),
+                "reason", "Codigo CID de afastamento clinico protegido pelo Art. 11 da LGPD.",
+                "source", "java.annotation",
+                "confidence", 1.0d
+        );
+        Map<String, Object> derivedRestricaoGov = Map.of(
+                "annotationType", "privacy",
+                "classification", "restricted",
+                "dataCategory", "sensitive_personal",
+                "complianceTags", List.of("LGPD", "LGPD_ART_11"),
+                "exportable", false,
+                "aiUsage", Map.of("visibility", "deny", "trainingUse", "deny", "ruleAuthoring", "deny", "reasoningUse", "deny"),
+                "reason", "Indicador derivado de CID de afastamento.",
+                "source", "java.lineage",
+                "confidence", 1.0d,
+                "lineage", Map.of(
+                        "attributeId", "ergon.pessoa.possui-restricao-clinica",
+                        "sourceClass", "br.com.praxis.ergonshowcase.domain.entity.Pessoa",
+                        "sourceSimpleName", "Pessoa",
+                        "sourceResourceKey", "ergon.pessoas",
+                        "sourcePaths", List.of("cidAfastamento"),
+                        "transformation", "derived",
+                        "provenance", "declared_lineage"
+                )
+        );
+
+        OpenApiDocumentService lineageOpenApi = new OpenApiDocumentService() {
+            private final ObjectMapper mapper = new ObjectMapper();
+            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public JsonNode getDocumentForGroup(String groupName) {
+                return mapper.valueToTree(Map.of(
+                        "paths", Map.of(),
+                        "components", Map.of("schemas", Map.of(
+                                "PessoaCreateRequest", Map.of(
+                                        "type", "object",
+                                        "required", List.of("cpf"),
+                                        "properties", Map.of(
+                                                "cpf", Map.of("type", "string", "x-domain-governance", cpfLineageGov)
+                                        )
+                                ),
+                                "PessoaDetailResponse", Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                "documentoFiscal", Map.of("type", "string", "x-domain-governance", cpfLineageGov),
+                                                "cidAfastamento", Map.of("type", "string", "x-domain-governance", cidAfastamentoGov),
+                                                "possuiRestricaoClinica", Map.of("type", "boolean", "x-domain-governance", derivedRestricaoGov)
+                                        )
+                                ),
+                                "PessoaFilterDTO", Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                "documentoFiscalFiltro", Map.of("type", "string", "x-domain-governance", cpfLineageGov)
+                                        )
+                                )
+                        ))
+                ));
+            }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return getDocumentForGroup(groupName); }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "hash:" + schemaId; }
+            @Override public void clearCaches() { }
+        };
+
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new ActionDefinitionRegistry() {
+                    @Override public List<ActionDefinition> findByResourceKey(String rk) { return List.of(); }
+                    @Override public List<ActionDefinition> findByGroup(String g) { return List.of(); }
+                },
+                new SurfaceDefinitionRegistry() {
+                    @Override public List<SurfaceDefinition> findByResourceKey(String rk) { return List.of(createSurface, detailSurface, filterSurface); }
+                    @Override public List<SurfaceDefinition> findByGroup(String g) { return List.of(createSurface, detailSurface, filterSurface); }
+                },
+                OptionSourceRegistry.empty(),
+                lineageOpenApi,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-ergon-showcase", "Ergon Showcase", "test"
+        );
+
+        DomainCatalogResponse catalog = service.findByResourceKeyStrict("ergon.pessoas");
+        assertThat(catalog.edges()).filteredOn(e -> "same_as".equals(e.edgeType()))
+                .extracting(DomainCatalogResponse.DomainEdgeItem::sourceNodeKey)
+                .containsExactlyInAnyOrder(
+                        "ergon.pessoas.field.documento-fiscal",
+                        "ergon.pessoas.field.documento-fiscal-filtro"
+                );
+        assertThat(catalog.edges()).filteredOn(e -> "materializes".equals(e.edgeType()))
+                .extracting(DomainCatalogResponse.DomainEdgeItem::sourceNodeKey)
+                .contains("ergon.pessoas.field.documento-fiscal", "ergon.pessoas.field.documento-fiscal-filtro");
+        assertThat(catalog.edges()).filteredOn(e -> "depends_on".equals(e.edgeType())
+                        && "ergon.pessoas.field.possui-restricao-clinica".equals(e.sourceNodeKey()))
+                .singleElement()
+                .satisfies(edge -> assertThat(edge.targetNodeKey()).isEqualTo("ergon.pessoas.field.cid-afastamento"));
+
+        DomainCatalogResponse.DomainNodeItem aliasNode = catalog.nodes().stream()
+                .filter(n -> "ergon.pessoas.field.documento-fiscal".equals(n.nodeKey()))
+                .findFirst().orElseThrow();
+        assertThat(aliasNode.metadata()).containsEntry("canonicalAttributeId", "ergon.pessoa.cpf");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> sharedReps = (List<Map<String, Object>>) aliasNode.metadata().get("sharedRepresentations");
+        assertThat(sharedReps).hasSize(3);
+        assertThat(sharedReps).extracting(r -> r.get("schemaRole"))
+                .containsExactlyInAnyOrder("request", "response", "filter");
+        assertThat(catalog.aliases()).filteredOn(a -> "domain-lineage-attribute-id".equals(a.source()))
+                .extracting(DomainCatalogResponse.DomainAliasItem::alias)
+                .contains("ergon.pessoa.cpf", "ergon.pessoa.possui-restricao-clinica");
+    }
+
+    @Test
+    void rejectsHomonymLineageConflictAndCyclicDerivedLineageInDomainCatalog() {
+        SurfaceDefinition reqSurface = new SurfaceDefinition(
+                "create", "ergon.conflito", "/api/ergon/conflito", "ergon",
+                SurfaceKind.PARTIAL_FORM, SurfaceScope.COLLECTION, "Criar", "Criar",
+                "create", "request", SurfaceResponseCardinality.OBJECT,
+                new CanonicalOperationRef("ergon", "createConflito", "/api/ergon/conflito", "POST"),
+                new CanonicalSchemaRef("ConflitoRequest", "request", "/schemas/filtered?schemaType=request"),
+                10, List.of(), List.of(), List.of()
+        );
+        SurfaceDefinition resSurface = new SurfaceDefinition(
+                "detail", "ergon.conflito", "/api/ergon/conflito", "ergon",
+                SurfaceKind.VIEW, SurfaceScope.ITEM, "Detalhe", "Detalhe",
+                "detail", "response", SurfaceResponseCardinality.OBJECT,
+                new CanonicalOperationRef("ergon", "getConflito", "/api/ergon/conflito/{id}", "GET"),
+                new CanonicalSchemaRef("ConflitoResponse", "response", "/schemas/filtered?schemaType=response"),
+                20, List.of(), List.of(), List.of()
+        );
+
+        OpenApiDocumentService homonymConflictOpenApi = new OpenApiDocumentService() {
+            private final ObjectMapper mapper = new ObjectMapper();
+            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public JsonNode getDocumentForGroup(String groupName) {
+                return mapper.valueToTree(Map.of(
+                        "paths", Map.of(),
+                        "components", Map.of("schemas", Map.of(
+                                "ConflitoRequest", Map.of("type", "object", "properties", Map.of(
+                                        "codigo", Map.of("type", "string", "x-domain-governance", Map.of(
+                                                "annotationType", "privacy", "classification", "internal", "dataCategory", "operational",
+                                                "lineage", Map.of("attributeId", "ergon.empresa.codigo", "transformation", "direct")
+                                        ))
+                                )),
+                                "ConflitoResponse", Map.of("type", "object", "properties", Map.of(
+                                        "codigo", Map.of("type", "string", "x-domain-governance", Map.of(
+                                                "annotationType", "privacy", "classification", "internal", "dataCategory", "operational",
+                                                "lineage", Map.of("attributeId", "ergon.setor.codigo", "transformation", "direct")
+                                        ))
+                                ))
+                        ))
+                ));
+            }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return getDocumentForGroup(groupName); }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "hash:" + schemaId; }
+            @Override public void clearCaches() { }
+        };
+
+        SemanticDomainCatalogService conflictService = new SemanticDomainCatalogService(
+                new ActionDefinitionRegistry() {
+                    @Override public List<ActionDefinition> findByResourceKey(String rk) { return List.of(); }
+                    @Override public List<ActionDefinition> findByGroup(String g) { return List.of(); }
+                },
+                new SurfaceDefinitionRegistry() {
+                    @Override public List<SurfaceDefinition> findByResourceKey(String rk) { return List.of(reqSurface, resSurface); }
+                    @Override public List<SurfaceDefinition> findByGroup(String g) { return List.of(reqSurface, resSurface); }
+                },
+                OptionSourceRegistry.empty(),
+                homonymConflictOpenApi,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-ergon-showcase", "Ergon Showcase", "test"
+        );
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> conflictService.findByResourceKeyStrict("ergon.conflito"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Conflicting domain lineage for homonym field 'codigo'");
+
+        OpenApiDocumentService cyclicOpenApi = new OpenApiDocumentService() {
+            private final ObjectMapper mapper = new ObjectMapper();
+            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public JsonNode getDocumentForGroup(String groupName) {
+                return mapper.valueToTree(Map.of(
+                        "paths", Map.of(),
+                        "components", Map.of("schemas", Map.of(
+                                "ConflitoRequest", Map.of("type", "object", "properties", Map.of()),
+                                "ConflitoResponse", Map.of("type", "object", "properties", Map.of(
+                                        "saldoA", Map.of("type", "number", "x-domain-governance", Map.of(
+                                                "annotationType", "privacy", "classification", "internal", "dataCategory", "financial",
+                                                "lineage", Map.of("attributeId", "ergon.conflito.saldo-a", "sourcePaths", List.of("saldoB"), "transformation", "derived")
+                                        )),
+                                        "saldoB", Map.of("type", "number", "x-domain-governance", Map.of(
+                                                "annotationType", "privacy", "classification", "internal", "dataCategory", "financial",
+                                                "lineage", Map.of("attributeId", "ergon.conflito.saldo-b", "sourcePaths", List.of("saldoA"), "transformation", "derived")
+                                        ))
+                                ))
+                        ))
+                ));
+            }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return getDocumentForGroup(groupName); }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "hash:" + schemaId; }
+            @Override public void clearCaches() { }
+        };
+
+        SemanticDomainCatalogService cyclicService = new SemanticDomainCatalogService(
+                new ActionDefinitionRegistry() {
+                    @Override public List<ActionDefinition> findByResourceKey(String rk) { return List.of(); }
+                    @Override public List<ActionDefinition> findByGroup(String g) { return List.of(); }
+                },
+                new SurfaceDefinitionRegistry() {
+                    @Override public List<SurfaceDefinition> findByResourceKey(String rk) { return List.of(reqSurface, resSurface); }
+                    @Override public List<SurfaceDefinition> findByGroup(String g) { return List.of(reqSurface, resSurface); }
+                },
+                OptionSourceRegistry.empty(),
+                cyclicOpenApi,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-ergon-showcase", "Ergon Showcase", "test"
+        );
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> cyclicService.findByResourceKeyStrict("ergon.conflito"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Cyclic domain lineage derivation detected");
+    }
+
+    @Test
+    void publishesLegalTreatmentPurposeAndLegalBasisRefOnSurfaceAndWorkflowActionNodesAndBindings() {
+        SurfaceDefinition healthSurface = new SurfaceDefinition(
+                "laudo-pericial", "ergon.afastamentos", "/api/ergon/afastamentos", "ergon",
+                SurfaceKind.READ_PROJECTION, SurfaceScope.ITEM, "Laudo Pericial", "Ficha clinica de pericia medica",
+                "laudo-pericial", "medical_services", "response", SurfaceResponseCardinality.OBJECT,
+                new CanonicalOperationRef("ergon", "getLaudoPericial", "/api/ergon/afastamentos/{id}/laudo", "GET"),
+                new CanonicalSchemaRef("AfastamentoResponse", "response", "/schemas/filtered?path=/api/ergon/afastamentos/{id}/laudo"),
+                10, List.of("ROLE_PERITO_MEDICO"), List.of("EM_ANALISE"), List.of("saude", "pericia"),
+                null,
+                org.praxisplatform.uischema.annotation.LegalTreatmentPurpose.OFFICIAL_HEALTH_EXPERTISE.wireValue(),
+                "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202"
+        );
+        ActionDefinition homologarAction = new ActionDefinition(
+                "homologar-pericia", "ergon.afastamentos", "/api/ergon/afastamentos", "ergon",
+                ActionScope.ITEM, "Homologar Pericia", "Homologa parecer medico pericial de afastamento",
+                new CanonicalOperationRef("ergon", "homologarPericia", "/api/ergon/afastamentos/{id}/actions/homologar-pericia", "POST"),
+                new CanonicalSchemaRef("HomologarRequest", "request", "/schemas/filtered?schemaType=request"),
+                new CanonicalSchemaRef("AfastamentoResponse", "response", "/schemas/filtered?schemaType=response"),
+                20, "Pericia homologada.", List.of("ROLE_PERITO_MEDICO"), List.of("EM_ANALISE"), List.of("pericia"),
+                null,
+                org.praxisplatform.uischema.annotation.LegalTreatmentPurpose.OFFICIAL_HEALTH_EXPERTISE.wireValue(),
+                "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202"
+        );
+
+        OpenApiDocumentService simpleOpenApi = new OpenApiDocumentService() {
+            private final ObjectMapper mapper = new ObjectMapper();
+            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public JsonNode getDocumentForGroup(String groupName) {
+                return mapper.valueToTree(Map.of(
+                        "paths", Map.of(),
+                        "components", Map.of("schemas", Map.of(
+                                "AfastamentoResponse", Map.of("type", "object", "properties", Map.of()),
+                                "HomologarRequest", Map.of("type", "object", "properties", Map.of())
+                        ))
+                ));
+            }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return getDocumentForGroup(groupName); }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "hash:" + schemaId; }
+            @Override public void clearCaches() { }
+        };
+
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new ActionDefinitionRegistry() {
+                    @Override public List<ActionDefinition> findByResourceKey(String rk) { return List.of(homologarAction); }
+                    @Override public List<ActionDefinition> findByGroup(String g) { return List.of(homologarAction); }
+                },
+                new SurfaceDefinitionRegistry() {
+                    @Override public List<SurfaceDefinition> findByResourceKey(String rk) { return List.of(healthSurface); }
+                    @Override public List<SurfaceDefinition> findByGroup(String g) { return List.of(healthSurface); }
+                },
+                OptionSourceRegistry.empty(),
+                simpleOpenApi,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-ergon-showcase", "Ergon Showcase", "test"
+        );
+
+        DomainCatalogResponse catalog = service.findByResourceKeyStrict("ergon.afastamentos");
+
+        DomainCatalogResponse.DomainNodeItem surfaceNode = catalog.nodes().stream()
+                .filter(n -> "ergon.afastamentos.surface.laudo-pericial".equals(n.nodeKey()))
+                .findFirst().orElseThrow();
+        assertThat(surfaceNode.metadata())
+                .containsEntry("legalPurpose", "official_health_expertise")
+                .containsEntry("legalBasisRef", "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202");
+
+        DomainCatalogResponse.DomainBindingItem surfaceBinding = catalog.bindings().stream()
+                .filter(b -> "binding:ergon.afastamentos.surface.laudo-pericial:ui-surface".equals(b.bindingKey()))
+                .findFirst().orElseThrow();
+        assertThat(surfaceBinding.target())
+                .containsEntry("legalPurpose", "official_health_expertise")
+                .containsEntry("legalBasisRef", "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202");
+
+        DomainCatalogResponse.DomainNodeItem actionNode = catalog.nodes().stream()
+                .filter(n -> "ergon.afastamentos.action.homologar-pericia".equals(n.nodeKey()))
+                .findFirst().orElseThrow();
+        assertThat(actionNode.metadata())
+                .containsEntry("legalPurpose", "official_health_expertise")
+                .containsEntry("legalBasisRef", "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202");
+
+        DomainCatalogResponse.DomainBindingItem actionBinding = catalog.bindings().stream()
+                .filter(b -> "binding:ergon.afastamentos.action.homologar-pericia:workflow-action".equals(b.bindingKey()))
+                .findFirst().orElseThrow();
+        assertThat(actionBinding.target())
+                .containsEntry("legalPurpose", "official_health_expertise")
+                .containsEntry("legalBasisRef", "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202");
     }
 
     private OptionSourceRegistry optionSources() {
@@ -931,6 +1529,9 @@ class SemanticDomainCatalogServiceTest {
 
         @Override
         public List<ActionDefinition> findByResourceKey(String resourceKey) {
+            if ("unknown.resource".equals(resourceKey)) {
+                return List.of();
+            }
             return List.of(new ActionDefinition(
                     "mark-paid",
                     resourceKey,
@@ -970,6 +1571,9 @@ class SemanticDomainCatalogServiceTest {
 
         @Override
         public List<SurfaceDefinition> findByResourceKey(String resourceKey) {
+            if ("unknown.resource".equals(resourceKey)) {
+                return List.of();
+            }
             return List.of(new SurfaceDefinition(
                     "payment-schedule",
                     resourceKey,
@@ -1108,6 +1712,11 @@ class SemanticDomainCatalogServiceTest {
                             )
                     )
             ));
+        }
+
+        @Override
+        public JsonNode getDocumentForGroupStrict(String groupName) {
+            return getDocumentForGroup(groupName);
         }
 
         @Override

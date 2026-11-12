@@ -45,7 +45,8 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /** Real TCP + Springdoc + PostgreSQL/JPA + protected proposal/receipt flow, isolated from any host. */
-@SpringBootTest(classes = E2eFixtureApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "springdoc.cache.disabled=true")
+@SpringBootTest(classes = E2eFixtureApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {"springdoc.cache.disabled=true", "springdoc.pre-loading-enabled=true"})
 @ActiveProfiles("e2e-h2") @DirtiesContext
 @Import({BulkDeclarativeJpaHttpTest.ItemController.class, BulkDeclarativeJpaHttpTest.Config.class})
 class BulkDeclarativeJpaHttpTest {
@@ -322,7 +323,7 @@ class BulkDeclarativeJpaHttpTest {
                     new org.praxisplatform.rules.contract.RuleSetRef("fixture", "items", "items.rename", "update", 1), List.of("draft"),
                     List.of(new org.praxisplatform.rules.contract.DecisionSlot("name", org.praxisplatform.rules.contract.DecisionStage.DOMAIN_DECISION,
                             org.praxisplatform.rules.contract.SlotCardinality.SINGLE, org.praxisplatform.rules.contract.OverridePolicy.FORBIDDEN,
-                            org.praxisplatform.rules.contract.DecisionAggregationPolicy.SINGLE_RESULT, null)),
+                            org.praxisplatform.rules.contract.DecisionAggregationPolicy.SINGLE_RESULT, null, java.util.List.of())),
                     List.of(new org.praxisplatform.rules.contract.DecisionBinding("name.product", "name", org.praxisplatform.rules.contract.DecisionSource.PRODUCT, null,
                             new org.praxisplatform.rules.contract.RuleExecutorRef(org.praxisplatform.rules.contract.RuleExecutorType.JSON_LOGIC, null, "1.0",
                                     json.valueToTree(Map.of("==", List.of(Map.of("var", "draft.valid"), true)))), List.of(), 0, true,
@@ -390,9 +391,9 @@ class BulkDeclarativeJpaHttpTest {
             };
             var command = new BulkDomainCommandAdapter<Long>() {
                 public BulkDomainResourceAdapter.Candidate evaluate(Long id, String version, JsonNode parameters) {
-                    return adapter.evaluate(id, version, List.of(new BulkFieldChange("name", BulkChangeOperator.SET, parameters.path("name"))), BulkMode.UNIFORM_UPDATE, fields);
+                    return adapter.evaluate(id, version, List.of(new BulkFieldChange("name", BulkChangeOperator.SET, parameters.path("name"))), org.praxisplatform.uischema.service.base.ResourceMutationContext.bulkEvaluation(BulkMode.UNIFORM_UPDATE,java.time.Instant.EPOCH), fields);
                 }
-                public void execute(Long id, String version, JsonNode plan) { adapter.update(id, version, plan); }
+                public void execute(Long id, String version, JsonNode plan) { adapter.update(id, version, plan, org.praxisplatform.uischema.service.base.ResourceMutationContext.bulkConfirmation(BulkMode.UNIFORM_UPDATE,java.time.Instant.EPOCH)); }
             };
             return new JpaResourceBulkEngine<>(store.runtime, lifecycle, adapter, BulkIdentityCodecs.longs(), fields, mapper, policy,
                     new BulkReadCursorConfiguration("fixture", Map.of("fixture", new javax.crypto.spec.SecretKeySpec(new byte[32], "AES")), Duration.ofMinutes(5)), Map.of(COMMAND, command));

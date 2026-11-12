@@ -191,6 +191,15 @@ existência e acesso. Declare a mesma chave semântica do controller no serviço
 de resolução. Chaves ambíguas falham explicitamente. O provider é substituível por bean do host;
 `ResourceStateSnapshotScope` mantém a deduplicação por request/recurso.
 
+Discovery de item e consultas de coleções filhas verificam o item pai por
+`assertItemAccessible(id)`. A implementação padrão da interface delega a `findById`;
+a base canônica evita a montagem e o enriquecimento do DTO quando não existe override
+desse método. Acesso e existência continuam sendo validados por `findEntityById`.
+Overrides do host, inclusive por proxies de interface, mantêm suas verificações.
+Em capabilities, o snapshot obtido nessa verificação é reutilizado apenas no
+`ResourceStateSnapshotScope` corrente, identificado por serviço e ID. Não há cache
+de autorização entre requisições nem compartilhamento de estado entre itens.
+
 Os quatro modos de stats retornam `AUTO` quando o registry não é vazio. Elegibilidade dos campos,
 infraestrutura e limites continuam determinando as capabilities executáveis.
 

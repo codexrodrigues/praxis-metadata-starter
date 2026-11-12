@@ -2,7 +2,7 @@
 
 Status: candidato da [issue #303](https://github.com/codexrodrigues/praxis-metadata-starter/issues/303),
 sujeito a revisão arquitetural. Esta documentação descreve o código do candidato;
-não declara release publicada ou adoção no Quickstart, Angular ou Policy Studio.
+não declara release publicada ou adoção no Quickstart, Angular ou Rules Studio.
 
 ## Fonte canônica e fronteiras
 
@@ -247,9 +247,22 @@ Declare `@ResourceFact` em um tipo ou método de bean Spring:
 ```java
 @ResourceFact(key = "serviceYears", resourceKey = "hr.employees",
         label = "Tempo de serviço", dataType = "number", unit = "years",
-        parameters = {"employeeId", "referenceDate"}, sourceKind = "computed")
+        parameters = {"employeeId", "referenceDate"}, sourceKind = "computed",
+        authority = "server_computed", evaluationPhase = "post_read",
+        missingValuePolicy = "fail_closed", scope = "item", clientOverridable = false)
 public class EmployeeFactsMetadata {}
 ```
+
+Cada `@ResourceFact` e `ResourceFactDescriptor` publica explicitamente seus metadados de autoridade e ciclo de avaliação no nó `fact` de `/schemas/domain`:
+
+- `authority`: `"server_computed"` (padrão) ou `"persisted_column"` — fatos nunca aceitam autoridade do cliente;
+- `evaluationPhase`: `"post_read"` (padrão), `"pre_write"` ou `"query_projection"`;
+- `missingValuePolicy`: `"fail_closed"` (padrão), `"null_allowed"` ou `"default_value"`;
+- `scope`: `"item"` (padrão) ou `"collection"`;
+- `clientOverridable`: `false` (invariante auditada por `SemanticMetadataReviewer.reviewResourceFacts`);
+- `cacheable`: booleano indicando se o fato computado pode ser memoizado dentro do snapshot de avaliação (`EvaluationContextSnapshot`);
+- `searchPushdownSupported` e `pushdownStrategy` (`"none"`, `"persisted_column"`, `"sql_expression"`, `"correlated_subquery"`): governam a elegibilidade do fato para *pushdown* de predicados em `SEARCH` (`DataScopePlan` / `QueryableResourceProjection`);
+- `requiredFacts`: caminhos SARC de fatos ou atributos dos quais o cálculo depende.
 
 O provider de annotations inspeciona declarações sem executar os métodos e sem
 instanciar beans lazy. Recupera a classe original de proxies Spring e os metadados

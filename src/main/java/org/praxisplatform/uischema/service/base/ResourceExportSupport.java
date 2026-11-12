@@ -1,9 +1,14 @@
 package org.praxisplatform.uischema.service.base;
 
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
+import org.praxisplatform.uischema.annotation.DomainLineage;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.exporting.CollectionExportField;
 import org.praxisplatform.uischema.exporting.CollectionExportFieldPresentation;
+import org.praxisplatform.uischema.schema.DomainLineageResolver;
+import org.praxisplatform.uischema.schema.DomainSchemaGovernance;
 
 import java.lang.reflect.*;
 import java.time.*;
@@ -14,6 +19,16 @@ import org.springframework.core.ResolvableType;
 final class ResourceExportSupport {
     private ResourceExportSupport() { }
 
+    private static ObjectNode toGovernanceNode(DomainGovernance governance) {
+        return DomainLineageResolver.toGovernanceNode(governance);
+    }
+
+    private static final ClassValue<ObjectNode> TYPE_GOVERNANCE = new ClassValue<>() {
+        @Override protected ObjectNode computeValue(Class<?> type) {
+            return DomainLineageResolver.resolveTypeGovernance(type);
+        }
+    };
+
     private record Property(Class<?> type, List<AnnotatedElement> elements) {
         ResolvableType resolvedType(ResolvableType owner) {
             AnnotatedElement element = elements.getFirst();
@@ -21,11 +36,38 @@ final class ResourceExportSupport {
                     : ResolvableType.forType(((Method) element).getGenericReturnType(), owner);
         }
         <A extends java.lang.annotation.Annotation> A annotation(Class<A> type) {
-            return elements.stream().map(element -> element.getAnnotation(type)).filter(Objects::nonNull).findFirst().orElse(null);
+            return elements.stream().map(element -> org.praxisplatform.uischema.extension.ResolverUtils.getAnnotation(type, element.getAnnotations())).filter(Objects::nonNull).findFirst().orElse(null);
         }
-        boolean exportable() {
-            return elements.stream().map(element -> element.getAnnotation(DomainGovernance.class)).filter(Objects::nonNull)
-                    .allMatch(g -> g.exportable() && Arrays.stream(g.complianceTags()).noneMatch("NON_EXPORTABLE"::equalsIgnoreCase));
+        ObjectNode effectiveGovernance(Class<?> ownerType) {
+            ObjectNode ownerGov = ownerType != null ? TYPE_GOVERNANCE.get(ownerType) : null;
+            ObjectNode combined = ownerGov;
+            DomainGovernance primaryLocalGov = annotation(DomainGovernance.class);
+            List<DomainLineage> lineages = new ArrayList<>(
+                    elements.stream()
+                            .map(element -> org.praxisplatform.uischema.extension.ResolverUtils.getAnnotation(DomainLineage.class, element.getAnnotations()))
+                            .filter(Objects::nonNull)
+                            .toList());
+            Collections.reverse(lineages);
+            for (DomainLineage lineage : lineages) {
+                DomainLineageResolver.ResolvedLineage resolved =
+                        DomainLineageResolver.resolve(lineage, primaryLocalGov, ownerGov);
+                if (resolved.weakeningAttempted()) {
+                    throw new IllegalArgumentException(resolved.weakeningReason());
+                }
+                combined = DomainSchemaGovernance.mergeOrCopy(
+                        combined,
+                        resolved.effectiveGovernance());
+            }
+            List<DomainGovernance> declarations = new ArrayList<>(
+                    elements.stream().map(element -> org.praxisplatform.uischema.extension.ResolverUtils.getAnnotation(DomainGovernance.class, element.getAnnotations())).filter(Objects::nonNull).toList());
+            Collections.reverse(declarations);
+            for (DomainGovernance g : declarations) {
+                combined = DomainSchemaGovernance.mergeOrCopy(combined, toGovernanceNode(g));
+            }
+            if (type != null && !scalar(type)) {
+                combined = DomainSchemaGovernance.mergeOrCopy(combined, TYPE_GOVERNANCE.get(type));
+            }
+            return combined;
         }
     }
 
@@ -49,7 +91,7 @@ final class ResourceExportSupport {
                             && ((m.getName().startsWith("get") && m.getName().length() > 3)
                             || (m.getName().startsWith("is") && m.getName().length() > 2
                                 && (m.getReturnType() == boolean.class || m.getReturnType() == Boolean.class)));
-                    if (!types.containsKey(name) && !beanGetter && m.getAnnotation(UISchema.class) == null && m.getAnnotation(DomainGovernance.class) == null) continue;
+                    if (!types.containsKey(name) && !beanGetter && org.praxisplatform.uischema.extension.ResolverUtils.getAnnotation(UISchema.class, m.getAnnotations()) == null && org.praxisplatform.uischema.extension.ResolverUtils.getAnnotation(DomainGovernance.class, m.getAnnotations()) == null && org.praxisplatform.uischema.extension.ResolverUtils.getAnnotation(DomainLineage.class, m.getAnnotations()) == null) continue;
                     types.putIfAbsent(name, m.getReturnType());
                     elements.computeIfAbsent(name, ignored -> new ArrayList<>()).add(m);
                 }
@@ -63,7 +105,7 @@ final class ResourceExportSupport {
                         ? java.beans.Introspector.decapitalize(method.getName().substring(3))
                         : method.getName().startsWith("is") && method.getName().length() > 2
                         ? java.beans.Introspector.decapitalize(method.getName().substring(2)) : method.getName();
-                if (!types.containsKey(name) && method.getAnnotation(UISchema.class) == null && method.getAnnotation(DomainGovernance.class) == null) continue;
+                if (!types.containsKey(name) && org.praxisplatform.uischema.extension.ResolverUtils.getAnnotation(UISchema.class, method.getAnnotations()) == null && org.praxisplatform.uischema.extension.ResolverUtils.getAnnotation(DomainGovernance.class, method.getAnnotations()) == null && org.praxisplatform.uischema.extension.ResolverUtils.getAnnotation(DomainLineage.class, method.getAnnotations()) == null) continue;
                 types.putIfAbsent(name, method.getReturnType());
                 elements.computeIfAbsent(name, ignored -> new ArrayList<>()).add(method);
             }
@@ -76,14 +118,27 @@ final class ResourceExportSupport {
     static boolean exportable(Class<?> type, String path) {
         if (type == null || path == null || path.isBlank()) return false;
         ResolvableType resolved = ResolvableType.forClass(type);
-        for (String part : path.split("\\.")) {
-            Class<?> raw = resolved.resolve();
-            if (raw == null) return false;
-            Property property = PROPERTIES.get(raw).get(part);
-            if (property == null || !property.exportable()) return false;
-            resolved = property.resolvedType(resolved);
+        ObjectNode accumulatedGovernance;
+        try {
+            accumulatedGovernance = TYPE_GOVERNANCE.get(type);
+            if (!DomainSchemaGovernance.isExportable(accumulatedGovernance)) return false;
+            for (String part : path.split("\\.")) {
+                Class<?> raw = resolved.resolve();
+                if (raw == null) return false;
+                accumulatedGovernance = DomainSchemaGovernance.mergeOrCopy(accumulatedGovernance, TYPE_GOVERNANCE.get(raw));
+                if (!DomainSchemaGovernance.isExportable(accumulatedGovernance)) return false;
+                Property property = PROPERTIES.get(raw).get(part);
+                if (property == null) return false;
+                accumulatedGovernance = DomainSchemaGovernance.mergeOrCopy(
+                        accumulatedGovernance,
+                        property.effectiveGovernance(raw));
+                if (!DomainSchemaGovernance.isExportable(accumulatedGovernance)) return false;
+                resolved = property.resolvedType(resolved);
+            }
+            return !hasRestrictedDescendant(resolved, accumulatedGovernance, new HashSet<>());
+        } catch (IllegalArgumentException ex) {
+            return false;
         }
-        return !hasRestrictedDescendant(resolved, new HashSet<>());
     }
 
     private static boolean scalar(Class<?> type) {
@@ -94,27 +149,32 @@ final class ResourceExportSupport {
                 || (type.getName().startsWith("java.") && (Date.class.isAssignableFrom(type) || Calendar.class.isAssignableFrom(type)));
     }
 
-    private static boolean hasRestrictedDescendant(ResolvableType type, Set<String> visited) {
+    private static boolean hasRestrictedDescendant(ResolvableType type, ObjectNode ancestorGovernance, Set<String> visited) {
         Class<?> raw = type.resolve();
         if (raw == null || raw == Object.class || com.fasterxml.jackson.databind.JsonNode.class.isAssignableFrom(raw)) return true; // Opaque JSON cannot prove field governance.
-        if (scalar(raw)) return false;
+        if (scalar(raw)) return !DomainSchemaGovernance.isExportable(ancestorGovernance);
         String shape = type.toString();
         if (visited.contains(shape)) return false;
         if (visited.size() >= 128) return true;
         visited.add(shape);
-        if (type.isArray()) return hasRestrictedDescendant(type.getComponentType(), visited);
+        if (type.isArray()) return hasRestrictedDescendant(type.getComponentType(), ancestorGovernance, visited);
         if (Map.class.isAssignableFrom(raw)) {
             var map = type.as(Map.class);
-            return hasRestrictedDescendant(map.getGeneric(0), visited) || hasRestrictedDescendant(map.getGeneric(1), visited);
+            return hasRestrictedDescendant(map.getGeneric(0), ancestorGovernance, visited)
+                    || hasRestrictedDescendant(map.getGeneric(1), ancestorGovernance, visited);
         }
-        if (Iterable.class.isAssignableFrom(raw)) return hasRestrictedDescendant(type.as(Iterable.class).getGeneric(0), visited);
-        if (Optional.class.isAssignableFrom(raw)) return hasRestrictedDescendant(type.as(Optional.class).getGeneric(0), visited);
+        if (Iterable.class.isAssignableFrom(raw)) return hasRestrictedDescendant(type.as(Iterable.class).getGeneric(0), ancestorGovernance, visited);
+        if (Optional.class.isAssignableFrom(raw)) return hasRestrictedDescendant(type.as(Optional.class).getGeneric(0), ancestorGovernance, visited);
         if (java.util.concurrent.atomic.AtomicReference.class.isAssignableFrom(raw))
-            return hasRestrictedDescendant(type.as(java.util.concurrent.atomic.AtomicReference.class).getGeneric(0), visited);
+            return hasRestrictedDescendant(type.as(java.util.concurrent.atomic.AtomicReference.class).getGeneric(0), ancestorGovernance, visited);
         if (raw.getName().startsWith("java.")) return true;
         if (hasDynamicJsonShape(raw)) return true;
+        ObjectNode typeGovernance = DomainSchemaGovernance.mergeOrCopy(ancestorGovernance, TYPE_GOVERNANCE.get(raw));
+        if (!DomainSchemaGovernance.isExportable(typeGovernance)) return true;
         for (Property property : PROPERTIES.get(raw).values()) {
-            if (!property.exportable() || hasRestrictedDescendant(property.resolvedType(type), visited)) return true;
+            ObjectNode propertyGovernance = DomainSchemaGovernance.mergeOrCopy(typeGovernance, property.effectiveGovernance(raw));
+            if (!DomainSchemaGovernance.isExportable(propertyGovernance)
+                    || hasRestrictedDescendant(property.resolvedType(type), propertyGovernance, visited)) return true;
         }
         return false;
     }
@@ -137,37 +197,66 @@ final class ResourceExportSupport {
 
     /** Checks concrete values too: a permitted declared base type must not hide a restricted subtype. */
     static Object requireExportableValue(Object value) {
-        checkValue(value, Collections.newSetFromMap(new IdentityHashMap<>()));
+        checkValue(value, null, Collections.newSetFromMap(new IdentityHashMap<>()));
         return value;
     }
 
-    private static void checkValue(Object value, Set<Object> visited) {
+    private static void checkValue(Object value, ObjectNode ancestorGovernance, Set<Object> visited) {
         if (value == null) return;
         if (value instanceof com.fasterxml.jackson.databind.JsonNode || hasDynamicJsonShape(value.getClass()))
             throw new IllegalArgumentException("Dynamic JSON values require a typed export projection");
-        if (scalar(value.getClass()) || !visited.add(value)) return;
-        if (value instanceof Map<?, ?> map) {
-            map.forEach((key, item) -> { checkValue(key, visited); checkValue(item, visited); }); return;
+        if (scalar(value.getClass())) {
+            if (!DomainSchemaGovernance.isExportable(ancestorGovernance)) {
+                throw new IllegalArgumentException("Export value contains a restricted property");
+            }
+            return;
         }
-        if (value instanceof Iterable<?> items) { items.forEach(item -> checkValue(item, visited)); return; }
-        if (value instanceof Optional<?> optional) { optional.ifPresent(item -> checkValue(item, visited)); return; }
-        if (value instanceof java.util.concurrent.atomic.AtomicReference<?> reference) { checkValue(reference.get(), visited); return; }
+        if (!visited.add(value)) return;
+        if (value instanceof Map<?, ?> map) {
+            map.forEach((key, item) -> { checkValue(key, ancestorGovernance, visited); checkValue(item, ancestorGovernance, visited); }); return;
+        }
+        if (value instanceof Iterable<?> items) { items.forEach(item -> checkValue(item, ancestorGovernance, visited)); return; }
+        if (value instanceof Optional<?> optional) { optional.ifPresent(item -> checkValue(item, ancestorGovernance, visited)); return; }
+        if (value instanceof java.util.concurrent.atomic.AtomicReference<?> reference) { checkValue(reference.get(), ancestorGovernance, visited); return; }
         if (value.getClass().isArray()) {
-            for (int i = 0; i < Array.getLength(value); i++) checkValue(Array.get(value, i), visited);
+            for (int i = 0; i < Array.getLength(value); i++) checkValue(Array.get(value, i), ancestorGovernance, visited);
             return;
         }
         if (value.getClass().getName().startsWith("java.")) throw new IllegalArgumentException("Opaque values cannot be exported");
+        ObjectNode objectGovernance = DomainSchemaGovernance.mergeOrCopy(ancestorGovernance, TYPE_GOVERNANCE.get(value.getClass()));
+        if (!DomainSchemaGovernance.isExportable(objectGovernance)) {
+            throw new IllegalArgumentException("Export value contains a restricted property");
+        }
         for (var entry : PROPERTIES.get(value.getClass()).entrySet()) {
-            if (!entry.getValue().exportable()) throw new IllegalArgumentException("Export value contains a restricted property");
-            checkValue(ResourceKeysetSupport.read(value, entry.getKey()), visited);
+            ObjectNode propertyGovernance = DomainSchemaGovernance.mergeOrCopy(
+                    objectGovernance,
+                    entry.getValue().effectiveGovernance(value.getClass()));
+            if (!DomainSchemaGovernance.isExportable(propertyGovernance)) {
+                throw new IllegalArgumentException("Export value contains a restricted property");
+            }
+            checkValue(ResourceKeysetSupport.read(value, entry.getKey()), propertyGovernance, visited);
         }
     }
 
     static List<CollectionExportField> defaults(Class<?> type) {
+        return buildExportFields(type, false);
+    }
+
+    /**
+     * Derives all exportable {@link CollectionExportField}s from {@code @UISchema} and
+     * {@code @DomainGovernance} on {@code type}, including {@code tableHidden = true} fields with
+     * {@code defaultSelected = false} ({@code selectable = true}).
+     */
+    public static List<CollectionExportField> allExportableFields(Class<?> type) {
+        return buildExportFields(type, true);
+    }
+
+    private static List<CollectionExportField> buildExportFields(Class<?> type, boolean includeTableHidden) {
         if (type == null) return List.of();
         return PROPERTIES.get(type).entrySet().stream()
                 .filter(entry -> entry.getValue().annotation(UISchema.class) != null)
-                .filter(entry -> !entry.getValue().annotation(UISchema.class).tableHidden() && exportable(type, entry.getKey()))
+                .filter(entry -> (includeTableHidden || !entry.getValue().annotation(UISchema.class).tableHidden())
+                        && exportable(type, entry.getKey()))
                 .sorted(Comparator.comparingInt(entry -> entry.getValue().annotation(UISchema.class).order()))
                 .map(entry -> {
                     Property property = entry.getValue();
@@ -175,10 +264,10 @@ final class ResourceExportSupport {
                     String semantic = null, format = null, currency = null;
                     if (property.type() == LocalDate.class) { semantic = "date"; format = "dd/MM/yyyy"; }
                     else if (property.type() == LocalDateTime.class) { semantic = "datetime"; format = "dd/MM/yyyy HH:mm"; }
-                    else if (ui.controlType().name().equals("CURRENCY_INPUT")) { semantic = "currency"; }
+                    else if (ui.controlType().name().equals("CURRENCY_INPUT") || ui.preset() == org.praxisplatform.uischema.extension.annotation.UISchemaPreset.MONETARY_AMOUNT) { semantic = "currency"; currency = "BRL"; }
                     else if (property.type() == Boolean.class || property.type() == boolean.class) semantic = "boolean";
                     return new CollectionExportField(entry.getKey(), ui.label().isBlank() ? entry.getKey() : ui.label(),
-                            true, true, property.type().getSimpleName(), entry.getKey(), format,
+                            !ui.tableHidden(), true, property.type().getSimpleName(), entry.getKey(), format,
                             new CollectionExportFieldPresentation(semantic, format, currency, null, null,
                                     ui.labelTrue().isBlank() ? null : ui.labelTrue(), ui.labelFalse().isBlank() ? null : ui.labelFalse(), null));
                 }).toList();

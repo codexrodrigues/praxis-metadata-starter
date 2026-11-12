@@ -33,10 +33,60 @@ public record SurfaceDefinition(
         List<String> requiredAuthorities,
         List<String> allowedStates,
         List<String> tags,
-        RelatedResourceSurface relatedResource
+        RelatedResourceSurface relatedResource,
+        String legalPurpose,
+        String legalBasisRef
 ) {
     public SurfaceDefinition {
         icon = icon != null && !icon.isBlank() ? icon.trim() : null;
+        legalPurpose = legalPurpose != null && !legalPurpose.isBlank() ? legalPurpose.trim() : null;
+        legalBasisRef = legalBasisRef != null && !legalBasisRef.isBlank() ? legalBasisRef.trim() : null;
+    }
+
+    public SurfaceDefinition(
+            String id,
+            String resourceKey,
+            String resourcePath,
+            String group,
+            SurfaceKind kind,
+            SurfaceScope scope,
+            String title,
+            String description,
+            String intent,
+            String icon,
+            String schemaType,
+            SurfaceResponseCardinality responseCardinality,
+            CanonicalOperationRef operation,
+            CanonicalSchemaRef schema,
+            int order,
+            List<String> requiredAuthorities,
+            List<String> allowedStates,
+            List<String> tags,
+            RelatedResourceSurface relatedResource
+    ) {
+        this(
+                id,
+                resourceKey,
+                resourcePath,
+                group,
+                kind,
+                scope,
+                title,
+                description,
+                intent,
+                icon,
+                schemaType,
+                responseCardinality,
+                operation,
+                schema,
+                order,
+                requiredAuthorities,
+                allowedStates,
+                tags,
+                relatedResource,
+                null,
+                null
+        );
     }
 
     public SurfaceDefinition(
@@ -78,7 +128,9 @@ public record SurfaceDefinition(
                 requiredAuthorities,
                 allowedStates,
                 tags,
-                relatedResource
+                relatedResource,
+                null,
+                null
         );
     }
 
@@ -120,6 +172,8 @@ public record SurfaceDefinition(
                 requiredAuthorities,
                 allowedStates,
                 tags,
+                null,
+                null,
                 null
         );
     }

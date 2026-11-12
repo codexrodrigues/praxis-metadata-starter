@@ -5,10 +5,21 @@
   "identity": {
     "keyField": "code",
     "titleField": "name",
+    "subtitleField": "categoryLabel",
     "metadataFields": ["type", "mnemonic"],
     "displayLabelField": "displayLabel",
     "valid": true
   },
+  "quickFilters": [
+    {
+      "id": "active",
+      "label": "Ativos",
+      "filter": { "statuses": ["ACTIVE"], "enabled": true },
+      "icon": "check_circle",
+      "tone": "success",
+      "description": "Registros operacionais ativos e homologados."
+    }
+  ],
   "capabilities": {
     "create": true,
     "update": true,

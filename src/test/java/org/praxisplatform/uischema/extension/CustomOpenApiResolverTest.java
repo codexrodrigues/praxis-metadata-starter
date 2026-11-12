@@ -1163,6 +1163,38 @@ class CustomOpenApiResolverTest {
         assertEquals("drawer", ref.get("detailPresentation"));
     }
 
+    private static class MonetaryAndPercentPresetRangeDummy {
+        @UISchema(preset = UISchemaPreset.MONETARY_AMOUNT)
+        @org.praxisplatform.uischema.filter.annotation.Filterable(
+                operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.BETWEEN,
+                relation = "salario"
+        )
+        public java.util.List<java.math.BigDecimal> salarioBetween;
+
+        @UISchema(preset = UISchemaPreset.PERCENTAGE_RATE)
+        @org.praxisplatform.uischema.filter.annotation.Filterable(
+                operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.BETWEEN,
+                relation = "aliquota"
+        )
+        public java.util.List<java.math.BigDecimal> aliquotaBetween;
+    }
+
+    @Test
+    void shouldRecognizeMonetaryAndPercentagePresetOnBetweenFilterRangesWithoutExplicitNumericFormat() {
+        Schema<?> schema = resolveEffectiveMicroSchema(MonetaryAndPercentPresetRangeDummy.class);
+        Schema<?> salarioSchema = (Schema<?>) schema.getProperties().get("salarioBetween");
+        assertNotNull(salarioSchema);
+        Map<String, Object> salarioXui = getXui(salarioSchema);
+        assertEquals(FieldControlType.PRICE_RANGE.getValue(), salarioXui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals(NumericFormat.CURRENCY.getValue(), salarioXui.get(FieldConfigProperties.NUMERIC_FORMAT.getValue()));
+
+        Schema<?> aliquotaSchema = (Schema<?>) schema.getProperties().get("aliquotaBetween");
+        assertNotNull(aliquotaSchema);
+        Map<String, Object> aliquotaXui = getXui(aliquotaSchema);
+        assertEquals(FieldControlType.RANGE_SLIDER.getValue(), aliquotaXui.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals(NumericFormat.PERCENT.getValue(), aliquotaXui.get(FieldConfigProperties.NUMERIC_FORMAT.getValue()));
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> getXui(Schema<?> property) {
         assertNotNull(property.getExtensions(), "Extensions should not be null");

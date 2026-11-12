@@ -70,6 +70,150 @@ public final class JpaCriteriaPathSupport {
         return fromPath.join(attributeName, JoinType.LEFT);
     }
 
+    public static Join<?, ?> getOrCreateInnerJoin(From<?, ?> fromPath, String attributeName) {
+        for (Join<?, ?> existing : fromPath.getJoins()) {
+            if (existing.getAttribute() != null
+                    && attributeName.equals(existing.getAttribute().getName())
+                    && existing.getJoinType() == JoinType.INNER) {
+                return existing;
+            }
+        }
+        return fromPath.join(attributeName, JoinType.INNER);
+    }
+
+    /**
+     * Returns {@code true} when {@code fromPath} exposes a real JPA metamodel or Java class
+     * (distinguishing real JPA criteria roots from bare unit-test mocks).
+     */
+    public static boolean hasMetamodelOrJavaType(From<?, ?> fromPath) {
+        if (fromPath == null) {
+            return false;
+        }
+        try {
+            if (fromPath.getModel() != null) {
+                return true;
+            }
+        } catch (RuntimeException ignored) {
+            // Ignore mock exceptions
+        }
+        try {
+            return fromPath.getJavaType() != null;
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * Returns {@code true} when any intermediate association along {@code propertyPath}
+     * traverses a plural/collection attribute ({@code @OneToMany}, {@code @ManyToMany},
+     * {@code @ElementCollection}), which would multiply parent rows if joined directly on the root query.
+     */
+    public static boolean traversesCollectionAssociation(From<?, ?> root, String propertyPath) {
+        if (root == null || propertyPath == null || propertyPath.isBlank() || !propertyPath.contains(".")) {
+            return false;
+        }
+        if (!hasMetamodelOrJavaType(root)) {
+            return false;
+        }
+        String[] parts = propertyPath.split("\\.");
+        ManagedType<?> currentManagedType = null;
+        Class<?> currentJavaType = null;
+        try {
+            Bindable<?> model = root.getModel();
+            if (model instanceof ManagedType<?> mt) {
+                currentManagedType = mt;
+            }
+        } catch (RuntimeException ignored) {
+            // Fall through to reflection
+        }
+        try {
+            currentJavaType = root.getJavaType();
+        } catch (RuntimeException ignored) {
+            // Ignore
+        }
+
+        for (int i = 0; i < parts.length - 1; i++) {
+            String part = parts[i];
+            if (currentManagedType != null) {
+                try {
+                    Attribute<?, ?> attr = currentManagedType.getAttribute(part);
+                    if (attr != null) {
+                        if (attr.isCollection()) {
+                            return true;
+                        }
+                        if (attr instanceof Bindable<?> bindable && bindable.getBindableJavaType() != null) {
+                            currentJavaType = bindable.getBindableJavaType();
+                        } else {
+                            currentJavaType = attr.getJavaType();
+                        }
+                        currentManagedType = null;
+                        continue;
+                    }
+                } catch (RuntimeException ignored) {
+                    currentManagedType = null;
+                }
+            }
+            if (currentJavaType != null) {
+                Field field = findFieldInHierarchy(currentJavaType, part);
+                if (field == null) {
+                    return false;
+                }
+                if (Collection.class.isAssignableFrom(field.getType())
+                        || java.util.Map.class.isAssignableFrom(field.getType())) {
+                    return true;
+                }
+                currentJavaType = field.getType();
+            } else {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Resolves {@code propertyPath} inside a correlated {@code EXISTS} subquery rooted at {@code outerRoot},
+     * using {@code INNER JOIN} across associations so plural collections never multiply outer query rows.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static Path<?> resolveCorrelatedSubqueryPath(
+            jakarta.persistence.criteria.Subquery<?> subquery,
+            Root<?> outerRoot,
+            String propertyPath
+    ) {
+        if (subquery == null || outerRoot == null || propertyPath == null || propertyPath.isBlank()) {
+            return null;
+        }
+        Root correlatedRoot = subquery.correlate((Root) outerRoot);
+        if (correlatedRoot == null) {
+            return null;
+        }
+        String[] parts = propertyPath.split("\\.");
+        Path<?> path = correlatedRoot;
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+            if (i == parts.length - 1) {
+                path = path.get(part);
+            } else if (path instanceof From<?, ?> fromPath && isJoinableAssociation(fromPath, part)) {
+                path = getOrCreateInnerJoin(fromPath, part);
+            } else {
+                path = path.get(part);
+            }
+        }
+        return path;
+    }
+
+    private static Field findFieldInHierarchy(Class<?> ownerClass, String fieldName) {
+        Class<?> current = ownerClass;
+        while (current != null && current != Object.class) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
+    }
+
     public static boolean isJoinableAssociation(From<?, ?> fromPath, String attributeName) {
         if (fromPath == null || attributeName == null || attributeName.isBlank()) {
             return false;

@@ -180,6 +180,9 @@ public abstract class AbstractBaseQueryResourceService<
     @Autowired(required = false)
     private CollectionExportExecutor collectionExportExecutor;
 
+    @Autowired(required = false)
+    private ObjectProvider<ScopedBatchReferenceHydrator> scopedBatchReferenceHydratorProvider;
+
     private static final ClassValue<Optional<java.lang.reflect.AccessibleObject>> VERSION_ACCESSORS = new ClassValue<>() {
         @Override protected Optional<java.lang.reflect.AccessibleObject> computeValue(Class<?> type) {
             for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass()) {
@@ -419,8 +422,27 @@ public abstract class AbstractBaseQueryResourceService<
         } catch (ReflectiveOperationException ex) { throw new IllegalStateException("Cannot read resource @Version", ex); }
     }
 
-    /** Called once for each materialized response batch, inside its read/write transaction. */
-    protected void enrichResponses(List<ResponseDTO> responses) { }
+    /**
+     * Called once for each materialized response batch, inside its read/write transaction.
+     * By default, delegates to {@link #hydrateScopedResourceReferences(List)} so null/blank
+     * {@code @ResourceReference} display fields are batch-resolved within the caller's access scope.
+     */
+    protected void enrichResponses(List<ResponseDTO> responses) {
+        hydrateScopedResourceReferences(responses);
+    }
+
+    /**
+     * Batch-hydrates any null/blank {@code @ResourceReference} display fields across {@code responses}
+     * using at most 1 scoped query per referenced {@code resourceKey} when a {@link ScopedBatchReferenceHydrator}
+     * bean is available in the application context.
+     */
+    protected final List<ResponseDTO> hydrateScopedResourceReferences(List<ResponseDTO> responses) {
+        if (responses == null || responses.isEmpty() || scopedBatchReferenceHydratorProvider == null) {
+            return responses;
+        }
+        ScopedBatchReferenceHydrator hydrator = scopedBatchReferenceHydratorProvider.getIfAvailable();
+        return hydrator != null ? hydrator.hydrate(responses) : responses;
+    }
 
     protected final ResponseDTO enrichSingleResponse(ResponseDTO response) {
         if (response != null) enrichResponses(List.of(response));
@@ -524,6 +546,8 @@ public abstract class AbstractBaseQueryResourceService<
     }
 
     protected List<CollectionExportField> defaultExportFields() { return ResourceExportSupport.defaults(getResponseType()); }
+
+    protected List<CollectionExportField> allExportableFields() { return ResourceExportSupport.allExportableFields(getResponseType()); }
 
     protected List<CollectionExportField> exportFields() { return defaultExportFields(); }
 
@@ -1367,6 +1391,42 @@ public abstract class AbstractBaseQueryResourceService<
         }
         Specification<E> requestedIds = selectionSpecification(ids);
         return repository.findAll(accessSpecification.and(requestedIds));
+    }
+
+    /**
+     * Resolves human-readable display titles for a batch of entity IDs strictly within the
+     * current tenant/access scope ({@link #resolveResourceFilterAccessScope()}).
+     *
+     * <p>Executes a single bounded query via {@link #findEntitiesByIdWithinAccessScope} and never
+     * leaks titles of records outside the caller's authorized scope.</p>
+     */
+    @Transactional(readOnly = true)
+    public Map<ID, String> resolveScopedTitlesByIds(Collection<ID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        Set<ID> distinctIds = ids.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (distinctIds.isEmpty()) {
+            return Map.of();
+        }
+        ResourceFilterAccessScope<E> accessScope = Objects.requireNonNull(
+                resolveResourceFilterAccessScope(),
+                "resolveResourceFilterAccessScope() must return an explicit scope"
+        );
+        List<E> entities = findEntitiesByIdWithinAccessScope(distinctIds, accessScope.specification());
+        assertEntitiesAccessAllowed(entities);
+        Map<ID, String> titles = new LinkedHashMap<>();
+        for (E entity : entities) {
+            E unproxied = unproxyEntity(entity);
+            ID id = extractId(unproxied);
+            String title = computeOptionLabel(unproxied);
+            if (id != null && title != null) {
+                titles.put(id, title);
+            }
+        }
+        return Map.copyOf(titles);
     }
 
     protected record ResourceFilterQuery<E>(

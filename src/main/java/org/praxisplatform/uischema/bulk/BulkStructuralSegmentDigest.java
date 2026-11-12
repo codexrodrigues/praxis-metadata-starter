@@ -21,8 +21,7 @@ final class BulkStructuralSegmentDigest {
     private BulkStructuralSegmentDigest() { }
 
     static String compute(BulkOperationStructuralDescriptor descriptor) {
-        JsonNode content = canonicalContent(descriptor);
-        return BulkCanonicalJson.structuralDescriptorDigest(content);
+        return Objects.requireNonNull(descriptor, "descriptor").structuralRevision();
     }
 
     static JsonNode canonicalContent(BulkOperationStructuralDescriptor descriptor) {

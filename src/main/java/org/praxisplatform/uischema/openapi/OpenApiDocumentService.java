@@ -319,7 +319,8 @@ public interface OpenApiDocumentService {
             return "/";
         }
 
-        String normalized = path.trim().replaceAll("/+", "/");
+        String normalized = path.trim();
+        if (normalized.contains("//")) normalized = OpenApiPathPatterns.SLASHES.matcher(normalized).replaceAll("/");
         if (!normalized.startsWith("/")) {
             normalized = "/" + normalized;
         }
@@ -338,10 +339,18 @@ public interface OpenApiDocumentService {
         String normalizedOperation = normalizeOperation(operation);
         LinkedHashSet<String> matches = new LinkedHashSet<>();
         pathsNode.fieldNames().forEachRemaining(candidatePath -> {
-            if (!requestedSignature.equals(templatedPathSignature(candidatePath))) {
+            if (!hasOperation(pathsNode, candidatePath, normalizedOperation)) {
                 return;
             }
-            if (!hasOperation(pathsNode, candidatePath, normalizedOperation)) {
+            String candidate = normalizeOpenApiPath(candidatePath);
+            int parameter = candidate.indexOf('{');
+            int literalPrefix = parameter < 0 ? candidate.length() : parameter;
+            // A template replacement cannot change the literal prefix. Reject other
+            // resources before allocating regex matchers for all their parameterized routes.
+            if (!requestedSignature.regionMatches(0, candidate, 0, literalPrefix)) return;
+            String signature = parameter < 0 ? candidate
+                    : OpenApiPathPatterns.PARAMETER.matcher(candidate).replaceAll("{}");
+            if (!requestedSignature.equals(signature)) {
                 return;
             }
             matches.add(candidatePath);
@@ -359,7 +368,8 @@ public interface OpenApiDocumentService {
         if (!hasText(normalized)) {
             return null;
         }
-        return normalized.replaceAll("\\{[^}/]+}", "{}");
+        return normalized.indexOf('{') < 0 ? normalized
+                : OpenApiPathPatterns.PARAMETER.matcher(normalized).replaceAll("{}");
     }
 
     private static boolean hasText(String value) {

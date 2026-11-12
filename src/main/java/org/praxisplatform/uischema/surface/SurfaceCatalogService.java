@@ -170,12 +170,27 @@ public class SurfaceCatalogService {
                 scopedResourceId
         ));
         AvailabilityDecision availability = availabilityEvaluator.evaluate(definition, context);
+        String effectiveTitle = resolveContextualMetadataText(
+                availability,
+                org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService.KEY_CUSTOM_TITLE,
+                definition.title()
+        );
+        String effectiveLegalPurpose = resolveContextualMetadataText(
+                availability,
+                org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService.KEY_LEGAL_PURPOSE,
+                definition.legalPurpose()
+        );
+        String effectiveLegalBasis = resolveContextualMetadataText(
+                availability,
+                org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService.KEY_LEGAL_BASIS,
+                definition.legalBasisRef()
+        );
         return new SurfaceCatalogItem(
                 definition.id(),
                 definition.resourceKey(),
                 definition.kind(),
                 definition.scope(),
-                definition.title(),
+                effectiveTitle,
                 definition.description(),
                 definition.intent(),
                 definition.icon(),
@@ -188,8 +203,20 @@ public class SurfaceCatalogService {
                 availability,
                 definition.order(),
                 definition.tags(),
-                projection == null ? resolveRelatedResource(definition) : projection.related().get(definition)
+                projection == null ? resolveRelatedResource(definition) : projection.related().get(definition),
+                effectiveLegalPurpose,
+                effectiveLegalBasis
         );
+    }
+
+    private String resolveContextualMetadataText(AvailabilityDecision availability, String key, String fallback) {
+        if (availability != null && availability.metadata() != null) {
+            Object candidate = availability.metadata().get(key);
+            if (candidate != null && StringUtils.hasText(candidate.toString())) {
+                return candidate.toString().trim();
+            }
+        }
+        return fallback;
     }
 
     private RelatedResourceSurface resolveRelatedResource(SurfaceDefinition definition) {

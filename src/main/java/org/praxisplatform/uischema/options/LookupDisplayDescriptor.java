@@ -87,6 +87,53 @@ public record LookupDisplayDescriptor(
         statusLabelMap = normalizeMap(statusLabelMap);
     }
 
+    /**
+     * Resolves a list of {@link LookupDisplayFieldDescriptor}s by introspecting {@code @UISchema}
+     * on the given {@code dtoClass} for each property name in {@code propertyPaths}.
+     */
+    public static List<LookupDisplayFieldDescriptor> fieldsFromDto(
+            Class<?> dtoClass, java.util.Collection<String> propertyPaths) {
+        if (propertyPaths == null || propertyPaths.isEmpty()) {
+            return List.of();
+        }
+        return propertyPaths.stream()
+                .map(path -> LookupDisplayFieldDescriptor.fromDtoField(dtoClass, path))
+                .toList();
+    }
+
+    /**
+     * Builds a standard directory {@link LookupDisplayDescriptor} whose display fields are
+     * automatically curated from {@code @UISchema(label, icon)} on {@code dtoClass}.
+     */
+    public static LookupDisplayDescriptor directoryFromDto(
+            Class<?> dtoClass,
+            String primaryPropertyPath,
+            List<String> descriptionPropertyPaths,
+            boolean showStatus,
+            Map<String, String> statusLabelMap) {
+        List<LookupDisplayFieldDescriptor> displayFields =
+                fieldsFromDto(dtoClass, descriptionPropertyPaths);
+        return new LookupDisplayDescriptor(
+                "directory",
+                "form",
+                "comfortable",
+                "inline",
+                "list",
+                primaryPropertyPath,
+                displayFields,
+                descriptionPropertyPaths,
+                List.of(),
+                null,
+                false,
+                true,
+                true,
+                showStatus,
+                false,
+                true,
+                statusLabelMap,
+                0);
+    }
+
     public boolean isEmpty() {
         return preset == null
                 && usage == null

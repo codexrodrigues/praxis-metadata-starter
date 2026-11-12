@@ -32,12 +32,13 @@ public class ResolverUtils {
             return null;
         }
         for (Annotation annotation : annotations) {
-            if (cls.isAssignableFrom(annotation.getClass())) {
+            if (cls.isAssignableFrom(annotation.annotationType()) || cls.isAssignableFrom(annotation.getClass())) {
                 return cls.cast(annotation);
             }
-            if (!visited.contains(annotation.getClass())) {
-                visited.add(annotation.getClass());
-                T meta = getAnnotation(cls, visited, annotation.annotationType().getAnnotations());
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (!visited.contains(annotationType)) {
+                visited.add(annotationType);
+                T meta = getAnnotation(cls, visited, annotationType.getAnnotations());
                 if (meta != null) return meta;
             }
         }

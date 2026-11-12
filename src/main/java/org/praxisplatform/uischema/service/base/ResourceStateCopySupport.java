@@ -1,7 +1,12 @@
 package org.praxisplatform.uischema.service.base;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Embeddable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import org.springframework.beans.BeanUtils;
 
 import java.lang.reflect.*;
@@ -10,6 +15,9 @@ import java.util.*;
 
 /** Detached previous-state values, without implicit traversal of managed entity associations. */
 public final class ResourceStateCopySupport {
+    private static final com.fasterxml.jackson.databind.ObjectMapper DEFAULT_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+
     private ResourceStateCopySupport() { }
 
     /**
@@ -20,7 +28,7 @@ public final class ResourceStateCopySupport {
      * @param target full update draft receiving the supplied properties
      */
     public static void copySuppliedPatchProperties(org.praxisplatform.uischema.dto.PartialUpdateInput patch, Object target) {
-        copySuppliedPatchProperties(patch, target, new com.fasterxml.jackson.databind.ObjectMapper());
+        copySuppliedPatchProperties(patch, target, DEFAULT_MAPPER);
     }
 
     /** Uses the HTTP mapper's public JSON names, naming strategy and admitted aliases. */
@@ -75,6 +83,26 @@ public final class ResourceStateCopySupport {
             for (int i = 0; i < Array.getLength(value); i++) Array.set(copy, i, copy(Array.get(value, i), copies));
             return copy;
         }
+        if (type.isRecord()) {
+            try {
+                RecordComponent[] components = type.getRecordComponents();
+                Class<?>[] paramTypes = new Class<?>[components.length];
+                Object[] args = new Object[components.length];
+                for (int i = 0; i < components.length; i++) {
+                    paramTypes[i] = components[i].getType();
+                    Method accessor = components[i].getAccessor();
+                    accessor.setAccessible(true);
+                    args[i] = copy(accessor.invoke(value), copies);
+                }
+                Constructor<?> canonical = type.getDeclaredConstructor(paramTypes);
+                canonical.setAccessible(true);
+                Object copy = canonical.newInstance(args);
+                copies.put(value, copy);
+                return copy;
+            } catch (ReflectiveOperationException ex) {
+                throw new IllegalStateException("Cannot snapshot record value " + type.getName(), ex);
+            }
+        }
         if (type.isAnnotationPresent(Embeddable.class)) {
             Object copy = BeanUtils.instantiateClass(type); copies.put(value, copy);
             copyFields(value, copy, copies); return copy;
@@ -88,9 +116,49 @@ public final class ResourceStateCopySupport {
                 if (Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) continue;
                 try {
                     field.setAccessible(true);
-                    field.set(target, copy(field.get(source), copies));
+                    Object fieldValue = field.get(source);
+                    if (isJpaToOneAssociationField(field)) {
+                        field.set(target, fieldValue != null && org.hibernate.Hibernate.isInitialized(fieldValue) ? fieldValue : null);
+                    } else if (isJpaToManyEntityAssociationField(field)) {
+                        if (fieldValue != null && org.hibernate.Hibernate.isInitialized(fieldValue) && fieldValue instanceof Collection<?> coll) {
+                            Collection<Object> detached = fieldValue instanceof Set<?> ? new LinkedHashSet<>(coll) : new ArrayList<>(coll);
+                            field.set(target, detached);
+                        } else {
+                            field.set(target, null);
+                        }
+                    } else if (field.isAnnotationPresent(ElementCollection.class)) {
+                        field.set(target, fieldValue != null && org.hibernate.Hibernate.isInitialized(fieldValue) ? copy(fieldValue, copies) : null);
+                    } else if (field.isAnnotationPresent(jakarta.persistence.Embedded.class)
+                            || field.isAnnotationPresent(jakarta.persistence.EmbeddedId.class)) {
+                        field.set(target, copyEmbeddedValue(fieldValue, copies));
+                    } else {
+                        field.set(target, copy(fieldValue, copies));
+                    }
                 } catch (ReflectiveOperationException ex) { throw new IllegalStateException("Cannot snapshot resource state", ex); }
             }
         }
+    }
+
+    private static Object copyEmbeddedValue(Object value, IdentityHashMap<Object, Object> copies) {
+        if (value == null) return null;
+        if (copies.containsKey(value)) return copies.get(value);
+        Class<?> type = value.getClass();
+        if (type.isRecord() || type.isAnnotationPresent(Embeddable.class)) {
+            return copy(value, copies);
+        }
+        Object copy = BeanUtils.instantiateClass(type);
+        copies.put(value, copy);
+        copyFields(value, copy, copies);
+        return copy;
+    }
+
+    private static boolean isJpaToOneAssociationField(Field field) {
+        return field.isAnnotationPresent(ManyToOne.class)
+                || field.isAnnotationPresent(OneToOne.class);
+    }
+
+    private static boolean isJpaToManyEntityAssociationField(Field field) {
+        return field.isAnnotationPresent(OneToMany.class)
+                || field.isAnnotationPresent(ManyToMany.class);
     }
 }

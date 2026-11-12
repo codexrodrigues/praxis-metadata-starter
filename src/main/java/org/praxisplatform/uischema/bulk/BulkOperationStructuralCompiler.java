@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -52,6 +53,12 @@ final class BulkOperationStructuralCompiler {
     private final ObjectMapper mapper;
     private final SchemaReferenceResolver schemaReferences;
     private final org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities;
+    private final Object publishedCompilationMonitor = new Object();
+    private Object cachedPublicationToken;
+    private Map<String, Object> cachedGroupTokens;
+    private Map<String, List<ActionDefinition>> cachedActionsByResource;
+    private Runnable cachedMappingValidation;
+    private List<BulkOperationStructuralDescriptor> cachedCompiledDescriptors;
 
     BulkOperationStructuralCompiler(BulkResourceOperationBindings bindings,
             CanonicalOperationResolver operationResolver,
@@ -87,14 +94,73 @@ final class BulkOperationStructuralCompiler {
         }
         List<BulkOperationBinding> declared = bindings.bulkOperations();
         if (declared.isEmpty()) return List.of();
-        Map<String, CanonicalOpenApiGroupSnapshot> snapshots = new java.util.HashMap<>();
-        List<BulkOperationStructuralDescriptor> result = new ArrayList<>(declared.size());
-        for (BulkOperationBinding binding : declared) result.add(compileBinding(binding, snapshots, refreshOpenApi));
-        return List.copyOf(result);
+        Object publication = refreshOpenApi ? null : documents.localPublishedBulkOpenApiPublicationToken();
+        if (publication != null) {
+            synchronized (publishedCompilationMonitor) {
+                if (cachedCompiledDescriptors != null && publication == cachedPublicationToken
+                        && cachedGroupTokens != null && cachedActionsByResource != null
+                        && cachedMappingValidation != null) {
+                    Map<String, Object> groupTokens = groupTokens(cachedGroupTokens.keySet());
+                    if (groupTokens != null && groupTokens.equals(cachedGroupTokens)
+                            && actionsByResource(declared).equals(cachedActionsByResource)) {
+                        cachedMappingValidation.run();
+                        if (publication == documents.localPublishedBulkOpenApiPublicationToken()
+                                && groupTokens.equals(groupTokens(cachedGroupTokens.keySet()))) {
+                            return cachedCompiledDescriptors;
+                        }
+                    }
+                }
+            }
+        }
+        var snapshots = new CanonicalOpenApiGroupSnapshot.CaptureScope(documents, refreshOpenApi);
+        List<BulkOperationStructuralDescriptor> compiled = snapshots.compose(() -> {
+            List<BulkOperationStructuralDescriptor> result = new ArrayList<>(declared.size());
+            for (BulkOperationBinding binding : declared) result.add(compileBinding(binding, snapshots));
+            return List.copyOf(result);
+        });
+        if (publication != null && publication == documents.localPublishedBulkOpenApiPublicationToken()) {
+            java.util.Set<String> groups = new java.util.LinkedHashSet<>();
+            for (BulkOperationStructuralDescriptor descriptor : compiled) groups.add(descriptor.openApiGroup());
+            Map<String, Object> groupTokens = groupTokens(groups);
+            if (groupTokens != null) {
+                Map<String, List<ActionDefinition>> actions = actionsByResource(declared);
+                synchronized (publishedCompilationMonitor) {
+                    if (publication == documents.localPublishedBulkOpenApiPublicationToken()
+                            && groupTokens.equals(groupTokens(groups))) {
+                        cachedPublicationToken = publication;
+                        cachedGroupTokens = groupTokens;
+                        cachedActionsByResource = actions;
+                        cachedMappingValidation = snapshots::validateMappings;
+                        cachedCompiledDescriptors = compiled;
+                    }
+                }
+            }
+        }
+        return compiled;
+    }
+
+    private Map<String, Object> groupTokens(java.util.Set<String> groups) {
+        Map<String, Object> tokens = new LinkedHashMap<>();
+        for (String group : groups) {
+            Object token = documents.groupDocumentCacheToken(group);
+            if (token == null) return null;
+            tokens.put(group, token);
+        }
+        return Map.copyOf(tokens);
+    }
+
+    private Map<String, List<ActionDefinition>> actionsByResource(List<BulkOperationBinding> declared) {
+        Map<String, List<ActionDefinition>> result = new LinkedHashMap<>();
+        for (BulkOperationBinding binding : declared) {
+            if (binding.mode() == BulkMode.DOMAIN_COMMAND && !result.containsKey(binding.resourceKey())) {
+                result.put(binding.resourceKey(), List.copyOf(actionDefinitions.findByResourceKey(binding.resourceKey())));
+            }
+        }
+        return Map.copyOf(result);
     }
 
     private BulkOperationStructuralDescriptor compileBinding(BulkOperationBinding binding,
-            Map<String, CanonicalOpenApiGroupSnapshot> snapshots, boolean refreshOpenApi) {
+            CanonicalOpenApiGroupSnapshot.CaptureScope snapshots) {
         Objects.requireNonNull(binding, "binding");
         if (bindings.bulkOperationFor(binding.confirmationHandler()).orElse(null) != binding) {
             throw invalid("Bulk operation binding was not produced by this validated MVC binding set");
@@ -144,15 +210,15 @@ final class BulkOperationStructuralCompiler {
             pending.add(new PendingOperation(map(role), reference, actual, null));
         }
         pending.add(bodyOperation(BulkOperationStructuralDescriptor.Role.EVALUATION,
-                binding.evaluationOperationId(), binding.evaluationHandler(), binding.resourceKey()));
+                binding.evaluationOperationId(), binding.evaluationHandler()));
         pending.add(bodyOperation(BulkOperationStructuralDescriptor.Role.CONFIRMATION,
-                binding.confirmationOperationId(), binding.confirmationHandler(), binding.resourceKey()));
+                binding.confirmationOperationId(), binding.confirmationHandler()));
 
         String group = pending.getFirst().reference().group();
         if (pending.stream().anyMatch(operation -> !group.equals(operation.reference().group()))) {
             throw invalid("All seven bulk operations must belong to one exact OpenAPI group");
         }
-        CanonicalRequestBodyBinding updateBody = null;
+        CanonicalOperationRef updateReference = null;
         if (binding.mode() != BulkMode.DOMAIN_COMMAND) {
             HandlerMethod source = binding.updateSourceHandler().orElseThrow(() -> invalid("Unit update source is required"));
             String sourceId = binding.updateSourceOperationId().orElseThrow();
@@ -163,12 +229,24 @@ final class BulkOperationStructuralCompiler {
             var reference = operationResolver.resolve(source, mapping);
             if (!sourceId.equals(reference.operationId()) || !"PUT".equals(reference.method()) || !group.equals(reference.group()))
                 throw invalid("Unit update source must be the declared PUT in the same exact group");
-            updateBody = operationResolver.requireResourceRequestBody(binding.resourceKey(), reference, mapper.getTypeFactory());
-            if (!reference.equals(updateBody.operation())) throw invalid("Unit update DTO binding changed operation identity");
+            updateReference = reference;
         }
-        CanonicalOpenApiGroupSnapshot snapshot = snapshots.computeIfAbsent(group, exactGroup -> refreshOpenApi
-                ? CanonicalOpenApiGroupSnapshot.captureFresh(documents, exactGroup)
-                : CanonicalOpenApiGroupSnapshot.capture(documents, exactGroup));
+        CanonicalOpenApiGroupSnapshot snapshot = snapshots.capture(group);
+        List<CanonicalOperationRef> bodyReferences = new ArrayList<>(pending.stream()
+                .filter(operation -> operation.role() == BulkOperationStructuralDescriptor.Role.EVALUATION
+                        || operation.role() == BulkOperationStructuralDescriptor.Role.CONFIRMATION)
+                .map(PendingOperation::reference).toList());
+        if (updateReference != null) bodyReferences.add(updateReference);
+        var bodies = operationResolver.requireResourceRequestBodies(binding.resourceKey(), bodyReferences,
+                mapper.getTypeFactory(), snapshot);
+        if (!bodies.stream().map(CanonicalRequestBodyBinding::operation).toList().equals(bodyReferences))
+            throw invalid("Batch DTO resolver changed operation ordering or identity");
+        pending.replaceAll(operation -> {
+            int index = bodyReferences.indexOf(operation.reference());
+            return index < 0 ? operation : new PendingOperation(operation.role(), operation.reference(),
+                    operation.handler(), bodies.get(index));
+        });
+        CanonicalRequestBodyBinding updateBody = updateReference == null ? null : bodies.getLast();
         List<CanonicalOperationRef> requested = new ArrayList<>(pending.stream().map(PendingOperation::reference).toList());
         if (updateBody != null) requested.add(updateBody.operation());
         List<CanonicalOperationRef> resolved = operationResolver.requireResourceOperations(binding.resourceKey(), requested, snapshot);
@@ -180,6 +258,7 @@ final class BulkOperationStructuralCompiler {
         BulkOperationStructuralDescriptor.Update update = null;
         if (updateBody != null) {
             var request = snapshot.requireRequestSchema(updateBody.operation());
+            var requestSchema = request.schema();
             var projection = snapshot.resolveFilteredProjection(updateBody.operation(), "request", schemaReferences,
                     capabilities, null, null);
             var dto = mapper.getDeserializationConfig().introspect(updateBody.bodyType());
@@ -188,10 +267,10 @@ final class BulkOperationStructuralCompiler {
                     .map(com.fasterxml.jackson.databind.introspect.BeanPropertyDefinition::getName)
                     .collect(java.util.stream.Collectors.toSet());
             for (String protectedField : binding.protectedUpdateFields()) {
-                if (!dtoFields.contains(protectedField) || !request.schema().path("properties").has(protectedField))
+                if (!dtoFields.contains(protectedField) || !requestSchema.path("properties").has(protectedField))
                     throw invalid("Protected update wire name is absent from the actual DTO or request schema: " + protectedField);
             }
-            var fields = BulkEditableFields.compile(mapper, updateBody.bodyType(), request.schema(), request.specVersion(),
+            var fields = BulkEditableFields.compile(mapper, updateBody.bodyType(), requestSchema, request.specVersion(),
                     binding.protectedUpdateFields());
             if (fields.writableFields(binding.mode()).isEmpty())
                 throw invalid("Declared bulk update mode has no structurally editable fields");
@@ -255,7 +334,7 @@ final class BulkOperationStructuralCompiler {
     }
 
     private PendingOperation bodyOperation(BulkOperationStructuralDescriptor.Role role, String operationId,
-            HandlerMethod handler, String resourceKey) {
+            HandlerMethod handler) {
         if (!bindings.handlerFor(operationId).filter(handler::equals).isPresent()) {
             throw invalid("Body operation does not resolve to its validated MVC handler: " + operationId);
         }
@@ -265,10 +344,7 @@ final class BulkOperationStructuralCompiler {
         if (!operationId.equals(reference.operationId()) || !"POST".equals(reference.method())) {
             throw invalid("Bulk body operation is not the declared POST handler: " + operationId);
         }
-        CanonicalRequestBodyBinding body = operationResolver.requireResourceRequestBody(resourceKey,
-                reference, mapper.getTypeFactory());
-        if (!body.operation().equals(reference)) throw invalid("Request DTO binding changed its operation identity");
-        return new PendingOperation(role, reference, handler, body);
+        return new PendingOperation(role, reference, handler, null);
     }
 
     private ActionDefinition requireAction(BulkOperationBinding binding, WorkflowAction workflow, ApiResource resource,

@@ -31,6 +31,14 @@ public class SemanticDomainCatalogController {
         this.semanticDomainCatalogService = semanticDomainCatalogService;
     }
 
+    public ResponseEntity<DomainCatalogResponse> getDomain(
+            String resourceKey,
+            String resourceKeyAlias,
+            String group
+    ) {
+        return getDomain(resourceKey, resourceKeyAlias, group, false);
+    }
+
     /**
      * Retorna o catalogo semantico por recurso ou grupo documental.
      */
@@ -38,7 +46,8 @@ public class SemanticDomainCatalogController {
     public ResponseEntity<DomainCatalogResponse> getDomain(
             @RequestParam(name = "resource", required = false) String resourceKey,
             @RequestParam(name = "resourceKey", required = false) String resourceKeyAlias,
-            @RequestParam(name = "group", required = false) String group
+            @RequestParam(name = "group", required = false) String group,
+            @RequestParam(name = "strict", defaultValue = "false") boolean strict
     ) {
         if (StringUtils.hasText(resourceKey)
                 && StringUtils.hasText(resourceKeyAlias)
@@ -58,9 +67,13 @@ public class SemanticDomainCatalogController {
             );
         }
 
-        DomainCatalogResponse response = hasResource
-                ? semanticDomainCatalogService.findByResourceKey(resolvedResourceKey)
-                : semanticDomainCatalogService.findByGroup(group);
+        DomainCatalogResponse response = strict
+                ? (hasResource
+                        ? semanticDomainCatalogService.findByResourceKeyStrict(resolvedResourceKey)
+                        : semanticDomainCatalogService.findByGroupStrict(group))
+                : (hasResource
+                        ? semanticDomainCatalogService.findByResourceKey(resolvedResourceKey)
+                        : semanticDomainCatalogService.findByGroup(group));
         return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noCache().cachePrivate())
                 .varyBy("X-Tenant", "X-Tenant-ID").body(response);
     }

@@ -100,6 +100,14 @@ public class ApiResourceIdentityResolver {
         });
     }
 
+    public Optional<Map<String, Object>> resolveCalculationMemory(String canonicalPath, String httpMethod) {
+        return findHandlerMethod(canonicalPath, httpMethod).flatMap(handler -> {
+            Class<?> dto = resolveResponseDtoClass(ResolvableType.forMethodReturnType(
+                    handler.getMethod(), handler.getBeanType()));
+            return Optional.ofNullable(CalculationMemoryMetadataResolver.resolve(dto));
+        });
+    }
+
     public static Map<String, Object> hierarchyMetadata(ResourceHierarchy hierarchy) {
         Map<String, Object> metadata = new java.util.LinkedHashMap<>();
         putHierarchyField(metadata, "parentField", hierarchy.parentField());

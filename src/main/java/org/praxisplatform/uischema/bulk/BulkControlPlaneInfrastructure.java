@@ -61,7 +61,7 @@ public final class BulkControlPlaneInfrastructure {
         TransactionTemplate independent = new TransactionTemplate(transactionManager);
         independent.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         independent.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-        independent.setTimeout(3);
+        independent.setTimeout(5);
         return independent.execute(status -> {
             if (!TransactionSynchronizationManager.isActualTransactionActive()
                     || !TransactionSynchronizationManager.isSynchronizationActive()
@@ -129,7 +129,9 @@ public final class BulkControlPlaneInfrastructure {
         if (transactionManager instanceof AbstractPlatformTransactionManager local
                 && !local.isGlobalRollbackOnParticipationFailure())
             throw new IllegalArgumentException("Control-plane rollback behavior must be fail-closed");
-        if (dataSource instanceof AbstractRoutingDataSource || dataSource instanceof DelegatingDataSource)
+        if (dataSource instanceof AbstractRoutingDataSource
+                || dataSource instanceof DelegatingDataSource
+                || dataSource instanceof SinglePoolSchemaRoutingDataSource)
             throw new IllegalArgumentException("Control plane requires a stable direct datasource binding");
         if (transactionManager instanceof DataSourceTransactionManager jdbcManager) {
             if (jdbcManager.getDataSource() != dataSource)

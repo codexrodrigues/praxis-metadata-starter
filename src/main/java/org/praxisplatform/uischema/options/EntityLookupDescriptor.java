@@ -1,8 +1,11 @@
 package org.praxisplatform.uischema.options;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import org.praxisplatform.uischema.annotation.ResourceIdentity;
 
 /**
  * Entity semantics attached to an option-source when it represents a business lookup.
@@ -100,12 +103,121 @@ public record EntityLookupDescriptor(
         return new DirectoryBuilder(entityKey, codePropertyPath, List.of(descriptionPropertyPaths));
     }
 
+    /**
+     * Starts a rich directory descriptor by auto-deriving {@code codePropertyPath},
+     * {@code descriptionPropertyPaths} ({@code titleField}, {@code subtitleField}, and
+     * {@code metadataFields}), and {@link LookupDisplayDescriptor} field labels/icons/formats
+     * directly from {@link ResourceIdentity} and {@code @UISchema} on {@code responseDtoClass}
+     * ({@code PLAT-EVO-09}).
+     *
+     * @param entityKey canonical resource key of the lookup target
+     * @param responseDtoClass target {@code ResponseDTO} class annotated with {@link ResourceIdentity}
+     * @return pre-populated {@link DirectoryBuilder}
+     */
+    public static DirectoryBuilder directoryBuilderFromDto(String entityKey, Class<?> responseDtoClass) {
+        Objects.requireNonNull(responseDtoClass, "responseDtoClass is required");
+        ResourceIdentity identity = findResourceIdentity(responseDtoClass);
+        if (identity == null) {
+            throw new IllegalArgumentException(
+                    "Missing @ResourceIdentity on DTO class " + responseDtoClass.getName());
+        }
+        String title = normalize(identity.titleField());
+        String code = resolveBusinessCodeField(responseDtoClass, identity, title);
+        if (code == null || title == null) {
+            throw new IllegalArgumentException(
+                    "@ResourceIdentity on " + responseDtoClass.getName() + " must declare non-blank keyField and titleField");
+        }
+        List<String> descriptions = new ArrayList<>();
+        descriptions.add(title);
+        String subtitle = normalize(identity.subtitleField());
+        if (subtitle != null && !subtitle.equals(code) && !descriptions.contains(subtitle)) {
+            descriptions.add(subtitle);
+        }
+        if (identity.metadataFields() != null) {
+            for (String meta : identity.metadataFields()) {
+                String clean = normalize(meta);
+                if (clean != null && !clean.equals(code) && !descriptions.contains(clean)) {
+                    descriptions.add(clean);
+                }
+            }
+        }
+        return new DirectoryBuilder(entityKey, code, descriptions).withDtoMetadata(responseDtoClass);
+    }
+
+    private static String resolveBusinessCodeField(
+            Class<?> dtoClass, ResourceIdentity identity, String titleField) {
+        String keyField = normalize(identity.keyField());
+        String subtitleField = normalize(identity.subtitleField());
+        if (subtitleField != null
+                && !subtitleField.equals(titleField)
+                && hasEnterpriseCodePreset(dtoClass, subtitleField)) {
+            return subtitleField;
+        }
+        for (Class<?> curr = dtoClass; curr != null && curr != Object.class; curr = curr.getSuperclass()) {
+            for (java.lang.reflect.Field f : curr.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.isSynthetic()) {
+                    continue;
+                }
+                String name = f.getName();
+                if (!name.equals(titleField) && isVisibleEnterpriseCode(
+                        f.getAnnotation(org.praxisplatform.uischema.extension.annotation.UISchema.class))) {
+                    return name;
+                }
+            }
+        }
+        return keyField;
+    }
+
+    private static boolean hasEnterpriseCodePreset(Class<?> dtoClass, String propertyName) {
+        for (Class<?> curr = dtoClass; curr != null && curr != Object.class; curr = curr.getSuperclass()) {
+            try {
+                java.lang.reflect.Field f = curr.getDeclaredField(propertyName);
+                if (isVisibleEnterpriseCode(
+                        f.getAnnotation(org.praxisplatform.uischema.extension.annotation.UISchema.class))) {
+                    return true;
+                }
+            } catch (NoSuchFieldException ignored) {
+                // inspect getters and superclass
+            }
+            String getter = "get" + Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
+            try {
+                java.lang.reflect.Method m = curr.getDeclaredMethod(getter);
+                if (isVisibleEnterpriseCode(
+                        m.getAnnotation(org.praxisplatform.uischema.extension.annotation.UISchema.class))) {
+                    return true;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // continue walking hierarchy
+            }
+        }
+        return false;
+    }
+
+    private static boolean isVisibleEnterpriseCode(
+            org.praxisplatform.uischema.extension.annotation.UISchema ui) {
+        return ui != null
+                && ui.preset() == org.praxisplatform.uischema.extension.annotation.UISchemaPreset.ENTERPRISE_CODE
+                && (!ui.tableHidden() || !ui.formHidden());
+    }
+
+    private static ResourceIdentity findResourceIdentity(Class<?> dtoClass) {
+        for (Class<?> curr = dtoClass; curr != null && curr != Object.class; curr = curr.getSuperclass()) {
+            ResourceIdentity ann = curr.getAnnotation(ResourceIdentity.class);
+            if (ann != null) {
+                return ann;
+            }
+        }
+        return null;
+    }
+
     public static final class DirectoryBuilder {
         private final String entityKey, code;
         private final List<String> descriptions;
         private String status, disabled, disabledReason;
         private List<String> search;
         private Map<String, String> dependencies = Map.of();
+        private Map<String, String> statusLabels = Map.of();
+        private Class<?> responseDtoClass;
         private LookupSelectionPolicy selection;
         private LookupCapabilities capabilities = LookupCapabilities.standardDirectory();
         private LookupDetailDescriptor detail;
@@ -113,40 +225,81 @@ public record EntityLookupDescriptor(
         private LookupFilteringDescriptor filtering;
 
         private DirectoryBuilder(String entityKey, String code, List<String> descriptions) {
-            if (normalize(entityKey) == null || normalize(code) == null || normalizeList(descriptions).isEmpty())
+            if (normalize(entityKey) == null || normalize(code) == null || normalizeList(descriptions).isEmpty()) {
                 throw new IllegalArgumentException("Directory requires entity, code and description paths");
-            this.entityKey = entityKey; this.code = code; this.descriptions = normalizeList(descriptions);
+            }
+            this.entityKey = entityKey;
+            this.code = code;
+            this.descriptions = normalizeList(descriptions);
             this.search = java.util.stream.Stream.concat(java.util.stream.Stream.of(code), this.descriptions.stream()).distinct().toList();
         }
+
         public DirectoryBuilder status(String path) { status = normalize(path); return this; }
+
+        public DirectoryBuilder statusLabels(Map<String, String> values) {
+            statusLabels = values == null ? Map.of() : normalizeMap(values);
+            return this;
+        }
+
+        public DirectoryBuilder withDtoMetadata(Class<?> dtoClass) {
+            responseDtoClass = Objects.requireNonNull(dtoClass, "dtoClass");
+            return this;
+        }
+
         public DirectoryBuilder disabled(String path, String reasonPath) { disabled = path; disabledReason = reasonPath; return this; }
         public DirectoryBuilder searchPaths(String... paths) { search = List.of(paths); return this; }
         public DirectoryBuilder dependencies(Map<String, String> values) { dependencies = Map.copyOf(values); return this; }
-        public DirectoryBuilder selectionPolicy(LookupSelectionPolicy value) { selection = java.util.Objects.requireNonNull(value); return this; }
-        public DirectoryBuilder capabilities(LookupCapabilities value) { capabilities = java.util.Objects.requireNonNull(value); return this; }
-        public DirectoryBuilder detail(LookupDetailDescriptor value) { detail = java.util.Objects.requireNonNull(value); return this; }
+        public DirectoryBuilder selectionPolicy(LookupSelectionPolicy value) { selection = Objects.requireNonNull(value); return this; }
+        public DirectoryBuilder capabilities(LookupCapabilities value) { capabilities = Objects.requireNonNull(value); return this; }
+        public DirectoryBuilder detail(LookupDetailDescriptor value) { detail = Objects.requireNonNull(value); return this; }
+
         public DirectoryBuilder detailSurface(String resourceKey, String surfaceId, String previewSurfaceId) {
             detail = new LookupDetailDescriptor(null, null, "drawer", "surface", surfaceId, "drawer", null,
-                    "view", normalize(resourceKey) != null ? normalize(resourceKey) : entityKey, previewSurfaceId); return this;
+                    "view", normalize(resourceKey) != null ? normalize(resourceKey) : entityKey, previewSurfaceId);
+            return this;
         }
+
         public DirectoryBuilder detailSurface(String surfaceId, String previewSurfaceId) {
             detail = new LookupDetailDescriptor(null, null, "drawer", "surface", surfaceId, "drawer", null,
-                    "view", entityKey, previewSurfaceId); return this;
+                    "view", entityKey, previewSurfaceId);
+            return this;
         }
-        public DirectoryBuilder display(LookupDisplayDescriptor value) { display = java.util.Objects.requireNonNull(value); return this; }
-        public DirectoryBuilder filtering(LookupFilteringDescriptor value) { filtering = java.util.Objects.requireNonNull(value); return this; }
+
+        public DirectoryBuilder display(LookupDisplayDescriptor value) { display = Objects.requireNonNull(value); return this; }
+        public DirectoryBuilder filtering(LookupFilteringDescriptor value) { filtering = Objects.requireNonNull(value); return this; }
+
         public EntityLookupDescriptor build() {
             LookupSelectionPolicy effectiveSelection = selection != null ? selection : new LookupSelectionPolicy(null, status,
                     List.of(), List.of(), true, "This record is unavailable for selection", "Select an available record");
             LookupDetailDescriptor effectiveDetail = detail != null ? detail : new LookupDetailDescriptor(null, null, "drawer",
                     "surface", "detail", "drawer", null, "view", entityKey, "detail");
-            List<LookupDisplayFieldDescriptor> fields = new java.util.ArrayList<>();
-            fields.add(new LookupDisplayFieldDescriptor(code, code, null, null, null, null, null));
-            descriptions.forEach(path -> fields.add(new LookupDisplayFieldDescriptor(path, path, null, null, null, null, null)));
-            if (status != null) fields.add(new LookupDisplayFieldDescriptor(status, status, null, null, "badge", null, null));
-            LookupDisplayDescriptor effectiveDisplay = display != null ? display : new LookupDisplayDescriptor("directory", null,
-                    null, null, null, descriptions.getFirst(), fields, descriptions, List.of(), null,
-                    false, true, true, status != null, false, true, Map.of(), null);
+            LookupDisplayDescriptor effectiveDisplay;
+            if (display != null) {
+                effectiveDisplay = display;
+            } else if (responseDtoClass != null) {
+                List<String> curatedPaths = new ArrayList<>();
+                curatedPaths.add(code);
+                for (String desc : descriptions) {
+                    if (!curatedPaths.contains(desc)) {
+                        curatedPaths.add(desc);
+                    }
+                }
+                if (status != null && !curatedPaths.contains(status)) {
+                    curatedPaths.add(status);
+                }
+                List<LookupDisplayFieldDescriptor> dtoFields = LookupDisplayDescriptor.fieldsFromDto(responseDtoClass, curatedPaths);
+                effectiveDisplay = new LookupDisplayDescriptor("directory", "form", "comfortable", "inline", "list",
+                        descriptions.getFirst(), dtoFields, descriptions, List.of(), null,
+                        false, true, true, status != null, false, true, statusLabels, 0);
+            } else {
+                List<LookupDisplayFieldDescriptor> fields = new ArrayList<>();
+                fields.add(new LookupDisplayFieldDescriptor(code, code, null, null, null, null, null));
+                descriptions.forEach(path -> fields.add(new LookupDisplayFieldDescriptor(path, path, null, null, null, null, null)));
+                if (status != null) fields.add(new LookupDisplayFieldDescriptor(status, status, null, null, "badge", null, null));
+                effectiveDisplay = new LookupDisplayDescriptor("directory", null,
+                        null, null, null, descriptions.getFirst(), fields, descriptions, List.of(), null,
+                        false, true, true, status != null, false, true, statusLabels, null);
+            }
             LookupFilteringDescriptor effectiveFiltering = filtering != null ? filtering : new LookupFilteringDescriptor(List.of(), Map.of(),
                     List.of(new LookupSortOption("code", code, "asc", null),
                             new LookupSortOption("description", descriptions.getFirst(), "asc", null)), "description",

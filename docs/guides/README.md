@@ -7,6 +7,7 @@ por pessoas e por LLMs.
 
 Use os guias nesta ordem:
 
+0. [Guia 00 - Blueprint Completo de um Recurso Praxis (20 Pilares e 3 Fases)](GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md)
 1. [Guia 01 - Backend - Aplicacao Nova](GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
 2. [Guia 02 - Backend - Recurso Metadata-Driven](GUIA-02-AI-BACKEND-CRUD-METADATA.md)
 3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)

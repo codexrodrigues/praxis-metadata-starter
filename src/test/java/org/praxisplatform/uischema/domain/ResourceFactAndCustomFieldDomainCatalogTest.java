@@ -37,15 +37,34 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
         assertThat(result.nodes()).filteredOn(n -> "custom_field".equals(n.source())).singleElement().satisfies(n -> {
             assertThat(n.nodeType()).isEqualTo("field");
             assertThat(n.metadata()).containsEntry("fieldName", "customFields.shoe_size");
+            @SuppressWarnings("unchecked")
+            var matchKeys = (Collection<String>) n.resolution().get("matchKeys");
+            assertThat(matchKeys).contains("customFields.shoe_size");
         });
         assertThat(result.nodes()).filteredOn(n -> "resource_fact".equals(n.source())).singleElement().satisfies(n -> {
             assertThat(n.nodeKey()).isEqualTo(RESOURCE + ".fact.tenure");
             assertThat(n.nodeType()).isEqualTo("fact");
-            assertThat(n.metadata()).containsEntry("deterministic", true).containsEntry("unit", "years");
+            assertThat(n.metadata())
+                    .containsEntry("deterministic", true)
+                    .containsEntry("unit", "years")
+                    .containsEntry("authority", "server_computed")
+                    .containsEntry("evaluationPhase", "post_read")
+                    .containsEntry("missingValuePolicy", "fail_closed")
+                    .containsEntry("scope", "item")
+                    .containsEntry("clientOverridable", false);
+            @SuppressWarnings("unchecked")
+            var matchKeys = (Collection<String>) n.resolution().get("matchKeys");
+            assertThat(matchKeys).contains("facts.tenure", "Years of service");
         });
         assertThat(result.edges()).extracting(DomainCatalogResponse.DomainEdgeItem::edgeType).contains("has_field", "provides_fact");
         assertThat(result.bindings()).filteredOn(b -> "resource_fact".equals(b.bindingType())).singleElement()
-                .satisfies(b -> assertThat(b.target()).containsEntry("factPath", "facts.tenure"));
+                .satisfies(b -> assertThat(b.target())
+                        .containsEntry("factPath", "facts.tenure")
+                        .containsEntry("authority", "server_computed")
+                        .containsEntry("evaluationPhase", "post_read")
+                        .containsEntry("missingValuePolicy", "fail_closed")
+                        .containsEntry("scope", "item")
+                        .containsEntry("clientOverridable", false));
         assertThat(result.bindings()).filteredOn(b -> "dto_field".equals(b.bindingType())).singleElement()
                 .satisfies(b -> assertThat(b.target()).containsEntry("fieldName", "customFields.shoe_size"));
         assertThat(result.governance()).hasSize(2).allSatisfy(g -> assertThat(g.classification()).isEqualTo("confidential"));
@@ -113,7 +132,9 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
             assertThat(item.aiUsage()).containsEntry("reason", "Historical evidence requires review")
                     .containsEntry("visibility", "mask").containsEntry("trainingUse", "deny")
                     .containsEntry("ruleAuthoring", "review_required").containsEntry("reasoningUse", "review_required")
-                    .containsEntry("hostPolicy", "case-review");
+                    .containsEntry("hostPolicy", "case-review")
+                    .containsEntry("valueEnforcementScope", "runtime_payload_only")
+                    .containsEntry("catalogMetadataDiscoverable", true);
         });
     }
 
@@ -225,6 +246,107 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
         mvc.perform(get("/schemas/domain").param("resource", RESOURCE).header("X-Tenant-ID", "b"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nodes[?(@.source == 'custom_field')].metadata.fieldName").value("customFields.field_b"));
+        assertThatThrownBy(() -> mvc.perform(get("/schemas/domain")
+                .param("resource", RESOURCE)
+                .param("strict", "true")
+                .header("X-Tenant", "a")))
+                .hasRootCauseInstanceOf(IllegalStateException.class)
+                .hasRootCauseMessage("OpenApiDocumentService is required for strict domain catalog resolution");
+    }
+
+    @Test void rejectsUntrustedFactAuthorityAndFailOpenMissingValuePolicy() {
+        assertThatThrownBy(() -> new ResourceFactDescriptor("tenure", RESOURCE, "Tenure", "", "number", "",
+                Map.of(), true, "computed", Map.of(), "", "", "", List.of(),
+                "client_input", "post_read", "fail_closed", "item"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid resource fact authority");
+        assertThatThrownBy(() -> new ResourceFactDescriptor("tenure", RESOURCE, "Tenure", "", "number", "",
+                Map.of(), true, "computed", Map.of(), "", "", "", List.of(),
+                "client_header", "post_read", "fail_closed", "item"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid resource fact authority");
+        assertThatThrownBy(() -> new ResourceFactDescriptor("tenure", RESOURCE, "Tenure", "", "number", "",
+                Map.of(), true, "computed", Map.of(), "", "", "", List.of(),
+                "server_computed", "unknown_phase", "fail_closed", "item"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid resource fact evaluationPhase");
+        assertThatThrownBy(() -> new ResourceFactDescriptor("tenure", RESOURCE, "Tenure", "", "number", "",
+                Map.of(), true, "computed", Map.of(), "", "", "", List.of(),
+                "server_computed", "post_read", "allow", "item"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid resource fact missingValuePolicy");
+        assertThatThrownBy(() -> new ResourceFactDescriptor("tenure", RESOURCE, "Tenure", "", "number", "",
+                Map.of(), true, "computed", Map.of(), "", "", "", List.of(),
+                "server_computed", "post_read", "fail_closed", "global_unscoped"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid resource fact scope");
+    }
+
+    @Test void composesClassAndMethodGovernancePresetsOnAnnotatedFacts() {
+        var factory = new DefaultListableBeanFactory();
+        factory.registerBeanDefinition("governedFacts", new RootBeanDefinition(GovernedDeclaredFacts.class));
+        var provider = new AnnotationResourceFactCatalogProvider(factory);
+        assertThat(provider.findFacts(RESOURCE, "a")).singleElement().satisfies(f -> {
+            assertThat(f.governance()).containsEntry("classification", "restricted")
+                    .containsEntry("dataCategory", "financial")
+                    .containsEntry("exportable", false);
+        });
+    }
+
+    @Test void projectsQuickFiltersIntoDomainCatalogWithProvenanceAndEdges() {
+        var quickFilterResolver = mock(org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver.class);
+        when(quickFilterResolver.resolveByResourceKey(RESOURCE)).thenReturn(List.of(
+                Map.of(
+                        "id", "ativos-em-folha",
+                        "label", "Ativos em folha",
+                        "description", "Servidores ativos implantados em folha mensal.",
+                        "icon", "check_circle",
+                        "tone", "success",
+                        "isDefault", true,
+                        "filter", Map.of("situacoesIn", List.of("ATIVO"), "apenasFolha", true)
+                )
+        ));
+        when(quickFilterResolver.resolveResourcePathByResourceKey(RESOURCE)).thenReturn(Optional.of("/api/hr/employees"));
+
+        var catalogService = new SemanticDomainCatalogService(
+                mock(ActionDefinitionRegistry.class),
+                mock(SurfaceDefinitionRegistry.class),
+                OptionSourceRegistry.empty(),
+                null,
+                null,
+                Clock.systemUTC(),
+                "test",
+                "Test",
+                "1",
+                null,
+                null,
+                null,
+                null,
+                null,
+                quickFilterResolver
+        );
+
+        var catalog = catalogService.findByResourceKey(RESOURCE);
+        assertThat(catalog.nodes())
+                .filteredOn(n -> "quick_filter".equals(n.nodeType()))
+                .singleElement()
+                .satisfies(node -> {
+                    assertThat(node.nodeKey()).isEqualTo(RESOURCE + ".quickFilter.ativos-em-folha");
+                    assertThat(node.label()).isEqualTo("Ativos em folha");
+                    assertThat(node.description()).isEqualTo("Servidores ativos implantados em folha mensal.");
+                    assertThat(node.metadata())
+                            .containsEntry("quickFilterId", "ativos-em-folha")
+                            .containsEntry("tone", "success")
+                            .containsEntry("isDefault", true)
+                            .containsEntry("filterFields", List.of("situacoesIn", "apenasFolha"));
+                });
+        assertThat(catalog.edges())
+                .extracting(DomainCatalogResponse.DomainEdgeItem::edgeType)
+                .contains("has_quick_filter");
+        assertThat(catalog.bindings())
+                .filteredOn(b -> "quick_filter".equals(b.bindingType()))
+                .singleElement()
+                .satisfies(b -> assertThat(b.nodeKey()).isEqualTo(RESOURCE + ".quickFilter.ativos-em-folha"));
     }
 
     private SemanticDomainCatalogService service(CustomFieldDefinitionProvider fields, ResourceFactCatalogProvider facts,
@@ -260,5 +382,16 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
                 }
         )
         public int tenure() { throw new AssertionError("Catalog must not evaluate facts"); }
+    }
+
+    @org.praxisplatform.uischema.annotation.DomainGovernance(
+            preset = org.praxisplatform.uischema.annotation.DomainGovernancePreset.CONFIDENTIAL_FINANCIAL,
+            reason = "Class-level financial fact container")
+    static class GovernedDeclaredFacts {
+        @ResourceFact(key = "net_pay", resourceKey = RESOURCE, dataType = "number")
+        @org.praxisplatform.uischema.annotation.DomainGovernance(
+                classification = org.praxisplatform.uischema.annotation.DomainClassification.RESTRICTED,
+                reason = "Method-level restricted escalation")
+        public int netPay() { throw new AssertionError("Catalog must not evaluate facts"); }
     }
 }

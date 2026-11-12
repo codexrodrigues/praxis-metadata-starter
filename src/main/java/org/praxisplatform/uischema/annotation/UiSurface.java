@@ -129,4 +129,16 @@ public @interface UiSurface {
      * Operacoes canonicas que o runtime pode oferecer sobre a colecao filha.
      */
     RelatedResourceChildOperation[] relatedChildOperations() default {};
+
+    /**
+     * Finalidade legal canonica de tratamento dos dados projetados ou manipulados nesta surface
+     * (ex.: pericia oficial em saude, administracao funcional, transparencia publica ativa LAI).
+     */
+    LegalTreatmentPurpose legalPurpose() default LegalTreatmentPurpose.UNSPECIFIED;
+
+    /**
+     * Referencia normativa ou artigo legal que fundamenta a finalidade declarada
+     * (ex.: {@code "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202"}).
+     */
+    String legalBasisRef() default "";
 }

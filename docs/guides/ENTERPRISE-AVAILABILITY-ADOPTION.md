@@ -87,9 +87,43 @@ Exemplos:
 - `POST /orders/{id}/actions/cancel`
 
 `@WorkflowAction.allowedStates` e `requiredAuthorities` cobrem restricoes
-declarativas simples. Regras dinamicas devem ficar em uma
-`ActionAvailabilityRule` customizada, usando `ActionAvailabilityContext` e
-`ResourceStateSnapshot` quando a decisao depender do item.
+declarativas simples.
+
+### Atalho Declarativo Zero-Boilerplate via `toResourceStateSnapshot(entity)` (`PLAT-EVO-01`)
+
+Antes de criar classes `@Configuration` ou beans `ActionAvailabilityRule` /
+`SurfaceAvailabilityRule` dedicados por recurso (`*ContextualAvailabilityConfig`),
+prefira sobrescrever `toResourceStateSnapshot(E entity)` diretamente no `Service`
+do recurso e popular as chaves declarativas nativas em `ResourceStateSnapshot.metadata()`:
+
+- Actions (`@WorkflowAction`): `action.<id>.allowed` (`Boolean`), `action.<id>.reason`,
+  `action.<id>.legalBasis`, `action.<id>.legalPurpose`, `action.<id>.customTitle`,
+  `action.<id>.blockedByRule`;
+- Surfaces (`@UiSurface`): `surface.<id>.allowed`, `surface.<id>.reason`,
+  `surface.<id>.legalBasis`, `surface.<id>.legalPurpose`, `surface.<id>.customTitle`,
+  `surface.<id>.blockedByRule`;
+- Operacoes CRUD contextuais de item (`edit`, `delete`, `duplicate-draft`):
+  `operation.<id>.allowed`, `operation.<id>.reason`, `operation.<id>.blockedByRule`;
+- Defaults do recurso: `resource.legalBasis` e `resource.legalPurpose` (aplicados com
+  precedencia deterministica `action.<id>.legalBasis` -> `@WorkflowAction.legalBasisRef`
+  -> `resource.legalBasis`).
+
+`DefaultResourceAvailabilityService` avalia essas chaves automaticamente tanto em
+`GET /{resource}/{id}/capabilities` quanto nos catalogos contextuais e `_links`,
+mantendo fail-closed (`SNAPSHOT_UNAVAILABLE`) quando `allowedStates` for declarado
+sem estado resolvido. Reserve `ActionAvailabilityRule`, `SurfaceAvailabilityRule`
+ou `ContextualResourceActionService` apenas para politicas transversais ou que
+dependam de sistemas externos ao service do recurso.
+
+Para descoberta estrutural de pontos de decisao no PAP / Rules Studio (`PLAT-EVO-07`),
+`ResourceDecisionPointCatalogService` (`deriveForController` e `deriveForResource`,
+apoiado por `DtoMetadataFactCatalogEnricher`) introspeciona automaticamente
+`@ApiResource`, handlers MVC, `@WorkflowAction`, `@UiSurface`, `@BulkOperation`,
+`@DomainGovernance` e `@DomainLineage`, publicando `ResourceDecisionPointDescriptor`
+(`DecisionPointKind`: `RESOURCE_QUERY`, `RESOURCE_CREATE`, `RESOURCE_UPDATE`,
+`RESOURCE_DELETE`, `COLLECTION_EXPORT`, `AI_TOOL_EXECUTION`, `WORKFLOW_ACTION`,
+`SURFACE_AVAILABILITY`, `BULK_OPERATION`, `FIELD_PROJECTION`, `FIELD_WRITE`) sem
+exigir registro manual por recurso.
 
 Nao transforme action em CRUD por causa do metodo HTTP. O eixo canonico e a
 intencao de negocio, nao o verbo.

@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.filter.specification;
 
 import org.praxisplatform.uischema.filter.annotation.Filterable;
+import org.praxisplatform.uischema.filter.FilterFieldIntrospector;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import jakarta.persistence.criteria.*;
@@ -133,9 +134,13 @@ public class GenericSpecificationsBuilder<E> {
         // Using {@code get()} would fail to compile on newer versions where the
         // method does not exist. The stream is then mapped to keep the original
         // direction while replacing the property when a relation is configured.
+        List<Field> fields = FilterFieldIntrospector.fields(filter.getClass());
         List<Sort.Order> orderList = sort.stream().map(order -> {
-            try {
-                Field field = filter.getClass().getDeclaredField(order.getProperty());
+                Field field = fields.stream().filter(candidate -> candidate.getName().equals(order.getProperty()))
+                        .findFirst().orElse(null);
+                if (field == null) {
+                    return order;
+                }
                 Filterable filterable = field.getAnnotation(Filterable.class);
                 if (filterable == null) {
                     return order;
@@ -147,9 +152,6 @@ public class GenericSpecificationsBuilder<E> {
                     return order.withProperty(filterable.relations()[0].trim());
                 }
                 return order;
-            } catch (NoSuchFieldException e) {
-                return order;
-            }
         }).toList();
         if (oldPageable instanceof PageRequest pageRequest) {
             return pageRequest.withSort(Sort.by(orderList));
@@ -167,13 +169,8 @@ public class GenericSpecificationsBuilder<E> {
      * @return Lista de campos anotados.
      */
     private <FDT extends GenericFilterDTO> List<Field> getAnnotatedFields(FDT filter) {
-        List<Field> annotatedFields = new ArrayList<>();
-        for (Field field : filter.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(Filterable.class)) {
-                annotatedFields.add(field);
-            }
-        }
-        return annotatedFields;
+        return FilterFieldIntrospector.fields(filter.getClass()).stream()
+                .filter(field -> field.isAnnotationPresent(Filterable.class)).toList();
     }
 
     /**
@@ -209,7 +206,7 @@ public class GenericSpecificationsBuilder<E> {
                     var startPath = org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, start, true);
                     var endPath = org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, end, true);
                     predicates.add(effectiveOnDate(criteriaBuilder, startPath, endPath, value));
-                    if (query != null && (start.contains(".") || end.contains("."))) {
+                    if (query != null && (requiresDistinctForJoin(root, start) || requiresDistinctForJoin(root, end))) {
                         query.distinct(true);
                     }
                     return;
@@ -217,21 +214,27 @@ public class GenericSpecificationsBuilder<E> {
                 String[] multiRelations = filterable.relations();
                 if (multiRelations != null && multiRelations.length > 0) {
                     List<Predicate> orPredicates = new ArrayList<>();
-                    boolean hasNestedJoin = false;
+                    boolean needsDistinct = false;
                     for (String rel : multiRelations) {
                         if (rel == null || rel.isBlank()) {
                             continue;
                         }
                         String trimmed = rel.trim();
-                        if (trimmed.contains(".")) {
-                            hasNestedJoin = true;
+                        if (tryAddCorrelatedCollectionPredicate(orPredicates, root, query, criteriaBuilder, trimmed, value, filterable, multiRelations.length > 1)) {
+                            continue;
                         }
                         jakarta.persistence.criteria.Path<?> relPath =
                                 org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, trimmed, true);
+                        if (multiRelations.length > 1 && shouldSkipIncompatibleOmniPath(relPath, filterable.operation(), value)) {
+                            continue;
+                        }
+                        if (requiresDistinctForJoin(root, trimmed)) {
+                            needsDistinct = true;
+                        }
                         addPredicate(orPredicates, criteriaBuilder, relPath, value, filterable);
                     }
                     if (!orPredicates.isEmpty()) {
-                        if (hasNestedJoin && query != null) {
+                        if (needsDistinct && query != null) {
                             query.distinct(true);
                         }
                         predicates.add(orPredicates.size() == 1
@@ -246,7 +249,14 @@ public class GenericSpecificationsBuilder<E> {
                 // Usa o campo relacionado, se especificado
                 String relation = filterable.relation();
                 if (!relation.isEmpty()) {
-                    path = resolvePath(root, relation);
+                    String trimmedRelation = relation.trim();
+                    if (tryAddCorrelatedCollectionPredicate(predicates, root, query, criteriaBuilder, trimmedRelation, value, filterable, false)) {
+                        return;
+                    }
+                    path = resolvePath(root, trimmedRelation);
+                    if (query != null && requiresDistinctForJoin(root, trimmedRelation)) {
+                        query.distinct(true);
+                    }
                 } else {
                     path = root.get(field.getName());
                 }
@@ -257,6 +267,98 @@ public class GenericSpecificationsBuilder<E> {
         } catch (IllegalAccessException e) {
             throw new SpecificationBuildException("Erro ao acessar o campo: " + field.getName(), e);
         }
+    }
+
+    private boolean requiresDistinctForJoin(Root<?> root, String relationPath) {
+        if (relationPath == null || !relationPath.contains(".")) {
+            return false;
+        }
+        if (!org.praxisplatform.uischema.id.JpaCriteriaPathSupport.hasMetamodelOrJavaType(root)) {
+            return true;
+        }
+        return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.traversesCollectionAssociation(root, relationPath);
+    }
+
+    private boolean isPositiveElementOperation(Filterable.FilterOperation operation) {
+        if (operation == null) {
+            return false;
+        }
+        return switch (operation) {
+            case EQUAL, LIKE, STARTS_WITH, ENDS_WITH, IN,
+                 GREATER_THAN, GREATER_OR_EQUAL, LESS_THAN, LESS_OR_EQUAL,
+                 BETWEEN, BETWEEN_EXCLUSIVE, ON_DATE, IN_LAST_DAYS, IN_NEXT_DAYS,
+                 IS_TRUE, IS_FALSE, IS_NOT_NULL -> true;
+            default -> false;
+        };
+    }
+
+    private boolean shouldSkipIncompatibleOmniPath(
+            jakarta.persistence.criteria.Path<?> path,
+            Filterable.FilterOperation operation,
+            Object value
+    ) {
+        if (path == null || !(value instanceof String text)) {
+            return false;
+        }
+        if (operation != Filterable.FilterOperation.LIKE
+                && operation != Filterable.FilterOperation.STARTS_WITH
+                && operation != Filterable.FilterOperation.ENDS_WITH) {
+            return false;
+        }
+        Class<?> javaType = null;
+        try {
+            javaType = path.getJavaType();
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+        boolean isNumericType = javaType != null && (Number.class.isAssignableFrom(javaType)
+                || (javaType.isPrimitive() && javaType != boolean.class && javaType != char.class));
+        if (isNumericType) {
+            for (int i = 0; i < text.length(); i++) {
+                if (Character.isDigit(text.charAt(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private boolean tryAddCorrelatedCollectionPredicate(
+            List<Predicate> targetPredicates,
+            Root<E> root,
+            CriteriaQuery<?> query,
+            CriteriaBuilder criteriaBuilder,
+            String relationPath,
+            Object value,
+            Filterable filterable,
+            boolean allowSkipIncompatibleNumericPath
+    ) {
+        if (query == null
+                || !isPositiveElementOperation(filterable.operation())
+                || !org.praxisplatform.uischema.id.JpaCriteriaPathSupport.traversesCollectionAssociation(root, relationPath)) {
+            return false;
+        }
+        jakarta.persistence.criteria.Subquery<Integer> subquery = query.subquery(Integer.class);
+        if (subquery == null) {
+            return false;
+        }
+        jakarta.persistence.criteria.Path<?> subPath =
+                org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolveCorrelatedSubqueryPath(subquery, root, relationPath);
+        if (subPath == null) {
+            return false;
+        }
+        if (allowSkipIncompatibleNumericPath && shouldSkipIncompatibleOmniPath(subPath, filterable.operation(), value)) {
+            return true;
+        }
+        List<Predicate> innerPredicates = new ArrayList<>(1);
+        addPredicate(innerPredicates, criteriaBuilder, subPath, value, filterable);
+        if (innerPredicates.isEmpty()) {
+            return false;
+        }
+        subquery.select(criteriaBuilder.literal(1)).where(innerPredicates.get(0));
+        targetPredicates.add(criteriaBuilder.exists(subquery));
+        return true;
     }
 
 
@@ -281,7 +383,7 @@ public class GenericSpecificationsBuilder<E> {
      *
      * <p>Etapas:
      * <ul>
-     *   <li>Navega pelos relacionamentos usando {@link Join} para cada nível intermediário.</li>
+     *   <li>Navega pelos relacionamentos reutilizando {@link Join} ({@code LEFT JOIN}) para cada nível intermediário.</li>
      *   <li>Acessa o atributo básico no último nível.</li>
      * </ul>
      *
@@ -290,7 +392,7 @@ public class GenericSpecificationsBuilder<E> {
      * @return O caminho resolvido para a propriedade.
      */
     jakarta.persistence.criteria.Path<?> resolvePath(Root<?> root, String relationPath) {
-        return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, relationPath, false);
+        return org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, relationPath, true);
     }
 
 
@@ -546,6 +648,35 @@ class BetweenPredicateBuilder implements PredicateBuilder {
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
         RangeBounds bounds = RangeBounds.fromList(value, "BETWEEN", false);
         if (RangeBounds.isLocalDateRange(bounds)) {
+            Class<?> pathType = RangeBounds.safePathType(path);
+            if (pathType == LocalDate.class) {
+                jakarta.persistence.criteria.Expression<LocalDate> expr = (jakarta.persistence.criteria.Expression<LocalDate>) path;
+                LocalDate lower = (LocalDate) bounds.lower();
+                LocalDate upper = (LocalDate) bounds.upper();
+                if (lower != null && upper != null) {
+                    return criteriaBuilder.between(expr, lower, upper);
+                }
+                if (lower != null) {
+                    return criteriaBuilder.greaterThanOrEqualTo(expr, lower);
+                }
+                return criteriaBuilder.lessThanOrEqualTo(expr, upper);
+            }
+            if (pathType == java.time.LocalDateTime.class || pathType == java.time.OffsetDateTime.class) {
+                jakarta.persistence.criteria.Expression<? extends Comparable> expr =
+                        (jakarta.persistence.criteria.Expression<? extends Comparable>) path;
+                Comparable start = bounds.lower() != null ? RangeBounds.toStartOfDayForType((LocalDate) bounds.lower(), pathType) : null;
+                Comparable endExclusive = bounds.upper() != null ? RangeBounds.toStartOfNextDayForType((LocalDate) bounds.upper(), pathType) : null;
+                if (start != null && endExclusive != null) {
+                    return criteriaBuilder.and(
+                            criteriaBuilder.greaterThanOrEqualTo(expr, start),
+                            criteriaBuilder.lessThan(expr, endExclusive)
+                    );
+                }
+                if (start != null) {
+                    return criteriaBuilder.greaterThanOrEqualTo(expr, start);
+                }
+                return criteriaBuilder.lessThan(expr, endExclusive);
+            }
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
             Instant start = bounds.lower() != null ? RangeBounds.toStartOfDay((LocalDate) bounds.lower()) : null;
             Instant endExclusive = bounds.upper() != null ? RangeBounds.toStartOfNextDay((LocalDate) bounds.upper()) : null;
@@ -560,7 +691,8 @@ class BetweenPredicateBuilder implements PredicateBuilder {
             return criteriaBuilder.lessThan(expression, (Comparable) endExclusive);
         }
 
-        jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as((Class<Comparable>) bounds.boundType());
+        jakarta.persistence.criteria.Expression<? extends Comparable> expression =
+                RangeBounds.comparableExpression(path, (Class<Comparable>) bounds.boundType());
         if (bounds.hasLower() && bounds.hasUpper()) {
             return criteriaBuilder.between(expression, (Comparable) bounds.lower(), (Comparable) bounds.upper());
         }
@@ -585,11 +717,22 @@ class BetweenExclusivePredicateBuilder implements PredicateBuilder {
         Object start;
         Object end;
         if (RangeBounds.isLocalDateRange(bounds)) {
-            expression = path.as(Instant.class);
-            start = RangeBounds.toStartOfDay((LocalDate) bounds.lower());
-            end = RangeBounds.toStartOfDay((LocalDate) bounds.upper());
+            Class<?> pathType = RangeBounds.safePathType(path);
+            if (pathType == LocalDate.class) {
+                expression = (jakarta.persistence.criteria.Expression<LocalDate>) path;
+                start = bounds.lower();
+                end = bounds.upper();
+            } else if (pathType == java.time.LocalDateTime.class || pathType == java.time.OffsetDateTime.class) {
+                expression = (jakarta.persistence.criteria.Expression<? extends Comparable>) path;
+                start = RangeBounds.toStartOfDayForType((LocalDate) bounds.lower(), pathType);
+                end = RangeBounds.toStartOfDayForType((LocalDate) bounds.upper(), pathType);
+            } else {
+                expression = path.as(Instant.class);
+                start = RangeBounds.toStartOfDay((LocalDate) bounds.lower());
+                end = RangeBounds.toStartOfDay((LocalDate) bounds.upper());
+            }
         } else {
-            expression = path.as((Class<Comparable>) bounds.boundType());
+            expression = RangeBounds.comparableExpression(path, (Class<Comparable>) bounds.boundType());
             start = bounds.lower();
             end = bounds.upper();
         }
@@ -610,6 +753,35 @@ class NotBetweenPredicateBuilder implements PredicateBuilder {
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
         RangeBounds bounds = RangeBounds.fromList(value, "NOT_BETWEEN", false);
         if (RangeBounds.isLocalDateRange(bounds)) {
+            Class<?> pathType = RangeBounds.safePathType(path);
+            if (pathType == LocalDate.class) {
+                jakarta.persistence.criteria.Expression<LocalDate> expr = (jakarta.persistence.criteria.Expression<LocalDate>) path;
+                LocalDate lower = (LocalDate) bounds.lower();
+                LocalDate upper = (LocalDate) bounds.upper();
+                if (lower != null && upper != null) {
+                    return criteriaBuilder.not(criteriaBuilder.between(expr, lower, upper));
+                }
+                if (lower != null) {
+                    return criteriaBuilder.lessThan(expr, lower);
+                }
+                return criteriaBuilder.greaterThan(expr, upper);
+            }
+            if (pathType == java.time.LocalDateTime.class || pathType == java.time.OffsetDateTime.class) {
+                jakarta.persistence.criteria.Expression<? extends Comparable> expr =
+                        (jakarta.persistence.criteria.Expression<? extends Comparable>) path;
+                Comparable start = bounds.lower() != null ? RangeBounds.toStartOfDayForType((LocalDate) bounds.lower(), pathType) : null;
+                Comparable endExclusive = bounds.upper() != null ? RangeBounds.toStartOfNextDayForType((LocalDate) bounds.upper(), pathType) : null;
+                if (start != null && endExclusive != null) {
+                    return criteriaBuilder.or(
+                            criteriaBuilder.lessThan(expr, start),
+                            criteriaBuilder.greaterThanOrEqualTo(expr, endExclusive)
+                    );
+                }
+                if (start != null) {
+                    return criteriaBuilder.lessThan(expr, start);
+                }
+                return criteriaBuilder.greaterThanOrEqualTo(expr, endExclusive);
+            }
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
             Instant start = bounds.lower() != null ? RangeBounds.toStartOfDay((LocalDate) bounds.lower()) : null;
             Instant endExclusive = bounds.upper() != null ? RangeBounds.toStartOfNextDay((LocalDate) bounds.upper()) : null;
@@ -624,7 +796,8 @@ class NotBetweenPredicateBuilder implements PredicateBuilder {
             return criteriaBuilder.greaterThanOrEqualTo(expression, (Comparable) endExclusive);
         }
 
-        jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as((Class<Comparable>) bounds.boundType());
+        jakarta.persistence.criteria.Expression<? extends Comparable> expression =
+                RangeBounds.comparableExpression(path, (Class<Comparable>) bounds.boundType());
         if (bounds.hasLower() && bounds.hasUpper()) {
             Predicate between = criteriaBuilder.between(expression, (Comparable) bounds.lower(), (Comparable) bounds.upper());
             return criteriaBuilder.not(between);
@@ -647,6 +820,38 @@ class OutsideRangePredicateBuilder implements PredicateBuilder {
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
         RangeBounds bounds = RangeBounds.fromList(value, "OUTSIDE_RANGE", false);
         if (RangeBounds.isLocalDateRange(bounds)) {
+            Class<?> pathType = RangeBounds.safePathType(path);
+            if (pathType == LocalDate.class) {
+                jakarta.persistence.criteria.Expression<LocalDate> expr = (jakarta.persistence.criteria.Expression<LocalDate>) path;
+                LocalDate lower = (LocalDate) bounds.lower();
+                LocalDate upper = (LocalDate) bounds.upper();
+                if (lower != null && upper != null) {
+                    return criteriaBuilder.or(
+                            criteriaBuilder.lessThan(expr, lower),
+                            criteriaBuilder.greaterThan(expr, upper)
+                    );
+                }
+                if (lower != null) {
+                    return criteriaBuilder.lessThan(expr, lower);
+                }
+                return criteriaBuilder.greaterThan(expr, upper);
+            }
+            if (pathType == java.time.LocalDateTime.class || pathType == java.time.OffsetDateTime.class) {
+                jakarta.persistence.criteria.Expression<? extends Comparable> expr =
+                        (jakarta.persistence.criteria.Expression<? extends Comparable>) path;
+                Comparable start = bounds.lower() != null ? RangeBounds.toStartOfDayForType((LocalDate) bounds.lower(), pathType) : null;
+                Comparable endExclusive = bounds.upper() != null ? RangeBounds.toStartOfNextDayForType((LocalDate) bounds.upper(), pathType) : null;
+                if (start != null && endExclusive != null) {
+                    return criteriaBuilder.or(
+                            criteriaBuilder.lessThan(expr, start),
+                            criteriaBuilder.greaterThanOrEqualTo(expr, endExclusive)
+                    );
+                }
+                if (start != null) {
+                    return criteriaBuilder.lessThan(expr, start);
+                }
+                return criteriaBuilder.greaterThanOrEqualTo(expr, endExclusive);
+            }
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
             Instant start = bounds.lower() != null ? RangeBounds.toStartOfDay((LocalDate) bounds.lower()) : null;
             Instant endExclusive = bounds.upper() != null ? RangeBounds.toStartOfNextDay((LocalDate) bounds.upper()) : null;
@@ -661,7 +866,8 @@ class OutsideRangePredicateBuilder implements PredicateBuilder {
             return criteriaBuilder.greaterThanOrEqualTo(expression, (Comparable) endExclusive);
         }
 
-        jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as((Class<Comparable>) bounds.boundType());
+        jakarta.persistence.criteria.Expression<? extends Comparable> expression =
+                RangeBounds.comparableExpression(path, (Class<Comparable>) bounds.boundType());
         if (bounds.hasLower() && bounds.hasUpper()) {
             Predicate lt = criteriaBuilder.lessThan(expression, (Comparable) bounds.lower());
             Predicate gt = criteriaBuilder.greaterThan(expression, (Comparable) bounds.upper());
@@ -681,6 +887,50 @@ final class RangeBounds {
     private RangeBounds(Object lower, Object upper) {
         this.lower = lower;
         this.upper = upper;
+    }
+
+    static Class<?> safePathType(jakarta.persistence.criteria.Path<?> path) {
+        if (path == null) {
+            return null;
+        }
+        try {
+            return path.getJavaType();
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    static jakarta.persistence.criteria.Expression<? extends Comparable> comparableExpression(
+            jakarta.persistence.criteria.Path<?> path,
+            Class<Comparable> boundType
+    ) {
+        Class<?> pathType = safePathType(path);
+        if (pathType != null && boundType != null && pathType.equals(boundType)) {
+            return (jakarta.persistence.criteria.Expression<? extends Comparable>) path;
+        }
+        jakarta.persistence.criteria.Expression<? extends Comparable> casted = path.as(boundType);
+        return casted != null ? casted : (jakarta.persistence.criteria.Expression<? extends Comparable>) path;
+    }
+
+    static Comparable<?> toStartOfDayForType(LocalDate date, Class<?> targetType) {
+        if (targetType == java.time.LocalDateTime.class) {
+            return date.atStartOfDay();
+        }
+        if (targetType == java.time.OffsetDateTime.class) {
+            return date.atStartOfDay().atOffset(ZoneOffset.UTC);
+        }
+        return toStartOfDay(date);
+    }
+
+    static Comparable<?> toStartOfNextDayForType(LocalDate date, Class<?> targetType) {
+        if (targetType == java.time.LocalDateTime.class) {
+            return date.plusDays(1).atStartOfDay();
+        }
+        if (targetType == java.time.OffsetDateTime.class) {
+            return date.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+        }
+        return toStartOfNextDay(date);
     }
 
     static RangeBounds fromList(Object value, String operation, boolean requireTwoBounds) {
@@ -762,8 +1012,23 @@ class OnDatePredicateBuilder implements PredicateBuilder {
     }
 
     @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
         if (value instanceof LocalDate date) {
+            Class<?> pathType = RangeBounds.safePathType(path);
+            if (pathType == LocalDate.class) {
+                return criteriaBuilder.equal(path, date);
+            }
+            if (pathType == java.time.LocalDateTime.class || pathType == java.time.OffsetDateTime.class) {
+                jakarta.persistence.criteria.Expression<? extends Comparable> expr =
+                        (jakarta.persistence.criteria.Expression<? extends Comparable>) path;
+                Comparable start = RangeBounds.toStartOfDayForType(date, pathType);
+                Comparable endExclusive = RangeBounds.toStartOfNextDayForType(date, pathType);
+                return criteriaBuilder.and(
+                        criteriaBuilder.greaterThanOrEqualTo(expr, start),
+                        criteriaBuilder.lessThan(expr, endExclusive)
+                );
+            }
             Instant start = date.atStartOfDay().toInstant(ZoneOffset.UTC);
             Instant end = date.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
@@ -780,9 +1045,35 @@ class InLastDaysPredicateBuilder implements PredicateBuilder {
     }
 
     @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
         if (value instanceof Number n) {
             long days = n.longValue();
+            Class<?> pathType = RangeBounds.safePathType(path);
+            if (pathType == LocalDate.class) {
+                LocalDate today = LocalDate.now(ZoneOffset.UTC);
+                return criteriaBuilder.between(
+                        (jakarta.persistence.criteria.Expression<LocalDate>) path,
+                        today.minusDays(days),
+                        today
+                );
+            }
+            if (pathType == java.time.LocalDateTime.class) {
+                java.time.LocalDateTime now = java.time.LocalDateTime.now(ZoneOffset.UTC);
+                return criteriaBuilder.between(
+                        (jakarta.persistence.criteria.Expression<java.time.LocalDateTime>) path,
+                        now.minusDays(days),
+                        now
+                );
+            }
+            if (pathType == java.time.OffsetDateTime.class) {
+                java.time.OffsetDateTime now = java.time.OffsetDateTime.now(ZoneOffset.UTC);
+                return criteriaBuilder.between(
+                        (jakarta.persistence.criteria.Expression<java.time.OffsetDateTime>) path,
+                        now.minusDays(days),
+                        now
+                );
+            }
             Instant now = Instant.now();
             Instant start = now.minusSeconds(days * 24 * 60 * 60);
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
@@ -799,9 +1090,35 @@ class InNextDaysPredicateBuilder implements PredicateBuilder {
     }
 
     @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public Predicate build(CriteriaBuilder criteriaBuilder, jakarta.persistence.criteria.Path<?> path, Object value) {
         if (value instanceof Number n) {
             long days = n.longValue();
+            Class<?> pathType = RangeBounds.safePathType(path);
+            if (pathType == LocalDate.class) {
+                LocalDate today = LocalDate.now(ZoneOffset.UTC);
+                return criteriaBuilder.between(
+                        (jakarta.persistence.criteria.Expression<LocalDate>) path,
+                        today,
+                        today.plusDays(days)
+                );
+            }
+            if (pathType == java.time.LocalDateTime.class) {
+                java.time.LocalDateTime now = java.time.LocalDateTime.now(ZoneOffset.UTC);
+                return criteriaBuilder.between(
+                        (jakarta.persistence.criteria.Expression<java.time.LocalDateTime>) path,
+                        now,
+                        now.plusDays(days)
+                );
+            }
+            if (pathType == java.time.OffsetDateTime.class) {
+                java.time.OffsetDateTime now = java.time.OffsetDateTime.now(ZoneOffset.UTC);
+                return criteriaBuilder.between(
+                        (jakarta.persistence.criteria.Expression<java.time.OffsetDateTime>) path,
+                        now,
+                        now.plusDays(days)
+                );
+            }
             Instant now = Instant.now();
             Instant end = now.plusSeconds(days * 24 * 60 * 60);
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);

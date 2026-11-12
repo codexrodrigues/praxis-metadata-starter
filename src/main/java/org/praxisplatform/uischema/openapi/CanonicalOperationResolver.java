@@ -143,4 +143,24 @@ public interface CanonicalOperationResolver {
             CanonicalOperationRef operation, TypeFactory typeFactory) {
         throw new UnsupportedOperationException("Snapshot-bound request body binding is not implemented by this resolver");
     }
+
+    /**
+     * Resolves the direct DTO within the same bounded composition as strict operation indexing.
+     * The snapshot is structural evidence, never admission. Resolvers without scoped indexing
+     * retain the complete standalone MVC/type validation; no permissive lookup is substituted.
+     */
+    default CanonicalRequestBodyBinding requireResourceRequestBody(String resourceKey,
+            CanonicalOperationRef operation, TypeFactory typeFactory, CanonicalOpenApiGroupSnapshot snapshot) {
+        if (snapshot == null || operation == null || !snapshot.group().equals(operation.group()))
+            throw new IllegalArgumentException("An exact-group snapshot is required for request body composition");
+        return requireResourceRequestBody(resourceKey, operation, typeFactory);
+    }
+
+    /** Strict DTO bindings returned atomically in the supplied operation order. */
+    default java.util.List<CanonicalRequestBodyBinding> requireResourceRequestBodies(String resourceKey,
+            java.util.List<CanonicalOperationRef> operations, TypeFactory typeFactory, CanonicalOpenApiGroupSnapshot snapshot) {
+        if (operations == null || operations.isEmpty()) throw new IllegalArgumentException("Body operations are required");
+        return operations.stream().map(operation ->
+                requireResourceRequestBody(resourceKey, operation, typeFactory, snapshot)).toList();
+    }
 }

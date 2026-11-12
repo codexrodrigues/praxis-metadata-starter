@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.bulk;
 
 import com.fasterxml.jackson.databind.*;
+import org.praxisplatform.uischema.service.base.ResourceMutationContext;
 import org.praxisplatform.rules.violation.PraxisRuleViolationException;
 import org.praxisplatform.uischema.command.*;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
@@ -84,12 +85,14 @@ public final class JpaResourceBulkEngine<ID, F> {
         var tx = new TransactionTemplate(infrastructure.transactionManager());
         tx.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
         tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        tx.setTimeout(5);
-        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        // Evaluation captures one protected batch, not one mutation unit. Use the
+        // store's existing capture ceiling; profile.unitDeadline still fences writes.
+        tx.setTimeout(Math.toIntExact(JdbcBulkProposalStore.CAPTURE_BUDGET_CEILING.toSeconds()));
+        long deadline = System.nanoTime() + JdbcBulkProposalStore.CAPTURE_BUDGET_CEILING.toNanos();
         tx.execute(status -> proposals.captureAndInsertEvaluated(selectionMode == BulkSelectionMode.QUERY ? admission : null,
                 proposal, (connection, budget) -> capture(proposal, admission.maxTargets()),
                 evaluation -> preview(evaluation), () -> Duration.ofNanos(Math.max(0, deadline - System.nanoTime()))));
-        return proposal(intent.context().operationRef().operationId(), proposal.id());
+        return proposal(intent.context(), proposal.id());
     }
 
     private BulkEvaluationSnapshot capture(BulkStoredProposal proposal, int maxTargets) {
@@ -123,7 +126,7 @@ public final class JpaResourceBulkEngine<ID, F> {
                 evidence.add(blocked(target, "BULK_TARGET_UNAVAILABLE", ResourceCommandErrorCategory.PERMISSION));
                 continue;
             }
-            evidence.add(evaluateTarget(proposal.snapshot(), target));
+            evidence.add(evaluateTarget(proposal.snapshot(), target, ResourceMutationContext.Stage.EVALUATION, proposal.createdAt()));
         }
         return new BulkEvaluationSnapshot(proposal, Instant.now(), evidence, governance);
     }
@@ -133,9 +136,9 @@ public final class JpaResourceBulkEngine<ID, F> {
         return domain.readFilter(node);
     }
 
-    private BulkTargetEvidence<?> evaluateTarget(BulkIntentSnapshot snapshot, BulkTarget<Object> target) {
+    private BulkTargetEvidence<?> evaluateTarget(BulkIntentSnapshot snapshot, BulkTarget<Object> target, ResourceMutationContext.Stage stage, Instant referenceInstant) {
         try {
-            var candidate = candidate(snapshot, target);
+            var candidate = candidate(snapshot, target, stage, referenceInstant);
             return new BulkTargetEvidence<>(target, candidate.observedVersion(), candidate.facts(), candidate.plan(), BulkTargetEligibility.executable());
         } catch (RuntimeException failure) {
             BulkUnitAdmission rejection = targetRejection(failure);
@@ -166,7 +169,7 @@ public final class JpaResourceBulkEngine<ID, F> {
                 BulkTargetEligibility.blocked(List.of(new ResourceCommandMessage(category, code, "Bulk target is unavailable for this change", null, Map.of()))));
     }
 
-    private BulkDomainResourceAdapter.Candidate candidate(BulkIntentSnapshot snapshot, BulkTarget<Object> target) {
+    private BulkDomainResourceAdapter.Candidate candidate(BulkIntentSnapshot snapshot, BulkTarget<Object> target, ResourceMutationContext.Stage stage, Instant referenceInstant) {
         ID id = codec.decode(target.id());
         if (snapshot.mode() == BulkMode.DOMAIN_COMMAND)
             return requireCommand(snapshot.context().operationRef().operationId()).evaluate(id, target.expectedVersion(), snapshot.intent().path("parameters"));
@@ -178,7 +181,8 @@ public final class JpaResourceBulkEngine<ID, F> {
         List<BulkFieldChange> changes = new ArrayList<>();
         source.path("changes").forEach(change -> changes.add(new BulkFieldChange(change.path("field").asText(),
                 BulkChangeOperator.valueOf(change.path("operator").asText()), change.get("value"))));
-        return domain.evaluate(id, target.expectedVersion(), changes, snapshot.mode(), fields);
+        return domain.evaluate(id, target.expectedVersion(), changes, stage == ResourceMutationContext.Stage.EVALUATION
+                ? ResourceMutationContext.bulkEvaluation(snapshot.mode(), referenceInstant) : ResourceMutationContext.bulkConfirmation(snapshot.mode(), referenceInstant), fields);
     }
 
     public BulkExecution confirm(String operationId, BulkConfirmationRequest request, String idempotencyKey) {
@@ -192,7 +196,9 @@ public final class JpaResourceBulkEngine<ID, F> {
                 proposals.findEvaluation(context, UUID.fromString(request.proposalId())).orElseThrow(() ->
                         new ResponseStatusException(HttpStatus.NOT_FOUND, "Bulk proposal is unavailable")));
         var reservation = executions.reserve(context, UUID.fromString(request.proposalId()), idempotencyKey,
-                infrastructure.deploymentId(), retained.proposal().controlExpectation().structuralRevision(), Instant.now().plusSeconds(5));
+                infrastructure.deploymentId(), retained.proposal().controlExpectation().structuralRevision(),
+                () -> Instant.now().plusSeconds(Math.min(120L, Math.max(30L, 15L * retained.targets().size()))));
+        Instant confirmationInstant = Instant.now();
         executions.advance(reservation, unit -> {
             var decision = Objects.requireNonNull(policy.admit(unit));
             if (decision.decision() != BulkUnitAdmission.Decision.ADMIT) return decision;
@@ -201,7 +207,7 @@ public final class JpaResourceBulkEngine<ID, F> {
                 return BulkUnitAdmission.stop(BulkUnitReasonCode.COMMON_GOVERNANCE_CHANGED);
             var original = unit.targetEvidence();
             @SuppressWarnings("unchecked") var target = (BulkTarget<Object>) original.target();
-            var fresh = evaluateTarget(unit.originalIntent(), target);
+            var fresh = evaluateTarget(unit.originalIntent(), target, ResourceMutationContext.Stage.CONFIRMATION, confirmationInstant);
             if (!fresh.eligibility().orElseThrow().isExecutable()) {
                 var diagnostics = fresh.eligibility().orElseThrow().diagnostics();
                 if (diagnostics.stream().anyMatch(message -> message.category() == ResourceCommandErrorCategory.PRECONDITION))
@@ -226,7 +232,7 @@ public final class JpaResourceBulkEngine<ID, F> {
             try {
                 if (unit.originalIntent().mode() == BulkMode.DOMAIN_COMMAND)
                     requireCommand(operationId).execute(id, target.observedVersion(), target.plan());
-                else domain.update(id, target.observedVersion(), target.plan());
+                else domain.update(id, target.observedVersion(), target.plan(), ResourceMutationContext.bulkConfirmation(unit.originalIntent().mode(), confirmationInstant));
                 // Only the committed persisted revision can certify a change in the receipt.
                 return target.observedVersion().equals(domain.currentVersion(id))
                         ? BulkUnitMutationResult.unchanged() : BulkUnitMutationResult.confirmed();
@@ -236,7 +242,7 @@ public final class JpaResourceBulkEngine<ID, F> {
                 throw new BulkUnitRejectedException(rejection);
             }
         });
-        return execution(operationId, reservation.executionId());
+        return execution(context, reservation.executionId());
     }
 
     /** Recognizes only caller-correctable target failures, never technical or common failures. */
@@ -291,7 +297,10 @@ public final class JpaResourceBulkEngine<ID, F> {
     }
 
     public BulkProposal proposal(String operationId, UUID id) {
-        var context = context(operationId);
+        return proposal(context(operationId), id);
+    }
+    private BulkProposal proposal(BulkFingerprintContext context, UUID id) {
+        String operationId = context.operationRef().operationId();
         var observed = new BulkAuthorizedProposalReader(infrastructure, context.resourceKey(),
                 policy.readAuthorization(operationId), policy.proposalProjection(operationId)).readProposal(context.subjectId(), id);
         requireComplete(observed.state().name()); return observed.proposal();
@@ -303,7 +312,10 @@ public final class JpaResourceBulkEngine<ID, F> {
         requireComplete(observed.state().name()); return observed.page();
     }
     public BulkExecution execution(String operationId, UUID id) {
-        var context = context(operationId);
+        return execution(context(operationId), id);
+    }
+    private BulkExecution execution(BulkFingerprintContext context, UUID id) {
+        String operationId = context.operationRef().operationId();
         var observed = new BulkAuthorizedExecutionReader(infrastructure, context.resourceKey(),
                 policy.readAuthorization(operationId)).readExecution(context.subjectId(), id);
         requireComplete(observed.state().name()); return observed.execution();
@@ -315,9 +327,10 @@ public final class JpaResourceBulkEngine<ID, F> {
         requireComplete(observed.state().name()); return observed.page();
     }
     public BulkExecution cancel(String operationId, UUID id) {
-        execution(operationId, id); // Full current target authorization precedes cancellation.
-        executions.requestCancel(context(operationId), id);
-        return execution(operationId, id);
+        var context = context(operationId);
+        execution(context, id); // Full current target authorization precedes cancellation.
+        executions.requestCancel(context, id);
+        return execution(context, id);
     }
 
     private BulkPreviewProjection preview(BulkEvaluationSnapshot evaluation) {

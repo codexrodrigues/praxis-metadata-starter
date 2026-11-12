@@ -646,6 +646,49 @@ class ApiDocsControllerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void getFilteredSchemaOmitsQuickFiltersFromMutationRequestSchemasButIncludesThemInFilterRequests() {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        ApiResourceQuickFilterResolver quickFilterResolver = org.mockito.Mockito.mock(ApiResourceQuickFilterResolver.class);
+        when(quickFilterResolver.resolve(anyString())).thenReturn(java.util.List.of(
+                Map.of("id", "active", "label", "Ativos", "filter", Map.of("ativo", true), "tone", "success")
+        ));
+        ReflectionTestUtils.setField(controller, "apiResourceQuickFilterResolver", quickFilterResolver);
+
+        // 1. Mutation request schema (POST /users -> CreateDTO) MUST NOT carry quickFilters
+        server.expect(requestTo("http://localhost/v3/api-docs/users"))
+                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        Map<String, Object> createRequestSchema = controller
+                .getFilteredSchema("/users", "post", false, "request", null, null, java.util.Locale.ENGLISH)
+                .getBody();
+        assertNotNull(createRequestSchema);
+        Map<String, Object> createXUi = (Map<String, Object>) createRequestSchema.get("x-ui");
+        Map<String, Object> createResource = (Map<String, Object>) createXUi.get("resource");
+        assertFalse(createResource.containsKey("quickFilters"),
+                "Create/Command request schemas must not be polluted by collection quickFilters");
+
+        // 2. Filter request schema (POST /users/filter -> FilterDTO) MUST carry quickFilters
+        String filterDoc = openApiDoc.replace("\"/users\":", "\"/users/filter\":");
+        server.reset();
+        server.expect(requestTo("http://localhost/v3/api-docs/api-users-filter"))
+                .andRespond(withSuccess(filterDoc, MediaType.APPLICATION_JSON));
+        Map<String, Object> filterRequestSchema = controller
+                .getFilteredSchema("/users/filter", "post", false, "request", null, null, java.util.Locale.ENGLISH)
+                .getBody();
+        assertNotNull(filterRequestSchema);
+        Map<String, Object> filterXUi = (Map<String, Object>) filterRequestSchema.get("x-ui");
+        Map<String, Object> filterResource = (Map<String, Object>) filterXUi.get("resource");
+        assertTrue(filterResource.containsKey("quickFilters"),
+                "FilterDTO request schemas must expose quickFilters for standalone filter consumers");
+    }
+
+    @Test
     void getFilteredSchemaNormalizesTrailingSlashBeforeOpenApiPathLookup() throws Exception {
         when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("users");
 

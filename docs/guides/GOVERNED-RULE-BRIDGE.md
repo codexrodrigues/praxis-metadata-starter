@@ -1,4 +1,6 @@
-# Regras governadas e campos customizados
+# Regras governadas e campos customizados (`decisionKind = BUSINESS`)
+
+> **Fronteira na Praxis Decision Platform (`decisionKind = BUSINESS` vs `decisionKind = AUTHORIZATION`):** Este guia descreve a ponte de execução de **regras de negócio determinísticas (`decisionKind = BUSINESS`)** avaliadas pelo `praxis-rules-engine` (`RuleSet`, `DecisionBinding`, `GovernedRuleEngineTemplate`) e traduzidas em `409 Conflict` / `422 Unprocessable Entity` (`RestApiErrorResponse`). Políticas de autorização, controle de acesso contextual (ABAC), escopo relacional multi-organização/setor (`DataScopePlan`) e mascaramento pós-leitura (`FieldMaskingPlan`) pertencem à trilha **`decisionKind = AUTHORIZATION`** (`praxis-authz-contracts`, `praxis-authz-enforcement-core`, `praxis-authz-opa`, `praxis-authz-starter`), vinculada por `RuntimeEnforcementBinding`.
 
 Os três achados da [revisão de integridade e UX](../technical/GOVERNED-RULE-BRIDGE-P2-REVIEW.md)
 receberam correções na fonte canônica. O [registro de correção](../technical/GOVERNED-RULE-BRIDGE-P2-CORRECTIONS.md)

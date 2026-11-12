@@ -201,7 +201,11 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 List.copyOf(Arrays.asList(surface.requiredAuthorities())),
                 List.copyOf(Arrays.asList(surface.allowedStates())),
                 List.copyOf(Arrays.asList(surface.tags())),
-                relatedResource
+                relatedResource,
+                surface.legalPurpose() != null && surface.legalPurpose().isSpecified()
+                        ? surface.legalPurpose().wireValue()
+                        : null,
+                StringUtils.hasText(surface.legalBasisRef()) ? surface.legalBasisRef().trim() : null
         );
     }
 

@@ -34,20 +34,17 @@ final class OpenApiRequestSchemaReader {
     static CanonicalRequestSchema read(OpenApiDocumentService documents, CanonicalOperationRef operation) {
         validateOperationReference(operation);
         CanonicalOpenApiGroupSnapshot snapshot = CanonicalOpenApiGroupSnapshot.capture(documents, operation.group());
-        return read(documents, snapshot, operation);
+        return snapshot.requireRequestSchema(operation);
     }
 
-    static CanonicalRequestSchema read(OpenApiDocumentService documents, CanonicalOpenApiGroupSnapshot snapshot,
-            CanonicalOperationRef operation) {
+    static CanonicalRequestSchema read(String group,
+            JsonNode document, CanonicalOperationRef operation, String path) {
         validateOperationReference(operation);
-        if (documents == null) throw new IllegalArgumentException("OpenAPI document service is required");
-        if (snapshot == null || !snapshot.group().equals(operation.group())) throw invalid("Operation group does not match the captured OpenAPI document");
+        if (!operation.group().equals(group)) throw invalid("Operation group does not match the captured OpenAPI document");
         String method = operation.method().toLowerCase(Locale.ROOT);
-        JsonNode document = snapshot.document();
         if (document == null || !document.isObject()) throw invalid("OpenAPI document is unavailable");
         SpecVersion version = version(document.path("openapi"));
         checkDialect(document.get("jsonSchemaDialect"), version);
-        String path = documents.resolveDocumentPath(document.path("paths"), operation.path(), method);
         JsonNode pathItem = document.path("paths").path(path);
         if (pathItem.has("$ref")) throw invalid("Referenced path items are not supported for strict request binding");
         JsonNode operationNode = pathItem.path(method);
@@ -69,18 +66,15 @@ final class OpenApiRequestSchemaReader {
         return new CanonicalRequestSchema(operation, mediaType, version, schema);
     }
 
-    static void requireNoRequestBody(OpenApiDocumentService documents, CanonicalOpenApiGroupSnapshot snapshot,
-            CanonicalOperationRef operation) {
+    static void requireNoRequestBody(String group,
+            JsonNode document, CanonicalOperationRef operation, String path) {
         validateOperationReference(operation);
-        if (documents == null) throw new IllegalArgumentException("OpenAPI document service is required");
-        if (snapshot == null || !snapshot.group().equals(operation.group())) {
+        if (!operation.group().equals(group)) {
             throw invalid("Operation group does not match the captured OpenAPI document");
         }
         String method = operation.method().toLowerCase(Locale.ROOT);
-        JsonNode document = snapshot.document();
         SpecVersion version = version(document.path("openapi"));
         checkDialect(document.get("jsonSchemaDialect"), version);
-        String path = documents.resolveDocumentPath(document.path("paths"), operation.path(), method);
         JsonNode pathItem = document.path("paths").path(path);
         if (pathItem.has("$ref")) throw invalid("Referenced path items are not supported for strict bodyless binding");
         JsonNode operationNode = pathItem.path(method);

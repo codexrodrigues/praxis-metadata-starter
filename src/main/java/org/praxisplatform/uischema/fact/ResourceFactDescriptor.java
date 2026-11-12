@@ -6,12 +6,22 @@ import java.util.*;
 public record ResourceFactDescriptor(String key, String resourceKey, String label, String description,
         String dataType, String unit, Map<String, Object> parameters, boolean deterministic,
         String sourceKind, Map<String, Object> governance,
-        String icon, String tone, String valuePresentation, List<Map<String, Object>> thresholds) {
+        String icon, String tone, String valuePresentation, List<Map<String, Object>> thresholds,
+        String authority, String evaluationPhase, String missingValuePolicy, String scope) {
     public ResourceFactDescriptor(String key, String resourceKey, String label, String description,
             String dataType, String unit, Map<String, Object> parameters, boolean deterministic,
             String sourceKind, Map<String, Object> governance) {
         this(key, resourceKey, label, description, dataType, unit, parameters, deterministic,
-                sourceKind, governance, "", "", "", List.of());
+                sourceKind, governance, "", "", "", List.of(),
+                "server_computed", "post_read", "fail_closed", "item");
+    }
+    public ResourceFactDescriptor(String key, String resourceKey, String label, String description,
+            String dataType, String unit, Map<String, Object> parameters, boolean deterministic,
+            String sourceKind, Map<String, Object> governance,
+            String icon, String tone, String valuePresentation, List<Map<String, Object>> thresholds) {
+        this(key, resourceKey, label, description, dataType, unit, parameters, deterministic,
+                sourceKind, governance, icon, tone, valuePresentation, thresholds,
+                "server_computed", "post_read", "fail_closed", "item");
     }
     public ResourceFactDescriptor {
         if (key == null || !key.matches("[A-Za-z][A-Za-z0-9_-]{0,63}"))
@@ -26,6 +36,27 @@ public record ResourceFactDescriptor(String key, String resourceKey, String labe
         tone = tone == null ? "" : tone;
         valuePresentation = valuePresentation == null ? "" : valuePresentation;
         thresholds = thresholds == null ? List.of() : thresholds.stream().map(ResourceFactDescriptor::immutableMap).toList();
+        authority = authority == null || authority.isBlank()
+                ? "server_computed"
+                : authority.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("server_computed", "persisted_state", "authenticated_context", "governed_grant").contains(authority))
+            throw new IllegalArgumentException(
+                    "Invalid resource fact authority: facts cannot trust raw client_input or unknown authority (" + authority + ")");
+        evaluationPhase = evaluationPhase == null || evaluationPhase.isBlank()
+                ? "post_read"
+                : evaluationPhase.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("pre_authorize", "post_read", "pre_write", "post_write", "query_projection").contains(evaluationPhase))
+            throw new IllegalArgumentException("Invalid resource fact evaluationPhase: " + evaluationPhase);
+        missingValuePolicy = missingValuePolicy == null || missingValuePolicy.isBlank()
+                ? "fail_closed"
+                : missingValuePolicy.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("fail_closed", "deny", "explicit_null", "error").contains(missingValuePolicy))
+            throw new IllegalArgumentException("Invalid resource fact missingValuePolicy: must be fail-closed (" + missingValuePolicy + ")");
+        scope = scope == null || scope.isBlank()
+                ? "item"
+                : scope.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("item", "collection", "tenant", "principal").contains(scope))
+            throw new IllegalArgumentException("Invalid resource fact scope: " + scope);
     }
     private static Map<String, Object> immutableMap(Map<String, Object> value) {
         Map<String, Object> copy = new LinkedHashMap<>();

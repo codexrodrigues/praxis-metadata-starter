@@ -134,6 +134,107 @@ class DefaultActionAvailabilityEvaluatorTest {
         assertTrue((Boolean) decision.metadata().get("principalPresent"));
     }
 
+    @Test
+    void propagatesConventionalSnapshotLegalAndCustomMetadataOnAllowedAction() {
+        ResourceStateSnapshot snapshot = ResourceStateSnapshot.of(
+                "INACTIVE",
+                java.util.Map.of(
+                        "action.approve.allowed", true,
+                        "action.approve.legalBasis", "Lei 8.112/1990, art. 20",
+                        "action.approve.legalPurpose", "HUMAN_RESOURCES_ADMINISTRATION",
+                        "action.approve.customTitle", "Homologar Estágio Probatório (36 meses)"
+                )
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(
+                definition("approve", List.of("employee:approve"), List.of("INACTIVE")),
+                new ActionAvailabilityContext(
+                        "example.employees",
+                        "/employees",
+                        42L,
+                        "tenant-a",
+                        Locale.ROOT,
+                        () -> "qa-user",
+                        Set.of("employee:approve"),
+                        snapshot
+                )
+        );
+
+        assertTrue(decision.allowed());
+        assertNull(decision.reason());
+        assertEquals(true, decision.metadata().get("allowed"));
+        assertEquals("Lei 8.112/1990, art. 20", decision.metadata().get("legalBasis"));
+        assertEquals("HUMAN_RESOURCES_ADMINISTRATION", decision.metadata().get("legalPurpose"));
+        assertEquals("Homologar Estágio Probatório (36 meses)", decision.metadata().get("customTitle"));
+    }
+
+    @Test
+    void deniesActionWhenSnapshotMarksAllowedFalseAndPropagatesReasonAndLegalMetadata() {
+        ResourceStateSnapshot snapshot = ResourceStateSnapshot.of(
+                "INACTIVE",
+                java.util.Map.of(
+                        "action.approve.allowed", false,
+                        "action.approve.reason", "Aprovação suspensa por incompatibilidade estatutária.",
+                        "action.approve.legalBasis", "CF/88, art. 40, § 1º, III",
+                        "action.approve.legalPurpose", "STATUTORY_COMPLIANCE",
+                        "action.approve.customTitle", "Aprovar (Indisponível para Estagiário)",
+                        "action.approve.blockedByRule", "STATUTORY_REGIME_INCOMPATIBLE"
+                )
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(
+                definition("approve", List.of("employee:approve"), List.of("INACTIVE")),
+                new ActionAvailabilityContext(
+                        "example.employees",
+                        "/employees",
+                        42L,
+                        "tenant-a",
+                        Locale.ROOT,
+                        () -> "qa-user",
+                        Set.of("employee:approve"),
+                        snapshot
+                )
+        );
+
+        assertFalse(decision.allowed());
+        assertEquals("Aprovação suspensa por incompatibilidade estatutária.", decision.reason());
+        assertEquals(false, decision.metadata().get("allowed"));
+        assertEquals("Aprovação suspensa por incompatibilidade estatutária.", decision.metadata().get("reason"));
+        assertEquals("CF/88, art. 40, § 1º, III", decision.metadata().get("legalBasis"));
+        assertEquals("STATUTORY_COMPLIANCE", decision.metadata().get("legalPurpose"));
+        assertEquals("Aprovar (Indisponível para Estagiário)", decision.metadata().get("customTitle"));
+        assertEquals("STATUTORY_REGIME_INCOMPATIBLE", decision.metadata().get("blockedByRule"));
+    }
+
+    @Test
+    void appliesResourceLevelLegalFallbackWhenActionSpecificLegalMetadataIsNotProvided() {
+        ResourceStateSnapshot snapshot = ResourceStateSnapshot.of(
+                "INACTIVE",
+                java.util.Map.of(
+                        "resource.legalBasis", "Lei Complementar nº 840/2011",
+                        "resource.legalPurpose", "PUBLIC_SERVICE_GOVERNANCE"
+                )
+        );
+
+        AvailabilityDecision decision = evaluator.evaluate(
+                definition("approve", List.of("employee:approve"), List.of("INACTIVE")),
+                new ActionAvailabilityContext(
+                        "example.employees",
+                        "/employees",
+                        42L,
+                        "tenant-a",
+                        Locale.ROOT,
+                        () -> "qa-user",
+                        Set.of("employee:approve"),
+                        snapshot
+                )
+        );
+
+        assertTrue(decision.allowed());
+        assertEquals("Lei Complementar nº 840/2011", decision.metadata().get("legalBasis"));
+        assertEquals("PUBLIC_SERVICE_GOVERNANCE", decision.metadata().get("legalPurpose"));
+    }
+
     private ActionDefinition definition(String id, List<String> requiredAuthorities, List<String> allowedStates) {
         return new ActionDefinition(
                 id,

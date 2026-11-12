@@ -23,6 +23,11 @@ public final class DefaultReactiveDeterminationDefinitionRegistry
     }
 
     @Override
+    public Set<String> schemaOperationIds() {
+        return definitionsBySchemaOperationId.keySet();
+    }
+
+    @Override
     public List<ReactiveDeterminationDefinition> findBySchemaOperationId(String schemaOperationId) {
         if (schemaOperationId == null || schemaOperationId.isBlank()) {
             return List.of();

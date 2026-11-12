@@ -64,6 +64,28 @@ O resolver OpenAPI materializa a anotacao em `x-domain-governance`:
 `/schemas/domain` prioriza essa governanca explicita antes de aplicar heuristicas
 por nome, titulo, descricao ou formato do campo.
 
+Quando consultado com `GET /schemas/domain?strict=true` (ou via `SemanticDomainCatalogService.findByResourceKeyStrict` / `findByGroupStrict`), o starter opera em **modo estrito fail-closed**: se qualquer campo do recurso não possuir `@DomainGovernance` explícito (dependendo de fallback heurístico), a geração do catálogo falha com `IllegalStateException` listando os campos sem governança declarada.
+
+### Escopo de Enforcement de `aiUsage` e Descoberta Estrutural
+
+No payload de governança publicado em `/schemas/domain`, `aiUsage` inclui os metadados canônicos:
+
+- `valueEnforcementScope = "runtime_payload_only"`
+- `catalogMetadataDiscoverable = true`
+
+Isso explicita que `aiUsage.visibility = "deny"` ou `"mask"` governa o **valor em payloads de runtime** (prompts, respostas e ferramentas de dados), enquanto o **nome estrutural e a existência do campo** permanecem visíveis no catálogo de metadados para permitir auditoria, compilação de políticas (`praxis-authz-*`) e validação de referências.
+
+### Herança em Nível de Tipo (`ElementType.TYPE`) e Linhagem Semântica (`@DomainLineage`)
+
+- **`@DomainGovernance` em classes/interfaces (`ElementType.TYPE`):** permite declarar um piso de governança na classe ou interface do DTO/Entidade. Propriedades sem `@DomainGovernance` próprio herdam a anotação do tipo; propriedades com `@DomainGovernance` próprio passam por fusão monotônica (`DomainLineageResolver.mergeRestrictive`), prevalecendo sempre a classificação mais restritiva.
+- **`@DomainLineage` (`org.praxisplatform.uischema.annotation.DomainLineage`):** vincula uma propriedade de DTO ou projeção analítica ao atributo canônico de origem (`attributeId`, `sourceClass`, `sourcePaths`, `sourceResourceKey`, `transformation = DIRECT | MASKED | AGGREGATED | DERIVED`). O catálogo `/schemas/domain` projeta essa linhagem em:
+  - `node.metadata.lineage` no nó `field` e `conceptNode.metadata.sharedRepresentations` no nó `concept`;
+  - arestas `same_as` (`transformation = DIRECT`), `materializes` (`AGGREGATED`) ou `depends_on` (`DERIVED` / `MASKED`) com `metadata.provenance = "domain-lineage"`.
+
+### Finalidade Legal LGPD em Surfaces e Actions (`LegalTreatmentPurpose`)
+
+`@UiSurface` e `@WorkflowAction` aceitam `legalPurpose = LegalTreatmentPurpose.*` (`UNSPECIFIED`, `HUMAN_RESOURCES_ADMINISTRATION`, `PAYROLL_AND_TAX_COMPLIANCE`, `OFFICIAL_HEALTH_EXPERTISE`, `SOCIAL_SECURITY_AND_BENEFITS`, `ACTIVE_PUBLIC_TRANSPARENCY_LAI`, `EXTERNAL_AUDIT_CONTROL`, `EMPLOYEE_SELF_SERVICE`, `STATUTORY_LEGAL_OBLIGATION`) e `legalBasisRef = "..."` (ex.: `"LGPD:ART_7_III"`, `"LGPD:ART_11_II_A"`, `"Lei 8.112/1990 art. 202"`). Quando declarados, são publicados nos catálogos `/schemas/surfaces`, `/schemas/actions` e nos nós `surface` e `action` de `/schemas/domain` (validados por `SemanticMetadataReviewer` via `legal-basis-without-legal-purpose` e `legal-purpose-without-legal-basis-ref`).
+
 ## Vocabulario Canonico
 
 - `annotationType`: `privacy`, `security`, `compliance`
@@ -114,9 +136,11 @@ O `SemanticDomainCatalogService` sintetiza automaticamente o Knowledge Graph cor
   - `fact`: fatos deterministicos declarados via `@ResourceFact` (`factId`, `valueType`, `unit`, `category`).
   - `surface`: experiencias de UI declaradas via `@UiSurface`.
   - `action`: transicoes e comandos declarados via `@WorkflowAction` / `@ResourceIntent`.
+  - `quick_filter`: recortes operacionais canonicos declarados via `@QuickFilter` (`criteria = @FilterCriterion(...)`) ou `defineQuickFilters()`, publicados em `{resourceKey}.quickFilter.{id}` com `filter`, `filterFields`, `tone`, `isDefault`, `description` e arestas `has_quick_filter` / `filters_field`.
   - `stats`: capacidades analiticas (`group-by`, `timeseries`, `distribution`, `comparison`) e `analyticsProjections` (`@UiAnalytics`).
   - `capability`: operacoes estruturais publicadas para o recurso.
   - `policy_hint`: dicas de governanca, politicas de selecao (`option-source`) e `RuleSetDefinition`s governados (`source = "rule-set"`, `metadata.policyKind = "domain_rule_set"` via `DomainRuleSetCatalogProvider` / `DomainRuleSetDescriptor`, com `availableRoots`, `referencedFactPaths`, `slots`, `rules`, `reasonCodes` e `targetFields`).
+    - Para executores Java, o host declara os resultados possíveis em `DomainRuleSetDescriptor.reasonDescriptors`, associados ao slot. O índice `reasonCodes` e os `targetFields` incluem todos os descritores dos slots Java habilitados, inclusive quando há vários resultados possíveis. Slots Java desabilitados não acrescentam resultados ao índice ativo. Não preencher `DecisionBinding.falseReasonCode` para simular um resultado JSON Logic nem inferir códigos pelo nome da implementação.
 - **Arestas do grafo (`edges`)**:
   - Estruturais do recurso: `has_field`, `has_fact`, `has_surface`, `has_action`, `has_stats`, `has_capability`, `has_policy`, `governed_by` (do `concept` e dos `field`s de `targetFields` para o no `policy_hint` do `RuleSet`, com binding `rule_definition`) e `materializes` (`analytical_data_product -> operational_resource`).
   - Relacionais cross-resource (Knowledge Graph):

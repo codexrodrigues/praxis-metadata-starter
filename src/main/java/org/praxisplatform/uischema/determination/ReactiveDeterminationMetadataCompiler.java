@@ -338,6 +338,18 @@ public class ReactiveDeterminationMetadataCompiler {
         return current;
     }
 
+    /** Resolves a published field pointer with the compiler's exact structural semantics, for derived catalogs. */
+    public JsonNode resolveFieldSchema(JsonNode schema, JsonNode document, String pointer) {
+        validatePointer("catalog", "fieldPath", pointer);
+        JsonNode current = org.praxisplatform.uischema.schema.DomainSchemaGovernance.inherit(schema, resolveRef(schema, document));
+        for (String segment : pointerSegments(pointer)) {
+            current = org.praxisplatform.uischema.schema.DomainSchemaGovernance.inherit(current, propertySchema(current, document, segment));
+            if (current == null || current.isMissingNode())
+                fail("catalog", "field path '" + pointer + "' does not exist in its canonical schema");
+        }
+        return current.deepCopy();
+    }
+
     private void requireSchemaPath(
             String id,
             String label,
@@ -356,13 +368,14 @@ public class ReactiveDeterminationMetadataCompiler {
     }
 
     private JsonNode propertySchema(JsonNode schema, JsonNode document, String property) {
-        JsonNode current = resolveRef(schema, document);
+        JsonNode current = org.praxisplatform.uischema.schema.DomainSchemaGovernance.inherit(schema, resolveRef(schema, document));
         if (current == null) {
             return null;
         }
         JsonNode direct = current.path("properties").path(property);
+        JsonNode result = null;
         if (!direct.isMissingNode()) {
-            return resolveRef(direct, document);
+            result = org.praxisplatform.uischema.schema.DomainSchemaGovernance.inherit(direct, resolveRef(direct, document));
         }
         for (String composition : List.of("allOf", "oneOf", "anyOf")) {
             JsonNode branches = current.path(composition);
@@ -372,11 +385,19 @@ public class ReactiveDeterminationMetadataCompiler {
             for (JsonNode branch : branches) {
                 JsonNode candidate = propertySchema(branch, document, property);
                 if (candidate != null && !candidate.isMissingNode()) {
-                    return candidate;
+                    if (result == null) result = candidate;
+                    else {
+                        result = org.praxisplatform.uischema.schema.DomainSchemaGovernance.inherit(candidate, result).deepCopy();
+                        if ("allOf".equals(composition)) {
+                            // Preserve the intersection, including object properties split across branches.
+                            // Later pointer segments resolve through the same compiler, without flattening constraints.
+                            ((com.fasterxml.jackson.databind.node.ObjectNode) result).withArray("allOf").add(candidate.deepCopy());
+                        }
+                    }
                 }
             }
         }
-        return null;
+        return org.praxisplatform.uischema.schema.DomainSchemaGovernance.inherit(current, result);
     }
 
     private void validateGraph(

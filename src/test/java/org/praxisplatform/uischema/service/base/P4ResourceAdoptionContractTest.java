@@ -33,12 +33,12 @@ class P4ResourceAdoptionContractTest {
       var schema=new io.swagger.v3.oas.models.media.ObjectSchema();
       schema.addProperty("name",new io.swagger.v3.oas.models.media.StringSchema());
       var fields=BulkEditableFields.compile(json,json.constructType(Write.class),json.readTree("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}"),io.swagger.v3.oas.models.SpecVersion.V30,Set.of());
-      adapter.evaluate(7L,etags.create(scope,"p4.items",7L,5),List.of(BulkFieldChange.set("name",json.valueToTree(" candidate "))),BulkMode.UNIFORM_UPDATE,fields);
+      adapter.evaluate(7L,etags.create(scope,"p4.items",7L,5),List.of(BulkFieldChange.set("name",json.valueToTree(" candidate "))),org.praxisplatform.uischema.service.base.ResourceMutationContext.bulkEvaluation(BulkMode.UNIFORM_UPDATE,java.time.Instant.EPOCH),fields);
       assertEquals("NEXT",persisted.name);assertEquals(5,persisted.version);
       assertEquals(List.of("before","mapped:CANDIDATE"),service.hooks);
       verify(repository,times(1)).save(any());
       assertThrows(IllegalArgumentException.class,()->adapter.evaluate(7L,etags.create(scope,"p4.items",7L,5),
-          List.of(BulkFieldChange.set("name",json.valueToTree("deny"))),BulkMode.UNIFORM_UPDATE,fields));
+          List.of(BulkFieldChange.set("name",json.valueToTree("deny"))),org.praxisplatform.uischema.service.base.ResourceMutationContext.bulkEvaluation(BulkMode.UNIFORM_UPDATE,java.time.Instant.EPOCH),fields));
       assertEquals("NEXT",persisted.name);verify(repository,times(1)).save(any());
     }
   }

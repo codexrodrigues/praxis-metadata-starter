@@ -19,7 +19,12 @@ public enum UISchemaPreset {
     BOOLEAN_FLAG("boolean-flag"),
     LEGAL_DOCUMENT_REFERENCE("legal-document-reference"),
     TENANT_LABEL("tenant-label"),
-    AUDIT_TIMESTAMP("audit-timestamp");
+    AUDIT_TIMESTAMP("audit-timestamp"),
+    CPF_CNPJ("cpf-cnpj"),
+    EMAIL_CONTACT("email-contact"),
+    PHONE_CONTACT("phone-contact"),
+    INTEGER_COUNTER("integer-counter"),
+    PERCENTAGE_RATE("percentage-rate");
 
     private final String value;
 

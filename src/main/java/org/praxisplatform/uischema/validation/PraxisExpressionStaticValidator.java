@@ -31,8 +31,43 @@ public class PraxisExpressionStaticValidator {
             "Math", "Number", "String", "Date", "Array", "Boolean", "Object",
             "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURIComponent", "decodeURIComponent",
             "typeof", "instanceof", "in", "new", "this",
+            // Funcoes nativas de SafeExpressionEvaluator (@praxisui/core e @praxisui/table)
+            "round", "ceil", "floor", "abs", "min", "max",
+            "now", "date", "yearsSince", "monthsSince", "daysSince",
+            "coalesce", "len", "toNumber", "toString", "if",
+            // Namespaces contextuais de linha e sub-recursos no drawer analitico
+            "row", "item", "data", "form", "relations",
             // Semantic tones permitidos em expressoes
-            "neutral", "info", "success", "warning", "danger", "critical"
+            "neutral", "info", "success", "warning", "danger", "critical", "primary"
+    );
+
+    private static final List<String> CALCULATION_MEMORY_SECTION_EXPR_KEYS = List.of(
+            "titleExpr",
+            "subtitleExpr",
+            "legalBasisExpr",
+            "trailsExpr"
+    );
+
+    private static final List<String> CALCULATION_TRAIL_EXPR_KEYS = List.of(
+            "visibleWhen",
+            "titleExpr",
+            "subtitleExpr",
+            "ruleCodeExpr",
+            "formulaExpr",
+            "baseExpr",
+            "baseHintExpr",
+            "additionExpr",
+            "additionHintExpr",
+            "deductionExpr",
+            "deductionHintExpr",
+            "factorExpr",
+            "factorHintExpr",
+            "capExpr",
+            "capHintExpr",
+            "resultExpr",
+            "resultHintExpr",
+            "legalBasisExpr",
+            "legalPurposeExpr"
     );
 
     private static final List<String> VISUALIZATION_EXPR_KEYS = List.of(
@@ -201,6 +236,11 @@ public class PraxisExpressionStaticValidator {
             }
         }
 
+        // Inspeciona x-ui.calculationMemory no nivel raiz do DTO (PLAT-EVO-20)
+        if (schema.getExtensions() != null && schema.getExtensions().get("x-ui") instanceof Map<?, ?> rootUiMap) {
+            validateCalculationMemoryExpressions(rootUiMap.get("calculationMemory"), validPropNames, schemaName, schemaErrors);
+        }
+
         if (!schemaErrors.isEmpty()) {
             if (strict) {
                 throw new InvalidDomainExpressionException(schemaName, "schema", null, String.join("; ", schemaErrors));
@@ -277,6 +317,61 @@ public class PraxisExpressionStaticValidator {
             String context = schemaName + "." + propName + "." + fieldName;
             ValidationResult result = validateExpression(exprStr, validProps, context);
             errors.addAll(result.errors());
+        }
+    }
+
+    private void validateCalculationMemoryExpressions(
+            Object rawCalcMemory,
+            Set<String> validProps,
+            String schemaName,
+            List<String> errors
+    ) {
+        if (rawCalcMemory == null) {
+            return;
+        }
+        List<?> trailsList = null;
+        if (rawCalcMemory instanceof Map<?, ?> calcMap) {
+            for (String key : CALCULATION_MEMORY_SECTION_EXPR_KEYS) {
+                Object rawVal = calcMap.get(key);
+                if (rawVal instanceof String expr && !expr.isBlank()) {
+                    ValidationResult res = validateExpression(expr, validProps, schemaName + ".calculationMemory." + key);
+                    errors.addAll(res.errors());
+                }
+            }
+            if (calcMap.get("trails") instanceof List<?> list) {
+                trailsList = list;
+            }
+        } else if (rawCalcMemory instanceof List<?> list) {
+            trailsList = list;
+        }
+
+        if (trailsList == null) {
+            return;
+        }
+        for (int i = 0; i < trailsList.size(); i++) {
+            if (!(trailsList.get(i) instanceof Map<?, ?> trailMap)) {
+                continue;
+            }
+            String trailId = trailMap.get("id") instanceof String id && !id.isBlank() ? id : String.valueOf(i);
+            String trailPrefix = schemaName + ".calculationMemory.trails[" + trailId + "]";
+            for (String exprKey : CALCULATION_TRAIL_EXPR_KEYS) {
+                if (trailMap.get(exprKey) instanceof String expr && !expr.isBlank()) {
+                    ValidationResult res = validateExpression(expr, validProps, trailPrefix + "." + exprKey);
+                    errors.addAll(res.errors());
+                }
+            }
+            if (trailMap.get("steps") instanceof List<?> steps) {
+                for (int s = 0; s < steps.size(); s++) {
+                    if (steps.get(s) instanceof Map<?, ?> stepMap) {
+                        if (stepMap.get("valueExpr") instanceof String vExpr && !vExpr.isBlank()) {
+                            errors.addAll(validateExpression(vExpr, validProps, trailPrefix + ".steps[" + s + "].valueExpr").errors());
+                        }
+                        if (stepMap.get("hintExpr") instanceof String hExpr && !hExpr.isBlank()) {
+                            errors.addAll(validateExpression(hExpr, validProps, trailPrefix + ".steps[" + s + "].hintExpr").errors());
+                        }
+                    }
+                }
+            }
         }
     }
 

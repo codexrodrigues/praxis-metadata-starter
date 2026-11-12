@@ -434,6 +434,9 @@ public class ApiDocsController {
         // Converte o esquema para um Map
         Map<String, Object> schemaMap = objectMapper.convertValue(schemaNodeForResponse, new TypeReference<Map<String, Object>>() { });
         normalizeEmptyObjectProperties(schemaMap);
+        Object componentCalculationMemory = schemaMap.get(X_UI) instanceof Map<?, ?> componentXUi
+                ? componentXUi.get("calculationMemory")
+                : null;
 
         String basePath = deriveBasePathFrom(canonicalPath);
 
@@ -449,6 +452,9 @@ public class ApiDocsController {
         xUiMap.remove(REACTIVE_DETERMINATIONS);
         if (!"response".equalsIgnoreCase(schemaType)) {
             xUiMap.remove("hierarchy");
+            xUiMap.remove("calculationMemory");
+        } else if (componentCalculationMemory != null) {
+            xUiMap.putIfAbsent("calculationMemory", componentCalculationMemory);
         }
         Map<String, Object> operationExamples = resolveOperationExamples(pathsNode, xUiMap, schemaType);
         if (!operationExamples.isEmpty()) {
@@ -502,6 +508,10 @@ public class ApiDocsController {
             if (hierarchy.isPresent()) {
                 xUiMap.put("hierarchy", hierarchy.get());
             }
+            var calculationMemory = apiResourceIdentityResolver.resolveCalculationMemory(canonicalPath, normalizedOperation);
+            if (calculationMemory.isPresent()) {
+                xUiMap.put("calculationMemory", calculationMemory.get());
+            }
             Optional<Map<String, Object>> resolvedIdentity = apiResourceIdentityResolver.resolve(
                     basePath,
                     canonicalPath,
@@ -530,21 +540,27 @@ public class ApiDocsController {
             }
         }
 
-        if (apiResourceQuickFilterResolver != null) {
-            List<Map<String, Object>> quickFilters = apiResourceQuickFilterResolver.resolve(basePath);
-            if (!quickFilters.isEmpty()) {
-                resourceMeta.put("quickFilters", quickFilters);
-            }
-        }
-
         String customFieldResourceKey = resourceMeta.get("resourceKey") instanceof String key ? key : null;
         if (apiResourceIdentityResolver != null) {
             customFieldResourceKey = apiResourceIdentityResolver.resolveResourceKey(basePath, canonicalPath, normalizedOperation)
                     .orElse(customFieldResourceKey);
         }
-        boolean customFieldFilterRequest = customFieldSchemaEnricher != null && "request".equals(schemaType)
-                && canonicalOperationResolver.resolveRequestBodyType(canonicalPath, normalizedOperation)
-                        .map(org.praxisplatform.uischema.filter.dto.GenericFilterDTO.class::isAssignableFrom).orElse(false);
+        boolean isFilterRequestSchema = "request".equalsIgnoreCase(schemaType)
+                && ((canonicalOperationResolver != null
+                        && canonicalOperationResolver.resolveRequestBodyType(canonicalPath, normalizedOperation)
+                                .map(org.praxisplatform.uischema.filter.dto.GenericFilterDTO.class::isAssignableFrom)
+                                .orElse(false))
+                        || ("post".equalsIgnoreCase(normalizedOperation)
+                                && canonicalPath != null
+                                && canonicalPath.endsWith("/filter")));
+        if (apiResourceQuickFilterResolver != null
+                && ("response".equalsIgnoreCase(schemaType) || isFilterRequestSchema)) {
+            List<Map<String, Object>> quickFilters = apiResourceQuickFilterResolver.resolve(basePath);
+            if (!quickFilters.isEmpty()) {
+                resourceMeta.put("quickFilters", quickFilters);
+            }
+        }
+        boolean customFieldFilterRequest = customFieldSchemaEnricher != null && isFilterRequestSchema;
         String customFieldFingerprint = customFieldSchemaEnricher == null ? ""
                 : customFieldSchemaEnricher.enrich(schemaMap, customFieldResourceKey, tenant, schemaType, customFieldFilterRequest);
         enrichPropertyOptionSources(schemaMap, basePath);
@@ -603,7 +619,7 @@ public class ApiDocsController {
                     .header("X-Schema-Hash", schemaHash)
                     .header("Access-Control-Expose-Headers", "ETag,X-Schema-Hash")
                     .cacheControl(responseCache)
-                    .varyBy("Accept-Encoding", "X-Tenant", "X-Tenant-ID")
+                    .varyBy("Accept-Encoding", "X-Tenant", "X-Tenant-ID", "X-Tenant-Realm", "X-Organization-ID")
                     .build();
         }
 
@@ -613,7 +629,7 @@ public class ApiDocsController {
                 .header("X-Schema-Hash", schemaHash)
                 .header("Access-Control-Expose-Headers", "ETag,X-Schema-Hash")
                 .cacheControl(responseCache)
-                .varyBy("Accept-Encoding", "X-Tenant", "X-Tenant-ID")
+                .varyBy("Accept-Encoding", "X-Tenant", "X-Tenant-ID", "X-Tenant-Realm", "X-Organization-ID")
                 .body(schemaMap);
     }
 

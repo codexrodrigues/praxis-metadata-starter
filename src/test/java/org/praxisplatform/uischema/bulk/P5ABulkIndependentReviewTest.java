@@ -40,7 +40,7 @@ class P5ABulkIndependentReviewTest {
                 new ObjectMapper(),mock(BulkResourcePolicy.class),
                 mock(BulkReadCursorConfiguration.class,withSettings().mockMaker(org.mockito.MockMakers.INLINE)),Map.of());
         var snapshot = BulkSnapshotStorageCodecTest.snapshot(BulkMode.UNIFORM_UPDATE,BulkIdentityCodecs.strings(),"\"101\"","1");
-        return ReflectionTestUtils.invokeMethod(engine,"evaluateTarget",snapshot,new BulkTarget<>("101","v1"));
+        return ReflectionTestUtils.invokeMethod(engine,"evaluateTarget",snapshot,new BulkTarget<>("101","v1"),org.praxisplatform.uischema.service.base.ResourceMutationContext.Stage.EVALUATION,java.time.Instant.EPOCH);
     }
     private static PraxisRuleViolationException rule(RuleDecision decision,String category) {
         return new PraxisRuleViolationException(new SlotViolationDetail("STATE",null,null,null,null,decision,null,"Operação indisponível",null,category));

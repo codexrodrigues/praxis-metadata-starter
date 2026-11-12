@@ -76,8 +76,8 @@ internos.
 Regra:
 
 - request sem campos usa a lista padrao do recurso;
-- request com alguns campos validos exporta apenas os validos;
-- request com campos informados, mas nenhum campo suportado, deve falhar com `400`.
+- request com campos informados exige que todos sejam suportados e exportáveis;
+- qualquer campo desconhecido ou proibido faz a requisição falhar com `400`, sem ampliar a seleção.
 
 Campos exportaveis podem declarar apresentacao serializavel por meio de
 `CollectionExportFieldPresentation`. Essa apresentacao inclui semantica como
@@ -141,6 +141,15 @@ apresentacao ja publicado pelo recurso; nesse modo, valores sao materializados
 como texto. Quando `formatOptions.excel.typedCells=true` e `applyFormatting=false`,
 o engine pode escrever celulas numericas, booleanas e de data como tipos nativos
 do Excel.
+
+Células tipadas conservam a precisão do contrato. Campos declarados como `string`
+permanecem textuais mesmo quando o valor Java é numérico. Valores `BigDecimal`,
+`BigInteger` e `Long` que excedam a precisão ou o intervalo do Excel são gravados
+como texto com seus dígitos e sinal originais; valores seguros continuam numéricos.
+O Excel conserva até 15 dígitos significativos, conforme a
+[documentação da Microsoft](https://support.microsoft.com/en-us/excel/excel-specifications-and-limits).
+Isso evita arredondar identificadores e decimais extensos apenas por solicitar
+`typedCells`. O contrato HTTP de exportação e suas opções permanecem os mesmos.
 
 Opcoes XLSX suportadas:
 

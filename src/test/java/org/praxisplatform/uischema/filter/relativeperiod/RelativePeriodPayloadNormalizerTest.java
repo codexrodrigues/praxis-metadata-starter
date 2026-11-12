@@ -157,6 +157,24 @@ class RelativePeriodPayloadNormalizerTest {
                 error.getMessage());
     }
 
+    @Test
+    void shouldNormalizeInheritedPresetAndCompanion() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("{\"publicadoEmPreset\":\"today\"}");
+        assertTrue(normalizer.normalizeInPlace(payload, InheritedRelativeFilter.class));
+        assertEquals("2026-03-20", payload.path("publicadoEmOn").asText());
+        assertFalse(payload.has("publicadoEmPreset"));
+    }
+
+    @Test
+    void shouldNotNormalizeParentPresetShadowedByUnannotatedChild() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("{\"publicadoEmPreset\":\"description\"}");
+        assertFalse(normalizer.normalizeInPlace(payload, ShadowedRelativeFilter.class));
+        assertEquals("description", payload.path("publicadoEmPreset").asText());
+    }
+
+    static class InheritedRelativeFilter extends RelativeDateTimeFilterDTO { }
+    static class ShadowedRelativeFilter extends RelativeDateTimeFilterDTO { private String publicadoEmPreset; }
+
     static class RelativeDateTimeFilterDTO implements GenericFilterDTO {
         @UISchema(controlType = FieldControlType.INLINE_RELATIVE_PERIOD)
         private String publicadoEmPreset;

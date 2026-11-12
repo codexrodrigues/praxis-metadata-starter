@@ -1,5 +1,7 @@
 # Reactive Determinations
 
+A publicação derivada em `/schemas/domain` preserva esta configuração integralmente por `schemaOperationId` e `formMode`. O [guia de ontologia](../guides/DOMAIN-CATALOG-ONTOLOGY.md) define os bindings `api_operation`/`form_config`, identidade do nó, caminhos aninhados, governança e testes de equivalência HTTP. Não há mudança no wire format de `x-ui.reactiveDeterminations`.
+
 `x-ui.reactiveDeterminations` e a projecao estrutural e tenant-neutral que liga um draft de
 formulario a uma operacao backend deterministica e nao persistente.
 
@@ -9,13 +11,14 @@ decisao e validacao final no submit.
 
 ## Fronteira canonica
 
-- o host registra `ReactiveDeterminationDefinitionProvider` como bean estatico;
+- o host declara determinacoes diretamente no metodo `POST` nao-persistente com `@ReactiveDetermination` (`@DeterminationInput`, `@DeterminationOutput`, `@DeterminationScope` — auto-descoberto por `AnnotationDrivenReactiveDeterminationDefinitionProvider`, `PLAT-EVO-16`) ou registra `ReactiveDeterminationDefinitionProvider` como bean estatico quando precisar resolver `provenance` dinamica de snapshots governados (`GovernedRuleFamilyRegistry`);
 - o registry captura um snapshot no bootstrap, fora de qualquer request ou contexto de tenant;
 - cada scope aponta para o `operationId` exato do request schema de create/edit;
 - a capability executora e resolvida por `CanonicalOperationResolver` e deve ser `POST`;
 - `href`, `requestSchemaUrl` e `responseSchemaUrl` sao derivados pelo starter, nunca fornecidos
   pelo provider;
 - sources, inputs e outputs usam JSON Pointer e sao validados contra os schemas reais;
+- cada `@DeterminationInput` deve preservar **fidelidade estrita `1:1` de sinal e semantica** entre o campo do formulario e o campo do DTO de determinacao (proibido reaproveitar uma propriedade de acrescimo/vantagem no request DTO para transportar uma deducao/desconto do formulario; adicione propriedades tipadas explicitas, inclusive separando data/competencia do fato gerador da competencia de processamento em calculos efetivos no tempo);
 - ids duplicados, writers sobrepostos e ciclos falham fechado durante a materializacao;
 - o bloco e publicado somente na variante `schemaType=request` de `/schemas/filtered`.
 
@@ -76,6 +79,14 @@ O endpoint `determineCustomerAddress` deve ter `@Operation(operationId = ...)`, 
 JSON documentados e mapping `POST` sem path variables. O submit de `createCustomer` continua
 obrigado a recalcular ou validar os campos derivados; metadata e execucao reativa nao sao
 enforcement de integridade.
+
+### Autoria declarativa zero-boilerplate (`@ReactiveDetermination` — `PLAT-EVO-16`)
+
+Como padrao de primeira escolha no controller do recurso, anote diretamente o handler `POST` nao-persistente com `@ReactiveDetermination`, `@DeterminationInput`, `@DeterminationOutput` e (para formularios parciais `@ResourceIntent` ou escopos customizados) `@DeterminationScope(schemaOperationId = ..., formMode = ...)`:
+
+- `AnnotationDrivenReactiveDeterminationDefinitionProvider` descobre automaticamente todos os metodos anotados no boot (`OpenApiUiSchemaAutoConfiguration`) e expoe `fromControllerClasses(...)` para testes unitarios sem contexto Spring;
+- `@DeterminationInput` e `@DeterminationOutput` aceitam tanto nomes simples de propriedade (`"zipCode"`) quanto JSON Pointers com barra inicial (`"/zipCode"`), normalizando ambos para RFC 6901 sem aceitar barra final (`"zipCode/"` falha fechado). Ja os construtores programaticos `ReactiveDeterminationInputBinding` e `ReactiveDeterminationOutputBinding` exigem explicitamente barra inicial (`"/zipCode"`);
+- preserve fidelidade `1:1` de sinal aritmetico e semantica de dominio entre `field` e `request` (nunca mapear campo de deducao/desconto para propriedade de acrescimo/vantagem ou vice-versa) e vincule separadamente a data do fato gerador e a competencia de processamento ao consultar tabelas progressivas temporais (`EffectiveDatedBracketTable`, `PLAT-EVO-18`).
 
 ## Limites da primeira versao
 

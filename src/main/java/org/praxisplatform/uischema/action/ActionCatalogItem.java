@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.action;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 
 import java.util.List;
@@ -31,6 +32,56 @@ public record ActionCatalogItem(
         int order,
         String successMessage,
         List<String> tags,
-        ActionExecutionContract execution
+        ActionExecutionContract execution,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String legalPurpose,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String legalBasisRef
 ) {
+    public ActionCatalogItem {
+        legalPurpose = legalPurpose != null && !legalPurpose.isBlank() ? legalPurpose.trim() : null;
+        legalBasisRef = legalBasisRef != null && !legalBasisRef.isBlank() ? legalBasisRef.trim() : null;
+    }
+
+    public ActionCatalogItem(
+            String id,
+            String resourceKey,
+            ActionScope scope,
+            String title,
+            String description,
+            String operationId,
+            String path,
+            String method,
+            String requestSchemaId,
+            String requestSchemaUrl,
+            String responseSchemaId,
+            String responseSchemaUrl,
+            List<String> allowedStates,
+            AvailabilityDecision availability,
+            int order,
+            String successMessage,
+            List<String> tags,
+            ActionExecutionContract execution
+    ) {
+        this(
+                id,
+                resourceKey,
+                scope,
+                title,
+                description,
+                operationId,
+                path,
+                method,
+                requestSchemaId,
+                requestSchemaUrl,
+                responseSchemaId,
+                responseSchemaUrl,
+                allowedStates,
+                availability,
+                order,
+                successMessage,
+                tags,
+                execution,
+                null,
+                null
+        );
+    }
 }

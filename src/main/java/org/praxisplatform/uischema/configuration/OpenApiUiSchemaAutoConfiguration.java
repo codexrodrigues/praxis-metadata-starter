@@ -388,13 +388,23 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public OptionSourceRegistry optionSourceRegistry(
-            ObjectProvider<BaseResourceQueryService<?, ?, ?>> queryServices
+            ObjectProvider<BaseResourceQueryService<?, ?, ?>> queryServices,
+            ObjectProvider<org.praxisplatform.uischema.options.OptionSourceRegistryContributor> contributors
     ) {
-        OptionSourceRegistry[] registries = queryServices.orderedStream()
+        java.util.List<OptionSourceRegistry> registries = new java.util.ArrayList<>();
+        queryServices.orderedStream()
                 .map(this::resolveRegistryForAggregation)
                 .filter(registry -> registry != null && !registry.isEmpty())
-                .toArray(OptionSourceRegistry[]::new);
-        return registries.length == 0 ? OptionSourceRegistry.empty() : OptionSourceRegistry.merge(registries);
+                .forEach(registries::add);
+        OptionSourceRegistry.Builder contributorBuilder = OptionSourceRegistry.builder();
+        contributors.orderedStream().forEach(c -> c.contribute(contributorBuilder));
+        OptionSourceRegistry contributed = contributorBuilder.build();
+        if (contributed != null && !contributed.isEmpty()) {
+            registries.add(contributed);
+        }
+        return registries.isEmpty()
+                ? OptionSourceRegistry.empty()
+                : OptionSourceRegistry.merge(registries.toArray(OptionSourceRegistry[]::new));
     }
 
     @Bean
@@ -596,6 +606,24 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     /**
+     * Descobre declaracoes {@code @ReactiveDetermination} anotadas diretamente nos controllers
+     * ({@code PLAT-EVO-16}), eliminando classes manuais de configuracao nos projetos hosts.
+     */
+    @Bean
+    @ConditionalOnMissingBean(org.praxisplatform.uischema.determination.AnnotationDrivenReactiveDeterminationDefinitionProvider.class)
+    public org.praxisplatform.uischema.determination.AnnotationDrivenReactiveDeterminationDefinitionProvider
+            annotationDrivenReactiveDeterminationDefinitionProvider(
+                    @org.springframework.beans.factory.annotation.Autowired(required = false)
+                    RequestMappingHandlerMapping requestMappingHandlerMapping,
+                    ApplicationContext applicationContext
+            ) {
+        return new org.praxisplatform.uischema.determination.AnnotationDrivenReactiveDeterminationDefinitionProvider(
+                requestMappingHandlerMapping,
+                applicationContext
+        );
+    }
+
+    /**
      * Captura uma unica vez os bindings estruturais declarados pelos providers do host.
      *
      * <p>O snapshot de bootstrap e intencional: {@code /schemas/filtered} permanece independente
@@ -652,10 +680,18 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
+    public org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService defaultResourceAvailabilityService() {
+        return org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService.INSTANCE;
+    }
+
+    @Bean
     @ConditionalOnMissingBean(name = "contextualSurfaceAvailabilityRule")
     @Order(100)
-    public SurfaceAvailabilityRule contextualSurfaceAvailabilityRule() {
-        return new ContextualSurfaceAvailabilityRule();
+    public SurfaceAvailabilityRule contextualSurfaceAvailabilityRule(
+            org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService defaultResourceAvailabilityService
+    ) {
+        return new ContextualSurfaceAvailabilityRule(defaultResourceAvailabilityService);
     }
 
     @Bean
@@ -740,8 +776,10 @@ public class OpenApiUiSchemaAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "contextualActionAvailabilityRule")
     @Order(0)
-    public ActionAvailabilityRule contextualActionAvailabilityRule() {
-        return new ContextualActionAvailabilityRule();
+    public ActionAvailabilityRule contextualActionAvailabilityRule(
+            org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService defaultResourceAvailabilityService
+    ) {
+        return new ContextualActionAvailabilityRule(defaultResourceAvailabilityService);
     }
 
     @Bean
@@ -836,6 +874,21 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(name = "requestMappingHandlerMapping")
+    @ConditionalOnMissingBean(org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver.class)
+    public org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver apiResourceQuickFilterResolver(
+            @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
+            org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping handlerMapping,
+            ObjectProvider<ObjectMapper> objectMapperProvider,
+            ApplicationContext applicationContext) {
+        return new org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver(
+                handlerMapping,
+                objectMapperProvider.getIfUnique(),
+                applicationContext
+        );
+    }
+
+    @Bean
     @ConditionalOnMissingBean(ResourceTenantContextResolver.class)
     public ResourceTenantContextResolver resourceTenantContextResolver() {
         return new RequestHeaderResourceTenantContextResolver();
@@ -869,18 +922,40 @@ public class OpenApiUiSchemaAutoConfiguration {
     @ConditionalOnMissingBean(DomainRuleSetCatalogProvider.class)
     public DomainRuleSetCatalogProvider domainRuleSetCatalogProvider(
             ObjectProvider<DomainRuleSetDescriptor> ruleSetDescriptors,
+            ObjectProvider<org.praxisplatform.uischema.domain.DomainRuleSetDescriptorContributor> descriptorContributors,
             ObjectProvider<RuleSetDefinition> ruleSetDefinitions,
             ObjectProvider<org.praxisplatform.rules.violation.RuleErrorCatalog> ruleErrorCatalog
     ) {
+        java.util.List<DomainRuleSetDescriptor> allDescriptors = new java.util.ArrayList<>(
+                ruleSetDescriptors.orderedStream().toList());
+        descriptorContributors.orderedStream()
+                .map(org.praxisplatform.uischema.domain.DomainRuleSetDescriptorContributor::getDomainRuleSetDescriptors)
+                .filter(java.util.Objects::nonNull)
+                .forEach(allDescriptors::addAll);
+        java.util.List<org.praxisplatform.rules.violation.RuleErrorCatalog> catalogs =
+                ruleErrorCatalog.orderedStream().toList();
         return DomainRuleSetCatalogProvider.of(
-                ruleSetDescriptors.orderedStream().toList(),
+                allDescriptors,
                 ruleSetDefinitions.orderedStream().toList(),
-                ruleErrorCatalog.getIfAvailable()
+                catalogs.isEmpty() ? null : org.praxisplatform.rules.violation.RuleErrorCatalog.merge(catalogs)
         );
     }
 
     @Bean
-    @ConditionalOnBean({ActionDefinitionRegistry.class, SurfaceDefinitionRegistry.class})
+    @ConditionalOnBean(org.praxisplatform.uischema.schema.ApiResourceIdentityResolver.class)
+    @ConditionalOnMissingBean
+    public org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource reactiveDeterminationCatalogSource(
+            ReactiveDeterminationDefinitionRegistry registry, ReactiveDeterminationMetadataCompiler compiler,
+            CanonicalOperationResolver operations, OpenApiDocumentService documents,
+            org.praxisplatform.uischema.schema.ApiResourceIdentityResolver identities, SchemaReferenceResolver schemas,
+            CanonicalCapabilityResolver capabilities, ObjectMapper mapper) {
+        return new org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource(
+                registry, compiler, operations, documents, identities, schemas, capabilities, mapper);
+    }
+
+    @Bean
+    @ConditionalOnBean({ActionDefinitionRegistry.class, SurfaceDefinitionRegistry.class,
+            org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource.class})
     @ConditionalOnMissingBean
     public SemanticDomainCatalogService semanticDomainCatalogService(
             ActionDefinitionRegistry actionDefinitionRegistry,
@@ -894,7 +969,9 @@ public class OpenApiUiSchemaAutoConfiguration {
             CustomFieldDefinitionProvider customFieldDefinitions,
             ResourceFactCatalogProvider resourceFacts,
             ResourceTenantContextResolver tenantResolver,
-            DomainRuleSetCatalogProvider domainRuleSetCatalogProvider
+            DomainRuleSetCatalogProvider domainRuleSetCatalogProvider,
+            org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource determinationCatalogSource,
+            ObjectProvider<org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver> quickFilterResolverProvider
     ) {
         return new SemanticDomainCatalogService(
                 actionDefinitionRegistry,
@@ -909,7 +986,9 @@ public class OpenApiUiSchemaAutoConfiguration {
                 customFieldDefinitions,
                 resourceFacts,
                 tenantResolver,
-                domainRuleSetCatalogProvider
+                domainRuleSetCatalogProvider,
+                determinationCatalogSource,
+                quickFilterResolverProvider.getIfAvailable()
         );
     }
 
@@ -974,5 +1053,30 @@ public class OpenApiUiSchemaAutoConfiguration {
             SemanticDomainCatalogService semanticDomainCatalogService
     ) {
         return new SemanticDomainCatalogController(semanticDomainCatalogService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public org.praxisplatform.uischema.service.base.ScopedBatchReferenceHydrator scopedBatchReferenceHydrator(
+            ObjectProvider<org.praxisplatform.uischema.service.base.AbstractBaseQueryResourceService<?, ?, ?, ?>> queryServices
+    ) {
+        return new org.praxisplatform.uischema.service.base.ScopedBatchReferenceHydrator(
+                resourceKey -> queryServices.orderedStream()
+                        .filter(svc -> resourceKey.equals(svc.getResourceKey()))
+                        .findFirst());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(org.praxisplatform.uischema.authoring.DtoMetadataFactCatalogEnricher.class)
+    public org.praxisplatform.uischema.authoring.DtoMetadataFactCatalogEnricher dtoMetadataFactCatalogEnricher() {
+        return new org.praxisplatform.uischema.authoring.DtoMetadataFactCatalogEnricher();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(org.praxisplatform.uischema.capability.ResourceDecisionPointCatalogService.class)
+    public org.praxisplatform.uischema.capability.ResourceDecisionPointCatalogService resourceDecisionPointCatalogService(
+            org.praxisplatform.uischema.authoring.DtoMetadataFactCatalogEnricher dtoEnricher
+    ) {
+        return new org.praxisplatform.uischema.capability.ResourceDecisionPointCatalogService(dtoEnricher);
     }
 }

@@ -126,7 +126,7 @@ class CustomFieldAdoptionRegressionTest {
                     {"type":"object","properties":{"owner":{"type":"integer"},"note":{"type":"string"},"customFields":{"type":"object"}}}
                     """),io.swagger.v3.oas.models.SpecVersion.V30,Set.of("owner","customFields"));
             adapter.evaluate(1L,fixture.etags.create(fixture.scope,"allocations",1L,4),
-                    List.of(BulkFieldChange.set("note",json.valueToTree("bulk"))),BulkMode.UNIFORM_UPDATE,fields);
+                    List.of(BulkFieldChange.set("note",json.valueToTree("bulk"))),org.praxisplatform.uischema.service.base.ResourceMutationContext.bulkEvaluation(BulkMode.UNIFORM_UPDATE,java.time.Instant.EPOCH),fields);
             assertEquals(1,fixture.entity.owner); assertEquals("old",fixture.entity.note);
             assertEquals(99,fixture.entity.customFields.get("audit"));
             assertEquals(1,fixture.definitionReads.get()); verify(fixture.repository,never()).save(any());

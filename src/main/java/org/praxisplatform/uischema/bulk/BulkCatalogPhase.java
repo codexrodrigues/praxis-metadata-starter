@@ -17,7 +17,11 @@ final class BulkCatalogPhase {
     private enum Scope { STRUCTURE, ACCESS, ROLES, LIVE }
 
     private BulkCatalogPhase(Connection c, BulkExecutionRoleConfiguration roles, Scope scope) throws SQLException {
-        var reader = new Reader(c, scope == Scope.LIVE);
+        this(c, roles, scope, null);
+    }
+
+    private BulkCatalogPhase(Connection c, BulkExecutionRoleConfiguration roles, Scope scope, LiveTimeout timeout) throws SQLException {
+        var reader = new Reader(c, scope == Scope.LIVE, timeout);
         identity = scope == Scope.LIVE ? reader.read("""
             select session_user session_identity,current_user effective_identity,
               pg_catalog.to_regprocedure('praxis_bulk.transition_operation_control(text,text,bigint,text,text,text)') is null legacy_cas_absent
@@ -101,6 +105,25 @@ final class BulkCatalogPhase {
     static BulkCatalogPhase captureLive(Connection c, BulkExecutionRoleConfiguration roles) throws SQLException {
         return new BulkCatalogPhase(c, roles, Scope.LIVE);
     }
+
+    /** Fresh timeout capture and catalog reads share one submission on the same connection. */
+    static BulkCatalogPhase captureLive(Connection c, BulkExecutionRoleConfiguration roles, LiveTimeout timeout) throws SQLException {
+        return new BulkCatalogPhase(c, roles, Scope.LIVE, Objects.requireNonNull(timeout));
+    }
+
+    static final String LIVE_TIMEOUT_PREFIX = """
+                    with previous as materialized (select current_setting('statement_timeout') value)
+                    select value, set_config('statement_timeout',
+                        case when value = '0' or value::interval > interval '250 milliseconds'
+                             then '250ms' else value end, true)
+                    from previous;
+                    """;
+
+    static final class LiveTimeout {
+        private String previous;
+        String previous() { return previous; }
+    }
+
 
     static BulkCatalogPhase capture(Connection c, BulkExecutionRoleConfiguration roles) throws SQLException {
         return new BulkCatalogPhase(c, roles, Scope.STRUCTURE);
@@ -200,11 +223,14 @@ final class BulkCatalogPhase {
     private static final class Reader {
         private final Connection connection;
         private final boolean batch;
+        private final LiveTimeout timeout;
         private final List<String> queries = new ArrayList<>();
         private final List<List<Fact>> results = new ArrayList<>();
         private Set<String> configured, roots;
         private String owner;
-        Reader(Connection connection, boolean batch) { this.connection = connection; this.batch = batch; }
+        Reader(Connection connection, boolean batch, LiveTimeout timeout) {
+            this.connection = connection; this.batch = batch; this.timeout = timeout;
+        }
         List<Fact> readTableAcl(String sql) throws SQLException {
             if (!batch) return read(sql);
             // Compress repeated identities only. Grant options, ownership, column grants and
@@ -247,7 +273,9 @@ final class BulkCatalogPhase {
         void finish() throws SQLException {
             if (!batch) return;
             require(queries.size() == 7, "Live catalog query inventory differs");
-            try (var statement = connection.prepareStatement(String.join(";\n", queries))) {
+            String sql = String.join(";\n", queries);
+            if (timeout != null) sql = LIVE_TIMEOUT_PREFIX + sql;
+            try (var statement = connection.prepareStatement(sql)) {
                 var bodyDigests = connection.createArrayOf("text", BulkCatalogFunctionBodies.packaged().keySet().toArray());
                 java.sql.Array configuredArray = null;
                 java.sql.Array rootsArray = null;
@@ -256,6 +284,16 @@ final class BulkCatalogPhase {
                     rootsArray = connection.createArrayOf("text", roots.toArray());
                     statement.setArray(1, bodyDigests); statement.setArray(2, configuredArray); statement.setArray(3, rootsArray); statement.setString(4, owner);
                     boolean result = statement.execute();
+                    if (timeout != null) {
+                        require(result, "Live timeout capture result is absent");
+                        try (var rows = statement.getResultSet()) {
+                            require(rows != null && rows.next(), "Live timeout capture row is absent");
+                            timeout.previous = rows.getString(1);
+                            require(timeout.previous != null && rows.getString(2) != null && !rows.next(),
+                                    "Live timeout capture returned invalid rows");
+                        }
+                        result = statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT);
+                    }
                     for (int i = 0; i < results.size(); i++) {
                         require(result, "Live catalog result set absent or replaced by update count: " + i);
                         try (var rows = statement.getResultSet()) {

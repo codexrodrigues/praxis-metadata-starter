@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
+import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
@@ -335,10 +336,51 @@ class RangePayloadNormalizerTest {
         assertEquals("18:00", payload.path("horarioBetween").get(1).asText());
     }
 
+    @Test
+    void shouldNormalizeInheritedRange() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("{\"valor\":{\"minPrice\":10,\"maxPrice\":20}}");
+        assertTrue(normalizer.normalizeInPlace(payload, InheritedRangeFilter.class));
+        assertEquals("[10,20]", payload.path("valorBetween").toString());
+        assertFalse(payload.has("valor"));
+    }
+
+    @Test
+    void shouldNotNormalizeParentRangeShadowedByUnannotatedChild() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("{\"valorBetween\":\"description\"}");
+        assertFalse(normalizer.normalizeInPlace(payload, ShadowedRangeFilter.class));
+        assertEquals("description", payload.path("valorBetween").asText());
+    }
+
+    @Test
+    void shouldNormalizeMonetaryPresetRangeAndSplitBoundAliasesWithoutExplicitNumericFormat() throws Exception {
+        ObjectNode payload = (ObjectNode) mapper.readTree("""
+                {
+                  "salarioMin": 1200,
+                  "salarioMax": 4500
+                }
+                """);
+
+        boolean changed = normalizer.normalizeInPlace(payload, RangeFilterDTO.class);
+
+        assertTrue(changed);
+        assertFalse(payload.has("salarioMin"));
+        assertFalse(payload.has("salarioMax"));
+        assertEquals(2, payload.path("salarioBetween").size());
+        assertEquals("1200", payload.path("salarioBetween").get(0).asText());
+        assertEquals("4500", payload.path("salarioBetween").get(1).asText());
+    }
+
+    static class InheritedRangeFilter extends RangeFilterDTO { }
+    static class ShadowedRangeFilter extends RangeFilterDTO { private String valorBetween; }
+
     static class RangeFilterDTO implements GenericFilterDTO {
         @UISchema(numericFormat = NumericFormat.CURRENCY)
         @Filterable(operation = Filterable.FilterOperation.BETWEEN, relation = "valor")
         private List<BigDecimal> valorBetween;
+
+        @UISchema(preset = UISchemaPreset.MONETARY_AMOUNT)
+        @Filterable(operation = Filterable.FilterOperation.BETWEEN, relation = "salario")
+        private List<BigDecimal> salarioBetween;
 
         @Filterable(operation = Filterable.FilterOperation.BETWEEN, relation = "data")
         private List<LocalDate> periodo;

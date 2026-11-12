@@ -8,7 +8,7 @@ Resultado prático: menos boilerplate, regras consistentes ponta a ponta, govern
 
 ## O que o Starter entrega, na prática
 
-- **Anotações de Contrato e Governança (`@UISchema`, `@DomainGovernance`, `@Filterable`)**: declare metadados de apresentação, validações, permissões de campo (`fieldAccess`) e políticas de IA diretamente nos DTOs.
+- **Anotações de Contrato, Linhagem e Governança (`@UISchema`, `@DomainGovernance`, `@DomainLineage`, `LegalTreatmentPurpose`, `@ResourceFact`, `@Filterable`)**: declare metadados de apresentação (`UISchemaPreset`), classificação/privacidade (`DomainGovernancePreset`), linhagem de origem (`x-domain-governance.lineage`), finalidade legal LGPD em superfícies e comandos, fatos determinísticos de domínio, validações, permissões de campo (`fieldAccess`) e políticas de IA (`@AiUsagePolicy`) diretamente nos DTOs e controllers — alimentando simultaneamente a trilha de regras de negócio (`decisionKind = BUSINESS` no `praxis-rules-engine`) e a trilha de autorização/proteção de dados (`decisionKind = AUTHORIZATION` nos módulos `praxis-authz-*` / `OPA`).
 - **Enriquecimento Automático do OpenAPI (`x-ui`)**: converte tipos, formatos e restrições Jakarta Bean Validation (`@NotBlank`, `@Size`, etc.) em `x-ui` e `x-ui.validation`.
 - **Contrato Estrutural Versionado (`/schemas/filtered`)**: entrega o schema exato da operação (`request` ou `response`) com `x-ui.resource.idField`, `ETag` e `X-Schema-Hash` para revalidação condicional (`304 Not Modified`).
 - **Descoberta Semântica Além do CRUD**:
@@ -152,4 +152,4 @@ mockMvc.perform(get("/schemas/filtered")
 
 ## Próximo passo
 
-Consulte o [README principal](README.md), o [Guia 01 — Nova Aplicação](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md) e explore o [Praxis Cockpit ao vivo](https://praxis-api-quickstart.onrender.com/praxis/cockpit).
+Consulte o [README principal](README.md), o [Guia 00 — Blueprint Completo de um Recurso Praxis (20 Pilares)](docs/guides/GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md), o [Guia 01 — Nova Aplicação](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md) e explore o [Praxis Cockpit ao vivo](https://praxis-api-quickstart.onrender.com/praxis/cockpit).

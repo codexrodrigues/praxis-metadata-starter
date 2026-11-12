@@ -10,14 +10,17 @@ import org.praxisplatform.uischema.annotation.DomainClassification;
 import org.praxisplatform.uischema.annotation.DomainDataCategory;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.annotation.DomainGovernanceKind;
+import org.praxisplatform.uischema.annotation.DomainGovernancePreset;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 import org.praxisplatform.uischema.fact.ResourceFact;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -119,8 +122,40 @@ class SemanticMetadataReviewerTest {
                 .collect(Collectors.toSet());
         assertTrue(codes.contains("schema-description-missing"));
         assertTrue(codes.contains("ui-label-looks-like-sentence"));
+        assertTrue(codes.contains("sensitive-field-without-governance"));
         assertTrue(report.issues().stream().noneMatch(i -> i.fieldName().equals("taxaOcupacaoPct")));
     }
+
+    @Test
+    void reviewsStrictGovernanceAndLgpdArt11Tokens() {
+        SemanticMetadataReviewReport strictReport =
+                new SemanticMetadataReviewer().reviewStrictGovernance(LgpdSensitiveUnannotatedDTO.class);
+        assertTrue(strictReport.hasErrors());
+        Set<String> errorFields = strictReport.issues().stream()
+                .filter(i -> i.severity() == SemanticMetadataIssueSeverity.ERROR
+                        && "sensitive-field-without-governance".equals(i.code()))
+                .map(SemanticMetadataReviewIssue::fieldName)
+                .collect(Collectors.toSet());
+        assertTrue(errorFields.containsAll(Set.of("raca", "grupoSanguineo", "obsDeficiencia", "remuneracao")));
+    }
+
+    private record LgpdSensitiveUnannotatedDTO(
+            @Schema(description = "Autodeclaracao etnico-racial do servidor para fins censitarios e de cotas.")
+            @UISchema(label = "Raça/Cor")
+            Integer raca,
+
+            @Schema(description = "Tipagem sanguinea e fator Rh registrados no prontuario medico funcional.")
+            @UISchema(label = "Grupo Sanguíneo")
+            String grupoSanguineo,
+
+            @Schema(description = "Laudo descritivo de restricoes e adaptacoes de acessibilidade da pessoa com deficiencia.")
+            @UISchema(label = "Observação de Deficiência")
+            String obsDeficiencia,
+
+            @Schema(description = "Valor bruto da remuneracao mensal permanente do vinculo.")
+            @UISchema(label = "Remuneração")
+            Double remuneracao
+    ) {}
 
     private static class ComputedGetterDTO {
         @Schema(description = "Percentual calculado de vagas ocupadas em relacao ao total de vagas autorizadas.")
@@ -132,6 +167,12 @@ class SemanticMetadataReviewerTest {
         @UISchema(label = "Este rotulo calculado tem mais de trinta e seis caracteres e ponto final.")
         public String getIndicadorSemDescricao() {
             return "ALERTA";
+        }
+
+        @Schema(description = "Grupo sanguineo retornado por getter calculado sem anotacao de governanca.")
+        @UISchema(label = "Grupo Sanguíneo", readOnly = true)
+        public String getGrupoSanguineo() {
+            return "O+";
         }
     }
 
@@ -350,6 +391,1110 @@ class SemanticMetadataReviewerTest {
         @UISchema(label = "Situação", quickViewVisible = false)
         public String getSituacao() {
             return super.getSituacao();
+        }
+    }
+
+    @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME)
+    @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.RECORD_COMPONENT})
+    @DomainGovernance(
+            preset = org.praxisplatform.uischema.annotation.DomainGovernancePreset.LGPD_PERSONAL_ID,
+            reason = "Documento civil protegido pela LGPD."
+    )
+    @UISchema(label = "CPF", preset = UISchemaPreset.CPF_CNPJ)
+    private @interface ComposedCpfMetadata {
+    }
+
+    private record ConcisePresetAndMetaAnnotatedDTO(
+            @Schema(description = "Cadastro de Pessoa Fisica do servidor titular usado na qualificacao cadastral.")
+            @ComposedCpfMetadata
+            String cpf,
+
+            @DomainGovernance(
+                    preset = org.praxisplatform.uischema.annotation.DomainGovernancePreset.CONFIDENTIAL_FINANCIAL,
+                    reason = "Remuneracao bruta protegida por sigilo salarial."
+            )
+            @Schema(description = "Valor bruto da remuneracao mensal permanente do vinculo funcional.")
+            @UISchema(label = "Remuneração", preset = UISchemaPreset.MONETARY_AMOUNT)
+            Double remuneracao
+    ) {}
+
+    @Test
+    void acceptsDomainGovernancePresetsAndComposedMetaAnnotations() {
+        SemanticMetadataReviewReport report =
+                new SemanticMetadataReviewer().reviewStrictGovernance(ConcisePresetAndMetaAnnotatedDTO.class);
+        assertFalse(report.hasErrors(), report.issues().toString());
+        assertTrue(report.issues().isEmpty(), report.issues().toString());
+    }
+
+    private record MisconfiguredSensitiveGovernanceDTO(
+            @DomainGovernance(
+                    classification = org.praxisplatform.uischema.annotation.DomainClassification.PUBLIC,
+                    dataCategory = org.praxisplatform.uischema.annotation.DomainDataCategory.PERSONAL
+            )
+            @Schema(description = "Cadastro de Pessoa Fisica do servidor titular para qualificacao cadastral.")
+            @UISchema(label = "CPF")
+            String cpf,
+
+            @DomainGovernance(
+                    classification = org.praxisplatform.uischema.annotation.DomainClassification.RESTRICTED,
+                    dataCategory = org.praxisplatform.uischema.annotation.DomainDataCategory.SENSITIVE_PERSONAL,
+                    aiUsage = @org.praxisplatform.uischema.annotation.AiUsagePolicy(
+                            trainingUse = org.praxisplatform.uischema.annotation.AiTrainingUseMode.ALLOW
+                    )
+            )
+            @Schema(description = "Codigo internacional da molestia clinica registrada na pericia medica.")
+            @UISchema(label = "CID")
+            String cid
+    ) {}
+
+    @Test
+    void rejectsSensitiveFieldWithPublicClassificationOrAllowedAiTraining() {
+        SemanticMetadataReviewReport report =
+                new SemanticMetadataReviewer().reviewStrictGovernance(MisconfiguredSensitiveGovernanceDTO.class);
+        assertTrue(report.hasErrors());
+        assertTrue(report.issues().stream().anyMatch(i ->
+                i.severity() == SemanticMetadataIssueSeverity.ERROR
+                        && "sensitive-field-public-classification".equals(i.code())
+                        && "cpf".equals(i.fieldName())));
+        assertTrue(report.issues().stream().anyMatch(i ->
+                i.severity() == SemanticMetadataIssueSeverity.ERROR
+                        && "sensitive-field-allows-ai-training".equals(i.code())
+                        && "cid".equals(i.fieldName())));
+    }
+
+    private record AllNewPresetsOpenApiDTO(
+            @Schema(description = "Cadastro de Pessoa Fisica do colaborador titular.")
+            @ComposedCpfMetadata
+            String cpf,
+
+            @Schema(description = "Endereco de e-mail corporativo para notificacoes oficiais.")
+            @UISchema(label = "E-mail", preset = UISchemaPreset.EMAIL_CONTACT)
+            String email,
+
+            @Schema(description = "Telefone celular corporativo para contato de plantao.")
+            @UISchema(label = "Telefone", preset = UISchemaPreset.PHONE_CONTACT)
+            String telefone,
+
+            @Schema(description = "Quantidade inteira de dependentes habilitados no vinculo.")
+            @UISchema(label = "Dependentes", preset = UISchemaPreset.INTEGER_COUNTER)
+            Integer totalDependentes,
+
+            @Schema(description = "Percentual de gratificacao de desempenho aplicado sobre o vencimento.")
+            @UISchema(label = "Percentual", preset = UISchemaPreset.PERCENTAGE_RATE)
+            Double percentualGratificacao
+    ) {}
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void customOpenApiResolverMaterializesNewUISchemaPresetsDomainGovernancePresetsAndMetaAnnotations() {
+        var converter = new org.praxisplatform.uischema.extension.CustomOpenApiResolver(new com.fasterxml.jackson.databind.ObjectMapper());
+        var context = new io.swagger.v3.core.converter.ModelConverterContextImpl(List.of(converter));
+        io.swagger.v3.oas.models.media.Schema<?> schema =
+                context.resolve(new io.swagger.v3.core.converter.AnnotatedType(AllNewPresetsOpenApiDTO.class));
+        assertNotNull(schema);
+        java.util.Map<String, io.swagger.v3.oas.models.media.Schema> props = schema.getProperties();
+        assertNotNull(props);
+
+        var cpfSchema = props.get("cpf");
+        var cpfUi = (java.util.Map<String, Object>) cpfSchema.getExtensions().get("x-ui");
+        assertEquals("cpfCnpjInput", cpfUi.get("controlType"));
+        assertEquals("cpf-cnpj", cpfUi.get("presentationPreset"));
+        var cpfGov = (java.util.Map<String, Object>) cpfSchema.getExtensions().get("x-domain-governance");
+        assertNotNull(cpfGov);
+        assertEquals("confidential", cpfGov.get("classification"));
+        assertEquals("personal", cpfGov.get("dataCategory"));
+        assertEquals(List.of("LGPD", "PII"), cpfGov.get("complianceTags"));
+
+        var emailUi = (java.util.Map<String, Object>) props.get("email").getExtensions().get("x-ui");
+        assertEquals("email", emailUi.get("type"));
+        assertEquals("email", emailUi.get("controlType"));
+        assertEquals("email-contact", emailUi.get("presentationPreset"));
+
+        var phoneUi = (java.util.Map<String, Object>) props.get("telefone").getExtensions().get("x-ui");
+        assertEquals("phone", phoneUi.get("controlType"));
+        assertEquals("phone-contact", phoneUi.get("presentationPreset"));
+
+        var counterUi = (java.util.Map<String, Object>) props.get("totalDependentes").getExtensions().get("x-ui");
+        assertEquals("numericTextBox", counterUi.get("controlType"));
+        assertEquals("integer", counterUi.get("numericFormat"));
+        assertEquals("integer-counter", counterUi.get("presentationPreset"));
+
+        var rateUi = (java.util.Map<String, Object>) props.get("percentualGratificacao").getExtensions().get("x-ui");
+        assertEquals("numericTextBox", rateUi.get("controlType"));
+        assertEquals("percent", rateUi.get("numericFormat"));
+        assertEquals("percentage-rate", rateUi.get("presentationPreset"));
+    }
+
+    private static final class AuthoritativeHealthEntity {
+        @DomainGovernance(
+                preset = org.praxisplatform.uischema.annotation.DomainGovernancePreset.LGPD_SENSITIVE_DATA,
+                complianceTags = {"LGPD", "LGPD_ART_11"},
+                reason = "Codigo CID de afastamento clinico protegido pelo Art. 11 da LGPD."
+        )
+        private String cidAfastamento;
+    }
+
+    private record RestrictedAnalyticsExposureDTO(
+            @Schema(description = "Codigo CID de afastamento clinico herdado por linhagem para pericia.")
+            @UISchema(label = "CID")
+            @org.praxisplatform.uischema.annotation.DomainLineage(
+                    sourceClass = AuthoritativeHealthEntity.class,
+                    sourcePaths = {"cidAfastamento"},
+                    attributeId = "ergon.afastamento.cid",
+                    transformation = org.praxisplatform.uischema.annotation.DomainLineageTransformation.DIRECT
+            )
+            String cidAfastamento,
+
+            @Schema(description = "Cadastro de Pessoa Fisica restrito do servidor.")
+            @UISchema(label = "CPF")
+            @DomainGovernance(
+                    preset = org.praxisplatform.uischema.annotation.DomainGovernancePreset.LGPD_PERSONAL_ID,
+                    reason = "CPF restrito bloqueado para agregacao categorica e exportacao."
+            )
+            String cpf,
+
+            @Schema(description = "Situacao funcional publica/interna elegivel para agregacao.")
+            @UISchema(label = "Situacao")
+            @DomainGovernance(preset = org.praxisplatform.uischema.annotation.DomainGovernancePreset.INTERNAL_OPERATIONAL)
+            String situacao
+    ) {}
+
+    @Test
+    void rejectsRestrictedOrSensitiveFieldsInCategoricalAnalyticsAndOptionSources() {
+        var statsFields = org.praxisplatform.uischema.stats.StatsFieldRegistry.builder()
+                .categoricalGroupByBucket("cidAfastamento", "cidAfastamento")
+                .categoricalGroupByBucket("situacao", "situacao")
+                .build();
+        var optionSources = List.of(
+                new org.praxisplatform.uischema.options.OptionSourceDescriptor(
+                        "cpf",
+                        org.praxisplatform.uischema.options.OptionSourceType.DISTINCT_DIMENSION,
+                        "/api/ergon/afastamentos",
+                        "cpf",
+                        "cpf",
+                        "cpf",
+                        "cpf",
+                        List.of(),
+                        java.util.Map.of(),
+                        null
+                )
+        );
+
+        SemanticMetadataReviewReport report = new SemanticMetadataReviewer()
+                .review(RestrictedAnalyticsExposureDTO.class, optionSources, statsFields);
+
+        assertTrue(report.hasErrors());
+        assertTrue(report.issues().stream().anyMatch(i ->
+                i.severity() == SemanticMetadataIssueSeverity.ERROR
+                        && "restricted-field-in-analytics-or-option-source".equals(i.code())
+                        && "cidAfastamento".equals(i.fieldName())));
+        assertTrue(report.issues().stream().anyMatch(i ->
+                i.severity() == SemanticMetadataIssueSeverity.ERROR
+                        && "restricted-field-in-analytics-or-option-source".equals(i.code())
+                        && "cpf".equals(i.fieldName())));
+        assertTrue(report.issues().stream().noneMatch(i ->
+                "restricted-field-in-analytics-or-option-source".equals(i.code())
+                        && "situacao".equals(i.fieldName())));
+    }
+
+    private record RenamedLineageAndFilterRestrictedDTO(
+            @Schema(description = "Projeção renomeada do código CID clínico do afastamento protegido pelo Art. 11 da LGPD.")
+            @UISchema(label = "Código CID")
+            @org.praxisplatform.uischema.annotation.DomainLineage(
+                    sourceClass = AuthoritativeHealthEntity.class,
+                    sourcePaths = {"cidAfastamento"},
+                    attributeId = "ergon.afastamento.cid",
+                    transformation = org.praxisplatform.uischema.annotation.DomainLineageTransformation.ALIAS
+            )
+            String codigoCidClinico,
+
+            @Schema(description = "Filtro por CPF do titular via relação JPA com bloqueio de agregação categórica.")
+            @UISchema(label = "CPF do titular")
+            @org.praxisplatform.uischema.filter.annotation.Filterable(relation = "pessoa.cpf")
+            @DomainGovernance(
+                    preset = org.praxisplatform.uischema.annotation.DomainGovernancePreset.LGPD_PERSONAL_ID,
+                    reason = "CPF restrito bloqueado para agregacao categorica."
+            )
+            String cpfTitular
+    ) {}
+
+    private static final class MisconfiguredLegalPurposeController {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "ficha-sem-finalidade",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Ficha",
+                description = "Surface com base legal sem finalidade.",
+                legalBasisRef = "LGPD Art. 11, II, 'a'"
+        )
+        public void surfaceWithBasisWithoutPurpose() {
+        }
+
+        @org.praxisplatform.uischema.annotation.WorkflowAction(
+                id = "homologar-sem-base",
+                title = "Homologar",
+                description = "Action com finalidade sem base legal normativa.",
+                legalPurpose = org.praxisplatform.uischema.annotation.LegalTreatmentPurpose.OFFICIAL_HEALTH_EXPERTISE
+        )
+        public void actionWithPurposeWithoutBasis() {
+        }
+    }
+
+    @Test
+    void detectsRenamedLineageRestrictedAliasesAndMisconfiguredLegalTreatmentBindings() {
+        var statsFields = org.praxisplatform.uischema.stats.StatsFieldRegistry.builder()
+                .categoricalGroupByBucket("cid", "afastamento.cidAfastamento")
+                .build();
+        var optionSources = List.of(
+                new org.praxisplatform.uischema.options.OptionSourceDescriptor(
+                        "cpfBucket",
+                        org.praxisplatform.uischema.options.OptionSourceType.CATEGORICAL_BUCKET,
+                        "/api/ergon/afastamentos",
+                        "cpfTitular",
+                        "pessoa.cpf",
+                        "pessoa.cpf",
+                        "pessoa.cpf",
+                        List.of(),
+                        java.util.Map.of(),
+                        null
+                )
+        );
+
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+        SemanticMetadataReviewReport aliasReport =
+                reviewer.review(RenamedLineageAndFilterRestrictedDTO.class, optionSources, statsFields);
+        assertTrue(aliasReport.hasErrors());
+        assertTrue(aliasReport.issues().stream().anyMatch(i ->
+                "restricted-field-in-analytics-or-option-source".equals(i.code())
+                        && "codigoCidClinico".equals(i.fieldName())));
+        assertTrue(aliasReport.issues().stream().anyMatch(i ->
+                "restricted-field-in-analytics-or-option-source".equals(i.code())
+                        && "cpfTitular".equals(i.fieldName())));
+
+        SemanticMetadataReviewReport controllerReport =
+                reviewer.reviewResourceFacts(MisconfiguredLegalPurposeController.class);
+        assertTrue(controllerReport.hasErrors());
+        assertTrue(controllerReport.issues().stream().anyMatch(i ->
+                "legal-basis-without-legal-purpose".equals(i.code())
+                        && "surfaceWithBasisWithoutPurpose@UiSurface(ficha-sem-finalidade)".equals(i.fieldName())));
+        assertTrue(controllerReport.issues().stream().anyMatch(i ->
+                "legal-purpose-without-legal-basis-ref".equals(i.code())
+                        && "actionWithPurposeWithoutBasis@WorkflowAction(homologar-sem-base)".equals(i.fieldName())));
+    }
+
+    private static final class AuthoritativePersonEntity {
+        @DomainGovernance(
+                preset = org.praxisplatform.uischema.annotation.DomainGovernancePreset.LGPD_PERSONAL_ID,
+                exportable = false,
+                reason = "Nome civil do titular restrito para agregacao categorica."
+        )
+        private String nome;
+    }
+
+    @DomainGovernance(
+            classification = org.praxisplatform.uischema.annotation.DomainClassification.RESTRICTED,
+            exportable = false,
+            reason = "Interface base restrita para todos os atributos herdados."
+    )
+    private interface RestrictedBaseContract {
+    }
+
+    private record HomonymAndInheritedTypeGovernanceDTO(
+            @Schema(description = "Nome civil do servidor titular vinculado por linhagem com bloqueio de exportacao.")
+            @UISchema(label = "Nome do Servidor")
+            @org.praxisplatform.uischema.annotation.DomainLineage(
+                    sourceClass = AuthoritativePersonEntity.class,
+                    sourcePaths = {"nome"},
+                    attributeId = "ergon.servidor_pessoa.nome",
+                    transformation = org.praxisplatform.uischema.annotation.DomainLineageTransformation.ALIAS
+            )
+            String pessoaNome,
+
+            @Schema(description = "Parecer reservado cujo tipo base ja exige classificacao RESTRICTED.")
+            @UISchema(label = "Parecer")
+            @DomainGovernance(
+                    classification = org.praxisplatform.uischema.annotation.DomainClassification.INTERNAL,
+                    aiUsage = @org.praxisplatform.uischema.annotation.AiUsagePolicy(
+                            trainingUse = org.praxisplatform.uischema.annotation.AiTrainingUseMode.ALLOW
+                    )
+            )
+            String parecerInterno
+    ) implements RestrictedBaseContract {}
+
+    @Test
+    void avoidsGenericLeafHomonymFalsePositivesAndComposesTypeLevelGovernanceWithMemberGovernance() {
+        var safeOrganizationalStats = org.praxisplatform.uischema.stats.StatsFieldRegistry.builder()
+                .categoricalGroupByBucket("lotacaoNome", "lotacao.nome")
+                .build();
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+        SemanticMetadataReviewReport reportWithSafeOrgDimension =
+                reviewer.review(HomonymAndInheritedTypeGovernanceDTO.class, List.of(), safeOrganizationalStats);
+        assertTrue(reportWithSafeOrgDimension.issues().stream().noneMatch(i ->
+                "restricted-field-in-analytics-or-option-source".equals(i.code())
+                        && "pessoaNome".equals(i.fieldName())),
+                "Generic leaf 'nome' on ServidorPessoa must not falsely block organizational 'lotacao.nome': "
+                        + reportWithSafeOrgDimension.issues());
+        assertTrue(reportWithSafeOrgDimension.issues().stream().anyMatch(i ->
+                "sensitive-field-allows-ai-training".equals(i.code())
+                        && "parecerInterno".equals(i.fieldName())),
+                "Member governance with trainingUse=ALLOW on a RESTRICTED type must be flagged: "
+                        + reportWithSafeOrgDimension.issues());
+
+        var statsExposingInheritedRestrictedMember = org.praxisplatform.uischema.stats.StatsFieldRegistry.builder()
+                .categoricalGroupByBucket("parecerInterno", "parecerInterno")
+                .build();
+        SemanticMetadataReviewReport reportExposingRestrictedMember =
+                reviewer.review(HomonymAndInheritedTypeGovernanceDTO.class, List.of(), statsExposingInheritedRestrictedMember);
+        assertTrue(reportExposingRestrictedMember.issues().stream().anyMatch(i ->
+                "restricted-field-in-analytics-or-option-source".equals(i.code())
+                        && "parecerInterno".equals(i.fieldName())),
+                "Type-level RESTRICTED governance must be preserved when merged with member INTERNAL governance: "
+                        + reportExposingRestrictedMember.issues());
+    }
+
+    private enum SampleFilterStatus {
+        ATIVO,
+        SUSPENSO
+    }
+
+    private static class SampleControllerFilterDTO implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
+        @org.praxisplatform.uischema.filter.annotation.Filterable
+        private SampleFilterStatus status;
+
+        @org.praxisplatform.uischema.filter.annotation.Filterable
+        private List<SampleFilterStatus> statuses;
+
+        @org.praxisplatform.uischema.filter.annotation.Filterable
+        private Boolean prioritario;
+
+        @org.praxisplatform.uischema.filter.annotation.Filterable
+        private Integer diasAtraso;
+
+        @org.praxisplatform.uischema.filter.annotation.Filterable
+        @DomainGovernance(preset = DomainGovernancePreset.SECURITY_CREDENTIAL, reason = "Token técnico secreto")
+        private String apiSecretToken;
+
+        private String semFilterable;
+    }
+
+    private static abstract class GenericBaseController<D, ID, F extends org.praxisplatform.uischema.filter.dto.GenericFilterDTO> {
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/items",
+            resourceKey = "sample.items",
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "ativos",
+                            label = "Ativos",
+                            filter = "status=ATIVO"
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "prioritarios",
+                            label = "Prioritários",
+                            filter = "status=ATIVO&prioritario=true&diasAtraso=15"
+                    )
+            }
+    )
+    private static class ValidResourceController extends GenericBaseController<GoodRecordDTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/broken",
+            resourceKey = "sample.broken",
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "enum-invalido",
+                            label = "Enum inválido",
+                            filter = "status=INEXISTENTE"
+                    )
+            }
+    )
+    private static class InvalidQuickFilterAndSurfaceController extends GenericBaseController<GoodRecordDTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "child-only",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                relatedChildResourceKey = "sample.children",
+                title = "Filhos",
+                description = "Aba 1:N filha que não substitui a ficha 360° do próprio item."
+        )
+        public void listChildren() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/malformed",
+            resourceKey = "sample.malformed",
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "campo-inexistente",
+                            label = "Campo inexistente",
+                            filter = "naoExiste=123"
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "campo-inexistente",
+                            label = "Este rótulo de quick filter é longo demais e termina com ponto.",
+                            filter = "semFilterable=abc&prioritario=talvez&diasAtraso=abc&status="
+                    )
+            }
+    )
+    private static class MalformedQuickFilterController extends GenericBaseController<GoodRecordDTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.READ_PROJECTION,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Projeção 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @Test
+    void reviewsResourceControllerQuickFiltersAndItemDetailSurfaces() {
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+        SemanticMetadataReviewReport validReport = reviewer.reviewResourceController(ValidResourceController.class);
+        assertFalse(validReport.hasErrors(), validReport.issues().toString());
+        assertTrue(validReport.issues().isEmpty(), validReport.issues().toString());
+
+        SemanticMetadataReviewReport invalidReport = reviewer.reviewResourceController(InvalidQuickFilterAndSurfaceController.class);
+        assertTrue(invalidReport.hasErrors());
+        Set<String> invalidCodes = invalidReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(invalidCodes.contains("quick-filter-count-insufficient"));
+        assertTrue(invalidCodes.contains("quick-filter-enum-value-invalid"));
+        assertTrue(invalidCodes.contains("item-detail-surface-missing"));
+
+        SemanticMetadataReviewReport malformedReport = reviewer.reviewResourceController(MalformedQuickFilterController.class);
+        assertTrue(malformedReport.hasErrors());
+        Set<String> malformedCodes = malformedReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(malformedCodes.contains("quick-filter-id-duplicate"));
+        assertTrue(malformedCodes.contains("quick-filter-label-sentence-like"));
+        assertTrue(malformedCodes.contains("quick-filter-target-field-missing"));
+        assertTrue(malformedCodes.contains("quick-filter-target-field-not-filterable"));
+        assertTrue(malformedCodes.contains("quick-filter-boolean-value-invalid"));
+        assertTrue(malformedCodes.contains("quick-filter-numeric-value-invalid"));
+        assertTrue(malformedCodes.contains("quick-filter-expression-malformed"));
+        assertFalse(malformedCodes.contains("item-detail-surface-missing"));
+    }
+
+    @Test
+    void reviewsOptionSourceRegistryAndEnforcesRichResourceEntityAndSurfaceDetailContract() {
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+        var validLookup = org.praxisplatform.uischema.options.EntityLookupDescriptor.directoryBuilder("sample.departments", "code", "name")
+                .status("status")
+                .detailSurface("sample.departments", "detail", "detail")
+                .build();
+        var validEntitySource = new org.praxisplatform.uischema.options.OptionSourceDescriptor(
+                "departmentLookup",
+                org.praxisplatform.uischema.options.OptionSourceType.RESOURCE_ENTITY,
+                "/api/sample/departments",
+                "departmentId",
+                null,
+                "name",
+                "id",
+                List.of(),
+                java.util.Map.of(),
+                org.praxisplatform.uischema.options.OptionSourcePolicy.defaults(),
+                validLookup
+        );
+        var validDimensionSource = new org.praxisplatform.uischema.options.OptionSourceDescriptor(
+                "status",
+                org.praxisplatform.uischema.options.OptionSourceType.DISTINCT_DIMENSION,
+                "/api/sample/departments",
+                "status",
+                "status",
+                "status",
+                "status",
+                List.of(),
+                java.util.Map.of(),
+                org.praxisplatform.uischema.options.OptionSourcePolicy.defaults()
+        );
+        var validRegistry = org.praxisplatform.uischema.options.OptionSourceRegistry.builder()
+                .add(GoodRecordDTO.class, validEntitySource)
+                .add(GoodRecordDTO.class, validDimensionSource)
+                .build();
+
+        SemanticMetadataReviewReport validReport = reviewer.reviewOptionSourceRegistry(validRegistry);
+        assertFalse(validReport.hasErrors(), validReport.issues().toString());
+        assertTrue(validReport.issues().isEmpty(), validReport.issues().toString());
+
+        var missingEntityLookupSource = new org.praxisplatform.uischema.options.OptionSourceDescriptor(
+                "missingLookup",
+                org.praxisplatform.uischema.options.OptionSourceType.RESOURCE_ENTITY,
+                "/api/sample/departments",
+                "departmentId",
+                null,
+                "name",
+                "id",
+                List.of(),
+                java.util.Map.of(),
+                org.praxisplatform.uischema.options.OptionSourcePolicy.defaults(),
+                null
+        );
+        SemanticMetadataReviewReport missingLookupReport = reviewer.reviewOptionSourceDescriptor(missingEntityLookupSource);
+        assertTrue(missingLookupReport.hasErrors());
+        assertTrue(missingLookupReport.issues().stream().anyMatch(i ->
+                "option-source-entity-lookup-missing".equals(i.code())));
+
+        var legacyRouteLookup = new org.praxisplatform.uischema.options.EntityLookupDescriptor(
+                "departments",
+                "",
+                List.of(),
+                "status",
+                null,
+                null,
+                List.of(),
+                java.util.Map.of(),
+                null,
+                null,
+                new org.praxisplatform.uischema.options.LookupDetailDescriptor(
+                        "/api/sample/departments/{id}",
+                        "/sample/departments/{id}",
+                        "route"
+                ),
+                null,
+                null
+        );
+        var invalidEntitySource = new org.praxisplatform.uischema.options.OptionSourceDescriptor(
+                "legacyLookup",
+                org.praxisplatform.uischema.options.OptionSourceType.RESOURCE_ENTITY,
+                "/api/sample/departments",
+                "departmentId",
+                null,
+                "name",
+                "id",
+                List.of(),
+                java.util.Map.of(),
+                org.praxisplatform.uischema.options.OptionSourcePolicy.defaults(),
+                legacyRouteLookup
+        );
+        var invalidRegistry = org.praxisplatform.uischema.options.OptionSourceRegistry.builder()
+                .add(GoodRecordDTO.class, invalidEntitySource)
+                .build();
+
+        SemanticMetadataReviewReport invalidReport = reviewer.reviewOptionSourceRegistry(invalidRegistry);
+        assertTrue(invalidReport.hasErrors());
+        Set<String> invalidCodes = invalidReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(invalidCodes.contains("option-source-lookup-identity-paths-missing"));
+        assertTrue(invalidCodes.contains("option-source-lookup-search-paths-empty"));
+        assertTrue(invalidCodes.contains("option-source-lookup-subcontract-missing"));
+        assertTrue(invalidCodes.contains("option-source-lookup-detail-legacy-route"));
+        assertTrue(invalidCodes.contains("option-source-lookup-detail-surface-incomplete"));
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(
+            keyField = "id",
+            titleField = "nomeCompleto",
+            metadataFields = {"cargoNome", "cargoNome"}
+    )
+    private static class ShallowAndDuplicateIdentityDTO {
+        @Schema(description = "Identificador unico imutavel do registro funcional.")
+        @UISchema(label = "ID")
+        Long id;
+
+        @Schema(description = "Nome civil completo do colaborador registrado no cadastro.")
+        @UISchema(label = "Nome")
+        @org.praxisplatform.uischema.annotation.ResourceReference(
+                resourceKey = "sample.employees",
+                valueField = "id",
+                surfaceId = "detail"
+        )
+        String nomeCompleto;
+
+        @Schema(description = "Cargo contratual ocupado pelo colaborador na estrutura.")
+        @UISchema(label = "Cargo")
+        String cargoNome;
+
+        @Schema(description = "Departamento de lotacao operacional do colaborador.")
+        @UISchema(label = "Departamento")
+        String departamentoNome;
+
+        @Schema(description = "Situacao cadastral vigente do vinculo funcional.")
+        @UISchema(label = "Situação", quickViewVisible = true, quickViewOrder = 1)
+        String situacao;
+
+        @Schema(description = "Modalidade de regime de trabalho do colaborador.")
+        @UISchema(label = "Regime")
+        String regime;
+
+        @Schema(description = "Unidade fisica de alocacao principal do colaborador.")
+        @UISchema(label = "Unidade")
+        String unidade;
+
+        @Schema(description = "Endereco de correio eletronico corporativo do colaborador.")
+        @UISchema(label = "E-mail")
+        String email;
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(
+            keyField = "id",
+            titleField = "nomeCompleto",
+            subtitleField = "email",
+            metadataFields = {"cargoNome"}
+    )
+    private static class InsufficientMetadataCountDTO {
+        @Schema(description = "Identificador unico imutavel do registro funcional.")
+        @UISchema(label = "ID")
+        Long id;
+
+        @Schema(description = "Nome civil completo do colaborador registrado no cadastro.")
+        @UISchema(label = "Nome")
+        String nomeCompleto;
+
+        @Schema(description = "Endereco de correio eletronico corporativo do colaborador.")
+        @UISchema(label = "E-mail")
+        String email;
+
+        @Schema(description = "Cargo contratual ocupado pelo colaborador na estrutura.")
+        @UISchema(label = "Cargo")
+        String cargoNome;
+
+        @Schema(description = "Departamento de lotacao operacional do colaborador.")
+        @UISchema(label = "Departamento")
+        String departamentoNome;
+
+        @Schema(description = "Situacao cadastral vigente do vinculo funcional.")
+        @UISchema(label = "Situação", quickViewVisible = true, quickViewOrder = 1)
+        String situacao;
+
+        @Schema(description = "Modalidade de regime de trabalho do colaborador.")
+        @UISchema(label = "Regime", quickViewVisible = true, quickViewOrder = 2)
+        String regime;
+
+        @Schema(description = "Unidade fisica de alocacao principal do colaborador.")
+        @UISchema(label = "Unidade", quickViewVisible = true, quickViewOrder = 3)
+        String unidade;
+
+        @Schema(description = "Turno operacional atribuido ao colaborador.")
+        @UISchema(label = "Turno", quickViewVisible = true, quickViewOrder = 4)
+        String turno;
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(
+            keyField = "id",
+            titleField = "nomeCompleto",
+            subtitleField = "email",
+            metadataFields = {"cargoNome", "departamentoNome"}
+    )
+    private static class ValidQuickView360DTO {
+        @Schema(description = "Identificador unico imutavel do registro funcional.")
+        @UISchema(label = "ID")
+        Long id;
+
+        @Schema(description = "Nome civil completo do colaborador registrado no cadastro.")
+        @UISchema(label = "Nome")
+        @org.praxisplatform.uischema.annotation.ResourceReference(
+                resourceKey = "sample.items",
+                valueField = "id",
+                surfaceId = "detail",
+                previewSurfaceId = "detail"
+        )
+        String nomeCompleto;
+
+        @Schema(description = "Endereco de correio eletronico corporativo do colaborador.")
+        @UISchema(label = "E-mail")
+        String email;
+
+        @Schema(description = "Cargo contratual ocupado pelo colaborador na estrutura.")
+        @UISchema(label = "Cargo")
+        String cargoNome;
+
+        @Schema(description = "Departamento de lotacao operacional do colaborador.")
+        @UISchema(label = "Departamento")
+        String departamentoNome;
+
+        @Schema(description = "Situacao cadastral vigente do vinculo funcional.")
+        @UISchema(label = "Situação", quickViewVisible = true, quickViewOrder = 1)
+        String situacao;
+
+        @Schema(description = "Modalidade de regime de trabalho do colaborador.")
+        @UISchema(label = "Regime", quickViewVisible = true, quickViewOrder = 2)
+        String regime;
+
+        @Schema(description = "Unidade fisica de alocacao principal do colaborador.")
+        @UISchema(label = "Unidade", quickViewVisible = true, quickViewOrder = 3)
+        String unidade;
+
+        @Schema(description = "Turno operacional atribuido ao colaborador.")
+        @UISchema(label = "Turno", quickViewVisible = true, quickViewOrder = 4)
+        String turno;
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/items",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "ativos",
+                            label = "Ativos",
+                            filter = "status=ATIVO"
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "prioritarios",
+                            label = "Prioritários",
+                            filter = "prioritario=true"
+                    )
+            }
+    )
+    private static class ValidQuickView360Controller
+            extends GenericBaseController<ValidQuickView360DTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/mismatch",
+            resourceKey = "sample.mismatch",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "cargoNome",
+                    metadataFields = {"departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "ativos",
+                            label = "Ativos",
+                            filter = "status=ATIVO"
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "prioritarios",
+                            label = "Prioritários",
+                            filter = "prioritario=true"
+                    )
+            }
+    )
+    private static class MismatchedIdentityAndTitleRefController
+            extends GenericBaseController<ValidQuickView360DTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/items",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "ativos",
+                            label = "Ativos",
+                            filter = "status=ATIVO"
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "prioritarios",
+                            label = "Prioritários",
+                            filter = "prioritario=true"
+                    )
+            }
+    )
+    private static class UnresolvedTitleSurfaceController
+            extends GenericBaseController<ValidQuickView360DTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "view-only",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° com ID diferente do referenciado."
+        )
+        public void getById() {
+        }
+    }
+
+    @Test
+    void enforcesQuickView360AndResourceIdentityParityAcrossDtoAndController() {
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+        SemanticMetadataReviewReport shallowReport = reviewer.review(ShallowAndDuplicateIdentityDTO.class);
+        assertTrue(shallowReport.hasErrors());
+        Set<String> shallowCodes = shallowReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(shallowCodes.contains("resource-reference-preview-surface-missing"));
+        assertTrue(shallowCodes.contains("resource-identity-subtitle-missing"));
+        assertTrue(shallowCodes.contains("resource-identity-metadata-duplicate"));
+        assertTrue(shallowCodes.contains("quick-view-field-count-out-of-range"));
+
+        SemanticMetadataReviewReport metaCountReport = reviewer.review(InsufficientMetadataCountDTO.class);
+        assertTrue(metaCountReport.hasErrors());
+        assertTrue(metaCountReport.issues().stream()
+                .anyMatch(i -> "resource-identity-metadata-count-out-of-range".equals(i.code())));
+
+        SemanticMetadataReviewReport validDtoReport = reviewer.review(ValidQuickView360DTO.class);
+        assertFalse(validDtoReport.hasErrors(), validDtoReport.issues().toString());
+
+        SemanticMetadataReviewReport validCtrlReport = reviewer.reviewResourceController(
+                ValidQuickView360Controller.class,
+                ValidQuickView360DTO.class,
+                SampleControllerFilterDTO.class
+        );
+        assertFalse(validCtrlReport.hasErrors(), validCtrlReport.issues().toString());
+
+        SemanticMetadataReviewReport mismatchCtrlReport = reviewer.reviewResourceController(
+                MismatchedIdentityAndTitleRefController.class,
+                ValidQuickView360DTO.class,
+                SampleControllerFilterDTO.class
+        );
+        assertTrue(mismatchCtrlReport.hasErrors());
+        Set<String> mismatchCodes = mismatchCtrlReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(mismatchCodes.contains("resource-identity-controller-dto-mismatch"));
+        assertTrue(mismatchCodes.contains("title-field-self-reference-missing"));
+
+        SemanticMetadataReviewReport unresolvedSurfReport = reviewer.reviewResourceController(
+                UnresolvedTitleSurfaceController.class,
+                ValidQuickView360DTO.class,
+                SampleControllerFilterDTO.class
+        );
+        assertTrue(unresolvedSurfReport.hasErrors());
+        assertTrue(unresolvedSurfReport.issues().stream()
+                .anyMatch(i -> "resource-reference-surface-unresolved".equals(i.code())));
+
+        SemanticMetadataReviewReport missingIdentityReport = reviewer.reviewResourceController(
+                ValidResourceController.class,
+                GoodRecordDTO.class,
+                SampleControllerFilterDTO.class
+        );
+        assertTrue(missingIdentityReport.hasErrors());
+        assertTrue(missingIdentityReport.issues().stream()
+                .anyMatch(i -> "resource-identity-missing".equals(i.code())));
+
+        SemanticMetadataReviewReport validJsonQfReport = reviewer.reviewResourceController(
+                ValidJsonQuickFilterController.class
+        );
+        assertFalse(validJsonQfReport.hasErrors(), validJsonQfReport.issues().toString());
+
+        SemanticMetadataReviewReport invalidJsonQfReport = reviewer.reviewResourceController(
+                InvalidJsonQuickFilterController.class
+        );
+        assertTrue(invalidJsonQfReport.hasErrors());
+        Set<String> invalidJsonCodes = invalidJsonQfReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(invalidJsonCodes.contains("quick-filter-target-field-missing"));
+        assertTrue(invalidJsonCodes.contains("quick-filter-target-field-not-filterable"));
+        assertTrue(invalidJsonCodes.contains("quick-filter-enum-value-invalid"));
+        assertTrue(invalidJsonCodes.contains("quick-filter-numeric-value-invalid"));
+        assertTrue(invalidJsonCodes.contains("quick-filter-expression-malformed"));
+
+        SemanticMetadataReviewReport validCriteriaReport = reviewer.reviewResourceController(
+                ValidCriteriaQuickFilterController.class
+        );
+        assertFalse(validCriteriaReport.hasErrors(), validCriteriaReport.issues().toString());
+
+        SemanticMetadataReviewReport invalidCriteriaReport = reviewer.reviewResourceController(
+                InvalidCriteriaQuickFilterController.class
+        );
+        assertTrue(invalidCriteriaReport.hasErrors());
+        Set<String> invalidCriteriaCodes = invalidCriteriaReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(invalidCriteriaCodes.contains("quick-filter-criteria-and-filter-conflict"));
+        assertTrue(invalidCriteriaCodes.contains("quick-filter-multiple-defaults"));
+        assertTrue(invalidCriteriaCodes.contains("quick-filter-icon-not-snake-case"));
+        assertTrue(invalidCriteriaCodes.contains("quick-filter-criterion-multiple-value-types"));
+        assertTrue(invalidCriteriaCodes.contains("quick-filter-criterion-cardinality-mismatch"));
+        assertTrue(invalidCriteriaCodes.contains("quick-filter-target-field-governance-denied"));
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/items",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "ativos",
+                            label = "Ativos",
+                            filter = "{\"statuses\":[\"ATIVO\"],\"prioritario\":true}"
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "atrasados",
+                            label = "Em atraso",
+                            filter = "{\"diasAtraso\":10}"
+                    )
+            }
+    )
+    private static class ValidJsonQuickFilterController
+            extends GenericBaseController<ValidQuickView360DTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/items",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "broken-fields",
+                            label = "Campos inválidos",
+                            filter = "{\"naoExiste\":true,\"semFilterable\":\"abc\",\"statuses\":[\"INEXISTENTE\"],\"diasAtraso\":12.5}"
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "scalar-on-collection",
+                            label = "Escalar em coleção",
+                            filter = "{\"statuses\":\"ATIVO\"}"
+                    )
+            }
+    )
+    private static class InvalidJsonQuickFilterController
+            extends GenericBaseController<ValidQuickView360DTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/items",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "ativos-prioritarios",
+                            label = "Ativos prioritários",
+                            icon = "check_circle",
+                            tone = org.praxisplatform.uischema.annotation.QuickFilterTone.SUCCESS,
+                            defaultActive = true,
+                            description = "Itens ativos com prioridade operacional.",
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "statuses", values = {"ATIVO", "SUSPENSO"}),
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "prioritario", bool = true)
+                            }
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "em-atraso",
+                            label = "Em atraso",
+                            icon = "schedule",
+                            tone = org.praxisplatform.uischema.annotation.QuickFilterTone.DANGER,
+                            criteria = @org.praxisplatform.uischema.annotation.FilterCriterion(field = "diasAtraso", number = 15)
+                    )
+            }
+    )
+    private static class ValidCriteriaQuickFilterController
+            extends GenericBaseController<ValidQuickView360DTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/criteria-invalid",
+            resourceKey = "sample.criteria.invalid",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "conflito",
+                            label = "Conflito",
+                            icon = "Check_Circle",
+                            defaultActive = true,
+                            filter = "status=ATIVO",
+                            criteria = @org.praxisplatform.uischema.annotation.FilterCriterion(field = "status", values = "ATIVO")
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "erros-criterios",
+                            label = "Erros de critérios",
+                            defaultActive = true,
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "prioritario", values = "true", bool = true),
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "status", values = {"ATIVO", "SUSPENSO"}),
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "apiSecretToken", values = "abc")
+                            }
+                    )
+            }
+    )
+    private static class InvalidCriteriaQuickFilterController
+            extends GenericBaseController<ValidQuickView360DTO, Long, SampleControllerFilterDTO> {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
         }
     }
 }

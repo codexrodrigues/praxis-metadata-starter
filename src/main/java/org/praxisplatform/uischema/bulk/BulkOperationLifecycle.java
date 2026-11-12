@@ -466,11 +466,14 @@ public final class BulkOperationLifecycle {
         if (expectedGeneration < 0 || expectedGeneration == Long.MAX_VALUE)
             throw new IllegalArgumentException("expectedGeneration must be nonnegative and incrementable");
         documents.requireBulkOpenApiServing();
-        var before = read(identity);
-        if (before == null || before.generation() != expectedGeneration
-                || !("UNCOMPOSED".equals(before.state()) || "SUSPENDED".equals(before.state())))
-            throw unavailable("Bulk operation control is not publishable at the expected generation");
-        var initialPublication = readPublication(); // This SHARE transaction ends before any control UPDATE.
+        var initialPublication = runtime.withLifecycleRead(connection -> {
+            var before = JdbcBulkOperationControl.lockForAdmission(connection, identity.namespaceId(),
+                    identity.confirmationOperationId());
+            if (before == null || before.generation() != expectedGeneration
+                    || !("UNCOMPOSED".equals(before.state()) || "SUSPENDED".equals(before.state())))
+                throw unavailable("Bulk operation control is not publishable at the expected generation");
+            return JdbcBulkOpenApiPublication.lockForRead(connection, runtime.namespace(), runtime.deploymentId());
+        }); // This SHARE transaction ends before any control UPDATE.
         var publication = initialPublication;
         if (publication.published() && documents.hasLocalPublishedBulkOpenApiPublication()) {
             PreparedPublication prepared = documents.withPublishedBulkOpenApiPublication((candidate, generation) -> {
@@ -483,12 +486,17 @@ public final class BulkOperationLifecycle {
         if (!publication.published()) {
             // Initial/uncomposed ledgers must be durably suspended before capture. Direct UPDATE,
             // never a publication SHARE lock converted in the same physical transaction.
+            boolean needsGlobalSuspension = !"SUSPENDED".equals(initialPublication.state());
             documents.withBulkLifecycleCompositionLock(() -> {
-                suspendGlobalPublication(initialPublication);
+                if (needsGlobalSuspension) {
+                    suspendGlobalPublication(initialPublication);
+                }
                 withLifecycleCacheFence(() -> { documents.clearCaches(); return null; });
                 return null;
             });
-            publication = readPublication();
+            if (needsGlobalSuspension) {
+                publication = readPublication();
+            }
         }
         var capturedPublication = publication;
         var candidate = documents.prepareBulkOpenApiPublication(Set.copyOf(

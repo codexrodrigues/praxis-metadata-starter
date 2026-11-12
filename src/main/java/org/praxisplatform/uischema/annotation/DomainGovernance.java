@@ -21,24 +21,32 @@ import java.lang.annotation.Target;
  * queiram ficar totalmente self-describing.
  * </p>
  */
-@Target({ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT})
+@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface DomainGovernance {
+
+    /**
+     * Preset canonico de governanca (LGPD, dados sensiveis Art. 11, financeiro confidencial, credencial).
+     * Quando diferente de {@link DomainGovernancePreset#NONE}, fornece os valores base de {@link #kind()},
+     * {@link #classification()}, {@link #dataCategory()}, {@link #complianceTags()}, {@link #exportable()}
+     * e {@link #aiUsage()}, reduzindo a densidade visual de anotacoes nos DTOs.
+     */
+    DomainGovernancePreset preset() default DomainGovernancePreset.NONE;
 
      /**
      * Categoria principal da anotacao publicada.
      */
-    DomainGovernanceKind kind();
+    DomainGovernanceKind kind() default DomainGovernanceKind.PRIVACY;
 
      /**
       * Nivel de classificacao aplicado ao campo.
       */
-    DomainClassification classification();
+    DomainClassification classification() default DomainClassification.INTERNAL;
 
      /**
      * Categoria semantica do dado.
      */
-    DomainDataCategory dataCategory();
+    DomainDataCategory dataCategory() default DomainDataCategory.OPERATIONAL;
 
     /**
      * Tags regulatórias ou de politica interna associadas ao campo.

@@ -180,7 +180,11 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
                 List.copyOf(Arrays.asList(workflowAction.requiredAuthorities())),
                 List.copyOf(Arrays.asList(workflowAction.allowedStates())),
                 List.copyOf(Arrays.asList(workflowAction.tags())),
-                execution
+                execution,
+                workflowAction.legalPurpose() != null && workflowAction.legalPurpose().isSpecified()
+                        ? workflowAction.legalPurpose().wireValue()
+                        : null,
+                StringUtils.hasText(workflowAction.legalBasisRef()) ? workflowAction.legalBasisRef().trim() : null
         );
         return List.of(definition);
     }

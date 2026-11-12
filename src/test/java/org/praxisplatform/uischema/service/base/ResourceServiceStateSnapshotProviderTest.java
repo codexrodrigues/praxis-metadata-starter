@@ -10,6 +10,46 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ResourceServiceStateSnapshotProviderTest {
+    @Test void itemAccessPreservesTenantChecksAndReusesSnapshotsOnlyWithinTheScope() {
+        var repository = mock(CoreResourceEvolutionIntegrationTest.ItemRepository.class);
+        when(repository.findById(1L)).thenReturn(Optional.of(new CoreResourceEvolutionIntegrationTest.Item(1, 1, "Allowed")));
+        when(repository.findById(2L)).thenReturn(Optional.of(new CoreResourceEvolutionIntegrationTest.Item(2, 2, "Denied")));
+        var service = new CoreResourceEvolutionIntegrationTest.ItemService(repository);
+        try (var ignored = ResourceStateSnapshotScope.open()) {
+            service.assertItemAccessible(1L);
+            assertEquals("OPEN", service.findResourceStateSnapshot(1L).orElseThrow().state());
+            assertEquals("OPEN", service.findResourceStateSnapshot(1L).orElseThrow().state());
+            assertTrue(service.batches.isEmpty(), "Discovery must not materialize response enrichment");
+            var denied = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                    () -> service.assertItemAccessible(2L));
+            assertEquals(403, denied.getStatusCode().value());
+            assertThrows(jakarta.persistence.EntityNotFoundException.class, () -> service.assertItemAccessible(99L));
+            verify(repository).findById(1L);
+        }
+        service.findResourceStateSnapshot(1L).orElseThrow();
+        verify(repository, times(2)).findById(1L);
+    }
+
+    @Test void itemAccessDoesNotBypassHostFindByIdOverridesIncludingInterfaceProxies() {
+        var repository = mock(CoreResourceEvolutionIntegrationTest.ItemRepository.class);
+        var service = new CoreResourceEvolutionIntegrationTest.ItemService(repository) {
+            @Override public org.praxisplatform.uischema.concurrency.ResourceRepresentationResult<CoreResourceEvolutionIntegrationTest.Response> findById(Long id) {
+                throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+            }
+        };
+        var proxyFactory = new org.springframework.aop.framework.ProxyFactory(service);
+        proxyFactory.setInterfaces(BaseResourceQueryService.class);
+        @SuppressWarnings("unchecked")
+        BaseResourceQueryService<CoreResourceEvolutionIntegrationTest.Response, Long, CoreResourceEvolutionIntegrationTest.Filter> proxy =
+                (BaseResourceQueryService<CoreResourceEvolutionIntegrationTest.Response, Long, CoreResourceEvolutionIntegrationTest.Filter>) proxyFactory.getProxy();
+        for (var target : java.util.List.of(service, proxy)) {
+            var denied = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                    () -> target.assertItemAccessible(1L));
+            assertEquals(403, denied.getStatusCode().value());
+        }
+        verifyNoInteractions(repository);
+    }
+
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(OpenApiUiSchemaAutoConfiguration.class))
             .withBean(jakarta.persistence.EntityManagerFactory.class, () -> mock(jakarta.persistence.EntityManagerFactory.class));

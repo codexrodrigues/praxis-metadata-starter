@@ -124,10 +124,24 @@ public class CustomOpenApiResolver extends ModelResolver {
         super.resolveSchemaMembers(schema, annotatedType, context, next);
         Class<?> rawClass = extractRawClass(annotatedType);
         if (schema != null && annotatedType != null && !annotatedType.isSchemaProperty() && rawClass != null) {
+            var typeGovernanceNode = org.praxisplatform.uischema.schema.DomainLineageResolver.resolveTypeGovernance(rawClass);
+            if (typeGovernanceNode != null) {
+                if (schema.getExtensions() == null) {
+                    schema.setExtensions(new HashMap<>());
+                }
+                schema.getExtensions().put(
+                        DOMAIN_GOVERNANCE_EXTENSION_NAME,
+                        org.praxisplatform.uischema.schema.DomainLineageResolver.toExtensionMap(typeGovernanceNode)
+                );
+            }
             var hierarchy = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.ResourceHierarchy.class);
             if (hierarchy != null) {
                 getUIExtensionMap(schema).put("hierarchy",
                         org.praxisplatform.uischema.schema.ApiResourceIdentityResolver.hierarchyMetadata(hierarchy));
+            }
+            var calculationMemory = org.praxisplatform.uischema.schema.CalculationMemoryMetadataResolver.resolve(rawClass);
+            if (calculationMemory != null) {
+                getUIExtensionMap(schema).put("calculationMemory", calculationMemory);
             }
         }
         if (isOpenapi31() || schema == null || annotatedType == null || annotatedType.getType() == null
@@ -222,7 +236,20 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
 
         if (schema.getProperties() != null) {
+            Object parentGovRaw = schema.getExtensions() != null ? schema.getExtensions().get(DOMAIN_GOVERNANCE_EXTENSION_NAME) : null;
+            var parentGov = parentGovRaw != null ? _mapper.valueToTree(parentGovRaw) : null;
             for (Object propObj : schema.getProperties().values()) {
+                if (propObj instanceof Schema<?> propGovTarget && parentGov != null && parentGov.isObject()) {
+                    if (propGovTarget.getExtensions() == null) {
+                        propGovTarget.setExtensions(new HashMap<>());
+                    }
+                    Object childGovRaw = propGovTarget.getExtensions().get(DOMAIN_GOVERNANCE_EXTENSION_NAME);
+                    var childGov = childGovRaw != null ? _mapper.valueToTree(childGovRaw) : null;
+                    var mergedGov = org.praxisplatform.uischema.schema.DomainSchemaGovernance.mergeOrCopy(parentGov, childGov);
+                    if (mergedGov != null) {
+                        propGovTarget.getExtensions().put(DOMAIN_GOVERNANCE_EXTENSION_NAME, _mapper.convertValue(mergedGov, Map.class));
+                    }
+                }
                 if (propObj instanceof Schema<?> prop) {
                     propagateOptionsInSchema(prop, context, visited);
                 }
@@ -283,7 +310,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             controlType = FieldControlType.INPUT.getValue();
         }
 
-        if (hasTextMask || (FieldDataType.TEXT.equals(annotation.type()) && isTextualInputControlType(controlType))) {
+        if (hasTextMask || (FieldDataType.TEXT.equals(annotation.type()) && annotation.preset() != UISchemaPreset.EMAIL_CONTACT && isTextualInputControlType(controlType))) {
             uiExtension.put(FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
         }
     }
@@ -963,6 +990,10 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
         UISchemaPreset preset = annotation.preset();
         uiExtension.put(FieldConfigProperties.PRESENTATION_PRESET.getValue(), preset.getValue());
+        boolean isRangeArrayControl =
+                FieldDataType.ARRAY.getValue().equals(uiExtension.get(FieldConfigProperties.TYPE.getValue()))
+                        && (FieldControlType.PRICE_RANGE.getValue().equals(uiExtension.get(FieldConfigProperties.CONTROL_TYPE.getValue()))
+                                || FieldControlType.RANGE_SLIDER.getValue().equals(uiExtension.get(FieldConfigProperties.CONTROL_TYPE.getValue())));
 
         switch (preset) {
             case ENTERPRISE_ID -> {
@@ -1008,8 +1039,10 @@ public class CustomOpenApiResolver extends ModelResolver {
                 putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "event");
             }
             case MONETARY_AMOUNT -> {
-                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.NUMBER.getValue());
-                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CURRENCY_INPUT.getValue());
+                if (!isRangeArrayControl) {
+                    putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.NUMBER.getValue());
+                    putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CURRENCY_INPUT.getValue());
+                }
                 putPreset(uiExtension, FieldConfigProperties.NUMERIC_FORMAT.getValue(), NumericFormat.CURRENCY.getValue());
                 putPreset(uiExtension, FieldConfigProperties.NUMERIC_STEP.getValue(), "0.01");
                 putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "12rem");
@@ -1044,6 +1077,44 @@ public class CustomOpenApiResolver extends ModelResolver {
                 putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "14rem");
                 putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "history");
                 putPreset(uiExtension, FieldConfigProperties.READ_ONLY.getValue(), true);
+            }
+            case CPF_CNPJ -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CPF_CNPJ_INPUT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "12rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "badge");
+            }
+            case EMAIL_CONTACT -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.EMAIL.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.EMAIL_INPUT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "16rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "mail");
+            }
+            case PHONE_CONTACT -> {
+                putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.PHONE.getValue());
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "12rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "call");
+            }
+            case INTEGER_COUNTER -> {
+                if (!isRangeArrayControl) {
+                    putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.NUMBER.getValue());
+                    putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.NUMERIC_TEXT_BOX.getValue());
+                }
+                putPreset(uiExtension, FieldConfigProperties.NUMERIC_FORMAT.getValue(), NumericFormat.INTEGER.getValue());
+                putPreset(uiExtension, FieldConfigProperties.NUMERIC_STEP.getValue(), "1");
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "8rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "tag");
+            }
+            case PERCENTAGE_RATE -> {
+                if (!isRangeArrayControl) {
+                    putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.NUMBER.getValue());
+                    putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.NUMERIC_TEXT_BOX.getValue());
+                }
+                putPreset(uiExtension, FieldConfigProperties.NUMERIC_FORMAT.getValue(), NumericFormat.PERCENT.getValue());
+                putPreset(uiExtension, FieldConfigProperties.NUMERIC_STEP.getValue(), "0.01");
+                putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "9rem");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "percent");
             }
             case NONE -> {
                 // handled above
@@ -1378,7 +1449,8 @@ public class CustomOpenApiResolver extends ModelResolver {
             return true;
         }
         UISchema uiSchema = ResolverUtils.getAnnotation(UISchema.class, annotations);
-        if (uiSchema != null && uiSchema.numericFormat() == NumericFormat.CURRENCY) {
+        if (uiSchema != null && (uiSchema.numericFormat() == NumericFormat.CURRENCY
+                || uiSchema.preset() == UISchemaPreset.MONETARY_AMOUNT)) {
             return true;
         }
         String smart = OpenApiUiUtils.determineSmartControlTypeByFieldName(fieldName);
@@ -1390,7 +1462,8 @@ public class CustomOpenApiResolver extends ModelResolver {
             return true;
         }
         UISchema uiSchema = ResolverUtils.getAnnotation(UISchema.class, annotations);
-        return uiSchema != null && uiSchema.numericFormat() == NumericFormat.PERCENT;
+        return uiSchema != null && (uiSchema.numericFormat() == NumericFormat.PERCENT
+                || uiSchema.preset() == UISchemaPreset.PERCENTAGE_RATE);
     }
 
     /**
@@ -1903,10 +1976,12 @@ public class CustomOpenApiResolver extends ModelResolver {
             return "number";
         }
 
-        if (annotation != null && annotation.numericFormat() == NumericFormat.PERCENT) {
+        if (annotation != null && (annotation.numericFormat() == NumericFormat.PERCENT
+                || annotation.preset() == UISchemaPreset.PERCENTAGE_RATE)) {
             return "percentage";
         }
-        if (annotation != null && annotation.numericFormat() == NumericFormat.CURRENCY) {
+        if (annotation != null && (annotation.numericFormat() == NumericFormat.CURRENCY
+                || annotation.preset() == UISchemaPreset.MONETARY_AMOUNT)) {
             return "currency";
         }
 
@@ -2040,29 +2115,24 @@ public class CustomOpenApiResolver extends ModelResolver {
 
     private void applyDomainGovernance(Schema<?> property, Annotation[] annotations) {
         DomainGovernance governance = ResolverUtils.getAnnotation(DomainGovernance.class, annotations);
-        if (governance == null) {
+        org.praxisplatform.uischema.annotation.DomainLineage lineage =
+                ResolverUtils.getAnnotation(org.praxisplatform.uischema.annotation.DomainLineage.class, annotations);
+        if (governance == null && lineage == null) {
             return;
         }
 
         if (property.getExtensions() == null) {
             property.setExtensions(new HashMap<>());
         }
-        property.getExtensions().put(DOMAIN_GOVERNANCE_EXTENSION_NAME, Map.of(
-                "annotationType", governance.kind().wireValue(),
-                "classification", governance.classification().wireValue(),
-                "dataCategory", governance.dataCategory().wireValue(),
-                "complianceTags", List.of(governance.complianceTags()),
-                "exportable", governance.exportable(),
-                "aiUsage", Map.of(
-                        "visibility", governance.aiUsage().visibility().wireValue(),
-                        "trainingUse", governance.aiUsage().trainingUse().wireValue(),
-                        "ruleAuthoring", governance.aiUsage().ruleAuthoring().wireValue(),
-                        "reasoningUse", governance.aiUsage().reasoningUse().wireValue()
-                ),
-                "reason", governance.reason(),
-                "source", "java.annotation",
-                "confidence", governance.confidence()
-        ));
+        com.fasterxml.jackson.databind.node.ObjectNode governanceNode = lineage != null
+                ? org.praxisplatform.uischema.schema.DomainLineageResolver.resolve(lineage, governance, null).effectiveGovernance()
+                : org.praxisplatform.uischema.schema.DomainLineageResolver.toGovernanceNode(governance);
+        if (governanceNode != null) {
+            property.getExtensions().put(
+                    DOMAIN_GOVERNANCE_EXTENSION_NAME,
+                    org.praxisplatform.uischema.schema.DomainLineageResolver.toExtensionMap(governanceNode)
+            );
+        }
     }
 
     private void applyResourceReference(Schema<?> property, Annotation[] annotations) {

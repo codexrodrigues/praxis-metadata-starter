@@ -66,6 +66,23 @@ public final class FilteredSchemaProjection {
             String schemaType, SchemaReferenceResolver references,
             org.praxisplatform.uischema.capability.CanonicalCapabilityResolver capabilities,
             String explicitIdField, Boolean explicitReadOnly) {
+        return resolveSelected(document, operation, schemaType, references,
+                basePath -> capabilities.resolve(document, basePath), explicitIdField, explicitReadOnly);
+    }
+
+    /** Resolves against baseline capabilities captured from the same structural document. */
+    public Resolved resolveWithCapabilities(JsonNode document,
+            org.praxisplatform.uischema.openapi.CanonicalOperationRef operation,
+            String schemaType, SchemaReferenceResolver references, Map<String, Boolean> caps,
+            String explicitIdField, Boolean explicitReadOnly) {
+        return resolveSelected(document, operation, schemaType, references, ignored -> caps, explicitIdField, explicitReadOnly);
+    }
+
+    private Resolved resolveSelected(JsonNode document,
+            org.praxisplatform.uischema.openapi.CanonicalOperationRef operation,
+            String schemaType, SchemaReferenceResolver references,
+            java.util.function.Function<String, Map<String, Boolean>> capabilities,
+            String explicitIdField, Boolean explicitReadOnly) {
         JsonNode operationNode = document.path(PATHS).path(operation.path())
                 .path(operation.method().toLowerCase(java.util.Locale.ROOT));
         if ("response".equalsIgnoreCase(schemaType) && findDeclaredResponseSchema(operationNode, document) == null)
@@ -74,7 +91,7 @@ public final class FilteredSchemaProjection {
         if (!selected.schema().isObject()) throw missing("Filtered bulk schemas must be materializable objects");
         String basePath = deriveBasePathFrom(operation.path());
         Map<String, Object> schema = objectMapper.convertValue(selected.schema(), new TypeReference<>() { });
-        Map<String, Boolean> caps = capabilities.resolve(document, basePath);
+        Map<String, Boolean> caps = capabilities.apply(basePath);
         String idField = resolveIdField(explicitIdField, schema, document, basePath, schemaType);
         boolean readOnly = readOnly(explicitReadOnly, caps);
         CanonicalSchemaRef reference = references.resolve(operation.path(), operation.method(), schemaType,

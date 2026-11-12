@@ -88,10 +88,17 @@ public final class BulkExecutionInfrastructure {
                         || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource)) {
                     throw new IllegalStateException("JDBC work must use the operational transaction connection");
                 }
-                attestWithBoundStatementTimeout(connection,
-                        attestedConnection -> BulkExecutionMigrator.validateLiveRuntimeRoleAccess(
-                                attestedConnection, roleConfiguration));
-                verifyDurableNamespaceBinding(connection);
+                var timeout = new BulkCatalogPhase.LiveTimeout();
+                try {
+                    BulkExecutionMigrator.validateLiveRuntimeRoleAccess(connection, roleConfiguration, timeout);
+                } catch (RuntimeException | Error failure) {
+                    // A SQL failure before its first result aborts this MANDATORY transaction;
+                    // a decoded prefix still permits the original lower timeout to be restored.
+                    if (timeout.previous() != null) restoreAfterLifecycleFailure(connection, timeout.previous(), failure);
+                    throw failure;
+                }
+                // Restore the caller's exact limit and verify binding in one submission.
+                restoreAndVerifyLifecycleBinding(connection, timeout.previous(), null);
                 return work.doInConnection(connection);
             });
         });
@@ -118,7 +125,7 @@ public final class BulkExecutionInfrastructure {
         TransactionTemplate independent = new TransactionTemplate(transactionManager);
         independent.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         independent.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-        independent.setTimeout(2);
+        independent.setTimeout(3);
         return independent.execute(status -> {
             if (!TransactionSynchronizationManager.isActualTransactionActive()
                     || !TransactionSynchronizationManager.isSynchronizationActive()

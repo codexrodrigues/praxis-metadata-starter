@@ -68,6 +68,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     // Authority always comes from publicationGuard, not presence of this reference.
     private volatile PublishedSnapshot publishedSnapshot;
     private final ThreadLocal<PublishedSnapshot> publishedScope = new ThreadLocal<>();
+    private final ThreadLocal<OpenApiPublicationCandidate> preparedCandidateScope = new ThreadLocal<>();
     private record PublishedSnapshot(OpenApiPublicationCandidate candidate, long generation) {}
 
     public CachedOpenApiDocumentService(
@@ -468,10 +469,11 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             Map<String, JsonNode> nodes = new LinkedHashMap<>();
             for (String group : candidate.groups()) nodes.put(group, candidate.groupDocument(group));
             lifecycleSnapshot.set(Map.copyOf(nodes));
+            preparedCandidateScope.set(candidate);
             preparedSchemaHashes.set(new ConcurrentHashMap<>());
             // Validate before admission. An admitted committed transaction is never timed out afterward.
             try { return commit.get(); }
-            finally { preparedSchemaHashes.remove(); lifecycleSnapshot.remove(); }
+            finally { preparedSchemaHashes.remove(); preparedCandidateScope.remove(); lifecycleSnapshot.remove(); }
         }));
     }
 
@@ -484,12 +486,27 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 
     @Override
     public Object localPublishedBulkOpenApiPublicationToken() {
-        return publishedSnapshot;
+        OpenApiPublicationCandidate prepared = preparedCandidateScope.get();
+        if (prepared != null) return prepared;
+        PublishedSnapshot published = publishedScope.get();
+        if (published != null) return published.candidate();
+        PublishedSnapshot current = publishedSnapshot;
+        return current == null ? null : current.candidate();
     }
 
     @Override
     public Object groupDocumentCacheToken(String groupName) {
-        if (groupName == null || lifecycleSnapshot.get() != null) {
+        if (groupName == null) {
+            return null;
+        }
+        OpenApiPublicationCandidate prepared = preparedCandidateScope.get();
+        if (prepared != null) {
+            if (!prepared.groups().contains(groupName)) {
+                return null;
+            }
+            return new GroupDocumentCacheToken(cacheInvalidationEpoch, prepared, groupName, null);
+        }
+        if (lifecycleSnapshot.get() != null) {
             return null;
         }
         PublishedSnapshot publication = publishedScope.get();
@@ -497,7 +514,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             if (!publication.candidate().groups().contains(groupName)) {
                 return null;
             }
-            return new GroupDocumentCacheToken(cacheInvalidationEpoch, publication, groupName, null);
+            return new GroupDocumentCacheToken(cacheInvalidationEpoch, publication.candidate(), groupName, null);
         }
         if (publicationGuard != null) {
             return null;
@@ -591,6 +608,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             Map<String, JsonNode> snapshot = new LinkedHashMap<>();
             for (String group : candidate.groups()) snapshot.put(group, candidate.groupDocument(group));
             lifecycleSnapshot.set(Map.copyOf(snapshot));
+            preparedCandidateScope.set(candidate);
             preparedSchemaHashes.set(new ConcurrentHashMap<>());
             try {
                 T result = composition.get();
@@ -598,6 +616,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                 return result;
             } finally {
                 preparedSchemaHashes.remove();
+                preparedCandidateScope.remove();
                 lifecycleSnapshot.remove();
             }
         }));
