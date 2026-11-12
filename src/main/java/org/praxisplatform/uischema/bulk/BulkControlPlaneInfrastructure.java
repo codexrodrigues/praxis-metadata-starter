@@ -74,15 +74,16 @@ public final class BulkControlPlaneInfrastructure {
                 if (connection.getAutoCommit() || connection.isReadOnly()
                         || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource))
                     throw new IllegalStateException("Control-plane work must use its transaction connection");
-                String previous = BulkExecutionInfrastructure.constrainLifecycleAttestationTimeouts(connection);
+                var timeout = BulkCatalogPhase.LiveTimeout.lifecycle();
                 int key1 = FENCE_RANDOM.nextInt();
                 int key2 = FENCE_RANDOM.nextInt();
                 try {
                     BulkExecutionMigrator.validateLiveControlPlaneRoleAccess(
-                            connection, runtime.roleConfiguration(), expectedRole);
-                    restoreAndAcquireDatabaseIdentityLock(connection, previous, key1, key2);
+                            connection, runtime.roleConfiguration(), expectedRole, timeout);
+                    restoreAndAcquireDatabaseIdentityLock(connection, timeout.previous(), key1, key2);
                 } catch (java.sql.SQLException | RuntimeException | Error failure) {
-                    BulkExecutionInfrastructure.restoreAfterLifecycleFailure(connection, previous, failure);
+                    if (timeout.previous() != null)
+                        BulkExecutionInfrastructure.restoreAfterLifecycleFailure(connection, timeout.previous(), failure);
                     throw failure;
                 }
                 runtime.verifyControlDatabaseIdentity(key1, key2);

@@ -3522,13 +3522,19 @@ public final class BulkExecutionMigrator {
     /** Re-attests the configured CAS-only control-plane role on its operation connection. */
     static void validateLiveControlPlaneRoleAccess(Connection connection,
             BulkExecutionRoleConfiguration roles, String expectedRole) {
+        validateLiveControlPlaneRoleAccess(connection, roles, expectedRole, null);
+    }
+
+    static void validateLiveControlPlaneRoleAccess(Connection connection,
+            BulkExecutionRoleConfiguration roles, String expectedRole, BulkCatalogPhase.LiveTimeout timeout) {
         Objects.requireNonNull(connection, "connection");
         BulkExecutionRoleConfiguration configuration = Objects.requireNonNull(roles, "roles");
         String expected = Objects.requireNonNull(expectedRole, "expectedRole");
         require(configuration.controlPlaneGranteeRoles().contains(expected),
                 "configured control-plane identity is not an allowlisted grantee");
         try {
-            var catalog = BulkCatalogPhase.captureLive(connection, configuration);
+            var catalog = timeout == null ? BulkCatalogPhase.captureLive(connection, configuration)
+                    : BulkCatalogPhase.captureLive(connection, configuration, timeout);
             validateConnectionIdentity(catalog, configuration.controlPlaneGranteeRoles(), expected);
             MigrationExpectations expectations = CanonicalLiveExpectations.VALUE;
             validateV5Functions(connection, configuration, Map.of(), expectations, catalog);

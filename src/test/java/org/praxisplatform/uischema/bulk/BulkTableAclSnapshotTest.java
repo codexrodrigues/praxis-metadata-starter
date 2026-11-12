@@ -166,6 +166,29 @@ class BulkTableAclSnapshotTest {
         assertThatThrownBy(() -> catalog.relations.clear()).isInstanceOf(UnsupportedOperationException.class);
     }
 
+    @Test void lifecyclePrefixAndFreshCatalogUseOneSubmissionAndPreserveThePriorLimit() throws Exception {
+        var prefix = mock(ResultSet.class);
+        when(prefix.next()).thenReturn(true, false);
+        when(prefix.getString(1)).thenReturn("75ms");
+        when(prefix.getString(2)).thenReturn("20ms");
+        when(prefix.getString(3)).thenReturn("75ms");
+        var fixture = liveFixture(7, prefix);
+        var timeout = BulkCatalogPhase.LiveTimeout.lifecycle();
+
+        var catalog = BulkCatalogPhase.captureLive(fixture.connection(), ROLES, timeout);
+
+        assertThat(timeout.previous()).isEqualTo("75ms");
+        assertThat(catalog.identity).hasSize(1);
+        verify(fixture.statement()).execute();
+        verify(fixture.statement(), times(8)).getMoreResults(Statement.CLOSE_CURRENT_RESULT);
+        verify(prefix).close();
+        var sql = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(fixture.connection()).prepareStatement(sql.capture());
+        assertThat(sql.getValue()).startsWith(BulkCatalogPhase.LIFECYCLE_TIMEOUT_PREFIX)
+                .contains("current_setting('lock_timeout')", "interval '1 second'", "interval '2 seconds'",
+                        "interval '250 milliseconds'");
+    }
+
     @Test void liveBatchRejectsMissingExtraUpdateAndNullResults() throws Exception {
         for (int count : List.of(0, 3, 6, 8)) {
             var fixture = liveFixture(count);
@@ -209,17 +232,23 @@ class BulkTableAclSnapshotTest {
 
     private record LiveFixture(Connection connection, PreparedStatement statement, java.sql.Array first, java.sql.Array second) {}
     private static LiveFixture liveFixture(int count) throws Exception {
+        return liveFixture(count, null);
+    }
+
+    private static LiveFixture liveFixture(int count, ResultSet prefix) throws Exception {
         var c = mock(Connection.class); var statement = mock(PreparedStatement.class);
         var first = mock(java.sql.Array.class); var second = mock(java.sql.Array.class);
         when(c.createArrayOf(eq("text"), any())).thenReturn(first, second, mock(java.sql.Array.class));
         when(c.prepareStatement(anyString())).thenReturn(statement);
-        when(statement.execute()).thenReturn(count > 0); when(statement.getUpdateCount()).thenReturn(-1);
+        when(statement.execute()).thenReturn(count > 0 || prefix != null);
+        when(statement.getUpdateCount()).thenReturn(-1);
         var resultSets = new ArrayList<ResultSet>();
+        if (prefix != null) resultSets.add(prefix);
         for (int i = 0; i < count; i++) resultSets.add(rows(i == 0
                 ? List.of(Map.of("session_identity", "runtime", "effective_identity", "runtime", "legacy_cas_absent", true)) : List.of()));
         var position = new AtomicInteger();
         when(statement.getResultSet()).thenAnswer(call -> resultSets.get(position.get()));
-        when(statement.getMoreResults(Statement.CLOSE_CURRENT_RESULT)).thenAnswer(call -> position.incrementAndGet() < count);
+        when(statement.getMoreResults(Statement.CLOSE_CURRENT_RESULT)).thenAnswer(call -> position.incrementAndGet() < resultSets.size());
         return new LiveFixture(c, statement, first, second);
     }
 

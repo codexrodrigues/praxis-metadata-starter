@@ -20,10 +20,10 @@ class BulkLifecycleReadBatchTest {
     private static final BulkExecutionRoleConfiguration ROLES = new BulkExecutionRoleConfiguration(
             "owner", Set.of("runtime"), Set.of(), Set.of("control"));
 
-    @Test void controlProofUsesSixSubmissionsAndDistinctFreshAttestationsEveryTime() throws Exception {
+    @Test void controlProofUsesFourSubmissionsAndDistinctFreshAttestationsEveryTime() throws Exception {
         try (var f = new Fixture()) {
             for (int i = 0; i < 2; i++) assertThat(f.control.<String>withConnection(c -> "ok")).isEqualTo("ok");
-            assertThat(f.c.executions).hasValue(6); assertThat(f.r.executions).hasValue(6);
+            assertThat(f.c.executions).hasValue(4); assertThat(f.r.executions).hasValue(4);
             assertThat(f.controlAttest).hasValue(2); assertThat(f.runtimeAttest).hasValue(2);
             verify(f.c.connection, times(2)).commit(); verify(f.r.connection, times(2)).commit();
             assertThat(f.c.tailParameters.get(1)).isEqualTo("75ms");
@@ -38,7 +38,7 @@ class BulkLifecycleReadBatchTest {
     @Test void ordinaryLifecycleReadRetainsItsNamespaceFenceWithoutIdentityProbe() throws Exception {
         try (var f = new Fixture()) {
             assertThat(f.runtime.<Integer>withLifecycleRead(c -> 7)).isEqualTo(7);
-            assertThat(f.r.executions).hasValue(3); assertThat(f.c.executions).hasValue(0);
+            assertThat(f.r.executions).hasValue(2); assertThat(f.c.executions).hasValue(0);
             assertThat(f.r.tailSql).doesNotContain("pg_locks");
         }
     }
@@ -55,7 +55,7 @@ class BulkLifecycleReadBatchTest {
         }
     }
 
-    @Test void clampRejectsMissingDuplicateAndNullFieldsBeforeAttestation() throws Exception {
+    @Test void clampRejectsMissingDuplicateAndNullFieldsBeforeTrustingAttestation() throws Exception {
         for (int fault = 0; fault < 5; fault++) {
             try (var f = new Fixture()) {
                 f.c.clampFault = fault;
@@ -354,9 +354,16 @@ class BulkLifecycleReadBatchTest {
                     boolean cp = name.contains("ControlPlane");
                     assertThat(call.getArgument(1, BulkExecutionRoleConfiguration.class)).isSameAs(ROLES);
                     if (cp) assertThat(call.getArgument(2, String.class)).isEqualTo("control");
+                    var endpoint = cp ? c : r;
+                    var timeout = call.getArgument(cp ? 3 : 2, BulkCatalogPhase.LiveTimeout.class);
+                    endpoint.clampSql = timeout.prefix();
+                    // One JDBC stand-in for the clamp and seven catalog result sets.
+                    try (var statement = call.getArgument(0, Connection.class).createStatement();
+                            var clampRows = endpoint.clampRows()) {
+                        statement.execute(timeout.prefix() + "select 1 /* live catalog stand-in */");
+                        timeout.read(clampRows);
+                    }
                     (cp ? controlAttest : runtimeAttest).incrementAndGet();
-                    // One JDBC stand-in for the already-tested seven-result catalog submission.
-                    try (var s = call.getArgument(0, Connection.class).createStatement()) { s.execute("select 1 /* live catalog stand-in */"); }
                     Throwable failure = cp ? controlFailure : runtimeFailure;
                     if (failure != null) throw failure;
                     return null;
@@ -396,14 +403,7 @@ class BulkLifecycleReadBatchTest {
             when(connection.createStatement()).thenAnswer(call->{
                 var s=mock(Statement.class);
                 when(s.execute(anyString())).thenAnswer(x->{executions.incrementAndGet();return true;});
-                when(s.executeQuery(anyString())).thenAnswer(x->{
-                    executions.incrementAndGet();clampSql=x.getArgument(0);
-                    Object[] values={previous,"20ms","75ms"};
-                    if(clampFault==0)return rows();
-                    if(clampFault==1)return rows(values,values);
-                    if(clampFault>=2)values[clampFault-2]=null;
-                    return rows(values);
-                });return s;
+                return s;
             });
             when(connection.prepareStatement(anyString())).thenAnswer(call->{
                 String sql=call.getArgument(0);var p=mock(PreparedStatement.class);
@@ -445,6 +445,14 @@ class BulkLifecycleReadBatchTest {
                 return p;
             });
         }
+        private ResultSet clampRows() throws Exception {
+            Object[] values = {previous, "20ms", "75ms"};
+            if (clampFault == 0) return rows();
+            if (clampFault == 1) return rows(values, values);
+            if (clampFault >= 2) values[clampFault - 2] = null;
+            return rows(values);
+        }
+
         private ResultSet valueRows(String name,Object value) throws Exception {
             if(tailFault.equals(name+"-null"))value=null;
             if(tailFault.equals(name+"-false"))value=false;
