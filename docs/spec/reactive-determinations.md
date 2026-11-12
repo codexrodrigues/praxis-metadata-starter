@@ -20,6 +20,10 @@ decisao e validacao final no submit.
 - sources, inputs e outputs usam JSON Pointer e sao validados contra os schemas reais;
 - cada `@DeterminationInput` deve preservar **fidelidade estrita `1:1` de sinal e semantica** entre o campo do formulario e o campo do DTO de determinacao (proibido reaproveitar uma propriedade de acrescimo/vantagem no request DTO para transportar uma deducao/desconto do formulario; adicione propriedades tipadas explicitas, inclusive separando data/competencia do fato gerador da competencia de processamento em calculos efetivos no tempo);
 - ids duplicados, writers sobrepostos e ciclos falham fechado durante a materializacao;
+- um output que sobrepoe o `inputs.fieldPath` de uma determinacao estabelece uma dependencia,
+  inclusive quando o input fica fora de `sourcePaths`, que lista os gatilhos de mudanca;
+- as determinacoes de cada operacao sao publicadas em ordem topologica, com desempate
+  estavel por `id` entre as determinacoes prontas;
 - o bloco e publicado somente na variante `schemaType=request` de `/schemas/filtered`.
 
 O schema filtrado permanece estrutural e cacheavel publicamente. Tenant, usuario, facts, valores,

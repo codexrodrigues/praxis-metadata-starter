@@ -357,6 +357,131 @@ class ReactiveDeterminationMetadataCompilerTest {
     }
 
     @Test
+    void rejectsCyclesDeclaredOnlyByNonTriggerInputs() {
+        ReactiveDeterminationDefinition cityFromPostalCode = new ReactiveDeterminationDefinition(
+                "city.from-postal-code",
+                List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                "determineCustomerAddress",
+                ReactiveDeterminationTriggerMode.ON_CHANGE,
+                List.of("/country"),
+                List.of(
+                        new ReactiveDeterminationInputBinding("/country", "/country"),
+                        new ReactiveDeterminationInputBinding("/postalCode", "/postalCode")
+                ),
+                List.of(new ReactiveDeterminationOutputBinding("/city", "/address/city")),
+                provenance()
+        );
+        ReactiveDeterminationDefinition postalCodeFromCity = new ReactiveDeterminationDefinition(
+                "postal-code.from-city",
+                List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                "determineCustomerAddress",
+                ReactiveDeterminationTriggerMode.ON_CHANGE,
+                List.of("/country"),
+                List.of(
+                        new ReactiveDeterminationInputBinding("/country", "/postalCode"),
+                        new ReactiveDeterminationInputBinding("/address/city", "/country")
+                ),
+                List.of(new ReactiveDeterminationOutputBinding("/state", "/postalCode")),
+                provenance()
+        );
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> compiler(List.of(cityFromPostalCode, postalCodeFromCity)).compile(
+                        operationResolver.resolveByOperationId("createCustomer").orElseThrow(),
+                        "request",
+                        document,
+                        document.path("components").path("schemas").path("CustomerDraft")
+                )
+        );
+        assertTrue(error.getMessage().contains("cycle detected"));
+    }
+
+    @Test
+    void publishesDependenciesInTopologicalOrderInsteadOfIdOrder() {
+        ReactiveDeterminationDefinition writer = new ReactiveDeterminationDefinition(
+                "z.writer",
+                List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                "determineCustomerAddress",
+                ReactiveDeterminationTriggerMode.ON_CHANGE,
+                List.of("/country"),
+                List.of(new ReactiveDeterminationInputBinding("/country", "/country")),
+                List.of(new ReactiveDeterminationOutputBinding("/city", "/address/city")),
+                provenance()
+        );
+        ReactiveDeterminationDefinition reader = new ReactiveDeterminationDefinition(
+                "a.reader",
+                List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                "determineCustomerAddress",
+                ReactiveDeterminationTriggerMode.ON_CHANGE,
+                List.of("/country"),
+                List.of(
+                        new ReactiveDeterminationInputBinding("/country", "/country"),
+                        new ReactiveDeterminationInputBinding("/address/city", "/postalCode")
+                ),
+                List.of(new ReactiveDeterminationOutputBinding("/state", "/address/state")),
+                provenance()
+        );
+
+        ReactiveDeterminationDefinition independent = new ReactiveDeterminationDefinition(
+                "b.independent",
+                List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                "determineCustomerAddress",
+                ReactiveDeterminationTriggerMode.ON_CHANGE,
+                List.of("/country"),
+                List.of(new ReactiveDeterminationInputBinding("/country", "/country")),
+                List.of(new ReactiveDeterminationOutputBinding("/city", "/postalCode")),
+                provenance()
+        );
+
+        List<Map<String, Object>> metadata = compiler(List.of(reader, writer, independent)).compile(
+                operationResolver.resolveByOperationId("createCustomer").orElseThrow(),
+                "request",
+                document,
+                document.path("components").path("schemas").path("CustomerDraft")
+        );
+
+        assertEquals(List.of("b.independent", "z.writer", "a.reader"), metadata.stream()
+                .map(item -> String.valueOf(item.get("id")))
+                .toList());
+    }
+
+    @Test
+    void treatsHierarchicallyOverlappingOutputAndInputAsADependency() {
+        ReactiveDeterminationDefinition writer = new ReactiveDeterminationDefinition(
+                "z.address-writer",
+                List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                "determineCustomerAddress",
+                ReactiveDeterminationTriggerMode.ON_CHANGE,
+                List.of("/country"),
+                List.of(new ReactiveDeterminationInputBinding("/country", "/country")),
+                List.of(new ReactiveDeterminationOutputBinding("/state", "/address")),
+                provenance()
+        );
+        ReactiveDeterminationDefinition reader = new ReactiveDeterminationDefinition(
+                "a.city-reader",
+                List.of(new ReactiveDeterminationScope("createCustomer", ReactiveDeterminationFormMode.CREATE)),
+                "determineCustomerAddress",
+                ReactiveDeterminationTriggerMode.ON_CHANGE,
+                List.of("/address/city"),
+                List.of(new ReactiveDeterminationInputBinding("/address/city", "/country")),
+                List.of(new ReactiveDeterminationOutputBinding("/city", "/postalCode")),
+                provenance()
+        );
+
+        List<Map<String, Object>> metadata = compiler(List.of(reader, writer)).compile(
+                operationResolver.resolveByOperationId("createCustomer").orElseThrow(),
+                "request",
+                document,
+                document.path("components").path("schemas").path("CustomerDraft")
+        );
+
+        assertEquals(List.of("z.address-writer", "a.city-reader"), metadata.stream()
+                .map(item -> String.valueOf(item.get("id")))
+                .toList());
+    }
+
+    @Test
     void registryCapturesProvidersOnlyOnceAndRejectsDuplicateIds() {
         AtomicInteger calls = new AtomicInteger();
         ReactiveDeterminationDefinitionProvider provider = () -> {
