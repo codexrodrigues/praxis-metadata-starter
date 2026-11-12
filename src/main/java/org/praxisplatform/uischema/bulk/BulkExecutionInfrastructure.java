@@ -140,12 +140,12 @@ public final class BulkExecutionInfrastructure {
                         || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource)) {
                     throw new IllegalStateException("Lifecycle verification must use the runtime transaction connection");
                 }
-                String previous = constrainLifecycleAttestationTimeouts(connection);
+                var timeout = BulkCatalogPhase.LiveTimeout.lifecycle();
                 try {
-                    BulkExecutionMigrator.validateLiveRuntimeRoleAccess(connection, roleConfiguration);
-                    restoreAndVerifyLifecycleBinding(connection, previous, identity);
+                    BulkExecutionMigrator.validateLiveRuntimeRoleAccess(connection, roleConfiguration, timeout);
+                    restoreAndVerifyLifecycleBinding(connection, timeout.previous(), identity);
                 } catch (java.sql.SQLException | RuntimeException | Error failure) {
-                    restoreAfterLifecycleFailure(connection, previous, failure);
+                    if (timeout.previous() != null) restoreAfterLifecycleFailure(connection, timeout.previous(), failure);
                     throw failure;
                 }
                 requireLifecycleTimeRemaining(dataSource);
@@ -230,32 +230,6 @@ public final class BulkExecutionInfrastructure {
             if (previous == null || rows.getString(2) == null || rows.getString(3) == null
                     || !"repeatable read".equals(rows.getString(4))
                     || !"on".equals(rows.getString(5)) || rows.next())
-                throw new IllegalStateException("Lifecycle timeout query returned invalid rows");
-            return previous;
-        }
-    }
-
-    /** The return value is the exact post-lifecycle-clamp timeout to restore, including lower limits. */
-    static String constrainLifecycleAttestationTimeouts(java.sql.Connection connection)
-            throws java.sql.SQLException {
-        try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
-                with previous as materialized (
-                    select case when current_setting('statement_timeout') = '0'
-                                      or current_setting('statement_timeout')::interval > interval '2 seconds'
-                                then '2s' else current_setting('statement_timeout') end value)
-                select value,
-                       set_config('lock_timeout',
-                           case when current_setting('lock_timeout') = '0'
-                                     or current_setting('lock_timeout')::interval > interval '1 second'
-                                then '1s' else current_setting('lock_timeout') end, true),
-                       set_config('statement_timeout',
-                           case when value::interval > interval '250 milliseconds'
-                                then '250ms' else value end, true)
-                from previous
-                """)) {
-            if (!rows.next()) throw new IllegalStateException("Unable to read lifecycle statement timeout");
-            String previous = rows.getString(1);
-            if (previous == null || rows.getString(2) == null || rows.getString(3) == null || rows.next())
                 throw new IllegalStateException("Lifecycle timeout query returned invalid rows");
             return previous;
         }

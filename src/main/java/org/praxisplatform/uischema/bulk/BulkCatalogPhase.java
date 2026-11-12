@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.bulk;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -119,11 +120,44 @@ final class BulkCatalogPhase {
                     from previous;
                     """;
 
-    static final class LiveTimeout {
-        private String previous;
-        String previous() { return previous; }
-    }
+    static final String LIFECYCLE_TIMEOUT_PREFIX = """
+                with previous as materialized (
+                    select case when current_setting('statement_timeout') = '0'
+                                      or current_setting('statement_timeout')::interval > interval '2 seconds'
+                                then '2s' else current_setting('statement_timeout') end value)
+                select value,
+                       set_config('lock_timeout',
+                           case when current_setting('lock_timeout') = '0'
+                                     or current_setting('lock_timeout')::interval > interval '1 second'
+                                then '1s' else current_setting('lock_timeout') end, true),
+                       set_config('statement_timeout',
+                           case when value::interval > interval '250 milliseconds'
+                                then '250ms' else value end, true)
+                from previous;
+                """;
 
+    static final class LiveTimeout {
+        private final boolean lifecycle;
+        private String previous;
+
+        LiveTimeout() { this(false); }
+        private LiveTimeout(boolean lifecycle) { this.lifecycle = lifecycle; }
+
+        static LiveTimeout lifecycle() { return new LiveTimeout(true); }
+
+        String previous() { return previous; }
+
+        String prefix() { return lifecycle ? LIFECYCLE_TIMEOUT_PREFIX : LIVE_TIMEOUT_PREFIX; }
+
+        void read(ResultSet rows) throws SQLException {
+            require(rows != null && rows.next(), "Live timeout capture row is absent");
+            String captured = rows.getString(1);
+            require(captured != null && rows.getString(2) != null
+                    && (!lifecycle || rows.getString(3) != null) && !rows.next(),
+                    "Live timeout capture returned invalid rows");
+            previous = captured;
+        }
+    }
 
     static BulkCatalogPhase capture(Connection c, BulkExecutionRoleConfiguration roles) throws SQLException {
         return new BulkCatalogPhase(c, roles, Scope.STRUCTURE);
@@ -274,7 +308,7 @@ final class BulkCatalogPhase {
             if (!batch) return;
             require(queries.size() == 7, "Live catalog query inventory differs");
             String sql = String.join(";\n", queries);
-            if (timeout != null) sql = LIVE_TIMEOUT_PREFIX + sql;
+            if (timeout != null) sql = timeout.prefix() + sql;
             try (var statement = connection.prepareStatement(sql)) {
                 var bodyDigests = connection.createArrayOf("text", BulkCatalogFunctionBodies.packaged().keySet().toArray());
                 java.sql.Array configuredArray = null;
@@ -287,10 +321,7 @@ final class BulkCatalogPhase {
                     if (timeout != null) {
                         require(result, "Live timeout capture result is absent");
                         try (var rows = statement.getResultSet()) {
-                            require(rows != null && rows.next(), "Live timeout capture row is absent");
-                            timeout.previous = rows.getString(1);
-                            require(timeout.previous != null && rows.getString(2) != null && !rows.next(),
-                                    "Live timeout capture returned invalid rows");
+                            timeout.read(rows);
                         }
                         result = statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT);
                     }
