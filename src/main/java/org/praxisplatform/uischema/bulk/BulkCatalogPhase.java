@@ -15,19 +15,20 @@ final class BulkCatalogPhase {
     }
     final List<Fact> identity, relations, constraints, indexes, functions, triggers, tableAcl, schemaAcl, roleFacts;
 
-    private enum Scope { STRUCTURE, ACCESS, ROLES, LIVE }
+    private enum Scope { STRUCTURE, CAPACITY_INSTALLATION, ACCESS, ROLES, LIVE }
 
     private BulkCatalogPhase(Connection c, BulkExecutionRoleConfiguration roles, Scope scope) throws SQLException {
         this(c, roles, scope, null);
     }
 
     private BulkCatalogPhase(Connection c, BulkExecutionRoleConfiguration roles, Scope scope, LiveTimeout timeout) throws SQLException {
-        var reader = new Reader(c, scope == Scope.LIVE, timeout);
+        var reader = new Reader(c, scope, timeout);
+        boolean structure = scope == Scope.STRUCTURE || scope == Scope.CAPACITY_INSTALLATION;
         identity = scope == Scope.LIVE ? reader.read("""
             select session_user session_identity,current_user effective_identity,
               pg_catalog.to_regprocedure('praxis_bulk.transition_operation_control(text,text,bigint,text,text,text)') is null legacy_cas_absent
             """) : List.of();
-        relations = reader.read( scope == Scope.STRUCTURE ? """
+        relations = reader.read(structure ? """
             select n.nspname,pg_catalog.pg_get_userbyid(n.nspowner) schema_owner,t.relname,
               pg_catalog.pg_get_userbyid(t.relowner) table_owner,t.relkind,t.relpersistence,t.relrowsecurity,
               a.attname,pg_catalog.format_type(a.atttypid,a.atttypmod) data_type,a.attnotnull,a.atthasdef,
@@ -41,7 +42,7 @@ final class BulkCatalogPhase {
               pg_catalog.pg_get_userbyid(t.relowner) table_owner,t.relkind,t.relpersistence,t.relrowsecurity
             from pg_catalog.pg_namespace n left join pg_catalog.pg_class t on t.relnamespace=n.oid where n.nspname='praxis_bulk'
             """);
-        constraints = scope == Scope.STRUCTURE ? reader.read("""
+        constraints = structure ? reader.read("""
             select t.relname,k.conname,pg_catalog.pg_get_constraintdef(k.oid,false) definition,k.convalidated,
               k.condeferrable,k.condeferred,k.contype,k.conkey::text conkey,k.confkey::text confkey,
               case when k.confrelid=0 then '-' else k.confrelid::regclass::text end foreign_table,
@@ -50,7 +51,7 @@ final class BulkCatalogPhase {
             join pg_catalog.pg_namespace n on n.oid=t.relnamespace left join pg_catalog.pg_index i on i.indexrelid=k.conindid
             where n.nspname='praxis_bulk'
             """) : List.of();
-        indexes = scope == Scope.STRUCTURE ? reader.read("""
+        indexes = structure ? reader.read("""
             select t.relname,i.relname index_name,pg_catalog.pg_get_indexdef(i.oid) definition,x.indkey::text indkey,
               x.indisunique,x.indisprimary,x.indisvalid,x.indisready,x.indislive,
               pg_catalog.pg_get_expr(x.indpred,x.indrelid,false) predicate,x.indexprs is null no_expressions,
@@ -163,6 +164,12 @@ final class BulkCatalogPhase {
         return new BulkCatalogPhase(c, roles, Scope.STRUCTURE);
     }
 
+    /** Submit the unchanged structural catalog queries together for a fresh V18 validation. */
+    static BulkCatalogPhase captureCapacityInstallation(Connection c, BulkExecutionRoleConfiguration roles)
+            throws SQLException {
+        return new BulkCatalogPhase(c, roles, Scope.CAPACITY_INSTALLATION);
+    }
+
     /** Restricted runtime/control validation: no columns, defaults, constraints, indexes or owner rows. */
     static BulkCatalogPhase captureAccess(Connection c, BulkExecutionRoleConfiguration roles) throws SQLException {
         return new BulkCatalogPhase(c, roles, Scope.ACCESS);
@@ -257,16 +264,20 @@ final class BulkCatalogPhase {
     private static final class Reader {
         private final Connection connection;
         private final boolean batch;
+        private final boolean live;
         private final LiveTimeout timeout;
         private final List<String> queries = new ArrayList<>();
         private final List<List<Fact>> results = new ArrayList<>();
         private Set<String> configured, roots;
         private String owner;
-        Reader(Connection connection, boolean batch, LiveTimeout timeout) {
-            this.connection = connection; this.batch = batch; this.timeout = timeout;
+        Reader(Connection connection, Scope scope, LiveTimeout timeout) {
+            this.connection = connection;
+            this.live = scope == Scope.LIVE;
+            this.batch = live || scope == Scope.CAPACITY_INSTALLATION;
+            this.timeout = timeout;
         }
         List<Fact> readTableAcl(String sql) throws SQLException {
-            if (!batch) return read(sql);
+            if (!live) return read(sql);
             // Compress repeated identities only. Grant options, ownership, column grants and
             // duplicate privileges remain in this invocation's result, without an allowlist filter.
             return read("select relname,role,is_grantable,is_owner,"
@@ -279,7 +290,7 @@ final class BulkCatalogPhase {
             }
             // Fresh server digests compress only byte-identical packaged bodies. All existing
             // validators still see the exact original prosrc, including on a cache miss.
-            if (sql.contains("p.prosrc")) sql = sql.replace("p.prosrc", """
+            if (live && sql.contains("p.prosrc")) sql = sql.replace("p.prosrc", """
                 case when pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
                     =any(?::text[]) then null else p.prosrc end prosrc,
                 pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') prosrc_digest
@@ -306,17 +317,25 @@ final class BulkCatalogPhase {
         }
         void finish() throws SQLException {
             if (!batch) return;
-            require(queries.size() == 7, "Live catalog query inventory differs");
+            require(queries.size() == (live ? 7 : 8), "Catalog query inventory differs");
             String sql = String.join(";\n", queries);
             if (timeout != null) sql = timeout.prefix() + sql;
             try (var statement = connection.prepareStatement(sql)) {
-                var bodyDigests = connection.createArrayOf("text", BulkCatalogFunctionBodies.packaged().keySet().toArray());
+                var bodyDigests = live
+                        ? connection.createArrayOf("text", BulkCatalogFunctionBodies.packaged().keySet().toArray())
+                        : null;
                 java.sql.Array configuredArray = null;
                 java.sql.Array rootsArray = null;
                 try {
                     configuredArray = connection.createArrayOf("text", configured.toArray());
                     rootsArray = connection.createArrayOf("text", roots.toArray());
-                    statement.setArray(1, bodyDigests); statement.setArray(2, configuredArray); statement.setArray(3, rootsArray); statement.setString(4, owner);
+                    int parameter = 1;
+                    if (live) {
+                        statement.setArray(parameter++, bodyDigests);
+                    }
+                    statement.setArray(parameter++, configuredArray);
+                    statement.setArray(parameter++, rootsArray);
+                    statement.setString(parameter, owner);
                     boolean result = statement.execute();
                     if (timeout != null) {
                         require(result, "Live timeout capture result is absent");
@@ -326,21 +345,21 @@ final class BulkCatalogPhase {
                         result = statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT);
                     }
                     for (int i = 0; i < results.size(); i++) {
-                        require(result, "Live catalog result set absent or replaced by update count: " + i);
+                        require(result, "Catalog result set absent or replaced by update count: " + i);
                         try (var rows = statement.getResultSet()) {
-                            require(rows != null, "Live catalog result set is null: " + i);
+                            require(rows != null, "Catalog result set is null: " + i);
                             for (var fact : BulkCatalogPhase.read(rows)) {
-                                if (i==2) {
+                                if (live && i==2) {
                                     var values = new LinkedHashMap<>(fact.values());
                                     values.put("prosrc", BulkCatalogFunctionBodies.restore(fact.text("prosrc_digest"),fact.text("prosrc")));
                                     results.get(i).add(new Fact(Collections.unmodifiableMap(values)));
-                                } else if (i==4) results.get(i).addAll(expandTableAcl(fact));
+                                } else if (live && i==4) results.get(i).addAll(expandTableAcl(fact));
                                 else results.get(i).add(fact);
                             }
                         }
                         result = statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT);
                     }
-                    require(!result && statement.getUpdateCount() == -1, "Live catalog returned unexpected extra results");
+                    require(!result && statement.getUpdateCount() == -1, "Catalog returned unexpected extra results");
                 } finally {
                     try { if (configuredArray != null) configuredArray.free(); }
                     finally {
