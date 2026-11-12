@@ -4027,7 +4027,7 @@ public final class BulkExecutionMigrator {
     private static void validateCapacityInstallationCatalog(Connection connection,
             BulkExecutionRoleConfiguration roles, String expectedPhase, boolean expectedGrant,
             Map<String, String> phases) throws SQLException {
-        var catalog = BulkCatalogPhase.capture(connection, roles);
+        var catalog = BulkCatalogPhase.captureCapacityInstallation(connection, roles);
         require(isV18Installed(catalog), "V18 capacity installation is not applied");
         var capacityPhases = readCapacityPhases(connection, catalog);
         if (expectedGrant == "COMPLETE".equals(expectedPhase))

@@ -166,6 +166,41 @@ class BulkTableAclSnapshotTest {
         assertThatThrownBy(() -> catalog.relations.clear()).isInstanceOf(UnsupportedOperationException.class);
     }
 
+    @Test void capacityInstallationBatchUsesTheSameQueriesAndFactsAsStructuralCapture() throws Exception {
+        var data = Map.of(
+                0, List.of(relation("table")),
+                3, List.of(Map.<String, Object>of("prosrc", "select 1")),
+                5, List.of(Map.<String, Object>of("relname", "table", "role", "runtime",
+                        "permission", "C:id:SELECT", "is_grantable", true, "is_owner", false)),
+                7, List.of(Map.<String, Object>of("kind", "owner_members", "amount", 0L)));
+        var queries = new ArrayList<String>();
+        BulkCatalogPhase.capture(emptyConnection(queries), ROLES);
+        var unbatched = capture(mock(Connection.class), data);
+        var fixture = liveFixture(8);
+        var resultSets = new ArrayList<ResultSet>();
+        for (int i = 0; i < 8; i++) {
+            resultSets.add(rows(data.getOrDefault(i, List.of())));
+        }
+        var position = new AtomicInteger();
+        when(fixture.statement().getResultSet()).thenAnswer(call -> resultSets.get(position.get()));
+        when(fixture.statement().getMoreResults(Statement.CLOSE_CURRENT_RESULT))
+                .thenAnswer(call -> position.incrementAndGet() < resultSets.size());
+
+        var batched = BulkCatalogPhase.captureCapacityInstallation(fixture.connection(), ROLES);
+
+        assertThat(batched).usingRecursiveComparison().isEqualTo(unbatched);
+        verify(fixture.connection(), never()).createStatement();
+        verify(fixture.connection()).prepareStatement(String.join(";\n", queries));
+        verify(fixture.statement()).setArray(1, fixture.first());
+        verify(fixture.statement()).setArray(2, fixture.second());
+        verify(fixture.statement()).setString(3, ROLES.expectedSchemaOwnerRole());
+        verify(fixture.statement()).execute();
+        verify(fixture.statement(), times(8)).getMoreResults(Statement.CLOSE_CURRENT_RESULT);
+        verify(fixture.statement()).close();
+        verify(fixture.first()).free();
+        verify(fixture.second()).free();
+    }
+
     @Test void lifecyclePrefixAndFreshCatalogUseOneSubmissionAndPreserveThePriorLimit() throws Exception {
         var prefix = mock(ResultSet.class);
         when(prefix.next()).thenReturn(true, false);
