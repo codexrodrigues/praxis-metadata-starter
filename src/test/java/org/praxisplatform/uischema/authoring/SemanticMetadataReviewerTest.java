@@ -1497,4 +1497,394 @@ class SemanticMetadataReviewerTest {
         public void getById() {
         }
     }
+
+    @Test
+    void validatesShorthandLocalDateTokensRelativePeriodPresetsFiniteDecimalsAndProgrammaticQuickFilters() {
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+        SemanticMetadataReviewReport validReport = reviewer.reviewResourceController(
+                ValidTemporalQuickFilterController.class,
+                ValidQuickView360DTO.class,
+                TemporalAndProgrammaticFilterDTO.class
+        );
+        assertFalse(validReport.hasErrors(), validReport.issues().toString());
+
+        SemanticMetadataReviewReport invalidAnnotationReport = reviewer.reviewResourceController(
+                InvalidTemporalAndNaNQuickFilterController.class,
+                ValidQuickView360DTO.class,
+                TemporalAndProgrammaticFilterDTO.class
+        );
+        assertTrue(invalidAnnotationReport.hasErrors());
+        Set<String> annotationCodes = invalidAnnotationReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(annotationCodes.contains("quick-filter-temporal-value-invalid"), annotationCodes.toString());
+        assertTrue(annotationCodes.contains("quick-filter-numeric-value-invalid"), annotationCodes.toString());
+
+        SemanticMetadataReviewReport invalidProgrammaticReport = reviewer.reviewResourceController(
+                InvalidProgrammaticQuickFilterController.class,
+                ValidQuickView360DTO.class,
+                TemporalAndProgrammaticFilterDTO.class
+        );
+        assertTrue(invalidProgrammaticReport.hasErrors());
+        Set<String> programmaticCodes = invalidProgrammaticReport.issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(programmaticCodes.contains("quick-filter-temporal-value-invalid"), programmaticCodes.toString());
+        assertTrue(programmaticCodes.contains("quick-filter-criterion-cardinality-mismatch"), programmaticCodes.toString());
+        assertTrue(programmaticCodes.contains("quick-filter-numeric-value-invalid"), programmaticCodes.toString());
+
+        SemanticMetadataReviewReport rangeArityReport = reviewer.reviewResourceController(
+                InvalidRangeArityAndPreCoercionQuickFilterController.class,
+                ValidQuickView360DTO.class,
+                TemporalAndProgrammaticFilterDTO.class
+        );
+        assertTrue(rangeArityReport.hasErrors());
+        List<SemanticMetadataReviewIssue> rangeCardinalityIssues = rangeArityReport.issues().stream()
+                .filter(issue -> "quick-filter-criterion-cardinality-mismatch".equals(issue.code()))
+                .toList();
+        assertEquals(3, rangeCardinalityIssues.size(), rangeArityReport.issues().toString());
+
+        SemanticMetadataReviewReport scalarBetweenReport = reviewer.reviewResourceController(
+                ScalarBetweenQuickFilterController.class,
+                ValidQuickView360DTO.class,
+                ScalarBetweenFilterDTO.class
+        );
+        assertTrue(scalarBetweenReport.hasErrors(), scalarBetweenReport.issues().toString());
+        assertTrue(
+                scalarBetweenReport.issues().stream()
+                        .anyMatch(issue -> "quick-filter-criterion-cardinality-mismatch".equals(issue.code())
+                                && issue.message().contains("BETWEEN")),
+                scalarBetweenReport.issues().toString()
+        );
+    }
+
+    private static class TemporalAndProgrammaticFilterDTO
+            implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
+        @Schema(description = "Data de referência da folha para enquadramento temporal do servidor.")
+        @UISchema(label = "Data de referência", controlType = FieldControlType.DATE_PICKER)
+        @org.praxisplatform.uischema.filter.annotation.Filterable(
+                operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.EQUAL
+        )
+        private java.time.LocalDate dataReferencia;
+
+        @Schema(description = "Faixa de competência analisada entre data inicial e final de referência.")
+        @UISchema(label = "Período de competência", controlType = FieldControlType.DATE_RANGE)
+        @org.praxisplatform.uischema.filter.annotation.Filterable(
+                operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.BETWEEN
+        )
+        private List<java.time.LocalDate> competenciaPeriodo;
+
+        @Schema(description = "Faixa estrita de pontuação funcional avaliada entre limite inferior e superior.")
+        @UISchema(label = "Faixa estrita", controlType = FieldControlType.NUMERIC_TEXT_BOX)
+        @org.praxisplatform.uischema.filter.annotation.Filterable(
+                operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.BETWEEN_EXCLUSIVE
+        )
+        private List<Integer> pontuacaoExclusiva;
+
+        @Schema(description = "Preset relativo de período selecionado pelo usuário na barra de pesquisa.")
+        @UISchema(label = "Período relativo", controlType = FieldControlType.INLINE_RELATIVE_PERIOD)
+        private String periodoRelativo;
+
+        @Schema(description = "Percentual mínimo apurado no indicador funcional de elegibilidade.")
+        @UISchema(label = "Percentual mínimo", controlType = FieldControlType.NUMERIC_TEXT_BOX)
+        @org.praxisplatform.uischema.filter.annotation.Filterable(
+                operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.GREATER_OR_EQUAL
+        )
+        private Double percentualMinimo;
+
+        public java.time.LocalDate getDataReferencia() { return dataReferencia; }
+        public void setDataReferencia(java.time.LocalDate dataReferencia) { this.dataReferencia = dataReferencia; }
+        public List<java.time.LocalDate> getCompetenciaPeriodo() { return competenciaPeriodo; }
+        public void setCompetenciaPeriodo(List<java.time.LocalDate> competenciaPeriodo) { this.competenciaPeriodo = competenciaPeriodo; }
+        public List<Integer> getPontuacaoExclusiva() { return pontuacaoExclusiva; }
+        public void setPontuacaoExclusiva(List<Integer> pontuacaoExclusiva) { this.pontuacaoExclusiva = pontuacaoExclusiva; }
+        public String getPeriodoRelativo() { return periodoRelativo; }
+        public void setPeriodoRelativo(String periodoRelativo) { this.periodoRelativo = periodoRelativo; }
+        public Double getPercentualMinimo() { return percentualMinimo; }
+        public void setPercentualMinimo(Double percentualMinimo) { this.percentualMinimo = percentualMinimo; }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/temporal-valid",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "competencia-mes",
+                            label = "Competência março",
+                            filter = "dataReferencia=2026-03"
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "trimestre-e-preset",
+                            label = "Trimestre e janela",
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "dataReferencia", values = "2026-Q1"),
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "periodoRelativo", values = "last30")
+                            }
+                    )
+            }
+    )
+    private static class ValidTemporalQuickFilterController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    ValidQuickView360DTO, Long, TemporalAndProgrammaticFilterDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                ValidQuickView360DTO, Long, TemporalAndProgrammaticFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(ValidQuickView360DTO dto) {
+            return null;
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/temporal-invalid",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "preset-invalido",
+                            label = "Preset inválido",
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "periodoRelativo", values = "invalidPreset")
+                            }
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "decimal-nan",
+                            label = "Decimal não finito",
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "percentualMinimo", decimal = Double.NaN)
+                            }
+                    )
+            }
+    )
+    private static class InvalidTemporalAndNaNQuickFilterController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    ValidQuickView360DTO, Long, TemporalAndProgrammaticFilterDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                ValidQuickView360DTO, Long, TemporalAndProgrammaticFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(ValidQuickView360DTO dto) {
+            return null;
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/programmatic-invalid",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            )
+    )
+    private static class InvalidProgrammaticQuickFilterController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    ValidQuickView360DTO, Long, TemporalAndProgrammaticFilterDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                ValidQuickView360DTO, Long, TemporalAndProgrammaticFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(ValidQuickView360DTO dto) {
+            return null;
+        }
+
+        @Override
+        protected List<org.praxisplatform.uischema.schema.QuickFilterDescriptor<TemporalAndProgrammaticFilterDTO>> defineQuickFilters() {
+            return List.of(
+                    org.praxisplatform.uischema.schema.QuickFilterDescriptor.<TemporalAndProgrammaticFilterDTO>builder(
+                                    "preset-invalido-prog", "Preset programático")
+                            .where(f -> {
+                                f.setPeriodoRelativo("invalidPreset");
+                                f.setPercentualMinimo(Double.NaN);
+                            })
+                            .build(),
+                    org.praxisplatform.uischema.schema.QuickFilterDescriptor.<TemporalAndProgrammaticFilterDTO>builder(
+                                    "cardinalidade-incompativel-prog", "Cardinalidade incompatível")
+                            .criterion("dataReferencia", java.util.List.of(
+                                    java.time.LocalDate.of(2026, 3, 1),
+                                    java.time.LocalDate.of(2026, 3, 31)
+                            ))
+                            .build()
+            );
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/range-arity-invalid",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "between-tres-valores",
+                            label = "Between com três valores",
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(
+                                            field = "competenciaPeriodo",
+                                            values = {"2026-01-01", "2026-02-01", "2026-03-01"}
+                                    )
+                            }
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "between-exclusive-um-valor",
+                            label = "Between exclusivo incompleto",
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(
+                                            field = "pontuacaoExclusiva",
+                                            number = {50}
+                                    )
+                            }
+                    )
+            }
+    )
+    private static class InvalidRangeArityAndPreCoercionQuickFilterController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    ValidQuickView360DTO, Long, TemporalAndProgrammaticFilterDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                ValidQuickView360DTO, Long, TemporalAndProgrammaticFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(ValidQuickView360DTO dto) {
+            return null;
+        }
+
+        @Override
+        protected List<org.praxisplatform.uischema.schema.QuickFilterDescriptor<TemporalAndProgrammaticFilterDTO>> defineQuickFilters() {
+            return List.of(
+                    org.praxisplatform.uischema.schema.QuickFilterDescriptor.<TemporalAndProgrammaticFilterDTO>builder(
+                                    "escalar-em-colecao-prog", "Escalar em coleção")
+                            .criterion("competenciaPeriodo", java.time.LocalDate.of(2026, 3, 1))
+                            .build()
+            );
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    private static class ScalarBetweenFilterDTO
+            implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
+        @Schema(description = "Campo escalar anotado incorretamente com operação BETWEEN para validar cardinality check.")
+        @UISchema(label = "Competência escalar", controlType = FieldControlType.DATE_PICKER)
+        @org.praxisplatform.uischema.filter.annotation.Filterable(
+                operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.BETWEEN
+        )
+        private java.time.LocalDate competenciaEscalar;
+
+        public java.time.LocalDate getCompetenciaEscalar() { return competenciaEscalar; }
+        public void setCompetenciaEscalar(java.time.LocalDate competenciaEscalar) { this.competenciaEscalar = competenciaEscalar; }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/scalar-between-invalid",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "between-em-escalar",
+                            label = "Between em escalar",
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(
+                                            field = "competenciaEscalar",
+                                            values = {"2026-01-01"}
+                                    )
+                            }
+                    )
+            }
+    )
+    private static class ScalarBetweenQuickFilterController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    ValidQuickView360DTO, Long, ScalarBetweenFilterDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                ValidQuickView360DTO, Long, ScalarBetweenFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(ValidQuickView360DTO dto) {
+            return null;
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
 }

@@ -537,7 +537,22 @@ public class SemanticDomainCatalogService {
             for (DomainRuleSetDescriptor ruleSet : domainRuleSets.getOrDefault(resource, List.of())) {
                 addRuleSet(resource, context, ruleSet, contexts, nodes, edges, bindings, evidence);
             }
-            for (Map<String, Object> quickFilter : quickFiltersByResource.getOrDefault(resource, List.of())) {
+            List<Map<String, Object>> resourceQuickFilters = quickFiltersByResource.getOrDefault(resource, List.of());
+            if (!resourceQuickFilters.isEmpty()) {
+                addFilterRequestSchemaFieldsIfPresent(
+                        resource,
+                        context,
+                        requestedGroup,
+                        quickFilterPath,
+                        canonicalResourceKeysByPath,
+                        nodes,
+                        edges,
+                        bindings,
+                        evidence,
+                        governance
+                );
+            }
+            for (Map<String, Object> quickFilter : resourceQuickFilters) {
                 addQuickFilter(resource, context, quickFilterPath, quickFilter, nodes, edges, bindings, evidence);
             }
         }
@@ -696,6 +711,76 @@ public class SemanticDomainCatalogService {
         if (explicitGovernance != null) governance.put(explicitGovernance.governanceKey(), explicitGovernance);
     }
 
+    private void addFilterRequestSchemaFieldsIfPresent(
+            String resource,
+            String context,
+            String requestedGroup,
+            String resourcePath,
+            Map<String, String> canonicalResourceKeysByPath,
+            Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
+            Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
+            Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
+            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence,
+            Map<String, DomainCatalogResponse.DomainGovernanceItem> governance
+    ) {
+        if (openApiDocumentService == null || !StringUtils.hasText(resourcePath)) {
+            return;
+        }
+        String normalizedPath = normalizeResourcePath(resourcePath);
+        if (!StringUtils.hasText(normalizedPath)) {
+            return;
+        }
+        String filterPath = normalizedPath.endsWith("/filter") ? normalizedPath : normalizedPath + "/filter";
+        String effectiveGroup = firstText(requestedGroup, openApiDocumentService.resolveGroupFromPath(filterPath));
+        if (Boolean.TRUE.equals(strictSchemaResolution.get()) && !StringUtils.hasText(effectiveGroup)) {
+            return;
+        }
+        JsonNode document = resolveOpenApiDocument(effectiveGroup);
+        if (document == null || document.isMissingNode()) {
+            return;
+        }
+        JsonNode pathsNode = document.path("paths");
+        if (!pathsNode.isObject()) {
+            return;
+        }
+        String resolvedFilterPath = openApiDocumentService.resolveDocumentPath(pathsNode, filterPath, "post");
+        if (!StringUtils.hasText(resolvedFilterPath) || !pathsNode.path(resolvedFilterPath).has("post")) {
+            return;
+        }
+        try {
+            FilteredSchemaProjection.Selection selection = new FilteredSchemaProjection(HASH_OBJECT_MAPPER)
+                    .select(document, resolvedFilterPath, "post", "request");
+            if (selection == null || selection.schema() == null || selection.schema().isMissingNode()) {
+                return;
+            }
+            String schemaId = firstText(selection.schemaName(), resource + ".filter.request");
+            CanonicalSchemaRef schemaRef = new CanonicalSchemaRef(
+                    schemaId,
+                    "request",
+                    "/schemas/filtered?path=" + resolvedFilterPath + "&operation=post&schemaType=request"
+            );
+            addSchemaFieldTree(
+                    resource,
+                    context,
+                    schemaRef,
+                    "request",
+                    unwrapArray(selection.schema()),
+                    document,
+                    "",
+                    new LinkedHashSet<>(),
+                    0,
+                    canonicalResourceKeysByPath,
+                    nodes,
+                    edges,
+                    bindings,
+                    evidence,
+                    governance
+            );
+        } catch (RuntimeException ignored) {
+            // Optional filter-request schema enrichment falls back to synthetic filter field nodes.
+        }
+    }
+
     private void addQuickFilter(
             String resource,
             String context,
@@ -763,10 +848,49 @@ public class SemanticDomainCatalogService {
                 "has_quick_filter", "Possui filtro rápido " + label, 1.0, List.of(evidenceKey));
         for (String fieldName : filterFields) {
             String fieldNodeKey = resource + ".field." + keyPart(fieldName);
-            if (nodes.containsKey(fieldNodeKey)) {
-                putEdge(edges, nodeKey + ".filters-field." + keyPart(fieldName), nodeKey, fieldNodeKey,
-                        "filters_field", "Filtra por " + fieldName, 1.0, List.of(evidenceKey));
+            if (!nodes.containsKey(fieldNodeKey)) {
+                String fieldEvidenceKey = "evidence:" + fieldNodeKey + ":filter-dto";
+                Map<String, Object> fieldMetadata = mapOfNonNull(
+                        "fieldName", fieldName,
+                        "resourceKey", resource,
+                        "schemaRole", "request",
+                        "schemaType", "request",
+                        "filterable", Boolean.TRUE
+                );
+                nodes.put(fieldNodeKey, new DomainCatalogResponse.DomainNodeItem(
+                        fieldNodeKey,
+                        context,
+                        "field",
+                        labelFromKey(fieldName),
+                        null,
+                        "active",
+                        "dto_schema",
+                        0.85,
+                        fieldMetadata,
+                        List.of("dto-field", "request"),
+                        null,
+                        context,
+                        "active",
+                        glossary(labelFromKey(fieldName), null, List.of("dto-field", "request")),
+                        resolution(fieldNodeKey, matchKeys(fieldName, labelFromKey(fieldName)), "exact-key-or-alias"),
+                        List.of(fieldEvidenceKey)
+                ));
+                putEdge(edges, resource + ".has-field." + keyPart(fieldName), resource, fieldNodeKey,
+                        "has_field", "Possui campo " + fieldName, 0.85, List.of(fieldEvidenceKey));
+                evidence.putIfAbsent(fieldEvidenceKey, evidence(
+                        fieldEvidenceKey,
+                        "dto_schema",
+                        mapOfNonNull(
+                                "kind", "filter.dto.property",
+                                "resourceKey", resource,
+                                "fieldName", fieldName
+                        ),
+                        "Campo de filtro referenciado por @QuickFilter no recurso " + resource + ".",
+                        0.85
+                ));
             }
+            putEdge(edges, nodeKey + ".filters-field." + keyPart(fieldName), nodeKey, fieldNodeKey,
+                    "filters_field", "Filtra por " + fieldName, 1.0, List.of(evidenceKey));
         }
         bindings.putIfAbsent("binding:" + nodeKey + ":quick-filter", new DomainCatalogResponse.DomainBindingItem(
                 "binding:" + nodeKey + ":quick-filter",

@@ -295,6 +295,9 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
 
     @Test void projectsQuickFiltersIntoDomainCatalogWithProvenanceAndEdges() {
         var quickFilterResolver = mock(org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver.class);
+        var deterministicFilter = new LinkedHashMap<String, Object>();
+        deterministicFilter.put("situacoesIn", List.of("ATIVO"));
+        deterministicFilter.put("apenasFolha", true);
         when(quickFilterResolver.resolveByResourceKey(RESOURCE)).thenReturn(List.of(
                 Map.of(
                         "id", "ativos-em-folha",
@@ -303,7 +306,7 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
                         "icon", "check_circle",
                         "tone", "success",
                         "isDefault", true,
-                        "filter", Map.of("situacoesIn", List.of("ATIVO"), "apenasFolha", true)
+                        "filter", deterministicFilter
                 )
         ));
         when(quickFilterResolver.resolveResourcePathByResourceKey(RESOURCE)).thenReturn(Optional.of("/api/hr/employees"));
@@ -340,9 +343,24 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
                             .containsEntry("isDefault", true)
                             .containsEntry("filterFields", List.of("situacoesIn", "apenasFolha"));
                 });
+        var syntheticFilterFieldNodes = catalog.nodes().stream()
+                .filter(n -> "field".equals(n.nodeType()) && "dto_schema".equals(n.source()))
+                .toList();
+        assertThat(syntheticFilterFieldNodes)
+                .extracting(n -> n.metadata().get("fieldName"))
+                .containsExactlyInAnyOrder("situacoesIn", "apenasFolha");
+        var filterFieldNodeKeys = syntheticFilterFieldNodes.stream()
+                .map(DomainCatalogResponse.DomainNodeItem::nodeKey)
+                .toList();
         assertThat(catalog.edges())
                 .extracting(DomainCatalogResponse.DomainEdgeItem::edgeType)
-                .contains("has_quick_filter");
+                .contains("has_quick_filter", "has_field", "filters_field");
+        assertThat(catalog.edges())
+                .filteredOn(e -> "filters_field".equals(e.edgeType()))
+                .hasSize(2)
+                .allSatisfy(e -> assertThat(e.sourceNodeKey()).isEqualTo(RESOURCE + ".quickFilter.ativos-em-folha"))
+                .extracting(DomainCatalogResponse.DomainEdgeItem::targetNodeKey)
+                .containsExactlyInAnyOrderElementsOf(filterFieldNodeKeys);
         assertThat(catalog.bindings())
                 .filteredOn(b -> "quick_filter".equals(b.bindingType()))
                 .singleElement()

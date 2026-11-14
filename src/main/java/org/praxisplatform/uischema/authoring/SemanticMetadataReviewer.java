@@ -943,9 +943,19 @@ public class SemanticMetadataReviewer {
                             continue;
                         }
                         Class<?> valueType = resolveFilterFieldScalarType(targetField);
-                        String[] tokens = java.util.Collection.class.isAssignableFrom(targetField.getType())
+                        String[] tokens = org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver
+                                .isCollectionOrArrayField(targetField)
                                 ? rawVal.split(",", -1)
                                 : new String[]{rawVal};
+                        validateRangeOperationArity(
+                                controllerClass,
+                                memberName,
+                                fieldName,
+                                effectiveFilterDto,
+                                targetField,
+                                tokens.length,
+                                issues
+                        );
                         for (String rawToken : tokens) {
                             String token = rawToken.trim();
                             if (token.isEmpty()) {
@@ -958,7 +968,15 @@ public class SemanticMetadataReviewer {
                                 ));
                                 continue;
                             }
-                            validateQuickFilterValueToken(controllerClass, memberName, valueType, token, issues);
+                            validateQuickFilterResolvedValueToken(
+                                    controllerClass,
+                                    memberName,
+                                    effectiveFilterDto,
+                                    targetField,
+                                    valueType,
+                                    token,
+                                    issues
+                            );
                         }
                     }
                 }
@@ -992,6 +1010,33 @@ public class SemanticMetadataReviewer {
                     if (descriptor.defaultActive()) {
                         defaultActiveCount++;
                     }
+                    if (effectiveFilterDto != null && descriptor.explicitCriteria() != null) {
+                        for (java.util.Map.Entry<String, Object> rawEntry : descriptor.explicitCriteria().entrySet()) {
+                            String rawFieldName = normalize(rawEntry.getKey());
+                            Object preCoercionValue = rawEntry.getValue();
+                            if (rawFieldName.isBlank() || preCoercionValue == null) {
+                                continue;
+                            }
+                            Field rawTargetField = filterableFields.get(rawFieldName);
+                            if (rawTargetField == null) {
+                                rawTargetField = allFilterFields.get(rawFieldName);
+                            }
+                            if (rawTargetField != null
+                                    && org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver
+                                            .isCollectionOrArrayField(rawTargetField)
+                                    && !(preCoercionValue instanceof java.util.Collection<?>)
+                                    && !preCoercionValue.getClass().isArray()) {
+                                issues.add(new SemanticMetadataReviewIssue(
+                                        SemanticMetadataIssueSeverity.ERROR,
+                                        "quick-filter-criterion-cardinality-mismatch",
+                                        controllerClass.getName(),
+                                        memberName,
+                                        memberName + " supplies scalar value for collection field '" + rawFieldName
+                                                + "' on " + effectiveFilterDto.getSimpleName() + "."
+                                ));
+                            }
+                        }
+                    }
                     java.util.Map<String, Object> compiledEntry = compiledById.get(qfId);
                     Object filterPayload = compiledEntry != null ? compiledEntry.get("filter") : null;
                     if (!(filterPayload instanceof java.util.Map<?, ?> filterMap) || filterMap.isEmpty()) {
@@ -1005,9 +1050,20 @@ public class SemanticMetadataReviewer {
                         continue;
                     }
                     if (effectiveFilterDto != null) {
-                        for (Object rawKey : filterMap.keySet()) {
-                            String fieldName = normalize(String.valueOf(rawKey));
-                            validateAndResolveQuickFilterTargetField(
+                        for (java.util.Map.Entry<?, ?> entry : filterMap.entrySet()) {
+                            String fieldName = normalize(String.valueOf(entry.getKey()));
+                            Object rawValObj = entry.getValue();
+                            if (fieldName.isBlank() || rawValObj == null || rawValObj instanceof java.util.Map<?, ?>) {
+                                issues.add(new SemanticMetadataReviewIssue(
+                                        SemanticMetadataIssueSeverity.ERROR,
+                                        "quick-filter-expression-malformed",
+                                        controllerClass.getName(),
+                                        memberName,
+                                        memberName + " declares invalid filter entry for '" + fieldName + "'."
+                                ));
+                                continue;
+                            }
+                            Field targetField = validateAndResolveQuickFilterTargetField(
                                     controllerClass,
                                     memberName,
                                     fieldName,
@@ -1017,6 +1073,17 @@ public class SemanticMetadataReviewer {
                                     filterDtoTypeGov,
                                     issues
                             );
+                            if (targetField != null) {
+                                validateProgrammaticQuickFilterEntryValue(
+                                        controllerClass,
+                                        memberName,
+                                        fieldName,
+                                        effectiveFilterDto,
+                                        targetField,
+                                        rawValObj,
+                                        issues
+                                );
+                            }
                         }
                     }
                 }
@@ -1413,6 +1480,13 @@ public class SemanticMetadataReviewer {
         }
         Field targetField = filterableFields.get(fieldName);
         if (targetField == null) {
+            UISchema uiSchema = findMemberAnnotation(effectiveFilterDto, declaredField, UISchema.class);
+            if (uiSchema != null
+                    && uiSchema.controlType() == org.praxisplatform.uischema.FieldControlType.INLINE_RELATIVE_PERIOD) {
+                targetField = declaredField;
+            }
+        }
+        if (targetField == null) {
             issues.add(new SemanticMetadataReviewIssue(
                     SemanticMetadataIssueSeverity.ERROR,
                     "quick-filter-target-field-not-filterable",
@@ -1559,29 +1633,32 @@ public class SemanticMetadataReviewer {
                 ));
                 continue;
             }
+            validateRangeOperationArity(
+                    controllerClass,
+                    memberName,
+                    fieldName,
+                    effectiveFilterDto,
+                    targetField,
+                    valueLength,
+                    issues
+            );
 
             Class<?> valueType = resolveFilterFieldScalarType(targetField);
             if (hasBool) {
-                org.praxisplatform.uischema.filter.annotation.Filterable targetFilterable =
-                        targetField.getAnnotation(org.praxisplatform.uischema.filter.annotation.Filterable.class);
-                String operation = targetFilterable == null ? "" : String.valueOf(targetFilterable.operation());
-                boolean presenceOperation = "IS_TRUE".equals(operation) || "IS_FALSE".equals(operation)
-                        || "IS_NULL".equals(operation) || "IS_NOT_NULL".equals(operation);
                 boolean containsFalse = false;
                 for (boolean b : criterion.bool()) {
                     containsFalse |= !b;
                 }
-                if (presenceOperation && containsFalse) {
-                    issues.add(new SemanticMetadataReviewIssue(
-                            SemanticMetadataIssueSeverity.ERROR,
-                            "quick-filter-presence-operation-false",
-                            controllerClass.getName(),
+                if (containsFalse) {
+                    checkPresenceOperationFalse(
+                            controllerClass,
                             memberName,
-                            memberName + " @FilterCriterion('" + fieldName + "') uses bool = false on @Filterable(operation = "
-                                    + operation + "); the operation ignores the value (IS_TRUE/IS_FALSE apply on any non-null"
-                                    + " value and IS_NULL/IS_NOT_NULL become no-op), so the quick filter would not express"
-                                    + " the intended slice. Target the complementary field/operation instead."
-                    ));
+                            fieldName,
+                            effectiveFilterDto,
+                            targetField,
+                            "uses bool = false",
+                            issues
+                    );
                 }
                 if (valueType != Boolean.class && valueType != boolean.class) {
                     issues.add(new SemanticMetadataReviewIssue(
@@ -1618,11 +1695,32 @@ public class SemanticMetadataReviewer {
                             memberName + " @FilterCriterion('" + fieldName + "') uses decimal on non-decimal field of type "
                                     + valueType.getSimpleName() + "."
                     ));
+                } else {
+                    for (double d : criterion.decimal()) {
+                        if (!Double.isFinite(d)) {
+                            issues.add(new SemanticMetadataReviewIssue(
+                                    SemanticMetadataIssueSeverity.ERROR,
+                                    "quick-filter-numeric-value-invalid",
+                                    controllerClass.getName(),
+                                    memberName,
+                                    memberName + " @FilterCriterion('" + fieldName
+                                            + "') contains non-finite decimal value."
+                            ));
+                        }
+                    }
                 }
             } else {
                 for (String rawToken : criterion.values()) {
                     if (rawToken != null && !rawToken.trim().isEmpty()) {
-                        validateQuickFilterValueToken(controllerClass, memberName, valueType, rawToken.trim(), issues);
+                        validateQuickFilterResolvedValueToken(
+                                controllerClass,
+                                memberName,
+                                effectiveFilterDto,
+                                targetField,
+                                valueType,
+                                rawToken.trim(),
+                                issues
+                        );
                     }
                 }
             }
@@ -1721,7 +1819,8 @@ public class SemanticMetadataReviewer {
             }
             Class<?> valueType = resolveFilterFieldScalarType(targetField);
             if (rawValObj instanceof java.util.Collection<?> col) {
-                if (!java.util.Collection.class.isAssignableFrom(targetField.getType()) || col.isEmpty()) {
+                if (!org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver.isCollectionOrArrayField(targetField)
+                        || col.isEmpty()) {
                     issues.add(new SemanticMetadataReviewIssue(
                             SemanticMetadataIssueSeverity.ERROR,
                             "quick-filter-expression-malformed",
@@ -1731,6 +1830,15 @@ public class SemanticMetadataReviewer {
                     ));
                     continue;
                 }
+                validateRangeOperationArity(
+                        controllerClass,
+                        memberName,
+                        fieldName,
+                        effectiveFilterDto,
+                        targetField,
+                        col.size(),
+                        issues
+                );
                 for (Object item : col) {
                     if (item == null || item instanceof java.util.Collection<?> || item instanceof java.util.Map<?, ?>) {
                         issues.add(new SemanticMetadataReviewIssue(
@@ -1753,10 +1861,18 @@ public class SemanticMetadataReviewer {
                         ));
                         continue;
                     }
-                    validateQuickFilterValueToken(controllerClass, memberName, valueType, token, issues);
+                    validateQuickFilterResolvedValueToken(
+                            controllerClass,
+                            memberName,
+                            effectiveFilterDto,
+                            targetField,
+                            valueType,
+                            token,
+                            issues
+                    );
                 }
             } else {
-                if (java.util.Collection.class.isAssignableFrom(targetField.getType())) {
+                if (org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver.isCollectionOrArrayField(targetField)) {
                     issues.add(new SemanticMetadataReviewIssue(
                             SemanticMetadataIssueSeverity.ERROR,
                             "quick-filter-expression-malformed",
@@ -1767,6 +1883,15 @@ public class SemanticMetadataReviewer {
                     ));
                     continue;
                 }
+                validateRangeOperationArity(
+                        controllerClass,
+                        memberName,
+                        fieldName,
+                        effectiveFilterDto,
+                        targetField,
+                        1,
+                        issues
+                );
                 String token = String.valueOf(rawValObj).trim();
                 if (token.isEmpty()) {
                     issues.add(new SemanticMetadataReviewIssue(
@@ -1778,9 +1903,259 @@ public class SemanticMetadataReviewer {
                     ));
                     continue;
                 }
-                validateQuickFilterValueToken(controllerClass, memberName, valueType, token, issues);
+                validateQuickFilterResolvedValueToken(
+                        controllerClass,
+                        memberName,
+                        effectiveFilterDto,
+                        targetField,
+                        valueType,
+                        token,
+                        issues
+                );
             }
         }
+    }
+
+    private boolean isRelativePeriodPresetField(Class<?> effectiveFilterDto, Field field) {
+        if (field == null) {
+            return false;
+        }
+        if (findMemberAnnotation(effectiveFilterDto, field, org.praxisplatform.uischema.filter.annotation.Filterable.class) != null) {
+            return false;
+        }
+        UISchema uiSchema = findMemberAnnotation(effectiveFilterDto, field, UISchema.class);
+        return uiSchema != null
+                && uiSchema.controlType() == org.praxisplatform.uischema.FieldControlType.INLINE_RELATIVE_PERIOD;
+    }
+
+    private void checkPresenceOperationFalse(
+            Class<?> controllerClass,
+            String memberName,
+            String fieldName,
+            Class<?> effectiveFilterDto,
+            Field targetField,
+            String contextLabel,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        org.praxisplatform.uischema.filter.annotation.Filterable targetFilterable =
+                findMemberAnnotation(effectiveFilterDto, targetField, org.praxisplatform.uischema.filter.annotation.Filterable.class);
+        String operation = targetFilterable == null ? "" : String.valueOf(targetFilterable.operation());
+        boolean presenceOperation = "IS_TRUE".equals(operation) || "IS_FALSE".equals(operation)
+                || "IS_NULL".equals(operation) || "IS_NOT_NULL".equals(operation);
+        if (presenceOperation) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "quick-filter-presence-operation-false",
+                    controllerClass.getName(),
+                    memberName,
+                    memberName + " '" + fieldName + "' " + contextLabel + " on @Filterable(operation = "
+                            + operation + "); the operation ignores false values (IS_TRUE/IS_FALSE apply on any non-null"
+                            + " value and IS_NULL/IS_NOT_NULL become no-op), so the quick filter would not express"
+                            + " the intended slice. Target the complementary field/operation instead."
+            ));
+        }
+    }
+
+    private void validateRangeOperationArity(
+            Class<?> controllerClass,
+            String memberName,
+            String fieldName,
+            Class<?> effectiveFilterDto,
+            Field targetField,
+            int elementCount,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        org.praxisplatform.uischema.filter.annotation.Filterable targetFilterable =
+                findMemberAnnotation(effectiveFilterDto, targetField, org.praxisplatform.uischema.filter.annotation.Filterable.class);
+        if (targetFilterable == null) {
+            return;
+        }
+        org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation operation = targetFilterable.operation();
+        boolean isRangeOperation =
+                operation == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.BETWEEN
+                        || operation == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.NOT_BETWEEN
+                        || operation == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.OUTSIDE_RANGE
+                        || operation == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.BETWEEN_EXCLUSIVE;
+        if (isRangeOperation
+                && !org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver
+                        .isCollectionOrArrayField(targetField)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "quick-filter-criterion-cardinality-mismatch",
+                    controllerClass.getName(),
+                    memberName,
+                    memberName + " criterion targeting '" + fieldName + "' uses range operation "
+                            + operation.name() + ", which requires a Collection/List field on "
+                            + effectiveFilterDto.getSimpleName() + " (found "
+                            + targetField.getType().getSimpleName() + ")."
+            ));
+            return;
+        }
+        if ((operation == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.BETWEEN
+                || operation == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.NOT_BETWEEN
+                || operation == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.OUTSIDE_RANGE)
+                && elementCount > 2) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "quick-filter-criterion-cardinality-mismatch",
+                    controllerClass.getName(),
+                    memberName,
+                    memberName + " supplies " + elementCount + " values for field '" + fieldName
+                            + "' with @Filterable(operation = " + operation
+                            + "); range operations accept at most 2 bounds ([min, max])."
+            ));
+        } else if (operation == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.BETWEEN_EXCLUSIVE
+                && elementCount != 2) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "quick-filter-criterion-cardinality-mismatch",
+                    controllerClass.getName(),
+                    memberName,
+                    memberName + " supplies " + elementCount + " values for field '" + fieldName
+                            + "' with @Filterable(operation = BETWEEN_EXCLUSIVE); expected exactly 2 bounds ([min, max])."
+            ));
+        }
+    }
+
+    private void validateProgrammaticQuickFilterEntryValue(
+            Class<?> controllerClass,
+            String memberName,
+            String fieldName,
+            Class<?> effectiveFilterDto,
+            Field targetField,
+            Object rawValObj,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        boolean isFieldCollection = org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver
+                .isCollectionOrArrayField(targetField);
+        java.util.List<Object> elements = new java.util.ArrayList<>();
+        boolean valueIsCollection = false;
+        if (rawValObj instanceof java.util.Collection<?> col) {
+            valueIsCollection = true;
+            elements.addAll(col);
+        } else if (rawValObj.getClass().isArray()) {
+            valueIsCollection = true;
+            int len = java.lang.reflect.Array.getLength(rawValObj);
+            for (int i = 0; i < len; i++) {
+                elements.add(java.lang.reflect.Array.get(rawValObj, i));
+            }
+        } else {
+            elements.add(rawValObj);
+        }
+
+        if (valueIsCollection && elements.isEmpty()) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "quick-filter-expression-malformed",
+                    controllerClass.getName(),
+                    memberName,
+                    memberName + " declares empty collection for field '" + fieldName + "'."
+            ));
+            return;
+        }
+        if ((isFieldCollection && !valueIsCollection) || (!isFieldCollection && elements.size() > 1)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "quick-filter-criterion-cardinality-mismatch",
+                    controllerClass.getName(),
+                    memberName,
+                    memberName + " supplies incompatible cardinality for field '" + fieldName
+                            + "' on " + effectiveFilterDto.getSimpleName() + "."
+            ));
+            return;
+        }
+        validateRangeOperationArity(
+                controllerClass,
+                memberName,
+                fieldName,
+                effectiveFilterDto,
+                targetField,
+                elements.size(),
+                issues
+        );
+
+        Class<?> valueType = resolveFilterFieldScalarType(targetField);
+        boolean booleanTarget = valueType == Boolean.class || valueType == boolean.class;
+        for (Object item : elements) {
+            if (item == null || item instanceof java.util.Collection<?> || item instanceof java.util.Map<?, ?>) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "quick-filter-expression-malformed",
+                        controllerClass.getName(),
+                        memberName,
+                        memberName + " contains invalid filter value for field '" + fieldName + "'."
+                ));
+                continue;
+            }
+            if ((item instanceof Double d && !Double.isFinite(d))
+                    || (item instanceof Float f && !Float.isFinite(f))) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "quick-filter-numeric-value-invalid",
+                        controllerClass.getName(),
+                        memberName,
+                        memberName + " contains non-finite numeric value for field '" + fieldName + "'."
+                ));
+                continue;
+            }
+            if (booleanTarget && item instanceof Boolean b && !b) {
+                checkPresenceOperationFalse(
+                        controllerClass,
+                        memberName,
+                        fieldName,
+                        effectiveFilterDto,
+                        targetField,
+                        "uses false",
+                        issues
+                );
+            }
+            String token = String.valueOf(item).trim();
+            if (token.isEmpty()) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "quick-filter-expression-malformed",
+                        controllerClass.getName(),
+                        memberName,
+                        memberName + " contains empty filter value for field '" + fieldName + "'."
+                ));
+                continue;
+            }
+            validateQuickFilterResolvedValueToken(
+                    controllerClass,
+                    memberName,
+                    effectiveFilterDto,
+                    targetField,
+                    valueType,
+                    token,
+                    issues
+            );
+        }
+    }
+
+    private void validateQuickFilterResolvedValueToken(
+            Class<?> controllerClass,
+            String memberName,
+            Class<?> effectiveFilterDto,
+            Field targetField,
+            Class<?> valueType,
+            String token,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        if (isRelativePeriodPresetField(effectiveFilterDto, targetField)) {
+            if (!org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodContract.SUPPORTED_PRESETS.contains(token)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "quick-filter-temporal-value-invalid",
+                        controllerClass.getName(),
+                        memberName,
+                        memberName + " value '" + token + "' is not a supported relative period preset ("
+                                + org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodContract.SUPPORTED_PRESETS
+                                + ")."
+                ));
+            }
+            return;
+        }
+        validateQuickFilterValueToken(controllerClass, memberName, valueType, token, issues);
     }
 
     private void validateQuickFilterValueToken(
@@ -1863,7 +2238,9 @@ public class SemanticMetadataReviewer {
                 || valueType == java.time.OffsetDateTime.class) {
             try {
                 if (valueType == java.time.LocalDate.class) {
-                    java.time.LocalDate.parse(token);
+                    if (!isCanonicalLocalDatePeriodToken(token)) {
+                        java.time.LocalDate.parse(token);
+                    }
                 } else if (valueType == java.time.LocalDateTime.class) {
                     java.time.LocalDateTime.parse(token);
                 } else if (valueType == java.time.Instant.class) {
@@ -1882,6 +2259,15 @@ public class SemanticMetadataReviewer {
                 ));
             }
         }
+    }
+
+    private boolean isCanonicalLocalDatePeriodToken(String token) {
+        return token != null && (
+                token.matches("^\\d{4}$")
+                        || token.matches("^\\d{4}-(0[1-9]|1[0-2])$")
+                        || token.matches("^\\d{4}-Q[1-4]$")
+                        || token.matches("^\\d{4}-S[1-2]$")
+        );
     }
 
     private java.util.Map<String, Field> collectAllInstanceFields(Class<?> type) {
