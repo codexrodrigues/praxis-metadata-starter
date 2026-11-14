@@ -74,6 +74,7 @@ public class PraxisExpressionStaticValidator {
             "toneExpr",
             "valueExpr",
             "targetExpr",
+            "targetLabelExpr",
             "totalExpr",
             "baselineExpr",
             "minExpr",
@@ -82,6 +83,7 @@ public class PraxisExpressionStaticValidator {
             "segmentsExpr",
             "itemsExpr",
             "thresholdsExpr",
+            "titleExpr",
             "ariaLabelExpr",
             "fallbackTextExpr",
             "valueSuffixExpr"

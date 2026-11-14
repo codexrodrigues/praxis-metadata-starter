@@ -748,7 +748,9 @@ class CustomOpenApiResolverTest {
     private static class MicroVisualizationDummy {
         @MicroVisualization(
                 kind = MicroVisualizationKind.BULLET,
+                title = "Atingimento de Meta",
                 target = 90.0,
+                targetLabel = "Meta Anual",
                 total = 100.0,
                 tone = "success",
                 compactValue = true,
@@ -759,12 +761,40 @@ class CustomOpenApiResolverTest {
 
         @MicroVisualization(
                 kind = MicroVisualizationKind.RADIAL,
+                titleExpr = "row.nomeMeta",
                 targetExpr = "row.metaScore",
+                targetLabelExpr = "row.rotuloMeta",
                 valueExpr = "row.scoreAtual",
                 tone = "info",
                 fallbackText = "Pontuacao atual"
         )
         public Double score;
+
+        @MicroVisualization(
+                kind = MicroVisualizationKind.STACKED_BAR,
+                legend = true,
+                segmentsExpr = "row.composicao",
+                fallbackText = "Composicao"
+        )
+        public String composicaoResumo;
+
+        @MicroVisualization(
+                kind = MicroVisualizationKind.PROCESS_FLOW,
+                itemsExpr = "row.etapas",
+                stepLabelWidth = "72",
+                stepLabelLineClamp = 2,
+                fallbackText = "Fluxo de aprovacao"
+        )
+        public String fluxo;
+
+        @MicroVisualization(
+                kind = MicroVisualizationKind.PROCESS_FLOW,
+                itemsExpr = "row.etapasCss",
+                stepLabelWidth = "96px",
+                stepLabelLineClamp = 1,
+                fallbackText = "Fluxo compacto"
+        )
+        public String fluxoCompacto;
     }
 
     @Test
@@ -791,12 +821,15 @@ class CustomOpenApiResolverTest {
         assertNotNull(bulletViz);
         assertEquals("bullet", bulletViz.get("kind"));
         assertEquals("table-cell", bulletViz.get("surface"));
+        assertEquals("Atingimento de Meta", bulletViz.get("title"));
         assertEquals(90.0, (Double) bulletViz.get("target"), 0.001);
+        assertEquals("Meta Anual", bulletViz.get("targetLabel"));
         assertEquals(100.0, (Double) bulletViz.get("total"), 0.001);
         assertEquals("success", bulletViz.get("tone"));
         assertEquals(true, bulletViz.get("compactValue"));
         assertEquals("%", bulletViz.get("valueSuffix"));
         assertEquals("Meta 90%", bulletViz.get("fallbackText"));
+        assertNull(bulletViz.get("legend"));
 
         Schema<?> radialSchema = (Schema<?>) dummySchema.getProperties().get("score");
         assertNotNull(radialSchema);
@@ -807,9 +840,49 @@ class CustomOpenApiResolverTest {
         Map<String, Object> radialViz = (Map<String, Object>) radialPresentation.get("visualization");
         assertNotNull(radialViz);
         assertEquals("radial", radialViz.get("kind"));
+        assertEquals("row.nomeMeta", radialViz.get("titleExpr"));
         assertEquals("row.metaScore", radialViz.get("targetExpr"));
+        assertEquals("row.rotuloMeta", radialViz.get("targetLabelExpr"));
         assertEquals("row.scoreAtual", radialViz.get("valueExpr"));
         assertEquals("info", radialViz.get("tone"));
+
+        Schema<?> stackedSchema = (Schema<?>) dummySchema.getProperties().get("composicaoResumo");
+        Map<String, Object> stackedViz = (Map<String, Object>) ((Map<String, Object>) getXui(stackedSchema).get("presentation")).get("visualization");
+        assertEquals("stackedBar", stackedViz.get("kind"));
+        assertEquals(Boolean.TRUE, stackedViz.get("legend"));
+
+        Schema<?> flowSchema = (Schema<?>) dummySchema.getProperties().get("fluxo");
+        Map<String, Object> flowViz = (Map<String, Object>) ((Map<String, Object>) getXui(flowSchema).get("presentation")).get("visualization");
+        assertEquals("processFlow", flowViz.get("kind"));
+        assertEquals(72, flowViz.get("stepLabelWidth"));
+        assertEquals(2, flowViz.get("stepLabelLineClamp"));
+
+        Schema<?> flowCompactSchema = (Schema<?>) dummySchema.getProperties().get("fluxoCompacto");
+        Map<String, Object> flowCompactViz = (Map<String, Object>) ((Map<String, Object>) getXui(flowCompactSchema).get("presentation")).get("visualization");
+        assertEquals("96px", flowCompactViz.get("stepLabelWidth"));
+        assertEquals(1, flowCompactViz.get("stepLabelLineClamp"));
+    }
+
+    private static class InvalidMicroVisualizationLineClampDummy {
+        @MicroVisualization(
+                kind = MicroVisualizationKind.PROCESS_FLOW,
+                itemsExpr = "row.etapas",
+                stepLabelLineClamp = 3,
+                fallbackText = "Fluxo"
+        )
+        public String fluxo;
+    }
+
+    @Test
+    void shouldRejectInvalidMicroVisualizationStepLabelLineClamp() {
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
+        io.swagger.v3.core.converter.ModelConverters converters = new io.swagger.v3.core.converter.ModelConverters();
+        converters.addConverter(resolver);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> converters.readAllAsResolvedSchema(InvalidMicroVisualizationLineClampDummy.class)
+        );
     }
 
     private static class EffectiveMicroVisualizationDummy {

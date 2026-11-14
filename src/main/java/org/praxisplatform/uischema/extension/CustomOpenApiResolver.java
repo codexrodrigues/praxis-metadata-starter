@@ -2352,6 +2352,44 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (valueSuffixExpr != null) {
             visualization.put("valueSuffixExpr", valueSuffixExpr);
         }
+        String title = asTrimmedString(microViz.title());
+        if (title != null) {
+            visualization.put("title", title);
+        }
+        String titleExpr = asTrimmedString(microViz.titleExpr());
+        if (titleExpr != null) {
+            visualization.put("titleExpr", titleExpr);
+        }
+        if (microViz.legend()) {
+            visualization.put("legend", true);
+        }
+        String targetLabel = asTrimmedString(microViz.targetLabel());
+        if (targetLabel != null) {
+            visualization.put("targetLabel", targetLabel);
+        }
+        String targetLabelExpr = asTrimmedString(microViz.targetLabelExpr());
+        if (targetLabelExpr != null) {
+            visualization.put("targetLabelExpr", targetLabelExpr);
+        }
+        String stepLabelWidth = asTrimmedString(microViz.stepLabelWidth());
+        if (stepLabelWidth != null) {
+            visualization.put(
+                    "stepLabelWidth",
+                    stepLabelWidth.matches("\\d+(?:\\.\\d+)?")
+                            ? parseNestedExtraPropertyValue(stepLabelWidth)
+                            : stepLabelWidth
+            );
+        }
+        int stepLabelLineClamp = microViz.stepLabelLineClamp();
+        if (stepLabelLineClamp != 0) {
+            if (stepLabelLineClamp != 1 && stepLabelLineClamp != 2) {
+                throw new IllegalStateException(
+                        "@MicroVisualization.stepLabelLineClamp deve ser 1 ou 2 (ou 0 para padrao), recebido: "
+                                + stepLabelLineClamp
+                );
+            }
+            visualization.put("stepLabelLineClamp", stepLabelLineClamp);
+        }
 
         presentation.put("visualization", visualization);
     }

@@ -260,12 +260,12 @@ class PraxisExpressionStaticValidatorTest {
     }
 
     @Test
-    @DisplayName("Validates all 14 MicroVisualization *Expr keys in x-ui.presentation.visualization")
-    void testAllFourteenMicroVisualizationExpressionKeysValidated() {
+    @DisplayName("Validates all 16 MicroVisualization *Expr keys in x-ui.presentation.visualization")
+    void testAllSixteenMicroVisualizationExpressionKeysValidated() {
         List<String> allExprKeys = List.of(
-                "toneExpr", "valueExpr", "targetExpr", "totalExpr", "baselineExpr",
+                "toneExpr", "valueExpr", "targetExpr", "targetLabelExpr", "totalExpr", "baselineExpr",
                 "minExpr", "maxExpr", "pointsExpr", "segmentsExpr", "itemsExpr",
-                "thresholdsExpr", "ariaLabelExpr", "fallbackTextExpr", "valueSuffixExpr"
+                "thresholdsExpr", "titleExpr", "ariaLabelExpr", "fallbackTextExpr", "valueSuffixExpr"
         );
 
         for (String exprKey : allExprKeys) {
@@ -300,7 +300,9 @@ class PraxisExpressionStaticValidatorTest {
 
         List<String> errors = validator.validateDtoClass(InvalidMicroVizDTO.class, false);
         assertFalse(errors.isEmpty());
+        assertTrue(errors.stream().anyMatch(e -> e.contains("tituloInexistente")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("metaInexistente")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("rotuloInexistente")));
         assertTrue(errors.stream().anyMatch(e -> e.contains("fallbackInexistente")));
 
         assertThrows(InvalidDomainExpressionException.class, () ->
@@ -311,12 +313,16 @@ class PraxisExpressionStaticValidatorTest {
     public static class ValidMicroVizDTO {
         public Integer vagasOcupadas;
         public Integer vagasAutorizadas;
+        public String cargoNome;
+        public String rotuloMeta;
 
         @UISchema(label = "Ocupação")
         @MicroVisualization(
                 kind = MicroVisualizationKind.BULLET,
+                titleExpr = "= row.cargoNome",
                 valueExpr = "= row.vagasOcupadas",
                 targetExpr = "= row.vagasAutorizadas",
+                targetLabelExpr = "= row.rotuloMeta",
                 totalExpr = "= row.vagasAutorizadas",
                 fallbackTextExpr = "= row.vagasAutorizadas == null ? 'Sem quadro' : 'OK'",
                 thresholds = {
@@ -332,8 +338,10 @@ class PraxisExpressionStaticValidatorTest {
         @UISchema(label = "Ocupação")
         @MicroVisualization(
                 kind = MicroVisualizationKind.BULLET,
+                titleExpr = "= row.tituloInexistente",
                 valueExpr = "= row.vagasOcupadas",
                 targetExpr = "= row.metaInexistente",
+                targetLabelExpr = "= row.rotuloInexistente",
                 fallbackTextExpr = "= row.fallbackInexistente"
         )
         public Double taxaOcupacao;

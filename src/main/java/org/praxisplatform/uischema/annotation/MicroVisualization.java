@@ -175,4 +175,39 @@ public @interface MicroVisualization {
      * Expressao dinamica para obter o texto alternativo legivel (fallbackText) da linha.
      */
     String fallbackTextExpr() default "";
+
+    /**
+     * Titulo contextual exibido pela micro-visualizacao (ex.: progress, bullet ou comparison).
+     */
+    String title() default "";
+
+    /**
+     * Expressao dinamica para obter o titulo contextual (title) da micro-visualizacao por linha.
+     */
+    String titleExpr() default "";
+
+    /**
+     * Quando {@code true}, exibe legenda compacta de segmentos em visualizacoes {@code stackedBar}.
+     */
+    boolean legend() default false;
+
+    /**
+     * Rotulo explicito exibido para o marcador de meta em {@code bullet}.
+     */
+    String targetLabel() default "";
+
+    /**
+     * Expressao dinamica para obter o rotulo da meta (targetLabel) por linha.
+     */
+    String targetLabelExpr() default "";
+
+    /**
+     * Largura maxima opcional dos rotulos de etapas em {@code processFlow} (numero em px ou CSS).
+     */
+    String stepLabelWidth() default "";
+
+    /**
+     * Maximo de linhas (1 ou 2) para rotulos de etapas em {@code processFlow}; {@code 0} usa o padrao do runtime.
+     */
+    int stepLabelLineClamp() default 0;
 }

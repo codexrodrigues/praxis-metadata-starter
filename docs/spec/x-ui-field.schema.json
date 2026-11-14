@@ -572,6 +572,21 @@
                 { "type": "object" }
               ]
             },
+            "title": { "type": "string", "minLength": 1 },
+            "titleExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
+            "legend": { "type": "boolean" },
+            "targetLabel": { "type": "string", "minLength": 1 },
+            "targetLabelExpr": {
+              "oneOf": [
+                { "type": "string", "minLength": 1 },
+                { "type": "object" }
+              ]
+            },
             "stepLabelWidth": { "type": ["number", "string"] },
             "stepLabelLineClamp": { "type": "integer", "enum": [1, 2] }
           }
