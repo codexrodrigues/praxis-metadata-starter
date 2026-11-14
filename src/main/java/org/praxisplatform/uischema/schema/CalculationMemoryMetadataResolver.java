@@ -90,10 +90,17 @@ public final class CalculationMemoryMetadataResolver {
         putIfHasText(map, "factorHintExpr", trail.factorHintExpr());
 
         putIfHasText(map, "capLabel", trail.capLabel());
+        putIfHasText(map, "capOperator", trail.capOperator());
         putIfHasText(map, "capExpr", trail.capExpr());
         putIfHasText(map, "capFormat", trail.capFormat());
         putIfHasText(map, "capHint", trail.capHint());
         putIfHasText(map, "capHintExpr", trail.capHintExpr());
+
+        putIfHasText(map, "targetLabel", trail.targetLabel());
+        putIfHasText(map, "targetExpr", trail.targetExpr());
+        putIfHasText(map, "targetFormat", trail.targetFormat());
+        putIfHasText(map, "targetHint", trail.targetHint());
+        putIfHasText(map, "targetHintExpr", trail.targetHintExpr());
 
         putIfHasText(map, "resultLabel", trail.resultLabel());
         putIfHasText(map, "resultExpr", trail.resultExpr());

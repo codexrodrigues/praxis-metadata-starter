@@ -1268,6 +1268,163 @@ class CustomOpenApiResolverTest {
         assertEquals(NumericFormat.PERCENT.getValue(), aliquotaXui.get(FieldConfigProperties.NUMERIC_FORMAT.getValue()));
     }
 
+    private enum SituacaoTypedEnum {
+        @UISchema(label = "Ativo no Órgão", icon = "check_circle", tone = "success", description = "Registro vigente")
+        ATIVO("A"),
+        DESLIGADO("D");
+
+        private final String code;
+
+        SituacaoTypedEnum(String code) {
+            this.code = code;
+        }
+
+        @com.fasterxml.jackson.annotation.JsonValue
+        public String getCode() {
+            return code;
+        }
+    }
+
+    private enum RegimePrevidenciaComLabel {
+        RPPS("Regime Próprio"),
+        RGPS("Regime Geral");
+
+        private final String label;
+
+        RegimePrevidenciaComLabel(String label) {
+            this.label = label;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+    }
+
+    private static class TypedOptionsDummy {
+        @UISchema(
+                label = "Natureza",
+                controlType = FieldControlType.SELECT,
+                optionItems = {
+                        @org.praxisplatform.uischema.annotation.UiOption(
+                                value = "VANTAGEM",
+                                label = "Vantagem Salarial",
+                                icon = "add_circle",
+                                tone = org.praxisplatform.uischema.annotation.QuickFilterTone.SUCCESS,
+                                description = "Verba de acréscimo remuneratório"
+                        ),
+                        @org.praxisplatform.uischema.annotation.UiOption(
+                                value = "BLOQUEADA",
+                                label = "Rubrica Suspensa",
+                                disabled = true
+                        )
+                }
+        )
+        public String natureza;
+
+        @UISchema(
+                label = "Situação",
+                controlType = FieldControlType.SELECT,
+                optionEnum = SituacaoTypedEnum.class
+        )
+        public String situacaoCodigo;
+
+        @UISchema(
+                label = "Regimes",
+                controlType = FieldControlType.MULTI_SELECT,
+                optionEnum = RegimePrevidenciaComLabel.class
+        )
+        public List<String> regimesIn;
+
+        @UISchema(
+                label = "Controle de vagas",
+                type = FieldDataType.BOOLEAN,
+                controlType = FieldControlType.SELECT,
+                optionItems = {
+                        @org.praxisplatform.uischema.annotation.UiOption(value = "true", label = "Sim"),
+                        @org.praxisplatform.uischema.annotation.UiOption(value = "false", label = "Não")
+                }
+        )
+        public Boolean controleVagas;
+
+        @UISchema(
+                label = "Nacionalidade",
+                type = FieldDataType.NUMBER,
+                controlType = FieldControlType.SELECT,
+                optionItems = {
+                        @org.praxisplatform.uischema.annotation.UiOption(value = "10", label = "Brasileira Nata"),
+                        @org.praxisplatform.uischema.annotation.UiOption(value = "20", label = "Brasileira Naturalizada")
+                }
+        )
+        public Integer nacionalidade;
+    }
+
+    @Test
+    void shouldMaterializeTypedOptionItemsAndOptionEnumIntoCanonicalXUiOptions() {
+        io.swagger.v3.core.converter.ModelConverters converters = new io.swagger.v3.core.converter.ModelConverters();
+        converters.addConverter(new CustomOpenApiResolver(new ObjectMapper()));
+        Schema<?> schema = converters.resolveAsResolvedSchema(
+                new io.swagger.v3.core.converter.AnnotatedType(TypedOptionsDummy.class).resolveAsRef(false)
+        ).schema;
+
+        Schema<?> naturezaSchema = (Schema<?>) schema.getProperties().get("natureza");
+        Map<String, Object> naturezaUi = getXui(naturezaSchema);
+        var naturezaOpts = new ObjectMapper().convertValue(
+                naturezaUi.get("options"),
+                com.fasterxml.jackson.databind.node.ArrayNode.class
+        );
+        assertEquals(2, naturezaOpts.size());
+        assertEquals("VANTAGEM", naturezaOpts.get(0).path("value").asText());
+        assertEquals("Vantagem Salarial", naturezaOpts.get(0).path("label").asText());
+        assertEquals("add_circle", naturezaOpts.get(0).path("icon").asText());
+        assertEquals("success", naturezaOpts.get(0).path("tone").asText());
+        assertEquals("Verba de acréscimo remuneratório", naturezaOpts.get(0).path("description").asText());
+        assertFalse(naturezaOpts.get(0).has("disabled"));
+        assertTrue(naturezaOpts.get(1).path("disabled").asBoolean());
+
+        Schema<?> sitSchema = (Schema<?>) schema.getProperties().get("situacaoCodigo");
+        var sitOpts = new ObjectMapper().convertValue(
+                getXui(sitSchema).get("options"),
+                com.fasterxml.jackson.databind.node.ArrayNode.class
+        );
+        assertEquals(2, sitOpts.size());
+        assertEquals("A", sitOpts.get(0).path("value").asText());
+        assertEquals("Ativo no Órgão", sitOpts.get(0).path("label").asText());
+        assertEquals("check_circle", sitOpts.get(0).path("icon").asText());
+        assertEquals("success", sitOpts.get(0).path("tone").asText());
+        assertEquals("D", sitOpts.get(1).path("value").asText());
+        assertEquals("Desligado", sitOpts.get(1).path("label").asText());
+
+        Schema<?> regimesSchema = (Schema<?>) schema.getProperties().get("regimesIn");
+        var regimesOpts = new ObjectMapper().convertValue(
+                getXui(regimesSchema).get("options"),
+                com.fasterxml.jackson.databind.node.ArrayNode.class
+        );
+        assertEquals(2, regimesOpts.size());
+        assertEquals("RPPS", regimesOpts.get(0).path("value").asText());
+        assertEquals("Regime Próprio", regimesOpts.get(0).path("label").asText());
+        assertEquals("RGPS", regimesOpts.get(1).path("value").asText());
+        assertEquals("Regime Geral", regimesOpts.get(1).path("label").asText());
+
+        Schema<?> boolSchema = (Schema<?>) schema.getProperties().get("controleVagas");
+        var boolOpts = new ObjectMapper().convertValue(
+                getXui(boolSchema).get("options"),
+                com.fasterxml.jackson.databind.node.ArrayNode.class
+        );
+        assertTrue(boolOpts.get(0).path("value").isBoolean());
+        assertTrue(boolOpts.get(0).path("value").asBoolean());
+        assertTrue(boolOpts.get(1).path("value").isBoolean());
+        assertFalse(boolOpts.get(1).path("value").asBoolean());
+
+        Schema<?> intSchema = (Schema<?>) schema.getProperties().get("nacionalidade");
+        var intOpts = new ObjectMapper().convertValue(
+                getXui(intSchema).get("options"),
+                com.fasterxml.jackson.databind.node.ArrayNode.class
+        );
+        assertTrue(intOpts.get(0).path("value").isIntegralNumber());
+        assertEquals(10, intOpts.get(0).path("value").asInt());
+        assertEquals("Brasileira Nata", intOpts.get(0).path("label").asText());
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> getXui(Schema<?> property) {
         assertNotNull(property.getExtensions(), "Extensions should not be null");

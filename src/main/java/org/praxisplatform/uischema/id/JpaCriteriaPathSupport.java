@@ -13,6 +13,8 @@ import jakarta.persistence.criteria.Root;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.Bindable;
 import jakarta.persistence.metamodel.ManagedType;
+import jakarta.persistence.metamodel.PluralAttribute;
+import jakarta.persistence.metamodel.SingularAttribute;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -57,6 +59,89 @@ public final class JpaCriteriaPathSupport {
             }
         }
         return path;
+    }
+
+    /**
+     * Resolves {@code propertyPath} from {@code root} when non-blank and mapped in the entity's
+     * JPA metamodel, returning {@code null} (without creating stray joins) when any path segment
+     * is absent or non-navigable. When {@code root} has no JPA metamodel (such as bare mocks in
+     * unit tests), falls back to {@link #resolvePath(Root, String, boolean)} defensively.
+     */
+    public static Path<?> tryResolvePath(Root<?> root, String propertyPath, boolean reuseLeftJoins) {
+        if (root == null || propertyPath == null || propertyPath.isBlank()) {
+            return null;
+        }
+        ManagedType<?> rootManagedType = resolveRootManagedType(root);
+        if (rootManagedType != null && !hasMappedPropertyPath(rootManagedType, propertyPath)) {
+            return null;
+        }
+        try {
+            return resolvePath(root, propertyPath, reuseLeftJoins);
+        } catch (IllegalArgumentException | IllegalStateException ignored) {
+            return null;
+        }
+    }
+
+    public static boolean hasMappedPropertyPath(Root<?> root, String propertyPath) {
+        if (root == null || propertyPath == null || propertyPath.isBlank()) {
+            return false;
+        }
+        ManagedType<?> rootManagedType = resolveRootManagedType(root);
+        return rootManagedType != null && hasMappedPropertyPath(rootManagedType, propertyPath);
+    }
+
+    private static ManagedType<?> resolveRootManagedType(Root<?> root) {
+        try {
+            Bindable<?> model = root.getModel();
+            if (model instanceof ManagedType<?> managedType) {
+                return managedType;
+            }
+        } catch (RuntimeException ignored) {
+            // Bare mocks in unit tests may throw or omit metamodel
+        }
+        return null;
+    }
+
+    private static boolean hasMappedPropertyPath(ManagedType<?> rootManagedType, String propertyPath) {
+        if (rootManagedType == null || propertyPath == null || propertyPath.isBlank()) {
+            return false;
+        }
+        String[] parts = propertyPath.split("\\.", -1);
+        ManagedType<?> current = rootManagedType;
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+            if (part.isBlank() || current == null) {
+                return false;
+            }
+            Attribute<?, ?> attr = findAttribute(current, part);
+            if (attr == null) {
+                return false;
+            }
+            if (i == parts.length - 1) {
+                return true;
+            }
+            current = resolveNextManagedType(attr);
+        }
+        return false;
+    }
+
+    private static Attribute<?, ?> findAttribute(ManagedType<?> managedType, String name) {
+        for (Attribute<?, ?> attribute : managedType.getAttributes()) {
+            if (name.equals(attribute.getName())) {
+                return attribute;
+            }
+        }
+        return null;
+    }
+
+    private static ManagedType<?> resolveNextManagedType(Attribute<?, ?> attr) {
+        if (attr instanceof SingularAttribute<?, ?> singular) {
+            return singular.getType() instanceof ManagedType<?> managedType ? managedType : null;
+        }
+        if (attr instanceof PluralAttribute<?, ?, ?> plural) {
+            return plural.getElementType() instanceof ManagedType<?> managedType ? managedType : null;
+        }
+        return null;
     }
 
     public static Join<?, ?> getOrCreateLeftJoin(From<?, ?> fromPath, String attributeName) {

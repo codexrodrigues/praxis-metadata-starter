@@ -64,6 +64,8 @@ public class PraxisExpressionStaticValidator {
             "factorHintExpr",
             "capExpr",
             "capHintExpr",
+            "targetExpr",
+            "targetHintExpr",
             "resultExpr",
             "resultHintExpr",
             "legalBasisExpr",

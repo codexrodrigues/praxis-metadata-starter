@@ -101,6 +101,8 @@ class FilterableBetweenListDetectionTest {
             @Override public String displayField() { return ""; }
             @Override public String endpoint() { return ""; }
             @Override public String emptyOptionText() { return ""; }
+            @Override public org.praxisplatform.uischema.annotation.UiOption[] optionItems() { return new org.praxisplatform.uischema.annotation.UiOption[0]; }
+            @Override public Class<?> optionEnum() { return Void.class; }
             @Override public String options() { return ""; }
             @Override public String filter() { return ""; }
             @Override public String filterOptions() { return ""; }

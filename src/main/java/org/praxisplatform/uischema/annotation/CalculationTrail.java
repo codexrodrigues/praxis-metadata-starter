@@ -97,10 +97,37 @@ public @interface CalculationTrail {
     String factorHintExpr() default "";
 
     String capLabel() default "";
+    /**
+     * Operador semantico exibido para a etapa de trava/teto (ex.: "≤", "≥", "=").
+     * Quando omitido, o runtime assume "≤" por retrocompatibilidade.
+     */
+    String capOperator() default "";
     String capExpr() default "";
     String capFormat() default "";
     String capHint() default "";
     String capHintExpr() default "";
+
+    /**
+     * Rotulo opcional para etapa de meta/piso minimo exigido (operador padrao "≥"),
+     * adequado para requisitos como carencia, pontuacao minima ou tempo/idade minima.
+     */
+    String targetLabel() default "";
+    /**
+     * Expressao opcional para o valor de meta/piso minimo exigido.
+     */
+    String targetExpr() default "";
+    /**
+     * Formato de exibicao da etapa de meta/piso (ex.: "integer", "number", "currency:BRL").
+     */
+    String targetFormat() default "";
+    /**
+     * Nota explicativa opcional exibida sob a etapa de meta/piso.
+     */
+    String targetHint() default "";
+    /**
+     * Expressao opcional para nota explicativa dinamica da etapa de meta/piso.
+     */
+    String targetHintExpr() default "";
 
     String resultLabel() default "";
     String resultExpr() default "";

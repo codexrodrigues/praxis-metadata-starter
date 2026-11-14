@@ -1,19 +1,29 @@
 package org.praxisplatform.uischema.util;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.praxisplatform.uischema.FieldConfigProperties;
 import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.FieldDataType;
 import org.praxisplatform.uischema.ValidationProperties;
+import org.praxisplatform.uischema.annotation.QuickFilterTone;
+import org.praxisplatform.uischema.annotation.UiOption;
+import org.praxisplatform.uischema.extension.annotation.UISchema;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * <h2>Utilitarios centrais para transformacao OpenAPI → UI metadata</h2>
@@ -320,6 +330,311 @@ public class OpenApiUiUtils {
         }
     }
 
+    /**
+     * Materializa opcoes estaticas tipadas declaradas via {@link UiOption} no contrato canonico
+     * {@code x-ui.options}.
+     */
+    public static void populateUiOptionsFromAnnotationItems(
+            Map<String, Object> xUiMap,
+            UiOption[] optionItems,
+            ObjectMapper objectMapper
+    ) {
+        populateUiOptionsFromAnnotationItems(xUiMap, optionItems, null, objectMapper);
+    }
+
+    /**
+     * Materializa opcoes estaticas tipadas declaradas via {@link UiOption} no contrato canonico
+     * {@code x-ui.options}, preservando o tipo JSON de {@code value} compativel com o schema
+     * ({@code boolean}, {@code integer}, {@code number} ou {@code string}).
+     */
+    public static void populateUiOptionsFromAnnotationItems(
+            Map<String, Object> xUiMap,
+            UiOption[] optionItems,
+            String targetSchemaType,
+            ObjectMapper objectMapper
+    ) {
+        if (xUiMap == null || optionItems == null || optionItems.length == 0) {
+            return;
+        }
+        ArrayNode arrayNode = objectMapper.createArrayNode();
+        for (UiOption item : optionItems) {
+            if (item == null) {
+                continue;
+            }
+            ObjectNode optionNode = objectMapper.createObjectNode();
+            putTypedOptionValue(optionNode, item.value(), targetSchemaType);
+            optionNode.put("label", item.label());
+            String icon = item.icon() == null ? "" : item.icon().trim();
+            if (!icon.isEmpty()) {
+                optionNode.put("icon", icon);
+            }
+            QuickFilterTone tone = item.tone();
+            if (tone != null && tone != QuickFilterTone.UNSPECIFIED && !tone.wireValue().isEmpty()) {
+                optionNode.put("tone", tone.wireValue());
+            }
+            String description = item.description() == null ? "" : item.description().trim();
+            if (!description.isEmpty()) {
+                optionNode.put("description", description);
+            }
+            if (item.disabled()) {
+                optionNode.put("disabled", true);
+            }
+            arrayNode.add(optionNode);
+        }
+        if (!arrayNode.isEmpty()) {
+            putOrMergeUiOptions(xUiMap, arrayNode, objectMapper);
+        }
+    }
+
+    private static void putTypedOptionValue(ObjectNode optionNode, String rawValue, String targetSchemaType) {
+        if (rawValue == null) {
+            optionNode.putNull("value");
+            return;
+        }
+        String trimmed = rawValue.trim();
+        if ("boolean".equals(targetSchemaType)) {
+            if ("true".equalsIgnoreCase(trimmed)) {
+                optionNode.put("value", true);
+                return;
+            }
+            if ("false".equalsIgnoreCase(trimmed)) {
+                optionNode.put("value", false);
+                return;
+            }
+        } else if ("integer".equals(targetSchemaType)) {
+            try {
+                optionNode.put("value", Long.parseLong(trimmed));
+                return;
+            } catch (NumberFormatException ignored) {
+                // Keep raw string when literal does not parse as integer.
+            }
+        } else if ("number".equals(targetSchemaType)) {
+            try {
+                optionNode.put("value", new java.math.BigDecimal(trimmed));
+                return;
+            } catch (NumberFormatException ignored) {
+                // Keep raw string when literal does not parse as decimal number.
+            }
+        }
+        optionNode.put("value", rawValue);
+    }
+
+    /**
+     * Materializa constantes de um {@code Enum} Java informado em {@link UISchema#optionEnum()} para
+     * o formato canonico {@code x-ui.options}.
+     */
+    public static void populateUiOptionsFromEnumClass(
+            Map<String, Object> xUiMap,
+            Class<?> optionEnum,
+            ObjectMapper objectMapper
+    ) {
+        if (xUiMap == null || optionEnum == null || optionEnum == Void.class || !optionEnum.isEnum()) {
+            return;
+        }
+        Object[] constants = optionEnum.getEnumConstants();
+        if (constants == null || constants.length == 0) {
+            return;
+        }
+        Method jsonValueMethod = findJsonValueMethod(optionEnum);
+        Method labelMethod = findFirstNoArgStringMethod(optionEnum, "getLabel", "label", "getDescricao", "descricao", "getTitle", "title");
+        Method iconMethod = findFirstNoArgStringMethod(optionEnum, "getIcon", "icon");
+        Method descMethod = findFirstNoArgStringMethod(optionEnum, "getDescription", "description");
+
+        ArrayNode arrayNode = objectMapper.createArrayNode();
+        for (Object constant : constants) {
+            if (!(constant instanceof Enum<?> enumConstant)) {
+                continue;
+            }
+            ObjectNode optionNode = objectMapper.createObjectNode();
+            Object rawValue = resolveEnumOptionRawValue(enumConstant, jsonValueMethod);
+            if (rawValue instanceof Number || rawValue instanceof Boolean) {
+                optionNode.putPOJO("value", rawValue);
+            } else {
+                optionNode.put("value", String.valueOf(rawValue));
+            }
+            Field constantField = findEnumConstantField(optionEnum, enumConstant.name());
+            UISchema constantUi = constantField != null ? constantField.getAnnotation(UISchema.class) : null;
+            Schema constantSchema = constantField != null ? constantField.getAnnotation(Schema.class) : null;
+
+            String label = resolveEnumOptionLabel(enumConstant, constantUi, constantSchema, labelMethod);
+            optionNode.put("label", label);
+
+            String icon = resolveEnumOptionStringAttr(
+                    enumConstant,
+                    constantUi != null ? constantUi.icon() : "",
+                    iconMethod
+            );
+            if (!icon.isEmpty()) {
+                optionNode.put("icon", icon);
+            }
+            if (constantUi != null && constantUi.tone() != null && !constantUi.tone().trim().isEmpty()) {
+                optionNode.put("tone", constantUi.tone().trim().toLowerCase(Locale.ROOT));
+            }
+            String description = resolveEnumOptionStringAttr(
+                    enumConstant,
+                    constantUi != null ? constantUi.description() : "",
+                    descMethod
+            );
+            if (description.isEmpty() && constantSchema != null && constantSchema.description() != null
+                    && !constantSchema.description().trim().isEmpty()
+                    && !constantSchema.description().trim().equals(label)) {
+                description = constantSchema.description().trim();
+            }
+            if (!description.isEmpty()) {
+                optionNode.put("description", description);
+            }
+            if (constantUi != null && constantUi.disabled()) {
+                optionNode.put("disabled", true);
+            }
+            arrayNode.add(optionNode);
+        }
+        if (!arrayNode.isEmpty()) {
+            putOrMergeUiOptions(xUiMap, arrayNode, objectMapper);
+        }
+    }
+
+    /**
+     * Extrai os valores canonicos de um {@code Enum} Java seguindo a mesma semantica de serializacao
+     * usada em {@link #populateUiOptionsFromEnumClass}.
+     */
+    public static Set<String> extractEnumOptionValues(Class<?> optionEnum) {
+        Set<String> values = new LinkedHashSet<>();
+        if (optionEnum == null || optionEnum == Void.class || !optionEnum.isEnum()) {
+            return values;
+        }
+        Object[] constants = optionEnum.getEnumConstants();
+        if (constants == null) {
+            return values;
+        }
+        Method jsonValueMethod = findJsonValueMethod(optionEnum);
+        for (Object constant : constants) {
+            if (constant instanceof Enum<?> enumConstant) {
+                values.add(String.valueOf(resolveEnumOptionRawValue(enumConstant, jsonValueMethod)));
+            }
+        }
+        return values;
+    }
+
+    /**
+     * Faz o parsing estrito de uma string JSON de {@link UISchema#options()} sem aplicar fallback
+     * pipe-delimited, retornando {@code null} quando o conteudo nao for um JSON array valido.
+     */
+    public static ArrayNode parseLegacyOptionsJsonArray(String options, ObjectMapper objectMapper) {
+        if (options == null || options.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(options);
+            if (node != null && node.isArray()) {
+                return (ArrayNode) node;
+            }
+        } catch (Exception ignored) {
+            // Try doubly-escaped JSON literal below.
+        }
+        try {
+            String normalized = objectMapper.readValue("\"" + options + "\"", String.class);
+            JsonNode node = objectMapper.readTree(normalized);
+            if (node != null && node.isArray()) {
+                return (ArrayNode) node;
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
+    }
+
+    private static Method findJsonValueMethod(Class<?> enumClass) {
+        for (Method method : enumClass.getDeclaredMethods()) {
+            JsonValue jsonValue = method.getAnnotation(JsonValue.class);
+            if (jsonValue != null && jsonValue.value() && method.getParameterCount() == 0) {
+                method.setAccessible(true);
+                return method;
+            }
+        }
+        return null;
+    }
+
+    private static Method findFirstNoArgStringMethod(Class<?> enumClass, String... candidateNames) {
+        for (String candidate : candidateNames) {
+            try {
+                Method m = enumClass.getDeclaredMethod(candidate);
+                if (m.getParameterCount() == 0 && CharSequence.class.isAssignableFrom(m.getReturnType())) {
+                    m.setAccessible(true);
+                    return m;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // Try next accessor candidate.
+            }
+        }
+        return null;
+    }
+
+    private static Field findEnumConstantField(Class<?> enumClass, String constantName) {
+        try {
+            return enumClass.getField(constantName);
+        } catch (NoSuchFieldException ignored) {
+            return null;
+        }
+    }
+
+    private static Object resolveEnumOptionRawValue(Enum<?> constant, Method jsonValueMethod) {
+        if (jsonValueMethod != null) {
+            try {
+                Object val = jsonValueMethod.invoke(constant);
+                if (val != null) {
+                    return val;
+                }
+            } catch (Exception ignored) {
+                // Fall back to Enum.name().
+            }
+        }
+        return constant.name();
+    }
+
+    private static String resolveEnumOptionLabel(
+            Enum<?> constant,
+            UISchema constantUi,
+            Schema constantSchema,
+            Method labelMethod
+    ) {
+        if (constantUi != null && constantUi.label() != null && !constantUi.label().trim().isEmpty()) {
+            return constantUi.label().trim();
+        }
+        String fromMethod = invokeStringMethod(constant, labelMethod);
+        if (!fromMethod.isEmpty()) {
+            return fromMethod;
+        }
+        if (constantSchema != null && constantSchema.description() != null) {
+            String desc = constantSchema.description().trim();
+            if (!desc.isEmpty() && desc.length() <= 36 && !desc.endsWith(".")) {
+                return desc;
+            }
+        }
+        String rawName = constant.name();
+        boolean hasLowerCase = rawName.chars().anyMatch(Character::isLowerCase);
+        String normalizedForLabel = hasLowerCase ? rawName : rawName.toLowerCase(Locale.ROOT);
+        return formatFieldNameAsLabel(normalizedForLabel);
+    }
+
+    private static String resolveEnumOptionStringAttr(Enum<?> constant, String annotationValue, Method method) {
+        if (annotationValue != null && !annotationValue.trim().isEmpty()) {
+            return annotationValue.trim();
+        }
+        return invokeStringMethod(constant, method);
+    }
+
+    private static String invokeStringMethod(Enum<?> constant, Method method) {
+        if (method == null) {
+            return "";
+        }
+        try {
+            Object val = method.invoke(constant);
+            return val == null ? "" : val.toString().trim();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
     public static void populateUiOptionsFromString(Map<String, Object> xUiMap,
                                                   String options,
                                                   ObjectMapper objectMapper) {
@@ -327,15 +642,10 @@ public class OpenApiUiUtils {
             return;
         }
 
-        try {
-            JsonNode node = objectMapper.readTree(options);
-            if (!node.isArray()) {
-                LOGGER.warn("Options JSON is not an array: {}", options);
-                return;
-            }
-
+        ArrayNode parsed = parseLegacyOptionsJsonArray(options, objectMapper);
+        if (parsed != null) {
             ArrayNode arrayNode = objectMapper.createArrayNode();
-            for (JsonNode element : node) {
+            for (JsonNode element : parsed) {
                 if (element.isObject()) {
                     arrayNode.add(element);
                 } else {
@@ -347,42 +657,76 @@ public class OpenApiUiUtils {
                 }
             }
             putOrMergeUiOptions(xUiMap, arrayNode, objectMapper);
-        } catch (Exception e) {
-            // Fallback: options pode estar "duplamente escapado" (ex.: [{\"label\":\"...\"}])
-            // Estratégia: tratar como string JSON literal para desserializar escapes e tentar novamente
-            try {
-                String normalized = objectMapper.readValue("\"" + options + "\"", String.class);
-                JsonNode node = objectMapper.readTree(normalized);
-                if (!node.isArray()) {
-                    LOGGER.warn("Options JSON (normalized) is not an array: {}", normalized);
-                    return;
-                }
+            return;
+        }
 
-                ArrayNode arrayNode = objectMapper.createArrayNode();
-                for (JsonNode element : node) {
-                    if (element.isObject()) {
-                        arrayNode.add(element);
-                    } else {
-                        ObjectNode optionNode = objectMapper.createObjectNode();
-                        String text = element.asText();
-                        optionNode.put("label", text);
-                        optionNode.put("value", text);
-                        arrayNode.add(optionNode);
-                    }
-                }
-                putOrMergeUiOptions(xUiMap, arrayNode, objectMapper);
-            } catch (Exception ex) {
-                ArrayNode legacyOptions = parsePipeDelimitedOptions(options, objectMapper);
-                if (legacyOptions != null) {
-                    putOrMergeUiOptions(xUiMap, legacyOptions, objectMapper);
-                } else {
-                    LOGGER.warn("Invalid options metadata: {}", options, ex);
-                }
-            }
+        ArrayNode legacyOptions = parsePipeDelimitedOptions(options, objectMapper);
+        if (legacyOptions != null) {
+            putOrMergeUiOptions(xUiMap, legacyOptions, objectMapper);
+        } else {
+            LOGGER.warn("Invalid options metadata: {}", options);
         }
     }
 
-    private static ArrayNode parsePipeDelimitedOptions(String options, ObjectMapper objectMapper) {
+    /**
+     * Extrai os valores canonicos declarados estaticamente em {@link UISchema} via
+     * {@code optionItems}, {@code optionEnum} ou {@code options} legado.
+     */
+    public static Set<String> extractStaticOptionValues(UISchema uiSchema, ObjectMapper objectMapper) {
+        Set<String> values = new LinkedHashSet<>();
+        if (uiSchema == null) {
+            return values;
+        }
+        if (uiSchema.optionItems() != null && uiSchema.optionItems().length > 0) {
+            for (UiOption item : uiSchema.optionItems()) {
+                if (item != null && item.value() != null && !item.value().trim().isEmpty()) {
+                    values.add(item.value().trim());
+                }
+            }
+            return values;
+        }
+        if (uiSchema.optionEnum() != null && uiSchema.optionEnum() != Void.class && uiSchema.optionEnum().isEnum()) {
+            return extractEnumOptionValues(uiSchema.optionEnum());
+        }
+        String raw = uiSchema.options() == null ? "" : uiSchema.options().trim();
+        if (raw.isEmpty()) {
+            return values;
+        }
+        ArrayNode parsed = parseLegacyOptionsJsonArray(raw, objectMapper);
+        if (parsed != null) {
+            String valueKey = uiSchema.valueField() != null && !uiSchema.valueField().trim().isEmpty()
+                    ? uiSchema.valueField().trim()
+                    : "value";
+            for (JsonNode element : parsed) {
+                if (element.isObject()) {
+                    String val = element.path(valueKey).asText("").trim();
+                    if (!val.isEmpty()) {
+                        values.add(val);
+                    }
+                } else {
+                    String text = element.asText("").trim();
+                    if (!text.isEmpty()) {
+                        values.add(text);
+                    }
+                }
+            }
+            return values;
+        }
+        if (!raw.startsWith("[") && !raw.startsWith("{")) {
+            ArrayNode legacy = parsePipeDelimitedOptions(raw, objectMapper);
+            if (legacy != null) {
+                for (JsonNode element : legacy) {
+                    String val = element.path("value").asText("").trim();
+                    if (!val.isEmpty()) {
+                        values.add(val);
+                    }
+                }
+            }
+        }
+        return values;
+    }
+
+    public static ArrayNode parsePipeDelimitedOptions(String options, ObjectMapper objectMapper) {
         ArrayNode arrayNode = objectMapper.createArrayNode();
         for (String rawOption : options.split(",")) {
             String token = rawOption == null ? "" : rawOption.trim();

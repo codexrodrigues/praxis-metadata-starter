@@ -1128,6 +1128,14 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
     }
 
+    private String resolveOptionScalarSchemaType(Schema<?> property) {
+        String openApiType = schemaType(property);
+        if ("array".equals(openApiType) && property != null && property.getItems() != null) {
+            return schemaType(property.getItems());
+        }
+        return openApiType;
+    }
+
     /** Reads one effective non-null type without rewriting either OpenAPI dialect. */
     private String schemaType(Schema<?> schema) {
         if (schema == null) return null;
@@ -1578,6 +1586,17 @@ public class CustomOpenApiResolver extends ModelResolver {
         }
         if (!annotation.emptyOptionText().isEmpty()) {
             uiExtension.put(FieldConfigProperties.EMPTY_OPTION_TEXT.getValue(), annotation.emptyOptionText());
+        }
+        if (annotation.optionEnum() != null && annotation.optionEnum() != Void.class) {
+            OpenApiUiUtils.populateUiOptionsFromEnumClass(uiExtension, annotation.optionEnum(), this._mapper);
+        }
+        if (annotation.optionItems() != null && annotation.optionItems().length > 0) {
+            OpenApiUiUtils.populateUiOptionsFromAnnotationItems(
+                    uiExtension,
+                    annotation.optionItems(),
+                    resolveOptionScalarSchemaType(property),
+                    this._mapper
+            );
         }
         if (!annotation.options().isEmpty()) {
             OpenApiUiUtils.populateUiOptionsFromString(uiExtension, annotation.options(), this._mapper);

@@ -1887,4 +1887,171 @@ class SemanticMetadataReviewerTest {
         public void getById() {
         }
     }
+
+    private enum SampleStaticOptionEnum {
+        VIGENTE,
+        ENCERRADA
+    }
+
+    private static class ValidTypedOptionsDTO {
+        @Schema(description = "Situação funcional consolidada da vantagem no vínculo.")
+        @UISchema(
+                label = "Situação",
+                controlType = FieldControlType.SELECT,
+                optionItems = {
+                        @org.praxisplatform.uischema.annotation.UiOption(
+                                value = "ATIVA",
+                                label = "Ativa",
+                                icon = "check_circle",
+                                tone = org.praxisplatform.uischema.annotation.QuickFilterTone.SUCCESS
+                        ),
+                        @org.praxisplatform.uischema.annotation.UiOption(
+                                value = "SUSPENSA",
+                                label = "Suspensa",
+                                icon = "pause_circle",
+                                tone = org.praxisplatform.uischema.annotation.QuickFilterTone.WARNING
+                        )
+                }
+        )
+        private String situacao;
+
+        @Schema(description = "Situação de vigência resolvida a partir do enum de domínio.")
+        @UISchema(
+                label = "Vigência",
+                controlType = FieldControlType.SELECT,
+                optionEnum = SampleStaticOptionEnum.class
+        )
+        private String vigencia;
+    }
+
+    private static class InvalidTypedOptionsDTO {
+        @Schema(description = "Campo com múltiplas fontes de opções estáticas em conflito.")
+        @UISchema(
+                label = "Conflito",
+                controlType = FieldControlType.SELECT,
+                optionItems = { @org.praxisplatform.uischema.annotation.UiOption(value = "A", label = "Item A") },
+                optionEnum = SampleStaticOptionEnum.class
+        )
+        private String conflito;
+
+        @Schema(description = "Campo referenciando classe não enum em optionEnum.")
+        @UISchema(label = "Enum inválido", controlType = FieldControlType.SELECT, optionEnum = String.class)
+        private String enumInvalido;
+
+        @Schema(description = "Campo com itens duplicados, ícone não snake_case e rótulos em branco.")
+        @UISchema(
+                label = "Itens inválidos",
+                controlType = FieldControlType.SELECT,
+                optionItems = {
+                        @org.praxisplatform.uischema.annotation.UiOption(value = "", label = "Valor vazio"),
+                        @org.praxisplatform.uischema.annotation.UiOption(value = "DUP", label = "Duplicado um", icon = "InvalidIcon"),
+                        @org.praxisplatform.uischema.annotation.UiOption(value = "DUP", label = "")
+                }
+        )
+        private String itensInvalidos;
+
+        @Schema(description = "Campo com JSON legado usando id sem value e sem valueField.")
+        @UISchema(
+                label = "Legado sem value",
+                controlType = FieldControlType.SELECT,
+                options = "[{\"id\":\"FOLHA\",\"label\":\"Folha\"}]"
+        )
+        private String legadoSemValue;
+    }
+
+    private static class OptionBackedFilterDTO
+            implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
+        @Schema(description = "Situação filtrável com opções estáticas fechadas.")
+        @UISchema(
+                label = "Situação",
+                controlType = FieldControlType.SELECT,
+                optionItems = {
+                        @org.praxisplatform.uischema.annotation.UiOption(value = "ATIVA", label = "Ativa"),
+                        @org.praxisplatform.uischema.annotation.UiOption(value = "ENCERRADA", label = "Encerrada")
+                }
+        )
+        @org.praxisplatform.uischema.filter.annotation.Filterable(
+                operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.EQUAL
+        )
+        private String situacao;
+
+        public String getSituacao() { return situacao; }
+        public void setSituacao(String situacao) { this.situacao = situacao; }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/option-backed-invalid",
+            resourceKey = "sample.items",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto",
+                    subtitleField = "email",
+                    metadataFields = {"cargoNome", "departamentoNome"}
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "situacao-valida",
+                            label = "Ativas",
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "situacao", values = {"ATIVA"})
+                            }
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "situacao-inexistente",
+                            label = "Canceladas",
+                            criteria = {
+                                    @org.praxisplatform.uischema.annotation.FilterCriterion(field = "situacao", values = {"CANCELADA"})
+                            }
+                    )
+            }
+    )
+    private static class InvalidOptionQuickFilterController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    ValidQuickView360DTO, Long, OptionBackedFilterDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                ValidQuickView360DTO, Long, OptionBackedFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(ValidQuickView360DTO dto) {
+            return null;
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
+    @Test
+    void validatesTypedUiOptionsAndCrossChecksQuickFilterValues() {
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+        assertTrue(reviewer.review(ValidTypedOptionsDTO.class).issues().stream()
+                .noneMatch(i -> i.severity() == SemanticMetadataIssueSeverity.ERROR));
+
+        List<String> invalidCodes = reviewer.review(InvalidTypedOptionsDTO.class).issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .toList();
+        assertTrue(invalidCodes.contains("uischema-options-source-conflict"));
+        assertTrue(invalidCodes.contains("uischema-option-enum-invalid"));
+        assertTrue(invalidCodes.contains("uischema-option-value-blank"));
+        assertTrue(invalidCodes.contains("uischema-option-duplicate-value"));
+        assertTrue(invalidCodes.contains("uischema-option-label-blank"));
+        assertTrue(invalidCodes.contains("uischema-option-icon-invalid"));
+        assertTrue(invalidCodes.contains("uischema-options-missing-value-key"));
+
+        List<SemanticMetadataReviewIssue> qfIssues = reviewer.reviewResourceController(InvalidOptionQuickFilterController.class).issues();
+        assertEquals(1, qfIssues.stream().filter(i -> "quick-filter-option-value-invalid".equals(i.code())).count());
+        assertTrue(qfIssues.stream()
+                .filter(i -> "quick-filter-option-value-invalid".equals(i.code()))
+                .allMatch(i -> i.message().contains("CANCELADA")));
+    }
 }

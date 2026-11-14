@@ -7,6 +7,8 @@ import io.swagger.v3.oas.models.media.StringSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.annotation.CalculationMemory;
+import org.praxisplatform.uischema.annotation.CalculationTrail;
 import org.praxisplatform.uischema.annotation.MicroVisualization;
 import org.praxisplatform.uischema.annotation.MicroVisualizationKind;
 import org.praxisplatform.uischema.annotation.Threshold;
@@ -308,6 +310,60 @@ class PraxisExpressionStaticValidatorTest {
         assertThrows(InvalidDomainExpressionException.class, () ->
                 validator.validateDtoClass(InvalidMicroVizDTO.class, true)
         );
+    }
+
+    @Test
+    @DisplayName("Validates calculation trail targetExpr and targetHintExpr and rejects unknown properties")
+    void testValidateCalculationTrailTargetExpressions() {
+        assertTrue(validator.validateDtoClass(ValidCalculationTargetDTO.class, true).isEmpty());
+
+        List<String> errors = validator.validateDtoClass(InvalidCalculationTargetDTO.class, false);
+        assertEquals(2, errors.size(), () -> "Expected errors for targetExpr and targetHintExpr, got: " + errors);
+        assertTrue(errors.stream().anyMatch(e -> e.contains("targetExpr") && e.contains("metaFantasma")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("targetHintExpr") && e.contains("hintFantasma")));
+
+        assertThrows(InvalidDomainExpressionException.class, () ->
+                validator.validateDtoClass(InvalidCalculationTargetDTO.class, true)
+        );
+    }
+
+    @CalculationMemory(
+            title = "Meta Mínima",
+            trails = {
+                    @CalculationTrail(
+                            id = "tempo-minimo",
+                            title = "Tempo Mínimo",
+                            targetLabel = "Piso Mínimo",
+                            targetExpr = "= coalesce(row.carenciaMinima, 1095)",
+                            targetFormat = "integer",
+                            targetHintExpr = "'Regra ' + coalesce(row.nomeRegra, 'Padrao')",
+                            resultLabel = "Apurado",
+                            resultExpr = "= coalesce(row.carenciaApurada, 0)"
+                    )
+            }
+    )
+    public static class ValidCalculationTargetDTO {
+        public Integer carenciaMinima;
+        public String nomeRegra;
+        public Integer carenciaApurada;
+    }
+
+    @CalculationMemory(
+            title = "Meta Mínima Inválida",
+            trails = {
+                    @CalculationTrail(
+                            id = "tempo-minimo-invalido",
+                            title = "Tempo Mínimo",
+                            targetLabel = "Piso Mínimo",
+                            targetExpr = "= row.metaFantasma",
+                            targetHintExpr = "= row.hintFantasma",
+                            resultLabel = "Apurado",
+                            resultExpr = "= coalesce(row.carenciaApurada, 0)"
+                    )
+            }
+    )
+    public static class InvalidCalculationTargetDTO {
+        public Integer carenciaApurada;
     }
 
     public static class ValidMicroVizDTO {

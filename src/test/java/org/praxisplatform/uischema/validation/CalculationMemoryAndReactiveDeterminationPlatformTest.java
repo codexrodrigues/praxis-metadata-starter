@@ -295,4 +295,64 @@ class CalculationMemoryAndReactiveDeterminationPlatformTest {
         filterDto.putObject("x-ui").putObject("calculationMemory").put("title", "Accidental Leak");
         return root;
     }
+
+    @CalculationMemory(
+            title = "Memória de Elegibilidade Previdenciária",
+            trails = {
+                    @CalculationTrail(
+                            id = "carencia-minima",
+                            title = "Carência e Pontuação Mínima",
+                            baseLabel = "Dias Contribuídos",
+                            baseExpr = "coalesce(row.diasContribuicao, 0)",
+                            baseFormat = "integer",
+                            capLabel = "Carência Mínima (Piso)",
+                            capOperator = "≥",
+                            capExpr = "coalesce(row.carenciaMinimaDias, 1095)",
+                            capFormat = "integer",
+                            targetLabel = "Pontuação Mínima Exigida",
+                            targetExpr = "coalesce(row.pontuacaoMinima, 70)",
+                            targetFormat = "integer",
+                            targetHint = "Soma idade + tempo",
+                            targetHintExpr = "'Regra aplicavel: ' + coalesce(row.regraCodigo, 'GERAL')",
+                            resultLabel = "Pontuação Atingida",
+                            resultExpr = "coalesce(row.pontuacaoAtual, 0)",
+                            resultFormat = "integer"
+                    )
+            }
+    )
+    static class MinimumThresholdResponseDTO {
+        public Integer diasContribuicao;
+        public Integer carenciaMinimaDias;
+        public Integer pontuacaoMinima;
+        public String regraCodigo;
+        public Integer pontuacaoAtual;
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishesCapOperatorAndTargetMetadataAndValidatesTargetExpressionsStatically() {
+        ModelConverters converters = new ModelConverters();
+        converters.addConverter(new CustomOpenApiResolver(new ObjectMapper().findAndRegisterModules()));
+        ResolvedSchema resolved = converters.resolveAsResolvedSchema(
+                new AnnotatedType(MinimumThresholdResponseDTO.class).resolveAsRef(false)
+        );
+        assertNotNull(resolved);
+        assertNotNull(resolved.schema);
+
+        Map<String, Object> xUi = (Map<String, Object>) resolved.schema.getExtensions().get("x-ui");
+        Map<String, Object> calcMemory = (Map<String, Object>) xUi.get("calculationMemory");
+        List<Map<String, Object>> trails = (List<Map<String, Object>>) calcMemory.get("trails");
+        assertEquals(1, trails.size());
+        Map<String, Object> trail = trails.get(0);
+        assertEquals("≥", trail.get("capOperator"));
+        assertEquals("Pontuação Mínima Exigida", trail.get("targetLabel"));
+        assertEquals("coalesce(row.pontuacaoMinima, 70)", trail.get("targetExpr"));
+        assertEquals("integer", trail.get("targetFormat"));
+        assertEquals("Soma idade + tempo", trail.get("targetHint"));
+        assertEquals("'Regra aplicavel: ' + coalesce(row.regraCodigo, 'GERAL')", trail.get("targetHintExpr"));
+
+        PraxisExpressionStaticValidator validator = new PraxisExpressionStaticValidator();
+        List<String> validErrors = validator.validateDtoClass(MinimumThresholdResponseDTO.class, true);
+        assertTrue(validErrors.isEmpty(), () -> "Expected zero errors, got: " + validErrors);
+    }
 }

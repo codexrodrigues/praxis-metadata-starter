@@ -28,6 +28,8 @@ import org.praxisplatform.uischema.options.LookupSortOption;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceType;
 import org.praxisplatform.uischema.options.service.OptionSourceQueryExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -41,7 +43,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -55,6 +59,9 @@ import java.time.ZonedDateTime;
  * JPA executor for metadata-driven option sources.
  */
 public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
+
+    private static final Logger log = LoggerFactory.getLogger(JpaOptionSourceQueryExecutor.class);
+    private final Set<String> loggedUnmappedPaths = ConcurrentHashMap.newKeySet();
 
     @Override
     public <E> Page<OptionDTO<Object>> filterOptions(
@@ -344,10 +351,15 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         }
         List<Path<?>> paths = new ArrayList<>();
         for (String searchPath : lookup.searchPropertyPaths()) {
-            Path<?> resolvedPath = resolvePath(root, searchPath);
-            paths.add(resolvedPath);
+            Path<?> resolvedPath = tryResolvePath(root, searchPath, "searchPropertyPaths");
+            if (resolvedPath != null) {
+                paths.add(resolvedPath);
+            }
         }
-        return paths;
+        if (labelPath != null && paths.stream().noneMatch(path -> samePath(path, labelPath))) {
+            paths.add(labelPath);
+        }
+        return paths.isEmpty() ? List.of(labelPath) : paths;
     }
 
     private Order[] resolveOrders(
@@ -361,8 +373,9 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     ) {
         LookupSortOption sortOption = resolveSortOptionOrNull(descriptor, sortKey);
         if (sortOption != null) {
-            Path<?> sortPath = resolvePath(root, sortOption.field());
-            return JpaCriteriaPathSupport.buildOrders(cb, sortPath, !"desc".equals(sortOption.direction()))
+            Path<?> sortPath = tryResolvePath(root, sortOption.field(), "sortOption:" + sortOption.key());
+            Path<?> effectiveSortPath = sortPath != null ? sortPath : labelPath;
+            return JpaCriteriaPathSupport.buildOrders(cb, effectiveSortPath, !"desc".equals(sortOption.direction()))
                     .toArray(Order[]::new);
         }
         if (sort != null && sort.isSorted()) {
@@ -379,8 +392,9 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         }
         LookupSortOption defaultSortOption = resolveDefaultSortOption(descriptor);
         if (defaultSortOption != null) {
-            Path<?> sortPath = resolvePath(root, defaultSortOption.field());
-            return JpaCriteriaPathSupport.buildOrders(cb, sortPath, !"desc".equals(defaultSortOption.direction()))
+            Path<?> sortPath = tryResolvePath(root, defaultSortOption.field(), "defaultSortOption:" + defaultSortOption.key());
+            Path<?> effectiveSortPath = sortPath != null ? sortPath : labelPath;
+            return JpaCriteriaPathSupport.buildOrders(cb, effectiveSortPath, !"desc".equals(defaultSortOption.direction()))
                     .toArray(Order[]::new);
         }
         Path<?> defaultSortPath = "id".equalsIgnoreCase(descriptor.policy().defaultSort()) ? valuePath : labelPath;
@@ -418,7 +432,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     ) {
         LookupSortOption effectiveSortOption = explicitSortOption != null ? explicitSortOption : defaultSortOption;
         if (effectiveSortOption != null) {
-            return resolvePath(root, effectiveSortOption.field());
+            return tryResolvePath(root, effectiveSortOption.field(), "metadataSort:" + effectiveSortOption.key());
         }
         if (sort != null && sort.isSorted()) {
             return null;
@@ -455,7 +469,10 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                         )
                 );
             }
-            predicates.add(buildPredicateForStructuredFilter(cb, resolvePath(root, definition.field()), definition, filter));
+            Path<?> resolvedPath = tryResolvePath(root, definition.field(), "filtering.availableFilters");
+            if (resolvedPath != null) {
+                predicates.add(buildPredicateForStructuredFilter(cb, resolvedPath, definition, filter));
+            }
         }
         return predicates.isEmpty() ? null : cb.and(predicates.toArray(Predicate[]::new));
     }
@@ -766,7 +783,20 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     }
 
     private Path<?> resolveLabelPath(Root<?> root, OptionSourceDescriptor descriptor) {
-        return resolvePath(root, descriptor.labelPropertyPath() != null ? descriptor.labelPropertyPath() : descriptor.propertyPath());
+        String preferredLabel = descriptor.labelPropertyPath() != null ? descriptor.labelPropertyPath() : descriptor.propertyPath();
+        Path<?> resolved = tryResolvePath(root, preferredLabel, "labelPropertyPath");
+        if (resolved != null) {
+            return resolved;
+        }
+        if (descriptor.labelPropertyPath() != null
+                && descriptor.propertyPath() != null
+                && !descriptor.propertyPath().equals(descriptor.labelPropertyPath())) {
+            Path<?> fallback = tryResolvePath(root, descriptor.propertyPath(), "propertyPath");
+            if (fallback != null) {
+                return fallback;
+            }
+        }
+        return resolveValuePath(root, descriptor);
     }
 
     private void applyOptionSelections(CriteriaQuery<Tuple> query, Path<?> valuePath, Path<?> labelPath) {
@@ -804,7 +834,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         LookupSelectionPolicy policy = lookup.selectionPolicy();
         if (policy != null) {
             addSelection(cb, selections, selectedPaths, selectedAliases, root, policy.selectablePropertyPath(), "lookupSelectable");
-            if (lookup.statusPropertyPath() == null) {
+            if (!selectedAliases.contains("lookupStatus")) {
                 addSelection(cb, selections, selectedPaths, selectedAliases, root, policy.statusPropertyPath(), "lookupStatus");
             }
         }
@@ -861,8 +891,11 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             String alias
     ) {
         if (propertyPath != null && !propertyPath.isBlank()) {
-            Path<?> resolvedPath = resolvePath(root, propertyPath);
             if (selectedAliases.contains(alias)) {
+                return;
+            }
+            Path<?> resolvedPath = tryResolvePath(root, propertyPath, "selection:" + alias);
+            if (resolvedPath == null) {
                 return;
             }
             Class<?> pathType = resolvedPath.getJavaType();
@@ -896,6 +929,47 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
 
     private Object coerceValue(String raw, Class<?> targetType) {
         return CompositeIdSupport.coerceScalar(raw, targetType);
+    }
+
+    private Path<?> tryResolvePath(Root<?> root, String propertyPath, String usageContext) {
+        if (propertyPath == null || propertyPath.isBlank()) {
+            return null;
+        }
+        Path<?> resolved = JpaCriteriaPathSupport.tryResolvePath(root, propertyPath, true);
+        if (resolved == null) {
+            String entityName = resolveEntityName(root);
+            String dedupeKey = entityName + "|" + usageContext + "|" + propertyPath;
+            if (loggedUnmappedPaths.add(dedupeKey)) {
+                log.debug(
+                        "Ignoring non-JPA option-source property path '{}' for entity {} in {}",
+                        propertyPath,
+                        entityName,
+                        usageContext
+                );
+            }
+        }
+        return resolved;
+    }
+
+    private static String resolveEntityName(Root<?> root) {
+        if (root == null) {
+            return "<null>";
+        }
+        try {
+            if (root.getModel() != null && root.getModel().getName() != null) {
+                return root.getModel().getName();
+            }
+        } catch (RuntimeException ignored) {
+            // Bare mocks may omit metamodel
+        }
+        try {
+            if (root.getJavaType() != null) {
+                return root.getJavaType().getSimpleName();
+            }
+        } catch (RuntimeException ignored) {
+            // Bare mocks may omit Java type
+        }
+        return "<unknown>";
     }
 
     private Path<?> resolvePath(Root<?> root, String propertyPath) {

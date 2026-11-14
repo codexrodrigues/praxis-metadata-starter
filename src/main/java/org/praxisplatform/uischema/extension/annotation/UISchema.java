@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.extension.annotation;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.praxisplatform.uischema.*;
+import org.praxisplatform.uischema.annotation.UiOption;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -235,6 +236,33 @@ public @interface UISchema {
     String displayField() default "";
     String endpoint() default "";
     String emptyOptionText() default "";
+
+    /**
+     * Lista tipada de opcoes estaticas para campos com dominio fechado.
+     *
+     * <p>Substitui o atributo legado {@link #options()}, garantindo seguranca de tipos em
+     * compilacao e materializando o mesmo formato canonico {@code x-ui.options}.</p>
+     *
+     * @return opcoes estaticas declaradas via {@link UiOption}
+     */
+    UiOption[] optionItems() default {};
+
+    /**
+     * Classe {@code Enum} cujo catalogo de constantes deve ser materializado em
+     * {@code x-ui.options} (respeitando {@code @JsonValue}, {@code @UISchema(label, icon)} e
+     * acessores como {@code getLabel()} ou {@code getDescricao()}).
+     *
+     * @return classe enum ou {@code Void.class} quando nao utilizado
+     */
+    Class<?> optionEnum() default Void.class;
+
+    /**
+     * String JSON legada de opcoes estaticas.
+     *
+     * @return string JSON legada
+     * @deprecated Prefira {@link #optionItems()} com {@link UiOption} ou {@link #optionEnum()}.
+     */
+    @Deprecated(since = "2.1.0")
     String options() default "";
 
     // 10. Propriedades Específicas para Filtros

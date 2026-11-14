@@ -1682,7 +1682,15 @@ public class SemanticMetadataReviewer {
                     ));
                 } else {
                     for (long num : criterion.number()) {
-                        validateQuickFilterValueToken(controllerClass, memberName, valueType, Long.toString(num), issues);
+                        validateQuickFilterResolvedValueToken(
+                                controllerClass,
+                                memberName,
+                                effectiveFilterDto,
+                                targetField,
+                                valueType,
+                                Long.toString(num),
+                                issues
+                        );
                     }
                 }
             } else if (hasDecimal) {
@@ -2154,6 +2162,25 @@ public class SemanticMetadataReviewer {
                 ));
             }
             return;
+        }
+        if (!(token.startsWith("${") && token.endsWith("}"))) {
+            UISchema targetUi = findMemberAnnotation(effectiveFilterDto, targetField, UISchema.class);
+            if (targetUi == null) {
+                targetUi = findGetterAnnotation(effectiveFilterDto, targetField.getName(), UISchema.class);
+            }
+            java.util.Set<String> allowedStaticValues = org.praxisplatform.uischema.util.OpenApiUiUtils
+                    .extractStaticOptionValues(targetUi, JSON_MAPPER);
+            if (!allowedStaticValues.isEmpty() && !allowedStaticValues.contains(token)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "quick-filter-option-value-invalid",
+                        controllerClass.getName(),
+                        memberName,
+                        memberName + " value '" + token + "' is not present in static @UISchema options of "
+                                + effectiveFilterDto.getSimpleName() + "." + targetField.getName()
+                                + " " + allowedStaticValues + "."
+                ));
+            }
         }
         validateQuickFilterValueToken(controllerClass, memberName, valueType, token, issues);
     }
@@ -2678,6 +2705,7 @@ public class SemanticMetadataReviewer {
                     "UI presentation preset does not replace explicit domain documentation."
             ));
         }
+        reviewUiSchemaOptions(targetType, field.getName(), uiSchema, issues);
     }
 
     private String extractGetterPropertyName(Method method) {
@@ -2758,6 +2786,171 @@ public class SemanticMetadataReviewer {
                     propertyName,
                     "UI presentation preset does not replace explicit domain documentation."
             ));
+        }
+        reviewUiSchemaOptions(targetType, propertyName, uiSchema, issues);
+    }
+
+    private void reviewUiSchemaOptions(
+            Class<?> targetType,
+            String propertyName,
+            UISchema uiSchema,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        if (uiSchema == null) {
+            return;
+        }
+        org.praxisplatform.uischema.annotation.UiOption[] optionItems = uiSchema.optionItems();
+        Class<?> optionEnum = uiSchema.optionEnum();
+        String legacyOptions = normalize(uiSchema.options());
+
+        boolean hasOptionItems = optionItems != null && optionItems.length > 0;
+        boolean hasOptionEnum = optionEnum != null && optionEnum != Void.class;
+        boolean hasLegacyOptions = !legacyOptions.isBlank();
+
+        int sourceCount = (hasOptionItems ? 1 : 0) + (hasOptionEnum ? 1 : 0) + (hasLegacyOptions ? 1 : 0);
+        if (sourceCount > 1) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "uischema-options-source-conflict",
+                    targetType.getName(),
+                    propertyName,
+                    "@UISchema declares multiple static option sources simultaneously (optionItems, optionEnum, options); choose exactly one."
+            ));
+        }
+
+        if (hasOptionEnum && (!optionEnum.isEnum()
+                || optionEnum.getEnumConstants() == null
+                || optionEnum.getEnumConstants().length == 0)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "uischema-option-enum-invalid",
+                    targetType.getName(),
+                    propertyName,
+                    "@UISchema(optionEnum) must reference a non-empty Java enum class: " + optionEnum.getName() + "."
+            ));
+        }
+
+        if (hasOptionItems) {
+            Set<String> seenValues = new java.util.LinkedHashSet<>();
+            for (int i = 0; i < optionItems.length; i++) {
+                org.praxisplatform.uischema.annotation.UiOption item = optionItems[i];
+                if (item == null) {
+                    continue;
+                }
+                String value = normalize(item.value());
+                String label = normalize(item.label());
+                String icon = normalize(item.icon());
+                if (value.isBlank()) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-value-blank",
+                            targetType.getName(),
+                            propertyName,
+                            "@UiOption at index " + i + " must declare a non-blank value."
+                    ));
+                } else if (!seenValues.add(value)) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-duplicate-value",
+                            targetType.getName(),
+                            propertyName,
+                            "Duplicate @UiOption value '" + value + "' in @UISchema(optionItems)."
+                    ));
+                }
+                if (label.isBlank()) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-label-blank",
+                            targetType.getName(),
+                            propertyName,
+                            "@UiOption('" + value + "') must declare a non-blank label."
+                    ));
+                } else if (label.endsWith(".")) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-label-looks-like-sentence",
+                            targetType.getName(),
+                            propertyName,
+                            "@UiOption('" + value + "') label '" + label + "' must not end with a period."
+                    ));
+                }
+                if (!icon.isBlank() && !icon.matches("^[a-z0-9]+(_[a-z0-9]+)*$")) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-icon-invalid",
+                            targetType.getName(),
+                            propertyName,
+                            "@UiOption('" + value + "') icon '" + icon
+                                    + "' must be a lowercase snake_case Material Icons ligature."
+                    ));
+                }
+            }
+        }
+
+        if (hasLegacyOptions) {
+            if (legacyOptions.startsWith("[") || legacyOptions.startsWith("{")) {
+                com.fasterxml.jackson.databind.node.ArrayNode parsed =
+                        org.praxisplatform.uischema.util.OpenApiUiUtils.parseLegacyOptionsJsonArray(legacyOptions, JSON_MAPPER);
+                if (parsed == null || parsed.isEmpty()) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-options-malformed-json",
+                            targetType.getName(),
+                            propertyName,
+                            "@UISchema(options) contains malformed or empty JSON array; migrate to optionItems = {@UiOption(...)}."
+                    ));
+                    return;
+                }
+                String valueKey = normalize(uiSchema.valueField()).isBlank() ? "value" : normalize(uiSchema.valueField());
+                String displayKey = normalize(uiSchema.displayField()).isBlank() ? "label" : normalize(uiSchema.displayField());
+                Set<String> seenValues = new java.util.LinkedHashSet<>();
+                for (com.fasterxml.jackson.databind.JsonNode el : parsed) {
+                    if (!el.isObject()) {
+                        continue;
+                    }
+                    String val = normalize(el.path(valueKey).asText(""));
+                    String lbl = normalize(el.path(displayKey).asText(""));
+                    if (val.isBlank()) {
+                        issues.add(new SemanticMetadataReviewIssue(
+                                SemanticMetadataIssueSeverity.ERROR,
+                                "uischema-options-missing-value-key",
+                                targetType.getName(),
+                                propertyName,
+                                "@UISchema(options) item is missing required '" + valueKey
+                                        + "' key (migrate to @UiOption(value = ..., label = ...)): " + el
+                        ));
+                    } else if (!seenValues.add(val)) {
+                        issues.add(new SemanticMetadataReviewIssue(
+                                SemanticMetadataIssueSeverity.ERROR,
+                                "uischema-option-duplicate-value",
+                                targetType.getName(),
+                                propertyName,
+                                "Duplicate option value '" + val + "' in @UISchema(options)."
+                        ));
+                    }
+                    if (lbl.isBlank()) {
+                        issues.add(new SemanticMetadataReviewIssue(
+                                SemanticMetadataIssueSeverity.ERROR,
+                                "uischema-option-label-blank",
+                                targetType.getName(),
+                                propertyName,
+                                "@UISchema(options) item for value '" + val + "' is missing non-blank '" + displayKey + "'."
+                        ));
+                    }
+                }
+            } else {
+                com.fasterxml.jackson.databind.node.ArrayNode pipeParsed =
+                        org.praxisplatform.uischema.util.OpenApiUiUtils.parsePipeDelimitedOptions(legacyOptions, JSON_MAPPER);
+                if (pipeParsed == null || pipeParsed.isEmpty()) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-options-malformed-json",
+                            targetType.getName(),
+                            propertyName,
+                            "@UISchema(options) could not be parsed; migrate to optionItems = {@UiOption(...)}."
+                    ));
+                }
+            }
         }
     }
 
