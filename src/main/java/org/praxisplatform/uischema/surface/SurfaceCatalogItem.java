@@ -34,8 +34,34 @@ public record SurfaceCatalogItem(
         List<String> tags,
         RelatedResourceSurface relatedResource,
         @JsonInclude(JsonInclude.Include.NON_NULL) String legalPurpose,
-        @JsonInclude(JsonInclude.Include.NON_NULL) String legalBasisRef
+        @JsonInclude(JsonInclude.Include.NON_NULL) String legalBasisRef,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String contextualReadPath
 ) {
+    public SurfaceCatalogItem(
+        String id,
+        String resourceKey,
+        SurfaceKind kind,
+        SurfaceScope scope,
+        String title,
+        String description,
+        String intent,
+        String icon,
+        String operationId,
+        String path,
+        String method,
+        String schemaId,
+        String schemaUrl,
+        SurfaceResponseCardinality responseCardinality,
+        AvailabilityDecision availability,
+        int order,
+        List<String> tags,
+        RelatedResourceSurface relatedResource,
+        String legalPurpose,
+        String legalBasisRef
+    ) {
+        this(id, resourceKey, kind, scope, title, description, intent, icon, operationId, path, method, schemaId, schemaUrl, responseCardinality, availability, order, tags, relatedResource, legalPurpose, legalBasisRef, null);
+    }
+
     public SurfaceCatalogItem {
         icon = icon != null && !icon.isBlank() ? icon.trim() : null;
         legalPurpose = legalPurpose != null && !legalPurpose.isBlank() ? legalPurpose.trim() : null;

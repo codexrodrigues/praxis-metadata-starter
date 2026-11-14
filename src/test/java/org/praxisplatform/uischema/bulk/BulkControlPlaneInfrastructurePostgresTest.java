@@ -157,16 +157,78 @@ class BulkControlPlaneInfrastructurePostgresTest {
                             JdbcBulkOperationControl.Target.READY, "sha256:" + "d".repeat(64), "structural-r2", 2L, "sha256:" + "0".repeat(64))))
                     .isInstanceOf(IllegalStateException.class).hasMessageContaining("same PostgreSQL database");
 
-            // Existing tighter operator deadlines survive the infrastructure's bounded lifecycle defaults.
-            adminSql.execute("alter role bulk_runtime set statement_timeout='100ms'");
-            adminSql.execute("alter role bulk_control set statement_timeout='100ms'");
-            String controlTimeout = control.withConnection(connection -> setting(connection, "statement_timeout"));
-            String lifecycleTimeout = runtime.withLifecycleRead(connection -> setting(connection, "statement_timeout"));
-            String runtimeTimeout = new TransactionTemplate(runtime.transactionManager()).execute(status ->
-                    runtime.withConnection(connection -> setting(connection, "statement_timeout")));
-            assertThat(controlTimeout).isEqualTo("100ms");
-            assertThat(lifecycleTimeout).isEqualTo("100ms");
-            assertThat(runtimeTimeout).isEqualTo("100ms");
+            adminSql.execute("alter role bulk_runtime set default_transaction_isolation='repeatable read'");
+            var factory = org.mockito.Mockito.mock(org.springframework.orm.jpa.EntityManagerFactoryInfo.class,
+                    org.mockito.Mockito.withSettings().extraInterfaces(jakarta.persistence.EntityManagerFactory.class));
+            org.mockito.Mockito.when(factory.getDataSource()).thenReturn(runtimeDs);
+            org.mockito.Mockito.when(factory.getJpaDialect()).thenReturn(new org.springframework.orm.jpa.vendor.HibernateJpaDialect());
+            var jpa = new org.springframework.orm.jpa.JpaTransactionManager((jakarta.persistence.EntityManagerFactory) factory);
+            var jpaBoundRuntime = new BulkExecutionInfrastructure(runtimeDs, jpa, NAMESPACE, "logical-deployment", roles,
+                    new DataSourceTransactionManager(runtimeDs));
+            assertThatThrownBy(() -> new BulkExecutionInfrastructure(runtimeDs, jpa, NAMESPACE,
+                    "logical-deployment", roles, new DataSourceTransactionManager(controlDs)))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("same operational datasource");
+            jpaBoundRuntime.withLifecycleRead(connection -> {
+                assertThat(setting(connection, "transaction_isolation")).isEqualTo("read committed");
+                assertThat(setting(connection, "default_transaction_isolation")).isEqualTo("repeatable read");
+                return null;
+            });
+            var tenantRoute = new java.util.concurrent.atomic.AtomicReference<>("tenant_a");
+            try (var pool = new com.zaxxer.hikari.HikariDataSource()) {
+                pool.setDataSource(runtimeDs);
+                pool.setMaximumPoolSize(2);
+                var routedDs = new SinglePoolSchemaRoutingDataSource(pool, () -> {
+                    String tenant = tenantRoute.get();
+                    if (tenant == null) throw new java.sql.SQLException("Tenant admission required", "42501");
+                    return SinglePoolSchemaRoutingDataSource.SchemaRoute.of(tenant, "public", "public");
+                });
+                var routedManager = new DataSourceTransactionManager(routedDs);
+                var routedRuntime = new BulkExecutionInfrastructure(routedDs, routedManager, NAMESPACE,
+                        "logical-deployment", roles, routedManager);
+                verifyPublicationRace(routedRuntime, control, adminSql);
+                for (String tenant : List.of("tenant_a", "tenant_b")) {
+                    tenantRoute.set(tenant);
+                    assertThat(routedRuntime.readAttestedPublication().published()).isTrue();
+                    try (var connection = routedDs.getConnection()) {
+                        assertThat(setting(connection, "search_path")).isEqualTo(tenant + ", public");
+                    }
+                    new TransactionTemplate(routedManager).executeWithoutResult(status -> {
+                        assertThat(routedRuntime.readAttestedPublication().published()).isTrue();
+                        var bound = org.springframework.jdbc.datasource.DataSourceUtils.getConnection(routedDs);
+                        try {
+                            assertThat(setting(bound, "search_path")).isEqualTo(tenant + ", public");
+                        } catch (java.sql.SQLException failure) {
+                            throw new AssertionError(failure);
+                        } finally {
+                            org.springframework.jdbc.datasource.DataSourceUtils.releaseConnection(bound, routedDs);
+                        }
+                    });
+                }
+                tenantRoute.set(null);
+                assertThatThrownBy(routedRuntime::readAttestedPublication)
+                        .hasRootCauseInstanceOf(java.sql.SQLException.class)
+                        .hasStackTraceContaining("Tenant admission required");
+                try (var connection = pool.getConnection()) {
+                    assertThat(setting(connection, "search_path")).doesNotContain("tenant_a", "tenant_b", "pg_temp");
+                    assertThat(setting(connection, "default_transaction_isolation")).isEqualTo("repeatable read");
+                }
+            }
+            assertThat(jpaBoundRuntime.readAttestedPublication().published()).isTrue();
+            org.mockito.Mockito.verify((jakarta.persistence.EntityManagerFactory) factory, org.mockito.Mockito.never())
+                    .createEntityManager();
+            var listenerFailure = new IllegalStateException("Host transaction listener");
+            jpa.addListener(new org.springframework.transaction.TransactionExecutionListener() {
+                @Override
+                public void beforeBegin(org.springframework.transaction.TransactionExecution transaction) {
+                    throw listenerFailure;
+                }
+            });
+            var hostManagedRuntime = new BulkExecutionInfrastructure(runtimeDs, jpa, NAMESPACE, "logical-deployment", roles);
+            assertThatThrownBy(() -> hostManagedRuntime.withLifecycleRead(connection -> null)).isSameAs(listenerFailure);
+            try (var connection = runtimeDs.getConnection()) {
+                assertThat(setting(connection, "transaction_isolation")).isEqualTo("repeatable read");
+            }
+            adminSql.execute("alter role bulk_runtime reset default_transaction_isolation");
 
             // Simulate a privileged schema drift that leaves owner, SECURITY DEFINER and grants
             // intact but removes the V7 tuple check. Both live entry points must reject it before
@@ -184,6 +246,13 @@ class BulkControlPlaneInfrastructurePostgresTest {
             })).isInstanceOf(IllegalStateException.class).hasMessageContaining("descriptor insert fence differs");
             assertThat(controlCallback).isFalse();
 
+            var lifecycleCallback = new AtomicBoolean();
+            assertThatThrownBy(() -> jpaBoundRuntime.withLifecycleRead(connection -> {
+                lifecycleCallback.set(true);
+                return null;
+            })).isInstanceOf(IllegalStateException.class).hasMessageContaining("descriptor insert fence differs");
+            assertThat(lifecycleCallback).isFalse();
+
             var runtimeCallback = new AtomicBoolean();
             assertThatThrownBy(() -> new TransactionTemplate(runtime.transactionManager()).execute(status -> {
                 assertThatThrownBy(() -> runtime.withConnection(connection -> {
@@ -194,6 +263,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
                 return null;
             })).isInstanceOf(UnexpectedRollbackException.class);
             assertThat(runtimeCallback).isFalse();
+
         }
     }
 
@@ -204,6 +274,74 @@ class BulkControlPlaneInfrastructurePostgresTest {
             assertThat(rows.next()).isFalse();
             return value;
         }
+    }
+
+    private static void verifyPublicationRace(BulkExecutionInfrastructure runtime, BulkControlPlaneInfrastructure control,
+            JdbcTemplate adminSql)
+            throws Exception {
+        var deployment = "logical-deployment";
+        try (var writer = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var before = runtime.withLifecycleRead(connection -> {
+                assertThat(setting(connection, "transaction_isolation")).isEqualTo("read committed");
+                var snapshot = JdbcBulkOpenApiPublication.lockForRead(connection, NAMESPACE, deployment);
+                var conflict = writer.submit(() -> org.assertj.core.api.Assertions.catchThrowable(() ->
+                        control.withConnection(controlConnection -> {
+                            try (var statement = controlConnection.createStatement()) {
+                                statement.execute("set local lock_timeout='100ms'");
+                            }
+                            return JdbcBulkOpenApiPublication.transition(controlConnection, NAMESPACE, deployment,
+                                    snapshot.generation(), JdbcBulkOpenApiPublication.Target.SUSPENDED, null);
+                        })));
+                assertPublicationLockConflict(conflict);
+                return snapshot;
+            });
+            assertThat(before.published()).isTrue();
+
+            String privilege = "execute on function praxis_bulk.transition_operation_control(text,text,bigint,text,text,text,bigint,text)";
+            writer.submit(() -> adminSql.execute("grant " + privilege + " to bulk_runtime"))
+                    .get(10, java.util.concurrent.TimeUnit.SECONDS);
+            try {
+                assertThatThrownBy(runtime::readAttestedPublication)
+                        .isInstanceOf(IllegalStateException.class)
+                        .hasMessageContaining("governed lifecycle function grants differ");
+            } finally {
+                adminSql.execute("revoke " + privilege + " from bulk_runtime");
+            }
+
+            var suspended = writer.submit(() -> control.withConnection(connection ->
+                    JdbcBulkOpenApiPublication.transition(connection, NAMESPACE, deployment, before.generation(),
+                            JdbcBulkOpenApiPublication.Target.SUSPENDED, null))).get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(suspended.applied()).isTrue();
+            var during = runtime.readAttestedPublication();
+            assertThat(during.state()).isEqualTo("SUSPENDED");
+            assertThat(during.generation()).isEqualTo(suspended.generation());
+            assertThat(during.documentDigest()).isNull();
+
+            var republished = writer.submit(() -> control.withConnection(connection ->
+                    JdbcBulkOpenApiPublication.transition(connection, NAMESPACE, deployment, suspended.generation(),
+                            JdbcBulkOpenApiPublication.Target.PUBLISHED, before.documentDigest())))
+                    .get(10, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(republished.applied()).isTrue();
+            var after = runtime.readAttestedPublication();
+            assertThat(after.published()).isTrue();
+            assertThat(after.documentDigest()).isEqualTo(before.documentDigest());
+            assertThat(after.generation()).isEqualTo(before.generation() + 2);
+        }
+    }
+
+    private static void assertPublicationLockConflict(java.util.concurrent.Future<Throwable> conflict) {
+        Throwable failure;
+        try {
+            failure = conflict.get(2, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while testing the publication lock", interrupted);
+        } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException unexpected) {
+            throw new AssertionError("Unable to observe the conflicting publication transition", unexpected);
+        }
+        assertThat(failure).hasRootCauseInstanceOf(java.sql.SQLException.class);
+        var cause = org.springframework.core.NestedExceptionUtils.getMostSpecificCause(failure);
+        assertThat(((java.sql.SQLException) cause).getSQLState()).isEqualTo("55P03");
     }
 
     @Test
@@ -328,6 +466,8 @@ class BulkControlPlaneInfrastructurePostgresTest {
 
             var switchedRole = "bulk_runtime_switch";
             adminSql.execute("create role " + switchedRole + " nologin noinherit");
+            // Let the catalog resolve names so this case isolates the identity check.
+            adminSql.execute("grant usage on schema praxis_bulk to " + switchedRole);
             adminSql.execute("grant " + switchedRole + " to bulk_runtime");
             var switchedDs = new DriverManagerDataSource(
                     postgres.getJdbcUrl("bulk_runtime", "postgres"), "bulk_runtime", "");
@@ -342,6 +482,7 @@ class BulkControlPlaneInfrastructurePostgresTest {
                     new DataSourceTransactionManager(switchedDs), NAMESPACE, "logical-deployment", roles);
             assertRuntimeEntryRejected(switched, "session and effective PostgreSQL identities must match");
             adminSql.execute("revoke " + switchedRole + " from bulk_runtime");
+            adminSql.execute("revoke usage on schema praxis_bulk from " + switchedRole);
             adminSql.execute("drop role " + switchedRole);
 
             adminSql.execute("alter table praxis_bulk.praxis_bulk_proposal disable trigger praxis_bulk_proposal_descriptor_fence");

@@ -90,7 +90,7 @@ public final class ResourceOperationAvailabilityEvaluator {
                     ACTIVE_OPERATIONS.remove();
                 }
             }
-            if (capture.fence != null) capture.fence.read(() -> null);
+            if (capture.fence != null) capture.fence.verify();
             return result;
         }
     }

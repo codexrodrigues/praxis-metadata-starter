@@ -420,13 +420,18 @@ public final class BulkExecutionMigrator {
 
     private record MigrationOwnerBackend(int pid, String role, String database) { }
 
+    // Catalog queries inside BulkCatalogPhase.capture enforce <=2s statement_timeout and <=1s
+    // lock_timeout per statement; the outer owner attestation runs ~25-35 sequential queries and
+    // needs 45s headroom over cross-region WAN links.
+    private static final int CAPACITY_BOOTSTRAP_TX_TIMEOUT_SECONDS = 45;
+
     private static void completeCapacityReadBootstrap(DataSource source,
             BulkExecutionRoleConfiguration roles) {
         requireOutsideSpringTransaction();
         var manager = new org.springframework.jdbc.datasource.DataSourceTransactionManager(source);
         var transaction = new org.springframework.transaction.support.TransactionTemplate(manager);
         transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
-        transaction.setTimeout(10);
+        transaction.setTimeout(CAPACITY_BOOTSTRAP_TX_TIMEOUT_SECONDS);
         transaction.execute(status -> new org.springframework.jdbc.core.JdbcTemplate(source).execute(
                 (org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
                     assertPostgreSql(connection);
@@ -478,7 +483,7 @@ public final class BulkExecutionMigrator {
         var manager = new org.springframework.jdbc.datasource.DataSourceTransactionManager(source);
         var transaction = new org.springframework.transaction.support.TransactionTemplate(manager);
         transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
-        transaction.setTimeout(10);
+        transaction.setTimeout(CAPACITY_BOOTSTRAP_TX_TIMEOUT_SECONDS);
         transaction.execute(status -> new org.springframework.jdbc.core.JdbcTemplate(source).execute(
                 (org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
                     assertPostgreSql(connection);

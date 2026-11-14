@@ -185,4 +185,40 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
     default CollectionExportResult exportCollection(CollectionExportRequest<FilterDTO> request) {
         throw new UnsupportedOperationException("Collection export not implemented");
     }
+
+    /**
+     * Enforces caller, tenant, or domain read scope in memory before opening a persistence transaction
+     * for {@link #readContextualSurfaceSummary(Object, org.praxisplatform.uischema.surface.ContextualSurfaceSummaryProjector.ProjectionPlan, java.util.Set)}.
+     *
+     * <p>Implementations must remain pure security/request-context checks without JDBC/JPA access so
+     * unauthorized cross-tenant or out-of-scope requests fail closed before acquiring a pooled connection
+     * or switching tenant schemas.</p>
+     */
+    default void assertContextualSurfaceReadScope(String surfaceId) {
+    }
+    /**
+     * Reads and projects the canonical contextual Quick View summary for an item surface.
+     */
+    default java.util.Map<String, Object> readContextualSurfaceSummary(
+            ID id,
+            org.praxisplatform.uischema.surface.ContextualSurfaceSummaryProjector.ProjectionPlan plan,
+            java.util.Set<String> principalAuthorities) {
+        ResourceRepresentationResult<ResponseDTO> result = findById(id);
+        return sanitizeContextualSurfaceSummary(
+                id,
+                result == null ? null : result.body(),
+                plan,
+                principalAuthorities);
+    }
+
+    /**
+     * Applies host-level field sanitization or privacy redaction before contextual summary serialization.
+     */
+    default java.util.Map<String, Object> sanitizeContextualSurfaceSummary(
+            ID id,
+            ResponseDTO dto,
+            org.praxisplatform.uischema.surface.ContextualSurfaceSummaryProjector.ProjectionPlan plan,
+            java.util.Set<String> principalAuthorities) {
+        return plan.project(dto, principalAuthorities, null);
+    }
 }

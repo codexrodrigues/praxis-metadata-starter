@@ -472,8 +472,10 @@ public class SemanticDomainCatalogService {
             addAnalyticCapabilities(surface.resourceKey(), contextKey, surface.group(), surface.resourcePath(),
                     nodes, edges, bindings, evidence, capabilitiesByResourcePath, analyticCapabilitiesAdded);
             addSurface(surface, contextKey, nodes, edges, bindings, evidence);
-            addSchemaFields(surface.resourceKey(), contextKey, surface.group(), surface.schema(), surface.schemaType(),
-                    canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance);
+            if (!isCrossResourceRelatedSurface(surface)) {
+                addSchemaFields(surface.resourceKey(), contextKey, surface.group(), surface.schema(), surface.schemaType(),
+                        canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance);
+            }
         }
 
         for (OptionSourceDescriptor descriptor : optionSourceRegistry.descriptors()) {
@@ -2893,7 +2895,7 @@ public class SemanticDomainCatalogService {
     ) {
         Map<String, String> descriptions = new LinkedHashMap<>();
         for (SurfaceDefinition surface : sortSurfaces(surfaces)) {
-            if ("response".equalsIgnoreCase(surface.schemaType())) {
+            if (!isCrossResourceRelatedSurface(surface) && "response".equalsIgnoreCase(surface.schemaType())) {
                 putResourceDescriptionIfAbsent(descriptions, surface.resourceKey(), surface.group(), surface.schema());
             }
         }
@@ -2901,7 +2903,9 @@ public class SemanticDomainCatalogService {
             putResourceDescriptionIfAbsent(descriptions, action.resourceKey(), action.group(), action.responseSchema());
         }
         for (SurfaceDefinition surface : sortSurfaces(surfaces)) {
-            putResourceDescriptionIfAbsent(descriptions, surface.resourceKey(), surface.group(), surface.schema());
+            if (!isCrossResourceRelatedSurface(surface)) {
+                putResourceDescriptionIfAbsent(descriptions, surface.resourceKey(), surface.group(), surface.schema());
+            }
         }
         for (ActionDefinition action : sortActions(actions)) {
             putResourceDescriptionIfAbsent(descriptions, action.resourceKey(), action.group(), action.requestSchema());
@@ -3066,6 +3070,17 @@ public class SemanticDomainCatalogService {
                         .thenComparingInt(SurfaceDefinition::order)
                         .thenComparing(SurfaceDefinition::id, Comparator.nullsLast(String::compareTo)))
                 .toList();
+    }
+
+    private boolean isCrossResourceRelatedSurface(SurfaceDefinition surface) {
+        if (surface == null) {
+            return false;
+        }
+        RelatedResourceSurface relatedResource = surface.relatedResource();
+        return relatedResource != null
+                && relatedResource.present()
+                && StringUtils.hasText(relatedResource.childResourceKey())
+                && !relatedResource.childResourceKey().trim().equals(surface.resourceKey());
     }
 
     private <T> List<T> safe(List<T> values) {

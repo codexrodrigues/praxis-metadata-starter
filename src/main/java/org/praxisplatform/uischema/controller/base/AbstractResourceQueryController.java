@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -1023,9 +1024,11 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         }
         keys.addAll(descriptor.dependsOn());
         keys.addAll(descriptor.dependencyFilterMap().keySet());
+        keys.addAll(descriptor.dependencyFilterMap().values());
         EntityLookupDescriptor lookup = descriptor.entityLookup();
         if (lookup != null) {
             keys.addAll(lookup.dependencyFilterMap().keySet());
+            keys.addAll(lookup.dependencyFilterMap().values());
         }
         keys.removeIf(key -> key == null || key.isBlank());
         return keys;
@@ -1290,6 +1293,65 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                             result.persistedVersion())
             );
         });
+    }
+
+    public static final String ITEM_SURFACE_SUMMARY_SUBPATH = "/{id}/surfaces/{surfaceId}/summary";
+
+    /**
+     * Builds the compact response for a host-authorized reader. The reader must enforce
+     * item access and project permitted values before returning them.
+     */
+    protected final ResponseEntity<org.praxisplatform.uischema.surface.ContextualSurfaceRead> contextualSurfaceRead(
+            ID id, String surfaceId, java.util.function.Supplier<Map<String, Object>> authorizedRead) {
+        if (surfaceCatalogService == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Surface discovery unavailable");
+        }
+        try (var ignored = org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.open()) {
+            var response = surfaceCatalogService.readContextualSurface(getResourceKey(), id, surfaceId, authorizedRead);
+            return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(response);
+        }
+    }
+
+    @GetMapping(ITEM_SURFACE_SUMMARY_SUBPATH)
+    @Operation(
+            summary = "Consultar resumo contextual compacto de uma surface de item",
+            description = "Retorna os campos projetados e sanitizados para visualizacao rapida/contextual de um item "
+                    + "da colecao, validando antes da consulta a existencia e disponibilidade estatica da surface, "
+                    + "a revisao estrutural da publicacao OpenAPI e as permissoes de acesso ao registro."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Resumo contextual e destinos permitidos retornados com sucesso.",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = org.praxisplatform.uischema.surface.ContextualSurfaceRead.class)
+                    )
+            ),
+            @ApiResponse(responseCode = "403", description = "Acesso negado ao registro, ao escopo atual ou a surface solicitada."),
+            @ApiResponse(responseCode = "404", description = "Registro ou recurso nao encontrado."),
+            @ApiResponse(responseCode = "503", description = "Descoberta contextual ou publicacao OpenAPI indisponivel no momento.")
+    })
+    public ResponseEntity<org.praxisplatform.uischema.surface.ContextualSurfaceRead> getContextualSurfaceSummary(
+            @Parameter(description = "Identificador canonico do registro consultado (numerico, textual ou chave composta).")
+            @PathVariable ID id,
+            @Parameter(description = "Identificador canonico da surface de item habilitada para leitura contextual (ex.: detail).")
+            @PathVariable String surfaceId) {
+        return contextualSurfaceRead(id, surfaceId, () -> readDefaultContextualSurfaceSummary(id, surfaceId));
+    }
+
+    protected Map<String, Object> readDefaultContextualSurfaceSummary(ID id, String surfaceId) {
+        getService().assertContextualSurfaceReadScope(surfaceId);
+        org.praxisplatform.uischema.surface.ContextualSurfaceSummaryProjector.ProjectionPlan plan =
+                org.praxisplatform.uischema.surface.ContextualSurfaceSummaryProjector.planFor(
+                        getControllerClass(),
+                        resolveResponseDtoClass(),
+                        getIdFieldName()
+                );
+        java.util.Set<String> principalAuthorities =
+                org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityContextResolver
+                        .currentPrincipalAuthorities();
+        return getService().readContextualSurfaceSummary(id, plan, principalAuthorities);
     }
 
     @GetMapping("/{id}/surfaces")

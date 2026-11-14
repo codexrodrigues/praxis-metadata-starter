@@ -136,13 +136,39 @@ public class SurfaceCatalogService {
      * Retorna apenas as surfaces item-level para um recurso e instancia especificos.
      */
     public SurfaceCatalogResponse findItemSurfaces(String resourceKey, Object resourceId) {
+        List<SurfaceDefinition> itemDefinitions = resolveItemDefinitions(resourceKey);
+        return materializeItemSurfaces(resourceKey, resourceId, itemDefinitions);
+    }
+
+    /**
+     * Evaluates item destinations and the authorized read outside document locks.
+     * The response is admitted only while its original publication remains current.
+     */
+    public ContextualSurfaceRead readContextualSurface(String resourceKey, Object resourceId,
+            String surfaceId, java.util.function.Supplier<Map<String, Object>> authorizedRead) {
+        try (var fence = documents == null ? null : documents.admitContextualReadPublication()) {
+            var response = materializeContextualRead(resourceKey, resourceId, surfaceId, authorizedRead,
+                    fence == null ? null : fence.publicationRevision());
+            if (fence != null) fence.verify();
+            return response;
+        }
+    }
+
+    private List<SurfaceDefinition> resolveItemDefinitions(String resourceKey) {
         List<SurfaceDefinition> resourceDefinitions = requireDefinitions(
                 sort(surfaceDefinitionRegistry.findByResourceKey(resourceKey)),
                 SurfaceCatalogNotFoundException.unknownResourceKey(resourceKey)
         );
-        List<SurfaceDefinition> definitions = requireDefinitions(resourceDefinitions.stream()
+        return requireDefinitions(resourceDefinitions.stream()
                 .filter(definition -> definition.scope() == SurfaceScope.ITEM)
                 .toList(), SurfaceCatalogNotFoundException.missingItemSurfaces(resourceKey));
+    }
+
+    private SurfaceCatalogResponse materializeItemSurfaces(
+            String resourceKey,
+            Object resourceId,
+            List<SurfaceDefinition> definitions
+    ) {
         String resolvedResourcePath = singleValue(definitions, SurfaceDefinition::resourcePath);
         String resolvedGroup = singleValue(definitions, SurfaceDefinition::group);
         return withRelatedProjection(definitions, projection -> {
@@ -155,6 +181,47 @@ public class SurfaceCatalogService {
                     definitions.stream().map(def -> toCatalogItem(def, contexts, resourceId, projection)).toList()
             );
         });
+    }
+
+    private ContextualSurfaceRead materializeContextualRead(String resourceKey, Object resourceId, String surfaceId,
+            java.util.function.Supplier<Map<String, Object>> authorizedRead, String publication) {
+        List<SurfaceDefinition> itemDefinitions = resolveItemDefinitions(resourceKey);
+        SurfaceDefinition target = itemDefinitions.stream()
+                .filter(definition -> surfaceId != null
+                        && surfaceId.equals(definition.id())
+                        && StringUtils.hasText(definition.contextualReadPath()))
+                .findFirst()
+                .orElse(null);
+        if (target == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Contextual read unavailable");
+        }
+        if (target.requiredAuthorities() != null && !target.requiredAuthorities().isEmpty()) {
+            SurfaceAvailabilityContext preContext = contextResolver != null
+                    ? contextResolver.resolve(resourceKey, target.resourcePath(), null)
+                    : null;
+            java.util.Set<String> granted = preContext != null
+                    ? (preContext.authorities() != null ? preContext.authorities() : java.util.Set.of())
+                    : DefaultSurfaceAvailabilityContextResolver.currentPrincipalAuthorities();
+            if (!granted.containsAll(target.requiredAuthorities())) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.FORBIDDEN, "Contextual read unavailable");
+            }
+        }
+        Map<String, Object> values = authorizedRead.get();
+        var catalog = withAvailabilityOnly(() -> materializeItemSurfaces(resourceKey, resourceId, itemDefinitions));
+        var destinations = new SurfaceCatalogResponse(catalog.resourceKey(), catalog.resourcePath(),
+                catalog.group(), catalog.resourceId(), catalog.surfaces().stream()
+                        .filter(surface -> surface.availability().allowed())
+                        .toList());
+        boolean available = destinations.surfaces().stream().anyMatch(surface ->
+                    surfaceId.equals(surface.id()) && StringUtils.hasText(surface.contextualReadPath()));
+        if (!available) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Contextual read unavailable");
+        }
+        return new ContextualSurfaceRead(surfaceId, publication,
+                java.util.Collections.unmodifiableMap(new LinkedHashMap<>(values)), destinations);
     }
 
     private SurfaceCatalogItem toCatalogItem(
@@ -205,7 +272,8 @@ public class SurfaceCatalogService {
                 definition.tags(),
                 projection == null ? resolveRelatedResource(definition) : projection.related().get(definition),
                 effectiveLegalPurpose,
-                effectiveLegalBasis
+                effectiveLegalBasis,
+                definition.contextualReadPath()
         );
     }
 
@@ -306,7 +374,7 @@ public class SurfaceCatalogService {
                 return owner.projection;
             });
             T result = consumer.apply(projection);
-            if (projection.fence() != null) projection.fence().read(() -> null);
+            if (projection.fence() != null) projection.fence().verify();
             return result;
         }
     }

@@ -60,14 +60,14 @@ final class BulkCatalogPhase {
             join pg_catalog.pg_namespace n on n.oid=t.relnamespace where n.nspname='praxis_bulk'
             """) : List.of();
         // Each function is one row, including its ACL as an array; no attribute/ACL join multiplication.
-        functions = scope != Scope.ROLES ? reader.read("""
+        functions = scope != Scope.ROLES ? reader.readFunctions("""
             select p.oid,p.proname,p.proname||'('||pg_catalog.pg_get_function_identity_arguments(p.oid)||')' signature,
-              p.pronargs,p.prosrc,p.prosecdef,pg_catalog.pg_get_userbyid(p.proowner) owner,p.proconfig,
+              p.pronargs,%s,p.prosecdef,pg_catalog.pg_get_userbyid(p.proowner) owner,p.proconfig,
               p.provolatile,p.proparallel,p.proleakproof,p.prokind,p.prorettype::regtype::text return_type,l.lanname,
               array(select coalesce(r.rolname,'PUBLIC')||'|'||a.privilege_type||'|'||a.is_grantable::text
                 from pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a
                 left join pg_catalog.pg_roles r on r.oid=a.grantee where a.grantee<>p.proowner) acl
-            from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace join pg_catalog.pg_language l on l.oid=p.prolang
+            from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace join pg_catalog.pg_language l on l.oid=p.prolang%s
             where n.nspname='praxis_bulk'
             """) : List.of();
         triggers = scope != Scope.ROLES ? reader.read("""
@@ -138,23 +138,42 @@ final class BulkCatalogPhase {
                 """;
 
     static final class LiveTimeout {
-        private final boolean lifecycle;
+        private final boolean independentLifecycle;
+        private final boolean setTransactionIsolation;
+        private final boolean useCatalogPath;
         private String previous;
 
         LiveTimeout() { this(false); }
-        private LiveTimeout(boolean lifecycle) { this.lifecycle = lifecycle; }
+
+        LiveTimeout(boolean independentLifecycle) {
+            this(independentLifecycle, false);
+        }
+
+        LiveTimeout(boolean independentLifecycle, boolean setTransactionIsolation) {
+            this(independentLifecycle, setTransactionIsolation, false);
+        }
+
+        LiveTimeout(boolean independentLifecycle, boolean setTransactionIsolation, boolean useCatalogPath) {
+            this.independentLifecycle = independentLifecycle;
+            this.setTransactionIsolation = setTransactionIsolation;
+            this.useCatalogPath = useCatalogPath;
+        }
 
         static LiveTimeout lifecycle() { return new LiveTimeout(true); }
 
-        String previous() { return previous; }
+        static String prefix(boolean independentLifecycle) {
+            return independentLifecycle ? LIFECYCLE_TIMEOUT_PREFIX : LIVE_TIMEOUT_PREFIX;
+        }
 
-        String prefix() { return lifecycle ? LIFECYCLE_TIMEOUT_PREFIX : LIVE_TIMEOUT_PREFIX; }
+        String prefix() { return prefix(independentLifecycle); }
+
+        String previous() { return previous; }
 
         void read(ResultSet rows) throws SQLException {
             require(rows != null && rows.next(), "Live timeout capture row is absent");
             String captured = rows.getString(1);
             require(captured != null && rows.getString(2) != null
-                    && (!lifecycle || rows.getString(3) != null) && !rows.next(),
+                    && (!independentLifecycle || rows.getString(3) != null) && !rows.next(),
                     "Live timeout capture returned invalid rows");
             previous = captured;
         }
@@ -276,6 +295,21 @@ final class BulkCatalogPhase {
             this.batch = live || scope == Scope.CAPACITY_INSTALLATION;
             this.timeout = timeout;
         }
+        List<Fact> readFunctions(String projection) throws SQLException {
+            if (!live) return read(projection.formatted("p.prosrc", ""));
+            // The materialized projection computes one fresh digest per function OID.
+            // A body absent from the packaged dictionary is returned intact to the validator.
+            return read("""
+                with function_digests as materialized (
+                    select p.oid, pg_catalog.encode(
+                        pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')), 'hex') digest
+                    from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace
+                    where n.nspname='praxis_bulk'
+                )
+                """ + projection.formatted(
+                    "case when d.digest=any(?::text[]) then null else p.prosrc end prosrc, d.digest prosrc_digest",
+                    "\njoin function_digests d on d.oid=p.oid"));
+        }
         List<Fact> readTableAcl(String sql) throws SQLException {
             if (!live) return read(sql);
             // Compress repeated identities only. Grant options, ownership, column grants and
@@ -288,13 +322,6 @@ final class BulkCatalogPhase {
             if (!batch) {
                 try (var s = connection.createStatement(); var r = s.executeQuery(sql)) { return BulkCatalogPhase.read(r); }
             }
-            // Fresh server digests compress only byte-identical packaged bodies. All existing
-            // validators still see the exact original prosrc, including on a cache miss.
-            if (live && sql.contains("p.prosrc")) sql = sql.replace("p.prosrc", """
-                case when pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')
-                    =any(?::text[]) then null else p.prosrc end prosrc,
-                pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') prosrc_digest
-                """);
             var facts = new ArrayList<Fact>(); queries.add(sql); results.add(facts);
             return Collections.unmodifiableList(facts);
         }
@@ -320,6 +347,10 @@ final class BulkCatalogPhase {
             require(queries.size() == (live ? 7 : 8), "Catalog query inventory differs");
             String sql = String.join(";\n", queries);
             if (timeout != null) sql = timeout.prefix() + sql;
+            if (timeout != null && timeout.useCatalogPath)
+                sql = "set local search_path = pg_catalog, pg_temp;\n" + sql;
+            if (timeout != null && timeout.setTransactionIsolation)
+                sql = "set transaction isolation level read committed;\n" + sql;
             try (var statement = connection.prepareStatement(sql)) {
                 var bodyDigests = live
                         ? connection.createArrayOf("text", BulkCatalogFunctionBodies.packaged().keySet().toArray())
@@ -337,6 +368,16 @@ final class BulkCatalogPhase {
                     statement.setArray(parameter++, rootsArray);
                     statement.setString(parameter, owner);
                     boolean result = statement.execute();
+                    if (timeout != null && timeout.setTransactionIsolation) {
+                        require(!result && statement.getUpdateCount() == 0,
+                                "Lifecycle isolation configuration result is absent");
+                        result = statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT);
+                    }
+                    if (timeout != null && timeout.useCatalogPath) {
+                        require(!result && statement.getUpdateCount() == 0,
+                                "Lifecycle catalog path configuration result is absent");
+                        result = statement.getMoreResults(java.sql.Statement.CLOSE_CURRENT_RESULT);
+                    }
                     if (timeout != null) {
                         require(result, "Live timeout capture result is absent");
                         try (var rows = statement.getResultSet()) {

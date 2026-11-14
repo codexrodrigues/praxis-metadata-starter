@@ -38,6 +38,11 @@ public class ResourceServiceDelegatingStateSnapshotProvider implements ResourceS
         } catch (org.springframework.core.convert.ConversionException | IllegalArgumentException invalidIdentity) {
             return Optional.empty();
         }
+        Optional<Optional<ResourceStateSnapshot>> seeded =
+                ResourceStateSnapshotScope.findReusableResourceSnapshot(resourceKey, id);
+        if (seeded.isPresent()) {
+            return seeded.get();
+        }
         return service.findResourceStateSnapshot(id);
     }
 }

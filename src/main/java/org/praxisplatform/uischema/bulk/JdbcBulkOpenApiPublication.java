@@ -1,7 +1,9 @@
 package org.praxisplatform.uischema.bulk;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Objects;
@@ -29,13 +31,55 @@ final class JdbcBulkOpenApiPublication {
                 """)) {
             query.setString(1, namespaceId); query.setString(2, deploymentId);
             try (var rows = query.executeQuery()) {
-                if (!rows.next()) throw new SQLException("OpenAPI publication lock returned no row");
-                var result = new Snapshot(rows.getString(1), rows.getLong(2), rows.getString(3),
-                        rows.getObject(4, OffsetDateTime.class).toInstant());
-                if (rows.next()) throw new SQLException("OpenAPI publication lock returned duplicate rows");
-                return result;
+                return readSnapshot(rows);
             }
         }
+    }
+
+    /** Restores the attested timeout and acquires the publication locks in one submission. */
+    static Snapshot lockForVerifiedRead(Connection connection, String namespaceId, String deploymentId,
+            String previousTimeout) throws SQLException {
+        requireTransaction(connection);
+        Objects.requireNonNull(previousTimeout, "previousTimeout");
+        // The lateral read depends on the directly verified binding. The existing function
+        // remains responsible for acquiring namespace and publication locks in order.
+        try (var query = connection.prepareStatement("""
+                select pg_catalog.set_config('statement_timeout', ?, true);
+                with binding as materialized (
+                    select namespace_id, deployment_id
+                    from praxis_bulk.praxis_bulk_namespace_binding
+                    where namespace_id = ? and deployment_id = ?
+                )
+                select p.state, p.generation, p.document_digest, p.updated_at
+                from binding b
+                cross join lateral praxis_bulk.lock_openapi_publication(b.namespace_id, b.deployment_id) p
+                """)) {
+            query.setString(1, previousTimeout);
+            query.setString(2, namespaceId);
+            query.setString(3, deploymentId);
+            if (!query.execute()) throw new SQLException("Publication timeout restoration result is absent");
+            try (var rows = query.getResultSet()) {
+                if (!rows.next() || !previousTimeout.equals(rows.getString(1)) || rows.next())
+                    throw new SQLException("Publication timeout restoration returned invalid rows");
+            }
+            if (!query.getMoreResults(Statement.CLOSE_CURRENT_RESULT))
+                throw new SQLException("Verified publication lock result is absent");
+            Snapshot snapshot;
+            try (var rows = query.getResultSet()) {
+                snapshot = readSnapshot(rows);
+            }
+            if (query.getMoreResults(Statement.CLOSE_CURRENT_RESULT) || query.getUpdateCount() != -1)
+                throw new SQLException("Verified publication lock returned unexpected extra results");
+            return snapshot;
+        }
+    }
+
+    private static Snapshot readSnapshot(ResultSet rows) throws SQLException {
+        if (!rows.next()) throw new SQLException("OpenAPI publication lock returned no row");
+        var snapshot = new Snapshot(rows.getString(1), rows.getLong(2), rows.getString(3),
+                rows.getObject(4, OffsetDateTime.class).toInstant());
+        if (rows.next()) throw new SQLException("OpenAPI publication lock returned duplicate rows");
+        return snapshot;
     }
 
     /** CAS publication, or invalidate all currently READY operations before global suspension. */

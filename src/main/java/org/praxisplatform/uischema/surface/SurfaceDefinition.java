@@ -35,8 +35,35 @@ public record SurfaceDefinition(
         List<String> tags,
         RelatedResourceSurface relatedResource,
         String legalPurpose,
-        String legalBasisRef
+        String legalBasisRef,
+        String contextualReadPath
 ) {
+    public SurfaceDefinition(
+        String id,
+        String resourceKey,
+        String resourcePath,
+        String group,
+        SurfaceKind kind,
+        SurfaceScope scope,
+        String title,
+        String description,
+        String intent,
+        String icon,
+        String schemaType,
+        SurfaceResponseCardinality responseCardinality,
+        CanonicalOperationRef operation,
+        CanonicalSchemaRef schema,
+        int order,
+        List<String> requiredAuthorities,
+        List<String> allowedStates,
+        List<String> tags,
+        RelatedResourceSurface relatedResource,
+        String legalPurpose,
+        String legalBasisRef
+    ) {
+        this(id, resourceKey, resourcePath, group, kind, scope, title, description, intent, icon, schemaType, responseCardinality, operation, schema, order, requiredAuthorities, allowedStates, tags, relatedResource, legalPurpose, legalBasisRef, null);
+    }
+
     public SurfaceDefinition {
         icon = icon != null && !icon.isBlank() ? icon.trim() : null;
         legalPurpose = legalPurpose != null && !legalPurpose.isBlank() ? legalPurpose.trim() : null;

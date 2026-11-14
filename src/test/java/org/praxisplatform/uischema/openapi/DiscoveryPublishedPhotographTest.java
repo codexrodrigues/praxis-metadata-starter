@@ -39,13 +39,293 @@ class DiscoveryPublishedPhotographTest {
             + "{\"name\":\"child\",\"url\":\"/v3/api-docs/child\"}]}";
 
     @Test
+    void contextualAdmissionChecksOnceBeforeAndOnceAfterUnlockedMaterialization() {
+        try (var f = new Fixture(true)) {
+            var surfaces = new SurfaceCatalogService(new SurfaceDefinitionRegistry() {
+                @Override public List<SurfaceDefinition> findByResourceKey(String key) {
+                    var d = definition();
+                    return List.of(new SurfaceDefinition(d.id(), d.resourceKey(), d.resourcePath(), d.group(),
+                            d.kind(), d.scope(), d.title(), d.description(), d.intent(), d.icon(), d.schemaType(),
+                            d.responseCardinality(), d.operation(), d.schema(), d.order(), d.requiredAuthorities(),
+                            d.allowedStates(), d.tags(), null, null, null, PATH + "/{id}/summary"));
+                }
+                @Override public List<SurfaceDefinition> findByGroup(String group) { return List.of(); }
+            }, (d, c) -> AvailabilityDecision.allowAll(), (key, path, id) -> null, f.resolver, f.documents);
+
+            var reads = new AtomicInteger();
+            var response = surfaces.readContextualSurface(RESOURCE, 42, "children", () -> {
+                f.assertUnlocked();
+                assertThat(f.guards).hasValue(1);
+                reads.incrementAndGet();
+                return Map.of("id", 42);
+            });
+            assertThat(response.data()).containsEntry("id", 42);
+            assertThat(response.schemaPublication()).isEqualTo("1:" + f.candidate.digest());
+            assertThat(f.guards).hasValue(2);
+            assertThat(reads).hasValue(1);
+
+            f.guards.set(0);
+            assertThatThrownBy(() -> surfaces.readContextualSurface(RESOURCE, 42, "children", () -> {
+                f.assertUnlocked();
+                f.generation.incrementAndGet();
+                return Map.of("id", 42);
+            })).isInstanceOf(GovernedOpenApiPublicationUnavailableException.class);
+            assertThat(f.guards).hasValue(2);
+            f.assertUnlocked();
+
+            f.documents.installBulkOpenApiPublication(f.candidate, 2);
+            f.guards.set(0);
+            assertThat(surfaces.readContextualSurface(RESOURCE, 42, "children", () -> Map.of("id", 42))
+                    .schemaPublication()).isEqualTo("2:" + f.candidate.digest());
+            assertThat(f.guards).hasValue(2);
+        }
+    }
+
+    @Test
+    void contextualAdmissionRejectsMissingPublicationAndClosesItsRequestFence() {
+        try (var f = new Fixture(false)) {
+            assertThatThrownBy(f.documents::admitContextualReadPublication)
+                    .isInstanceOf(GovernedOpenApiPublicationUnavailableException.class);
+        }
+        try (var f = new Fixture(true)) {
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                assertThatThrownBy(f.documents::admitContextualReadPublication)
+                        .isInstanceOf(IllegalStateException.class);
+                assertThat(f.guards).hasValue(0);
+            } finally {
+                TransactionSynchronizationManager.setActualTransactionActive(false);
+            }
+            var fence = f.documents.admitContextualReadPublication();
+            f.assertUnlocked();
+            fence.close();
+            assertThatThrownBy(fence::verify).isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("closed");
+            assertThat(f.guards).hasValue(1);
+        }
+    }
+
+    @Test
+    void concurrentLocalPublicationReplacementReturnsSafe503() throws Exception {
+        try (var f = new Fixture(true); var writer = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders
+                    .standaloneSetup(new PublicationRaceController(() -> {
+                        try (var fence = f.documents.admitContextualReadPublication()) {
+                            writer.submit(() -> {
+                                f.generation.set(2);
+                                f.documents.installBulkOpenApiPublication(f.candidate, 2);
+                            }).get(5, java.util.concurrent.TimeUnit.SECONDS);
+                            int guardsAfterInstall = f.guards.get();
+                            try {
+                                fence.verify();
+                            } finally {
+                                assertThat(f.guards).hasValue(guardsAfterInstall);
+                            }
+                            return Map.of("payload", "PRIVATE_SUMMARY");
+                        }
+                    }))
+                    .setControllerAdvice(new org.praxisplatform.uischema.rest.exceptionhandler.GlobalExceptionHandler())
+                    .build();
+            var request = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/publication-race");
+            var response = mvc.perform(request).andReturn().getResponse();
+            assertThat(response.getStatus()).isEqualTo(503);
+            assertThat(response.getContentAsString()).contains("GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE")
+                    .doesNotContain("PRIVATE_SUMMARY", "Published photograph changed");
+            try (var fence = f.documents.admitContextualReadPublication()) {
+                assertThat(fence.publicationRevision()).startsWith("2:");
+                fence.verify();
+            }
+        }
+    }
+
+    @org.springframework.web.bind.annotation.RestController
+    private record PublicationRaceController(java.util.concurrent.Callable<Map<String, Object>> read) {
+        @org.springframework.web.bind.annotation.GetMapping("/publication-race")
+        public Map<String, Object> get() throws Exception { return read.call(); }
+    }
+
+    @Test
+    void contextualSurfaceSummaryEndpointFailsClosedOnSuspensionAndSameDigestRepublicationThenRecovers() throws Exception {
+        try (var f = new Fixture(true); var writer = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var related = definition();
+            var detail = new SurfaceDefinition(
+                    "detail", RESOURCE, PATH, "parent",
+                    SurfaceKind.READ_PROJECTION, SurfaceScope.ITEM, "Detail", "", "view", null,
+                    "response", SurfaceResponseCardinality.OBJECT,
+                    new CanonicalOperationRef("parent", "parent.view", PATH + "/{id}", "GET"),
+                    new CanonicalSchemaRef("parent-schema", "response", "/schemas/filtered?path=" + PATH),
+                    0, List.of(), List.of(), List.of(), null, null, null,
+                    PATH + "/{id}/surfaces/detail/summary"
+            );
+            SurfaceDefinitionRegistry registry = new SurfaceDefinitionRegistry() {
+                @Override public List<SurfaceDefinition> findByResourceKey(String key) { return List.of(detail, related); }
+                @Override public List<SurfaceDefinition> findByGroup(String group) { return List.of(detail, related); }
+            };
+            var surfaces = new SurfaceCatalogService(registry, (d, c) -> {
+                f.assertUnlocked();
+                return AvailabilityDecision.allowAll();
+            }, (key, path, id) -> {
+                f.assertUnlocked();
+                return new SurfaceAvailabilityContext(key, path, id, null, Locale.ROOT, null, Set.of(), null);
+            }, f.resolver, f.documents);
+
+            var readAction = new java.util.concurrent.atomic.AtomicReference<java.util.function.Supplier<Map<String, Object>>>();
+            @SuppressWarnings("unchecked")
+            org.praxisplatform.uischema.service.base.BaseResourceQueryService<ParentSummaryDto, Integer, org.praxisplatform.uischema.filter.dto.GenericFilterDTO> service =
+                    org.mockito.Mockito.mock(org.praxisplatform.uischema.service.base.BaseResourceQueryService.class);
+            org.mockito.Mockito.when(service.getResourceKey()).thenReturn(RESOURCE);
+            org.mockito.Mockito.when(service.getIdFieldName()).thenReturn("id");
+            org.mockito.Mockito.when(service.readContextualSurfaceSummary(
+                    org.mockito.ArgumentMatchers.eq(42),
+                    org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any()))
+                    .thenAnswer(invocation -> readAction.get().get());
+
+            var controller = new ParentSummaryController(service, surfaces);
+            var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller)
+                    .setControllerAdvice(new org.praxisplatform.uischema.rest.exceptionhandler.GlobalExceptionHandler())
+                    .build();
+            var request = org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                    .get(PATH + "/42/surfaces/detail/summary");
+
+            // (a) Durable guard suspension (failOnGuard = 2) fails closed with safe 503
+            f.failOnGuard = 2;
+            readAction.set(() -> Map.of("id", 42, "name", "PRIVATE_SUMMARY"));
+            var suspended = mvc.perform(request).andReturn().getResponse();
+            assertThat(suspended.getStatus()).isEqualTo(503);
+            assertThat(suspended.getContentAsString())
+                    .contains("GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE")
+                    .doesNotContain("PRIVATE_SUMMARY", "guard unavailable");
+            f.assertUnlocked();
+            f.assertFencesClosed();
+
+            // (b) Durable generation advance during authorizedRead fails closed with safe 503
+            f.failOnGuard = 0;
+            f.guards.set(0);
+            readAction.set(() -> {
+                f.generation.set(2);
+                return Map.of("id", 42, "name", "PRIVATE_SUMMARY");
+            });
+            var staleGeneration = mvc.perform(request).andReturn().getResponse();
+            assertThat(staleGeneration.getStatus()).isEqualTo(503);
+            assertThat(staleGeneration.getContentAsString())
+                    .contains("GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE")
+                    .doesNotContain("PRIVATE_SUMMARY", "durable tuple changed");
+            f.assertUnlocked();
+            f.assertFencesClosed();
+            f.generation.set(1);
+
+            // (c) Concurrent local republication with identical OpenAPI digest fails closed with safe 503
+            f.guards.set(0);
+            readAction.set(() -> {
+                try {
+                    writer.submit(() -> {
+                        f.generation.set(2);
+                        f.documents.installBulkOpenApiPublication(f.candidate, 2);
+                    }).get(5, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (Exception ex) {
+                    throw new RuntimeException(ex);
+                }
+                return Map.of("id", 42, "name", "PRIVATE_SUMMARY");
+            });
+            var republished = mvc.perform(request).andReturn().getResponse();
+            assertThat(republished.getStatus()).isEqualTo(503);
+            assertThat(republished.getContentAsString())
+                    .contains("GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE")
+                    .doesNotContain("PRIVATE_SUMMARY", "Published photograph changed");
+            f.assertUnlocked();
+            f.assertFencesClosed();
+
+            // (d) Clean recovery serves 200 with Cache-Control: no-store and synchronized generation:digest
+            readAction.set(() -> Map.of("id", 42, "name", "PUBLIC_SUMMARY"));
+            f.guards.set(0);
+            var recovered = mvc.perform(request).andReturn().getResponse();
+            assertThat(recovered.getStatus()).isEqualTo(200);
+            assertThat(recovered.getHeader("Cache-Control")).contains("no-store");
+            var payload = JSON.readTree(recovered.getContentAsString());
+            assertThat(payload.path("surfaceId").asText()).isEqualTo("detail");
+            assertThat(payload.path("schemaPublication").asText()).isEqualTo("2:" + f.candidate.digest());
+            assertThat(payload.path("data").path("name").asText()).isEqualTo("PUBLIC_SUMMARY");
+            assertThat(payload.path("destinations").path("surfaces")).hasSize(2);
+            var childrenSurface = java.util.stream.StreamSupport.stream(
+                            payload.path("destinations").path("surfaces").spliterator(), false)
+                    .filter(node -> "children".equals(node.path("id").asText()))
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(childrenSurface.path("availability").path("allowed").asBoolean()).isTrue();
+            assertThat(childrenSurface.path("relatedResource").isNull()).isTrue();
+            assertThat(f.guards.get()).isEqualTo(2);
+            f.assertUnlocked();
+            f.assertFencesClosed();
+
+            // (e) Pre-transactional scope rejection fails closed with 403 before invoking readContextualSurfaceSummary
+            var readInvoked = new java.util.concurrent.atomic.AtomicBoolean(false);
+            readAction.set(() -> {
+                readInvoked.set(true);
+                return Map.of("id", 42, "name", "PRIVATE_SUMMARY");
+            });
+            org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.FORBIDDEN, "Scope denied"))
+                    .when(service).assertContextualSurfaceReadScope("detail");
+            var scopeDenied = mvc.perform(request).andReturn().getResponse();
+            assertThat(scopeDenied.getStatus()).isEqualTo(403);
+            assertThat(scopeDenied.getContentAsString()).doesNotContain("PRIVATE_SUMMARY");
+            assertThat(readInvoked.get()).isFalse();
+            f.assertUnlocked();
+            f.assertFencesClosed();
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(keyField = "id", titleField = "name")
+    static class ParentSummaryDto {
+        private Integer id;
+        @org.praxisplatform.uischema.extension.annotation.UISchema(label = "Name", quickViewVisible = true, quickViewOrder = 1)
+        private String name;
+        public Integer getId() { return id; }
+        public void setId(Integer id) { this.id = id; }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+    }
+
+    @org.springframework.web.bind.annotation.RestController
+    @org.springframework.web.bind.annotation.RequestMapping(PATH)
+    @org.praxisplatform.uischema.annotation.ApiResource(value = PATH, resourceKey = RESOURCE)
+    static class ParentSummaryController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    ParentSummaryDto, Integer, org.praxisplatform.uischema.filter.dto.GenericFilterDTO> {
+        private final org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                ParentSummaryDto, Integer, org.praxisplatform.uischema.filter.dto.GenericFilterDTO> service;
+
+        ParentSummaryController(
+                org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                        ParentSummaryDto, Integer, org.praxisplatform.uischema.filter.dto.GenericFilterDTO> service,
+                SurfaceCatalogService surfaces) {
+            this.service = service;
+            ReflectionTestUtils.setField(this, "surfaceCatalogService", surfaces);
+            initializeBasePath();
+        }
+
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                ParentSummaryDto, Integer, org.praxisplatform.uischema.filter.dto.GenericFilterDTO> getService() {
+            return service;
+        }
+
+        @Override
+        protected Integer getResponseId(ParentSummaryDto dto) { return dto.getId(); }
+
+        @Override
+        protected String getIdFieldName() { return "id"; }
+    }
+
+    @Test
     void directOperationGuardRunsCallbacksOutsideLocksAndChecksTheFinalFence() {
         try (var f = new Fixture(true)) {
             var calls = new AtomicInteger();
             var service = f.capabilities(() -> { f.assertUnlocked(); calls.incrementAndGet(); });
             assertThat(service.itemOperationAvailability(RESOURCE, PATH, "view", 42).allowed()).isTrue();
             assertThat(calls).hasValue(1);
-            assertThat(f.guards).hasValue(4);
+            assertThat(f.guards).hasValue(3);
             f.assertFencesClosed();
             f.guards.set(0);
             service.withOperationAvailabilityScope(PATH, () -> {
@@ -55,7 +335,7 @@ class DiscoveryPublishedPhotographTest {
                 }
                 return null;
             });
-            assertThat(f.guards).hasValue(4);
+            assertThat(f.guards).hasValue(3);
             f.assertFencesClosed();
             var drifting = f.capabilities(() -> { f.assertUnlocked(); f.generation.incrementAndGet(); });
             assertThatThrownBy(() -> drifting.itemOperationAvailability(RESOURCE, PATH, "view", 42))
@@ -96,9 +376,9 @@ class DiscoveryPublishedPhotographTest {
             assertThat(snapshot.operations().get("view").supported()).isTrue();
             assertThat(snapshot.surfaces().getFirst().relatedResource().childOperations())
                     .containsExactly(RelatedResourceChildOperation.FILTER, RelatedResourceChildOperation.LIST);
-            // Parent structural/final (4), child structural/final (4). Six requested child operations
+            // Parent structural/final (3), child structural/final (3). Six requested child operations
             // do not induce six separate document pairs. Neither phase invokes the producer again.
-            assertThat(f.guards).hasValue(8);
+            assertThat(f.guards).hasValue(6);
             assertThat(f.source.captures).hasValue(4);
             assertThat(callbacks.get()).isPositive();
             assertThat(f.candidate.response(BASE + "/parent").bytes()).isEqualTo(OAS.getBytes(StandardCharsets.UTF_8));
@@ -123,7 +403,7 @@ class DiscoveryPublishedPhotographTest {
             assertThat(snapshot.canonicalOperations().get("all")).isTrue();
             assertThat(snapshot.operations().get("view").supported()).isTrue();
             assertThat(f.source.captures).hasValue(4);
-            assertThat(f.guards).hasValue(10); // The explicit callback read owns its own fresh guard pair.
+            assertThat(f.guards).hasValue(8); // The explicit callback read owns its own fresh guard pair.
             f.assertUnlocked();
         }
     }
@@ -183,7 +463,7 @@ class DiscoveryPublishedPhotographTest {
                     default -> surfaces.findItemSurfaces(RESOURCE, 42);
                 };
                 assertThat(response.surfaces().getFirst().relatedResource().childOperations()).hasSize(2);
-                assertThat(f.guards).hasValue(4);
+                assertThat(f.guards).hasValue(3);
             }
             assertThat(calls).hasValue(6); // each context + evaluator exactly once per entrypoint
             var deny = f.surfaces(() -> { f.assertUnlocked(); f.generation.set(2); });
@@ -191,6 +471,27 @@ class DiscoveryPublishedPhotographTest {
                     .isInstanceOf(GovernedOpenApiPublicationUnavailableException.class);
             f.assertUnlocked();
             f.assertFencesClosed();
+        }
+    }
+
+    @Test
+    void finalVerificationReadsFreshPublicationOnceWhileCallbackReadBracketsItsWork() {
+        try (var f = new Fixture(true)) {
+            try (var fence = f.documents.withSchemaCacheReadLock(f.documents::captureBulkLifecycleDocumentFence)) {
+                assertThat(f.guards).hasValue(2);
+                fence.verify();
+                assertThat(f.guards).hasValue(3);
+
+                assertThatThrownBy(() -> fence.read(() -> f.generation.incrementAndGet()))
+                        .isInstanceOf(GovernedOpenApiPublicationUnavailableException.class);
+                assertThat(f.guards).hasValue(5);
+
+                assertThatThrownBy(fence::verify)
+                        .isInstanceOf(GovernedOpenApiPublicationUnavailableException.class);
+                assertThat(f.guards).hasValue(6);
+            }
+            f.assertFencesClosed();
+            f.assertUnlocked();
         }
     }
 
@@ -215,7 +516,7 @@ class DiscoveryPublishedPhotographTest {
             assertThat(f.guards).hasValue(0);
             assertThat(f.capabilities(surfaces, f::assertUnlocked).itemCapabilities(RESOURCE, PATH, 42)
                     .canonicalOperations().get("all")).isTrue();
-            assertThat(f.guards).hasValue(4); // same parent guard count as its former two isolated reads
+            assertThat(f.guards).hasValue(3);
             f.assertFencesClosed();
         }
     }
@@ -451,6 +752,11 @@ class DiscoveryPublishedPhotographTest {
             @Override public BulkLifecycleDocumentFence captureBulkLifecycleDocumentFence() {
                 var fence = super.captureBulkLifecycleDocumentFence();
                 fences.add(fence);
+                return fence;
+            }
+            @Override public BulkLifecycleDocumentFence admitContextualReadPublication() {
+                var fence = super.admitContextualReadPublication();
+                if (fence != null) fences.add(fence);
                 return fence;
             }
         };

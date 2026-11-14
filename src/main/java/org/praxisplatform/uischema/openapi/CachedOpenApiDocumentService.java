@@ -478,6 +478,12 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     }
 
     @Override
+    public String admittedPublicationRevision() {
+        PublishedSnapshot publication = publishedScope.get();
+        return publication == null ? null : publication.generation() + ":" + publication.candidate().digest();
+    }
+
+    @Override
     public boolean hasLocalPublishedBulkOpenApiPublication() {
         cacheLifecycleLock.readLock().lock();
         try { return publishedSnapshot != null; }
@@ -641,14 +647,31 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     }
 
     @Override
+    public BulkLifecycleDocumentFence admitContextualReadPublication() {
+        if (publicationGuard == null) return null;
+        requireOutsidePublicationScope();
+        if (publishedScope.get() != null) {
+            throw new IllegalStateException("Contextual read admission requires an independent publication scope");
+        }
+        return withCompositionDeadline(() -> withTimedLock(cacheLifecycleLock.readLock(), () -> {
+            PublishedSnapshot snapshot = publishedSnapshot;
+            requirePublishedSnapshot(snapshot);
+            return newDocumentFence(snapshot);
+        }));
+    }
+
+    @Override
     public BulkLifecycleDocumentFence captureBulkLifecycleDocumentFence() {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
                 || (lifecycleSnapshot.get() == null && publishedScope.get() == null)
                 || (!cacheLifecycleLock.isWriteLockedByCurrentThread() && publishedScope.get() == null))
             throw new IllegalStateException("A document fence must be captured inside its prepared or published lifecycle photograph outside transactions");
+        return newDocumentFence(publishedScope.get());
+    }
+
+    private BulkLifecycleDocumentFence newDocumentFence(PublishedSnapshot capturedPublication) {
         var owner = Thread.currentThread();
         var deadline = compositionDeadline.get();
-        PublishedSnapshot capturedPublication = publishedScope.get();
         long epoch = cacheInvalidationEpoch;
         var internal = (OpenApiInternalRestTemplate) restTemplate;
         long transportRevision = internal.transportRevision();
@@ -663,23 +686,43 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                 if (closed || Thread.currentThread() != owner)
                     throw new IllegalStateException("The lifecycle document fence is closed or belongs to another thread");
                 deadline.remainingNanos();
-                if (cacheInvalidationEpoch != epoch)
-                    throw new IllegalStateException("OpenAPI caches changed after lifecycle descriptor capture");
-                internal.requireTransportRevision(transportRevision);
-                if (capturedPublication != null) {
-                    if (publishedSnapshot != capturedPublication)
+                try {
+                    if (cacheInvalidationEpoch != epoch)
+                        throw new IllegalStateException("OpenAPI caches changed after lifecycle descriptor capture");
+                    internal.requireTransportRevision(transportRevision);
+                    if (capturedPublication != null && publishedSnapshot != capturedPublication)
                         throw new IllegalStateException("Published photograph changed after descriptor capture");
-                    requirePublishedSnapshot(capturedPublication);
+                } catch (IllegalStateException drift) {
+                    if (capturedPublication == null) throw drift;
+                    throw new GovernedOpenApiPublicationUnavailableException(drift);
                 }
+                if (capturedPublication != null) requirePublishedSnapshot(capturedPublication);
             }
 
-            @Override public <T> T read(Supplier<T> verification) {
-                java.util.Objects.requireNonNull(verification, "verification");
+            private <T> T withReadLock(Supplier<T> verification) {
                 if (closed || Thread.currentThread() != owner)
                     throw new IllegalStateException("The lifecycle document fence is closed or belongs to another thread");
                 if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
                     throw new IllegalStateException("Response document fences must be read outside operational transactions");
-                return withTimedLock(cacheLifecycleLock.readLock(), deadline, () -> {
+                return withTimedLock(cacheLifecycleLock.readLock(), deadline, verification);
+            }
+
+            @Override public String publicationRevision() {
+                return capturedPublication == null ? null
+                        : capturedPublication.generation() + ":" + capturedPublication.candidate().digest();
+            }
+
+            @Override public void verify() {
+                withReadLock(() -> {
+                    validate();
+                    deadline.remainingNanos();
+                    return null;
+                });
+            }
+
+            @Override public <T> T read(Supplier<T> verification) {
+                java.util.Objects.requireNonNull(verification, "verification");
+                return withReadLock(() -> {
                     validate();
                     T result = verification.get();
                     validate();

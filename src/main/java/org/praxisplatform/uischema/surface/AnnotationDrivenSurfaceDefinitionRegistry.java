@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.ResolvableType;
+import org.praxisplatform.uischema.schema.ApiResourceIdentityResolver;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.PagedModel;
 import org.springframework.http.HttpEntity;
@@ -64,6 +65,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
     private final ApplicationContext applicationContext;
     private final CanonicalOperationResolver canonicalOperationResolver;
     private final SchemaReferenceResolver schemaReferenceResolver;
+    private final ApiResourceIdentityResolver resourceIdentityResolver;
     private final AnnotationConflictMode conflictMode;
     private volatile SurfaceRegistrySnapshot cachedSnapshot;
 
@@ -75,6 +77,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
             AnnotationConflictMode conflictMode
     ) {
         this.handlerMapping = handlerMapping;
+        this.resourceIdentityResolver = new ApiResourceIdentityResolver(handlerMapping);
         this.applicationContext = applicationContext;
         this.canonicalOperationResolver = canonicalOperationResolver;
         this.schemaReferenceResolver = schemaReferenceResolver;
@@ -107,8 +110,9 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
     }
 
     private SurfaceRegistrySnapshot buildSnapshot() {
-        List<SurfaceDefinition> definitions = handlerMapping.getHandlerMethods().entrySet().stream()
-                .flatMap(entry -> toDefinitions(entry).stream())
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = handlerMapping.getHandlerMethods();
+        List<SurfaceDefinition> definitions = handlerMethods.entrySet().stream()
+                .flatMap(entry -> toDefinitions(entry, handlerMethods).stream())
                 .sorted(Comparator
                         .comparing(SurfaceDefinition::resourceKey, Comparator.nullsLast(String::compareTo))
                         .thenComparingInt(SurfaceDefinition::order)
@@ -120,7 +124,10 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
         return new SurfaceRegistrySnapshot(definitions, byResourceKey, byGroup);
     }
 
-    private List<SurfaceDefinition> toDefinitions(Map.Entry<RequestMappingInfo, HandlerMethod> entry) {
+    private List<SurfaceDefinition> toDefinitions(
+            Map.Entry<RequestMappingInfo, HandlerMethod> entry,
+            Map<RequestMappingInfo, HandlerMethod> handlerMethods
+    ) {
         HandlerMethod handlerMethod = entry.getValue();
         Class<?> controllerClass = handlerMethod.getBeanType();
         if (!AbstractResourceQueryController.class.isAssignableFrom(controllerClass)) {
@@ -142,11 +149,13 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
             return List.of();
         }
         if (explicitSurface != null) {
-            SurfaceDefinition definition = buildExplicitSurface(entry.getKey(), handlerMethod, resource, explicitSurface);
+            SurfaceDefinition definition = buildExplicitSurface(
+                    entry.getKey(), handlerMethod, resource, explicitSurface, handlerMethods);
             return definition != null ? List.of(definition) : List.of();
         }
 
-        SurfaceDefinition automatic = buildAutomaticSurface(entry.getKey(), handlerMethod, resource);
+        SurfaceDefinition automatic = buildAutomaticSurface(
+                entry.getKey(), handlerMethod, resource, handlerMethods);
         return automatic != null ? List.of(automatic) : List.of();
     }
 
@@ -174,12 +183,22 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
             RequestMappingInfo mappingInfo,
             HandlerMethod handlerMethod,
             ResourceDescriptor resource,
-            UiSurface surface
+            UiSurface surface,
+            Map<RequestMappingInfo, HandlerMethod> handlerMethods
     ) {
         CanonicalOperationRef operationRef = canonicalOperationResolver.resolve(handlerMethod, mappingInfo);
         String schemaType = schemaTypeFor(surface.kind());
         RelatedResourceSurface relatedResource = relatedResource(resource, surface);
-        CanonicalSchemaRef schemaRef = resolveSchema(operationRef, schemaType, resource, relatedSchemaIdField(relatedResource));
+        String idField = relatedSchemaIdField(relatedResource, handlerMethods);
+        if (relatedResource == null && surface.scope() == SurfaceScope.ITEM && "response".equals(schemaType)) {
+            idField = resourceIdentityResolver.resolve(resource.resourcePath(), operationRef.path(), operationRef.method())
+                    .map(identity -> identity.get("keyField"))
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .filter(StringUtils::hasText)
+                    .orElse(idField);
+        }
+        CanonicalSchemaRef schemaRef = resolveSchema(operationRef, schemaType, resource, idField);
         SurfaceResponseCardinality responseCardinality = responseCardinalityFor(handlerMethod);
 
         return new SurfaceDefinition(
@@ -205,8 +224,111 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 surface.legalPurpose() != null && surface.legalPurpose().isSpecified()
                         ? surface.legalPurpose().wireValue()
                         : null,
-                StringUtils.hasText(surface.legalBasisRef()) ? surface.legalBasisRef().trim() : null
+                StringUtils.hasText(surface.legalBasisRef()) ? surface.legalBasisRef().trim() : null,
+                contextualReadPath(
+                        resource, surface, operationRef, responseCardinality, relatedResource, handlerMethod, handlerMethods)
         );
+    }
+
+    private String contextualReadPath(
+            ResourceDescriptor resource,
+            UiSurface surface,
+            CanonicalOperationRef operation,
+            SurfaceResponseCardinality cardinality,
+            RelatedResourceSurface relatedResource,
+            HandlerMethod handler,
+            Map<RequestMappingInfo, HandlerMethod> handlerMethods
+    ) {
+        if (!StringUtils.hasText(surface.contextualReadPath())) {
+            return resolveDefaultContextualReadPath(
+                    resource,
+                    surface.id(),
+                    surface.kind(),
+                    surface.scope(),
+                    operation,
+                    cardinality,
+                    relatedResource,
+                    handler,
+                    handlerMethods
+            );
+        }
+        String path = surface.contextualReadPath();
+        boolean bound = path.startsWith(resource.resourcePath() + "/")
+                && path.matches("/[A-Za-z0-9/_-]+\\{id}[A-Za-z0-9/_-]+")
+                && handlerMethods.entrySet().stream()
+                        .anyMatch(entry -> entry.getValue().getBeanType().equals(handler.getBeanType())
+                                && entry.getKey().getPatternValues().contains(path)
+                                && entry.getKey().getMethodsCondition().getMethods().equals(
+                                        java.util.Set.of(org.springframework.web.bind.annotation.RequestMethod.GET)));
+        if (!bound || surface.scope() != SurfaceScope.ITEM || !"GET".equalsIgnoreCase(operation.method())
+                || cardinality != SurfaceResponseCardinality.OBJECT
+                || (surface.kind() != SurfaceKind.VIEW && surface.kind() != SurfaceKind.READ_PROJECTION)) {
+            throw new IllegalStateException("Invalid contextual read binding for " + surface.id());
+        }
+        return path;
+    }
+
+    private String resolveDefaultContextualReadPath(
+            ResourceDescriptor resource,
+            String surfaceId,
+            SurfaceKind kind,
+            SurfaceScope scope,
+            CanonicalOperationRef operation,
+            SurfaceResponseCardinality cardinality,
+            RelatedResourceSurface relatedResource,
+            HandlerMethod handler,
+            Map<RequestMappingInfo, HandlerMethod> handlerMethods
+    ) {
+        if (relatedResource != null
+                || scope != SurfaceScope.ITEM
+                || !"GET".equalsIgnoreCase(operation.method())
+                || cardinality != SurfaceResponseCardinality.OBJECT
+                || (kind != SurfaceKind.VIEW && kind != SurfaceKind.READ_PROJECTION)
+                || !StringUtils.hasText(surfaceId)
+                || !surfaceId.matches("[A-Za-z0-9_-]+")
+                || handler == null
+                || !AbstractResourceQueryController.class.isAssignableFrom(handler.getBeanType())) {
+            return null;
+        }
+        Class<?> responseDtoClass = ResolvableType.forClass(handler.getBeanType())
+                .as(AbstractResourceQueryController.class)
+                .getGeneric(0)
+                .resolve();
+        Class<?> payloadClass = unwrapSurfacePayloadClass(
+                ResolvableType.forMethodReturnType(handler.getMethod(), handler.getBeanType()));
+        if (responseDtoClass == null || payloadClass == null || !payloadClass.equals(responseDtoClass)) {
+            return null;
+        }
+        String summaryTemplate =
+                resource.resourcePath() + AbstractResourceQueryController.ITEM_SURFACE_SUMMARY_SUBPATH;
+        boolean summaryEndpointMapped = handlerMethods.entrySet().stream()
+                .anyMatch(entry -> entry.getValue().getBeanType().equals(handler.getBeanType())
+                        && entry.getKey().getPatternValues().contains(summaryTemplate)
+                        && entry.getKey().getMethodsCondition().getMethods().equals(
+                                java.util.Set.of(org.springframework.web.bind.annotation.RequestMethod.GET)));
+        if (!summaryEndpointMapped) {
+            return null;
+        }
+        return resource.resourcePath() + "/{id}/surfaces/" + surfaceId + "/summary";
+    }
+
+    private Class<?> unwrapSurfacePayloadClass(ResolvableType type) {
+        ResolvableType current = type;
+        while (current != null && current != ResolvableType.NONE) {
+            Class<?> rawClass = current.resolve();
+            if (rawClass == null) {
+                return null;
+            }
+            if (ResponseEntity.class.isAssignableFrom(rawClass)
+                    || HttpEntity.class.isAssignableFrom(rawClass)
+                    || RestApiResponse.class.isAssignableFrom(rawClass)
+                    || org.springframework.hateoas.EntityModel.class.isAssignableFrom(rawClass)) {
+                current = current.getGeneric(0);
+                continue;
+            }
+            return rawClass;
+        }
+        return null;
     }
 
     private RelatedResourceSurface relatedResource(ResourceDescriptor resource, UiSurface surface) {
@@ -226,7 +348,8 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
     private SurfaceDefinition buildAutomaticSurface(
             RequestMappingInfo mappingInfo,
             HandlerMethod handlerMethod,
-            ResourceDescriptor resource
+            ResourceDescriptor resource,
+            Map<RequestMappingInfo, HandlerMethod> handlerMethods
     ) {
         AutomaticSurface automaticSurface = resolveAutomaticSurface(handlerMethod, resource.readOnly());
         if (automaticSurface == null) {
@@ -263,7 +386,20 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                 List.of(),
                 List.of(),
                 List.of(),
-                null
+                null,
+                null,
+                null,
+                resolveDefaultContextualReadPath(
+                        resource,
+                        automaticSurface.id(),
+                        automaticSurface.kind(),
+                        automaticSurface.scope(),
+                        operationRef,
+                        responseCardinality,
+                        null,
+                        handlerMethod,
+                        handlerMethods
+                )
         );
     }
 
@@ -308,7 +444,10 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
         );
     }
 
-    private String relatedSchemaIdField(RelatedResourceSurface relatedResource) {
+    private String relatedSchemaIdField(
+            RelatedResourceSurface relatedResource,
+            Map<RequestMappingInfo, HandlerMethod> handlerMethods
+    ) {
         if (relatedResource == null) {
             return null;
         }
@@ -317,7 +456,7 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
         }
         if (StringUtils.hasText(relatedResource.childResourcePath())) {
             String childPath = normalizePath(relatedResource.childResourcePath());
-            for (HandlerMethod method : handlerMapping.getHandlerMethods().values()) {
+            for (HandlerMethod method : handlerMethods.values()) {
                 Class<?> beanType = method.getBeanType();
                 String basePath = extractControllerBasePath(beanType);
                 if (StringUtils.hasText(basePath) && childPath.equals(normalizePath(basePath))) {

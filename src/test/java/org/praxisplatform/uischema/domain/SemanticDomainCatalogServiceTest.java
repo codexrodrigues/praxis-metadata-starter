@@ -358,6 +358,25 @@ class SemanticDomainCatalogServiceTest {
                 List.of(),
                 List.of("vinculo")
         );
+        SurfaceDefinition vinculosBaselineDetail = new SurfaceDefinition(
+                "detail",
+                "ergon.vinculos",
+                "/api/ergon/vinculos",
+                "ergon",
+                SurfaceKind.VIEW,
+                SurfaceScope.ITEM,
+                "Detalhe do Vínculo",
+                "Visão principal do vínculo funcional.",
+                "detail",
+                "response",
+                SurfaceResponseCardinality.OBJECT,
+                new CanonicalOperationRef("ergon", "getVinculoById", "/api/ergon/vinculos/{id}", "GET"),
+                new CanonicalSchemaRef("VinculoResponse", "response", "/schemas/filtered?schemaType=response"),
+                10,
+                List.of(),
+                List.of(),
+                List.of("vinculo")
+        );
         SurfaceDefinition radarDetail = new SurfaceDefinition(
                 "detail",
                 "ergon.radar-ferias-prescricao",
@@ -381,14 +400,14 @@ class SemanticDomainCatalogServiceTest {
         SurfaceDefinitionRegistry surfaceRegistry = new SurfaceDefinitionRegistry() {
             @Override
             public List<SurfaceDefinition> findByResourceKey(String resourceKey) {
-                return List.of(vinculosCreate, vinculosDetail, radarDetail).stream()
+                return List.of(vinculosCreate, vinculosBaselineDetail, vinculosDetail, radarDetail).stream()
                         .filter(surface -> surface.resourceKey().equals(resourceKey))
                         .toList();
             }
 
             @Override
             public List<SurfaceDefinition> findByGroup(String group) {
-                return List.of(vinculosCreate, vinculosDetail, radarDetail);
+                return List.of(vinculosCreate, vinculosBaselineDetail, vinculosDetail, radarDetail);
             }
         };
 
@@ -1485,6 +1504,145 @@ class SemanticDomainCatalogServiceTest {
         assertThat(actionBinding.target())
                 .containsEntry("legalPurpose", "official_health_expertise")
                 .containsEntry("legalBasisRef", "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202");
+    }
+
+    @Test
+    void doesNotProjectCrossResourceRelatedSurfaceSchemaOntoParentResource() {
+        SurfaceDefinition afastamentosChildSurface = new SurfaceDefinition(
+                "afastamentos-vinculo",
+                "ergon.vinculos",
+                "/api/ergon/vinculos",
+                "ergon",
+                SurfaceKind.READ_PROJECTION,
+                SurfaceScope.ITEM,
+                "Licenças e afastamentos",
+                "Histórico e licenças em aberto associadas ao vínculo funcional selecionado.",
+                "afastamentos-vinculo",
+                "response",
+                SurfaceResponseCardinality.COLLECTION,
+                new CanonicalOperationRef("ergon", "childrenVinculoAfastamento", "/api/ergon/vinculos/{id}/afastamentos", "GET"),
+                new CanonicalSchemaRef("AfastamentoResponse", "response", "/schemas/filtered?path=/api/ergon/vinculos/{id}/afastamentos"),
+                0,
+                List.of(),
+                List.of(),
+                List.of("vinculo", "afastamento"),
+                new RelatedResourceSurface(
+                        "ergon.vinculos",
+                        "id",
+                        "ergon.afastamentos",
+                        "/api/ergon/afastamentos",
+                        "vinculoId",
+                        false,
+                        "id",
+                        List.of()
+                )
+        );
+        SurfaceDefinition vinculosDetailSurface = new SurfaceDefinition(
+                "detail",
+                "ergon.vinculos",
+                "/api/ergon/vinculos",
+                "ergon",
+                SurfaceKind.VIEW,
+                SurfaceScope.ITEM,
+                "Detalhe do Vínculo",
+                "Assentamento funcional principal do servidor.",
+                "detail",
+                "response",
+                SurfaceResponseCardinality.OBJECT,
+                new CanonicalOperationRef("ergon", "getVinculoById", "/api/ergon/vinculos/{id}", "GET"),
+                new CanonicalSchemaRef("VinculoResponse", "response", "/schemas/filtered?schemaType=response"),
+                10,
+                List.of(),
+                List.of(),
+                List.of("vinculo")
+        );
+
+        OpenApiDocumentService homonymRelatedOpenApi = new OpenApiDocumentService() {
+            private final ObjectMapper mapper = new ObjectMapper();
+            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public JsonNode getDocumentForGroup(String groupName) {
+                return mapper.valueToTree(Map.of(
+                        "paths", Map.of(),
+                        "components", Map.of("schemas", Map.of(
+                                "AfastamentoResponse", Map.of(
+                                        "type", "object",
+                                        "description", "Afastamento funcional.",
+                                        "properties", Map.of(
+                                                "situacao", Map.of(
+                                                        "type", "string",
+                                                        "x-domain-governance", Map.of(
+                                                                "annotationType", "privacy",
+                                                                "classification", "internal",
+                                                                "lineage", Map.of(
+                                                                        "attributeId", "ergon.afastamentos.situacao",
+                                                                        "sourceClass", "Afastamento"
+                                                                )
+                                                        )
+                                                ),
+                                                "diasAfastados", Map.of("type", "integer")
+                                        )
+                                ),
+                                "VinculoResponse", Map.of(
+                                        "type", "object",
+                                        "description", "Vínculo funcional.",
+                                        "properties", Map.of(
+                                                "situacao", Map.of(
+                                                        "type", "string",
+                                                        "x-domain-governance", Map.of(
+                                                                "annotationType", "privacy",
+                                                                "classification", "internal",
+                                                                "lineage", Map.of(
+                                                                        "attributeId", "ergon.vinculos.situacao",
+                                                                        "sourceClass", "Vinculo"
+                                                                )
+                                                        )
+                                                )
+                                        )
+                                )
+                        ))
+                ));
+            }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return getDocumentForGroup(groupName); }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "hash:" + schemaId; }
+            @Override public void clearCaches() { }
+        };
+
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new ActionDefinitionRegistry() {
+                    @Override public List<ActionDefinition> findByResourceKey(String rk) { return List.of(); }
+                    @Override public List<ActionDefinition> findByGroup(String g) { return List.of(); }
+                },
+                new SurfaceDefinitionRegistry() {
+                    @Override public List<SurfaceDefinition> findByResourceKey(String rk) { return List.of(afastamentosChildSurface, vinculosDetailSurface); }
+                    @Override public List<SurfaceDefinition> findByGroup(String g) { return List.of(afastamentosChildSurface, vinculosDetailSurface); }
+                },
+                OptionSourceRegistry.empty(),
+                homonymRelatedOpenApi,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-ergon-showcase", "Ergon Showcase", "test"
+        );
+
+        DomainCatalogResponse catalog = service.findByResourceKeyStrict("ergon.vinculos");
+
+        DomainCatalogResponse.DomainNodeItem vinculosConcept = catalog.nodes().stream()
+                .filter(node -> "ergon.vinculos".equals(node.nodeKey()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(vinculosConcept.description()).isEqualTo("Vínculo funcional.");
+
+        DomainCatalogResponse.DomainNodeItem situacaoField = catalog.nodes().stream()
+                .filter(node -> "ergon.vinculos.field.situacao".equals(node.nodeKey()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(situacaoField.metadata())
+                .containsEntry("canonicalAttributeId", "ergon.vinculos.situacao");
+
+        assertThat(catalog.nodes())
+                .noneMatch(node -> "ergon.vinculos.field.dias-afastados".equals(node.nodeKey()));
+        assertThat(catalog.nodes())
+                .anyMatch(node -> "ergon.vinculos.surface.afastamentos-vinculo".equals(node.nodeKey()));
+        assertThat(catalog.edges())
+                .anyMatch(edge -> "ergon.vinculos.references-child.ergon.afastamentos".equals(edge.edgeKey()));
     }
 
     private OptionSourceRegistry optionSources() {

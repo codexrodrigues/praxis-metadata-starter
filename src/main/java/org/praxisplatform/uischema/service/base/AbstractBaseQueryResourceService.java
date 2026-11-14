@@ -361,22 +361,88 @@ public abstract class AbstractBaseQueryResourceService<
                 .orElseThrow(() -> new UnknownOptionSourceException(getEntityClass(), sourceKey));
     }
 
+    private static boolean isGeneratedProxyOrMockClass(Class<?> candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        if (candidate != org.springframework.util.ClassUtils.getUserClass(candidate)) {
+            return true;
+        }
+        String name = candidate.getName();
+        return name.contains("$MockitoMock$") || name.contains("$ByteBuddy$");
+    }
+
     private static final ClassValue<Boolean> OVERRIDES_FIND_BY_ID = new ClassValue<>() {
         @Override
         protected Boolean computeValue(Class<?> type) {
-            for (Method method : type.getMethods()) {
-                if ("findById".equals(method.getName())
-                        && method.getParameterCount() == 1
-                        && !method.isBridge()
-                        && !method.isSynthetic()
-                        && method.getDeclaringClass() != AbstractBaseQueryResourceService.class
-                        && AbstractBaseQueryResourceService.class.isAssignableFrom(method.getDeclaringClass())) {
-                    return true;
+            for (Class<?> current = org.springframework.util.ClassUtils.getUserClass(type);
+                    current != null && current != AbstractBaseQueryResourceService.class;
+                    current = current.getSuperclass()) {
+                if (isGeneratedProxyOrMockClass(current)) {
+                    continue;
+                }
+                for (Method method : current.getDeclaredMethods()) {
+                    if ("findById".equals(method.getName())
+                            && method.getParameterCount() == 1
+                            && !method.isBridge()
+                            && !method.isSynthetic()) {
+                        return true;
+                    }
                 }
             }
             return false;
         }
     };
+
+    private static final ClassValue<Boolean> OVERRIDES_FIND_RESOURCE_STATE_SNAPSHOT = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            for (Class<?> current = org.springframework.util.ClassUtils.getUserClass(type);
+                    current != null && current != AbstractBaseQueryResourceService.class;
+                    current = current.getSuperclass()) {
+                if (isGeneratedProxyOrMockClass(current)) {
+                    continue;
+                }
+                for (Method method : current.getDeclaredMethods()) {
+                    if ("findResourceStateSnapshot".equals(method.getName())
+                            && method.getParameterCount() == 1
+                            && !method.isBridge()
+                            && !method.isSynthetic()) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    };
+
+    /**
+     * Indicates whether the snapshot computed during {@link #findById(Object)} or
+     * {@link #assertItemAccessible(Object)} is semantically equivalent to calling
+     * {@link #findResourceStateSnapshot(Object)}, allowing {@link ResourceServiceDelegatingStateSnapshotProvider}
+     * to reuse it safely within the active {@link ResourceStateSnapshotScope} without invoking
+     * {@code findResourceStateSnapshot} again through AOP proxies.
+     *
+     * <p>Subclasses that override {@link #findResourceStateSnapshot(Object)} only to map absent/denied
+     * errors around {@code super.findResourceStateSnapshot(id)} may opt back in by returning {@code true}.</p>
+     */
+    protected boolean supportsSeededStateSnapshotReuse() {
+        return !OVERRIDES_FIND_RESOURCE_STATE_SNAPSHOT.get(getClass());
+    }
+
+    private void seedStateSnapshotInActiveScope(ID id, Optional<ResourceStateSnapshot> snapshot) {
+        if (!org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.isOpen() || id == null) {
+            return;
+        }
+        org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.seedServiceSnapshot(this, id, snapshot);
+        if (supportsSeededStateSnapshotReuse()) {
+            String resourceKey = getResourceKey();
+            if (org.springframework.util.StringUtils.hasText(resourceKey)) {
+                org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.seedReusableResourceSnapshot(
+                        resourceKey, id, snapshot);
+            }
+        }
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -386,20 +452,24 @@ public abstract class AbstractBaseQueryResourceService<
             return;
         }
         E entity = findEntityById(id);
-        if (org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.isOpen()) {
-            org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.seedServiceSnapshot(
-                    this, id, toResourceStateSnapshot(entity));
-        }
+        seedStateSnapshotInActiveScope(id, toResourceStateSnapshot(entity));
     }
 
     @Override
     @Transactional(readOnly = true)
     public ResourceRepresentationResult<ResponseDTO> findById(ID id) {
         E entity = findEntityById(id);
-        if (org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.isOpen()) {
-            org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.seedServiceSnapshot(this, id, toResourceStateSnapshot(entity));
-        }
+        seedStateSnapshotInActiveScope(id, toResourceStateSnapshot(entity));
         return toResourceRepresentation(entity);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> readContextualSurfaceSummary(
+            ID id,
+            org.praxisplatform.uischema.surface.ContextualSurfaceSummaryProjector.ProjectionPlan plan,
+            java.util.Set<String> principalAuthorities) {
+        return BaseResourceQueryService.super.readContextualSurfaceSummary(id, plan, principalAuthorities);
     }
 
     /**
@@ -469,9 +539,7 @@ public abstract class AbstractBaseQueryResourceService<
         return org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.findSeededServiceSnapshot(this, id)
                 .orElseGet(() -> {
                     Optional<ResourceStateSnapshot> snapshot = toResourceStateSnapshot(findEntityById(id));
-                    if (org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.isOpen()) {
-                        org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.seedServiceSnapshot(this, id, snapshot);
-                    }
+                    seedStateSnapshotInActiveScope(id, snapshot);
                     return snapshot;
                 });
     }

@@ -620,8 +620,9 @@ class ApiDocsControllerTest {
         ));
         ReflectionTestUtils.setField(controller, "apiResourceQuickFilterResolver", quickFilterResolver);
 
+        String filterDoc = openApiDoc.replace("\"/users\":", "\"/users/filter\":");
         server.expect(requestTo("http://localhost/v3/api-docs/users"))
-                .andRespond(withSuccess(openApiDoc, MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess(filterDoc, MediaType.APPLICATION_JSON));
         var request = new MockHttpServletRequest();
         request.setScheme("http");
         request.setServerName("localhost");
@@ -629,7 +630,7 @@ class ApiDocsControllerTest {
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
         Map<String, Object> schema = controller
-                .getFilteredSchema("/users", "post", false, "response", null, null, java.util.Locale.ENGLISH)
+                .getFilteredSchema("/users/filter", "post", false, "response", null, null, java.util.Locale.ENGLISH)
                 .getBody();
 
         assertNotNull(schema);
@@ -686,6 +687,157 @@ class ApiDocsControllerTest {
         Map<String, Object> filterResource = (Map<String, Object>) filterXUi.get("resource");
         assertTrue(filterResource.containsKey("quickFilters"),
                 "FilterDTO request schemas must expose quickFilters for standalone filter consumers");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getFilteredSchemaScopesQuickFiltersAcrossCollectionAndSingleItemEndpoints() {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("items");
+        ApiResourceQuickFilterResolver quickFilterResolver = org.mockito.Mockito.mock(ApiResourceQuickFilterResolver.class);
+        when(quickFilterResolver.resolve(anyString())).thenReturn(java.util.List.of(
+                Map.of("id", "active", "label", "Ativos", "filter", Map.of("ativo", true), "tone", "success")
+        ));
+        ReflectionTestUtils.setField(controller, "apiResourceQuickFilterResolver", quickFilterResolver);
+
+        String itemsDoc = "{\n" +
+                "  \"paths\": {\n" +
+                "    \"/items\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/ItemCreateDTO\"}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        },\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/ItemDTO\"}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"/items/all\": {\n" +
+                "      \"get\": {\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/ItemDTO\"}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"/items/{id}\": {\n" +
+                "      \"get\": {\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/ItemDTO\"}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"/items/filter\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/ItemFilterDTO\"}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        },\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/ItemDTO\"}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"/items/filter/cursor\": {\n" +
+                "      \"post\": {\n" +
+                "        \"requestBody\": {\n" +
+                "          \"content\": {\n" +
+                "            \"application/json\": {\n" +
+                "              \"schema\": {\"$ref\": \"#/components/schemas/ItemFilterDTO\"}\n" +
+                "            }\n" +
+                "          }\n" +
+                "        },\n" +
+                "        \"responses\": {\n" +
+                "          \"200\": {\n" +
+                "            \"content\": {\n" +
+                "              \"application/json\": {\n" +
+                "                \"schema\": {\"$ref\": \"#/components/schemas/ItemDTO\"}\n" +
+                "              }\n" +
+                "            }\n" +
+                "          }\n" +
+                "        }\n" +
+                "      }\n" +
+                "    }\n" +
+                "  },\n" +
+                "  \"components\": {\n" +
+                "    \"schemas\": {\n" +
+                "      \"ItemDTO\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\"id\": {\"type\": \"integer\"}, \"nome\": {\"type\": \"string\"}}\n" +
+                "      },\n" +
+                "      \"ItemCreateDTO\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\"nome\": {\"type\": \"string\"}}\n" +
+                "      },\n" +
+                "      \"ItemFilterDTO\": {\n" +
+                "        \"type\": \"object\",\n" +
+                "        \"properties\": {\"ativo\": {\"type\": \"boolean\"}}\n" +
+                "      }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        server.expect(org.springframework.test.web.client.ExpectedCount.manyTimes(),
+                        requestTo("http://localhost/v3/api-docs/items"))
+                .andRespond(withSuccess(itemsDoc, MediaType.APPLICATION_JSON));
+        var request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        assertTrue(resourceMap(controller.getFilteredSchema("/items/all", "get", false, "response", null, null, java.util.Locale.ENGLISH).getBody())
+                .containsKey("quickFilters"), "GET /items/all response should expose quickFilters");
+        assertTrue(resourceMap(controller.getFilteredSchema("/items/filter", "post", false, "request", null, null, java.util.Locale.ENGLISH).getBody())
+                .containsKey("quickFilters"), "POST /items/filter request should expose quickFilters");
+        assertTrue(resourceMap(controller.getFilteredSchema("/items/filter", "post", false, "response", null, null, java.util.Locale.ENGLISH).getBody())
+                .containsKey("quickFilters"), "POST /items/filter response should expose quickFilters");
+        assertTrue(resourceMap(controller.getFilteredSchema("/items/filter/cursor", "post", false, "request", null, null, java.util.Locale.ENGLISH).getBody())
+                .containsKey("quickFilters"), "POST /items/filter/cursor request should expose quickFilters");
+
+        assertFalse(resourceMap(controller.getFilteredSchema("/items/{id}", "get", false, "response", null, null, java.util.Locale.ENGLISH).getBody())
+                .containsKey("quickFilters"), "GET /items/{id} single-item response must not expose collection quickFilters");
+        assertFalse(resourceMap(controller.getFilteredSchema("/items", "post", false, "request", null, null, java.util.Locale.ENGLISH).getBody())
+                .containsKey("quickFilters"), "POST /items create request must not expose collection quickFilters");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> resourceMap(Map<String, Object> schema) {
+        assertNotNull(schema);
+        Map<String, Object> xUi = (Map<String, Object>) schema.get("x-ui");
+        assertNotNull(xUi);
+        Map<String, Object> resource = (Map<String, Object>) xUi.get("resource");
+        assertNotNull(resource);
+        return resource;
     }
 
     @Test

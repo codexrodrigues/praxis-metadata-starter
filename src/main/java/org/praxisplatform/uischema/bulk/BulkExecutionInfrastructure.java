@@ -25,6 +25,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 public final class BulkExecutionInfrastructure {
     private final DataSource dataSource;
     private final PlatformTransactionManager transactionManager;
+    private final DataSourceTransactionManager lifecycleTransactionManager;
+    private final DataSourceTransactionManager publicationVerificationManager;
+    private final JdbcTemplate publicationVerificationJdbc;
     private final String namespace;
     private final String deploymentId;
     private final BulkExecutionRoleConfiguration roleConfiguration;
@@ -33,8 +36,20 @@ public final class BulkExecutionInfrastructure {
     public BulkExecutionInfrastructure(DataSource dataSource,
             PlatformTransactionManager transactionManager, String namespace, String deploymentId,
             BulkExecutionRoleConfiguration roleConfiguration) {
+        this(dataSource, transactionManager, namespace, deploymentId, roleConfiguration, null);
+    }
+
+    /**
+     * The host may supply a JDBC manager for independent lifecycle reads on the same datasource.
+     * Its session must support the runtime role and PostgreSQL catalog attestation directly.
+     * Calls inside host transaction scopes continue through the operational manager.
+     */
+    public BulkExecutionInfrastructure(DataSource dataSource,
+            PlatformTransactionManager transactionManager, String namespace, String deploymentId,
+            BulkExecutionRoleConfiguration roleConfiguration, DataSourceTransactionManager lifecycleTransactionManager) {
         this.dataSource = Objects.requireNonNull(dataSource, "dataSource");
         this.transactionManager = Objects.requireNonNull(transactionManager, "transactionManager");
+        this.lifecycleTransactionManager = lifecycleTransactionManager;
         this.roleConfiguration = Objects.requireNonNull(roleConfiguration, "roleConfiguration");
         if (this.roleConfiguration.runtimeGranteeRoles().isEmpty()) {
             throw new IllegalArgumentException("At least one explicit runtime PostgreSQL role is required");
@@ -52,6 +67,15 @@ public final class BulkExecutionInfrastructure {
         this.deploymentId = deploymentId;
         validateBinding();
         this.jdbc = new JdbcTemplate(dataSource);
+        if (dataSource instanceof SinglePoolSchemaRoutingDataSource routed && lifecycleTransactionManager != null
+                && lifecycleTransactionManager.getClass() == DataSourceTransactionManager.class) {
+            var verificationSource = routed.publicationVerificationDataSource();
+            this.publicationVerificationManager = new DataSourceTransactionManager(verificationSource);
+            this.publicationVerificationJdbc = new JdbcTemplate(verificationSource);
+        } else {
+            this.publicationVerificationManager = null;
+            this.publicationVerificationJdbc = null;
+        }
         BulkExecutionMigrator.prepareLiveAttestation();
     }
 
@@ -121,10 +145,51 @@ public final class BulkExecutionInfrastructure {
 
     private <T> T withLifecycleRead(ConnectionCallback<T> work, DatabaseIdentity identity) {
         Objects.requireNonNull(work, "work");
+        return withAttestedLifecycleConnection(false, (connection, previousTimeout) -> {
+            try {
+                restoreAndVerifyLifecycleBinding(connection, previousTimeout, identity);
+            } catch (java.sql.SQLException | RuntimeException | Error failure) {
+                restoreAfterLifecycleFailure(connection, previousTimeout, failure);
+                throw failure;
+            }
+            requireLifecycleTimeRemaining(dataSource);
+            return work.doInConnection(connection);
+        });
+    }
+
+    JdbcBulkOpenApiPublication.Snapshot readAttestedPublication() {
+        return withAttestedLifecycleConnection(true, (connection, previousTimeout) ->
+                JdbcBulkOpenApiPublication.lockForVerifiedRead(connection, namespace, deploymentId, previousTimeout));
+    }
+
+    @FunctionalInterface
+    private interface AttestedLifecycleRead<T> {
+        T read(java.sql.Connection connection, String previousTimeout) throws java.sql.SQLException;
+    }
+
+    private <T> T withAttestedLifecycleConnection(boolean publicationOnly, AttestedLifecycleRead<T> work) {
         validateBinding();
-        TransactionTemplate independent = new TransactionTemplate(transactionManager);
+        // Let the host manager suspend its own resources when invoked inside a host scope.
+        // A standalone lifecycle read only needs the JDBC connection and its transaction deadline.
+        boolean jdbcIsolation = lifecycleTransactionManager != null
+                && !TransactionSynchronizationManager.isActualTransactionActive()
+                && !TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.getResourceMap().isEmpty();
+        boolean catalogPath = publicationOnly && jdbcIsolation && publicationVerificationManager != null
+                && lifecycleTransactionManager.getTransactionSynchronization() == AbstractPlatformTransactionManager.SYNCHRONIZATION_ALWAYS
+                && !lifecycleTransactionManager.isRollbackOnCommitFailure()
+                && lifecycleTransactionManager.getTransactionExecutionListeners().isEmpty();
+        var manager = catalogPath ? publicationVerificationManager
+                : jdbcIsolation ? lifecycleTransactionManager : transactionManager;
+        DataSource source = catalogPath ? publicationVerificationManager.getDataSource() : dataSource;
+        JdbcTemplate template = catalogPath ? publicationVerificationJdbc : jdbc;
+        TransactionTemplate independent = new TransactionTemplate(manager);
         independent.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        independent.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        // The routed connection can start its transaction while applying the domain search path.
+        // In that case Spring must set isolation before disabling autocommit.
+        boolean isolationInSql = jdbcIsolation
+                && (catalogPath || !(dataSource instanceof SinglePoolSchemaRoutingDataSource));
+        if (!isolationInSql) independent.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         independent.setTimeout(3);
         return independent.execute(status -> {
             if (!TransactionSynchronizationManager.isActualTransactionActive()
@@ -132,25 +197,24 @@ public final class BulkExecutionInfrastructure {
                     || TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
                 throw new IllegalStateException("An independent writable lifecycle verification transaction is required");
             }
-            if (!(TransactionSynchronizationManager.getResource(dataSource) instanceof ConnectionHolder)) {
+            if (!(TransactionSynchronizationManager.getResource(source) instanceof ConnectionHolder)) {
                 throw new IllegalStateException("Runtime JDBC connection is not exposed by its transaction manager");
             }
-            return jdbc.execute((ConnectionCallback<T>) connection -> {
+            return template.execute((ConnectionCallback<T>) connection -> {
                 if (connection.getAutoCommit() || connection.isReadOnly()
-                        || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), dataSource)) {
+                        || !DataSourceUtils.isConnectionTransactional(DataSourceUtils.getTargetConnection(connection), source)) {
                     throw new IllegalStateException("Lifecycle verification must use the runtime transaction connection");
                 }
-                var timeout = BulkCatalogPhase.LiveTimeout.lifecycle();
+                var timeout = new BulkCatalogPhase.LiveTimeout(true, isolationInSql, catalogPath);
                 try {
                     BulkExecutionMigrator.validateLiveRuntimeRoleAccess(connection, roleConfiguration, timeout);
-                    restoreAndVerifyLifecycleBinding(connection, timeout.previous(), identity);
-                } catch (java.sql.SQLException | RuntimeException | Error failure) {
+                } catch (RuntimeException | Error failure) {
                     if (timeout.previous() != null) restoreAfterLifecycleFailure(connection, timeout.previous(), failure);
                     throw failure;
                 }
-                requireLifecycleTimeRemaining(dataSource);
-                T result = work.doInConnection(connection);
-                requireLifecycleTimeRemaining(dataSource);
+                requireLifecycleTimeRemaining(source);
+                T result = work.read(connection, timeout.previous());
+                requireLifecycleTimeRemaining(source);
                 return result;
             });
         });
@@ -377,6 +441,8 @@ public final class BulkExecutionInfrastructure {
     }
 
     private void validateBinding() {
+        if (lifecycleTransactionManager != null && lifecycleTransactionManager.getDataSource() != dataSource)
+            throw new IllegalArgumentException("Lifecycle JDBC manager must use the same operational datasource instance");
         if (transactionManager instanceof AbstractPlatformTransactionManager local
                 && !local.isGlobalRollbackOnParticipationFailure()) {
             throw new IllegalArgumentException("Participation failure must mark the operational transaction rollback-only");

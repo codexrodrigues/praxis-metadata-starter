@@ -155,6 +155,31 @@ public interface OpenApiDocumentService {
     default <T> T withPreparedBulkOpenApiCommit(OpenApiPublicationCandidate candidate, Supplier<T> commit) {
         throw new UnsupportedOperationException("This service cannot fence a prepared publication commit");
     }
+    /** Revision of the publication admitted by the current document scope. */
+    default String admittedPublicationRevision() { return null; }
+
+    /**
+     * Admits the current publication and captures a request-owned fence without running a
+     * document callback. The caller must verify the fence after materialization and close it.
+     * Returns null for services without governed publication. A configured publication guard
+     * must reject an absent or obsolete photograph.
+     */
+    default BulkLifecycleDocumentFence admitContextualReadPublication() {
+        var captured = new java.util.concurrent.atomic.AtomicReference<BulkLifecycleDocumentFence>();
+        try {
+            return withSchemaCacheReadLock(() -> {
+                if (admittedPublicationRevision() == null) return null;
+                var fence = captureBulkLifecycleDocumentFence();
+                captured.set(fence);
+                return fence;
+            });
+        } catch (RuntimeException | Error failure) {
+            var fence = captured.get();
+            if (fence != null) fence.close();
+            throw failure;
+        }
+    }
+
     /** Local presence only, not authority; any following scope must still validate the durable tuple. */
     default boolean hasLocalPublishedBulkOpenApiPublication() { return false; }
     /**
@@ -198,6 +223,14 @@ public interface OpenApiDocumentService {
     }
 
     interface BulkLifecycleDocumentFence extends AutoCloseable {
+        /** Revision of the publication captured by this request. */
+        default String publicationRevision() { return null; }
+
+        /** Revalidates captured evidence when there is no work to bracket. */
+        default void verify() {
+            read(() -> null);
+        }
+
         /** Validates before and after short verification work; never run a response builder here. */
         <T> T read(Supplier<T> verification);
 

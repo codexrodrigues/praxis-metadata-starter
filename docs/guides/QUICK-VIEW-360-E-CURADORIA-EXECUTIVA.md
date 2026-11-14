@@ -141,3 +141,13 @@ public class ServidorPessoaResponseDTO extends ServidorPessoaDados {
   // quickViewOrder = 7: dtRecadast (Último recadastramento, icon = "event", DATE_PICKER)
 }
 ```
+
+## Leitura contextual compacta
+
+Superfícies de item (`VIEW` ou `READ_PROJECTION`, cardinalidade `OBJECT`, retornando o `ResponseDTO` canônico do recurso) publicam automaticamente o `contextualReadPath` canônico `{resourcePath}/{id}/surfaces/{surfaceId}/summary` servido por `AbstractResourceQueryController.getContextualSurfaceSummary(...)`. O starter projeta os campos do cartão Quick View via `ContextualSurfaceSummaryProjector` a partir de `@ResourceIdentity`, `@UISchema(quickViewVisible)`, `@ResourceReference(valueField)` e expressões de `@MicroVisualization`, omitindo fail-closed campos bloqueados por `@UISchema(visibleForAuthorities)`. Hosts podem centralizar mascaramento, omissão LGPD ou sanitização por governança sobrescrevendo `BaseResourceQueryService.sanitizeContextualSurfaceSummary(...)` na classe base do domínio. `@UiSurface(contextualReadPath = ...)` explícito continua disponível apenas para projeções customizadas com tipo diferente do `ResponseDTO` do recurso.
+
+Quando a publicação local muda entre a admissão e a verificação final, a leitura retorna HTTP 503 com o código `GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE`. Cada verificação independente atesta o papel e o catálogo PostgreSQL e lê a publicação na mesma transação. O host pode fornecer um `DataSourceTransactionManager` para leituras independentes ao construir `BulkExecutionInfrastructure`. O gerenciador deve usar a mesma instância de datasource operacional, cuja sessão JDBC precisa atender à atestação. Chamadas em escopos transacionais do host usam seu gerenciador operacional, assim como hosts que não fornecem o vínculo JDBC.
+
+A resposta usa `Cache-Control: no-store` e inclui `surfaceId`, os valores em `data`, a disponibilidade dos destinos do item e a revisão de publicação do schema quando disponível. O catálogo compacto avalia a disponibilidade no contexto atual e deixa a projeção de capacidades dos recursos filhos para a abertura do destino. O Core reutiliza o schema somente para a revisão confirmada em `X-Praxis-Schema-Publication`. A abertura do detalhe consulta novamente as permissões aplicáveis.
+
+Quando a publicação OpenAPI é governada, a leitura compacta valida a geração e o digest antes de ler o item e volta a validá-los antes de responder. A autorização, a projeção dos campos e a disponibilidade dos destinos rodam fora do lock dos documentos. Uma mudança de publicação durante essa leitura invalida a resposta.

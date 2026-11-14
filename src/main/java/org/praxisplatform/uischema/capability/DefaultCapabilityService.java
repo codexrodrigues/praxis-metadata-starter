@@ -455,7 +455,7 @@ public class DefaultCapabilityService implements CapabilityService {
                 return owner.projection;
             });
             T result = consumer.apply(projection);
-            if (projection.fence() != null) projection.fence().read(() -> null);
+            if (projection.fence() != null) projection.fence().verify();
             return result;
         }
     }

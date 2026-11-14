@@ -131,6 +131,12 @@ public @interface UiSurface {
     RelatedResourceChildOperation[] relatedChildOperations() default {};
 
     /**
+     * Canonical GET path of the authorized compact read for this item surface.
+     * Empty when the host does not publish a compact read.
+     */
+    String contextualReadPath() default "";
+
+    /**
      * Finalidade legal canonica de tratamento dos dados projetados ou manipulados nesta surface
      * (ex.: pericia oficial em saude, administracao funcional, transparencia publica ativa LAI).
      */

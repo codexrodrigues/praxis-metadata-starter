@@ -58,7 +58,7 @@ public final class FilteredSchemaProjection {
             schema = allSchemas.path(name);
             if (schema.isMissingNode()) throw missing("The specified component schema was not found in the documentation.");
         }
-        return new Selection(name, schema.deepCopy());
+        return new Selection(name, schema);
     }
 
     /** Resolves a concrete UI reference and captures its selection evidence from this document. */

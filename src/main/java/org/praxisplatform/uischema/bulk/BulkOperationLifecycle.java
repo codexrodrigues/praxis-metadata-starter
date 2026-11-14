@@ -598,7 +598,7 @@ public final class BulkOperationLifecycle {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
             return runtime.withConnection(connection -> JdbcBulkOpenApiPublication.lockForRead(connection,
                     runtime.namespace(), runtime.deploymentId()));
-        return readPublication();
+        return runtime.readAttestedPublication();
     }
 
     private JdbcBulkOpenApiPublication.Snapshot readPublication() {

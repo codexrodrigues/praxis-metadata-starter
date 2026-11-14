@@ -54,6 +54,20 @@ public class DefaultSurfaceAvailabilityContextResolver implements SurfaceAvailab
         );
     }
 
+    /**
+     * Resolves the active principal from the servlet request or Spring SecurityContext, if present.
+     */
+    public static Principal currentPrincipal() {
+        return resolvePrincipal();
+    }
+
+    /**
+     * Resolves granted authority names for the active request principal or SecurityContext.
+     */
+    public static Set<String> currentPrincipalAuthorities() {
+        return resolveAuthorities(resolvePrincipal());
+    }
+
     private String resolveTenant() {
         if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes servletRequestAttributes) {
             String tenant = servletRequestAttributes.getRequest().getHeader(TENANT_HEADER);
@@ -67,7 +81,7 @@ public class DefaultSurfaceAvailabilityContextResolver implements SurfaceAvailab
         return locale != null ? locale : Locale.ROOT;
     }
 
-    private Principal resolvePrincipal() {
+    private static Principal resolvePrincipal() {
         if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes servletRequestAttributes) {
             Principal principal = servletRequestAttributes.getRequest().getUserPrincipal();
             if (principal != null) {
@@ -78,7 +92,7 @@ public class DefaultSurfaceAvailabilityContextResolver implements SurfaceAvailab
         return authentication instanceof Principal principal ? principal : null;
     }
 
-    private Set<String> resolveAuthorities(Principal principal) {
+    private static Set<String> resolveAuthorities(Principal principal) {
         LinkedHashSet<String> authorities = new LinkedHashSet<>();
         if (principal != null) {
             extractAuthorities(principal, authorities);
@@ -89,7 +103,7 @@ public class DefaultSurfaceAvailabilityContextResolver implements SurfaceAvailab
         return Set.copyOf(authorities);
     }
 
-    private Object resolveSecurityContextAuthentication() {
+    private static Object resolveSecurityContextAuthentication() {
         try {
             Class<?> holderClass = Class.forName("org.springframework.security.core.context.SecurityContextHolder");
             Object context = holderClass.getMethod("getContext").invoke(null);
@@ -102,7 +116,7 @@ public class DefaultSurfaceAvailabilityContextResolver implements SurfaceAvailab
         }
     }
 
-    private void extractAuthorities(Object source, Collection<String> sink) {
+    private static void extractAuthorities(Object source, Collection<String> sink) {
         if (source == null || sink == null) {
             return;
         }
@@ -125,7 +139,7 @@ public class DefaultSurfaceAvailabilityContextResolver implements SurfaceAvailab
         }
     }
 
-    private String resolveAuthorityValue(Object authority) {
+    private static String resolveAuthorityValue(Object authority) {
         if (authority == null) {
             return null;
         }
@@ -153,7 +167,7 @@ public class DefaultSurfaceAvailabilityContextResolver implements SurfaceAvailab
                 .orElse(null);
     }
 
-    private Method findNoArgMethod(Class<?> type, String methodName) {
+    private static Method findNoArgMethod(Class<?> type, String methodName) {
         try {
             Method method = type.getMethod(methodName);
             return makeAccessible(method);
@@ -167,7 +181,7 @@ public class DefaultSurfaceAvailabilityContextResolver implements SurfaceAvailab
         }
     }
 
-    private Method makeAccessible(Method method) {
+    private static Method makeAccessible(Method method) {
         if (method == null) {
             return null;
         }

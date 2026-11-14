@@ -51,6 +51,45 @@ import static org.mockito.Mockito.when;
 class AnnotationDrivenSurfaceDefinitionRegistryTest {
 
     @Test
+    void itemProjectionUsesThePublishedDtoIdentityForTheSchemaReference() throws Exception {
+        var mapping = mock(RequestMappingHandlerMapping.class);
+        var context = mock(ApplicationContext.class);
+        var operations = mock(CanonicalOperationResolver.class);
+        var controller = new RegistryTestController();
+        var route = "/registry-resources/{id}/public-profile";
+        var info = RequestMappingInfo.paths(route).methods(org.springframework.web.bind.annotation.RequestMethod.GET).build();
+        var handler = new HandlerMethod(controller, RegistryTestController.class.getDeclaredMethod("publicProfile", Long.class));
+        var compact = RequestMappingInfo.paths(route + "/summary").methods(RequestMethod.GET).build();
+        var compactHandler = new HandlerMethod(controller,
+                RegistryTestController.class.getDeclaredMethod("publicProfileSummary", Long.class));
+        when(mapping.getHandlerMethods()).thenReturn(Map.of(info, handler, compact, compactHandler));
+        when(operations.resolve(handler, info)).thenReturn(new CanonicalOperationRef("registry-group", "publicProfile", route, "GET"));
+
+        var registry = new AnnotationDrivenSurfaceDefinitionRegistry(mapping, context, operations,
+                new org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver(), AnnotationConflictMode.FAIL);
+        var definition = registry.findByResourceKey("registry.resources").stream()
+                .filter(surface -> surface.id().equals("public-profile")).findFirst().orElseThrow();
+        assertTrue(definition.schema().url().contains("idField=publicId"));
+        assertEquals(route + "/summary", definition.contextualReadPath());
+
+        var catalog = new SurfaceCatalogService(registry, (candidate, current) ->
+                org.praxisplatform.uischema.capability.AvailabilityDecision.allowAll(), (key, path, id) -> null);
+        var response = catalog.readContextualSurface("registry.resources", 41L, "public-profile",
+                () -> Map.of("publicId", 41L));
+        assertEquals(41L, response.data().get("publicId"));
+        assertEquals(41L, response.destinations().resourceId());
+
+        var deniedCatalog = new SurfaceCatalogService(registry, (candidate, current) ->
+                org.praxisplatform.uischema.capability.AvailabilityDecision.deny("fixture-denied", Map.of()),
+                (key, path, id) -> null);
+        var denial = org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> deniedCatalog.readContextualSurface("registry.resources", 41L, "public-profile",
+                        () -> Map.of("publicId", 41L)));
+        assertEquals(403, denial.getStatusCode().value());
+    }
+
+    @Test
     void cachesDiscoveredDefinitionsAndIgnoresWorkflowLikeMappings() throws Exception {
         RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
         ApplicationContext applicationContext = mock(ApplicationContext.class);
@@ -329,6 +368,114 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
         T run() throws Exception;
     }
 
+    @Test
+    void automaticallyPublishesCanonicalSummaryPathForResponseDtoSurfaces() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        ApplicationContext applicationContext = mock(ApplicationContext.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+
+        CanonicalSummaryRegistryController controller = new CanonicalSummaryRegistryController();
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
+        handlerMethods.put(
+                RequestMappingInfo.paths("/summary-resources/{id}").methods(RequestMethod.GET).build(),
+                new HandlerMethod(controller, AbstractResourceQueryController.class.getMethod("getById", Object.class))
+        );
+        handlerMethods.put(
+                RequestMappingInfo.paths("/summary-resources/{id}/ficha-cadastral").methods(RequestMethod.GET).build(),
+                new HandlerMethod(controller, CanonicalSummaryRegistryController.class.getDeclaredMethod("fichaCadastral", Long.class))
+        );
+        handlerMethods.put(
+                RequestMappingInfo.paths("/summary-resources/{id}/public-profile").methods(RequestMethod.GET).build(),
+                new HandlerMethod(controller, CanonicalSummaryRegistryController.class.getDeclaredMethod("publicProfile", Long.class))
+        );
+        handlerMethods.put(
+                RequestMappingInfo.paths("/summary-resources/{id}/surfaces/{surfaceId}/summary")
+                        .methods(RequestMethod.GET)
+                        .build(),
+                new HandlerMethod(
+                        controller,
+                        AbstractResourceQueryController.class.getMethod("getContextualSurfaceSummary", Object.class, String.class)
+                )
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
+        when(operationResolver.resolve(any(HandlerMethod.class), any(RequestMappingInfo.class)))
+                .thenAnswer(invocation -> {
+                    HandlerMethod hm = invocation.getArgument(0);
+                    RequestMappingInfo mappingInfo = invocation.getArgument(1);
+                    String path = mappingInfo.getPatternValues().iterator().next();
+                    String method = mappingInfo.getMethodsCondition().getMethods().iterator().next().name();
+                    return new CanonicalOperationRef("registry-group", hm.getMethod().getName(), path, method);
+                });
+
+        AnnotationDrivenSurfaceDefinitionRegistry registry = new AnnotationDrivenSurfaceDefinitionRegistry(
+                handlerMapping,
+                applicationContext,
+                operationResolver,
+                new org.praxisplatform.uischema.schema.FilteredSchemaReferenceResolver(),
+                AnnotationConflictMode.WARN
+        );
+
+        List<SurfaceDefinition> surfaces = registry.findByResourceKey("summary.resources");
+        SurfaceDefinition detail = surfaces.stream()
+                .filter(s -> s.id().equals("detail"))
+                .findFirst()
+                .orElseThrow();
+        SurfaceDefinition ficha = surfaces.stream()
+                .filter(s -> s.id().equals("ficha-cadastral"))
+                .findFirst()
+                .orElseThrow();
+        SurfaceDefinition profile = surfaces.stream()
+                .filter(s -> s.id().equals("public-profile"))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals("/summary-resources/{id}/surfaces/detail/summary", detail.contextualReadPath());
+        assertEquals("/summary-resources/{id}/surfaces/ficha-cadastral/summary", ficha.contextualReadPath());
+        assertNull(profile.contextualReadPath());
+    }
+
+    @ApiResource(value = "/summary-resources", resourceKey = "summary.resources")
+    @ApiGroup("registry-group")
+    static class CanonicalSummaryRegistryController
+            extends AbstractResourceController<TestDto, Long, TestFilterDTO, TestCreateDTO, TestUpdateDTO> {
+        @Override
+        protected BaseResourceService<TestDto, Long, TestFilterDTO, TestCreateDTO, TestUpdateDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(TestDto dto) {
+            return dto.id();
+        }
+
+        @Override
+        protected String getIdFieldName() {
+            return "id";
+        }
+
+        @GetMapping("/{id}/ficha-cadastral")
+        @UiSurface(
+                id = "ficha-cadastral",
+                kind = SurfaceKind.READ_PROJECTION,
+                scope = SurfaceScope.ITEM,
+                title = "Ficha"
+        )
+        public ResponseEntity<TestDto> fichaCadastral(@PathVariable Long id) {
+            return ResponseEntity.ok(new TestDto(id));
+        }
+
+        @GetMapping("/{id}/public-profile")
+        @UiSurface(
+                id = "public-profile",
+                kind = SurfaceKind.READ_PROJECTION,
+                scope = SurfaceScope.ITEM,
+                title = "Perfil"
+        )
+        public ResponseEntity<RestApiResponse<PublicProfile>> publicProfile(@PathVariable Long id) {
+            return ResponseEntity.ok(RestApiResponse.success(new PublicProfile(id, "custom"), null));
+        }
+    }
+
     @ApiResource(value = "/registry-resources", resourceKey = "registry.resources")
     @ApiGroup("registry-group")
     static class RegistryTestController extends AbstractResourceController<TestDto, Long, TestFilterDTO, TestCreateDTO, TestUpdateDTO> {
@@ -370,6 +517,18 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
                 allowedStates = {"ACTIVE"}
         )
         public void updateProfile(@PathVariable Long id) {
+        }
+
+        @GetMapping("/{id}/public-profile")
+        @UiSurface(contextualReadPath = "/registry-resources/{id}/public-profile/summary", id = "public-profile", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM,
+                title = "Perfil público")
+        public ResponseEntity<RestApiResponse<PublicProfile>> publicProfile(@PathVariable Long id) {
+            return null;
+        }
+
+        @GetMapping("/{id}/public-profile/summary")
+        public ContextualSurfaceRead publicProfileSummary(@PathVariable Long id) {
+            throw new UnsupportedOperationException("Registry fixture");
         }
 
         @GetMapping("/{id}/payments")
@@ -460,6 +619,9 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
 
     record TestDto(Long id) {
     }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(keyField = "publicId", titleField = "name")
+    record PublicProfile(Long publicId, String name) {}
 
     static final class TestCreateDTO {
     }

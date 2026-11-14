@@ -417,7 +417,8 @@ public class ApiDocsController {
 
         LOGGER.info("Schema node retrieved successfully");
 
-        JsonNode schemaNodeForResponse = schemasNode.isObject() ? schemasNode.deepCopy() : schemasNode;
+        // Selection already owns a detached copy, including for inline request schemas.
+        JsonNode schemaNodeForResponse = schemasNode;
         if ("request".equalsIgnoreCase(schemaType) && schemaNodeForResponse.isObject()) {
             materializeStatsFilterSchema(
                     (ObjectNode) schemaNodeForResponse,
@@ -455,10 +456,6 @@ public class ApiDocsController {
             xUiMap.remove("calculationMemory");
         } else if (componentCalculationMemory != null) {
             xUiMap.putIfAbsent("calculationMemory", componentCalculationMemory);
-        }
-        Map<String, Object> operationExamples = resolveOperationExamples(pathsNode, xUiMap, schemaType);
-        if (!operationExamples.isEmpty()) {
-            xUiMap.put(OPERATION_EXAMPLES, operationExamples);
         }
 
         // Anotar x-ui.resource.idField para o frontend
@@ -545,16 +542,31 @@ public class ApiDocsController {
             customFieldResourceKey = apiResourceIdentityResolver.resolveResourceKey(basePath, canonicalPath, normalizedOperation)
                     .orElse(customFieldResourceKey);
         }
+        boolean hasFilterRequestBody = canonicalOperationResolver != null
+                && canonicalOperationResolver.resolveRequestBodyType(canonicalPath, normalizedOperation)
+                        .map(org.praxisplatform.uischema.filter.dto.GenericFilterDTO.class::isAssignableFrom)
+                        .orElse(false);
+        boolean isFilterOperationPath = "post".equalsIgnoreCase(normalizedOperation)
+                && canonicalPath != null
+                && (canonicalPath.endsWith("/filter")
+                        || canonicalPath.endsWith("/filter/cursor")
+                        || canonicalPath.endsWith("/by-ids"));
         boolean isFilterRequestSchema = "request".equalsIgnoreCase(schemaType)
-                && ((canonicalOperationResolver != null
-                        && canonicalOperationResolver.resolveRequestBodyType(canonicalPath, normalizedOperation)
-                                .map(org.praxisplatform.uischema.filter.dto.GenericFilterDTO.class::isAssignableFrom)
-                                .orElse(false))
-                        || ("post".equalsIgnoreCase(normalizedOperation)
-                                && canonicalPath != null
-                                && canonicalPath.endsWith("/filter")));
+                && (hasFilterRequestBody || isFilterOperationPath);
+        boolean isCollectionGetResponse = "response".equalsIgnoreCase(schemaType)
+                && "get".equalsIgnoreCase(normalizedOperation)
+                && canonicalPath != null
+                && !canonicalPath.contains("/{")
+                && !canonicalPath.endsWith("/schemas")
+                && !canonicalPath.endsWith("/actions")
+                && !canonicalPath.endsWith("/surfaces")
+                && !canonicalPath.endsWith("/capabilities")
+                && !canonicalPath.contains("/options/")
+                && !canonicalPath.contains("/stats/");
+        boolean isCollectionFilterResponse = "response".equalsIgnoreCase(schemaType)
+                && (hasFilterRequestBody || isFilterOperationPath);
         if (apiResourceQuickFilterResolver != null
-                && ("response".equalsIgnoreCase(schemaType) || isFilterRequestSchema)) {
+                && (isFilterRequestSchema || isCollectionGetResponse || isCollectionFilterResponse)) {
             List<Map<String, Object>> quickFilters = apiResourceQuickFilterResolver.resolve(basePath);
             if (!quickFilters.isEmpty()) {
                 resourceMeta.put("quickFilters", quickFilters);
@@ -617,17 +629,25 @@ public class ApiDocsController {
                     .status(org.springframework.http.HttpStatus.NOT_MODIFIED)
                     .eTag(eTag)
                     .header("X-Schema-Hash", schemaHash)
-                    .header("Access-Control-Expose-Headers", "ETag,X-Schema-Hash")
+                    .header("X-Praxis-Schema-Publication", java.util.Objects.toString(openApiDocumentService.admittedPublicationRevision(), ""))
+                    .header("Access-Control-Expose-Headers", "ETag,X-Schema-Hash,X-Praxis-Schema-Publication")
                     .cacheControl(responseCache)
                     .varyBy("Accept-Encoding", "X-Tenant", "X-Tenant-ID", "X-Tenant-Realm", "X-Organization-ID")
                     .build();
+        }
+
+        // Examples are excluded from the structural validator and only needed on 200.
+        Map<String, Object> operationExamples = resolveOperationExamples(pathsNode, xUiMap, schemaType);
+        if (!operationExamples.isEmpty()) {
+            xUiMap.put(OPERATION_EXAMPLES, operationExamples);
         }
 
         return org.springframework.http.ResponseEntity
                 .ok()
                 .eTag(eTag)
                 .header("X-Schema-Hash", schemaHash)
-                .header("Access-Control-Expose-Headers", "ETag,X-Schema-Hash")
+                .header("X-Praxis-Schema-Publication", java.util.Objects.toString(openApiDocumentService.admittedPublicationRevision(), ""))
+                    .header("Access-Control-Expose-Headers", "ETag,X-Schema-Hash,X-Praxis-Schema-Publication")
                 .cacheControl(responseCache)
                 .varyBy("Accept-Encoding", "X-Tenant", "X-Tenant-ID", "X-Tenant-Realm", "X-Organization-ID")
                 .body(schemaMap);
