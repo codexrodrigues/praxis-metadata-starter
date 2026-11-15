@@ -333,6 +333,14 @@ As 25 provas SDK compostas (12 + 1 + 12) cobriram o candidato antes da publicaç
 operacional do binding:
 
 1. **Preparação.** Sob lock e fencing, consulta primeiro o receipt do `expectedOrdinal`.
+   No primeiro item de `advance`, a conferência durável da reserva e a preparação compartilham
+   a mesma transação de controle. O binding e o fencing são verificados antes do marcador;
+   um retorno terminal continua exigindo a leitura protegida, sem callback. O commit do
+   marcador antecede a transação de domínio. Se esse commit for incerto, o resultado exige
+   reconciliação e não autoriza novo despacho. Itens seguintes conservam a preparação própria.
+   A conferência inicial usa o próprio header bloqueado dessa leitura, sem uma transação ou
+   releitura anterior. Para terminal sem trabalho, binding/fencing e forma dos resultados
+   continuam obrigatórios; a decodificação da proposta não vira uma nova pré-condição.
    Receipt existente é replay daquele ordinal e a callback não roda. Sem receipt, exige
    `expectedOrdinal == nextOrdinal`, valida `RUNNING`, deadline e alvo,
    gera attemptId, persiste `UNIT_IN_FLIGHT` com ordinal/digest/epoch e confirma essa barreira.
@@ -367,6 +375,17 @@ operacional do binding:
    resultado é descontado do saldo retornado. Não se calcula um novo prazo a partir do relógio
    local ou de uma nova janela de cinco segundos. O SQL continua usando o menor entre o prazo
    da execução e cinco segundos desde seu clock de tentativa; ATOMIC não muda neste recorte.
+   As leituras da preparação PER_ITEM são enviadas juntas, na mesma conexão vinculada:
+   marcador de capacidade, identidade, controle SHARE, execução UPDATE, receipt/admission
+   do ordinal, avaliação protegida, prefixos completos e relógio. Os resultados posteriores
+   são escopados por namespace, execução, owner e epoch. O Java valida os resultados na
+   ordem original, incluindo replay, consistência do prefixo e fence READY; somente depois
+   emite o UPDATE da tentativa, que volta a conferir o prazo com o relógio do banco.
+   A atestação viva do catálogo também permanece por invocação: seu envio captura o timeout
+   anterior e aplica o menor entre esse valor e 250 ms, sem desabilitar um limite inferior.
+   A restauração do valor exato e a leitura do vínculo de namespace compartilham o envio
+   seguinte. Erro impede a callback e mantém rollback/falha fechada. Não há cache de papel,
+   ACL, publicação ou decisão READY. Agrupar envios não permite renovar qualquer prazo.
    No caminho PER_ITEM/SYNC, o prefixo de aplicação reúne os 13 comandos em uma execução
    JDBC com resultados múltiplos ordenados: marcador de capacidade, identidade, controle
    SHARE, execução UPDATE, receipt/admission pontuais, relógio, avaliação, prefixos duráveis,

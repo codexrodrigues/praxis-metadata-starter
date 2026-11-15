@@ -182,19 +182,28 @@ public class VendaResumoService extends AbstractReadOnlyResourceService<
 ```java
 import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.annotation.FilterCriterion;
 import org.praxisplatform.uischema.annotation.QuickFilter;
+import org.praxisplatform.uischema.annotation.QuickFilterTone;
 import org.praxisplatform.uischema.annotation.ResourceIdentity;
 import org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 
-@ApiResource(value = "/api/relatorios/vendas-resumo", resourceKey = "relatorios.vendas-resumo")
-@ResourceIdentity(
-        idField = "id",
-        labelField = "regional",
-        subtitleField = "categoria",
-        badgeField = "categoria"
-)
-@QuickFilter(fields = {"regional", "categoria"}, minLength = 2)
+// `field` em @FilterCriterion referencia uma propriedade @Filterable de VendaResumoFilterDTO
+// (aqui assumida `String regional` com FilterOperation.EQUAL). O valor é coagido pelo tipo do campo.
+@ApiResource(
+        value = "/api/relatorios/vendas-resumo",
+        resourceKey = "relatorios.vendas-resumo",
+        identity = @ResourceIdentity(keyField = "id", titleField = "regional", subtitleField = "categoria"),
+        quickFilters = {
+            @QuickFilter(
+                    id = "regional-sudeste",
+                    label = "Sudeste",
+                    icon = "map",
+                    tone = QuickFilterTone.INFO,
+                    description = "Vendas consolidadas da regional Sudeste.",
+                    criteria = @FilterCriterion(field = "regional", values = "SUDESTE"))
+        })
 @ApiGroup("relatorios")
 public class VendaResumoController extends AbstractReadOnlyResourceController<
         VendaResumoDTO,

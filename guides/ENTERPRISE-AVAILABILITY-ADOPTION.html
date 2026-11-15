@@ -407,11 +407,73 @@ uma action publicada por <code>@WorkflowAction</code>.</p>
 <li><code>POST /orders/{id}/actions/cancel</code></li>
 </ul>
 <p><code>@WorkflowAction.allowedStates</code> e
-<code>requiredAuthorities</code> cobrem restricoes declarativas simples.
-Regras dinamicas devem ficar em uma <code>ActionAvailabilityRule</code>
-customizada, usando <code>ActionAvailabilityContext</code> e
-<code>ResourceStateSnapshot</code> quando a decisao depender do
-item.</p>
+<code>requiredAuthorities</code> cobrem restricoes declarativas
+simples.</p>
+<h3
+id="atalho-declarativo-zero-boilerplate-via-toresourcestatesnapshotentity-plat-evo-01">Atalho
+Declarativo Zero-Boilerplate via
+<code>toResourceStateSnapshot(entity)</code>
+(<code>PLAT-EVO-01</code>)</h3>
+<p>Antes de criar classes <code>@Configuration</code> ou beans
+<code>ActionAvailabilityRule</code> /
+<code>SurfaceAvailabilityRule</code> dedicados por recurso
+(<code>*ContextualAvailabilityConfig</code>), prefira sobrescrever
+<code>toResourceStateSnapshot(E entity)</code> diretamente no
+<code>Service</code> do recurso e popular as chaves declarativas nativas
+em <code>ResourceStateSnapshot.metadata()</code>:</p>
+<ul>
+<li>Actions (<code>@WorkflowAction</code>):
+<code>action.&lt;id&gt;.allowed</code> (<code>Boolean</code>),
+<code>action.&lt;id&gt;.reason</code>,
+<code>action.&lt;id&gt;.legalBasis</code>,
+<code>action.&lt;id&gt;.legalPurpose</code>,
+<code>action.&lt;id&gt;.customTitle</code>,
+<code>action.&lt;id&gt;.blockedByRule</code>;</li>
+<li>Surfaces (<code>@UiSurface</code>):
+<code>surface.&lt;id&gt;.allowed</code>,
+<code>surface.&lt;id&gt;.reason</code>,
+<code>surface.&lt;id&gt;.legalBasis</code>,
+<code>surface.&lt;id&gt;.legalPurpose</code>,
+<code>surface.&lt;id&gt;.customTitle</code>,
+<code>surface.&lt;id&gt;.blockedByRule</code>;</li>
+<li>Operacoes CRUD contextuais de item (<code>edit</code>,
+<code>delete</code>, <code>duplicate-draft</code>):
+<code>operation.&lt;id&gt;.allowed</code>,
+<code>operation.&lt;id&gt;.reason</code>,
+<code>operation.&lt;id&gt;.blockedByRule</code>;</li>
+<li>Defaults do recurso: <code>resource.legalBasis</code> e
+<code>resource.legalPurpose</code> (aplicados com precedencia
+deterministica <code>action.&lt;id&gt;.legalBasis</code> -&gt;
+<code>@WorkflowAction.legalBasisRef</code> -&gt;
+<code>resource.legalBasis</code>).</li>
+</ul>
+<p><code>DefaultResourceAvailabilityService</code> avalia essas chaves
+automaticamente tanto em <code>GET /{resource}/{id}/capabilities</code>
+quanto nos catalogos contextuais e <code>_links</code>, mantendo
+fail-closed (<code>SNAPSHOT_UNAVAILABLE</code>) quando
+<code>allowedStates</code> for declarado sem estado resolvido. Reserve
+<code>ActionAvailabilityRule</code>,
+<code>SurfaceAvailabilityRule</code> ou
+<code>ContextualResourceActionService</code> apenas para politicas
+transversais ou que dependam de sistemas externos ao service do
+recurso.</p>
+<p>Para descoberta estrutural de pontos de decisao no PAP / Rules Studio
+(<code>PLAT-EVO-07</code>),
+<code>ResourceDecisionPointCatalogService</code>
+(<code>deriveForController</code> e <code>deriveForResource</code>,
+apoiado por <code>DtoMetadataFactCatalogEnricher</code>) introspeciona
+automaticamente <code>@ApiResource</code>, handlers MVC,
+<code>@WorkflowAction</code>, <code>@UiSurface</code>,
+<code>@BulkOperation</code>, <code>@DomainGovernance</code> e
+<code>@DomainLineage</code>, publicando
+<code>ResourceDecisionPointDescriptor</code>
+(<code>DecisionPointKind</code>: <code>RESOURCE_QUERY</code>,
+<code>RESOURCE_CREATE</code>, <code>RESOURCE_UPDATE</code>,
+<code>RESOURCE_DELETE</code>, <code>COLLECTION_EXPORT</code>,
+<code>AI_TOOL_EXECUTION</code>, <code>WORKFLOW_ACTION</code>,
+<code>SURFACE_AVAILABILITY</code>, <code>BULK_OPERATION</code>,
+<code>FIELD_PROJECTION</code>, <code>FIELD_WRITE</code>) sem exigir
+registro manual por recurso.</p>
 <p>Nao transforme action em CRUD por causa do metodo HTTP. O eixo
 canonico e a intencao de negocio, nao o verbo.</p>
 <h2 id="surfaces">Surfaces</h2>

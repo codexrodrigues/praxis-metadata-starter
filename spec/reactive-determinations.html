@@ -340,6 +340,14 @@
 <h1 class="title">Reactive Determinations</h1>
 </header>
 <h1 id="reactive-determinations">Reactive Determinations</h1>
+<p>A publicação derivada em <code>/schemas/domain</code> preserva esta
+configuração integralmente por <code>schemaOperationId</code> e
+<code>formMode</code>. O <a
+href="../guides/DOMAIN-CATALOG-ONTOLOGY.md">guia de ontologia</a> define
+os bindings <code>api_operation</code>/<code>form_config</code>,
+identidade do nó, caminhos aninhados, governança e testes de
+equivalência HTTP. Não há mudança no wire format de
+<code>x-ui.reactiveDeterminations</code>.</p>
 <p><code>x-ui.reactiveDeterminations</code> e a projecao estrutural e
 tenant-neutral que liga um draft de formulario a uma operacao backend
 deterministica e nao persistente.</p>
@@ -349,8 +357,15 @@ responsavel por facts, autorizacao, avaliacao da decisao e validacao
 final no submit.</p>
 <h2 id="fronteira-canonica">Fronteira canonica</h2>
 <ul>
-<li>o host registra <code>ReactiveDeterminationDefinitionProvider</code>
-como bean estatico;</li>
+<li>o host declara determinacoes diretamente no metodo <code>POST</code>
+nao-persistente com <code>@ReactiveDetermination</code>
+(<code>@DeterminationInput</code>, <code>@DeterminationOutput</code>,
+<code>@DeterminationScope</code> — auto-descoberto por
+<code>AnnotationDrivenReactiveDeterminationDefinitionProvider</code>,
+<code>PLAT-EVO-16</code>) ou registra
+<code>ReactiveDeterminationDefinitionProvider</code> como bean estatico
+quando precisar resolver <code>provenance</code> dinamica de snapshots
+governados (<code>GovernedRuleFamilyRegistry</code>);</li>
 <li>o registry captura um snapshot no bootstrap, fora de qualquer
 request ou contexto de tenant;</li>
 <li>cada scope aponta para o <code>operationId</code> exato do request
@@ -363,8 +378,22 @@ schema de create/edit;</li>
 fornecidos pelo provider;</li>
 <li>sources, inputs e outputs usam JSON Pointer e sao validados contra
 os schemas reais;</li>
+<li>cada <code>@DeterminationInput</code> deve preservar
+<strong>fidelidade estrita <code>1:1</code> de sinal e
+semantica</strong> entre o campo do formulario e o campo do DTO de
+determinacao (proibido reaproveitar uma propriedade de
+acrescimo/vantagem no request DTO para transportar uma deducao/desconto
+do formulario; adicione propriedades tipadas explicitas, inclusive
+separando data/competencia do fato gerador da competencia de
+processamento em calculos efetivos no tempo);</li>
 <li>ids duplicados, writers sobrepostos e ciclos falham fechado durante
 a materializacao;</li>
+<li>um output que sobrepoe o <code>inputs.fieldPath</code> de uma
+determinacao estabelece uma dependencia, inclusive quando o input fica
+fora de <code>sourcePaths</code>, que lista os gatilhos de mudanca;</li>
+<li>as determinacoes de cada operacao sao publicadas em ordem
+topologica, com desempate estavel por <code>id</code> entre as
+determinacoes prontas;</li>
 <li>o bloco e publicado somente na variante
 <code>schemaType=request</code> de <code>/schemas/filtered</code>.</li>
 </ul>
@@ -374,6 +403,28 @@ identidade de uma decisao aplicada nao podem aparecer no provider nem na
 projecao. Quando empresas diferentes usam politicas diferentes, a mesma
 capability backend resolve a decisao aplicada sob o principal
 autenticado.</p>
+<h2 id="valores-informativos-e-contexto-de-edição">Valores informativos
+e contexto de edição</h2>
+<p>Um output somente informativo pode existir no request schema para que
+o compiler e o formulário encontrem seu <code>fieldPath</code>.
+<code>@Schema(READ_ONLY)</code> e <code>@UISchema(readOnly=true)</code>
+descrevem essa apresentação; não controlam sozinhos a desserialização
+Java. Para resultados que não são entrada de escrita, publique também
+<code>@JsonProperty(access=READ_ONLY)</code>: o servidor ignora o valor
+recebido e recalcula os dados de negócio. Não dependa de remover campos
+por nome no frontend nem de omitir globalmente todo read-only, pois
+outros contratos permitem seu round-trip inalterado. Um
+<code>@Null</code> defensivo não pode rejeitar um output enviado pelo
+runtime oficial depois que a prévia o preencheu.</p>
+<p>Uma prévia de EDIT que depende do consumo atual precisa da identidade
+carregada do item, além dos campos em edição. Ela pode usar um input
+adicional <code>/id</code> do request schema, somente leitura, sem
+torná-lo uma source de mudança. O endpoint resolve esse ID no servidor,
+confere autorização e pertencimento ao agregado e recupera o consumo
+anterior. Não aceite um valor de crédito fornecido pelo cliente nem
+desconte duas vezes o consumo já incorporado ao saldo persistido. Na
+criação, esse contexto permanece nulo; a prévia nunca autoriza a
+gravação final.</p>
 <h2 id="exemplo-java">Exemplo Java</h2>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Bean</span></span>
@@ -405,6 +456,38 @@ documentados e mapping <code>POST</code> sem path variables. O submit de
 <code>createCustomer</code> continua obrigado a recalcular ou validar os
 campos derivados; metadata e execucao reativa nao sao enforcement de
 integridade.</p>
+<h3
+id="autoria-declarativa-zero-boilerplate-reactivedetermination-plat-evo-16">Autoria
+declarativa zero-boilerplate (<code>@ReactiveDetermination</code> —
+<code>PLAT-EVO-16</code>)</h3>
+<p>Como padrao de primeira escolha no controller do recurso, anote
+diretamente o handler <code>POST</code> nao-persistente com
+<code>@ReactiveDetermination</code>, <code>@DeterminationInput</code>,
+<code>@DeterminationOutput</code> e (para formularios parciais
+<code>@ResourceIntent</code> ou escopos customizados)
+<code>@DeterminationScope(schemaOperationId = ..., formMode = ...)</code>:</p>
+<ul>
+<li><code>AnnotationDrivenReactiveDeterminationDefinitionProvider</code>
+descobre automaticamente todos os metodos anotados no boot
+(<code>OpenApiUiSchemaAutoConfiguration</code>) e expoe
+<code>fromControllerClasses(...)</code> para testes unitarios sem
+contexto Spring;</li>
+<li><code>@DeterminationInput</code> e <code>@DeterminationOutput</code>
+aceitam tanto nomes simples de propriedade (<code>"zipCode"</code>)
+quanto JSON Pointers com barra inicial (<code>"/zipCode"</code>),
+normalizando ambos para RFC 6901 sem aceitar barra final
+(<code>"zipCode/"</code> falha fechado). Ja os construtores
+programaticos <code>ReactiveDeterminationInputBinding</code> e
+<code>ReactiveDeterminationOutputBinding</code> exigem explicitamente
+barra inicial (<code>"/zipCode"</code>);</li>
+<li>preserve fidelidade <code>1:1</code> de sinal aritmetico e semantica
+de dominio entre <code>field</code> e <code>request</code> (nunca mapear
+campo de deducao/desconto para propriedade de acrescimo/vantagem ou
+vice-versa) e vincule separadamente a data do fato gerador e a
+competencia de processamento ao consultar tabelas progressivas temporais
+(<code>EffectiveDatedBracketTable</code>,
+<code>PLAT-EVO-18</code>).</li>
+</ul>
 <h2 id="limites-da-primeira-versao">Limites da primeira versao</h2>
 <ul>
 <li>somente <code>on-change</code>;</li>

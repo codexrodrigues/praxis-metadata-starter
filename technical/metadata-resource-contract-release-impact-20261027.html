@@ -1603,6 +1603,184 @@ request instead of <code>O(N)</code> times per item.</li>
 <code>CapabilityServiceTest</code> (<code>no_db</code>).</li>
 </ul></li>
 </ol>
+<h2
+id="reconciliation-v8.0.0-rc.189-declarative-bulk-custom-field-governance-quick-filters-onda-1-contextual-quick-view-uioptionresourcefact-vocabularies-and-rules-engine-0.1.0-beta.19">2026-11-14
+reconciliation: v8.0.0-rc.189 (declarative bulk, custom-field
+governance, quick-filters Onda 1, contextual quick-view, <span
+class="citation" data-cites="UiOption">@UiOption</span>/<span
+class="citation" data-cites="ResourceFact">@ResourceFact</span>
+vocabularies, and rules-engine 0.1.0-beta.19)</h2>
+<p>Between <code>9cbea01f86</code> (<code>v8.0.0-rc.188</code>) and
+<code>00252a3803</code>, the repository integrated declarative bulk
+P1-P5 governance, custom-field JSON-logic validation and adoption
+contracts, typed <code>@QuickFilter</code>/<code>@FilterCriterion</code>
+Onda 1 support, contextual surface summary projection,
+<code>@UiOption</code>/<code>@ResourceFact</code>/<code>@ResourceIdentity</code>
+vocabularies, and
+<code>CalculationTrail</code>/<code>@MicroVisualization</code> metadata
+extensions. This reconciliation anchors <code>v8.0.0-rc.189</code>:</p>
+<ol type="1">
+<li><strong>Released dependency alignment and POM deltas
+(<code>pom.xml</code>):</strong>
+<ul>
+<li>Updated <code>io.github.codexrodrigues:praxis-rules-engine</code>
+from <code>0.1.0-beta.19-SNAPSHOT</code> to the Maven Central release
+<code>0.1.0-beta.19</code>.</li>
+<li>Retained <code>embedded-postgres-binaries-bom:17.11.0</code>
+(<code>test</code> binary alignment) and
+<code>&lt;parameters&gt;true&lt;/parameters&gt;</code> compiler
+configuration.</li>
+</ul></li>
+<li><strong>Added/updated <code>no_db</code> coverage (+46 new
+<code>no_db</code> classes) and <code>support</code> fixtures
+(+1):</strong>
+<ul>
+<li>Added 46 unit/H2/MockMvc <code>no_db</code> test classes (authoring,
+declarative bulk protocol/preparation/admission/quota/routing,
+cursor/keyset/mutation context, custom-field governance/JsonLogic,
+<code>@QuickFilter</code>/inherited JPA filters, contextual surface
+summary, <code>@UiOption</code>, <code>CalculationMemory</code>,
+<code>DomainCatalogIdentityTest</code>,
+<code>DomainRuleSetDescriptorTest</code>, and
+<code>OntologyG2PublicationTest</code>).</li>
+<li>Added <code>support</code> fixture
+<code>org.praxisplatform.uischema.bulk.p3fixture.DeclarativeBulkItem</code>.</li>
+<li>Split the 6-line optional <code>-Dontology.g2.catalog-schema</code>
+cross-repository check out of <code>OntologyG2PublicationTest</code>
+into <code>OntologyG2SchemaParityTest</code> (matching
+<code>JsonLogicExpressionValidatorParityTest</code>) so all 9 offline
+<code>/schemas/domain</code> v0.2 publication, lock, governance, and
+semantic validator checks in <code>OntologyG2PublicationTest</code> run
+unconditionally in <code>no_db</code> with zero JUnit skips.</li>
+<li>Synced test resource
+<code>src/test/resources/contracts/domain-catalog-v0.2.schema.json</code>
+with canonical <code>praxis-config-starter</code>
+<code>praxis-domain-catalog-v0.2.schema.json</code> (adding
+<code>quick_filter</code>, <code>has_quick_filter</code>,
+<code>filters_field</code> enums) and refreshed
+<code>src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker</code>.</li>
+<li>Aligned
+<code>CoreResourceEvolutionIntegrationTest.exportsAreBoundedAndGovernanceCannotBeOverriddenOrSpoofed</code>
+to assert the <code>"BRL"</code> currency default introduced in
+<code>af5091918d</code> on <code>ResourceExportSupport</code>.</li>
+</ul></li>
+<li><strong>New exclusions under <code>bulk_embedded_pg</code> (+3) and
+<code>external_workspace</code> (+1):</strong>
+<ul>
+<li><code>BulkCatalogBatchTimeoutPostgresTest</code>,
+<code>BulkDeclarativeJpaHttpTest</code>, and
+<code>JdbcResourceCommandReceiptStoreTest</code> start
+<code>EmbeddedPostgres</code> locally
+(<code>fixtureGroup: bulk_embedded_pg</code>,
+<code>excluded_outside_impact</code> count <code>32 -&gt; 35</code>);
+live PG17 atomic bulk/receipt/capacity behavior remains proved by
+<code>neon_required</code> (<code>BulkManagedOwnerNeonGateTest</code>,
+<code>BulkOptionalPoliciesNeonTest</code>,
+<code>ResourceContractCustomFieldsNeonTest</code>,
+<code>ResourceContractCompositeIdNeonTest</code>) and by
+<code>no_db</code> declarative/JDBC unit tests.</li>
+<li><code>OntologyG2SchemaParityTest</code> compares
+<code>/contracts/domain-catalog-v0.2.schema.json</code> against the
+external <code>praxis-config-starter</code> path supplied via
+<code>-Dontology.g2.catalog-schema</code>
+(<code>fixtureGroup: external_workspace</code>,
+<code>excluded_outside_impact</code> count <code>1 -&gt; 2</code>);
+cross-repo schema parity is verified in workspace runs, while runtime
+<code>/schemas/domain</code> schema validation executes unconditionally
+in <code>OntologyG2PublicationTest</code> (<code>no_db</code>).</li>
+</ul></li>
+<li><strong>Refreshed digests (<code>sha256</code>,
+<code>reviewedScopeDigest</code>, <code>historical_reuse</code>) across
+the release boundary:</strong>
+<ul>
+<li>Refreshed committed-blob <code>sha256</code> digests on modified
+<code>files</code>, <code>resources</code>, and
+<code>fixtureFiles</code>.</li>
+<li>Recomputed <code>impactReview.reviewedScopeDigest</code> across
+<code>excluded_outside_impact</code> and <code>superseded</code> entries
+and <code>reuse.reviewedScopeDigest</code> /
+<code>reuse.dependencyDigest</code> across the 3
+<code>historical_reuse</code> entries
+(<code>BulkAsyncPublicAdmissionNeonTest</code>,
+<code>BulkCapacityAuthorityManagedNeonTest</code>,
+<code>BulkCapacityGlobalOccupancyNeonTest</code>) at the reconciled
+baseline, preserving the bounded prior claims for the four
+<code>neon_required</code> B–H / resource-contract gates.</li>
+</ul></li>
+</ol>
+<h2
+id="reconciliation-v8.0.0-rc.190-ordered-transport-profile-alignment-with-batched-live-attestation">2026-11-15
+reconciliation: v8.0.0-rc.190 (ordered transport profile alignment with
+batched live attestation)</h2>
+<p>Tag <code>v8.0.0-rc.189</code> run <code>43677163160</code> passed
+all offline gates, the full audited <code>no_db</code> selection
+(<code>259</code> classes), and <code>managed-owner</code>
+(<code>BulkManagedOwnerNeonGateTest</code>) on
+<code>ubuntu-latest</code> + Neon PG17, and stopped solely in
+<code>optional-policies</code>
+(<code>BulkOptionalPoliciesNeonTest.assertOrderedTransportProfile</code>)
+at <code>executes[0] = 5</code> (previously <code>7</code>):</p>
+<ul>
+<li>Commits <code>af5091918d</code> and <code>0f5ff35325</code> folded
+two operational <code>BulkExecutionInfrastructure.withConnection</code>
+JDBC round trips into adjacent SQL batches
+(<code>constrainLifecycleAttestationTimeouts</code> into
+<code>BulkCatalogPhase.LIVE</code> via <code>LiveTimeout</code>, and
+<code>restoreLifecycleStatementTimeout</code> +
+<code>verifyDurableNamespaceBinding</code> into
+<code>restoreAndVerifyLifecycleBinding</code>), deterministically
+reducing pre-admission JDBC executes inside <code>unitWindow</code> by
+<code>-2</code> (<code>executes[0]</code> <code>7 -&gt; 5</code>,
+<code>executes[1]</code> <code>28 -&gt; 26</code>, total
+<code>unitExecutes</code> <code>39 -&gt; 37</code>).</li>
+<li>The eleven-execute post-policy suffix
+(<code>TRANSPORT_SUFFIX_EXECUTES = 6 + 1 + 3 + 1 = 11</code>),
+<code>TRANSPORT_PRE_POLICY_RESERVE_MILLIS = 1500</code>,
+<code>100ms</code> floor, five-second unit deadline, and independent
+<code>COMPLETED</code>/one-effect/one-receipt/replay-without-callback
+assertions remain unchanged
+(<code>policyRemainingMillis = 2353</code>).</li>
+<li>Updated <code>BulkOptionalPoliciesNeonTest</code>,
+<code>BulkOptionalPoliciesRecorderTest</code>,
+<code>tools/release/neon_gate.py</code>,
+<code>tools/release/test_neon_gate.py</code>, <code>RELEASING.md</code>,
+and <code>tools/release/neon-test-inventory.json</code> to require
+<code>37-executes</code> (<code>5</code>, <code>26</code>,
+<code>37</code>) and reject both the superseded <code>39-executes</code>
+marker and off-by-one counts.</li>
+</ul>
+<h2
+id="reconciliation-v8.0.0-rc.191-unique-surefire-testcase-identities-for-resourcemutationbulkcontexttest">2026-11-15
+reconciliation: v8.0.0-rc.191 (unique Surefire testcase identities for
+ResourceMutationBulkContextTest)</h2>
+<p>Tag <code>v8.0.0-rc.190</code> run <code>43680554448</code> passed
+<code>259</code> <code>no_db</code> suites (<code>1932</code> testcases)
+and all three Neon PG17 gates (<code>managed-owner</code>,
+<code>optional-policies</code> with the <code>37-executes</code>
+transport profile, and <code>resource-contracts</code> with
+<code>OID-cleanup,PASS</code>), and stopped solely in
+<code>neon_gate.reports(...)</code> at
+<code>neon gate: duplicate JUnit testcase identity</code> for
+<code>org.praxisplatform.uischema.service.base.ResourceMutationBulkContextTest</code>:</p>
+<ul>
+<li><code>ResourceMutationBulkContextTest</code> contained the
+repository’s sole JUnit 5 <code>@TestFactory</code>
+(<code>Stream&lt;DynamicTest&gt;</code>), for which Surefire
+<code>3.5.6</code> XML reports wrote four <code>&lt;testcase&gt;</code>
+elements sharing the identical method <code>name</code>
+(<code>bothModesCarryProposalAndConfirmationWithoutWritingDuringEvaluation</code>).</li>
+<li>Converting that <code>@TestFactory</code> to
+<code>@ParameterizedTest</code> with <code>@CsvSource</code>
+(<code>UNIFORM_UPDATE</code>/<code>PER_ITEM_UPDATE</code> ×
+<code>EVALUATION</code>/<code>CONFIRMATION</code>) emits four distinct
+Surefire testcase identities
+(<code>bothModesCarryProposalAndConfirmationWithoutWritingDuringEvaluation(BulkMode, Stage)[1..4]</code>)
+and isolates <code>@BeforeEach</code>/<code>@AfterEach</code> JPA setup
+per case without altering assertions.</li>
+<li>Updated <code>tools/release/neon-test-inventory.json</code> SHA-256
+for
+<code>src/test/java/org/praxisplatform/uischema/service/base/ResourceMutationBulkContextTest.java</code>.</li>
+</ul>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

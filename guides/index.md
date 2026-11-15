@@ -4,6 +4,7 @@ Esta é a trilha principal de leitura para uma pessoa ou uma LLM que queira impl
 
 ## Ordem recomendada
 
+0. [Guia 00 - Blueprint Completo de um Recurso Praxis (20 Pilares e 3 Fases)](GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.html)
 1. [Guia 01 - Backend - Aplicação Nova](GUIA-01-AI-BACKEND-APLICACAO-NOVA.html)
 2. [Guia 02 - Backend - Recurso Metadata-Driven](GUIA-02-AI-BACKEND-CRUD-METADATA.html)
 3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html)
@@ -26,6 +27,7 @@ O nome do arquivo `GUIA-02-AI-BACKEND-CRUD-METADATA` permanece estável para lin
 - [Do CRUD ao Contrato Semântico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
 - [Redação Semântica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html)
 - [Semantic Metadata Authoring](SEMANTIC-METADATA-AUTHORING.html)
+- [Quick View 360° e Curadoria Executiva Inteligente](QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.html)
 - [Enterprise Availability Adoption](ENTERPRISE-AVAILABILITY-ADOPTION.html)
 - [Options e Option-Sources](OPTIONS-ENDPOINT.html)
 - [Implementando OptionSourceProvider externo](OPTION-SOURCE-PROVIDER-SPI.html)

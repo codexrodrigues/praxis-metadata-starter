@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Guia 00 — Blueprint Completo de Recurso e Host Praxis (20 Pilares e 3 Fases)</title>
+  <title>Praxis Platform — AI Resource &amp; Host Completeness Blueprint (20 Pillars)</title>
   <style>
     html {
       color: #1a1a1a;
@@ -166,6 +166,71 @@
       vertical-align: middle;
     }
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
   </style>
   <style>
     :root {
@@ -272,467 +337,1100 @@
   <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
 </nav>
 <header id="title-block-header">
-<h1 class="title">Guia 00 — Blueprint Completo de Recurso e Host Praxis
-(20 Pilares e 3 Fases)</h1>
+<h1 class="title">Praxis Platform — AI Resource &amp; Host Completeness
+Blueprint (20 Pillars)</h1>
 </header>
 <h1
-id="guia-00-blueprint-completo-de-recurso-e-host-praxis-20-pilares-e-3-fases">Guia
-00 — Blueprint Completo de Recurso e Host Praxis (20 Pilares e 3
-Fases)</h1>
+id="praxis-platform-ai-resource-host-completeness-blueprint-20-pillars">Praxis
+Platform — AI Resource &amp; Host Completeness Blueprint (20
+Pillars)</h1>
+<p>Este documento é embarcado em
+<code>META-INF/praxis/AI-RESOURCE-BLUEPRINT.md</code> dentro do artefato
+Maven <code>io.github.codexrodrigues:praxis-metadata-starter</code> para
+servir como fonte canônica autocontida a qualquer desenvolvedor ou
+assistente de IA (Codex, Claude, Antigravity, Copilot) que crie ou
+evolua um serviço Spring Boot sobre a plataforma Praxis — mesmo fora do
+monorepo oficial.</p>
+<hr />
+<h2
+id="princípio-anti-minimalismo-e-execução-em-3-fases-de-profundidade-100">1.
+Princípio Anti-Minimalismo e Execução em 3 Fases de Profundidade
+100%</h2>
+<p>Um recurso Praxis <strong>não é</strong> um controlador REST
+tradicional com DTOs esqueléticos. A <strong>Praxis Platform</strong> é
+uma <strong>plataforma semanticamente orientada para aplicações
+corporativas AI-native</strong>, em que recursos, regras, ações, dados e
+políticas são descritos uma vez e podem ser operados por
+<strong>interfaces tradicionais, interfaces generativas, agentes de IA e
+integrações</strong> — construindo uma aplicação que, por definição, já
+seja legível e operável por IA (em vez de construir IA ao lado da
+aplicação).</p>
+<p>O valor da plataforma Praxis reside em publicar um <strong>contrato
+semântico completo</strong> que habilita automaticamente no
+<code>@praxisui/*</code> (Angular), nas superfícies
+generativas/compostas, nos agentes de IA e nas integrações: - Tabelas
+corporativas com micro-visualizações in-cell, filtros avançados, Quick
+Filters, paginação por cursor, exportação
+(<code>CSV</code>/<code>JSON</code>/<code>EXCEL</code>) e analíticos
+(<code>/stats/*</code>); - Cartões <strong>Quick View 360°</strong> e
+gavetas (<em>drawers</em>) de inspeção master-detail sem código manual
+de frontend; - Formulários dinâmicos com <strong>Lookups Ricos
+(<code>RESOURCE_ENTITY</code>)</strong>, <strong>Manutenção Parcial
+(<code>@ResourceIntent</code>)</strong> e <strong>Determinações Reativas
+(<code>ReactiveDetermination</code>)</strong>; - Ciclo de vida governado
+por <strong><code>@WorkflowAction</code></strong> com controle de
+concorrência otimista (<code>ETag</code> / <code>If-Match</code>) e
+<strong>Operações em Lote (<code>Bulking</code> nos 3 modos)</strong>; -
+Governança LGPD/AI (<code>@DomainGovernance</code>,
+<code>x-ui.fieldAccess</code>, <code>ResourceFilterAccessScope</code>) e
+Fatos de Domínio (<code>@ResourceFact</code>).</p>
 <blockquote>
-<p><strong>Leitura Obrigatória para Humanos e Agentes de IA (Codex,
-Claude, Antigravity, Copilot)</strong> Este guia consolida <strong>todas
-as 20 capacidades canônicas</strong> do
-<code>praxis-metadata-starter</code>, <code>praxis-rules-engine</code> e
-<code>praxis-config-starter</code> que devem ser contempladas ao criar
-ou migrar um recurso corporativo na plataforma Praxis. Uma cópia
-idêntica deste blueprint também é empacotada dentro do próprio
-<code>.jar</code> publicado no Maven Central em
-<code>META-INF/praxis/AI-RESOURCE-BLUEPRINT.md</code>.</p>
+<p><strong>Regra de Execução em 3 Fases (Proibido “Um Pouquinho de Cada
+Coisa”):</strong> Quando construir ou migrar um módulo com múltiplos
+recursos, <strong>jamais execute todas as camadas em um único passo
+monolítico superficial</strong>. Divida o trabalho em <strong>3 Fases
+Verticais com 100% de profundidade e validação própria</strong>: -
+<strong>Fase 1:</strong> Dados, Contabilidade 100% Entity-to-DTO,
+Qualidade Editorial <code>@UISchema</code>,
+<code>@MicroVisualization</code>,
+<code>@DomainGovernance</code>/<code>fieldAccess</code>,
+<code>@ResourceIdentity</code> Rico, Quick View 360°
+(<code>@ResourceReference</code>), <code>OptionSourceDescriptor</code> +
+<code>EntityLookupDescriptor</code> Rico e Matriz <code>FilterDTO</code>
++ <code>@QuickFilter</code> + <code>ResourceFilterAccessScope</code>. -
+<strong>Fase 2:</strong> Superfícies Semânticas (<code>@UiSurface</code>
+<code>READ_PROJECTION</code> / <code>PARTIAL_FORM</code> /
+<code>VIEW</code> e coleções filhas), <code>@ResourceIntent</code>
+(<code>PATCH</code>), <code>@WorkflowAction</code> com
+<code>If-Match</code>/<code>Idempotency-Key</code>, <strong>Bulking
+Governado</strong> (<code>@BulkEditable</code>,
+<code>@BulkResourceOperations</code>, <code>@BulkOperation</code> para
+<code>UNIFORM_UPDATE</code>, <code>PER_ITEM_UPDATE</code> e
+<code>DOMAIN_COMMAND</code>), <code>@ResourceFact</code>, Analytics
+(<code>StatsFieldRegistry</code> +
+<code>@UiAnalytics</code>/<code>@AnalyticsProjection</code>) e
+<code>CollectionExport</code>
+(<code>CSV</code>/<code>JSON</code>/<code>EXCEL</code> com
+<code>CollectionExportFieldPresentation</code>). - <strong>Fase
+3:</strong> Regras de Negócio Transacionais (erros estruturados
+<code>409</code>/<code>422</code>), Determinações Reativas
+(<code>ReactiveDeterminationDefinitionProvider</code>), Motor de Regras
+(<code>praxis-rules-engine</code> / decisões governadas
+<code>praxis-config-starter</code>), Cockpit
+(<code>/praxis/cockpit</code>), Orçamento N+1 e Gates Automatizados.</p>
 </blockquote>
 <hr />
-<h2 id="por-que-existe-este-blueprint-diretriz-anti-minimalismo">1. Por
-que existe este Blueprint? (Diretriz Anti-Minimalismo)</h2>
-<p>Quando uma LLM gera um recurso Spring Boot sem um guia prescritivo
-completo, ela tende a produzir apenas um CRUD básico: um
-<code>ResponseDTO</code> com meia dúzia de campos, um
-<code>FilterDTO</code> com 2 ou 3 filtros simples e um controller vazio.
-Isso <strong>desperdiça 80% do valor da plataforma Praxis</strong>.</p>
-<p>Na <strong>Praxis Platform</strong> — uma <strong>plataforma
-semanticamente orientada para aplicações corporativas AI-native</strong>
-em que não se constrói IA ao lado da aplicação, mas uma aplicação que,
-por definição, já nasce legível e operável por IA —, o backend é a fonte
-canônica onde recursos, regras, ações, dados e políticas são descritos
-uma vez (<code>x-ui</code>, <code>/schemas/filtered</code>,
-<code>/schemas/surfaces</code>, <code>/schemas/actions</code>,
-<code>/schemas/domain</code>, <code>/capabilities</code>,
-<code>/option-sources/*</code>, <code>/stats/*</code>,
-<code>/export</code>, <code>/reactive-determinations/evaluate</code>).
-Quando o recurso backend publica os <strong>20 Pilares</strong> abaixo,
-<strong>interfaces tradicionais</strong> (<code>@praxisui/*</code>),
-<strong>interfaces generativas</strong>, <strong>agentes de IA</strong>
-e <strong>integrações</strong> materializam e operam automaticamente: -
-Tabelas corporativas com micro-visualizações in-cell
-(<code>@MicroVisualization</code>), badges, máscaras, Quick Filters,
-paginação por cursor e exportação rica
-(<code>CSV</code>/<code>JSON</code>/<code>EXCEL</code>); - Inspeção
-<strong>Quick View 360°</strong> ao passar o mouse ou clicar em células
-de chave estrangeira ou no título do registro
-(<code>@ResourceIdentity</code> + <code>@ResourceReference</code> +
-<code>@UiSurface</code>); - Formulários dinâmicos com <strong>Lookups
-Ricos (<code>EntityLookupDescriptor</code>)</strong>, <strong>Manutenção
-Parcial por Subbloco (<code>@ResourceIntent</code>)</strong> e
-<strong>Determinações Reativas em Tempo de Formulário
-(<code>ReactiveDetermination</code>)</strong>; - Transições de ciclo de
-vida governadas por <strong><code>@WorkflowAction</code></strong> com
-ETag/<code>If-Match</code> e <strong>Operações em Lote
-(<code>Bulking</code> nos 3 modos)</strong>; - Gráficos e KPIs prontos
-para consumo via <strong><code>StatsFieldRegistry</code> +
-<code>@UiAnalytics</code> /
-<code>@AnalyticsProjection</code></strong>.</p>
-<hr />
-<h2 id="estratégia-de-execução-em-3-fases-de-profundidade-100">2.
-Estratégia de Execução em 3 Fases de Profundidade 100%</h2>
-<p>Para evitar entregas superficiais (“um pouquinho de cada coisa”),
-todo módulo ou vitrine com múltiplos recursos deve ser construído e
-validado em <strong>3 Fases Verticais com 100% de
-profundidade</strong>:</p>
-<ol type="1">
-<li><strong>Fase 1 — Dados, Contabilidade 100% Entity-to-DTO,
-<code>@UISchema</code>, <code>@MicroVisualization</code>,
-<code>@DomainGovernance</code>, Quick View 360°, Lookups Ricos e Matriz
-<code>FilterDTO</code></strong> (Pilares 1 a 9).</li>
-<li><strong>Fase 2 — Superfícies Semânticas (<code>@UiSurface</code>),
-Manutenção Parcial (<code>@ResourceIntent</code>), Ciclo de Vida
-(<code>@WorkflowAction</code>), Operações em Lote
-(<code>Bulking</code>), Fatos (<code>@ResourceFact</code>), Analytics
-(<code>@UiAnalytics</code>) e Exportação
-(<code>CollectionExport</code>)</strong> (Pilares 10 a 16).</li>
-<li><strong>Fase 3 — Regras de Negócio Transacionais
-(<code>409</code>/<code>422</code>), Determinações Reativas
-(<code>ReactiveDetermination</code>), Motor de Regras
-(<code>praxis-rules-engine</code> / <code>praxis-config-starter</code>),
-Cockpit (<code>/praxis/cockpit</code>) e Gates Automatizados</strong>
-(Pilares 17 a 20).</li>
-</ol>
-<hr />
-<h2 id="os-20-pilares-canônicos-checklist-completo">3. Os 20 Pilares
-Canônicos (Checklist Completo)</h2>
+<h2 id="matriz-canônica-dos-20-pilares-de-um-recurso-praxis">2. Matriz
+Canônica dos 20 Pilares de um Recurso Praxis</h2>
 <h3
-id="fase-1-dados-dtos-semântica-lookups-ricos-filtros-e-quick-view-360">Fase
-1: Dados, DTOs, Semântica, Lookups Ricos, Filtros e Quick View 360°</h3>
-<ol type="1">
-<li><strong>Hierarquia Resource-Oriented &amp;
-<code>@DefaultSortColumn</code>:</strong>
-<ul>
-<li>Mutável: <code>BaseCrudRepository&lt;E, ID&gt;</code>,
-<code>ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;</code>,
+id="fase-1-dados-dtos-semântica-de-campos-lookups-ricos-filtros-e-quick-view-360">FASE
+1 — Dados, DTOs, Semântica de Campos, Lookups Ricos, Filtros e Quick
+View 360°</h3>
+<table>
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 36%" />
+<col style="width: 36%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th style="text-align: left;">Pilar</th>
+<th style="text-align: left;">Contrato Canônico Obrigatório</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>1</strong></td>
+<td style="text-align: left;"><strong>Hierarquia Resource-Oriented &amp;
+<code>@DefaultSortColumn</code></strong></td>
+<td style="text-align: left;">Recursos mutáveis estendem
+<code>AbstractResourceController&lt;ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt;</code>
+e
 <code>AbstractBaseResourceService&lt;E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt;</code>
+com
+<code>ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;</code>
+e <code>BaseCrudRepository&lt;E, ID&gt;</code>. Recursos somente leitura
+estendem
+<code>AbstractReadOnlyResourceController&lt;ResponseDTO, ID, FilterDTO&gt;</code>
 e
-<code>AbstractResourceController&lt;ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt;</code>.</li>
-<li>Somente leitura:
-<code>AbstractReadOnlyResourceService&lt;E, ResponseDTO, ID, FilterDTO&gt;</code>
-e
-<code>AbstractReadOnlyResourceController&lt;ResponseDTO, ID, FilterDTO&gt;</code>.</li>
-<li>Entidade com <code>@OptionLabel</code> e
-<code>@DefaultSortColumn</code> determinístico, e
-<code>supportsCursorPagination() = true</code> no <code>Service</code>
-para habilitar <code>/filter/cursor</code> (keyset pagination) e
-<code>/locate</code> nativos sem boilerplate manual, respeitando
-<code>ResourceFilterAccessScope</code>. Chaves compostas imutáveis usam
-<code>@Embeddable</code> <code>record</code> implementando
-<code>CompositeResourceId</code>.</li>
-</ul></li>
-<li><strong>Contabilidade de 100% das Colunas da Entidade
-(<code>Entity-to-DTO Coverage Gate</code>):</strong>
-<ul>
-<li>100% das colunas de negócio da entidade JPA devem ser expostas no
-<code>ResponseDTO</code>.</li>
-<li>Use <code>@UISchema(group = "...", tableHidden = true)</code> para
-atributos secundários de formulário/ficha, deixando entre <strong>5 e 10
-colunas</strong> visíveis por padrão na grade principal
-(<code>tableHidden = false</code>) — inclusive em DTOs read-only de
-projeção.</li>
-<li>Em recursos mutáveis, toda coluna de negócio deve ser editável em
+<code>AbstractReadOnlyResourceService&lt;E, ResponseDTO, ID, FilterDTO&gt;</code>.
+A entidade declara <code>@OptionLabel</code> e
+<code>@DefaultSortColumn</code> determinístico, e o <code>Service</code>
+habilita <code>supportsCursorPagination() = true</code> para publicar
+<code>/filter/cursor</code> (keyset pagination) e <code>/locate</code>
+nativos sem boilerplate manual, respeitando
+<code>ResourceFilterAccessScope</code>. Chaves compostas imutáveis
+implementam <code>CompositeResourceId</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>2</strong></td>
+<td style="text-align: left;"><strong>Contabilidade 100% Entity-to-DTO
+(<code>Entity-to-DTO Coverage Gate</code>)</strong></td>
+<td style="text-align: left;"><strong>100% das colunas de negócio da
+entidade JPA</strong> devem estar presentes no <code>ResponseDTO</code>.
+Colunas secundárias usam
+<code>@UISchema(group = "...", tableHidden = true)</code> para manter a
+tabela principal escaneável (5 a 10 colunas visíveis por padrão) e o
+formulário/ficha 100% completo. Em recursos mutáveis, toda coluna de
+negócio deve ser editável em
 <code>CreateDTO</code>/<code>UpdateDTO</code> <strong>ou</strong>
-declarada <code>readOnly = true</code> no <code>ResponseDTO</code> e
-controlada por um <code>@WorkflowAction</code> ou
-<code>@ResourceIntent</code> (<code>PATCH</code>).</li>
-</ul></li>
-<li><strong>Qualidade Editorial de <code>@UISchema</code>,
-<code>UISchemaPreset</code> e <code>valuePresentation</code>:</strong>
-<ul>
-<li><code>label</code> curto (1 a 4 palavras, ≤ 35 caracteres, sem ponto
-final e <strong>jamais</strong> copiando
-<code>@Schema.description</code>);</li>
-<li><code>helpText</code> explicando preenchimento/interpretação;
-<code>@Schema(description = ...)</code> documentando semântica real de
-produto;</li>
-<li><code>FieldDataType</code>, <code>FieldControlType</code> explícitos
-(incluindo controles especializados como <code>AVATAR</code>,
+<code>readOnly = true</code> no <code>ResponseDTO</code> e mutada por
+<code>@WorkflowAction</code> ou <code>@ResourceIntent</code>
+(<code>PATCH</code>).</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>3</strong></td>
+<td style="text-align: left;"><strong>Qualidade Editorial de
+<code>@UISchema</code>, <code>UISchemaPreset</code> &amp;
+<code>valuePresentation</code></strong></td>
+<td style="text-align: left;"><code>label</code> curto (1 a 4 palavras,
+máx. ~35 caracteres, sem ponto final e <strong>nunca</strong> cópia de
+<code>@Schema.description</code>); <code>helpText</code> orientativo;
+<code>@Schema(description = ...)</code> com semântica real de negócio;
+<code>FieldDataType</code> e <code>FieldControlType</code> explícitos
+(usando os 65+ controles especializados como <code>AVATAR</code>,
 <code>CPF_CNPJ_INPUT</code>, <code>PHONE</code>,
 <code>CURRENCY_INPUT</code>, <code>DATE_PICKER</code>,
 <code>DATE_RANGE</code>, <code>ENTITY_LOOKUP</code>,
 <code>SELECT</code>, <code>CHECKBOX</code>, <code>PERCENT_SLIDER</code>,
-<code>FILE_UPLOAD</code>, <code>CRON_BUILDER</code>), <code>icon</code>
-Material, <code>group</code>, <code>order</code>,
-<code>UISchemaPreset</code> e <code>extraProperties</code>
+<code>FILE_UPLOAD</code>, <code>CRON_BUILDER</code>); <code>icon</code>
+Material; <code>group</code> e <code>order</code>;
+<code>UISchemaPreset</code> (<code>MONETARY_AMOUNT</code>,
+<code>PERCENTAGE_RATE</code>, <code>CPF_CNPJ</code>,
+<code>EMAIL_CONTACT</code>, <code>PHONE_CONTACT</code>,
+<code>INTEGER_COUNTER</code>, <code>ENTERPRISE_ID</code>,
+<code>ENTERPRISE_CODE</code>, <code>ENTERPRISE_NAME</code>,
+<code>ENTERPRISE_STATUS</code>, <code>DATE_RANGE</code>,
+<code>BOOLEAN_FLAG</code>, <code>LEGAL_DOCUMENT_REFERENCE</code>,
+<code>TENANT_LABEL</code>, <code>AUDIT_TIMESTAMP</code>) e
+<code>extraProperties</code> de apresentação
 (<code>labelTrue</code>/<code>labelFalse</code>,
 <code>toneTrue</code>/<code>toneFalse</code>,
-<code>presentation.presenter</code>).</li>
-</ul></li>
-<li><strong>Micro-Visualizações In-Cell
-(<code>@MicroVisualization</code> + <code>@Threshold</code>):</strong>
-<ul>
-<li>Campos de ocupação, saldo, progresso, meta ou comparação no
-<code>ResponseDTO</code> declaram
-<code>@MicroVisualization(kind = MicroVisualizationKind.BULLET | RADIAL | HARVEY_BALL | STACKED_BAR | COMPARISON | DELTA | PROCESS_FLOW, valueExpr = "...", targetExpr = "...", totalExpr = "...", thresholds = {@Threshold(...)})</code>,
-validados por <code>PraxisExpressionStaticValidator</code>.</li>
-</ul></li>
-<li><strong>Governança de Domínio, LGPD &amp;
-<code>fieldAccess</code>:</strong>
-<ul>
-<li><code>@DomainGovernance(kind = DomainGovernanceKind.PRIVACY | SECURITY | COMPLIANCE, classification = DomainClassification.PUBLIC | INTERNAL | CONFIDENTIAL | RESTRICTED, dataCategory = DomainDataCategory.PERSONAL | SENSITIVE_PERSONAL | FINANCIAL | CREDENTIAL | OPERATIONAL | LEGAL, complianceTags = {"LGPD", "PII"}, aiUsage = @AiUsagePolicy(visibility = AiVisibilityMode.MASK | SUMMARIZE_ONLY | ALLOW | DENY, trainingUse = AiTrainingUseMode.DENY, ruleAuthoring = AiControlledUseMode.REVIEW_REQUIRED, reasoningUse = AiControlledUseMode.ALLOW), reason = "...")</code>
-+
+<code>presentation.presenter</code>).</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>4</strong></td>
+<td style="text-align: left;"><strong>Micro-Visualizações In-Cell
+(<code>@MicroVisualization</code>) &amp; Memória de Cálculo Auditável
+(<code>@CalculationMemory</code>)</strong></td>
+<td style="text-align: left;">Campos de progresso, ocupação, meta,
+variação ou distribuição em <code>ResponseDTO</code> declaram
+<code>@MicroVisualization(kind = MicroVisualizationKind.BULLET \| RADIAL \| HARVEY_BALL \| STACKED_BAR \| COMPARISON \| DELTA \| PROCESS_FLOW, valueExpr = "...", targetExpr = "...", totalExpr = "...", thresholds = {@Threshold(...)})</code>.
+Quando o <code>ResponseDTO</code> expuser cálculos financeiros,
+tributários, previdenciários, de tetos, SLAs ou interstícios
+explicáveis, anotar a classe DTO (ou superclasse <code>*Dados</code>)
+com
+<code>@CalculationMemory(title = "...", subtitleExpr = "...", icon = "...", legalBasis = "...", trails = {@CalculationTrail(...)})</code>
+(<code>PLAT-EVO-20</code>, publicado em
+<code>x-ui.calculationMemory</code> para hidratação automática no
+<code>&lt;praxis-analytical-drawer&gt;</code>). Todas as expressões
+<code>row.*</code> de <code>@MicroVisualization</code> e
+<code>@CalculationMemory</code> são validadas estaticamente por
+<code>PraxisExpressionStaticValidator.validateDtoClasses(dtoClasses, true)</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>5</strong></td>
+<td style="text-align: left;"><strong>Governança de Domínio, Linhagem
+(<code>@DomainLineage</code>), LGPD/LAI
+(<code>LegalTreatmentPurpose</code>) &amp;
+<code>fieldAccess</code></strong></td>
+<td
+style="text-align: left;"><code>@DomainGovernance(preset = DomainGovernancePreset.LGPD_PERSONAL_ID \| LGPD_PERSONAL_CONTACT \| LGPD_PERSONAL_DATA \| LGPD_SENSITIVE_DATA \| CONFIDENTIAL_FINANCIAL \| PUBLIC_TRANSPARENCY_REMUNERATION \| CONFIDENTIAL_OPERATIONAL \| SECURITY_CREDENTIAL \| INTERNAL_OPERATIONAL \| LEGAL_COMPLIANCE, exportable = true \| false, reason = "...", aiUsage = @AiUsagePolicy(...))</code>
+(suportando também <code>@Target(ElementType.TYPE)</code> com herança
+monotônica classe/interface -&gt; campo; os 9 atributos reais de
+<code>@DomainGovernance</code> são <code>preset</code>,
+<code>kind</code>, <code>classification</code>,
+<code>dataCategory</code>, <code>complianceTags</code>,
+<code>exportable</code>, <code>aiUsage</code>, <code>reason</code> e
+<code>confidence</code>) em todos os campos sensíveis, pessoais,
+financeiros ou de segurança — combinando
+<code>PUBLIC_TRANSPARENCY_REMUNERATION</code> (<code>PUBLIC</code>,
+<code>exportable = true</code>, <code>ALLOW</code> sob LAI/publicidade
+remuneratória) com <code>CONFIDENTIAL_FINANCIAL</code>
+(<code>CONFIDENTIAL</code>, <code>exportable = false</code>,
+<code>MASK</code> para consignados, pensão alimentícia, sindicato, saúde
+e dados bancários) no mesmo DTO quando aplicável
+(<code>PLAT-EVO-13</code>);
+<code>@DomainLineage(attributeId = "...", sourceClass = ..., sourcePaths = {...}, transformation = ...)</code>
+em atributos projetados (publicado em
+<code>x-domain-governance.lineage</code> e mantendo
+<code>@DomainGovernance</code> local no DTO, validado contra
+enfraquecimento via <code>lineage-governance-weakened</code>);
+<code>legalPurpose = LegalTreatmentPurpose.*</code> +
+<code>legalBasisRef = "..."</code> em <code>@UiSurface</code> e
+<code>@WorkflowAction</code>; e
 <code>@UISchema(visibleForAuthorities = {...}, editableForAuthorities = {...}, fieldAccessReason = "...")</code>
-(metadados declarativos consumidos por <code>/schemas/domain</code>,
-fluxos de IA e pelo futuro Sidecar de Políticas de Segurança
-OPA/Rego).</li>
-</ul></li>
-<li><strong>Identidade Rica (<code>@ResourceIdentity</code>):</strong>
-<ul>
-<li>No <code>@ApiResource</code> do Controller e no
-<code>ResponseDTO</code>: <code>keyField</code>,
-<code>titleField</code>, <code>subtitleField</code> (e/ou
+quando houver restrição declarativa por perfil (consumidos por
+<code>/schemas/domain</code>,
+<code>ResourceDecisionPointCatalogService</code> e
+<code>praxis-authz-starter</code> /
+<code>praxis-authz-enforcement-core</code> /
+<code>praxis-authz-opa</code>).</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>6</strong></td>
+<td style="text-align: left;"><strong>Identidade Rica
+(<code>@ResourceIdentity</code>)</strong></td>
+<td style="text-align: left;">Declarada de forma idêntica em
+<code>@ApiResource(identity = @ResourceIdentity(...))</code> no
+Controller e no <code>ResponseDTO</code> (ou no nível da classe do
+Controller / <code>&lt;R&gt;</code> <code>ResponseDTO</code> concreto —
+<code>ApiResourceIdentityResolver.resolve(resourcePath)</code> também
+faz fallback automático para <code>@ResourceIdentity</code> na classe do
+controller ou no <code>&lt;R&gt;</code> <code>ResponseDTO</code> quando
+<code>@ApiResource.identity()</code> for omitido), preenchendo
+obrigatoriamente <code>keyField</code>, <code>titleField</code>,
+<code>subtitleField</code> (e/ou
 <code>codeField</code>/<code>statusField</code>) e
-<code>metadataFields = {...}</code>.</li>
-</ul></li>
-<li><strong>Quick View &amp; Navegação 360°
-(<code>@ResourceReference</code>):</strong>
-<ul>
-<li>Curar de <strong>4 a 8 campos executivos</strong> no
-<code>ResponseDTO</code> com
+<code>metadataFields = {...}</code> (2 a 3 campos executivos de
+enquadramento imediato que <strong>aparecem nas primeiras linhas do
+corpo do Quick View</strong>; <strong>proibido</strong> repetir
+<code>keyField</code>, <code>titleField</code> ou
+<code>subtitleField</code> em <code>metadataFields</code>, ou usar
+campos de baixo sinal como <code>tratamento</code>,
+<code>observacao</code> nula ou IDs numéricos brutos de FK). Ver
+<code>docs/guides/QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.md</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>7</strong></td>
+<td style="text-align: left;"><strong>Quick View &amp; Navegação 360°
+(<code>@ResourceReference</code>)</strong></td>
+<td style="text-align: left;">Curar <strong>4 a 8 campos
+executivos</strong> no <code>ResponseDTO</code> com
 <code>@UISchema(quickViewVisible = true, quickViewOrder = ...)</code>
-(sem duplicar <code>titleField</code>/<code>subtitleField</code>).</li>
-<li>Anotar o campo de título do próprio recurso <strong>e</strong> todos
-os campos de exibição de chaves estrangeiras
+(sem repetir <code>keyField</code>, <code>titleField</code>,
+<code>subtitleField</code> ou <code>metadataFields</code>), priorizando
+(1) situação/status com badge/tone e <code>icon</code>, (2)
+papel/cargo/lotação humana legível, (3) marcos temporais/canais de
+contato e (4) contadores/indicadores inteiros
+(<code>NumericFormat.INTEGER</code>, nunca <code>,00</code>), traduzindo
+códigos fechados via <code>FieldControlType.SELECT</code> +
+<code>@UISchema(optionItems = {@UiOption(...)})</code> ou
+<code>optionEnum = ...</code> (evitando JSON escapado em
+<code>options</code>). Anotar o campo <code>titleField</code> do próprio
+recurso <strong>e</strong> todos os campos de exibição de FKs
 (<code>departmentName</code>, <code>customerName</code>,
 <code>positionName</code>, <code>costCenterName</code>,
 <code>managerName</code>, etc.) com
-<code>@ResourceReference(resourceKey = "...", valueField = "...", surfaceId = "detail", previewSurfaceId = "...", detailPresentation = "drawer")</code>.</li>
-</ul></li>
-<li><strong>Lookups Ricos (<code>OptionSourceDescriptor</code> +
-<code>EntityLookupDescriptor</code>):</strong>
-<ul>
-<li>Registrar <code>RESOURCE_ENTITY</code> e
-<code>DISTINCT_DIMENSION</code> no
-<code>OptionSourceRegistry</code>.</li>
-<li>Nunca passar <code>null</code> nos subcontratos de
-<code>EntityLookupDescriptor</code>: configurar
+<code>@ResourceReference(resourceKey = "...", valueField = "...", surfaceId = "detail", previewSurfaceId = "...", detailPresentation = "drawer")</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>8</strong></td>
+<td style="text-align: left;"><strong>Lookups Ricos
+(<code>OptionSourceDescriptor</code> +
+<code>EntityLookupDescriptor</code>)</strong></td>
+<td style="text-align: left;">Registrar no
+<code>OptionSourceRegistry</code> fontes <code>RESOURCE_ENTITY</code> e
+<code>DISTINCT_DIMENSION</code> completas. Todo
+<code>RESOURCE_ENTITY</code> deve preencher
+<code>EntityLookupDescriptor</code> com: (a)
 <code>codePropertyPath</code>, <code>descriptionPropertyPaths</code>,
-<code>statusPropertyPath</code>, <code>LookupSelectionPolicy</code>
-(<code>allowedStatuses</code>/<code>blockedStatuses</code>,
+<code>statusPropertyPath</code>; (b) <code>LookupSelectionPolicy</code>
+(<code>selectablePropertyPath</code>,
+<code>allowedStatuses</code>/<code>blockedStatuses</code>,
 <code>allowRetainInvalidExistingValue = true</code>,
 <code>disabledReasonTemplate</code>,
-<code>validationMessageTemplate</code>),
-<code>LookupDetailDescriptor</code> (conectado à surface 360°),
+<code>validationMessageTemplate</code>); (c)
+<code>LookupDetailDescriptor</code> (<code>surfaceId = "detail"</code>,
+<code>previewSurfaceId = "..."</code>,
+<code>presentation = "drawer"</code>); (d)
 <code>LookupDisplayDescriptor</code> (<code>preset = "directory"</code>,
-<code>fields</code>), <code>LookupFilteringDescriptor</code>
+<code>fields</code>); (e) <code>LookupFilteringDescriptor</code>
 (<code>sortOptions</code>, <code>defaultSort</code>,
-<code>searchStrategies</code>) e <code>dependsOn</code> +
-<code>dependencyFilterMap</code> para dependências cruzadas entre
-campos.</li>
-</ul></li>
-<li><strong>Matriz Exaustiva de <code>FilterDTO</code>, Busca Ampla
-(<code>relations</code>), <code>@QuickFilter</code> &amp;
-<code>ResourceFilterAccessScope</code>:</strong>
-<ul>
-<li><code>FilterDTO implements GenericFilterDTO</code> cobrindo todas as
-dimensões operacionais: busca ampla unificada num único campo
-(<code>@Filterable(operation = FilterOperation.LIKE, relations = {"fullName", "socialName", "motherName", "fatherName", "dependents.fullName", "taxId"})</code>),
-combinação multi-operador
+<code>searchStrategies</code>); e (f) <code>dependsOn</code> +
+<code>dependencyFilterMap</code> para filtros em cascata (ex.:
+<code>companyId</code> / <code>organizationId</code>).</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>9</strong></td>
+<td style="text-align: left;"><strong>Matriz Exaustiva de
+<code>FilterDTO</code>, Busca Ampla (<code>relations</code>),
+<code>@QuickFilter</code>, <code>ResourceFilterAccessScope</code> &amp;
+Índices (<code>FilterableIndexAdvisor</code>)</strong></td>
+<td
+style="text-align: left;"><code>FilterDTO implements GenericFilterDTO</code>
+com no mínimo 5 a 15+ campos cobrindo: (a) <strong>Busca Ampla / Omnibox
+num único campo</strong> via
+<code>@Filterable(operation = FilterOperation.LIKE, relations = {"fullName", "socialName", "motherName", "fatherName", "dependents.fullName", "taxId", "department.name", "position.name"})</code>
+para pesquisar simultaneamente em múltiplos atributos da entidade e
+nomes legíveis de seus relacionamentos (<code>OR</code>); (b) combinação
+multi-operador sobre o mesmo atributo
 (<code>LIKE</code>/<code>STARTS_WITH</code>/<code>EQUAL</code>/<code>IN</code>,
-intervalos <code>BETWEEN</code>, janelas relativas
+intervalos <code>BETWEEN</code> com
+<code>DATE_RANGE</code>/<code>PRICE_RANGE</code>, janelas relativas
 <code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code>/<code>ON_DATE</code>,
-auditoria de nulidade <code>IS_NULL</code>/<code>IS_NOT_NULL</code>,
-cardinalidade de coleções <code>SIZE_GT</code>/<code>SIZE_EQ</code>,
-booleanos <code>IS_TRUE</code>), navegação relacional cross-entity
-(<code>relation = "entidade.subentidade.campo"</code>) e
-<code>@CustomFields</code>, <code>@QuickFilter</code> no
-<code>@ApiResource</code> para recortes frequentes e
+<strong>janelas de ausência/estagnação e auditoria de nulidade</strong>
+<code>IS_NULL</code>/<code>IS_NOT_NULL</code>/<code>IS_FALSE</code>,
+cardinalidade de coleções <code>SIZE_GT</code>/<code>SIZE_EQ</code> e
+booleanos <code>IS_TRUE</code>); (c) <strong>navegação relacional em
+vocabulário humano</strong> (<code>relation = "department.name"</code>,
+<code>relation = "department.unitType"</code>,
+<code>relation = "employment.category"</code>,
+<code>relation = "department.costCenter.code"</code>,
+<code>relation = "dependents.relationshipType"</code> — proibido expor
+apenas códigos/IDs brutos de FK) e <code>@CustomFields</code>; (d) no
+mínimo 2 a 6
+<code>@QuickFilter(id = "...", label = "...", icon = "...", tone = QuickFilterTone..., description = "...", defaultActive = ..., criteria = {@FilterCriterion(field = "...", values = {...})})</code>
+no <code>@ApiResource</code> (ou <code>defineQuickFilters()</code>
+tipado no <code>Service</code> para predicados temporais dinâmicos); (e)
 <code>ResourceFilterAccessScope</code> no <code>Service</code> quando
-houver escopo de linha por tenant/empresa.</li>
-</ul></li>
-</ol>
+houver isolamento multi-empresa/tenant; e (f) cobertura de índices
+<code>@Table(indexes = ...)</code> e DDL PostgreSQL
+(<code>B-Tree</code>, <code>varchar_pattern_ops</code>,
+<code>GIN pg_trgm</code>) validada via
+<code>FilterableIndexAdvisor</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3
-id="fase-2-superfícies-projeções-360-intents-workflow-actions-bulking-facts-analytics-e-exportação">Fase
-2: Superfícies, Projeções 360°, Intents, Workflow Actions, Bulking,
-Facts, Analytics e Exportação</h3>
-<ol start="10" type="1">
-<li><strong>Superfícies Semânticas (<code>@UiSurface</code>),
-Master-Detail &amp; Novos Endpoints Cross-Entity:</strong>
-<ul>
-<li><code>@UiSurface(id = "...", kind = SurfaceKind.READ_PROJECTION | SurfaceKind.VIEW, scope = SurfaceScope.ITEM)</code>
-para respaldar todos os <code>previewSurfaceId</code> e
-<code>surfaceId</code> declarados em <code>@ResourceReference</code>,
-além de coleções filhas via <code>relatedChildResourceKey</code>,
+id="fase-2-superfícies-semânticas-projeções-360-intents-workflow-actions-bulking-facts-analytics-e-exportação">FASE
+2 — Superfícies Semânticas, Projeções 360°, Intents, Workflow Actions,
+Bulking, Facts, Analytics e Exportação</h3>
+<table>
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 36%" />
+<col style="width: 36%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th style="text-align: left;">Pilar</th>
+<th style="text-align: left;">Contrato Canônico Obrigatório</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>10</strong></td>
+<td style="text-align: left;"><strong>Superfícies Semânticas
+(<code>@UiSurface</code>), Master-Detail &amp; Novos Endpoints
+Cross-Entity (<code>Radar*</code>)</strong></td>
+<td style="text-align: left;">Publicar
+<code>@UiSurface(id = "...", kind = SurfaceKind.READ_PROJECTION \| SurfaceKind.VIEW, scope = SurfaceScope.ITEM)</code>
+para atender aos <code>previewSurfaceId</code> de
+<code>@ResourceReference</code>, além de coleções filhas master-detail
+(<code>relatedChildResourceKey</code>,
 <code>relatedChildResourcePath</code>,
-<code>relatedChildParentField</code>. Quando o relacionamento entre
-entidades revelar visões consolidadas não-óbvias, criar também novos
-endpoints read-only dedicados
-(<code>AbstractReadOnlyResourceController</code>).</li>
-</ul></li>
-<li><strong>Manutenção Parcial Governada
-(<code>@ResourceIntent</code>):</strong>
-<ul>
-<li>Endpoints <code>PATCH /{id}/{intent}</code> com
-<code>@ResourceIntent</code> +
-<code>@UiSurface(kind = SurfaceKind.PARTIAL_FORM)</code> e DTO dedicado
-por subbloco cadastral.</li>
-</ul></li>
-<li><strong>Ciclo de Vida (<code>@WorkflowAction</code>), Concorrência
-(<code>If-Match</code> / <code>Idempotency-Key</code>) &amp; Duplicação
-(<code>duplicate-draft</code> vs. Deep Clone):</strong>
-<ul>
-<li>Todas as transições de estado reais modeladas com
-<code>@WorkflowAction</code>, DTO de comando,
-<code>ResourceStateSnapshotProvider</code>,
-<code>VersionedCreateUpdateResourceService</code> (<code>ETag</code> +
-<code>If-Match</code>) e <code>Idempotency-Key</code>
-(<code>GovernedResourceCommandExecutor</code>).</li>
-<li><strong>Regra de Decisão (<code>duplicate-draft</code> vs. clonagem
-profunda):</strong> Para duplicação assistida em que o operador revisa e
-complementa um novo registro antes de salvar (catálogos, cargos, tabelas
-paramétricas, pré-preenchimento organizacional), usar
+<code>relatedChildParentField</code>). Quando o relacionamento entre
+entidades revelar visões consolidadas ou perguntas investigativas
+multi-domínio não-óbvias (ex.: matriz de ocupação e vagas, radar de
+vencimentos, auditoria de anomalias remuneratórias vs. movimentação
+funcional, cobertura de chefias), criar <strong>novos endpoints
+read-only dedicados</strong>
+(<code>AbstractReadOnlyResourceController</code>) com
+<code>@ResourceFact</code> e <code>@UiAnalytics</code> completos. Os
+DTOs de projeção read-only devem manter de 5 a 10 colunas com
+<code>tableHidden = false</code> para renderização escaneável em
+tabelas/drawers.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>11</strong></td>
+<td style="text-align: left;"><strong>Manutenção Parcial Governada
+(<code>@ResourceIntent</code>)</strong></td>
+<td style="text-align: left;">Em recursos extensos ou com subblocos
+cadastrais (ex.: alocação organizacional, dados bancários/faturamento,
+endereço/contato, parâmetros contratuais), expor endpoints
+<code>PATCH /{id}/{intent}</code> anotados com
+<code>@ResourceIntent(id = ..., title = ..., description = ...)</code> e
+<code>@UiSurface(id = ..., kind = SurfaceKind.PARTIAL_FORM, scope = SurfaceScope.ITEM, intent = ...)</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>12</strong></td>
+<td style="text-align: left;"><strong>Ciclo de Vida
+(<code>@WorkflowAction</code>), Concorrência (<code>If-Match</code> /
+<code>Idempotency-Key</code>) &amp; Duplicação
+(<code>duplicate-draft</code> vs. Deep Clone)</strong></td>
+<td style="text-align: left;">Modelar todas as transições reais de
+negócio da entidade como <code>@WorkflowAction</code> com DTO de comando
+próprio, <code>ResourceStateSnapshotProvider</code> para disponibilidade
+contextual em <code>/capabilities</code>, controle de versão otimista
+via <code>VersionedCreateUpdateResourceService</code> (<code>ETag</code>
++ <code>If-Match</code> retornando
+<code>428</code>/<code>412</code>/<code>409</code>) e
+<code>Idempotency-Key</code>
+(<code>GovernedResourceCommandExecutor</code>). Para <strong>duplicação
+assistida (não-persistente)</strong> de cadastros/catálogos/templates,
+estender
 <code>AbstractDuplicateDraftResourceController&lt;R, ID, F, C, U, D&gt;</code>
 + <code>DuplicateDraftResourceService&lt;R, ID, F, C, U, D&gt;</code>
-(<code>DuplicateDraftResourceCommandService&lt;ID, D&gt;</code>). O
-<code>POST /{resource}/{id}/duplicate-draft</code> prepara um DTO
-explícito compatível com create, sem persistir nem alterar a origem; a
-política backend limpa identidade, versão e campos únicos/protegidos e
-publica nulabilidade real sem enfraquecer <code>CreateDTO</code>.
-Suporte exige opt-in e mapping POST;
-<code>ResourceOperationAvailabilityEvaluator</code> compõe decisões
-afirmativas de create/view/duplicate-draft, falhando fechado. Só a
-confirmação envia o POST de criação separado. Clonagem profunda
-transacional imediata (cabeçalho + coleções <code>1:N</code>) é uma
-<code>@WorkflowAction</code> distinta. A annotation
-<code>@WorkflowAction(id="duplicate-draft")</code> da base continua útil
-ao discovery e não significa persistência. Consulte <a
-href="DUPLICATE-DRAFT-ADOPTION.md">adoção e provas</a>.</li>
-</ul></li>
-<li><strong>Operações em Lote Governadas (<code>Bulking</code> — 3 Modos
-Além do Óbvio):</strong>
-<ul>
-<li>Auditar 100% dos atributos mutáveis diferenciando
+(<code>DuplicateDraftResourceCommandService&lt;ID, D&gt;</code>),
+expondo <code>POST /{resource}/{id}/duplicate-draft</code> com
+<code>DuplicateDraftDTO</code> explícito (limpando chaves
+únicas/pessoais e declarando <code>@Schema(nullable = true)</code> nos
+campos zerados que exigem decisão explícita no <code>CreateDTO</code>) e
+<code>ResourceOperationAvailabilityEvaluator</code> (operação
+<code>"duplicate-draft"</code>; suporte estrutural pelo componente
+<code>boolean duplicateDraft</code> de
+<code>ResourceStructuralCapabilities</code>, lido pelo accessor
+<code>duplicateDraft()</code> e combinado com o mapping POST). A
+política de cópia pertence ao backend e limpa identidade, versão e
+valores protegidos; o DTO é compatível com create e só o POST de criação
+após confirmação persiste. Suporte exige opt-in e mapping POST;
+disponibilidade exige create COLLECTION, view e duplicate-draft ITEM
+afirmativos, falhando fechado. Clonagem profunda transacional imediata
+(<code>1:N</code>) é uma <code>@WorkflowAction</code> distinta. A base
+mantém <code>@WorkflowAction(id="duplicate-draft")</code> para
+discovery, sem persistência no preparo. Ver o guia
+<code>docs/guides/DUPLICATE-DRAFT-ADOPTION.md</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>13</strong></td>
+<td style="text-align: left;"><strong>Operações em Lote Governadas
+(<code>Bulking</code> — 3 Modos Além do Óbvio)</strong></td>
+<td style="text-align: left;">Em recursos mutáveis corporativos, auditar
+<strong>100% dos atributos e transições</strong> para bulking: (1)
+diferenciar <code>@BulkEditable</code> em
 <code>BulkMode.UNIFORM_UPDATE</code> (padronização coletiva:
 departamento, centro de custo, jornada/turno, regime/plano,
 banco/agência/forma de pagamento, flags operacionais, gestor) e
 <code>BulkMode.PER_ITEM_UPDATE</code> (planilha/grade de revisão
 individualizada em lote: telefones, e-mails, endereços, contas
 bancárias, valores/limites individuais, códigos externos, datas
-específicas por item) com <code>@Schema(nullable = true)</code> quando
-<code>allowClear = true</code>;</li>
-<li><code>@BulkResourceOperations(protectedUpdateFields = {...})</code>
-no Controller;</li>
-<li><code>@BulkOperation(mode = BulkMode.UNIFORM_UPDATE | BulkMode.PER_ITEM_UPDATE, evaluationOperationId = "...")</code>
-para atualização estrutural em lote;</li>
-<li><code>@WorkflowAction(scope = ActionScope.COLLECTION)</code> +
-<code>@BulkOperation(mode = BulkMode.DOMAIN_COMMAND, evaluationOperationId = "...")</code>
-para atos coletivos de negócio descobertos a partir do ciclo de vida e
-dos relacionamentos entre entidades (ex.: realocação coletiva entre
-unidades, homologação/aprovação em lote, suspensão/reativação coletiva,
-reenquadramento paramétrico) no protocolo de 2 fases
-(<code>evaluation -&gt; proposal -&gt; confirm -&gt; execution/results</code>).</li>
-</ul></li>
-<li><strong>Fatos Determinísticos (<code>@ResourceFact</code>):</strong>
-<ul>
-<li>Indicadores calculados publicados em <code>/schemas/domain</code>
-com <code>label</code> curto (≤ 35 caracteres, sem ponto final) e
-metadados visuais executivos (<code>icon</code>, <code>tone</code>,
+específicas por item); se <code>allowClear = true</code>, declarar
+<code>@Schema(nullable = true)</code>; (2) anotar o Controller com
+<code>@BulkResourceOperations(protectedUpdateFields = {...})</code>; (3)
+expor endpoints de confirmação com
+<code>@BulkOperation(mode = BulkMode.UNIFORM_UPDATE \| BulkMode.PER_ITEM_UPDATE, evaluationOperationId = "...")</code>;
+e (4) descobrir <strong>atos coletivos de negócio</strong> no ciclo de
+vida e nos relacionamentos
+(<code>@WorkflowAction(scope = ActionScope.COLLECTION)</code> +
+<code>@BulkOperation(mode = BulkMode.DOMAIN_COMMAND, evaluationOperationId = "...")</code>,
+ex.: realocação coletiva entre unidades, homologação/aprovação em lote,
+suspensão/reativação coletiva, reenquadramento paramétrico) seguindo o
+protocolo de 2 fases
+(<code>evaluation -&gt; proposal -&gt; confirm -&gt; execution/results</code>).</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>14</strong></td>
+<td style="text-align: left;"><strong>Fatos Determinísticos de Domínio
+(<code>@ResourceFact</code>)</strong></td>
+<td style="text-align: left;">Declarar <code>@ResourceFact</code> (ou
+<code>ResourceFactCatalogProvider</code>) para publicar indicadores
+derivados e fatos determinísticos em <code>/schemas/domain</code> com
+<code>label</code> curto (≤ 35 caracteres, sem ponto final), metadados
+visuais executivos (<code>icon</code>, <code>tone</code>,
 <code>valuePresentation</code>,
-<code>thresholds = {@Threshold(...)}</code>).</li>
-</ul></li>
-<li><strong>Analytics (<code>StatsFieldRegistry</code> +
-<code>@UiAnalytics</code> / <code>@AnalyticsProjection</code>):</strong>
-<ul>
-<li><code>StatsFieldRegistry</code> e <code>StatsSupportMode.AUTO</code>
-no <code>Service</code> (<code>/stats/group-by</code>,
-<code>/stats/timeseries</code>, <code>/stats/distribution</code>,
-<code>/stats/comparison</code>, incluindo métricas <code>COUNT</code>,
-<code>DISTINCT_COUNT</code>, <code>SUM</code>, <code>AVG</code>,
-<code>MIN</code>, <code>MAX</code>, <code>MEDIAN</code>,
-<code>PERCENTILE_90</code>, <code>PERCENTILE_95</code> e
-<code>AVG_PER_CYCLE_OCCURRENCE</code> em
+<code>thresholds = {@Threshold(...)}</code>) e contrato explícito de
+autoridade
+(<code>authority = "server_computed" \| "persisted_column"</code>,
+<code>evaluationPhase = "post_read" \| "pre_write" \| "query_projection"</code>,
+<code>missingValuePolicy = "fail_closed"</code>,
+<code>scope = "item" \| "collection"</code>,
+<code>clientOverridable = false</code>). <code>resourceKey</code> é
+opcional (<code>default ""</code>) e herdado automaticamente de
+<code>@ApiResource(resourceKey = ...)</code> (tanto no controller quanto
+no <code>&lt;R&gt;</code> <code>ResponseDTO</code> de
+<code>AbstractResourceQueryController</code>); utilize os vocabulários
+canônicos de <code>ResourceFactAuthority</code>,
+<code>ResourceFactEvaluationPhase</code>,
+<code>ResourceFactMissingValuePolicy</code>,
+<code>ResourceFactScope</code>, <code>ResourceFactSourceKind</code> e
+<code>ResourceFactDataType</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>15</strong></td>
+<td style="text-align: left;"><strong>Analytics
+(<code>StatsFieldRegistry</code> + <code>@UiAnalytics</code> /
+<code>@AnalyticsProjection</code>)</strong></td>
+<td style="text-align: left;">Sobrescrever
+<code>getStatsFieldRegistry()</code> e
+<code>StatsSupportMode.AUTO</code> no <code>Service</code> (habilitando
+<code>/stats/group-by</code>, <code>/stats/timeseries</code>,
+<code>/stats/distribution</code> e <code>/stats/comparison</code>,
+incluindo métricas <code>COUNT</code>, <code>DISTINCT_COUNT</code>,
+<code>SUM</code>, <code>AVG</code>, <code>MIN</code>, <code>MAX</code>,
+<code>MEDIAN</code>, <code>PERCENTILE_90</code>,
+<code>PERCENTILE_95</code> e <code>AVG_PER_CYCLE_OCCURRENCE</code> em
 <code>numericMeasureField</code>/<code>numericHistogramMeasureField</code>)
-+ <code>@UiAnalytics(projections = {@AnalyticsProjection(...)})</code>
-no Controller com <code>@AnalyticsRecordOpen</code> apontando para a
-surface 360°.</li>
-</ul></li>
-<li><strong>Exportação Governada (<code>CollectionExport</code> +
-<code>CollectionExportFieldPresentation</code>):</strong>
-<ul>
-<li>Formatos <code>CSV</code>, <code>JSON</code> e <code>EXCEL</code>,
-escopos <code>AUTO</code>, <code>SELECTED</code>, <code>FILTERED</code>,
-<code>CURRENT_PAGE</code>, <code>ALL</code>, respeitando as políticas de
+e anotar o Controller com
+<code>@UiAnalytics(projections = {@AnalyticsProjection(..., recordOpen = @AnalyticsRecordOpen(..., target = @AnalyticsSurfaceTarget(...)))})</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>16</strong></td>
+<td style="text-align: left;"><strong>Exportação Governada
+(<code>CollectionExport</code> +
+<code>CollectionExportFieldPresentation</code>)</strong></td>
+<td style="text-align: left;">Configurar <code>CollectionExport</code>
+suportando os 3 formatos (<code>CSV</code>, <code>JSON</code>,
+<code>EXCEL</code>) e os 5 escopos (<code>AUTO</code>,
+<code>SELECTED</code>, <code>FILTERED</code>, <code>CURRENT_PAGE</code>,
+<code>ALL</code>), respeitando as políticas de
 <code>@DomainGovernance</code> / <code>visibleForAuthorities</code> e
-allowlists de exportação do servidor, além de aplicar
-<code>CollectionExportFieldPresentation</code> (moeda, data,
-booleanos).</li>
-</ul></li>
-</ol>
+allowlists de exportação do servidor, além de enriquecer colunas
+monetárias, datas e booleanos com
+<code>CollectionExportFieldPresentation</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3
-id="fase-3-regras-de-negócio-determinações-reativas-motor-de-regras-e-gates-automatizados-100-orientada-a-código">Fase
-3: Regras de Negócio, Determinações Reativas, Motor de Regras e Gates
-Automatizados (100% Orientada a Código)</h3>
-<ol start="17" type="1">
-<li><strong>Invariantes Transacionais, Ciclo de Vida Completo
+id="fase-3-regras-de-negócio-determinações-reativas-motor-de-regras-e-gates-automatizados">FASE
+3 — Regras de Negócio, Determinações Reativas, Motor de Regras e Gates
+Automatizados</h3>
+<table>
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 36%" />
+<col style="width: 36%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: center;">#</th>
+<th style="text-align: left;">Pilar</th>
+<th style="text-align: left;">Contrato Canônico Obrigatório</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;"><strong>17</strong></td>
+<td style="text-align: left;"><strong>Invariantes Transacionais, Ciclo
+de Vida Completo
 (<code>CREATE</code>/<code>UPDATE</code>/<code>DELETE</code>) &amp;
-Contratos de Erro Estruturados (<code>409</code> /
-<code>422</code>):</strong>
-<ul>
-<li>Validações transacionais no <code>Service</code> retornando
-<code>409 Conflict</code> / <code>422 Unprocessable Entity</code> com
-<code>fieldErrors</code> estruturados.</li>
-<li><strong>Ordem Transacional Obrigatória no
-<code>Service</code>:</strong> (a) métodos de hidratação
-(<code>hydrate*</code>) devem executar <strong>antes</strong> do
-<code>RuleEngine</code> / validações, e atributos preenchidos por
-<code>hydrate*</code> no servidor jamais devem ter <code>@NotNull</code>
-bloqueante no <code>CreateDTO</code>/<code>UpdateDTO</code>; (b) todo
-<code>Service</code> mutável com regras de domínio deve implementar
-<code>beforeDelete</code> (ou <code>deleteById</code>) aplicando
-isolamento de escopo (<code>checkOrg</code>) e invariantes de exclusão
-(bloqueio por estado ou vínculo dependente); e (c) efeitos colaterais
-pós-persistência equivalentes a triggers <code>MAIN_POS</code> (ex.:
-recálculo/sincronização da entidade pai) devem ser executados em
-<code>afterCreate</code>, <code>afterUpdate</code> e
-<code>afterDelete</code>.</li>
-</ul></li>
-<li><strong>Determinações Reativas
-(<code>ReactiveDeterminationDefinitionProvider</code> — Além do
-Óbvio):</strong>
-<ul>
-<li>Registrar beans <code>ReactiveDeterminationDefinitionProvider</code>
-vinculando operações de formulário
-(<code>ReactiveDeterminationScope(schemaOperationId, ReactiveDeterminationFormMode.CREATE | EDIT)</code>
-— exigindo <code>@Operation(operationId = "create...")</code> no
-<code>@PostMapping</code> e
+Erros Estruturados (<code>409</code> / <code>422</code>)</strong></td>
+<td style="text-align: left;">Implementar todas as invariantes de
+domínio no <code>Service</code> (create, update, delete, intents,
+workflow actions e bulk), retornando erros canônicos estruturados
+(<code>409 Conflict</code> / <code>422 Unprocessable Entity</code> com
+<code>fieldErrors</code>) para materialização automática nos formulários
+<code>@praxisui/dynamic-form</code>. Garantir ordem transacional
+estrita: (a) <code>hydrate*</code> antes do <code>RuleEngine</code> (sem
+<code>@NotNull</code> bloqueante no DTO para atributos hidratados no
+servidor); (b) <code>beforeDelete</code>/<code>deleteById</code> com
+isolamento de escopo (<code>checkOrg</code>) e guardas de
+estado/dependência em todo <code>Service</code> mutável com regras de
+domínio; e (c)
+<code>afterCreate</code>/<code>afterUpdate</code>/<code>afterDelete</code>
+para sincronizações pós-persistência (<code>MAIN_POS</code>).</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>18</strong></td>
+<td style="text-align: left;"><strong>Determinações Reativas
+(<code>@ReactiveDetermination</code> /
+<code>ReactiveDeterminationDefinitionProvider</code> — Além do
+Óbvio)</strong></td>
+<td style="text-align: left;">Anotar diretamente o endpoint
+<code>POST</code> não-persistente de prévia no Controller com
+<code>@ReactiveDetermination(id = "...", createOperationId = "create...", updateOperationId = "update...", triggerMode = ..., inputs = {@DeterminationInput(...)}, outputs = {@DeterminationOutput(...)})</code>
+(<code>PLAT-EVO-16</code>, descoberto automaticamente por
+<code>AnnotationDrivenReactiveDeterminationDefinitionProvider</code> sem
+classes <code>*DeterminationConfig</code> manuais — exigindo
+<code>@Operation(operationId = "create...")</code> no
+<code>@PostMapping</code>,
 <code>@Operation(operationId = "update...")</code> no
-<code>@PutMapping("/{id}")</code> do Controller) a endpoints
-<code>POST</code> não-persistentes anotados com
-<code>@Operation(operationId = "determine...")</code>.</li>
-<li>Configurar <code>ReactiveDeterminationTriggerMode.ON_CHANGE</code>,
+<code>@PutMapping("/{id}")</code> e
+<code>@Operation(operationId = "determine...")</code> no
+<code>POST</code> de cálculo), ou registrar beans
+<code>ReactiveDeterminationDefinitionProvider</code> quando
+<code>provenance</code> depender dinamicamente de
+<code>GovernedRuleFamilyRegistry</code> (<code>PLAT-EVO-05</code>).
+Quando <code>response</code> e <code>field</code> tiverem o mesmo nome,
+prefira o atalho canônico
+<code>@DeterminationOutput("nomeDoCampo")</code> (evitando repetir
+<code>response = "x", field = "x"</code>). Usar
+<code>ReactiveDeterminationTriggerMode.ON_CHANGE</code>,
 <code>ON_INIT</code> (<code>sourcePaths</code> opcionais para defaults
 iniciais) ou <code>ON_INIT_AND_CHANGE</code> (hidratação inicial +
-reação a mudanças), <code>sourcePaths</code> (JSON Pointers iniciados
-por <code>"/"</code>, todos contidos em <code>inputs</code>),
-<code>ReactiveDeterminationInputBinding(fieldPath, requestPath)</code>
-(podendo incluir <code>"/id"</code> em modo <code>EDIT</code> sem
-listá-lo em <code>sourcePaths</code>),
-<code>ReactiveDeterminationOutputBinding(responsePath, fieldPath)</code>
-(todos os campos de saída devem existir em
-<code>CreateDTO</code>/<code>UpdateDTO</code> — com
+reação a mudanças), JSON Pointers iniciados por <code>"/"</code>,
+<code>triggerSource = false</code> em
+<code>@DeterminationInput(field = "/id", request = "/...Id", triggerSource = false)</code>
+no modo <code>EDIT</code>, e declarar todos os campos de saída em
+<code>CreateDTO</code>/<code>UpdateDTO</code> (com
 <code>@UISchema(readOnly = true)</code> quando forem prévias calculadas
-— sem sobrepor <code>inputs</code>) e
-<code>ReactiveDeterminationProvenance(ReactiveDeterminationProvenanceKind.HOST | PLATFORM, sourceId, version)</code>.</li>
-</ul></li>
-<li><strong>Motor de Regras (<code>praxis-rules-engine</code>) &amp;
-Decisões Governadas (<code>praxis-config-starter</code>):</strong>
-<ul>
-<li><code>RuleSet</code> determinístico JSON Logic e, quando
-<code>praxis-config-starter</code> estiver ativo no host, consumo de
-snapshots aprovados em <code>/api/praxis/config/domain-rules/**</code>
-(<code>ReactiveDeterminationProvenanceKind.PLATFORM</code> / decisões
-governadas).</li>
-<li><strong>Regras Estritas de Integridade de Regras de Negócio (Zero
-Burocracia de Arquivos Intermediários):</strong>
-<ol type="1">
-<li><em>Codificação Direta <code>1:1 KEEP_SEPARATE</code> a partir do
-Legado:</em> quando houver documentação/código legado (ex.:
-<code>.tab</code> e <code>PCK_*.PKB</code> em <code>docs-legado</code>),
-ler diretamente os fontes legados e codificar em Java mantendo paridade
-<code>1:1</code> entre cada
-<code>INSERE_ERRO</code>/<code>TRATA_ERRO</code> -&gt; descritor
-individual em <code>*RuleErrorCatalog.java</code> (com
-<code>plsqlLineage</code> no próprio código Java) -&gt;
-<code>DecisionBinding</code> atômico em <code>*RuleSet.java</code> -&gt;
-teste JUnit em <code>*Test.java</code>, sem aglutinar múltiplos códigos
-de erro em uma única entrada;</li>
-<li><em>Proibição de Split-Brain:</em> o <code>PraxisRulesEngine</code>
-é a <strong>autoridade única</strong> para todas as regras cobertas por
-um <code>*RuleSet.java</code> (preservando a capacidade de
-<code>REPLACE_EXACT</code> e <code>PARAMETRIC_TEMPLATE</code> por
-tenant). Classes <code>Invariants</code> devem restringir-se a guardas
-estruturais HTTP (<code>403</code> escopo/tenant, <code>404</code>
-existência de FK, <code>If-Match</code>, locks e recursos simples sem
-<code>RuleSet</code>), nunca duplicando nem curto-circuitando regras do
-<code>RuleSet</code>;</li>
-<li><em>Proibição de Booleanos de Fachada no
-<code>FactProvider</code>:</em> o provedor de fatos deve expor apenas
-fatos primitivos/estruturados de domínio e contagens obtidas do banco;
-toda comparação lógica ou relacional entre fatos pertence à árvore JSON
-Logic do <code>*RuleSet.java</code>.</li>
-</ol></li>
-</ul></li>
-<li><strong>Observabilidade, <code>/praxis/cockpit</code>, Orçamento N+1
-&amp; Gates Automatizados:</strong>
-<ul>
-<li>Liberar <code>/praxis/cockpit/**</code> no
-<code>SecurityConfig</code> de dev/showcase, testar contagem de queries
-SQL em <code>/filter</code> frio (<code>QueryCountHolder</code>) e
-executar o <strong>Gate JUnit Nativo</strong>
-(<code>SemanticMetadataReviewer</code> +
-<code>PraxisExpressionStaticValidator</code> +
-<code>OptionSourcePublicationInventory</code>) e o auditor
-<code>scripts/workspace/audit-java-resource-completeness.py</code>
-(incluindo os Checks 13 a 16 de <code>StatsFieldRegistry</code> JPA
-paths, <code>@NotNull</code> vs <code>hydrate*</code>, paridade
-<code>1:1</code>
-<code>RuleCatalog &lt;-&gt; RuleSet &lt;-&gt; Test</code> e cobertura de
-<code>beforeDelete</code>).</li>
-</ul></li>
-</ol>
+e jamais sobrepondo <code>inputs</code>).</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>19</strong></td>
+<td style="text-align: left;"><strong>Motor de Regras
+(<code>praxis-rules-engine</code>), Grafo Ontológico de Fatos &amp;
+Decisões Governadas (<code>praxis-config-starter</code>)</strong></td>
+<td style="text-align: left;">Avaliar regras declarativas
+determinísticas via <code>RuleSet</code> (JSON Logic) do
+<code>praxis-rules-engine</code>. Quando o host integrar
+<code>praxis-config-starter</code>, consumir apenas snapshots aprovados
+de <code>/api/praxis/config/domain-rules/**</code>
+(<code>GOVERNED_DECISION</code>), sem inventar snapshots fictícios
+quando a fronteira de config não estiver ativa. Manter: (1)
+rastreabilidade <code>1:1 KEEP_SEPARATE</code> direto no código Java
+(<code>*RuleErrorCatalog</code> -&gt; <code>DecisionBinding</code> -&gt;
+<code>*Test.java</code>, sem aglutinar códigos e sem arquivos
+intermediários de cerimônia); (2) proibição de <em>Split-Brain</em>
+(<code>PraxisRulesEngine</code> como autoridade única das regras de
+<code>RuleSet</code>, reservando <code>Invariants</code> a guardas
+estruturais HTTP como <code>403</code>, <code>404</code>,
+<code>If-Match</code>, locks e recursos sem <code>RuleSet</code>); (3)
+<strong>Grafo Ontológico de Fatos nas 5 raízes canônicas</strong>
+(<code>draft</code>, <code>current</code>,
+<code>&lt;conceito&gt;</code>, <code>neighborhood</code>,
+<code>context</code>) via <code>PraxisFactTreeBuilder</code>
+(<code>putDraft</code>, <code>putCurrent</code>,
+<code>putConcept</code>, <code>putNeighborhood</code>,
+<code>putContext</code>), proibindo sacos escalares achatados
+(<code>facts.*</code>) e booleanos/contagens SQL de fachada quando a
+restrição pertencer ao JSON Logic; e (4) derivação automática de
+<code>availableRoots</code> e <code>requiredFactPaths</code> da AST via
+<code>PraxisFactTreeBuilder.extractReferencedRoots</code> /
+<code>PraxisFactTreeBuilder.extractReferencedFactPaths</code>.</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>20</strong></td>
+<td style="text-align: left;"><strong>Observabilidade,
+<code>/praxis/cockpit</code>, Orçamento N+1 &amp; Gates
+Automatizados</strong></td>
+<td style="text-align: left;">Expor <code>/praxis/cockpit/**</code> no
+<code>SecurityConfig</code> (em perfis de dev/inspeção), provar ausência
+de N+1 com assertions de contagem de queries em
+<code>POST /{resource}/filter</code> frio (orçamento fixo
+independentemente do tamanho da página) e executar o <strong>Gate JUnit
+Nativo</strong> abaixo (e
+<code>python scripts/workspace/audit-java-resource-completeness.py &lt;host&gt; --strict</code>
+quando no monorepo, cobrindo inclusive os Checks 13 a 16).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="apis-canônicas-das-ondas-13-por-pilar">2.1. APIs canônicas das
+Ondas 1–3 por pilar</h3>
+<p>Estas APIs fazem parte da hierarquia acima. O host fornece domínio,
+segurança, infraestrutura e políticas; os helpers preservam a semântica
+compartilhada.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Pilar</th>
+<th style="text-align: left;">API canônica</th>
+<th style="text-align: left;">Adoção e limite de responsabilidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>1, 5, 9</strong></td>
+<td
+style="text-align: left;"><code>assertEntityAccessAllowed</code></td>
+<td style="text-align: left;">Sobrescrever no service para validar o
+tenant/escopo do registro. Combinar com
+<code>resolveResourceFilterAccessScope()</code> para restringir coleções
+antes de paginação, contagem, stats e exportação. O starter aplica o
+guarda também a locate, itens fixados por <code>includeIds</code> e
+exportação. A carga por ID distingue inexistência (<code>404</code>) de
+acesso negado (<code>403</code>); mutações validam acesso antes do lock
+e novamente após o refresh sob <code>PESSIMISTIC_WRITE</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>5, 9, 16</strong></td>
+<td style="text-align: left;"><code>EnforcementPipelineExecutor</code> /
+<code>JpaDataScopeAdapter</code> /
+<code>DetachedDtoMaskingProcessor</code> /
+<code>AuthzResourceGovernanceSpec.fromAnnotatedResource</code></td>
+<td style="text-align: left;">Quando o host adotar a <strong>Praxis
+Authorization Decision Platform (<code>praxis-authz-starter</code>,
+<code>decisionKind = AUTHORIZATION</code>)</strong>, construir
+especificações zero-blueprint via
+<strong><code>AuthzResourceGovernanceSpec.fromAnnotatedResource(serviceKey, tenantFieldName, entityClass, responseDtoClass, filterDtoClass, controllerClass)</code></strong>
+(6 args, ou sobrecarga de 7 args com <code>resourceKey</code>, ou
+<code>AuthzResourceGovernanceSpec.&lt;E&gt;builder(resourceKey).serviceKey(serviceKey).tenantField(tenantFieldName).introspectFromResource(...)</code>,
+com suporte a <code>@GetMapping</code> raiz, coerção automática do tipo
+Java de <code>hardScope</code>
+<code>String</code>/<code>Integer</code>/<code>Long</code>/<code>Short</code>/<code>UUID</code>
+e <code>@ManyToOne(optional = false)</code> -&gt;
+<code>FactPresenceModel.ALWAYS_PRESENT</code>,
+<code>PLAT-EVO-10</code>), publicar inventários PAP via
+<code>ResourceDecisionPointCatalogService</code>
+(<code>deriveForController</code> / <code>deriveForResource</code>,
+<code>PLAT-EVO-07</code>) e delegar controle de acesso
+(<code>ACCESS</code>), escopo relacional (<code>DataScopePlan</code> via
+<code>JpaDataScopeAdapter</code> composto por <code>AND</code> com o
+<code>hardScope</code>), restrição de leitura/inferência
+(<code>FieldUseQueryGuard</code>), mutação seletiva por atributo
+(<code>DtoWriteIntentExtractor</code> +
+<code>FieldWriteAuthorizer</code> com custódia dual
+cedente/cessionário), mascaramento em projeção desanexada
+(<code>DetachedDtoMaskingProcessor</code> /
+<code>GovernedCollectionExportGuard</code>) e obrigações
+(<code>ObligationBarrierCoordinator</code>) ao pipeline de 15 etapas
+governado por OPA/Rego v1
+(<code>docs/architecture/praxis-policy-starter/README.md</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>8</strong></td>
+<td
+style="text-align: left;"><code>EntityLookupDescriptor.directoryBuilderFromDto</code>
+/ <code>directoryBuilder</code></td>
+<td style="text-align: left;">Construir o lookup rico via
+<strong><code>EntityLookupDescriptor.directoryBuilderFromDto(entityKey, ResponseDTO.class)</code></strong>
+(<code>PLAT-EVO-09</code>, 2 argumentos
+<code>String entityKey, Class&lt;?&gt; responseDtoClass</code>,
+introspectando <code>@ResourceIdentity</code> + <code>@UISchema</code>
+em POJOs, superclasses <code>*Dados</code>, <code>record</code>s e
+getters via <code>LookupDisplayFieldDescriptor.fromDtoField</code>, e
+<strong>priorizando automaticamente campos visíveis com
+<code>UISchemaPreset.ENTERPRISE_CODE</code> sobre o <code>id</code>
+substituto</strong> em <code>codePropertyPath</code> e
+<code>searchPropertyPaths</code>) ou <code>directoryBuilder</code>.
+Personalizar status, <code>LookupSelectionPolicy</code>, dependências em
+cascata e surfaces de detalhe sem passar <code>null</code> a cada
+subcontrato. O registro da fonte
+(<code>OptionSourceRegistryContributor</code> /
+<code>OptionSourceRegistry</code>) e os endpoints continuam explícitos
+em <code>ApiPaths</code> do host.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>8</strong></td>
+<td
+style="text-align: left;"><code>LookupCapabilities.standardDirectory</code></td>
+<td style="text-align: left;">Perfil de diretório com busca, resolução
+por IDs, detalhe, navegação e multisseleção. Não anuncia criação nem
+edição; permissões reais continuam no backend.
+<code>directoryBuilderFromDto</code> e <code>directoryBuilder</code> já
+usam esse perfil como default.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>10</strong></td>
+<td
+style="text-align: left;"><code>filterRelatedChildResource</code></td>
+<td style="text-align: left;">Implementar o endpoint real da coleção
+filha com o helper do controller base: autoriza o pai, vincula seu ID ao
+filtro da filha e preserva paginação/envelope/links. Declarar
+<code>relatedChildResourceKey</code>,
+<code>relatedChildResourcePath</code> e
+<code>relatedChildParentField</code> na surface. O child service mantém
+seu próprio escopo obrigatório.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>11</strong></td>
+<td
+style="text-align: left;"><code>executeVersionedItemPatch</code></td>
+<td style="text-align: left;">Executar o <code>@ResourceIntent</code>
+ITEM com <code>If-Match</code> e retornar a representação com ETag da
+revisão persistida. O endpoint PATCH e a surface
+<code>PARTIAL_FORM</code> continuam explícitos; o callback usa o service
+transacional e o domínio autorizado.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>12</strong></td>
+<td
+style="text-align: left;"><code>DefaultResourceAvailabilityService</code></td>
+<td style="text-align: left;">Avaliar disponibilidade contextual
+declarativa (<code>PLAT-EVO-01</code>: chaves
+<code>action.&lt;id&gt;.allowed</code>, <code>reason</code>,
+<code>legalBasis</code>, <code>legalPurpose</code>,
+<code>customTitle</code>, <code>blockedByRule</code>,
+<code>surface.&lt;id&gt;.*</code>, <code>operation.&lt;id&gt;.*</code>,
+<code>resource.legalBasis</code> e <code>resource.legalPurpose</code>
+populadas em <code>service.toResourceStateSnapshot(entity)</code>, com
+precedência determinística e sem exigir classes
+<code>*ContextualAvailabilityConfig</code> por recurso), além de
+<code>allowedStates</code>, autoridades, versão e
+<code>ContextualResourceActionService.buildSnapshot(id)</code> em
+<code>AbstractResourceQueryController</code>. Quando
+<code>allowedStates</code> é declarado e o snapshot não contém estado
+válido, falha fechado com <code>SNAPSHOT_UNAVAILABLE</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>12</strong></td>
+<td
+style="text-align: left;"><code>executeVersionedItemCommand</code></td>
+<td style="text-align: left;">Executar a <code>@WorkflowAction</code>
+ITEM pelo executor governado, com precondição de versão, availability,
+resposta e ETag canônicos. Fornecer <code>Idempotency-Key</code>,
+payload e store quando o comando exigir reexecução idempotente. Não
+duplicar a montagem HTTP no host.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>12</strong></td>
+<td
+style="text-align: left;"><code>JdbcResourceCommandReceiptStore</code></td>
+<td style="text-align: left;">Store opt-in PostgreSQL de recibos de
+comandos unitários, com o mesmo datasource/transaction manager da
+mutação. Instalar explicitamente
+<code>db/praxis-command-receipts.sql</code>; o starter não executa DDL
+nem migrações de recibos automaticamente. O recibo e o efeito de domínio
+compartilham a transação.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>13</strong></td>
+<td
+style="text-align: left;"><code>AbstractBulkGovernedResourceController</code></td>
+<td style="text-align: left;">Publicar as nove rotas canônicas de
+avaliação, confirmação, propostas, execuções, resultados e cancelamento
+para <code>SYNC</code>/<code>PER_ITEM</code>. Declarar
+<code>@BulkResourceOperations</code>, <code>UPDATE_SOURCE</code> e
+campos protegidos; não copiar o protocolo no host. Com infraestrutura
+explícita, <code>BulkOperationStatusLookup</code> usa
+<code>BulkOperationIdentityDiscovery</code> para resolver os IDs retidos
+no namespace/recurso correto; a leitura continua sujeita à autorização
+atual.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>13</strong></td>
+<td style="text-align: left;"><code>JpaResourceBulkEngine</code></td>
+<td style="text-align: left;">Compor com <code>bulkDomainAdapter</code>,
+codecs, campos editáveis, infraestrutura e política do host. Avaliar
+candidatos destacados em <code>REPEATABLE_READ</code>, descartar
+alterações acidentais da avaliação e confirmar por item com lock, versão
+e recibo durável. Falhas funcionais surgidas na gravação revertem todo o
+item antes de registrar
+<code>CONFLICT</code>/<code>INVALID</code>/<code>DENIED</code>,
+permitindo os itens seguintes. Falhas técnicas e resultado de commit
+incerto mantêm o tratamento conservador do kernel. Migração, publicação
+READY, ASYNC/ATOMIC e workers são composições explícitas.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>4, 15</strong></td>
+<td style="text-align: left;"><code>@CalculationMemory</code> &amp;
+<code>CalculationMemoryMetadataResolver</code></td>
+<td style="text-align: left;">Anotar <code>ResponseDTO</code> (ou
+superclasse <code>*Dados</code>) com
+<code>@CalculationMemory(trails = {@CalculationTrail(...)})</code>
+(<code>PLAT-EVO-20</code>) para publicar
+<code>x-ui.calculationMemory</code> em <code>/schemas/filtered</code>
+(apenas na variante <code>schemaType=response</code>), sem repetir a
+mesma expressão em <code>baseExpr</code> e
+<code>additionExpr</code>/<code>deductionExpr</code> (evitando parcelas
+fantasma duplicadas), validado estaticamente por
+<code>PraxisExpressionStaticValidator.validateDtoClasses(dtoClasses, true)</code>
+e materializado automaticamente em
+<code>PraxisAnalyticalDrawerComponent</code> (ou fundido em
+<code>PraxisAnalyticalDrawerSchema</code> / <code>[drawerConfig]</code>
+via <code>hydrateRemoteCalculationMemory: true</code>, injetando em
+<code>tabs[0].calculationMemory</code> quando houver abas).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>17, 19</strong></td>
+<td
+style="text-align: left;"><code>EffectiveDatedResourceSupport</code></td>
+<td style="text-align: left;">Utilitário canônico
+(<strong><code>org.praxisplatform.uischema.service.base.EffectiveDatedResourceSupport</code></strong>,
+<code>PLAT-EVO-02</code> — jamais usar o pacote inexistente
+<code>org.praxisplatform.uischema.temporal</code>) para recursos com
+vigência temporal (<code>dtini</code>/<code>dtfim</code> ou
+<code>startDate</code>/<code>endDate</code> inclusivos, tratando
+<code>null</code> como vigência em aberto):
+<code>EffectiveDatedInterval</code>,
+<code>MutableEffectiveDatedInterval</code>,
+<code>ValidityInterval</code>, <code>prepareAndValidateInsert</code>,
+<code>closePreviousOpenValidity</code>, <code>validateNoOverlap</code>,
+<code>validateRange</code>, <code>isEffectiveOn</code>,
+<code>vigenteEm</code>, <code>asOfDate</code>,
+<code>resolveTemporalState</code>, <code>isContiguous</code> e
+<code>findGaps</code>. Proibido duplicar helpers manuais de intervalo ou
+encerramento de vigência em cada service do host.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>18</strong></td>
+<td style="text-align: left;"><code>@ReactiveDetermination</code>,
+<code>AnnotationDrivenReactiveDeterminationDefinitionProvider</code>
+&amp; <code>GovernedRuleFamilyRegistry</code></td>
+<td style="text-align: left;">Declarar determinações zero-boilerplate
+diretamente no endpoint <code>POST</code> de prévia via
+<code>@ReactiveDetermination</code> (<code>@DeterminationInput</code>,
+<code>@DeterminationOutput</code>, <code>@DeterminationScope</code>,
+<code>PLAT-EVO-16</code>) ou via
+<code>ReactiveDeterminationDefinition.forCrudResource</code>
+(<code>REPEATABLE_READ</code> somente leitura, validando
+<code>404</code>/<code>403</code> de todas as FKs antes de projetar
+valores, mantendo fidelidade <code>1:1</code> de sinal/semântica nos
+<code>@DeterminationInput</code>s sem reaproveitar campo de acréscimo
+para transportar dedução, vinculando a data/competência do fato gerador
+separadamente da competência de processamento e resolvendo
+<code>provenance</code> dinamicamente via
+<code>GovernedRuleFamilyDescriptor</code> /
+<code>GovernedRuleFamilyRegistry</code>, <code>PLAT-EVO-05</code>). Os
+campos devem existir nos DTOs; inputs/outputs não se sobrepõem. A prévia
+não persiste nem substitui regras transacionais.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>19</strong></td>
+<td style="text-align: left;"><code>GovernedRuleEngineTemplate</code> /
+<code>GovernedHostRuleBundleRuntime&lt;O&gt;</code> &amp; Tabelas
+Paramétricas Multi-Vigência (<code>PLAT-EVO-08</code>, <code>12</code>,
+<code>18</code>)</td>
+<td style="text-align: left;">Compilar/cachear o plano por escopo
+autenticado (<code>GovernedHostRuleBundleRuntime&lt;O&gt;</code>,
+<code>PLAT-EVO-04</code>, com <code>CommitFence</code>
+<code>beforeCommit</code>) e executar o engine determinístico com fatos
+capturados, instante e timezone explícitos. <code>evaluate</code>
+preserva os cinco estados; <code>enforce</code> autoriza somente
+<code>ALLOW</code>. Para apuração paramétrica pura em Java, reutilizar
+<code>EffectiveDatedIntervalCalculator</code> (<code>PLAT-EVO-08</code>,
+<code>InterruptionEffect.SUSPEND \| INTERRUPT_AND_RESTART \| IGNORE</code>
+e acréscimos limitados), <code>ProgressiveBracketAndCapCalculator</code>
+(<code>PLAT-EVO-12</code>,
+<code>BracketMode.MARGINAL_SLICES \| TABLE_RATE_MINUS_DEDUCTION</code>,
+abate-teto constitucional preservando verbas indenizatórias isentas,
+margem consignável e <em>pro-rata</em>) e
+<strong><code>EffectiveDatedBracketTable</code>
+(<code>BracketScheduleEpoch</code>, <code>PLAT-EVO-18</code>, resolvendo
+sempre pela data/competência do direito em apurações retroativas antes
+da competência de processamento),
+<code>EffectiveDatedMatrixMatcher&lt;T&gt;</code> e
+<code>TriStateOverrideResolver</code></strong> para tabelas
+multi-vigência históricas/retroativas, matrizes paramétricas
+multi-critério e overrides hierárquicos
+<code>PERMITIR \| VEDAR \| HERDAR</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>19</strong></td>
+<td style="text-align: left;"><code>RuleErrorCatalog</code> &amp;
+<code>RuleFactCatalogLoader</code></td>
+<td style="text-align: left;">Registrar cada erro atômico via beans
+<code>RuleErrorCatalog</code> (<code>RuleErrorCatalog.merge(...)</code>)
+com código, campo público, mensagem de domínio, lineage e categoria
+seguros, e carregar catálogos declarativos de fatos via
+<code>RuleFactCatalogLoader</code> enriquecidos por
+<code>DtoMetadataFactCatalogEnricher</code> (<code>PLAT-EVO-06</code>,
+cobrindo POJOs, superclasses <code>*Dados</code>, <code>record</code>s e
+<code>inspectWriteDto</code>). <code>PraxisRuleViolationException</code>
+conserva apenas as causas da decisão consolidada
+(<code>category="CONFLICT"</code> -&gt; <code>409</code>; default
+<code>BUSINESS_LOGIC</code> -&gt; <code>422</code>), sem fatos nem
+causas privadas.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>19</strong></td>
+<td style="text-align: left;"><code>PraxisFactTreeBuilder</code></td>
+<td style="text-align: left;">Capturar o <strong>Grafo Ontológico de
+Fatos</strong> destacado nas 5 raízes canônicas (<code>putDraft</code>,
+<code>putCurrent</code>, <code>putConcept(conceptKey, ...)</code>,
+<code>putNeighborhood</code>, <code>putContext</code>), carregando
+sempre as entidades reais de 1-hop (proibido passar stubs
+<code>false</code>/<code>null</code> para conceitos guardados pelo
+<code>RuleSet</code>) e sem comparações de regra no provider.
+<code>put</code> valida apenas o novo valor; <code>build</code> valida o
+limite agregado da árvore. Para objetos persistentes já carregados,
+preferir <code>putScalarBean</code>/<code>toScalarObjectNode</code>.
+Usar <code>extractReferencedRoots(expression)</code> e
+<code>extractReferencedFactPaths(expression)</code> para derivar
+<code>availableRoots</code> e <code>requiredFactPaths</code> diretamente
+da AST JSON Logic (ignorando variáveis locais de
+<code>map</code>/<code>filter</code>/<code>all</code>/<code>some</code>/<code>none</code>/<code>reduce</code>).</td>
+</tr>
+</tbody>
+</table>
+<p>Exemplo de diretório rico, sem anúncios de escrita implícitos:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> directory <span class="op">=</span> EntityLookupDescriptor<span class="op">.</span><span class="fu">directoryBuilder</span><span class="op">(</span><span class="st">&quot;departments&quot;</span><span class="op">,</span> <span class="st">&quot;code&quot;</span><span class="op">,</span> <span class="st">&quot;name&quot;</span><span class="op">)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span><span class="fu">status</span><span class="op">(</span><span class="st">&quot;status&quot;</span><span class="op">)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span><span class="fu">dependencies</span><span class="op">(</span><span class="bu">Map</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;companyId&quot;</span><span class="op">,</span> <span class="st">&quot;companyId&quot;</span><span class="op">))</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span><span class="fu">detailSurface</span><span class="op">(</span><span class="st">&quot;detail&quot;</span><span class="op">,</span> <span class="st">&quot;preview&quot;</span><span class="op">)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span><span class="fu">build</span><span class="op">();</span></span></code></pre></div>
+<p>O host define <code>LookupSelectionPolicy</code> para os estados
+realmente selecionáveis, mantendo
+<code>allowRetainInvalidExistingValue</code> quando necessário.
+<code>sortOptions</code> e <code>defaultSort</code> devem usar a mesma
+dimensão publicada pelo lookup, sem misturar nomes de propriedades da
+entidade com aliases da apresentação.</p>
+<p>Em custom fields, CREATE rejeita qualquer atribuição read-only. PUT e
+bulk aceitam o snapshot read-only idêntico ao persistido, mas rejeitam
+alteração ou limpeza explícita; valores omitidos permanecem protegidos
+pelo lifecycle. O draft de UPDATE aplica o DTO a uma cópia destacada do
+registro autorizado e projeta a resposta, combinando novos valores com
+estado hidratado. Regras locais de campos opcionais vazios não são
+aplicáveis; regras cross-field ainda avaliam com <code>value=null</code>
+para preservar obrigatoriedade condicional. Incompatibilidade de tipo
+nessa avaliação vazia não vira HTTP <code>500</code>. Uma expressão que
+depende de <code>entity</code> exige estado confiável no update e não
+pode ser validada standalone; <code>{"var":""}</code> dentro do
+predicado de um iterador representa seu item local.</p>
+<p>Cursores de recursos vinculam a tupla à ordenação efetiva
+(propriedade, direção, tratamento de null e case sensitivity). Trocar a
+ordenação exige novo cursor; um cursor incompatível é payload inválido,
+sem reinterpretar sua posição.</p>
+<h2
+id="gate-junit-nativo-de-completude-para-todo-projeto-host-interno-ou-externo">3.
+Gate JUnit Nativo de Completude (Para Todo Projeto Host — Interno ou
+Externo)</h2>
+<p>Todo projeto Java que utiliza <code>praxis-metadata-starter</code>
+deve incluir um teste JUnit executando os <strong>4 validadores nativos
+embarcados no próprio JAR do starter</strong>: 1.
+<code>org.praxisplatform.uischema.authoring.SemanticMetadataReviewer</code>
+(<code>review</code>, <code>reviewResourceController</code> e
+<code>reviewOptionSourceRegistry</code>) 2.
+<code>org.praxisplatform.uischema.validation.PraxisExpressionStaticValidator</code>
+3.
+<code>org.praxisplatform.uischema.options.diagnostics.OptionSourcePublicationInventory</code>
++ <code>OptionSourcePublicationDiagnostics</code> 4.
+<code>org.praxisplatform.uischema.authoring.FilterableIndexAdvisor</code></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> com</span><span class="op">.</span><span class="im">example</span><span class="op">.</span><span class="im">host</span><span class="op">.</span><span class="im">architecture</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">junit</span><span class="op">.</span><span class="im">jupiter</span><span class="op">.</span><span class="im">api</span><span class="op">.</span><span class="im">Test</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">authoring</span><span class="op">.</span><span class="im">FilterableIndexAdviceReport</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">authoring</span><span class="op">.</span><span class="im">FilterableIndexAdvisor</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">authoring</span><span class="op">.</span><span class="im">SemanticMetadataIssueSeverity</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">authoring</span><span class="op">.</span><span class="im">SemanticMetadataReviewReport</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">authoring</span><span class="op">.</span><span class="im">SemanticMetadataReviewer</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">options</span><span class="op">.</span><span class="im">OptionSourceRegistry</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">options</span><span class="op">.</span><span class="im">diagnostics</span><span class="op">.</span><span class="im">OptionSourcePublicationCandidate</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">options</span><span class="op">.</span><span class="im">diagnostics</span><span class="op">.</span><span class="im">OptionSourcePublicationDiagnostics</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">options</span><span class="op">.</span><span class="im">diagnostics</span><span class="op">.</span><span class="im">OptionSourcePublicationInventory</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">validation</span><span class="op">.</span><span class="im">PraxisExpressionStaticValidator</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">java</span><span class="op">.</span><span class="im">util</span><span class="op">.</span><span class="im">List</span><span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="kw">static</span><span class="im"> org</span><span class="op">.</span><span class="im">assertj</span><span class="op">.</span><span class="im">core</span><span class="op">.</span><span class="im">api</span><span class="op">.</span><span class="im">Assertions</span><span class="op">.</span><span class="im">assertThat</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> PraxisMetadataCompletenessTest <span class="op">{</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> SemanticMetadataReviewer reviewer <span class="op">=</span> <span class="kw">new</span> <span class="fu">SemanticMetadataReviewer</span><span class="op">();</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> PraxisExpressionStaticValidator expressionValidator <span class="op">=</span> <span class="kw">new</span> <span class="fu">PraxisExpressionStaticValidator</span><span class="op">();</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="dt">final</span> FilterableIndexAdvisor indexAdvisor <span class="op">=</span> <span class="kw">new</span> <span class="fu">FilterableIndexAdvisor</span><span class="op">();</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Test</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="fu">controllersDtosAndOptionSourcesPassSemanticMetadataReview</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">List</span><span class="op">&lt;</span><span class="bu">Class</span><span class="op">&lt;?&gt;&gt;</span> dtoClasses <span class="op">=</span> <span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>                <span class="co">// Liste aqui todos os ResponseDTO, CreateDTO, UpdateDTO, FilterDTO, DuplicateDraftDTO e CommandDTO do host</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="op">);</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="bu">Class</span><span class="op">&lt;?&gt;</span> dtoClass <span class="op">:</span> dtoClasses<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>            SemanticMetadataReviewReport report <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">review</span><span class="op">(</span>dtoClass<span class="op">);</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>            <span class="fu">assertThat</span><span class="op">(</span>report<span class="op">.</span><span class="fu">issues</span><span class="op">())</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>                    <span class="op">.</span><span class="fu">as</span><span class="op">(</span><span class="st">&quot;Semantic metadata errors in %s&quot;</span><span class="op">,</span> dtoClass<span class="op">.</span><span class="fu">getSimpleName</span><span class="op">())</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>                    <span class="op">.</span><span class="fu">noneMatch</span><span class="op">(</span>issue <span class="op">-&gt;</span> issue<span class="op">.</span><span class="fu">severity</span><span class="op">()</span> <span class="op">==</span> SemanticMetadataIssueSeverity<span class="op">.</span><span class="fu">ERROR</span><span class="op">);</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Valide também cada @ApiResource Controller contra seu ResponseDTO e FilterDTO (@ResourceIdentity 1:1, titleField self-reference, @QuickFilter + @UiSurface 360°):</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        <span class="co">// SemanticMetadataReviewReport ctrlReport = reviewer.reviewResourceController(FuncionarioController.class, FuncionarioDTO.class, FuncionarioFilterDTO.class);</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        <span class="co">// assertThat(ctrlReport.issues()).noneMatch(issue -&gt; issue.severity() == SemanticMetadataIssueSeverity.ERROR);</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Valide também cada OptionSourceRegistry (garantindo RESOURCE_ENTITY com subcontratos completos e detail kind=&quot;surface&quot;):</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>        <span class="co">// SemanticMetadataReviewReport regReport = reviewer.reviewOptionSourceRegistry(optionSourceRegistry);</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>        <span class="co">// assertThat(regReport.issues()).noneMatch(issue -&gt; issue.severity() == SemanticMetadataIssueSeverity.ERROR);</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Test</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="fu">responseDtosPassStaticExpressionValidation</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>        <span class="bu">List</span><span class="op">&lt;</span><span class="bu">Class</span><span class="op">&lt;?&gt;&gt;</span> responseDtoClasses <span class="op">=</span> <span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>                <span class="co">// Liste aqui todos os ResponseDTO do host (que declaram @MicroVisualization / formulas)</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>        <span class="op">);</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>        <span class="fu">assertThat</span><span class="op">(</span>expressionValidator<span class="op">.</span><span class="fu">validateDtoClasses</span><span class="op">(</span>responseDtoClasses<span class="op">,</span> <span class="kw">true</span><span class="op">))</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">as</span><span class="op">(</span><span class="st">&quot;Static expression issues in ResponseDTOs&quot;</span><span class="op">)</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span><span class="fu">isEmpty</span><span class="op">();</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Test</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="fu">registeredOptionSourcesArePublishedWithoutMismatch</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>        OptionSourceRegistry optionSourceRegistry <span class="op">=</span> OptionSourceRegistry<span class="op">.</span><span class="fu">empty</span><span class="op">();</span> <span class="co">// substitua pelo bean OptionSourceRegistry do host</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>        OptionSourcePublicationInventory inventory <span class="op">=</span> OptionSourcePublicationInventory<span class="op">.</span><span class="fu">of</span><span class="op">(</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>                <span class="co">// Ex.: OptionSourcePublicationCandidate.of(&quot;department&quot;, ApiPaths.HumanResources.DEPARTMENTS, &quot;hr&quot;)</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>        <span class="op">);</span></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>        OptionSourcePublicationDiagnostics diagnostics <span class="op">=</span></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>                <span class="kw">new</span> <span class="fu">OptionSourcePublicationDiagnostics</span><span class="op">(</span>optionSourceRegistry<span class="op">,</span> <span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span>inventory<span class="op">));</span></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>        <span class="fu">assertThat</span><span class="op">(</span>diagnostics<span class="op">.</span><span class="fu">unpublishedOrMismatched</span><span class="op">()).</span><span class="fu">isEmpty</span><span class="op">();</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>    <span class="at">@Test</span></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="fu">filterableEntitiesHaveDatabaseIndexCoverage</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Ex.: FilterableIndexAdviceReport report = indexAdvisor.analyze(Funcionario.class, FuncionarioFilterDTO.class, funcionarioService.getStatsFieldRegistry());</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>        <span class="co">// assertThat(report.unresolvedPropertyPaths()).isEmpty();</span></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>        <span class="co">// assertThat(report.unindexedBtreeRecommendations()).isEmpty();</span></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <hr />
 <h2
 id="protocolo-de-descoberta-profunda-de-domínio-e-síntese-relacional-além-do-óbvio">4.
@@ -743,112 +1441,476 @@ um gerador mecânico <code>1 tabela = 1 CRUD óbvio</code></strong>. O
 agente de IA deve analisar <strong>o domínio de negócio em si e o grafo
 de relacionamentos entre as entidades (<code>@ManyToOne</code>,
 <code>@OneToMany</code>, <code>@Embedded</code>)</strong> para descobrir
-e implementar capacidades corporativas não-óbvias:</p>
+e implementar capacidades corporativas não-óbvias nas 4 dimensões
+abaixo:</p>
+<h3
+id="filtragem-profunda-multi-operador-cross-entity-e-busca-ampla-omnibox">4.1.
+Filtragem Profunda, Multi-Operador, Cross-Entity e Busca Ampla
+(<code>Omnibox</code>)</h3>
 <ol type="1">
-<li><strong>Filtragem Profunda, Multi-Operador, Cross-Entity e Busca
-Ampla (<code>Omnibox</code>):</strong>
-<ul>
 <li><strong>Busca Unificada num Único Campo
-(<code>@Filterable(relations = {...})</code>):</strong> incluir pelo
-menos um campo de busca ampla (<code>searchTerm</code> /
-<code>buscaAmpla</code> / <code>identificacaoOuFamiliar</code>) com
-<code>@Filterable(operation = FilterOperation.LIKE, relations = {"fullName", "socialName", "motherName", "fatherName", "dependents.fullName", "taxId"})</code>
-para que o usuário pesquise por nome, sobrenome, filiação/parente ou
-documento no mesmo campo sem escolher filtros separados;</li>
-<li><strong>Multi-Operador sobre o Mesmo Atributo:</strong> combinar
-<code>LIKE</code> + <code>STARTS_WITH</code> + <code>EQUAL</code> +
-<code>IN</code> em textos/códigos; <code>BETWEEN</code> +
-<code>ON_DATE</code> + <code>IN_LAST_DAYS</code> (eventos recentes) +
-<code>IN_NEXT_DAYS</code> (radar de vencimentos) em datas;
-<code>IS_NULL</code> / <code>IS_NOT_NULL</code> para auditoria de
-cadastros incompletos; e <code>SIZE_GT</code> / <code>SIZE_EQ</code> em
-coleções filhas;</li>
-<li><strong>Navegação Cross-Entity:</strong> atravessar 1 a 3 níveis de
-relacionamento (<code>relation = "department.costCenter.region"</code>,
-<code>relation = "dependents.relationshipType"</code>).</li>
-</ul></li>
-<li><strong>Descoberta Exaustiva de Bulking nos 3 Modos:</strong>
+(<code>@Filterable(relations = {...})</code>):</strong>
 <ul>
-<li><strong><code>UNIFORM_UPDATE</code>:</strong> habilitar em todos os
-atributos organizacionais, classificatórios, contratuais, bancários e
-operacionais padronizáveis para um lote;</li>
-<li><strong><code>PER_ITEM_UPDATE</code>:</strong> habilitar amplamente
-em atributos de revisão individualizada em planilha/grade (telefones,
-e-mails, endereços, contas, saldos/valores individuais, códigos
-externos, datas específicas), excluindo apenas chaves imutáveis e campos
-exclusivos de workflow;</li>
-<li><strong><code>DOMAIN_COMMAND</code>:</strong> analisar o ciclo de
-vida e os relacionamentos para criar atos coletivos reais
-(<code>@WorkflowAction(scope = ActionScope.COLLECTION)</code> +
-<code>@BulkOperation(mode = BulkMode.DOMAIN_COMMAND)</code>), como
-realocação coletiva entre unidades, aprovação/homologação em lote,
-suspensão/reativação coletiva ou revisão paramétrica.</li>
+<li>Em sistemas corporativos reais, o usuário não quer selecionar 6
+campos diferentes para descobrir se um nome pesquisado é o nome civil,
+nome social, sobrenome, nome da mãe/pai, nome de um dependente/familiar,
+razão social, unidade/setor, cargo ou documento.</li>
+<li>Todo <code>FilterDTO</code> cadastral/operacional deve incluir pelo
+menos um campo de <strong>busca ampla semântica</strong>
+(<code>searchTerm</code> / <code>buscaAmpla</code> /
+<code>identificacaoOuFamiliar</code>) usando
+<code>@Filterable(operation = FilterOperation.LIKE, relations = {"fullName", "socialName", "motherName", "fatherName", "dependents.fullName", "taxId", "department.name", "position.name"})</code>,
+avaliando todos os caminhos em disjunção (<code>OR</code>), compilando
+coleções <code>@OneToMany</code> em subqueries correlacionadas
+<code>EXISTS (SELECT 1 ...)</code> (sem multiplicação cartesiana de
+linhas) e reutilizando <code>LEFT JOIN</code>s
+(<code>reuseLeftJoins = true</code>).</li>
 </ul></li>
-<li><strong>Novos Endpoints Cross-Entity e Subdomínios:</strong>
+<li><strong>Combinação Multi-Operador sobre o Mesmo Atributo:</strong>
 <ul>
-<li>Criar novos endpoints read-only consolidados
-(<code>AbstractReadOnlyResourceController</code>) quando o cruzamento de
-entidades responder a perguntas operacionais/analíticas (ocupação e
-vagas, vencimentos, custos por unidade);</li>
-<li>Expor todas as coleções filhas <code>1:N</code> como superfícies
-360° (<code>@UiSurface</code> + <code>relatedChildResourceKey</code>) e
-decompor entidades extensas em <code>@ResourceIntent</code>
-(<code>PATCH</code>) por subbloco operacional.</li>
+<li><strong>Textos e Códigos:</strong> <code>LIKE</code> (contém),
+<code>STARTS_WITH</code> (prefixo hierárquico/código),
+<code>EQUAL</code> (exato) e <code>IN</code> (lista de códigos em
+lote);</li>
+<li><strong>Datas e Vigências:</strong> combinar <code>BETWEEN</code>
+(<code>DATE_RANGE</code>), <code>ON_DATE</code>,
+<code>GREATER_OR_EQUAL</code>/<code>LESS_OR_EQUAL</code>,
+<strong><code>IN_LAST_DAYS</code></strong> (eventos recentes:
+admitidos/criados nos últimos N dias) e
+<strong><code>IN_NEXT_DAYS</code></strong> (radar preventivo:
+contratos/avaliações/férias vencendo nos próximos N dias);</li>
+<li><strong>Valores e Quantidades:</strong> <code>BETWEEN</code>
+(<code>PRICE_RANGE</code>), <code>GREATER_OR_EQUAL</code> (piso) e
+<code>LESS_OR_EQUAL</code> (teto);</li>
+<li><strong>Auditoria de Completude Cadastral e Predicados de
+Ausência/Estagnação (<code>IS_NULL</code> / <code>IS_NOT_NULL</code> /
+<code>IS_FALSE</code> / Anti-Event Windows):</strong> criar filtros
+explícitos para localizar cadastros com pendências, omissões ou ausência
+de eventos numa janela temporal (ex.: <em>“sem conta bancária”</em>,
+<em>“sem gestor/substituto alocado”</em>, <em>“sem documento
+comprobatório”</em>, <em>“sem movimentação funcional / sem homologação
+de estágio”</em>, <em>“sem parcela programada”</em>);</li>
+<li><strong>Cardinalidade de Coleções Filhas (<code>SIZE_GT</code>,
+<code>SIZE_EQ</code>, <code>SIZE_LT</code>):</strong> filtrar a entidade
+pai pelo volume de itens relacionados (ex.: <em>“com mais de N
+dependentes/alocações”</em>).</li>
 </ul></li>
-<li><strong>Descoberta Profunda de Determinações Reativas em Tempo de
-Formulário (<code>ReactiveDetermination</code> Além do Óbvio):</strong>
+<li><strong>Navegação Relacional em Múltiplos Níveis e Vocabulário
+Humano (<code>relation = "a.b.c"</code>):</strong>
 <ul>
-<li>Analisar <code>CreateDTO</code> e <code>UpdateDTO</code> para
-transformar formulários passivos em superfícies assistidas em tempo real
-nas 4 famílias:
-<ol type="1">
-<li><em>Autopreenchimento e Projeção Cross-Entity
-(<code>Lookup &amp; Directory Projection</code>):</em> ao informar CEP
-(<code>"/postalCode"</code>) preencher logradouro/bairro/cidade/UF; ao
-selecionar cargo/departamento/plano (<code>"/positionId"</code>,
-<code>"/departmentId"</code>), projetar piso salarial, jornada padrão,
-vagas disponíveis ou centro de custo padrão;</li>
-<li><em>Cálculos Determinísticos Multi-Campo
-(<code>Financial, Tax &amp; Date Formulas</code>):</em> ao alterar valor
-bruto/descontos (<code>"/grossAmount"</code>,
-<code>"/baseDeductions"</code>), calcular total de descontos e valor
-líquido (<code>"/totalDeductions"</code>, <code>"/netAmount"</code>); ao
-informar data inicial e prazo (<code>"/startDate"</code>,
-<code>"/probationDays"</code>), derivar data prevista de término
-(<code>"/expectedEndDate"</code>);</li>
-<li><em>Determinações Encadeadas
-(<code>Chained Determinations A -&gt; B -&gt; C</code>):</em> quando a
-Determinação 1 escreve <code>"/netAmount"</code>, uma Determinação 2 que
-escute <code>"/netAmount"</code> em <code>sourcePaths</code> e
-<code>inputs</code> dispara automaticamente para calcular
-<code>"/expectedPaymentDate"</code>;</li>
-<li><em>Simulação Preventiva de Elegibilidade e Capacidade
-(<code>Draft Policy &amp; Quota Preview</code>):</em> avaliar saldo de
-vagas, compatibilidade de requisitos ou conflitos em tempo de digitação
-e preencher campos de prévia (<code>@UISchema(readOnly = true)</code>)
-no <code>CreateDTO</code>/<code>UpdateDTO</code>.</li>
-</ol></li>
-<li><strong>Regras Estritas do
-<code>ReactiveDeterminationMetadataCompiler</code>:</strong>
-<ul>
-<li><code>@PostMapping</code> (<code>create</code>) e
-<code>@PutMapping("/{id}")</code> (<code>update</code>) no Controller
-devem declarar <code>@Operation(operationId = "create...", ...)</code> e
-<code>@Operation(operationId = "update...", ...)</code> explícitos;</li>
-<li>O endpoint da determinação deve ser um <code>@PostMapping</code> sem
-variáveis de caminho, com
-<code>@Operation(operationId = "determine...", ...)</code>, corpo JSON e
-resposta <code>200 OK</code> JSON não-persistente;</li>
-<li>Todos os caminhos (<code>sourcePaths</code>, <code>fieldPath</code>,
-<code>requestPath</code>, <code>responsePath</code>) devem ser JSON
-Pointers iniciados por <code>"/"</code>; todo <code>sourcePath</code>
-deve constar em <code>inputs</code>; todos os campos
-<code>input.fieldPath</code> e <code>output.fieldPath</code> devem
-existir no <code>CreateDTO</code>/<code>UpdateDTO</code>; e
-<code>inputs</code> e <code>outputs</code> nunca podem se sobrepor.</li>
-</ul></li>
+<li><strong>Proibido expor apenas IDs ou códigos técnicos de FK
+(<code>departmentId</code>, <code>tenantId</code>,
+<code>positionId</code>) no <code>FilterDTO</code>:</strong> todo
+relacionamento organizacional ou classificatório deve publicar filtros
+navegáveis pelo vocabulário humano que o usuário e a LLM utilizam (ex.:
+nome da unidade <code>relation = "department.name"</code>, tipo da
+unidade <code>relation = "department.unitType"</code>, categoria
+funcional <code>relation = "employment.category"</code>, nome do cargo
+<code>relation = "position.name"</code>), além de entidades avô e
+coleções filhas (<code>relation = "department.costCenter.region"</code>,
+<code>relation = "dependents.relationshipType"</code>,
+<code>relation = "assignments.status"</code>).</li>
 </ul></li>
 </ol>
+<h3
+id="descoberta-exaustiva-de-operações-em-lote-bulking-além-do-óbvio-3-modos">4.2.
+Descoberta Exaustiva de Operações em Lote (Bulking Além do Óbvio — 3
+Modos)</h3>
+<p>O agente nunca deve escolher apenas 2 ou 3 campos óbvios para
+<code>@BulkEditable</code>. Ele deve auditar <strong>100% dos atributos
+mutáveis e transições do domínio</strong>: 1.
+<strong><code>BulkMode.UNIFORM_UPDATE</code> (Padronização Coletiva por
+Seleção ou <code>QUERY</code>):</strong> - Habilitar em
+<strong>todos</strong> os campos organizacionais, classificatórios,
+contratuais, financeiros e operacionais que podem ser padronizados para
+um grupo de registros (ex.: departamento/unidade, local de atuação,
+centro de custo, jornada/turno, regime/plano, banco/agência/forma de
+pagamento, gestor, categoria, flags de elegibilidade e datas de
+referência coletiva). 2. <strong><code>BulkMode.PER_ITEM_UPDATE</code>
+(Grade/Planilha de Revisão Individualizada em Lote):</strong> - Muitos
+atributos que <strong>não</strong> fazem sentido receber o mesmo valor
+uniforme para 50 registros (ex.: telefone, e-mail, endereço/CEP, conta
+bancária individual, salário/limite individual, código externo,
+observação individual, datas específicas por pessoa) <strong>são
+candidatos ideais para <code>PER_ITEM_UPDATE</code></strong>, onde o
+operador abre os 50 registros numa grade em lote e edita os valores
+individuais de cada linha numa única proposta governada
+(<code>evaluation -&gt; proposal -&gt; confirm</code>). Exclua apenas
+chaves primárias/identidade imutável (<code>id</code>,
+<code>version</code>, documentos civis imutáveis) e campos exclusivos de
+máquina de estado. 3. <strong><code>BulkMode.DOMAIN_COMMAND</code>
+(<code>@WorkflowAction(scope = ActionScope.COLLECTION)</code> +
+<code>@BulkOperation(mode = BulkMode.DOMAIN_COMMAND)</code>):</strong> -
+Analisar o negócio e os relacionamentos entre entidades para descobrir
+<strong>atos coletivos reais</strong> que exigem parâmetros próprios
+(ato/justificativa, data de vigência, unidade de destino, regra de
+transição): - <em>Reestruturação/Movimentação Coletiva:</em> realocar
+equipe entre departamentos/unidades, transferir carteira entre centros
+de custo ou migrar vínculos de um cargo/plano para outro; - <em>Ciclo de
+Vida e Homologação Coletiva:</em> aprovar/homologar período de
+experiência ou avaliação em lote, suspender/reativar/encerrar registros
+em lote com justificativa; - <em>Revisão Paramétrica Coletiva:</em>
+aplicar nova jornada, tabela ou política de benefícios a um recorte
+filtrado.</p>
+<h4 id="composição-declarativa-httpjpa">Composição declarativa
+HTTP/JPA</h4>
+<p>Para <code>SYNC</code>/<code>PER_ITEM</code>, herdar
+<code>AbstractBulkGovernedResourceController&lt;R, ID, F, C, U&gt;</code>:
+a base publica as nove rotas de avaliação, confirmação, propostas,
+execuções, resultados e cancelamento no envelope
+<code>RestApiResponse.data</code>/<code>_links</code>. Declarar
+<code>@BulkResourceOperations</code> e o PUT unitário
+<code>UPDATE_SOURCE</code> com <code>operationId</code> explícito,
+preservando campos protegidos. Compor <code>JpaResourceBulkEngine</code>
+com <code>AbstractBaseResourceService.bulkDomainAdapter</code>,
+infraestrutura e política de autorização do host. A avaliação usa
+candidato destacado em <code>REPEATABLE_READ</code>; a confirmação usa o
+update versionado sob lock e o kernel de recibos duráveis.</p>
+<p>O starter auto-configura
+<code>PraxisBulkProtocolHttpMessageConverter</code>, resolve o codec
+pelo ID real e normaliza os filtros aninhados.
+<code>BulkOperationIdentityDiscovery</code> elimina listas manuais de
+operações na instalação. O documento OpenAPI sintetiza os três schemas
+tipados de avaliação; não criar envelopes de schema por host. Para
+<code>DOMAIN_COMMAND</code>, declarar a action de coleção e seus
+endpoints reais, DTO de parâmetros e
+<code>BulkDomainCommandAdapter</code>, usando os helpers da base.
+Migração, publicação READY e workers continuam explícitos. ASYNC e
+ATOMIC usam as composições específicas existentes do SDK. Guia de adoção
+no repositório:
+<code>docs/guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md</code>.</p>
+<h3
+id="criação-de-novos-endpoints-projeções-analíticas-cross-entity-radar-knowledge-graph-e-data-products">4.3.
+Criação de Novos Endpoints, Projeções Analíticas Cross-Entity
+(<code>Radar*</code>), Knowledge Graph e Data Products</h3>
+<p>Ao analisar os relacionamentos entre entidades
+(<code>Entidade A &lt;-&gt; Entidade B &lt;-&gt; Entidade C</code>), o
+agente deve ir além dos endpoints CRUD óbvios: 1. <strong>Novos
+Endpoints Read-Only de Visão Consolidada e Investigação Multi-Domínio
+(<code>AbstractReadOnlyResourceController</code> — Analytical Data
+Products):</strong> criar recursos analíticos/operacionais dedicados
+(<code>Radar*</code>) que cruzem entidades (via <code>@Subselect</code>
+ou <code>VIEW</code>) para responder perguntas executivas e
+investigativas de alta complexidade sem exigir joins ad-hoc no cliente
+(ex.: matriz de ocupação e vagas por cargo/unidade, radar de prescrição
+de férias e licença especial, radar de cobertura de chefias e
+substituições, radar de variação remuneratória vs. movimentação
+funcional). Todo endpoint <code>Radar*</code> <strong>deve</strong>
+publicar <code>@ResourceFact</code>s, <code>StatsFieldRegistry</code>
+(<code>StatsSupportMode.AUTO</code>) e <code>@UiAnalytics</code>
+(<code>COMPOSITION</code>, <code>RANKING</code> com
+<code>recordOpen</code>, <code>TIMESERIES</code>,
+<code>DISTRIBUTION</code>, <code>COMPARISON</code>). 2.
+<strong>Superfícies Master-Detail 360° (<code>@UiSurface</code> +
+<code>relatedChildResourceKey</code>):</strong> expor todas as coleções
+filhas <code>1:N</code> relevantes como superfícies navegáveis no Quick
+View 360° e nas fichas de detalhe. 3. <strong>Intents Especializadas por
+Persona (<code>@ResourceIntent</code> +
+<code>SurfaceKind.PARTIAL_FORM</code>):</strong> decompor entidades
+extensas em múltiplos endpoints <code>PATCH</code> orientados aos
+processos reais de cada área operacional (alocação, pagamento/bancário,
+endereço/contato, parâmetros contratuais). 4. <strong>Síntese Automática
+de Knowledge Graph e Data Products pela Plataforma
+(<code>SemanticDomainCatalogService</code> +
+<code>DomainCatalogPromptContextService</code>):</strong> o
+<code>praxis-metadata-starter</code> sintetiza automaticamente em
+<code>/schemas/domain</code> (sem configuração adicional no host): -
+arestas <code>references</code> entre conceitos e campos a partir de
+<code>@ResourceReference</code> (<code>x-ui.resourceReference</code>) e
+de <code>@UiSurface</code> (<code>relatedChildResourceKey</code>); - nós
+<code>stats</code> (<code>statsKind = "analytics_projection"</code>) e
+arestas <code>has_stats</code> / <code>references</code> a partir de
+<code>@UiAnalytics</code> (<code>x-ui.analytics.projections</code>); -
+classificação automática de recursos read-only analíticos com
+referências cross-resource como
+<code>semanticRole = "analytical_data_product"</code>
+(<code>dataProduct = true</code>, <code>analyzesConcepts = [...]</code>,
+arestas <code>materializes</code>), enriquecendo também os conceitos
+operacionais analisados com <code>analyzedByDataProducts = [...]</code>
+e projetando essa topologia no
+<code>DOMAIN_RESOURCE_IDENTITY_CATALOG</code> do assistente de IA.</p>
+<h3
+id="descoberta-profunda-de-determinações-reativas-em-tempo-de-formulário-reactivedetermination-além-do-óbvio">4.4.
+Descoberta Profunda de Determinações Reativas em Tempo de Formulário
+(<code>ReactiveDetermination</code> Além do Óbvio)</h3>
+<p>Formulários corporativos não devem ser fichas passivas que só validam
+ou calculam dados depois que o usuário clica em “Salvar”. Ao analisar os
+atributos de <code>CreateDTO</code> e <code>UpdateDTO</code> e os
+relacionamentos da entidade, o agente deve descobrir e implementar
+<strong>Determinações Reativas
+(<code>ReactiveDeterminationDefinitionProvider</code>)</strong> nas 4
+famílias abaixo: 1. <strong>Autopreenchimento e Projeção Cross-Entity ao
+Selecionar FK ou Código
+(<code>Lookup &amp; Directory Projection</code>):</strong> - Ao digitar
+um CEP (<code>"/postalCode"</code>), preencher automaticamente
+logradouro, bairro, cidade e UF (<code>"/street"</code>,
+<code>"/neighborhood"</code>, <code>"/city"</code>,
+<code>"/state"</code>); - Ao selecionar um cargo/plano
+(<code>"/positionId"</code>), departamento
+(<code>"/departmentId"</code>) ou contrato, projetar imediatamente no
+formulário o piso salarial, jornada padrão, vagas disponíveis, centro de
+custo padrão ou gestor responsável. 2. <strong>Cálculos Determinísticos
+Multi-Campo (<code>Financial, Tax &amp; Date Formulas</code>):</strong>
+- Ao alterar salário bruto, descontos ou alíquotas
+(<code>"/grossAmount"</code>, <code>"/baseDeductions"</code>), calcular
+e exibir em tempo real o total de descontos e o valor líquido
+(<code>"/totalDeductions"</code>, <code>"/netAmount"</code>); - Ao
+informar data de início e prazo/regime (<code>"/startDate"</code>,
+<code>"/probationDays"</code>), calcular automaticamente a data prevista
+de término ou revisão (<code>"/expectedEndDate"</code>). 3.
+<strong>Determinações Reativas Encadeadas
+(<code>Chained Determinations A -&gt; B -&gt; C</code>):</strong> - O
+runtime Angular (<code>ReactiveDeterminationRuntimeService</code>)
+suporta encadeamento automático: quando a Determinação 1 atualiza um
+campo de saída (ex.: <code>"/netAmount"</code>), uma Determinação 2 que
+declare <code>"/netAmount"</code> em seus <code>sourcePaths</code> e
+<code>inputs</code> é disparada em sequência para derivar o próximo
+atributo dependente (ex.: <code>"/expectedPaymentDate"</code> ou faixa
+de aprovação exigida). 4. <strong>Simulação Preventiva de Elegibilidade
+e Capacidade (<code>Draft Policy &amp; Quota Preview</code>):</strong> -
+Ao selecionar colaborador + cargo + unidade em um formulário de
+alocação/movimentação, avaliar preventivamente se há saldo de vagas,
+compatibilidade de escolaridade/requisitos ou conflito de acúmulo e
+preencher campos de prévia (<code>"/availableVacanciesPreview"</code>,
+<code>"/eligibilityStatusPreview"</code>,
+<code>"/policyDiagnosticMessage"</code>) no formulário antes do
+submit.</p>
+<h4
+id="regras-estritas-do-compilador-reactivedeterminationmetadatacompiler-fail-closed">Regras
+Estritas do Compilador
+(<code>ReactiveDeterminationMetadataCompiler</code> — Fail-Closed)</h4>
+<p>Para que o starter publique <code>x-ui.reactiveDeterminations</code>
+em <code>/schemas/filtered</code> sem falhar: - Sobrescreva
+<code>create</code> (<code>@PostMapping</code>) e <code>update</code>
+(<code>@PutMapping("/{id}")</code>) no Controller com
+<code>@Operation(operationId = "create...", ...)</code> e
+<code>@Operation(operationId = "update...", ...)</code> estáveis e
+únicos; - O endpoint de cálculo deve ser um <code>@PostMapping</code>
+<strong>sem variáveis de rota (<code>{id}</code>)</strong>, anotado com
+<code>@Operation(operationId = "determine...", ...)</code>, recebendo
+<code>@RequestBody</code> JSON e retornando <code>200 OK</code> JSON sem
+persistir estado; - Todos os <code>sourcePaths</code>,
+<code>input.fieldPath</code>, <code>input.requestPath</code>,
+<code>output.responsePath</code> e <code>output.fieldPath</code> devem
+ser <strong>JSON Pointers válidos começando com
+<code>"/"</code></strong> (ex.: <code>"/positionId"</code>,
+<code>"/netAmount"</code>); - Todo item de <code>sourcePaths</code>
+<strong>deve estar presente</strong> em <code>inputs</code>
+(<code>input.fieldPath</code>); em
+<code>ReactiveDeterminationFormMode.EDIT</code>, você pode enviar
+<code>new ReactiveDeterminationInputBinding("/id", "/recordId")</code>
+em <code>inputs</code> sem incluí-lo em <code>sourcePaths</code>; - Todo
+<code>input.fieldPath</code> e <code>output.fieldPath</code>
+<strong>deve existir como propriedade no <code>CreateDTO</code> /
+<code>UpdateDTO</code></strong> da operação (campos de prévia/cálculo
+preenchidos pela determinação devem constar no
+<code>CreateDTO</code>/<code>UpdateDTO</code> com
+<code>@UISchema(readOnly = true)</code>), e <code>inputs</code> e
+<code>outputs</code> <strong>nunca podem se sobrepor</strong>.</p>
+<h3
+id="arquitetura-ontológica-de-fatos-e-regras-declarativas-padrão-sap-bdc-ontology-shacl-style-json-logic">4.5.
+Arquitetura Ontológica de Fatos e Regras Declarativas (Padrão SAP BDC
+Ontology &amp; SHACL-Style JSON Logic)</h3>
+<p>Inspirada na arquitetura de <strong>Ontology &amp; Knowledge Graph +
+SHACL Shapes</strong> do SAP Business Data Cloud (BDC), a Fase 3 da
+plataforma Praxis separa estritamente a <strong>Topologia Semântica do
+Domínio (Grafo Ontológico de Fatos)</strong> das <strong>Restrições
+Declarativas de Negócio (<code>RuleSet</code> JSON Logic)</strong>:</p>
+<ol type="1">
+<li><strong>As 5 Raízes Ontológicas Canônicas
+(<code>PraxisFactTreeBuilder</code>):</strong> É proibido empacotar
+variáveis de múltiplas entidades num saco escalar achatado
+(<code>facts.*</code>). Todo provedor de fatos
+(<code>*Facts.java</code>) deve construir a árvore JSON via
+<code>PraxisFactTreeBuilder</code> organizando os nós nas <strong>5
+raízes ontológicas canônicas</strong>:
+<ul>
+<li><strong><code>draft</code>
+(<code>PraxisFactTreeBuilder.ROOT_DRAFT</code> /
+<code>putDraft</code>)</strong>: o estado candidato da mutação
+(<code>NEW</code> em triggers/packages legados), capturado
+<strong>após</strong> a hidratação server-side
+(<code>hydrate*</code>);</li>
+<li><strong><code>current</code>
+(<code>PraxisFactTreeBuilder.ROOT_CURRENT</code> /
+<code>putCurrent</code>)</strong>: o estado persistido anterior em
+operações de <code>UPDATE</code>/<code>DELETE</code> (<code>OLD</code>
+no legado, ou <code>null</code> em <code>CREATE</code>), permitindo
+expressar guardas de imutabilidade
+(<code>draft.campo == current.campo</code>) e transições de estado
+diretamente na árvore JSON Logic;</li>
+<li><strong><code>&lt;conceito&gt;</code>
+(<code>putConcept("vaga", ...)</code> /
+<code>putConcept("funcao", ...)</code> /
+<code>putConcept("designacao", ...)</code> /
+<code>putConcept("substituto", ...)</code> /
+<code>putConcept("impedimento", ...)</code>)</strong>: nós de entidades
+de domínio relacionadas em <strong>1-hop</strong> via chave
+estrangeira;</li>
+<li><strong><code>neighborhood</code>
+(<code>PraxisFactTreeBuilder.ROOT_NEIGHBORHOOD</code> /
+<code>putNeighborhood</code>)</strong>: fatos agregados ou coleções de
+<strong>N-hop</strong> sobre registros irmãos no mesmo escopo/tenant
+(ex.: contagem de sobreposições temporais
+<code>hasDateRangeOverlap</code>, quantidade de titulares ativos,
+ocupação acumulada da vaga);</li>
+<li><strong><code>context</code>
+(<code>PraxisFactTreeBuilder.ROOT_CONTEXT</code> /
+<code>putContext</code>)</strong>: metadados de execução, tenant
+(<code>tenantId</code>), operação e janela temporal congelada.</li>
+</ul></li>
+<li><strong>Fronteira Estrita entre Travessia de Aresta (SQL 1-Hop) e
+Restrição de Negócio (JSON Logic / SHACL Shape):</strong>
+<ul>
+<li><strong>Proibido esconder regras de negócio no <code>WHERE</code> de
+consultas 1-hop:</strong> consultas de conceitos <code>1-hop</code>
+(<code>&lt;conceito&gt;</code>) devem usar no SQL <strong>apenas
+predicados de travessia de aresta/identidade</strong>
+(<code>emp_codigo</code>, <code>id</code>, <code>numfunc</code>,
+<code>numvinc</code>). Jamais filtre status
+(<code>situacao IN ('DESIGNADO', ...)</code>), cobertura de vigência
+(<code>dtini &lt;= :ini AND dtfim &gt;= :fim</code>) ou flags de negócio
+dentro do SQL para retornar um <code>COUNT(*)</code> ou
+<code>boolean</code> de fachada ao motor de regras;</li>
+<li><strong>Projeção Primitiva + Avaliação JSON Logic:</strong> projete
+os atributos primitivos reais do nó relacionado (ex.:
+<code>impedimento.tipo</code>, <code>impedimento.situacao</code>,
+<code>impedimento.inicio</code>, <code>impedimento.fim</code>,
+<code>impedimento.interrupcao</code>) e escreva a restrição completa na
+árvore JSON Logic do <code>*RuleSet.java</code>. Assim, a regra
+permanece 100% transparente no
+<code>/api/praxis/config/domain-rules/**</code> e no
+<code>Rules Studio</code>, e customizações governadas
+(<code>REPLACE_EXACT</code> / <code>PARAMETRIC_TEMPLATE</code>) podem
+evoluir os critérios sem alterar SQL;</li>
+<li><strong>Consultas <code>neighborhood</code> (N-Hop):</strong>
+agregações SQL (<code>COUNT</code>) são legítimas
+<strong>exclusivamente</strong> na raiz <code>neighborhood.*</code> para
+quantificar colisões entre registros irmãos na mesma coleção (ex.:
+<code>neighborhood.sobreposicoesTitular</code>,
+<code>neighborhood.designacoesAtivasNaVaga</code>), onde o próprio fato
+ontológico é a cardinalidade da vizinhança.</li>
+</ul></li>
+<li><strong>Introspecção Automática de AST
+(<code>extractReferencedRoots</code> /
+<code>extractReferencedFactPaths</code>) e DSL Declarativa Enxuta
+(<code>*RuleSetSupport</code>):</strong>
+<ul>
+<li>Nunca declare <code>List.of("facts")</code> manualmente em
+<code>RuleSetDefinition.availableRoots</code> ou em
+<code>DecisionBinding.requiredFactPaths</code>. Use
+<code>PraxisFactTreeBuilder.extractReferencedRoots(expression)</code> e
+<code>PraxisFactTreeBuilder.extractReferencedFactPaths(expression)</code>
+(inclusive ao construir <code>RuleParameterTemplate</code>), que
+inspecionam a AST JSON Logic respeitando o escopo local de iteradores
+(<code>map</code>, <code>filter</code>, <code>all</code>,
+<code>some</code>, <code>none</code>, <code>reduce</code>);</li>
+<li>Mantenha um helper declarativo compacto por módulo
+(<code>*RuleSetSupport</code>, ~100–130 LOC) que conecte automaticamente
+o código do <code>*RuleErrorCatalog</code> ao <code>DecisionSlot</code>
+e ao <code>DecisionBinding</code>, permitindo que cada
+<code>*RuleSet.java</code> tenha entre <strong>50 e 140 linhas</strong>
+e funcione como uma especificação ontológica limpa e auditável.</li>
+</ul></li>
+</ol>
+<h3
+id="os-16-checks-do-auditor-estático-automatizado-audit-java-resource-completeness.py-e-hidratação-em-lote-anti-n1">4.6.
+Os 16 Checks do Auditor Estático Automatizado
+(<code>audit-java-resource-completeness.py</code>) e Hidratação em Lote
+Anti-N+1</h3>
+<p>Todo recurso Java implementado ou evoluído na plataforma deve passar
+com <strong>0 falhas (<code>0 FAIL</code>)</strong> no auditor estático
+(<code>python scripts/workspace/audit-java-resource-completeness.py &lt;host&gt; --strict</code>),
+cobrindo os <strong>16 checks obrigatórios</strong>: 1. <strong>Checks 1
+a 3 (<code>Entity-to-DTO Coverage</code>,
+<code>5..10 Table Columns</code>, <code>@UISchema</code>
+Editorial):</strong> 100% das colunas de negócio da <code>@Entity</code>
+mapeadas no <code>ResponseDTO</code>; entre <strong>5 e 10
+colunas</strong> visíveis (<code>tableHidden = false</code>) na grade
+principal (inclusive em recursos read-only <code>Radar*</code>);
+<code>label</code> curto (≤ 35 chars, sem ponto final e distinto de
+<code>@Schema.description</code>); <code>controlType</code>,
+<code>icon</code> (sempre <code>snake_case</code> minúsculo válido no
+Material Icons, ex.: <code>"assured_workload"</code>, nunca
+<code>"Assured_Workload"</code>), alinhamento exato <code>1:1</code>
+entre colunas adjacentes da <code>@Entity</code> e propriedades de
+classes <code>*Dados</code>, e <code>@MicroVisualization</code> +
+<code>@Threshold</code> / <code>@CalculationMemory</code> validados por
+<code>PraxisExpressionStaticValidator.validateDtoClasses(dtoClasses, true)</code>.
+2. <strong>Checks 4 a 7 (<code>Quick View 360°</code>,
+<code>@ResourceReference</code>, <code>EntityLookupDescriptor</code>,
+<code>@Filterable</code> Matrix):</strong>
+<code>@ResourceIdentity</code> idêntico no Controller e no
+<code>ResponseDTO</code> com <code>subtitleField</code> e 2–3
+<code>metadataFields</code> (sem repetir
+<code>keyField</code>/<code>titleField</code>/<code>subtitleField</code>);
+<strong>4 a 8 campos</strong> <code>quickViewVisible = true</code>;
+<code>@ResourceReference(previewSurfaceId = ...)</code> no título do
+próprio recurso e em todos os campos de exibição de FK;
+<code>EntityLookupDescriptor</code> completo em todo
+<code>RESOURCE_ENTITY</code>; e <code>FilterDTO</code> exaustivo (busca
+ampla <code>Omnibox</code> com <code>relations = {...}</code>, múltiplos
+operadores por atributo, <code>IS_NULL</code>/<code>IS_NOT_NULL</code>,
+<code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code>, navegação
+relacional humana <code>relation = "a.b"</code>). 3. <strong>Checks 8 a
+12 (<code>@UiSurface</code>, <code>@WorkflowAction</code>, Bulking nos 3
+Modos, <code>@ResourceFact</code>,
+<code>CollectionExport</code>):</strong> <code>@UiSurface</code> para
+projeções 360° e coleções filhas <code>1:N</code>
+(<code>relatedChildResourceKey</code>); <code>@WorkflowAction</code>
+para todo o ciclo de vida com <code>If-Match</code> +
+<code>Idempotency-Key</code>; <code>@BulkEditable</code>
+(<code>UNIFORM_UPDATE</code> e <code>PER_ITEM_UPDATE</code>) +
+<code>@WorkflowAction(scope = ActionScope.COLLECTION)</code>
+(<code>DOMAIN_COMMAND</code>); <code>@ResourceFact</code>s (com
+<code>label</code> ≤ 35 chars); e <code>CollectionExport</code>
+(<code>CSV</code>/<code>JSON</code>/<code>EXCEL</code>). 4.
+<strong>Check 13 (<code>StatsFieldRegistry</code> PropertyPath &amp; Key
+Integrity):</strong> Todo <code>propertyPath</code> registrado em
+<code>StatsFieldRegistry</code> (<code>stringGroupField</code>,
+<code>dateField</code>, <code>numericField</code>) deve existir como
+atributo real na <code>@Entity</code> JPA (proibido apontar para getter
+transitório exclusivo do <code>ResponseDTO</code>) e nenhuma chave de
+bucket ou métrica pode ser duplicada no mesmo registry. 5. <strong>Check
+14 (Ordem Hidratação -&gt; Validação — Sem <code>@NotNull</code>
+Bloqueante em Campos Hidratados):</strong> Todo campo preenchido
+automaticamente pela hidratação server-side (<code>hydrate*</code>
+executado no <code>Service</code> antes do <code>RuleEngine</code>)
+<strong>não pode</strong> ter <code>@NotNull</code> ou
+<code>@NotBlank</code> no <code>CreateDTO</code>/<code>UpdateDTO</code>,
+evitando que o Bean Validation (<code>400</code>) bloqueie a requisição
+antes da hidratação e do motor de regras (<code>422</code>). 6.
+<strong>Check 15 (Linhagem <code>1:1 KEEP_SEPARATE</code>, Raízes
+Ontológicas e Zero Split-Brain):</strong> Paridade <code>1:1</code>
+entre <code>*RuleErrorCatalog.java</code> &lt;-&gt;
+<code>DecisionBinding</code> no <code>*RuleSet.java</code> &lt;-&gt;
+<code>@Test</code> no <code>*Test.java</code>; zero uso de
+<code>List.of("facts")</code> (usar sempre
+<code>PraxisFactTreeBuilder.extractReferencedRoots</code> e
+<code>extractReferencedFactPaths</code> sobre as 5 raízes
+<code>draft</code>, <code>current</code>, <code>&lt;conceito&gt;</code>,
+<code>neighborhood</code>, <code>context</code>); e zero códigos de erro
+de negócio ou validações <code>422</code> dentro de classes
+<code>*Invariants.java</code>. 7. <strong>Check 16 (Guarda de Deleção,
+Guardas <code>404</code>/<code>403</code> em FKs de Escrita/Prévia e
+Hidratação de Leitura em Lote sem N+1):</strong> Todo
+<code>Service</code> mutável com regras de domínio deve implementar
+<code>beforeDelete</code> ou <code>deleteById</code> com isolamento de
+tenant (<code>checkOrg</code>) e guardas de dependência/estado; toda FK
+referenciada em <code>create</code>, <code>update</code>,
+<code>@WorkflowAction</code> <strong>e dentro de prévias
+<code>ReactiveDetermination</code></strong> deve validar existência
+(<code>404</code>) e escopo do tenant/catálogo compartilhado
+(<code>403</code>) antes do <code>RuleEngine</code> ou da projeção; toda
+subquery <code>@Formula</code> deve correlacionar a coluna de tenant; e
+toda hidratação de nomes/exibições de FKs em
+<code>enrichResponses(List&lt;R&gt;)</code> (<code>*ReadFacts</code>)
+deve invocar <code>hydrateScopedResourceReferences(responses)</code>
+(quando <code>super.enrichResponses</code> não for chamado) e carregar
+FKs compostas/específicas em lote via <code>WHERE id IN :ids</code> +
+filtro de tenant (1 query por entidade-alvo), sendo <strong>estritamente
+proibido</strong> chamar <code>em.find(...)</code> ou queries
+individuais dentro de loops <code>for (R row : responses)</code>.</p>
 <h2 id="caminhos-reutilizados-e-fontes-de-opções">Caminhos reutilizados
 e fontes de opções</h2>
 <p>Antes de criar DTOs e FilterDTOs, defina <code>final ApiPaths</code>

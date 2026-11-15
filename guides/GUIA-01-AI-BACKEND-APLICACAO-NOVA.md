@@ -863,7 +863,9 @@ import com.example.hr.employee.dto.filter.EmployeeFilterDTO;
 import com.example.hr.employee.service.EmployeeService;
 import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.annotation.FilterCriterion;
 import org.praxisplatform.uischema.annotation.QuickFilter;
+import org.praxisplatform.uischema.annotation.QuickFilterTone;
 import org.praxisplatform.uischema.annotation.ResourceIdentity;
 import org.praxisplatform.uischema.controller.base.AbstractResourceController;
 
@@ -882,8 +884,12 @@ import org.praxisplatform.uischema.controller.base.AbstractResourceController;
         displayLabelField = "name"
     ),
     quickFilters = {
-        @QuickFilter(id = "active", label = "Ativos", filter = "active=true", icon = "check_circle"),
-        @QuickFilter(id = "inactive", label = "Inativos", filter = "active=false", icon = "remove_circle_outline")
+        @QuickFilter(id = "active", label = "Ativos", icon = "check_circle", tone = QuickFilterTone.SUCCESS,
+            description = "Funcionários com vínculo ativo.",
+            criteria = @FilterCriterion(field = "active", bool = true)),
+        @QuickFilter(id = "inactive", label = "Inativos", icon = "remove_circle_outline", tone = QuickFilterTone.NEUTRAL,
+            description = "Funcionários desligados ou com vínculo encerrado.",
+            criteria = @FilterCriterion(field = "active", bool = false))
     }
 )
 @ApiGroup("human-resources")

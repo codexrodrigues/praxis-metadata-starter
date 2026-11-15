@@ -7,7 +7,9 @@ texto de dominio plausivel.
 
 - `@Schema(description = ...)` descreve o significado de negocio do campo.
 - `@UISchema` descreve apresentacao, controles, layout e comportamento de UI.
-- `@DomainGovernance` descreve classificacao, privacidade, compliance e uso por IA.
+- `@DomainGovernance` descreve classificacao (`preset`, `kind`, `classification`, `dataCategory`, `complianceTags`, `reason`, `confidence`), elegibilidade de exportacao (`exportable`) e uso por IA (`@AiUsagePolicy`), sendo publicado em `x-domain-governance` e no `/schemas/domain`. Suporta `@Target({ElementType.FIELD, ElementType.METHOD, ElementType.TYPE, ElementType.ANNOTATION_TYPE})`, permitindo heranca monotônica da classe/interface para os campos. (Nota: metadados organizacionais como `owner`, `steward` e `retentionPolicy` pertencem a `GovernanceSummary` de `/schemas/domain` e a `DomainRuleDefinition` no `praxis-config-starter`, nao sendo atributos da annotation `@DomainGovernance`).
+- `@DomainLineage` descreve a linhagem semantica deterministica (`attributeId`, `sourceClass`, `sourcePaths`, `sourceResourceKey`, `transformation`) de um atributo projetado em DTO a partir de uma Entidade JPA ou classe ancestral, publicada em `x-domain-governance.lineage` e validada para impedir que o DTO enfraqueca a governanca da origem (`lineage-governance-weakened`). Em DTOs, `@DomainLineage` complementa (e nao substitui) a declaracao de `@DomainGovernance`.
+- `LegalTreatmentPurpose` (`legalPurpose` e `legalBasisRef` em `@UiSurface` e `@WorkflowAction`) declara a finalidade e a base legal LGPD de cada superficie de visualizacao ou comando de negocio.
 - `@UISchema(preset = ...)` reduz repeticao visual, mas nao escreve descricao de dominio.
 
 ## Presets
@@ -24,6 +26,25 @@ Presets canonicos disponiveis:
 - `LEGAL_DOCUMENT_REFERENCE`
 - `TENANT_LABEL`
 - `AUDIT_TIMESTAMP`
+- `CPF_CNPJ`
+- `EMAIL_CONTACT`
+- `PHONE_CONTACT`
+- `INTEGER_COUNTER`
+- `PERCENTAGE_RATE`
+
+### Presets de Governança (`DomainGovernancePreset`) e Meta-Anotações Compostas
+
+Para evitar repetição de atributos LGPD/segurança e políticas de IA em cada campo, `@DomainGovernance` aceita `preset = DomainGovernancePreset.*` (qualquer atributo explícito sobrescreve o preset):
+
+- `LGPD_PERSONAL_ID` (`PRIVACY`, `CONFIDENTIAL`, `PERSONAL`, tags `{"LGPD", "PII"}`, `visibility = MASK`)
+- `LGPD_PERSONAL_CONTACT` (`PRIVACY`, `CONFIDENTIAL`, `PERSONAL`, tags `{"LGPD", "PII"}`, `visibility = MASK`)
+- `LGPD_SENSITIVE_DATA` (`PRIVACY`, `RESTRICTED`, `SENSITIVE_PERSONAL`, tags `{"LGPD", "SENSITIVE_PII"}`, `exportable = false`, `visibility = MASK`, `reasoningUse = REVIEW_REQUIRED`)
+- `CONFIDENTIAL_FINANCIAL` (`PRIVACY`, `CONFIDENTIAL`, `FINANCIAL`, tags `{"LGPD", "FINANCIAL_CONFIDENTIAL"}`, `visibility = MASK`)
+- `SECURITY_CREDENTIAL` (`SECURITY`, `RESTRICTED`, `CREDENTIAL`, tags `{"SECURITY", "CREDENTIAL"}`, `exportable = false`, `visibility = DENY`, `ruleAuthoring = DENY`, `reasoningUse = DENY`)
+- `INTERNAL_OPERATIONAL` (`SECURITY`, `INTERNAL`, `OPERATIONAL`)
+- `LEGAL_COMPLIANCE` (`COMPLIANCE`, `INTERNAL`, `LEGAL`, tags `{"COMPLIANCE"}`)
+
+Além disso, `@UISchema`, `@DomainGovernance` e `@MicroVisualization` suportam `@Target(ElementType.ANNOTATION_TYPE)`, permitindo compor meta-anotações reutilizáveis resolvidas recursivamente por `ResolverUtils`.
 
 Exemplo:
 
@@ -39,19 +60,45 @@ em `@Schema`.
 
 ## Review
 
-Use `SemanticMetadataReviewer` para produzir relatorios de autoria:
+Use `SemanticMetadataReviewer` para produzir relatorios de autoria e auditoria de governanca:
 
 ```java
-SemanticMetadataReviewReport report = new SemanticMetadataReviewer().review(MeuDTO.class);
+SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+// Revisao padrao do DTO
+SemanticMetadataReviewReport report = reviewer.review(MeuDTO.class);
+
+// Revisao com gate P50 (cruzando campos RESTRICTED/SENSITIVE_PERSONAL/CREDENTIAL contra OptionSources e StatsFieldRegistry)
+SemanticMetadataReviewReport fullReport = reviewer.review(MeuDTO.class, optionSourceDescriptors, statsFieldRegistry);
+
+// Revisao estrita (exige @DomainGovernance explicito em 100% dos campos expostos)
+SemanticMetadataReviewReport strictReport = reviewer.reviewStrictGovernance(MeuDTO.class);
+
+// Revisao de fatos (@ResourceFact) e finalidade legal LGPD (@UiSurface / @WorkflowAction)
+SemanticMetadataReviewReport factsAndLegalReport = reviewer.reviewResourceFacts(MeuControllerOuProvider.class);
 ```
 
 O reviewer aponta:
 
-- `schema-description-missing`
-- `schema-description-copies-ui-label`
-- `schema-description-derived-from-field-name`
-- `preset-without-domain-description`
-- `public-private-context-field-without-governance`
+- **Qualidade Editorial de `@Schema` e `@UISchema`:**
+  - `schema-description-missing`
+  - `schema-description-copies-ui-label`
+  - `schema-description-derived-from-field-name`
+  - `preset-without-domain-description`
+- **Governança, Sensibilidade, Linhagem (`@DomainLineage`) e Modo Estrito:**
+  - `public-private-context-field-without-governance`
+  - `sensitive-field-without-governance`
+  - `sensitive-field-public-classification`
+  - `sensitive-field-allows-ai-training`
+  - `missing-explicit-domain-governance` (em `reviewStrictGovernance`)
+  - `lineage-governance-weakened` (quando a governança do DTO é menos restritiva que a origem declarada em `@DomainLineage`)
+  - `invalid-domain-lineage` (quando `sourceClass`/`sourcePaths` de `@DomainLineage` não podem ser resolvidos)
+- **Proteção de Superfícies Analíticas e Lookups (`P50`):**
+  - `restricted-field-in-analytics-or-option-source` (quando um campo `RESTRICTED`, `CREDENTIAL` ou `SENSITIVE_PERSONAL` é exposto em `StatsFieldRegistry` ou `OptionSourceDescriptor`)
+- **Finalidade Legal LGPD (`@UiSurface` / `@WorkflowAction`) e Fatos Determinísticos (`@ResourceFact`):**
+  - `legal-basis-without-legal-purpose` (`legalBasisRef` preenchido com `legalPurpose = UNSPECIFIED`)
+  - `legal-purpose-without-legal-basis-ref` (`legalPurpose` regulado como `LEGAL_OBLIGATION` ou `PUBLIC_POLICY` sem `legalBasisRef`)
+  - `resource-fact-client-overridable-not-allowed`, `resource-fact-invalid-authority`, `resource-fact-invalid-evaluation-phase`, `resource-fact-invalid-missing-value-policy`, `resource-fact-invalid-scope`
 
 O reviewer nao gera descricoes. Ele apenas mostra onde a autoria humana ainda precisa decidir
 significado, limites, relacoes, impacto e governanca.

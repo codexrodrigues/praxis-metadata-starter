@@ -305,7 +305,11 @@ aplicavel</li>
 <code>GET /{resource}/{id}/capabilities</code> respondem com snapshot
 agregado</li>
 <li><code>GET /schemas/catalog</code>, <code>GET /schemas/domain</code>
-e <code>GET /schemas/surfaces</code> incluem o recurso</li>
+(<code>?strict=true</code> excluindo inferencias heuristicas em fluxos
+fail-closed), <code>GET /schemas/surfaces</code> e
+<code>GET /schemas/actions</code> incluem o recurso (publicando
+<code>legalPurpose</code> e <code>legalBasisRef</code> quando
+aplicavel)</li>
 </ul>
 <h2 id="options-e-relacionamentos">4. Options e Relacionamentos</h2>
 <ul>
@@ -370,7 +374,23 @@ muda)</li>
 <code>@UISchema</code> (<code>UISchemaPreset</code>,
 <code>FieldControlType</code>, <code>group</code>, <code>order</code>,
 <code>icon</code>, <code>NumericFormat</code>) e
-<code>@DomainGovernance</code> + <code>@AiUsagePolicy</code></li>
+<code>@DomainGovernance</code>
+(<code>preset = DomainGovernancePreset.*</code>,
+<code>exportable</code>, <code>@AiUsagePolicy</code>) +
+<code>@DomainLineage</code> (quando projetado de entidade, sem
+enfraquecer a governanca da origem — validado pelo gate <code>P50</code>
+<code>lineage-governance-weakened</code>)</li>
+<li><code>@ResourceFact</code> declara contrato explicito de autoridade
+(<code>authority</code>, <code>evaluationPhase</code>,
+<code>missingValuePolicy</code>, <code>scope</code>) validado por
+<code>SemanticMetadataReviewer.reviewResourceFacts(...)</code></li>
+<li><code>SemanticMetadataReviewer</code>
+(<code>reviewStrictGovernance</code> /
+<code>reviewResourceFacts</code>),
+<code>PraxisExpressionStaticValidator</code>,
+<code>OptionSourcePublicationInventory</code> e
+<code>FilterableIndexAdvisor</code> passam sem violacoes no teste JUnit
+do host</li>
 </ul>
 <h2 id="dtos-mapeamentos-e-service">8. DTOs, mapeamentos e service</h2>
 <ul>

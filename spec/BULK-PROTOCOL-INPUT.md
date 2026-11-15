@@ -22,6 +22,19 @@ Seleção por consulta usa `mode: QUERY`, `filter` objeto obrigatório e `exclud
 
 `BulkConfirmationRequest` contém somente `proposalId` textual não vazio. Ler esse request não valida existência, acesso ou vigência de proposta. Esses controles e a idempotência pertencem a incrementos posteriores.
 
+## Componentes OpenAPI de avaliação
+
+O sintetizador publica o schema de cada avaliação pelo `$ref` do seu `requestBody`.
+Uma operação isolada ou um conjunto com o mesmo contrato usa o nome-base existente.
+Quando contratos distintos compartilham esse nome-base, cada shape recebe o sufixo
+da menor identidade canônica de avaliação entre as operações que compartilham o shape.
+O sufixo usa caracteres válidos de componente OpenAPI e o mesmo binding produz a mesma
+referência no documento completo e nos grupos. Componentes externos incompatíveis e
+DTOs distintos que geram o mesmo nome de referência continuam sendo rejeitados.
+
+Quando o tipo do filtro é `Void`, o schema publica somente seleção `EXPLICIT`, exige
+`mode` e `targets` e omite `filter` e `excludedIds`.
+
 ## Identidade sem coerção
 
 | ID Java | WI no JSON | Validação e fragmento de schema |

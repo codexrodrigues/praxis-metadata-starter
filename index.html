@@ -276,6 +276,11 @@
 </header>
 <h1 id="praxis-metadata-starter-documentação-oficial">Praxis Metadata
 Starter — Documentação Oficial</h1>
+<ul>
+<li><a href="guides/DOMAIN-CATALOG-ONTOLOGY.md">Ontologia do catálogo de
+domínio</a>: adoção de bindings por operação, determinações compiladas e
+fronteiras do G2.</li>
+</ul>
 <p>Bem-vindo à documentação pública do
 <strong><code>praxis-metadata-starter</code></strong>, a biblioteca
 Spring Boot canônica da <strong>Praxis Platform</strong> — uma
@@ -424,7 +429,9 @@ de Lote (<code>BULK-COMPOSITION-GUIDE</code>)</a></li>
 id="especificações-técnicas-do-protocolo-de-lote-bulk-sdk-e-lifecycle-governado">Especificações
 Técnicas do Protocolo de Lote (Bulk SDK) e Lifecycle Governado</h4>
 <ul>
-<li><strong>Protocolo, Binding e Contratos CRUD Bulk</strong>:
+<li><p><a href="guides/RESOURCE-MUTATION-ADMISSION.html">Admissão
+contextual de mutações e migração dos adapters</a></p></li>
+<li><p><strong>Protocolo, Binding e Contratos CRUD Bulk</strong>:</p>
 <ul>
 <li><a href="spec/BULK-PROTOCOL-INPUT.html">Entrada do protocolo de
 operações em lote</a></li>
@@ -443,8 +450,8 @@ CRUD</a></li>
 <li><a href="spec/BULK-ACTION-PROJECTION.html">Projeção P1 de action
 bulk (<code>execution.bulk</code>)</a></li>
 </ul></li>
-<li><strong>Persistência, Execução Durável, Read Model e Lifecycle
-OpenAPI</strong>:
+<li><p><strong>Persistência, Execução Durável, Read Model e Lifecycle
+OpenAPI</strong>:</p>
 <ul>
 <li><a href="spec/BULK-EXECUTION-INFRASTRUCTURE.html">Infraestrutura
 transacional de lote</a></li>
@@ -459,8 +466,8 @@ execução</a></li>
 <li><a href="spec/BULK-OPERATION-LIFECYCLE.html">Lifecycle governado de
 publicação OpenAPI</a></li>
 </ul></li>
-<li><strong>Capacidade, Administração Local, Workers e Owner
-Gerenciado</strong>:
+<li><p><strong>Capacidade, Administração Local, Workers e Owner
+Gerenciado</strong>:</p>
 <ul>
 <li><a href="spec/BULK-CAPACITY-AUTHORITY.html">Autoridade de capacidade
 candidata B5b.1a</a></li>
@@ -495,6 +502,20 @@ href="technical/BULK-AND-RELEASE-CANDIDATES-STATUS.html">Status
 Consolidado do SDK Bulk e Candidatos de Release</a> para distinguir
 capacidades já publicadas no Maven Central de candidatos internos em
 validação.</p>
+<h2 id="core-resource-service">Core resource service</h2>
+<p>Consulte a <a href="guides/GOVERNED-RULE-BRIDGE.md">ponte governada
+de regras</a> para rejeições estruturadas e validação JSON Logic de
+campos customizados.</p>
+<p>Consulte o <a href="guides/CORE-RESOURCE-SERVICE.md">guia de
+consultas, exportação e comandos versionados</a> para adotar os hooks e
+templates canônicos. Os limites e cenários de adoção corporativa estão
+na <a href="technical/CORE-RESOURCE-P1-REVIEW.md">revisão do core
+resource service</a>.</p>
+<h2 id="bulk-declarativo-no-core-resource-oriented">Bulk declarativo no
+core resource-oriented</h2>
+<p>Consulte o <a href="guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md">guia
+de operações em lote</a> para adotar a base de controller, o adapter JPA
+e a composição explícita de políticas e infraestrutura.</p>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

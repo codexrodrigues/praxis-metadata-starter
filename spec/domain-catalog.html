@@ -393,19 +393,94 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;classification&quot;</span><span class="fu">:</span> <span class="st">&quot;confidential&quot;</span><span class="fu">,</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;dataCategory&quot;</span><span class="fu">:</span> <span class="st">&quot;financial&quot;</span><span class="fu">,</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;complianceTags&quot;</span><span class="fu">:</span> <span class="ot">[</span><span class="st">&quot;LGPD&quot;</span><span class="ot">,</span> <span class="st">&quot;INTERNAL_POLICY&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;aiUsage&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;visibility&quot;</span><span class="fu">:</span> <span class="st">&quot;mask&quot;</span><span class="fu">,</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;trainingUse&quot;</span><span class="fu">:</span> <span class="st">&quot;deny&quot;</span><span class="fu">,</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;ruleAuthoring&quot;</span><span class="fu">:</span> <span class="st">&quot;review_required&quot;</span><span class="fu">,</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;reasoningUse&quot;</span><span class="fu">:</span> <span class="st">&quot;allow&quot;</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;reason&quot;</span><span class="fu">:</span> <span class="st">&quot;Campo financeiro explicitamente marcado.&quot;</span><span class="fu">,</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;source&quot;</span><span class="fu">:</span> <span class="st">&quot;java.annotation&quot;</span><span class="fu">,</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;confidence&quot;</span><span class="fu">:</span> <span class="fl">1.0</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;exportable&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;aiUsage&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;visibility&quot;</span><span class="fu">:</span> <span class="st">&quot;mask&quot;</span><span class="fu">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;trainingUse&quot;</span><span class="fu">:</span> <span class="st">&quot;deny&quot;</span><span class="fu">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;ruleAuthoring&quot;</span><span class="fu">:</span> <span class="st">&quot;review_required&quot;</span><span class="fu">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;reasoningUse&quot;</span><span class="fu">:</span> <span class="st">&quot;allow&quot;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">},</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;reason&quot;</span><span class="fu">:</span> <span class="st">&quot;Campo financeiro explicitamente marcado.&quot;</span><span class="fu">,</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;source&quot;</span><span class="fu">:</span> <span class="st">&quot;java.annotation&quot;</span><span class="fu">,</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;confidence&quot;</span><span class="fu">:</span> <span class="fl">1.0</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p><code>/schemas/domain</code> prioriza essa governanca explicita antes
 de aplicar heuristicas por nome, titulo, descricao ou formato do
 campo.</p>
+<p>Quando consultado com <code>GET /schemas/domain?strict=true</code>
+(ou via
+<code>SemanticDomainCatalogService.findByResourceKeyStrict</code> /
+<code>findByGroupStrict</code>), o starter opera em <strong>modo estrito
+fail-closed</strong>: se qualquer campo do recurso não possuir
+<code>@DomainGovernance</code> explícito (dependendo de fallback
+heurístico), a geração do catálogo falha com
+<code>IllegalStateException</code> listando os campos sem governança
+declarada.</p>
+<h3 id="escopo-de-enforcement-de-aiusage-e-descoberta-estrutural">Escopo
+de Enforcement de <code>aiUsage</code> e Descoberta Estrutural</h3>
+<p>No payload de governança publicado em <code>/schemas/domain</code>,
+<code>aiUsage</code> inclui os metadados canônicos:</p>
+<ul>
+<li><code>valueEnforcementScope = "runtime_payload_only"</code></li>
+<li><code>catalogMetadataDiscoverable = true</code></li>
+</ul>
+<p>Isso explicita que <code>aiUsage.visibility = "deny"</code> ou
+<code>"mask"</code> governa o <strong>valor em payloads de
+runtime</strong> (prompts, respostas e ferramentas de dados), enquanto o
+<strong>nome estrutural e a existência do campo</strong> permanecem
+visíveis no catálogo de metadados para permitir auditoria, compilação de
+políticas (<code>praxis-authz-*</code>) e validação de referências.</p>
+<h3
+id="herança-em-nível-de-tipo-elementtype.type-e-linhagem-semântica-domainlineage">Herança
+em Nível de Tipo (<code>ElementType.TYPE</code>) e Linhagem Semântica
+(<code>@DomainLineage</code>)</h3>
+<ul>
+<li><strong><code>@DomainGovernance</code> em classes/interfaces
+(<code>ElementType.TYPE</code>):</strong> permite declarar um piso de
+governança na classe ou interface do DTO/Entidade. Propriedades sem
+<code>@DomainGovernance</code> próprio herdam a anotação do tipo;
+propriedades com <code>@DomainGovernance</code> próprio passam por fusão
+monotônica (<code>DomainLineageResolver.mergeRestrictive</code>),
+prevalecendo sempre a classificação mais restritiva.</li>
+<li><strong><code>@DomainLineage</code>
+(<code>org.praxisplatform.uischema.annotation.DomainLineage</code>):</strong>
+vincula uma propriedade de DTO ou projeção analítica ao atributo
+canônico de origem (<code>attributeId</code>, <code>sourceClass</code>,
+<code>sourcePaths</code>, <code>sourceResourceKey</code>,
+<code>transformation = DIRECT | MASKED | AGGREGATED | DERIVED</code>). O
+catálogo <code>/schemas/domain</code> projeta essa linhagem em:
+<ul>
+<li><code>node.metadata.lineage</code> no nó <code>field</code> e
+<code>conceptNode.metadata.sharedRepresentations</code> no nó
+<code>concept</code>;</li>
+<li>arestas <code>same_as</code> (<code>transformation = DIRECT</code>),
+<code>materializes</code> (<code>AGGREGATED</code>) ou
+<code>depends_on</code> (<code>DERIVED</code> / <code>MASKED</code>) com
+<code>metadata.provenance = "domain-lineage"</code>.</li>
+</ul></li>
+</ul>
+<h3
+id="finalidade-legal-lgpd-em-surfaces-e-actions-legaltreatmentpurpose">Finalidade
+Legal LGPD em Surfaces e Actions
+(<code>LegalTreatmentPurpose</code>)</h3>
+<p><code>@UiSurface</code> e <code>@WorkflowAction</code> aceitam
+<code>legalPurpose = LegalTreatmentPurpose.*</code>
+(<code>UNSPECIFIED</code>, <code>HUMAN_RESOURCES_ADMINISTRATION</code>,
+<code>PAYROLL_AND_TAX_COMPLIANCE</code>,
+<code>OFFICIAL_HEALTH_EXPERTISE</code>,
+<code>SOCIAL_SECURITY_AND_BENEFITS</code>,
+<code>ACTIVE_PUBLIC_TRANSPARENCY_LAI</code>,
+<code>EXTERNAL_AUDIT_CONTROL</code>, <code>EMPLOYEE_SELF_SERVICE</code>,
+<code>STATUTORY_LEGAL_OBLIGATION</code>) e
+<code>legalBasisRef = "..."</code> (ex.: <code>"LGPD:ART_7_III"</code>,
+<code>"LGPD:ART_11_II_A"</code>,
+<code>"Lei 8.112/1990 art. 202"</code>). Quando declarados, são
+publicados nos catálogos <code>/schemas/surfaces</code>,
+<code>/schemas/actions</code> e nos nós <code>surface</code> e
+<code>action</code> de <code>/schemas/domain</code> (validados por
+<code>SemanticMetadataReviewer</code> via
+<code>legal-basis-without-legal-purpose</code> e
+<code>legal-purpose-without-legal-basis-ref</code>).</p>
 <h2 id="vocabulario-canonico">Vocabulario Canonico</h2>
 <ul>
 <li><code>annotationType</code>: <code>privacy</code>,
@@ -440,6 +515,173 @@ dominio.</p>
 explicacao, mascaramento, indexacao, RAG e authoring assistido. A
 decisao operacional final continua pertencendo ao runtime ou a fronteira
 governada que consome o catalogo.</p>
+<p><code>x-domain-governance.exportable</code> é booleano (default Java
+<code>true</code>). Valor <code>false</code> ou a tag
+<code>NON_EXPORTABLE</code> exclui o campo da allowlist de exportação na
+base de serviços, inclusive quando o host sobrescreve
+<code>exportFields()</code>. A lista do cliente não pode relaxar essa
+política.</p>
+<p>Os itens de <code>governance</code> do catálogo também preservam
+<code>exportable</code>; quando não há declaração nem tag de restrição,
+o valor é ausente/null. <code>NON_EXPORTABLE</code> sempre resulta em
+<code>false</code>.</p>
+<h2
+id="knowledge-graph-glossario-de-negocio-e-data-products-v0.2">Knowledge
+Graph, Glossario De Negocio E Data Products (<code>v0.2</code>)</h2>
+<p>O <code>SemanticDomainCatalogService</code> sintetiza automaticamente
+o Knowledge Graph corporativo e os Data Products do dominio a partir das
+anotacoes canonicas do starter (<code>@ApiResource</code>,
+<code>@ResourceReference</code>, <code>@UiSurface</code>,
+<code>@ResourceFact</code>, <code>@UiAnalytics</code>,
+<code>StatsFieldRegistry</code> e <code>OptionSourceRegistry</code>),
+sem exigir YAML manual no host:</p>
+<ul>
+<li><strong>Nos do grafo (<code>nodes</code>)</strong>:
+<ul>
+<li><code>concept</code>: conceito central do recurso, enriquecido com
+<code>businessGlossary</code> (<code>preferredTerm</code>,
+<code>synonyms</code>, <code>domain</code>, <code>description</code>,
+<code>stewardRole</code>) e <code>metadata</code>:
+<ul>
+<li><code>conceptRole</code>: <code>operational_concept</code> (recursos
+transacionais/cadastrais) ou <code>analytical_data_product</code>
+(projecoes analiticas read-only <code>Radar*</code> /
+<code>@UiAnalytics</code> sem operacoes de escrita).</li>
+<li><code>relatedConcepts</code>, <code>parentConcepts</code>,
+<code>childConcepts</code>: vizinhanca semantica derivada de
+<code>@ResourceReference</code> e <code>relatedResource</code> em
+<code>@UiSurface</code>.</li>
+<li><code>analyzesConcepts</code> e <code>analyzedByDataProducts</code>:
+conexao bidirecional deterministica entre conceitos operacionais e os
+Data Products analiticos que os monitoram.</li>
+<li><code>ontologicalFactRoots</code> e <code>conceptFactRootMap</code>:
+raizes ontologicas da arvore de fatos
+(<code>PraxisFactTreeBuilder</code> — <code>draft</code>,
+<code>current</code>, raizes <code>&lt;conceito&gt;</code> em 1-hop
+derivadas de FKs/lookups, <code>neighborhood</code> e
+<code>context</code>) e o mapa <code>conceptFactRootMap</code>
+(<code>&lt;conceito&gt; -&gt; referencedResourceKey</code>), conectando
+a macro-ontologia do Knowledge Graph a micro-ontologia do motor de
+regras (<code>praxis-rules-engine</code>).</li>
+<li><code>governedRuleSets</code>, <code>governedOperations</code> e
+<code>governedReasonCodes</code>: resumo dos
+<code>RuleSetDefinition</code>s (SHACL NodeShapes) que governam o
+conceito.</li>
+<li><code>dataProduct</code>: manifesto do produto de dados analitico
+(<code>kind</code>, <code>domain</code>, <code>resourceKey</code>,
+<code>resourcePath</code>, <code>readOnly</code>,
+<code>supportedStatsOperations</code>, <code>metricsCount</code>,
+<code>factsCount</code>, <code>projectionsCount</code>,
+<code>recommendedCharts</code>, <code>analyzesConcepts</code>).</li>
+</ul></li>
+<li><code>field</code>: campos do contrato, enriquecidos com
+<code>businessGlossary</code> (incluindo sinonimos humanos de busca
+ampla quando houver <code>@Filterable(relations = ...)</code>),
+<code>metadata.resourceReference</code> e
+<code>metadata.optionSource</code> (<code>key</code>, <code>type</code>,
+<code>resourcePath</code>, <code>dependsOn</code>,
+<code>dependencyFilterMap</code>, <code>searchStrategies</code>,
+<code>selectionPolicy</code>).</li>
+<li><code>fact</code>: fatos deterministicos declarados via
+<code>@ResourceFact</code> (<code>factId</code>, <code>valueType</code>,
+<code>unit</code>, <code>category</code>).</li>
+<li><code>surface</code>: experiencias de UI declaradas via
+<code>@UiSurface</code>.</li>
+<li><code>action</code>: transicoes e comandos declarados via
+<code>@WorkflowAction</code> / <code>@ResourceIntent</code>.</li>
+<li><code>quick_filter</code>: recortes operacionais canonicos
+declarados via <code>@QuickFilter</code>
+(<code>criteria = @FilterCriterion(...)</code>) ou
+<code>defineQuickFilters()</code>, publicados em
+<code>{resourceKey}.quickFilter.{id}</code> com <code>filter</code>,
+<code>filterFields</code>, <code>tone</code>, <code>isDefault</code>,
+<code>description</code> e arestas <code>has_quick_filter</code> /
+<code>filters_field</code>.</li>
+<li><code>stats</code>: capacidades analiticas (<code>group-by</code>,
+<code>timeseries</code>, <code>distribution</code>,
+<code>comparison</code>) e <code>analyticsProjections</code>
+(<code>@UiAnalytics</code>).</li>
+<li><code>capability</code>: operacoes estruturais publicadas para o
+recurso.</li>
+<li><code>policy_hint</code>: dicas de governanca, politicas de selecao
+(<code>option-source</code>) e <code>RuleSetDefinition</code>s
+governados (<code>source = "rule-set"</code>,
+<code>metadata.policyKind = "domain_rule_set"</code> via
+<code>DomainRuleSetCatalogProvider</code> /
+<code>DomainRuleSetDescriptor</code>, com <code>availableRoots</code>,
+<code>referencedFactPaths</code>, <code>slots</code>,
+<code>rules</code>, <code>reasonCodes</code> e
+<code>targetFields</code>).
+<ul>
+<li>Para executores Java, o host declara os resultados possíveis em
+<code>DomainRuleSetDescriptor.reasonDescriptors</code>, associados ao
+slot. O índice <code>reasonCodes</code> e os <code>targetFields</code>
+incluem todos os descritores dos slots Java habilitados, inclusive
+quando há vários resultados possíveis. Slots Java desabilitados não
+acrescentam resultados ao índice ativo. Não preencher
+<code>DecisionBinding.falseReasonCode</code> para simular um resultado
+JSON Logic nem inferir códigos pelo nome da implementação.</li>
+</ul></li>
+</ul></li>
+<li><strong>Arestas do grafo (<code>edges</code>)</strong>:
+<ul>
+<li>Estruturais do recurso: <code>has_field</code>,
+<code>has_fact</code>, <code>has_surface</code>,
+<code>has_action</code>, <code>has_stats</code>,
+<code>has_capability</code>, <code>has_policy</code>,
+<code>governed_by</code> (do <code>concept</code> e dos
+<code>field</code>s de <code>targetFields</code> para o no
+<code>policy_hint</code> do <code>RuleSet</code>, com binding
+<code>rule_definition</code>) e <code>materializes</code>
+(<code>analytical_data_product -&gt; operational_resource</code>).</li>
+<li>Relacionais cross-resource (Knowledge Graph):
+<ul>
+<li><code>references</code> (<code>concept -&gt; targetConcept</code>) e
+<code>part_of</code> (<code>field -&gt; targetConcept</code>): derivados
+de <code>@ResourceReference</code> e lookups
+<code>RESOURCE_ENTITY</code>.</li>
+<li><code>contains</code>
+(<code>parentConcept -&gt; childConcept</code>): derivado de
+<code>@UiSurface(relatedChildResourceKey = ...)</code>.</li>
+<li><code>depends_on</code> (<code>field -&gt; dependencyField</code>):
+derivado de <code>dependsOn</code> / <code>dependencyFilterMap</code> em
+<code>OptionSourceDescriptor</code>.</li>
+<li><code>related_to</code>
+(<code>analytical_data_product -&gt; operational_concept</code>):
+derivado do cruzamento de FKs, <code>@ResourceReference</code> e prefixo
+de dominio em Data Products analiticos.</li>
+</ul></li>
+</ul></li>
+</ul>
+<h2
+id="sincronizacao-zero-config-e-visao-360-de-dominio-praxis-config-starter">Sincronizacao
+Zero-Config E Visao 360° De Dominio
+(<code>praxis-config-starter</code>)</h2>
+<p>Quando o host inclui <code>praxis-metadata-starter</code> e
+<code>praxis-config-starter</code> no mesmo processo:</p>
+<ul>
+<li><code>DomainCatalogLocalSourceProvider</code> expoe os catalogos
+escopados de <code>SemanticDomainCatalogService</code> diretamente em
+memoria (sem round-trip HTTP).</li>
+<li><code>DomainCatalogAutoSyncService</code> ingere automaticamente os
+catalogos locais na inicializacao (<code>ApplicationReadyEvent</code>),
+controlado por <code>praxis.domain-catalog.auto-sync.enabled=true</code>
+(habilitado por padrao quando ambos os starters estao presentes).</li>
+<li><code>GET /api/praxis/config/domain-360</code> projeta a visao
+consolidada 360° de um conceito (<code>?resourceKey=...</code>) ou de
+todo o dominio (<code>?group=...</code>), reunindo glossario, vizinhanca
+do Knowledge Graph (<code>relatedConcepts</code>,
+<code>parentConcepts</code>, <code>childConcepts</code>), Data Products
+(<code>analyzesConcepts</code>, <code>analyzedByDataProducts</code>),
+campos, fatos, surfaces, actions, analytics e governanca.</li>
+<li>O grounding de IA (<code>DomainCatalogPromptContextService</code>,
+<code>AgenticAuthoringDomainCatalogCandidateEnhancer</code> e
+<code>AgenticAuthoringConsultativeApiCatalogProjectionService</code>)
+consome esses sinais para expandir automaticamente candidatos com Data
+Products analiticos relacionados e rotular recursos
+<code>analytical_data_product</code> como
+<code>role = "analytical"</code>.</li>
+</ul>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

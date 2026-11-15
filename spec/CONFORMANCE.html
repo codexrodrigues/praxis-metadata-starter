@@ -377,10 +377,20 @@ apenas DTO plano de conjuncao simples</li>
 <li>manter <code>/schemas/surfaces</code> e
 <code>/schemas/actions</code> sincronizados com a semantica publicada
 por <code>@UiSurface</code> e <code>@WorkflowAction</code></li>
-<li>declarar campos sensiveis com <code>@DomainGovernance</code> e cada
-dimensao da politica de IA pelo enum especifico
-(<code>AiVisibilityMode</code>, <code>AiTrainingUseMode</code> e
-<code>AiControlledUseMode</code>)</li>
+<li>declarar campos sensiveis com <code>@DomainGovernance</code>
+(<code>preset = DomainGovernancePreset.*</code>,
+<code>exportable</code>, <code>reason</code> e cada dimensao da politica
+de IA pelo enum especifico: <code>AiVisibilityMode</code>,
+<code>AiTrainingUseMode</code> e <code>AiControlledUseMode</code>) e
+<code>@DomainLineage</code> (publicado em
+<code>x-domain-governance.lineage</code> e validado contra
+enfraquecimento da origem via gate <code>P50</code>
+<code>lineage-governance-weakened</code>), alem de
+<code>legalPurpose = LegalTreatmentPurpose.*</code> +
+<code>legalBasisRef</code> em <code>@UiSurface</code> e
+<code>@WorkflowAction</code> e suporte a
+<code>GET /schemas/domain?strict=true</code> para consumidores
+fail-closed</li>
 <li>declarar <code>x-ui.fieldAccess</code> para campos cuja visibilidade
 ou editabilidade dependa de authorities do contexto corporativo,
 mantendo claro que <code>capabilities</code> de runtime nao sao
@@ -570,8 +580,12 @@ availability atuais</li>
 </ul></li>
 <li>x-domain-governance
 <ul>
-<li><code>annotationType</code>, <code>classification</code>,
-<code>dataCategory</code> -&gt; classificacao canonica do campo</li>
+<li><code>annotationType</code>, <code>preset</code>,
+<code>classification</code>, <code>dataCategory</code>,
+<code>complianceTags</code>, <code>exportable</code> -&gt; classificacao
+canonica e elegibilidade de exportacao do campo, acompanhadas de
+<code>lineage.*</code> (<code>@DomainLineage</code> -&gt;
+<code>x-domain-governance.lineage</code>)</li>
 <li><code>aiUsage.*</code> -&gt; politica de visibilidade, treino,
 authoring e raciocinio assistido por IA</li>
 <li><code>source</code>, <code>confidence</code>, <code>reason</code>
@@ -773,6 +787,23 @@ readonly no PUT, schema de filtro versus payload HTTP, IN/IS_NULL no
 PostgreSQL e container obrigatório. O catálogo possui regressões para
 proxy/lazy, datas ISO e governança parcial/completa; ausência de
 execução de domínio é invariante.</p>
+<h3 id="exportação-governada-no-core">Exportação governada no core</h3>
+<p>A base resource-oriented aplica o escopo de acesso nos cinco escopos
+de exportação. <code>@DomainGovernance(exportable = false)</code> e
+<code>NON_EXPORTABLE</code> são restrições do servidor, publicadas em
+<code>x-domain-governance</code> e reaplicadas à curadoria do host. Ver
+<a href="../guides/CORE-RESOURCE-SERVICE.md">Core Resource
+Service</a>.</p>
+<h3 id="kernel-declarativo-httpjpa-de-lote">Kernel declarativo HTTP/JPA
+de lote</h3>
+<p><code>BulkDeclarativeProtocolTest</code> cobre auto-configuração,
+override do host, parser estrito, normalização de filtro e bindings
+herdados. <code>BulkDeclarativeJpaHttpTest</code> cobre o documento
+Springdoc e o ciclo HTTP com PostgreSQL/JPA, incluindo avaliação
+destacada, confirmações por modo, replays, conflitos e rollback junto ao
+recibo. Consulte <a
+href="../guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md">adoção e
+limites</a>.</p>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

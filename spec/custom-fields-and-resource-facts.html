@@ -345,14 +345,16 @@ customizados por tenant e fatos de domínio</h1>
 href="https://github.com/codexrodrigues/praxis-metadata-starter/issues/303">issue
 #303</a>, sujeito a revisão arquitetural. Esta documentação descreve o
 código do candidato; não declara release publicada ou adoção no
-Quickstart, Angular ou Policy Studio.</p>
+Quickstart, Angular ou Rules Studio.</p>
 <h2 id="fonte-canônica-e-fronteiras">Fonte canônica e fronteiras</h2>
 <p>O metadata starter publica definições estruturais e grounding
 semântico. <code>CustomFieldDefinitionProvider</code> fornece definições
 ativas por <code>resourceKey</code>, tenant e tipo de schema; a
 persistência e a autorização dessas definições pertencem ao host. Não há
-dependência de <code>praxis-config-starter</code> ou
-<code>praxis-rules-engine</code>.</p>
+dependência de <code>praxis-config-starter</code>. A validação
+executável de <code>validationRules.jsonLogic</code> usa o runtime
+canônico <code>praxis-rules-engine</code>, conforme a <a
+href="../guides/GOVERNED-RULE-BRIDGE.md">ponte governada</a>.</p>
 <p><code>/schemas/filtered</code> permanece a fonte estrutural.
 <code>/schemas/domain</code> publica nós, bindings, evidências e
 governança derivados das mesmas definições. Um fato descrito no catálogo
@@ -475,12 +477,16 @@ href="x-ui-field.schema.json">x-ui-field.schema.json</a>.</p>
 <h2 id="escrita-filtro-e-exportação">Escrita, filtro e exportação</h2>
 <p><code>AbstractBaseResourceService</code> valida DTOs anotados antes
 de <code>beforeCreate</code> e <code>beforeUpdate</code>: rejeita chaves
-desconhecidas, valores em campos read-only e violações de
-obrigatoriedade, tipo, limites, tamanho e pattern. Erros são publicados
-pelo handler canônico com o caminho
-<code>customFields.&lt;key&gt;</code>. Defaults são metadata; o
+desconhecidas, atribuições read-only em CREATE, alterações/limpezas
+read-only em UPDATE e violações de obrigatoriedade, tipo, limites,
+tamanho e pattern. Erros são publicados pelo handler canônico com o
+caminho <code>customFields.&lt;key&gt;</code>. Defaults são metadata; o
 validador não preenche valores automaticamente.</p>
-<p>Na atualização padrão, a base consulta as definições uma vez, executa
+<p>Na atualização padrão, a base consulta as definições uma vez e
+prepara um snapshot do request. Após carregar e autorizar a entidade (e
+conferir a precondição no update versionado), avalia JSON Logic com o
+estado de servidor em <code>entity</code>, antes de
+<code>beforeUpdate</code>, mapper ou persistência. Em seguida executa
 <code>beforeUpdate</code>, captura os valores <code>readOnly</code> e
 restaura esses valores após <code>ResourceMapper.applyUpdate</code>,
 antes de salvar. Também preserva a ausência: o mapper não pode inventar
@@ -493,24 +499,75 @@ mutável. Uma restauração impossível falha antes do save.</p>
 <code>{"numero_calcado":42,"auditFlag":true}</code> e PUT com
 <code>{"customFields":{"numero_calcado":43}}</code> resultam em
 <code>{"numero_calcado":43,"auditFlag":true}</code>. Enviar
-<code>auditFlag</code>, mesmo com <code>null</code>, continua sendo erro
-de escrita; a UI deve omitir campos protegidos no submit.</p>
+<code>auditFlag=true</code> nesse snapshot é válido em PUT/bulk; enviar
+<code>false</code> ou <code>null</code> tenta alterar/limpar o valor e é
+rejeitado. Omissão preserva o valor do servidor. CREATE rejeita qualquer
+envio de campo read-only.</p>
 <p>A chave do recurso pode ser explicitada na anotação ou no método
 protegido <code>resolveResourceKey()</code>. Use a mesma chave publicada
 pelo <code>@ApiResource</code> do controller. Recursos sem container
 anotado mantêm seu ciclo existente. Implementações de escrita próprias
-do host, incluindo o overload de atualização versionada, devem chamar
-<code>validateCustomFields(dto, "request")</code> antes de seus hooks e
-preservar os valores protegidos através do mapper. Esse helper retorna
-<code>Set&lt;String&gt;</code> das chaves readonly validadas; overrides
-devem conservar as chaves retornadas por <code>super</code>. Escritores
-próprios usam
+do host devem chamar <code>prepareCustomFields(dto, "request")</code>,
+carregar e autorizar o estado existente e chamar
+<code>prepared.validateForUpdate(entity)</code> antes de seus hooks,
+conservando as chaves readonly retornadas. Na criação, devem usar
+<code>prepared.validateForCreate()</code>, que declara
+<code>entity = null</code>. O helper <code>validateCustomFields</code> é
+standalone e recusa expressões que exijam <code>entity</code>; não deve
+substituir a preparação do ciclo de escrita. Extensões devem decorar
+<code>prepareCustomFields</code>, preservando a preparação retornada por
+<code>super</code>. Escritores próprios usam
 <code>CustomFieldSupport.snapshotReadOnlyValues(entity, keys)</code>
 após o hook e <code>restoreReadOnlyValues(entity, keys, snapshot)</code>
 após o mapper, na mesma transação, antes de persistir. Isso não
-substitui precondição/versionamento ou autorização. Não existe
-implementação canônica concreta do overload versionado para interceptar
-automaticamente.</p>
+substitui precondição/versionamento ou autorização. As duas variantes de
+update da base já aplicam esse contrato.</p>
+<p>Para regras sobre dados hidratados, a base oferece
+<code>prepareCreateValidationDraft(dto, candidate)</code> e
+<code>prepareUpdateValidationDraft(id, candidate, dto)</code>. O default
+mantém o request. O host pode hidratar o candidato e devolver uma
+projeção DTO explícita, sem escrita nem efeitos de negócio. No update o
+candidato é destacado e o estado persistido em <code>entity</code>
+permanece independente. O helper protegido
+<code>validatePreparedCustomFieldsForUpdate</code> aplica esse preparo
+também a escritores especializados; bulk usa o mesmo lifecycle. As
+definições e valores enviados permanecem no snapshot inicial; a projeção
+altera somente a raiz <code>draft</code>.</p>
+<h3 id="comandos-de-domínio-versionados">Comandos de domínio
+versionados</h3>
+<p><code>executeVersionedMutation</code> não trata a resposta do
+callback como uma atribuição do cliente. Antes do callback,
+<code>CustomFieldValidator.prepareDomainMutation</code> captura o
+contrato DTO publicado e uma única lista de definições. Quando alguma
+regra observa <code>entity</code>, captura os fatos escalares
+autorizados e o container JSON anterior; não copia um grafo JPA. Regras
+somente de <code>value</code>/<code>draft</code> dispensam essa captura.
+O marker na entidade não é requisito para admitir o contrato do DTO.</p>
+<p>Após o callback, valida os valores e as expressões na projeção DTO
+resultante, antes do save final. <code>entity</code> permanece o estado
+anterior, inclusive quando o callback altera o Map em memória.
+Alterações read-only calculadas pelo servidor são permitidas, como no
+hook de um PUT; não são uma permissão para mapear entradas arbitrárias
+do cliente. Requests que permitem custom fields continuam exigindo
+<code>prepareCustomFields</code> e as guardas read-only antes dos
+efeitos. Escritores especializados, como PATCHs financeiros, não ficam
+dispensados desse lifecycle.</p>
+<p>O método público chamador deve manter a transação da mutação: uma
+rejeição deve reverter também eventuais flushes/efeitos de banco
+executados pelo callback. Um comando pode corrigir um valor antigo
+incompatível com a definição vigente; a validação governa o resultado,
+sem rejeitar antecipadamente o estado a reparar.</p>
+<p>Quando um campo opcional é omitido, somente suas restrições locais de
+<code>value</code> são dispensadas. Regras entre campos, defaults que
+observam outras raízes e <code>var</code> do contexto completo continuam
+ativas. <code>null</code> explícito e zero não são omissão. A admissão
+antes da persistência usa
+<code>CustomFieldValidationRules.validate</code> — a mesma usada pelo
+descriptor. Operadores com pureza contextual no engine (como
+<code>now</code> e <code>daysSince</code>) são rejeitados na construção
+do descriptor: esse adapter não fornece relógio/timezone. Consulte o <a
+href="../guides/GOVERNED-RULE-BRIDGE.md">contrato da ponte</a> para
+roots e semântica de erros.</p>
 <p>O filtro usa <code>GenericSpecificationsBuilder</code> e
 <code>jsonb_extract_path_text</code> sobre o atributo anotado da
 entidade. Somente chaves declaradas e <code>filterable</code> são
@@ -587,8 +644,39 @@ Spring:</p>
 <div class="sourceCode" id="cb3"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ResourceFact</span><span class="op">(</span>key <span class="op">=</span> <span class="st">&quot;serviceYears&quot;</span><span class="op">,</span> resourceKey <span class="op">=</span> <span class="st">&quot;hr.employees&quot;</span><span class="op">,</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>        label <span class="op">=</span> <span class="st">&quot;Tempo de serviço&quot;</span><span class="op">,</span> dataType <span class="op">=</span> <span class="st">&quot;number&quot;</span><span class="op">,</span> unit <span class="op">=</span> <span class="st">&quot;years&quot;</span><span class="op">,</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        parameters <span class="op">=</span> <span class="op">{</span><span class="st">&quot;employeeId&quot;</span><span class="op">,</span> <span class="st">&quot;referenceDate&quot;</span><span class="op">},</span> sourceKind <span class="op">=</span> <span class="st">&quot;computed&quot;</span><span class="op">)</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeFactsMetadata <span class="op">{}</span></span></code></pre></div>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        parameters <span class="op">=</span> <span class="op">{</span><span class="st">&quot;employeeId&quot;</span><span class="op">,</span> <span class="st">&quot;referenceDate&quot;</span><span class="op">},</span> sourceKind <span class="op">=</span> <span class="st">&quot;computed&quot;</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        authority <span class="op">=</span> <span class="st">&quot;server_computed&quot;</span><span class="op">,</span> evaluationPhase <span class="op">=</span> <span class="st">&quot;post_read&quot;</span><span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        missingValuePolicy <span class="op">=</span> <span class="st">&quot;fail_closed&quot;</span><span class="op">,</span> scope <span class="op">=</span> <span class="st">&quot;item&quot;</span><span class="op">,</span> clientOverridable <span class="op">=</span> <span class="kw">false</span><span class="op">)</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeFactsMetadata <span class="op">{}</span></span></code></pre></div>
+<p>Cada <code>@ResourceFact</code> e <code>ResourceFactDescriptor</code>
+publica explicitamente seus metadados de autoridade e ciclo de avaliação
+no nó <code>fact</code> de <code>/schemas/domain</code>:</p>
+<ul>
+<li><code>authority</code>: <code>"server_computed"</code> (padrão) ou
+<code>"persisted_column"</code> — fatos nunca aceitam autoridade do
+cliente;</li>
+<li><code>evaluationPhase</code>: <code>"post_read"</code> (padrão),
+<code>"pre_write"</code> ou <code>"query_projection"</code>;</li>
+<li><code>missingValuePolicy</code>: <code>"fail_closed"</code>
+(padrão), <code>"null_allowed"</code> ou
+<code>"default_value"</code>;</li>
+<li><code>scope</code>: <code>"item"</code> (padrão) ou
+<code>"collection"</code>;</li>
+<li><code>clientOverridable</code>: <code>false</code> (invariante
+auditada por
+<code>SemanticMetadataReviewer.reviewResourceFacts</code>);</li>
+<li><code>cacheable</code>: booleano indicando se o fato computado pode
+ser memoizado dentro do snapshot de avaliação
+(<code>EvaluationContextSnapshot</code>);</li>
+<li><code>searchPushdownSupported</code> e <code>pushdownStrategy</code>
+(<code>"none"</code>, <code>"persisted_column"</code>,
+<code>"sql_expression"</code>, <code>"correlated_subquery"</code>):
+governam a elegibilidade do fato para <em>pushdown</em> de predicados em
+<code>SEARCH</code> (<code>DataScopePlan</code> /
+<code>QueryableResourceProjection</code>);</li>
+<li><code>requiredFacts</code>: caminhos SARC de fatos ou atributos dos
+quais o cálculo depende.</li>
+</ul>
 <p>O provider de annotations inspeciona declarações sem executar os
 métodos e sem instanciar beans lazy. Recupera a classe original de
 proxies Spring e os metadados de BeanDefinition/factory disponíveis.

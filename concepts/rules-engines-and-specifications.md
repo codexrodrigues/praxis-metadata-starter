@@ -16,7 +16,7 @@ O starter aplica especificações e regras declarativas em três frentes complem
    - O backend valida precocemente operadores, aridade e estrutura antes de publicar o schema em `/schemas/filtered`, rejeitando DSLs textuais ambíguas.
 3. **Determinações reativas e governança de regras (`x-ui.reactiveDeterminations` + `praxis-config-starter`)**:
    - O metadata starter publica os bindings estruturais em `x-ui.reactiveDeterminations` e a disponibilidade contextual de `@WorkflowAction` / capabilities.
-   - Regras versionadas por tenant, simulações e aprovações em Policy Studio são governadas pelo `praxis-config-starter` e consumidas pelo host de forma determinística.
+   - Regras versionadas por tenant, simulações e aprovações em Rules Studio são governadas pelo `praxis-config-starter` e consumidas pelo host de forma determinística.
 
 ## Referências internas
 

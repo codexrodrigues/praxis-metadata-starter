@@ -50,7 +50,7 @@
   - incluir `capabilities.options|byId|all|filter|cursor` quando aplicavel
   - publicar `capabilities.filterExpression=false` enquanto o recurso nao declarar suporte executavel a expressoes canonicas de filtro compostas; `capabilities.filter=true` sozinho representa apenas DTO plano de conjuncao simples
   - manter `/schemas/surfaces` e `/schemas/actions` sincronizados com a semantica publicada por `@UiSurface` e `@WorkflowAction`
-  - declarar campos sensiveis com `@DomainGovernance` e cada dimensao da politica de IA pelo enum especifico (`AiVisibilityMode`, `AiTrainingUseMode` e `AiControlledUseMode`)
+  - declarar campos sensiveis com `@DomainGovernance` (`preset = DomainGovernancePreset.*`, `exportable`, `reason` e cada dimensao da politica de IA pelo enum especifico: `AiVisibilityMode`, `AiTrainingUseMode` e `AiControlledUseMode`) e `@DomainLineage` (publicado em `x-domain-governance.lineage` e validado contra enfraquecimento da origem via gate `P50` `lineage-governance-weakened`), alem de `legalPurpose = LegalTreatmentPurpose.*` + `legalBasisRef` em `@UiSurface` e `@WorkflowAction` e suporte a `GET /schemas/domain?strict=true` para consumidores fail-closed
   - declarar `x-ui.fieldAccess` para campos cuja visibilidade ou editabilidade dependa de authorities do contexto corporativo, mantendo claro que `capabilities` de runtime nao sao equivalentes sem mapeamento explicito
   - adotar `custom.*` para extensoes privadas do host
   - publicar `x-ui.optionSource` para fontes derivadas governadas, evitando promover `INPUT` em campos com semantica corporativa clara
@@ -135,7 +135,7 @@
   - `/{resource}/capabilities.operations` -> operacoes CRUD, query, options, stats e export com scope, metodo, relacao e availability atuais
   - query/stats de um snapshot item-level preservam `scope=COLLECTION` e nao recebem contexto de item
 - x-domain-governance
-  - `annotationType`, `classification`, `dataCategory` -> classificacao canonica do campo
+  - `annotationType`, `preset`, `classification`, `dataCategory`, `complianceTags`, `exportable` -> classificacao canonica e elegibilidade de exportacao do campo, acompanhadas de `lineage.*` (`@DomainLineage` -> `x-domain-governance.lineage`)
   - `aiUsage.*` -> politica de visibilidade, treino, authoring e raciocinio assistido por IA
   - `source`, `confidence`, `reason` -> explicabilidade e auditoria da classificacao
 - exportacao de colecao
@@ -261,3 +261,14 @@ verifica a resolução MVC e a equivalência de schemaType. O E2E remoto cobre
 preservação readonly no PUT, schema de filtro versus payload HTTP, IN/IS_NULL no
 PostgreSQL e container obrigatório. O catálogo possui regressões para proxy/lazy,
 datas ISO e governança parcial/completa; ausência de execução de domínio é invariante.
+
+### Exportação governada no core
+
+A base resource-oriented aplica o escopo de acesso nos cinco escopos de exportação.
+`@DomainGovernance(exportable = false)` e `NON_EXPORTABLE` são restrições do servidor,
+publicadas em `x-domain-governance` e reaplicadas à curadoria do host. Ver
+[Core Resource Service](../guides/CORE-RESOURCE-SERVICE.md).
+
+### Kernel declarativo HTTP/JPA de lote
+
+`BulkDeclarativeProtocolTest` cobre auto-configuração, override do host, parser estrito, normalização de filtro e bindings herdados. `BulkDeclarativeJpaHttpTest` cobre o documento Springdoc e o ciclo HTTP com PostgreSQL/JPA, incluindo avaliação destacada, confirmações por modo, replays, conflitos e rollback junto ao recibo. Consulte [adoção e limites](../guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md).

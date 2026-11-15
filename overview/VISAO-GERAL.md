@@ -40,6 +40,7 @@ Hoje esse contrato vai muito além de "DTO anotado + CRUD". O baseline atual da 
 
 ## Passos rápidos
 
+0. Consulte o [Guia 00 — Blueprint Completo de um Recurso Praxis (20 Pilares e 3 Fases)](../guides/GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md).
 1. Siga o [Guia 01 — Aplicação Nova](../guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md).
 2. Modele o primeiro recurso seguindo o [Guia 02 — Recurso Metadata-Driven](../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md).
 3. Valide `/schemas/filtered`, `/schemas/catalog`, `/schemas/domain`, `/schemas/surfaces`, `/schemas/actions`, `/{resource}/capabilities` e `/praxis/cockpit`.

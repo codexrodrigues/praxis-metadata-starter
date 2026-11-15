@@ -13,6 +13,9 @@ Este diretório reúne a documentação oficial do `praxis-metadata-starter` par
 
 ## Ponto de Entrada por Objetivo
 
+- **Blueprint Completo de um Recurso Praxis (20 Pilares e 3 Fases):** [guides/GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md](guides/GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md)
+- **Ontologia e determinações no catálogo:** [DOMAIN-CATALOG-ONTOLOGY.md](guides/DOMAIN-CATALOG-ONTOLOGY.md) — bindings por operação, identidade, referências e prova G2.
+
 - **Visão geral rápida:** [overview/VISAO-GERAL.md](overview/VISAO-GERAL.md)
 - **Arquitetura e fluxo de enriquecimento:** [architecture-overview.md](architecture-overview.md)
 - **Responsabilidade de cada pacote Java:** [packages-overview.md](packages-overview.md)

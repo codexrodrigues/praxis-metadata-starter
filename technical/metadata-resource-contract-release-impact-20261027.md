@@ -586,4 +586,40 @@ landed on `main`:
    - Adds re-entrant request-scoped operation map reuse in `ResourceOperationAvailabilityEvaluator.withOperations`, `CapabilityService.withOperationAvailabilityScope`, `DefaultCapabilityService`, `SurfaceCatalogService.withAvailabilityOnly`, and controller HATEOAS/batch operation scopes (`AbstractResourceQueryController`, `AbstractCreateUpdateResourceController`, `AbstractResourceController`, `AbstractDuplicateDraftResourceController`) so collection responses (`getAll`, `filter`, `filterCursor`) and batch guards resolve the resource's canonical operation map and collection surface baseline once per HTTP request instead of `O(N)` times per item.
    - Covered by `DiscoveryPublishedPhotographTest` and `CapabilityServiceTest` (`no_db`).
 
+## 2026-11-14 reconciliation: v8.0.0-rc.189 (declarative bulk, custom-field governance, quick-filters Onda 1, contextual quick-view, @UiOption/@ResourceFact vocabularies, and rules-engine 0.1.0-beta.19)
+
+Between `9cbea01f86` (`v8.0.0-rc.188`) and `00252a3803`, the repository integrated declarative bulk P1-P5 governance, custom-field JSON-logic validation and adoption contracts, typed `@QuickFilter`/`@FilterCriterion` Onda 1 support, contextual surface summary projection, `@UiOption`/`@ResourceFact`/`@ResourceIdentity` vocabularies, and `CalculationTrail`/`@MicroVisualization` metadata extensions. This reconciliation anchors `v8.0.0-rc.189`:
+
+1. **Released dependency alignment and POM deltas (`pom.xml`):**
+   - Updated `io.github.codexrodrigues:praxis-rules-engine` from `0.1.0-beta.19-SNAPSHOT` to the Maven Central release `0.1.0-beta.19`.
+   - Retained `embedded-postgres-binaries-bom:17.11.0` (`test` binary alignment) and `<parameters>true</parameters>` compiler configuration.
+2. **Added/updated `no_db` coverage (+46 new `no_db` classes) and `support` fixtures (+1):**
+   - Added 46 unit/H2/MockMvc `no_db` test classes (authoring, declarative bulk protocol/preparation/admission/quota/routing, cursor/keyset/mutation context, custom-field governance/JsonLogic, `@QuickFilter`/inherited JPA filters, contextual surface summary, `@UiOption`, `CalculationMemory`, `DomainCatalogIdentityTest`, `DomainRuleSetDescriptorTest`, and `OntologyG2PublicationTest`).
+   - Added `support` fixture `org.praxisplatform.uischema.bulk.p3fixture.DeclarativeBulkItem`.
+   - Split the 6-line optional `-Dontology.g2.catalog-schema` cross-repository check out of `OntologyG2PublicationTest` into `OntologyG2SchemaParityTest` (matching `JsonLogicExpressionValidatorParityTest`) so all 9 offline `/schemas/domain` v0.2 publication, lock, governance, and semantic validator checks in `OntologyG2PublicationTest` run unconditionally in `no_db` with zero JUnit skips.
+   - Synced test resource `src/test/resources/contracts/domain-catalog-v0.2.schema.json` with canonical `praxis-config-starter` `praxis-domain-catalog-v0.2.schema.json` (adding `quick_filter`, `has_quick_filter`, `filters_field` enums) and refreshed `src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`.
+   - Aligned `CoreResourceEvolutionIntegrationTest.exportsAreBoundedAndGovernanceCannotBeOverriddenOrSpoofed` to assert the `"BRL"` currency default introduced in `af5091918d` on `ResourceExportSupport`.
+3. **New exclusions under `bulk_embedded_pg` (+3) and `external_workspace` (+1):**
+   - `BulkCatalogBatchTimeoutPostgresTest`, `BulkDeclarativeJpaHttpTest`, and `JdbcResourceCommandReceiptStoreTest` start `EmbeddedPostgres` locally (`fixtureGroup: bulk_embedded_pg`, `excluded_outside_impact` count `32 -> 35`); live PG17 atomic bulk/receipt/capacity behavior remains proved by `neon_required` (`BulkManagedOwnerNeonGateTest`, `BulkOptionalPoliciesNeonTest`, `ResourceContractCustomFieldsNeonTest`, `ResourceContractCompositeIdNeonTest`) and by `no_db` declarative/JDBC unit tests.
+   - `OntologyG2SchemaParityTest` compares `/contracts/domain-catalog-v0.2.schema.json` against the external `praxis-config-starter` path supplied via `-Dontology.g2.catalog-schema` (`fixtureGroup: external_workspace`, `excluded_outside_impact` count `1 -> 2`); cross-repo schema parity is verified in workspace runs, while runtime `/schemas/domain` schema validation executes unconditionally in `OntologyG2PublicationTest` (`no_db`).
+4. **Refreshed digests (`sha256`, `reviewedScopeDigest`, `historical_reuse`) across the release boundary:**
+   - Refreshed committed-blob `sha256` digests on modified `files`, `resources`, and `fixtureFiles`.
+   - Recomputed `impactReview.reviewedScopeDigest` across `excluded_outside_impact` and `superseded` entries and `reuse.reviewedScopeDigest` / `reuse.dependencyDigest` across the 3 `historical_reuse` entries (`BulkAsyncPublicAdmissionNeonTest`, `BulkCapacityAuthorityManagedNeonTest`, `BulkCapacityGlobalOccupancyNeonTest`) at the reconciled baseline, preserving the bounded prior claims for the four `neon_required` B–H / resource-contract gates.
+
+## 2026-11-15 reconciliation: v8.0.0-rc.190 (ordered transport profile alignment with batched live attestation)
+
+Tag `v8.0.0-rc.189` run `43677163160` passed all offline gates, the full audited `no_db` selection (`259` classes), and `managed-owner` (`BulkManagedOwnerNeonGateTest`) on `ubuntu-latest` + Neon PG17, and stopped solely in `optional-policies` (`BulkOptionalPoliciesNeonTest.assertOrderedTransportProfile`) at `executes[0] = 5` (previously `7`):
+
+- Commits `af5091918d` and `0f5ff35325` folded two operational `BulkExecutionInfrastructure.withConnection` JDBC round trips into adjacent SQL batches (`constrainLifecycleAttestationTimeouts` into `BulkCatalogPhase.LIVE` via `LiveTimeout`, and `restoreLifecycleStatementTimeout` + `verifyDurableNamespaceBinding` into `restoreAndVerifyLifecycleBinding`), deterministically reducing pre-admission JDBC executes inside `unitWindow` by `-2` (`executes[0]` `7 -> 5`, `executes[1]` `28 -> 26`, total `unitExecutes` `39 -> 37`).
+- The eleven-execute post-policy suffix (`TRANSPORT_SUFFIX_EXECUTES = 6 + 1 + 3 + 1 = 11`), `TRANSPORT_PRE_POLICY_RESERVE_MILLIS = 1500`, `100ms` floor, five-second unit deadline, and independent `COMPLETED`/one-effect/one-receipt/replay-without-callback assertions remain unchanged (`policyRemainingMillis = 2353`).
+- Updated `BulkOptionalPoliciesNeonTest`, `BulkOptionalPoliciesRecorderTest`, `tools/release/neon_gate.py`, `tools/release/test_neon_gate.py`, `RELEASING.md`, and `tools/release/neon-test-inventory.json` to require `37-executes` (`5`, `26`, `37`) and reject both the superseded `39-executes` marker and off-by-one counts.
+
+## 2026-11-15 reconciliation: v8.0.0-rc.191 (unique Surefire testcase identities for ResourceMutationBulkContextTest)
+
+Tag `v8.0.0-rc.190` run `43680554448` passed `259` `no_db` suites (`1932` testcases) and all three Neon PG17 gates (`managed-owner`, `optional-policies` with the `37-executes` transport profile, and `resource-contracts` with `OID-cleanup,PASS`), and stopped solely in `neon_gate.reports(...)` at `neon gate: duplicate JUnit testcase identity` for `org.praxisplatform.uischema.service.base.ResourceMutationBulkContextTest`:
+
+- `ResourceMutationBulkContextTest` contained the repository's sole JUnit 5 `@TestFactory` (`Stream<DynamicTest>`), for which Surefire `3.5.6` XML reports wrote four `<testcase>` elements sharing the identical method `name` (`bothModesCarryProposalAndConfirmationWithoutWritingDuringEvaluation`).
+- Converting that `@TestFactory` to `@ParameterizedTest` with `@CsvSource` (`UNIFORM_UPDATE`/`PER_ITEM_UPDATE` × `EVALUATION`/`CONFIRMATION`) emits four distinct Surefire testcase identities (`bothModesCarryProposalAndConfirmationWithoutWritingDuringEvaluation(BulkMode, Stage)[1..4]`) and isolates `@BeforeEach`/`@AfterEach` JPA setup per case without altering assertions.
+- Updated `tools/release/neon-test-inventory.json` SHA-256 for `src/test/java/org/praxisplatform/uischema/service/base/ResourceMutationBulkContextTest.java`.
+
 

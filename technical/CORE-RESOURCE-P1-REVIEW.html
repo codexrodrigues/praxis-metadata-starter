@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Revisão ampliada da P1 — 2026-11-01</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Revisão ampliada da P1 — 2026-11-01</h1>
+</header>
+<h1 id="revisão-ampliada-da-p1-2026-11-01">Revisão ampliada da P1 —
+2026-11-01</h1>
+<p>Escopo exclusivo: <code>praxis-metadata-starter</code>, sobre o
+trabalho local da P1 e HEAD <code>53ab770a46</code>
+(<code>8.0.0-rc.188</code>). Não houve edição de hosts, Angular ou
+showcase. As fontes de intenção são a Issue P1 de
+<code>plano-issues-evolucao-plataforma-3-ondas.md</code> e
+<code>auditoria-evolucao-plataforma-ergon-showcase.md</code>, no
+diretório de planejamento
+<code>585430d4-d36a-4c55-9c53-4a0359df92c9</code> informado na
+solicitação.</p>
+<h2 id="achados-corrigidos">Achados corrigidos</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Prioridade</th>
+<th>Inconsistência anterior e efeito corporativo</th>
+<th>Correção e prova</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1</td>
+<td>Exportar
+<code>List&lt;DTO&gt;</code>/<code>Map&lt;String,DTO&gt;</code> permitia
+serializar filhos marcados como não exportáveis. Uma tipagem base também
+podia esconder subtipo restrito.</td>
+<td>Percurso de generics, arrays, opcionais, getters/interfaces e
+valores concretos; JSON opaco/dinâmico exige projeção tipada.
+<code>ResourceCoreIntrospectionTest</code>.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td>Um recibo podia usar outro DataSource que o transaction manager. O
+isolamento efetivo da conexão podia ser <code>REPEATABLE READ</code>
+mesmo com default Spring indefinido. Atomicidade e visibilidade de
+retries não estavam garantidas.</td>
+<td>Identidade do DataSource e vínculo/auto-commit/read-only/isolation
+da conexão verificados. Rollback conjunto JDBC/JPA, concorrência e
+rejeições em <code>JdbcResourceCommandReceiptStoreTest</code>.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td>A autorização do item para replay acontecia fora da transação do
+recibo. Uma consulta de autorização JPA também poderia fazer autoflush
+de alterações prévias.</td>
+<td>Callback <code>authorize</code> dentro da transação, antes de ler o
+recibo, em execução nova e replay. Contexto JPA sujo é rejeitado antes
+da autorização. Testes de revogação e rollback.</td>
+</tr>
+<tr>
+<td>P1</td>
+<td>Uma precondição construída para o item A podia ser passada à escrita
+do item B com a mesma revisão.</td>
+<td>A base compara o ID alvo com o ID vinculado antes do mutator/mapper.
+Regressão real JPA em
+<code>CoreResourceEvolutionIntegrationTest</code>.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>Inclusão de chaves compostas usava apenas o primeiro atributo; sort
+<code>id</code> sem paginação não era expandido; inclusão sem paginação
+acessava número de página inexistente.</td>
+<td>Predicado completo de identidade, expansão em
+<code>Pageable.unpaged</code>, tratamento da página efetiva. Provas de
+<code>@IdClass</code> com escopo e <code>includeIds</code>.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>Identidade embutida com um só componente comparava o valor escalar
+ao objeto inteiro. Leitura de campos por reflexão podia ler atributos
+vazios em proxies JPA.</td>
+<td>Comparação pelo componente e resolução de proxies ao percorrer
+caminhos. Provas de seleção, cursor/locate e proxy existente no
+contexto.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>A variante previous/current compartilhava elementos mutáveis em
+estruturas aninhadas, podendo alterar o estado anterior usado por
+regras.</td>
+<td>Cópia independente de containers, arrays, datas, JSON e embeddables,
+preservando ciclos. Objetos específicos/lazy exigem override explícito
+antes de mutar. <code>ResourceStateCopySupportTest</code>.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>Sort em coleção podia duplicar recursos; <code>ignoreCase</code>
+numérico falhava apenas em páginas posteriores.</td>
+<td>Validação escalar da ordenação na primeira janela; projeção agregada
+exigida para <code>1:N</code>. Provas JPA no core.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>O helper de filhos publicava a versão do dataset do pai. Isso
+prejudica invalidação de caches de master-detail.</td>
+<td><code>X-Data-Version</code> obtido do serviço filho.
+<code>VersionedItemCommandHelpersTest</code>.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>O builder aceitava descrições vazias/duplicadas na lista
+intermediária; display, search e contrato final podiam apontar para
+caminhos diferentes.</td>
+<td>Normalização única antes de compor subcontratos, com prova em
+<code>PlatformAuthoringBuildersTest</code>.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><code>CURRENCY_INPUT</code> fixava BRL em uma biblioteca universal,
+inclusive em outro locale.</td>
+<td>Inferir semântica monetária sem escolher moeda de negócio; host cura
+moeda explicitamente em <code>CollectionExportFieldPresentation</code>.
+Teste de apresentação padrão.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>Leituras by-ids omitiam silenciosamente alvos inexistentes,
+divergindo da distinção 404/403 pedida na P1.</td>
+<td>Lookup estrito para os IDs requisitados; <code>includeIds</code> do
+filtro mantém a inclusão somente dentro do escopo. Testes de ausência e
+negação.</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>Exportação com limite podia ser apresentada como download completo
+sem aviso textual; locks de delete em ordens opostas elevavam o risco de
+deadlock entre lotes.</td>
+<td>Aviso de corte usando os headers/envelope existentes e aquisição
+estável de locks, preservando ordem dos hooks.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>A documentação afirmava que o POM fixava PG17 para todas as
+plataformas; essa configuração não está na árvore atual.</td>
+<td>Registro histórico corrigido em <code>CORE-RESOURCE-P1.md</code>,
+sem alterar o POM ou mascarar o requisito do Bulk.</td>
+</tr>
+</tbody>
+</table>
+<p>Cinco defeitos iniciais foram reproduzidos antes das correções em
+<code>target/p1-review-reproduction.log</code>: 32 testes, 4 falhas e 1
+erro (governança em containers, DataSource diferente, isolamento
+efetivo, precondição de outro item e alias <code>id</code> unpaged). Os
+demais casos receberam testes adicionais ou revisão direta do fluxo,
+conforme a tabela.</p>
+<h2 id="planejado-e-executado">Planejado e executado</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Bloco P1</th>
+<th>Situação da implementação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Keyset simples/composto, sort público <code>id</code>, navegação
+anterior e locate SQL</td>
+<td>Na raiz comum, incluindo read-only; COUNT não materializa a coleção.
+Ordenação total não equivale a snapshot entre requests.</td>
+</tr>
+<tr>
+<td>Escopo de coleções e autorização de item</td>
+<td>Hooks distintos; filtro do cliente não decide tenant. 404 para
+ausência, 403 quando o hook rejeita. Hosts precisam implementar ambos
+conforme a política real.</td>
+</tr>
+<tr>
+<td>Enriquecimento</td>
+<td>Um lote por resultado materializado nas superfícies previstas; não
+pode alterar revisão nem substituir autorização.</td>
+</tr>
+<tr>
+<td>Exportação cinco escopos, campos de grade e governança</td>
+<td>Implementação compartilhada e limite no SQL. <code>ALL</code> remove
+filtro funcional e preserva o escopo obrigatório. <code>SELECTED</code>
+explícito preserva os IDs selecionados dentro do escopo.</td>
+</tr>
+<tr>
+<td>Update/commands versionados</td>
+<td>Lock, acesso, identidade da precondição, revisão, lifecycle,
+flush/refresh e corpo/revisão capturados. Adaptações sem EntityManager
+devem fornecer garantias equivalentes.</td>
+</tr>
+<tr>
+<td>Idempotência</td>
+<td>Store PostgreSQL opt-in; replay histórico e conflito 409, sem
+reinstanciar uma nova transição. Não há migração automática nem garantia
+sobre efeitos externos.</td>
+</tr>
+<tr>
+<td>Stats/snapshots/builders</td>
+<td>AUTO depende do registry; provider delega ao serviço; builders não
+inventam regras ou surfaces de domínio.</td>
+</tr>
+<tr>
+<td>Ajuste deliberado da auditoria</td>
+<td>A sugestão <code>CURRENCY_INPUT -&gt; BRL</code> foi refinada para
+não codificar moeda de um host na biblioteca universal. Recursos
+brasileiros podem curar BRL explicitamente.</td>
+</tr>
+<tr>
+<td>Adoção e remoção de duplicação no showcase</td>
+<td>Permanecem na Onda 4; não foram executadas nem certificadas por esta
+revisão.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cenários-corporativos-e-ux">Cenários corporativos e UX</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Cenário</th>
+<th>Garantia ou requisito de adoção</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dois operadores atualizam a mesma revisão</td>
+<td>No lock pessimista padrão testado, apenas um writer vence; o outro
+recebe 412. A UI deve recarregar e permitir revisar alterações antes de
+reenviar.</td>
+</tr>
+<tr>
+<td>Retry após timeout de resposta</td>
+<td>Mesma chave e intenção retornam corpo/ETag históricos sem novo
+efeito. Não gerar nova chave automaticamente para uma tentativa ainda
+indeterminada.</td>
+</tr>
+<tr>
+<td>Acesso revogado entre execução e retry</td>
+<td>A autorização atual impede revelar o recibo. O host deve usar
+principal e escopo confiáveis, não valores livres do payload.</td>
+</tr>
+<tr>
+<td>Exportação de dados pessoais aninhados</td>
+<td>Campo pai com descendente restrito é bloqueado; exponha caminhos
+seguros ou uma projeção curada. Serializadores customizados devem
+preservar governança.</td>
+</tr>
+<tr>
+<td>Download limitado</td>
+<td>Mostrar
+<code>X-Export-Truncated</code>/<code>X-Export-Warnings</code>, limite e
+orientação para refinar a seleção. Configuração CORS do host precisa
+expor os headers.</td>
+</tr>
+<tr>
+<td>Empresa com moedas/fusos diferentes</td>
+<td>Curar apresentação por recurso; locale sozinho não determina a moeda
+de um contrato financeiro.</td>
+</tr>
+<tr>
+<td>Paginação com mudanças concorrentes</td>
+<td>Reiniciar cursor após mudar filtro/sort; não tratar páginas como
+fotografia contábil imutável.</td>
+</tr>
+<tr>
+<td>Lookup de entidade inativa</td>
+<td>Builder não conhece estados válidos. Host fornece política,
+mensagens, cascatas e surfaces reais; o default <code>detail</code>
+precisa existir.</td>
+</tr>
+<tr>
+<td>Regra compara estado anterior e atual</td>
+<td>Snapshot específico de associações deve ser independente e limitado.
+Falha explícita precede mutação para valores não suportados.</td>
+</tr>
+<tr>
+<td>Retenção e efeitos externos</td>
+<td>Host define janela de retries, limpeza, criptografia/acesso aos
+corpos e outbox/coordenação para efeitos fora do banco.</td>
+</tr>
+</tbody>
+</table>
+<p>Nenhuma UX visual foi alterada ou testada em browser. Melhorias deste
+corte são no contrato HTTP, previsibilidade de erros/headers e
+orientação de adoção. Não se aplica o scorecard de colunas de recursos
+de domínio: este corte altera infraestrutura, com entidades de teste
+locais.</p>
+<h2 id="validação-e-limites">Validação e limites</h2>
+<p>JDK: <code>C:\Users\rodrigo.moreira\.jdks\openjdk-21.0.2</code>. A
+compilação de fechamento refez todos os arquivos Java alterados a partir
+de seus bytes finais. A opção do compiler abaixo controla recompilação,
+sem desativar testes ou guardas.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Execução</th>
+<th>Resultado</th>
+<th>Evidência local em <code>target/</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reprodução inicial de cinco defeitos</td>
+<td>32 testes, 4 falhas e 1 erro</td>
+<td><code>p1-review-reproduction.log</code></td>
+</tr>
+<tr>
+<td>Bateria ampliada intermediária</td>
+<td>198 testes, 2 falhas; interfaces de governança e classe
+intermediária de proxy</td>
+<td><code>p1-review-affected.log</code></td>
+</tr>
+<tr>
+<td>Bateria final, 23 classes</td>
+<td><strong>198 testes, 0 falhas, 0 erros, 0 skips — BUILD
+SUCCESS</strong></td>
+<td><code>p1-review-final.log</code></td>
+</tr>
+<tr>
+<td><code>mvn install -DskipTests</code> com a mesma opção de
+compilação</td>
+<td><strong>BUILD SUCCESS</strong>, instalação local de
+<code>8.0.0-rc.188</code></td>
+<td><code>p1-review-install.log</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>git diff --check</code> passou. As fontes/documentos alterados
+foram conferidos como UTF-8.</p>
+<p>Os recibos foram provados em PostgreSQL <strong>14.22</strong> real
+conforme o POM atual, e as consultas do core em H2/JPA. Isso prova o
+store de recibos neste baseline; não satisfaz o requisito PG17 do kernel
+Bulk. O teste de introspecção também cobre recursão de tipos genéricos
+sem stack overflow.</p>
+<p>Reprodução (PowerShell, com o JDK acima em
+<code>JAVA_HOME</code>/<code>PATH</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="va">$tests</span> <span class="op">=</span> <span class="op">@(</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;CoreResourceEvolutionIntegrationTest&#39;</span><span class="op">,</span> <span class="st">&#39;ResourceCoreIntrospectionTest&#39;</span><span class="op">,</span> <span class="st">&#39;ResourceStateCopySupportTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;ResourceServiceStateSnapshotProviderTest&#39;</span><span class="op">,</span> <span class="st">&#39;AbstractBaseResourceServiceTest&#39;</span><span class="op">,</span> <span class="st">&#39;VersionedBaseResourceServiceTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;VersionedItemCommandHelpersTest&#39;</span><span class="op">,</span> <span class="st">&#39;PlatformAuthoringBuildersTest&#39;</span><span class="op">,</span> <span class="st">&#39;JdbcResourceCommandReceiptStoreTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;CustomOpenApiResolverTest&#39;</span><span class="op">,</span> <span class="st">&#39;SemanticDomainCatalogServiceTest&#39;</span><span class="op">,</span> <span class="st">&#39;BaseResourceQueryServiceOptionMapperTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;AbstractResourceControllerMappedCrudTest&#39;</span><span class="op">,</span> <span class="st">&#39;AbstractResourceControllerJpaWriteIntegrationTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;AbstractReadOnlyResourceControllerLinksTest&#39;</span><span class="op">,</span> <span class="st">&#39;AbstractResourceControllerLinksTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;AbstractResourceQueryControllerHateoasTest&#39;</span><span class="op">,</span> <span class="st">&#39;AbstractResourceQueryControllerBasePathDetectionTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;VersionedCreateUpdateResourceControllerTest&#39;</span><span class="op">,</span> <span class="st">&#39;OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;OpenApiUiSchemaAutoConfigurationActionAvailabilityTest&#39;</span><span class="op">,</span> <span class="st">&#39;DefaultCollectionExportExecutorTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;CustomFieldCollectionExportTest&#39;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>mvn <span class="st">&#39;-Dmaven.compiler.useIncrementalCompilation=false&#39;</span> <span class="st">&quot;-Dtest=</span><span class="op">$(</span><span class="va">$tests</span> <span class="op">-join</span> <span class="st">&#39;,&#39;</span><span class="op">)</span><span class="st">&quot;</span> test</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>mvn <span class="st">&#39;-Dmaven.compiler.useIncrementalCompilation=false&#39;</span> install <span class="op">-</span>DskipTests</span></code></pre></div>
+<p>O <code>mvn test</code> integral anterior não foi aprovado: há
+requisito PG17 não atendido pelo baseline embedded Windows, fixture
+POSIX incompatível com Windows e falhas isoladas do kernel Bulk
+registradas em <code>CORE-RESOURCE-P1.md</code>. Esta revisão não
+modifica SQL, hashes, timeouts nem guardas do kernel para obter
+aprovação. Não houve certificação downstream, integração no showcase,
+execução de workflow, publicação ou release.</p>
+<p>As provas concorrentes nativas cobrem o lock pessimista padrão.
+Opt-out para controle otimista, managers transacionais customizados,
+adaptadores sem EntityManager, pools/proxies específicos de hosts e
+efeitos distribuídos precisam de prova própria no ambiente de
+adoção.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

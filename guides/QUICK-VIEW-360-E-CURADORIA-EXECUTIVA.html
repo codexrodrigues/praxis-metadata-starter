@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Quick View 360° e Curadoria Executiva Inteligente</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Quick View 360° e Curadoria Executiva Inteligente</h1>
+</header>
+<h1 id="quick-view-360-e-curadoria-executiva-inteligente">Quick View
+360° e Curadoria Executiva Inteligente</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Este guia estabelece o padrão canônico de engenharia e de curadoria
+de negócio para os cartões <strong>Quick View</strong> e gavetas
+(<em>drawers</em>) de <strong>Visão 360°</strong> em aplicações
+corporativas construídas sobre o <code>praxis-metadata-starter</code> e
+<code>@praxisui/*</code> (<code>@praxisui/core</code>,
+<code>@praxisui/dialog</code>, <code>@praxisui/table</code>,
+<code>@praxisui/crud</code>).</p>
+<p>Um cartão Quick View <strong>não é</strong> um despejo aleatório de
+colunas da tabela nem um mini-formulário técnico. Ele é uma
+<strong>ficha executiva de inspeção instantânea</strong> projetada para
+que um analista, gestor ou operador responda às 4 perguntas mais
+importantes sobre um registro ou relacionamento em <strong>menos de 2
+segundos</strong> — e copie um identificador ou o resumo estruturado
+completo em <strong>1 clique</strong> (para colar no SEI, Jira, Teams,
+Slack ou e-mail), respeitando rigorosamente a governança LGPD
+(<em>fail-closed</em>).</p>
+<hr />
+<h2 id="anatomia-real-do-cartão-quick-view-no-runtime-angular">1.
+Anatomia Real do Cartão Quick View no Runtime Angular</h2>
+<p>Para curar informações inteligentes no backend Java, o autor do
+recurso (<code>Controller</code> + <code>ResponseDTO</code>) precisa
+compreender como o <code>ResourceQuickViewService</code>
+(<code>@praxisui/core</code>) e o
+<code>PraxisQuickViewOverlayComponent</code>
+(<code>@praxisui/dialog</code>) materializam o contrato publicado em
+<code>/schemas/filtered</code>:</p>
+<ol type="1">
+<li><strong>Cabeçalho Coeso em 3 Níveis (<code>@ResourceIdentity</code>
+-&gt; <code>x-ui.resource.identity</code>):</strong>
+<ul>
+<li><strong>Nível 1 (Eyebrow + Pílula de Chave):</strong> exibe
+<code>[icon] CONTEXT LABEL</code> (extraídos do título/ícone da
+<code>@UiSurface</code> ou do <code>@ApiResource</code>) acompanhado na
+mesma linha superior pela pílula compacta do <code>keyField</code>
+(<code>[data-testid="quick-view-key-badge"]</code>, ex.:
+<code>#1</code>, <code>#1001:1</code>), com tooltip
+<code>"${label}: ${badge}"</code> e deduplicação automática caso
+<code>key.value</code> seja idêntico ao título principal. O
+<code>&lt;praxis-resource-identity&gt;</code> recebe
+<code>[showKey]="false"</code> para eliminar linhas órfãs intermediárias
+entre o eyebrow e o título.</li>
+<li><strong>Nível 2 (<code>titleField</code>):</strong> título humano
+principal do registro em destaque (<code>1.04rem</code>,
+<code>font-weight: 700</code>, <code>line-height: 1.28</code>),
+acompanhado de <code>avatarField</code> validado quando disponível.</li>
+<li><strong>Nível 3 (<code>subtitleField</code>):</strong> subtítulo
+contextual imediatamente abaixo do título
+(<code>Helena Vasconcelos de Albuquerque</code> num vínculo ou
+averbação; <code>Nome social</code> numa pessoa; <code>Sigla</code> num
+órgão).</li>
+</ul></li>
+<li><strong>Corpo Executivo do Cartão
+(<code>summaryItems</code>):</strong>
+<ul>
+<li>Quando o cartão possui itens de resumo
+(<code>summaryItems.length &gt; 0</code>), o cabeçalho
+<code>PraxisResourceIdentityComponent</code> <strong>oculta os chips de
+<code>metadata</code></strong> para evitar o efeito “boneca russa”
+(duplicação entre cabeçalho e corpo).</li>
+<li>O <code>ResourceQuickViewService.buildSummaryItems</code> constrói a
+lista de linhas do corpo nesta <strong>ordem estrita</strong>:
+<ol type="1">
+<li><strong>Primeiro (<code>Linhas 1..M</code>):</strong> os campos
+declarados em <code>@ResourceIdentity(metadataFields = {...})</code> que
+tenham valor não-vazio no payload;</li>
+<li><strong>Depois (<code>Linhas M+1..N</code>):</strong> os campos do
+<code>ResponseDTO</code> anotados com
+<code>@UISchema(quickViewVisible = true)</code>, ordenados por
+<code>quickViewOrder</code> crescente (<code>1, 2, 3...</code>).</li>
+</ol></li>
+</ul></li>
+<li><strong>Barra de Ações Contextuais Rápidas
+(<code>contextualActions</code> /
+<code>[data-testid="quick-view-contextual-actions"]</code>):</strong>
+<ul>
+<li>A partir do catálogo <code>GET /{id}/surfaces</code> já descoberto
+para o item,
+<code>ResourceQuickViewService.buildContextualActions</code> seleciona
+até <strong>4 superfícies <code>ITEM</code> autorizadas
+(<code>availability.allowed === true</code>)</strong> adicionais
+(excluindo a superfície de preview ativa e a superfície primária de
+<code>"Abrir detalhe"</code>).</li>
+<li>A curadoria prioriza <code>@ResourceIntent</code>s
+(<code>PARTIAL_FORM</code> -&gt; abre em <code>modal</code>), edição
+(<code>FORM</code> -&gt; abre em <code>modal</code>) e projeções
+analíticas/360° (<code>VIEW</code> / <code>READ_PROJECTION</code> -&gt;
+abre em <code>drawer</code>).</li>
+<li>Ao clicar em uma pílula de ação contextual
+(<code>[data-testid="quick-view-contextual-action"]</code>),
+<code>openSurfaceFromActivePreview(surfaceId)</code> fecha o popover
+Quick View e abre diretamente a superfície escolhida com a apresentação
+apropriada (<code>modal</code> ou <code>drawer</code>).</li>
+</ul></li>
+<li><strong>Ações de Cópia e Rodapé (<code>Copiar</code> por linha +
+<code>Copiar resumo</code> + <code>Abrir detalhe</code>):</strong>
+<ul>
+<li><strong>Cópia pontual por linha
+(<code>.pdx-quick-view__copy-btn</code>):</strong> ícone discreto de
+cópia à direita de cada linha copiável, revelado em <code>:hover</code>
+/ <code>:focus-within</code> (ou em modo mobile/narrow), com confirmação
+visual imediata (<code>check</code> verde +
+<code>data-copied="true"</code> por <code>1800ms</code>).</li>
+<li><strong>Cópia executiva do cartão (<code>Copiar resumo</code> /
+<code>[data-testid="quick-view-copy-summary"]</code>):</strong> botão
+secundário no rodapé que copia uma ficha multi-linha estruturada
+(<code>[Contexto] Título (#Chave)</code>, <code>Subtítulo</code> e
+<code>• Rótulo: Valor Formatado</code> para todos os itens não
+mascarados).</li>
+<li><strong>Proteção LGPD Fail-Closed:</strong> qualquer campo cujo
+valor esteja mascarado (<code>masked = true</code>, seja por
+<code>visibleForAuthorities</code> negado em
+<code>x-ui.fieldAccess</code> ou por token mascarado <code>••</code> /
+<code>**</code>) exibe o badge <strong><code>LGPD</code></strong>
+(<code>[data-testid="quick-view-masked-indicator"]</code>), recebe
+<code>copyable = false</code>, não exibe botão de cópia na linha e
+<strong>é estritamente omitido do texto gerado por
+<code>Copiar resumo</code></strong>.</li>
+</ul></li>
+</ol>
+<hr />
+<h2
+id="as-7-regras-de-ouro-da-curadoria-executiva-quick-view-curation-gate">2.
+As 7 Regras de Ouro da Curadoria Executiva
+(<code>Quick View Curation Gate</code>)</h2>
+<h3
+id="regra-1-proibição-absoluta-de-overlap-entre-identidade-e-corpo">Regra
+1 — Proibição Absoluta de Overlap entre Identidade e Corpo</h3>
+<ul>
+<li><strong>Nunca</strong> repita <code>keyField</code>,
+<code>titleField</code>, <code>subtitleField</code> ou
+<code>avatarField</code> dentro de <code>metadataFields</code> (ex.:
+<code>keyField = "id"</code> com
+<code>metadataFields = {"id", ...}</code> é <strong>erro de
+auditoria</strong> em
+<code>audit-java-resource-completeness.py</code>).</li>
+<li><strong>Nunca</strong> marque um campo listado em
+<code>metadataFields</code> com
+<code>quickViewVisible = true</code>.</li>
+<li>O <code>@ResourceIdentity</code> declarado em
+<code>@ApiResource(identity = ...)</code> no <code>Controller</code> e o
+<code>@ResourceIdentity</code> na classe <code>ResponseDTO</code> devem
+ser <strong>idênticos</strong>.</li>
+</ul>
+<h3
+id="regra-2-hierarquia-executiva-metadatafields-topo-quickvieworder-1..8-corpo">Regra
+2 — Hierarquia Executiva (<code>metadataFields</code> = Topo;
+<code>quickViewOrder = 1..8</code> = Corpo)</h3>
+<p>Como <code>metadataFields</code> ocupa as <strong>primeiras
+linhas</strong> do corpo do cartão Quick View, escolha seus campos com
+critério executivo: - <strong><code>metadataFields</code> (2 a 3 campos
+de enquadramento imediato):</strong> - <em>Pessoa / Colaborador:</em>
+<code>{"cpf", "idadeAnos"}</code> (identificação fiscal governada por
+LGPD + idade calculada); - <em>Vínculo Funcional:</em>
+<code>{"setorNome", "regimejur", "categoria"}</code> (lotação + regime
+jurídico + categoria funcional); - <em>Cargo / Função:</em>
+<code>{"cargoFuncao", "cbo"}</code> (natureza cargo/função + código
+CBO); - <em>Órgão / Empresa:</em>
+<code>{"razao", "telefone", "email"}</code> (razão social + canais
+institucionais). - <strong><code>quickViewVisible = true</code> (4 a 8
+campos com <code>quickViewOrder = 1..N</code> sequencial):</strong>
+Ordene os campos pela pirâmide de decisão operacional: 1.
+<strong><code>quickViewOrder = 1</code> — Situação / Status
+Operacional:</strong> (<code>situacao</code>, <code>ativa</code>,
+<code>status</code> — com <code>UISchemaPreset.ENTERPRISE_STATUS</code>
+ou <code>tone</code> e <code>icon = "verified"</code>), permitindo ver
+imediatamente o badge colorido (<code>Ativo</code>,
+<code>Afastado</code>, <code>Cedido</code>, <code>Homologado</code>); 2.
+<strong><code>quickViewOrder = 2..3</code> — Papel, Cargo, Lotação ou
+Classificação Principal:</strong> (<code>cargoNome</code>,
+<code>tipovinc</code>, <code>estcivil</code>, <code>escolaridade</code>
+— sempre usando o campo de nome resolvido ou <code>SELECT</code> com
+<code>options</code>, nunca IDs brutos); 3.
+<strong><code>quickViewOrder = 4..5</code> — Marcos Temporais, Vigência
+ou Canais de Contato Direto:</strong> (<code>dtexerc</code>,
+<code>dtnasc</code>, <code>dtini</code>, <code>dtfim</code>,
+<code>eMail</code>, <code>numtelCelular</code>); 4.
+<strong><code>quickViewOrder = 6..8</code> — Indicadores Quantitativos,
+Contadores Derivados ou Escopo Institucional:</strong>
+(<code>jornadaSemanal</code>, <code>orgaoNome</code>,
+<code>diasDesdeExercicio</code>, <code>diasReconhecidos</code>,
+<code>saldoVagasDisponiveis</code>, <code>dtRecadast</code>). -
+<strong>O que é PROIBIDO colocar em <code>metadataFields</code> ou
+<code>quickViewVisible</code>:</strong> - Campos protocolares de
+baixíssimo valor decisório (ex.: <code>tratamento</code> =
+<code>"Sra."</code> no topo do cartão); - Campos quase sempre nulos ou
+constantes em 99% da base (ex.: <code>observacao</code> livre,
+<code>nacionalidade = 10</code> quando não é recorte internacional,
+<code>ufender</code> solto sem município); - Chaves estrangeiras
+numéricas brutas (<code>empCodigo</code>, <code>titularAtualId</code>,
+<code>setorId</code>, <code>cargoId</code>) quando o DTO possui (ou deve
+possuir) o campo de exibição humano (<code>orgaoNome</code>,
+<code>titularAtualNome</code>, <code>setorNome</code>,
+<code>cargoNome</code>).</p>
+<h3
+id="regra-3-tradução-obrigatória-de-códigos-de-domínio-options-vs.-optionsource">Regra
+3 — Tradução Obrigatória de Códigos de Domínio (<code>options</code>
+vs. <code>OptionSource</code>)</h3>
+<p>Nenhum campo exibido no Quick View, na tabela ou na gaveta 360° pode
+apresentar códigos técnicos crus do banco (<code>MESTRADO</code>,
+<code>CASADO</code>, <code>10</code>, <code>1</code>, <code>C</code>,
+<code>F</code>) sem tradução semântica: - <strong>Domínios fechados /
+tabelas de código estáveis:</strong> declare
+<code>controlType = FieldControlType.SELECT</code> e
+<code>options = "[{\"value\":\"MESTRADO\",\"label\":\"Pós-Graduação Stricto Sensu (Mestrado)\"}, ...]"</code>
+no <code>@UISchema</code>. O <code>ResourceQuickViewService</code>
+resolve automaticamente <code>rawValue -&gt; option.label</code> tanto
+na exibição do cartão quanto no texto de <code>Copiar resumo</code>. -
+<strong>Entidades relacionais ou catálogos dinâmicos por
+tenant:</strong> exponha o campo de exibição resolvido
+(<code>cargoNome</code>, <code>setorNome</code>, <code>orgaoNome</code>)
+anotado com <code>@ResourceReference(...)</code> ou vincule o campo via
+<code>OptionSourceDescriptor</code>.</p>
+<h3
+id="regra-4-formatação-numérica-estrita-numericformat.integer-para-inteiros-e-contadores">Regra
+4 — Formatação Numérica Estrita (<code>NumericFormat.INTEGER</code> para
+Inteiros e Contadores)</h3>
+<p>Contadores de dias (<code>diasReconhecidos</code>,
+<code>diasDesdeExercicio</code>), quantidades de vagas
+(<code>vagasAutorizadas</code>, <code>saldoVagasDisponiveis</code>),
+cargas horárias (<code>jornadaSemanal</code>), anos e idades
+(<code>idadeAnos</code>) <strong>jamais</strong> podem ser exibidos com
+casas decimais artificiais (<code>1.826,00</code>). - Declare
+explicitamente <code>numericFormat = NumericFormat.INTEGER</code> no
+<code>@UISchema</code> de campos inteiros; - O runtime
+<code>@praxisui/core</code> também preserva <code>precision = 0</code>
+por padrão para qualquer propriedade cujo schema OpenAPI seja
+<code>integer</code> / <code>int32</code> / <code>int64</code>.</p>
+<h3
+id="regra-5-ícones-semânticos-em-todos-os-campos-do-quick-view">Regra 5
+— Ícones Semânticos em Todos os Campos do Quick View</h3>
+<p>Todo atributo listado em <code>metadataFields</code> ou com
+<code>quickViewVisible = true</code> deve declarar
+<code>icon = "..."</code> no <code>@UISchema</code> usando ícones
+Material semânticos (<code>verified</code>, <code>badge</code>,
+<code>work</code>, <code>event</code>, <code>cake</code>,
+<code>favorite</code>, <code>school</code>, <code>email</code>,
+<code>smartphone</code>, <code>location_city</code>,
+<code>apartment</code>, <code>timelapse</code>, <code>schedule</code>).
+Isso cria âncoras visuais imediatas em cada linha do
+<code>&lt;dl class="pdx-quick-view__summary-list"&gt;</code>.</p>
+<h3
+id="regra-6-navegação-cross-resource-em-1-clique-resourcereference-previewsurfaceid">Regra
+6 — Navegação Cross-Resource em 1 Clique
+(<code>@ResourceReference</code> + <code>previewSurfaceId</code>)</h3>
+<ul>
+<li><p>O campo <code>titleField</code> do próprio recurso
+<strong>e</strong> todos os campos de exibição de chaves estrangeiras
+(<code>pessoaNome</code>, <code>cargoNome</code>,
+<code>setorNome</code>, <code>orgaoNome</code>, etc.) no
+<code>ResponseDTO</code> devem declarar:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">@ResourceReference</span><span class="op">(</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    resourceKey <span class="op">=</span> <span class="st">&quot;administracao-pessoal.cargos&quot;</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    valueField <span class="op">=</span> <span class="st">&quot;cargo&quot;</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    surfaceId <span class="op">=</span> <span class="st">&quot;ficha-cargo&quot;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    previewSurfaceId <span class="op">=</span> <span class="st">&quot;ficha-cargo&quot;</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    detailPresentation <span class="op">=</span> <span class="st">&quot;drawer&quot;</span><span class="op">)</span></span></code></pre></div></li>
+<li><p>O recurso de destino deve publicar a
+<code>@UiSurface(id = "ficha-cargo", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM, ...)</code>
+correspondente.</p></li>
+</ul>
+<h3
+id="regra-7-performance-da-gaveta-360-e-descoberta-sem-enrichresponses-duplicado">Regra
+7 — Performance da Gaveta 360° e Descoberta sem
+<code>enrichResponses</code> Duplicado</h3>
+<ul>
+<li>No <code>praxis-metadata-starter</code>, os endpoints de descoberta
+contextual de item (<code>GET /{id}/surfaces</code>,
+<code>GET /{id}/actions</code>, <code>GET /{id}/capabilities</code> e
+<code>filterRelatedChildResource(parentId, ...)</code>) invocavam
+historicamente <code>service.findById(id)</code>, disparando
+<code>toResourceRepresentation</code> + <code>enrichResponses</code>
+(queries agregadas de contagens/coleções) apenas para checar
+existência/autorização.</li>
+<li><strong>Padrão Canônico:</strong> o
+<code>AbstractResourceQueryController</code> utiliza
+<code>service.assertItemAccessible(id)</code>, que carrega apenas a
+entidade via <code>findEntityById(id)</code>, valida existência
+(<code>404</code>) e escopo/tenant (<code>403</code> via
+<code>assertEntityAccessAllowed</code>), e popula o
+<code>ResourceStateSnapshotScope</code> compartilhado sem executar
+<code>enrichResponses</code>.</li>
+<li><strong>Reuso de Payload (<code>sameAsItemEndpoint</code>):</strong>
+quando a superfície <code>READ_PROJECTION</code> / <code>VIEW</code> de
+um recurso retorna o próprio <code>ResponseDTO</code> sem projeção
+reduzida distinta, prefira vinculá-la ao <code>GET /{id}</code> canônico
+(ou usar um DTO de projeção leve dedicado sem
+<code>enrichResponses</code> pesado), permitindo que o
+<code>ResourceRecordOpenService</code> reutilize o payload de
+<code>GET /{id}</code> e hidratando a gaveta 360° na metade do
+tempo.</li>
+<li><strong>Deduplicação In-Flight no Frontend:</strong>
+<code>ResourceDiscoveryService.getCapabilitiesByUrl</code> e
+<code>loadActionCatalog</code> deduplicam requisições concorrentes em
+voo (<code>shareReplay(1)</code> + limpeza em <code>finalize</code>)
+para a mesma chave de contexto/URL, evitando chamadas HTTP duplicadas na
+abertura de tabelas e gavetas 360°.</li>
+</ul>
+<h3
+id="regra-8-validação-nativa-determinística-semanticmetadatareviewer">Regra
+8 — Validação Nativa Determinística
+(<code>SemanticMetadataReviewer</code>)</h3>
+<ul>
+<li>O <code>SemanticMetadataReviewer</code> no
+<code>praxis-metadata-starter</code> valida programaticamente em tempo
+de build JUnit (<code>review(responseDtoClass)</code> e
+<code>reviewResourceController(controllerClass, responseDtoClass, filterDtoClass)</code>)
+todo o contrato Quick View 360° e <code>@ResourceIdentity</code>,
+emitindo erros bloqueantes
+(<code>SemanticMetadataIssueSeverity.ERROR</code>) para:
+<ul>
+<li><code>resource-identity-missing</code>: ausência de
+<code>@ResourceIdentity</code> (ou
+<code>keyField</code>/<code>titleField</code> em branco) no Controller
+ou no <code>ResponseDTO</code>;</li>
+<li><code>resource-identity-controller-dto-mismatch</code>: divergência
+de atributos (<code>keyField</code>, <code>titleField</code>,
+<code>subtitleField</code>, <code>avatarField</code>,
+<code>displayLabelField</code>, <code>metadataFields</code>) entre o
+<code>@ResourceIdentity</code> do Controller e o do
+<code>ResponseDTO</code>;</li>
+<li><code>resource-identity-subtitle-missing</code>: ausência de
+<code>subtitleField</code> em <code>@ResourceIdentity</code>;</li>
+<li><code>resource-identity-metadata-duplicate</code> e
+<code>resource-identity-metadata-repeats-header-field</code>:
+duplicidade dentro de <code>metadataFields</code> ou repetição de campos
+do cabeçalho (<code>keyField</code>, <code>titleField</code>,
+<code>subtitleField</code>, <code>avatarField</code>);</li>
+<li><code>resource-identity-metadata-count-out-of-range</code>: contagem
+de <code>metadataFields</code> fora da faixa executiva canônica
+(<code>2..3</code>, ou <code>1..3</code> quando o DTO possui apenas 1
+atributo escalar elegível além do cabeçalho);</li>
+<li><code>quick-view-repeats-identity-field</code> e
+<code>quick-view-field-count-out-of-range</code>: repetição de campos de
+<code>@ResourceIdentity</code> em
+<code>@UISchema(quickViewVisible = true)</code> ou quantidade de campos
+<code>quickViewVisible = true</code> fora da faixa executiva
+(<code>4..8</code>);</li>
+<li><code>resource-reference-value-field-missing</code>,
+<code>resource-reference-preview-surface-missing</code>,
+<code>title-field-self-reference-missing</code> e
+<code>resource-reference-surface-unresolved</code>:
+<code>@ResourceReference</code> apontando para <code>valueField</code>
+inexistente, sem <code>previewSurfaceId</code> preenchido, campo
+<code>titleField</code> do próprio recurso sem auto-referência
+<code>@ResourceReference(resourceKey = "&lt;resourceKey do próprio recurso&gt;", ...)</code>
+ou <code>surfaceId</code>/<code>previewSurfaceId</code> não publicado
+como <code>@UiSurface</code>
+(<code>VIEW</code>/<code>READ_PROJECTION</code>) no Controller.</li>
+</ul></li>
+</ul>
+<hr />
+<h2 id="exemplo-canônico-completo-responsedto-controller">3. Exemplo
+Canônico Completo (<code>ResponseDTO</code> +
+<code>Controller</code>)</h2>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No Controller:</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">PESSOAS</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    resourceKey <span class="op">=</span> <span class="st">&quot;administracao-pessoal.funcionarios&quot;</span><span class="op">,</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    title <span class="op">=</span> <span class="st">&quot;Pessoas servidoras&quot;</span><span class="op">,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    description <span class="op">=</span> <span class="st">&quot;Cadastro civil único das pessoas titulares de vínculos funcionais com órgãos públicos.&quot;</span><span class="op">,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    icon <span class="op">=</span> <span class="st">&quot;badge&quot;</span><span class="op">,</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    identity <span class="op">=</span> <span class="at">@ResourceIdentity</span><span class="op">(</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        keyField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        titleField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        displayLabelField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        subtitleField <span class="op">=</span> <span class="st">&quot;nomeSocial&quot;</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        metadataFields <span class="op">=</span> <span class="op">{</span><span class="st">&quot;cpf&quot;</span><span class="op">,</span> <span class="st">&quot;idadeAnos&quot;</span><span class="op">}))</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">// No ResponseDTO:</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="at">@ResourceIdentity</span><span class="op">(</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    keyField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    titleField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    displayLabelField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    subtitleField <span class="op">=</span> <span class="st">&quot;nomeSocial&quot;</span><span class="op">,</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    metadataFields <span class="op">=</span> <span class="op">{</span><span class="st">&quot;cpf&quot;</span><span class="op">,</span> <span class="st">&quot;idadeAnos&quot;</span><span class="op">})</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> ServidorPessoaResponseDTO <span class="kw">extends</span> ServidorPessoaDados <span class="op">{</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Schema</span><span class="op">(</span>description <span class="op">=</span> <span class="st">&quot;Idade civil em anos completos na data atual.&quot;</span><span class="op">,</span> accessMode <span class="op">=</span> <span class="bu">Schema</span><span class="op">.</span><span class="fu">AccessMode</span><span class="op">.</span><span class="fu">READ_ONLY</span><span class="op">)</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">@UISchema</span><span class="op">(</span>label <span class="op">=</span> <span class="st">&quot;Idade&quot;</span><span class="op">,</span> icon <span class="op">=</span> <span class="st">&quot;cake&quot;</span><span class="op">,</span> group <span class="op">=</span> <span class="st">&quot;Identificação civil&quot;</span><span class="op">,</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>      numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">INTEGER</span><span class="op">,</span> tableHidden <span class="op">=</span> <span class="kw">true</span><span class="op">,</span> readOnly <span class="op">=</span> <span class="kw">true</span><span class="op">,</span> formHidden <span class="op">=</span> <span class="kw">true</span><span class="op">)</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">Integer</span> idadeAnos<span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Em ServidorPessoaDados:</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 1: dtnasc (Nascimento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 2: estcivil (Estado civil, icon = &quot;favorite&quot;, SELECT com options legíveis)</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 3: escolaridade (Escolaridade, icon = &quot;school&quot;, SELECT com options legíveis)</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 4: eMail (E-mail, icon = &quot;email&quot;, EMAIL_INPUT)</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 5: numtelCelular (Celular, icon = &quot;smartphone&quot;)</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 6: cidadeender (Município, icon = &quot;location_city&quot;)</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 7: dtRecadast (Último recadastramento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="leitura-contextual-compacta">Leitura contextual compacta</h2>
+<p>Superfícies de item (<code>VIEW</code> ou
+<code>READ_PROJECTION</code>, cardinalidade <code>OBJECT</code>,
+retornando o <code>ResponseDTO</code> canônico do recurso) publicam
+automaticamente o <code>contextualReadPath</code> canônico
+<code>{resourcePath}/{id}/surfaces/{surfaceId}/summary</code> servido
+por
+<code>AbstractResourceQueryController.getContextualSurfaceSummary(...)</code>.
+O starter projeta os campos do cartão Quick View via
+<code>ContextualSurfaceSummaryProjector</code> a partir de
+<code>@ResourceIdentity</code>,
+<code>@UISchema(quickViewVisible)</code>,
+<code>@ResourceReference(valueField)</code> e expressões de
+<code>@MicroVisualization</code>, omitindo fail-closed campos bloqueados
+por <code>@UISchema(visibleForAuthorities)</code>. Hosts podem
+centralizar mascaramento, omissão LGPD ou sanitização por governança
+sobrescrevendo
+<code>BaseResourceQueryService.sanitizeContextualSurfaceSummary(...)</code>
+na classe base do domínio.
+<code>@UiSurface(contextualReadPath = ...)</code> explícito continua
+disponível apenas para projeções customizadas com tipo diferente do
+<code>ResponseDTO</code> do recurso.</p>
+<p>Quando a publicação local muda entre a admissão e a verificação
+final, a leitura retorna HTTP 503 com o código
+<code>GOVERNED_OPENAPI_PUBLICATION_UNAVAILABLE</code>. Cada verificação
+independente atesta o papel e o catálogo PostgreSQL e lê a publicação na
+mesma transação. O host pode fornecer um
+<code>DataSourceTransactionManager</code> para leituras independentes ao
+construir <code>BulkExecutionInfrastructure</code>. O gerenciador deve
+usar a mesma instância de datasource operacional, cuja sessão JDBC
+precisa atender à atestação. Chamadas em escopos transacionais do host
+usam seu gerenciador operacional, assim como hosts que não fornecem o
+vínculo JDBC.</p>
+<p>A resposta usa <code>Cache-Control: no-store</code> e inclui
+<code>surfaceId</code>, os valores em <code>data</code>, a
+disponibilidade dos destinos do item e a revisão de publicação do schema
+quando disponível. O catálogo compacto avalia a disponibilidade no
+contexto atual e deixa a projeção de capacidades dos recursos filhos
+para a abertura do destino. O Core reutiliza o schema somente para a
+revisão confirmada em <code>X-Praxis-Schema-Publication</code>. A
+abertura do detalhe consulta novamente as permissões aplicáveis.</p>
+<p>Quando a publicação OpenAPI é governada, a leitura compacta valida a
+geração e o digest antes de ler o item e volta a validá-los antes de
+responder. A autorização, a projeção dos campos e a disponibilidade dos
+destinos rodam fora do lock dos documentos. Uma mudança de publicação
+durante essa leitura invalida a resposta.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

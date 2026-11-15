@@ -119,7 +119,7 @@ Isso permite modelar:
 - projecao de leitura
 - experiencia contextual por item
 
-Sem duplicar contrato de payload.
+Sem duplicar contrato de payload. Para o QuickView / Visao 360°, conecte a `@UiSurface` de leitura (`READ_PROJECTION` ou `VIEW`) ao `@ResourceIdentity`, aos campos `@UISchema(quickViewVisible = true, quickViewOrder = ...)` (sem sobrepor `metadataFields`), ao `@ResourceReference` no `titleField` e nos campos textuais de exibicao de FKs, e ao `LookupDetailDescriptor.forSurface(resourceKey, surfaceId, previewSurfaceId)`.
 
 ## Camada 4 - WorkflowAction publica comando de negocio
 

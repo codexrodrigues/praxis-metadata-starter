@@ -823,8 +823,19 @@ implementa três transações curtas, todas no manager operacional do
 binding:</p>
 <ol type="1">
 <li><strong>Preparação.</strong> Sob lock e fencing, consulta primeiro o
-receipt do <code>expectedOrdinal</code>. Receipt existente é replay
-daquele ordinal e a callback não roda. Sem receipt, exige
+receipt do <code>expectedOrdinal</code>. No primeiro item de
+<code>advance</code>, a conferência durável da reserva e a preparação
+compartilham a mesma transação de controle. O binding e o fencing são
+verificados antes do marcador; um retorno terminal continua exigindo a
+leitura protegida, sem callback. O commit do marcador antecede a
+transação de domínio. Se esse commit for incerto, o resultado exige
+reconciliação e não autoriza novo despacho. Itens seguintes conservam a
+preparação própria. A conferência inicial usa o próprio header bloqueado
+dessa leitura, sem uma transação ou releitura anterior. Para terminal
+sem trabalho, binding/fencing e forma dos resultados continuam
+obrigatórios; a decodificação da proposta não vira uma nova
+pré-condição. Receipt existente é replay daquele ordinal e a callback
+não roda. Sem receipt, exige
 <code>expectedOrdinal == nextOrdinal</code>, valida
 <code>RUNNING</code>, deadline e alvo, gera attemptId, persiste
 <code>UNIT_IN_FLIGHT</code> com ordinal/digest/epoch e confirma essa
@@ -871,31 +882,44 @@ de execução, transporte, leitura e fechamento do resultado é descontado
 do saldo retornado. Não se calcula um novo prazo a partir do relógio
 local ou de uma nova janela de cinco segundos. O SQL continua usando o
 menor entre o prazo da execução e cinco segundos desde seu clock de
-tentativa; ATOMIC não muda neste recorte. No caminho PER_ITEM/SYNC, o
-prefixo de aplicação reúne os 13 comandos em uma execução JDBC com
-resultados múltiplos ordenados: marcador de capacidade, identidade,
-controle SHARE, execução UPDATE, receipt/admission pontuais, relógio,
-avaliação, prefixos duráveis, fence READY, relógio de unidade e
-instalação do saldo. Os sucessores são escopados pela execução e
-tentativa, e resultados ausentes, extras ou inconsistentes impedem a
-callback. Depois de ADMIT, a instalação do saldo e os dois relógios
-continuam comandos distintos, enviados juntos. Antes de cada callback, a
-âncora monotônica original também recusa saldo esgotado durante
-transporte ou decodificação. Em ASYNC, os reads adicionais de capacidade
-conservam seus limites iniciais antes da instalação separada do saldo.
-Receipt, promoção para pending e snapshot final também são enviados em
-ordem; o UPDATE exige o receipt exato da tentativa, com ordinal, digest,
-versão, epoch e prazo concordantes. Receipt ausente não promove pending.
-Falha SQL tardia ou validação inválida reverte toda a transação,
-incluindo o efeito de domínio. Os guards de publicação e suas atestações
-vivas continuam; ACK permanece em outra transação após o commit. Os
-testes JDBC sem banco verificam bindings, consumo e recusa dos
-callbacks; locks, gates SQL, rollback físico e desempenho com transporte
-controlado exigem prova Neon própria. Esse corte não certifica
-desempenho Render, execução ATOMIC ou adoção HTTP do consumidor.
-Domínio, receipt e mudança para <code>UNIT_COMMITTED_PENDING_ACK</code>
-confirmam juntos. Resultado <code>CONFIRMED</code> nunca é observado
-antes desse commit.</li>
+tentativa; ATOMIC não muda neste recorte. As leituras da preparação
+PER_ITEM são enviadas juntas, na mesma conexão vinculada: marcador de
+capacidade, identidade, controle SHARE, execução UPDATE,
+receipt/admission do ordinal, avaliação protegida, prefixos completos e
+relógio. Os resultados posteriores são escopados por namespace,
+execução, owner e epoch. O Java valida os resultados na ordem original,
+incluindo replay, consistência do prefixo e fence READY; somente depois
+emite o UPDATE da tentativa, que volta a conferir o prazo com o relógio
+do banco. A atestação viva do catálogo também permanece por invocação:
+seu envio captura o timeout anterior e aplica o menor entre esse valor e
+250 ms, sem desabilitar um limite inferior. A restauração do valor exato
+e a leitura do vínculo de namespace compartilham o envio seguinte. Erro
+impede a callback e mantém rollback/falha fechada. Não há cache de
+papel, ACL, publicação ou decisão READY. Agrupar envios não permite
+renovar qualquer prazo. No caminho PER_ITEM/SYNC, o prefixo de aplicação
+reúne os 13 comandos em uma execução JDBC com resultados múltiplos
+ordenados: marcador de capacidade, identidade, controle SHARE, execução
+UPDATE, receipt/admission pontuais, relógio, avaliação, prefixos
+duráveis, fence READY, relógio de unidade e instalação do saldo. Os
+sucessores são escopados pela execução e tentativa, e resultados
+ausentes, extras ou inconsistentes impedem a callback. Depois de ADMIT,
+a instalação do saldo e os dois relógios continuam comandos distintos,
+enviados juntos. Antes de cada callback, a âncora monotônica original
+também recusa saldo esgotado durante transporte ou decodificação. Em
+ASYNC, os reads adicionais de capacidade conservam seus limites iniciais
+antes da instalação separada do saldo. Receipt, promoção para pending e
+snapshot final também são enviados em ordem; o UPDATE exige o receipt
+exato da tentativa, com ordinal, digest, versão, epoch e prazo
+concordantes. Receipt ausente não promove pending. Falha SQL tardia ou
+validação inválida reverte toda a transação, incluindo o efeito de
+domínio. Os guards de publicação e suas atestações vivas continuam; ACK
+permanece em outra transação após o commit. Os testes JDBC sem banco
+verificam bindings, consumo e recusa dos callbacks; locks, gates SQL,
+rollback físico e desempenho com transporte controlado exigem prova Neon
+própria. Esse corte não certifica desempenho Render, execução ATOMIC ou
+adoção HTTP do consumidor. Domínio, receipt e mudança para
+<code>UNIT_COMMITTED_PENDING_ACK</code> confirmam juntos. Resultado
+<code>CONFIRMED</code> nunca é observado antes desse commit.</li>
 <li><strong>Acknowledgement.</strong> Somente depois que o manager
 confirmou a transação anterior, uma nova transação relê receipt/attempt
 sob lock, avança <code>nextOrdinal</code>, limpa a tentativa e escolhe

@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>P2 — correções dos achados R1–R3</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">P2 — correções dos achados R1–R3</h1>
+</header>
+<h1 id="p2-correções-dos-achados-r1r3">P2 — correções dos achados
+R1–R3</h1>
+<p>Data: 2026-11-01. Correção local na fonte canônica, sem publicação.
+Este registro sucede a <a
+href="GOVERNED-RULE-BRIDGE-P2-REVIEW.md">revisão original</a>, cujas
+reproduções e hashes foram preservados. Não constitui revisão
+independente nem aprovação de release ou de adoção no showcase.</p>
+<h2 id="contrato-corrigido">Contrato corrigido</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Achado</th>
+<th>Fonte canônica e comportamento</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R1 — contexto de servidor ausente no update</td>
+<td><code>CustomFieldValidator.PreparedValidation</code> captura
+definições e fatos do request uma vez. A base resource-oriented
+carrega/autoriza o item e confere a precondição versionada antes de
+avaliar com <code>entity</code>. Uma negação impede hooks, mapper e
+save.</td>
+</tr>
+<tr>
+<td>R2 — causas e campos de rejeição falsos</td>
+<td><code>PraxisRuleViolationException</code> preserva exatamente
+<code>RuleEvaluationResult.reasonCodes</code>. Somente razões
+consolidadas de bindings causais geram violações. NOT_APPLICABLE
+consolidado usa os bindings terminais; dependências bloqueadas não
+acrescentam razões excluídas pelo evaluator.</td>
+</tr>
+<tr>
+<td>R3 — operador contextual sem contexto de execução</td>
+<td><code>CustomFieldJsonLogic</code> consulta a pureza no catálogo do
+engine e rejeita operadores <code>contextual</code> na construção do
+descriptor, inclusive em defaults e ramos não selecionados. O dialeto
+global não muda e nenhum relógio implícito é introduzido.</td>
+</tr>
+</tbody>
+</table>
+<p>No create, <code>entity</code> é JSON null explícito. Chamadas
+standalone não disponibilizam essa raiz: referências a ela são
+recusadas, em vez de comparar um valor ausente e possivelmente permitir
+a operação. Overloads com entidade não nula usam o contrato de update.
+<code>validateForUpdate(null)</code> falha antes da avaliação.</p>
+<p>A mesma preparação fornece as chaves readonly usadas pelo mapper, sem
+segunda consulta ao provider. Tipos, obrigatoriedade e atribuições
+protegidas continuam sendo verificados antes da carga da entidade. Fatos
+do request e a lista de definições são capturados sem reter aliases
+mutáveis do chamador. Regras que não observam <code>entity</code> nem o
+contexto completo não serializam o estado persistido: uma restrição
+somente de valor não deve percorrer associações JPA não relacionadas.
+Quando necessário, o host fornece fatos pré-carregados, respeitando os
+limites e a rejeição de ciclos do fact-tree builder.</p>
+<p>Extensões do lifecycle devem decorar
+<code>prepareCustomFields</code>, preservando o retorno de
+<code>super</code>, e selecionar explicitamente create/update. O helper
+protegido <code>validateCustomFields</code> representa apenas validação
+standalone. Trata-se de uma mudança deliberada do ponto de extensão do
+candidato beta; não existe caminho paralelo de compatibilidade que
+dispense o contexto autorizado.</p>
+<p>A inspeção de consumo identificou 14 serviços do showcase com
+chamadas manuais a <code>validateCustomFields</code>, incluindo
+<code>CargoService</code>, <code>VinculoService</code>,
+<code>ServidorPessoaService</code> e <code>OrgaoService</code>. Seu POM
+ainda referencia o starter <code>8.0.0-rc.186</code>. Ao adotar este
+candidato, a P4 deve migrar esses escritores para a preparação e o
+contexto explícitos; testes da base não certificam overrides do host. A
+adoção do showcase é um escopo separado no plano das ondas, e esses
+serviços não foram alterados.</p>
+<p>No adapter Bulk já presente na árvore, somente a chamada de validação
+foi alinhada para receber o estado autorizado existente. Os demais
+trabalhos de P1/P3 foram preservados; este registro não certifica o
+kernel Bulk.</p>
+<h2 id="experiência-e-documentação">Experiência e documentação</h2>
+<p>O handler HTTP continua consumindo a projeção do engine. Um ramo não
+aplicável anterior à negação não acrescenta um campo falso em
+<code>errors[].target</code> ou <code>violations[].targetField</code>. O
+teste MVC percorre comando governado → engine → handler e verifica que a
+continuação não executa após a negação.</p>
+<p>O <a href="../guides/GOVERNED-RULE-BRIDGE.md">guia de adoção</a>, a
+especificação de custom fields, FieldSpec e changelog descrevem as
+roots, o ciclo em duas etapas e a recusa de operadores contextuais. A
+prova de UX desta correção é do contrato HTTP consumido pelo formulário;
+não houve browser/E2E Angular.</p>
+<h2 id="regressões">Regressões</h2>
+<ul>
+<li><code>P2CustomFieldContextTest</code>: update comum/versionado
+bloqueado e permitido, nenhuma mutação após negação, uma consulta ao
+provider, preservação readonly, autorização e versão antes de ler fatos,
+create explícito, chamadas standalone, snapshot imutável, admissão
+temporal e regra de valor sem percorrer estado persistido não
+relacionado.</li>
+<li><code>PraxisRuleViolationExceptionTest</code>:
+NOT_APPLICABLE/INCONCLUSIVE antes de DENY, dependência inconclusiva e
+NOT_APPLICABLE consolidado, com razões/proveniência.</li>
+<li><code>RuleViolationHttpTest</code>: planos mistos retornam somente a
+causa e o campo efetivos de rejeição, inclusive pelo executor de
+comandos governados.</li>
+</ul>
+<p>Os testes novos reproduziram os defeitos antes da correção: três
+falhas no engine e três na primeira versão da regressão de contexto
+contra os JARs originais fixados pela revisão. Logs locais:
+<code>praxis-rules-engine/target/p2-corrections-red.log</code> e
+<code>praxis-metadata-starter/target/p2-corrections-metadata-red.log</code>.</p>
+<h2 id="validação-e-limites">Validação e limites</h2>
+<p>A execução usa JDK 21 e Maven 3.9.6. Um reactor liga as fontes
+corrigidas do engine ao starter, sem substituir os artefatos em
+<code>.m2</code> durante os testes. A rodada no diretório compartilhado
+foi invalidada por classes de teste ausentes enquanto outro build
+recompilava esse diretório. A repetição usa cópia isolada das fontes,
+POMs e recursos, identificada por um manifesto SHA-256; nenhum
+comportamento de produção ou configuração canônica de build foi alterado
+para obter o isolamento.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Gate desta correção</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine — <code>mvn test</code> completo</td>
+<td>116 testes, 0 falhas, 0 erros, 0 ignorados</td>
+</tr>
+<tr>
+<td>Reactor isolado — engine, seleção focal</td>
+<td>52 testes, 0 falhas, 0 erros, 0 ignorados</td>
+</tr>
+<tr>
+<td>Reactor isolado — starter, seleção focal final</td>
+<td>238 testes, 0 falhas, 0 erros, 5 ignorados</td>
+</tr>
+<tr>
+<td>Regressão de contexto</td>
+<td>8 testes passando, incluídos na seleção do starter</td>
+</tr>
+<tr>
+<td>Contrato HTTP de violações</td>
+<td>13 casos passando, incluídos na seleção do starter</td>
+</tr>
+<tr>
+<td>Whitespace dos arquivos alterados nesta correção</td>
+<td><code>git diff --check</code> sem erros</td>
+</tr>
+<tr>
+<td>Reactor — <code>mvn install -DskipTests</code></td>
+<td>Sucesso nos dois módulos, com fontes e Javadocs, em repositório
+Maven local isolado</td>
+</tr>
+<tr>
+<td>Consistência da evidência</td>
+<td>8 fontes/testes canônicos iguais ao snapshot testado; 6 JARs
+instalados iguais aos JARs gerados, por SHA-256</td>
+</tr>
+</tbody>
+</table>
+<p>A seleção focal final terminou em 2026-11-01 às 16:38:24 (UTC−03:00).
+A rodada isolada anterior passou com 237 testes no starter; a diferença
+é o teste de regra de valor que não percorre a entidade, adicionado ao
+ajuste final. Os cinco ignorados pertencem à suíte preexistente
+<code>CustomFieldsResourceE2ETest</code>.</p>
+<p>Comando da seleção, a partir do reactor temporário com os dois
+módulos:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>mvn test <span class="st">&quot;-Dtest=*Rule*Test,CustomField*Test,P2CustomFieldContextTest,GlobalExceptionHandlerTest,CustomProblemDetailTest,CustomProblemDetailHttpSerializationTest,GovernedResourceCommandExecutorTest,ResourceCommandHttpResponseAdapterTest,ResourceFactAndCustomFieldDomainCatalogTest,AbstractBaseResourceServiceTest,CoreResourceEvolutionIntegrationTest,!*Neon*&quot;</span></span></code></pre></div>
+<p>O install terminou às 16:48:05 (UTC−03:00). Seu destino é
+<code>D:\CodexHome\tmp\praxis-p2-corrections-20261101-162952\isolated-m2</code>;
+<code>isolated-settings.xml</code> usa o cache existente como origem de
+dependências por <code>file://</code>, sem instalar os candidatos sobre
+os artefatos compartilhados:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>mvn <span class="op">-</span>s isolated-settings<span class="op">.</span><span class="fu">xml</span> <span class="st">&quot;-Dmaven.repo.local=D:\CodexHome\tmp\praxis-p2-corrections-20261101-162952\isolated-m2&quot;</span> install <span class="op">-</span>DskipTests <span class="op">-</span>B</span></code></pre></div>
+<p>O Javadoc do starter registrou um link local do engine indisponível
+no reactor temporário (<code>Error fetching link ... Ignored it</code>)
+e um aviso preexistente de <code>&amp;</code> em um comentário de query
+string. O build terminou com sucesso e os dois JARs de Javadoc foram
+gerados/instalados. Isso não comprova links de documentação publicada
+nem substitui o gate de release.</p>
+<p>Logs, POM do reactor, settings e manifestos estão em
+<code>praxis-metadata-starter/target/p2-corrections-isolated/</code>. O
+log <code>shared-target-invalid.log</code> preserva a rodada descartada;
+<code>focal-test.log</code> contém a rodada final aceita. O snapshot
+completo permanece no diretório temporário identificado acima. Os JARs
+representam esse snapshot da árvore, incluindo o trabalho preexistente
+de P1/P3, e não um pacote isolado exclusivamente da P2.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>JAR de runtime gerado/instalado</th>
+<th>SHA-256</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine <code>0.1.0-beta.17</code></td>
+<td><code>ED54A0F1385D110A35BD0FC102E943C08184888116FD48A96475EF2A81A58D31</code></td>
+</tr>
+<tr>
+<td>Metadata <code>8.0.0-rc.188</code></td>
+<td><code>2A075AA5018743A6322C842ABA01C5D7610B8BBBAB24E5CDA86AD8E9692C3643</code></td>
+</tr>
+</tbody>
+</table>
+<p>As contagens da implementação original não são apresentadas como
+prova dessas correções. Testes PostgreSQL/POSIX/Neon e certificação de
+consumidores ficam fora deste corte. O scorecard de completude de
+recursos não se aplica a este ajuste de biblioteca: nenhum recurso
+corporativo de host foi criado ou alterado.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

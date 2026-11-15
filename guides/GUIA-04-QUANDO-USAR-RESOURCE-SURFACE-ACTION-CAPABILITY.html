@@ -460,7 +460,20 @@ e families</li>
 </ul>
 <p>Essa distincao evita que runtimes precisem inferir se devem
 renderizar um form de leitura, uma tabela, uma lista ou uma pagina a
-partir apenas de <code>kind</code> e <code>scope</code>.</p>
+partir apenas de <code>kind</code> e <code>scope</code>. Para conectar
+celulas de tabela, titulos e lookups ao QuickView / Visao 360° de uma
+<code>@UiSurface</code> (<code>READ_PROJECTION</code> ou
+<code>VIEW</code>), declare
+<code>@ResourceIdentity(keyField, titleField, subtitleField, metadataFields)</code>,
+marque de 4 a 8 campos executivos inéditos com
+<code>@UISchema(quickViewVisible = true, quickViewOrder = ...)</code>
+(sem repetir
+<code>titleField</code>/<code>subtitleField</code>/<code>metadataFields</code>),
+e aponte
+<code>@ResourceReference(resourceKey, valueField, surfaceId, previewSurfaceId)</code>
+e
+<code>LookupDetailDescriptor.forSurface(resourceKey, surfaceId, previewSurfaceId)</code>
+para a surface publicada.</p>
 <h2 id="workflowaction">WorkflowAction</h2>
 <p>Use <code>@WorkflowAction</code> quando a operacao e um comando de
 negocio explicito.</p>

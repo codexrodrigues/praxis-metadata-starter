@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Operações em lote na base resource-oriented</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Operações em lote na base resource-oriented</h1>
+</header>
+<h1 id="operações-em-lote-na-base-resource-oriented">Operações em lote
+na base resource-oriented</h1>
+<p>O candidato local da Onda 3 compõe o protocolo existente com
+<code>AbstractBulkGovernedResourceController</code>,
+<code>JpaResourceBulkEngine</code> e
+<code>AbstractBaseResourceService.bulkDomainAdapter</code>. O host
+declara recursos, DTOs, políticas e infraestrutura; não precisa repetir
+o parser HTTP nem as nove rotas. Esta composição atende
+<code>SYNC</code>/<code>PER_ITEM</code>, com
+<code>UNIFORM_UPDATE</code>, <code>PER_ITEM_UPDATE</code> e
+<code>DOMAIN_COMMAND</code>. O kernel durável existente continua sendo a
+autoridade de propostas, quotas, READY, fencing, recibos, replay e
+cancelamento.</p>
+<h2 id="contrato-http-e-identidade">Contrato HTTP e identidade</h2>
+<p><code>PraxisBulkWebAutoConfiguration</code> registra o conversor de
+entrada antes de Jackson, um customizer do documento OpenAPI e
+<code>BulkOperationIdentityDiscovery</code>. Nenhum deles conecta ao
+banco, migra tabelas, publica READY ou inicia workers ao adicionar o
+JAR. Um bean próprio de
+<code>PraxisBulkProtocolHttpMessageConverter</code> substitui o
+padrão.</p>
+<p>O codec vem do ID real da hierarquia do controller:
+<code>Integer</code> usa inteiro JSON int32; <code>Long</code> usa
+string decimal canônica int64; <code>String</code> usa string. UUID e
+IDs compostos usam seus codecs existentes. Não declarar
+<code>String</code> no lugar do ID de domínio para contornar o parser.
+Os parâmetros Java de wire ID da base são opacos; o binding canônico
+resolve String/Integer antes da composição estrutural.</p>
+<p>O conversor mantém os limites, rejeição de chaves duplicadas,
+operadores e bindings reservados de <code>BulkProtocolReader</code>.
+Filtros <code>selection.filter</code> passam pelos
+<code>FilterPayloadNormalizer</code> ordenados antes da conversão ao
+FilterDTO concreto. O ObjectMapper global não é modificado. A saída
+continua usando Jackson ordinário.</p>
+<p>A leitura do DTO de atualização mantém os tipos estritos na avaliação
+e na confirmação. Antes de aplicar as mudanças, o adaptador reconstrói o
+DTO pelo hook <code>toBulkUpdate</code>. A projeção da resposta
+persistida preserva as conversões configuradas pelo host e lê o decimal
+textual mesmo com a coerção escalar desativada. Uma resposta que publica
+um decimal nativo também pode projetá-lo para um DTO de atualização
+textual. Um <code>BigDecimal</code> explicitamente declarado com
+<code>@JsonFormat(shape = STRING)</code> usa sua representação decimal
+textual também no plano confirmado, preservando precisão e escala. SET
+exige uma string decimal válida dentro do limite de comprimento numérico
+do mapper. Um token JSON numérico nesse campo é rejeitado. Omitir a
+mudança conserva o valor anterior, CLEAR autorizado produz null e a
+string <code>"0"</code> representa zero. Essa declaração não admite
+strings em números comuns, IDs ou booleans. Deserializers customizados
+do host continuam responsáveis por seus próprios contratos; não é
+necessário habilitar coerções gerais para transportar um decimal
+exato.</p>
+<h2 id="adoção-do-controller-e-dos-schemas">Adoção do controller e dos
+schemas</h2>
+<p>Herde
+<code>AbstractBulkGovernedResourceController&lt;R, ID, F, C, U&gt;</code>
+e declare <code>@ApiResource(resourceKey=...)</code> e
+<code>@BulkResourceOperations</code>, incluindo
+<code>updateSourceOperationId</code> e
+<code>protectedUpdateFields</code> com as identidades, versões e campos
+exclusivos de workflow aceitos no DTO. No PUT unitário, declare
+<code>@BulkResourceOperation(UPDATE_SOURCE)</code> e um
+<code>@Operation(operationId=...)</code> correspondente a
+<code>updateSourceOperationId</code>; se usar o PUT da base, sobrescreva
+o método apenas para essas declarações e delegue para
+<code>super.update</code>. Não anote uma identidade imutável com
+<code>@BulkEditable</code>.</p>
+<p>As rotas herdadas são:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Método</th>
+<th>Rota relativa</th>
+<th>Resultado público</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST</td>
+<td><code>/bulk/update/evaluation</code></td>
+<td><code>BulkProposal</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/bulk/update</code></td>
+<td><code>BulkExecution</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/bulk/update-items/evaluation</code></td>
+<td><code>BulkProposal</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/bulk/update-items</code></td>
+<td><code>BulkExecution</code></td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/bulk/proposals/{proposalId}</code></td>
+<td><code>BulkProposal</code> autorizado</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/bulk/proposals/{proposalId}/results</code></td>
+<td>Página por cursor</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/bulk/executions/{executionId}</code></td>
+<td><code>BulkExecution</code> autorizado</td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/bulk/executions/{executionId}/results</code></td>
+<td>Página por cursor</td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/bulk/executions/{executionId}/cancel</code></td>
+<td><code>BulkExecution</code> autorizado</td>
+</tr>
+</tbody>
+</table>
+<p>Confirmações exigem <code>Idempotency-Key</code>. Resultados aceitam
+<code>size</code> (1–200) e <code>after</code>. Todas as respostas usam
+<code>RestApiResponse</code>: a projeção fica em <code>data</code> e os
+links em <code>_links</code>. Links de leitura (<code>self</code>,
+<code>results</code>, <code>proposal</code>,
+<code>next</code>/<code>prev</code>) resolvem as operações reais pelo
+<code>CanonicalOperationResolver</code>; affordances de
+confirmação/cancelamento continuam sob o contrato de capabilities. Os
+helpers de comando também devolvem esse envelope canônico. Os quatro IDs
+de update herdados são <code>&lt;resourceKey&gt;.bulk.update</code>,
+<code>&lt;resourceKey&gt;.bulk.update.evaluate</code>,
+<code>&lt;resourceKey&gt;.bulk.update-items</code> e
+<code>&lt;resourceKey&gt;.bulk.update-items.evaluate</code>. Os cinco
+IDs de leitura/cancelamento vêm da declaração existente. Um host com IDs
+públicos já estabelecidos pode sobrescrever os quatro métodos apenas com
+<code>@BulkResourceOperation</code> da função correspondente,
+<code>@Operation(operationId=...)</code> e delegação a
+<code>super</code>. Esses IDs explícitos passam pelo mesmo binding MVC;
+ambiguidades são rejeitadas. Não há reconhecimento por nome Java ou
+label.</p>
+<p>Para combinar lote e preparo não persistente de cópia, use
+<code>AbstractBulkGovernedDuplicateDraftResourceController</code>. A
+composição preserva o opt-in de <code>duplicate-draft</code>, o DTO
+explícito e os gates create/view/duplicate-draft; herdar somente a base
+de lote não publica duplicação.</p>
+<p>Implemente <code>getBulkEngine()</code> e os hooks
+<code>bulkProposalOperationId</code>/
+<code>bulkExecutionOperationId</code> para selecionar a operação de
+confirmação correspondente ao registro retido. Esses hooks são
+roteamento interno; não substituem autorização. Devem respeitar
+namespace/recurso e não expor a existência de registros fora do escopo.
+O engine executa as quatro leituras pelos readers
+<code>BulkAuthorized*</code>, com reautorização do conjunto completo e
+cursores autenticados. O cancelamento também exige leitura autorizada
+antes de solicitar a transição.</p>
+<p><code>CustomOpenApiResolver.synthesizeBulkEvaluationSchemas</code>
+materializa os schemas no documento usado por
+<code>OpenApiDocumentService</code>, antes da fotografia governada. Para
+<code>EmployeeController</code>, publica
+<code>EmployeeBulkUniformEvaluationRequest</code>,
+<code>EmployeeBulkItemEvaluationRequest</code> e
+<code>EmployeeBulkCommandEvaluationRequest</code>. Identidades vêm do
+codec; filtros e parâmetros referenciam os DTOs concretos. Comandos
+diferentes no mesmo recurso recebem nomes distintos quando necessário.
+As classes manuais de envelope OpenAPI deixam de ser necessárias. A
+referência canônica do schema continua sendo
+<code>/schemas/filtered</code> da operação real.</p>
+<h2 id="composição-explícita-do-engine">Composição explícita do
+engine</h2>
+<p>Forneça ao <code>JpaResourceBulkEngine</code> a mesma
+<code>BulkExecutionInfrastructure</code> usada pelo
+<code>BulkOperationLifecycle</code> e pelos providers, o adapter do
+service, codec, allowlists de <code>BulkEditableFields.compile</code>,
+ObjectMapper, <code>BulkResourcePolicy</code>, configuração de cursores
+e mapa de adapters de comandos. A allowlist local precisa coincidir com
+a compilada do PUT publicado e dos <code>protectedUpdateFields</code>;
+divergências fecham a avaliação. Configure o
+<code>BulkOperationDescriptorProvider</code> de cada operação, seus
+limites e revisões como no protocolo existente.</p>
+<p><code>BulkResourcePolicy</code> é a autoridade explícita do host para
+contexto autenticado, proveniência da avaliação, admissão atual por
+unidade, autorização de leitura e projeções públicas. Nenhum grant é
+inferido de READY, do payload ou do nome da operação. A política de
+admissão deve reconsultar as autoridades necessárias e usar o orçamento
+remanescente da unidade. Rejeitar indisponibilidade da autoridade. O
+SecurityFilterChain do host continua governando as rotas
+executáveis.</p>
+<p>Use <code>BulkOperationIdentityDiscovery.discover(namespace)</code>
+depois da inicialização dos mappings MVC para alimentar a instalação
+explícita. A descoberta usa os bindings validados e
+<code>CanonicalOperationResolver</code>, sem buscar OpenAPI nem exigir
+publicação prévia. Declarações incompletas/ambíguas falham; nenhuma
+lista manual de confirmações precisa acompanhar novos controllers.</p>
+<h2 id="avaliação-confirmação-e-extensões-de-domínio">Avaliação,
+confirmação e extensões de domínio</h2>
+<p>A avaliação captura o lote sob o teto de 30s do protocolo de
+propostas, conservando o menor saldo do chamador e a expiração. Esse
+orçamento é diferente de
+<code>BulkOperationalProfile.unitDeadline</code>, limitado a 5s para
+cada unidade PER_ITEM ou para o conjunto inteiro em ATOMIC. O adapter
+usa uma única constante do store para a transação e o deadline
+monotônico; não renova o prazo por alvo e não faz retry automático da
+captura. Consulte <a
+href="../spec/BULK-PROPOSAL-STORAGE.md">persistência protegida</a> para
+os clamps, locks e limites de cancelamento.</p>
+<p>A seleção aplica o FilterDTO e
+<code>resolveResourceFilterAccessScope</code> nas consultas QUERY e
+EXPLICIT, com limite e exclusões. O hook
+<code>resolveBulkResourceFilterAccessScope</code> pode acrescentar um
+escopo obrigatório da operação; ele é combinado com o escopo ordinário
+antes de seleção e limite. O callback de captura e o armazenamento da
+proposta usam uma transação operacional
+<code>REPEATABLE_READ</code>.</p>
+<p><code>bulkDomainAdapter</code> resolve o UpdateDTO do service,
+projeta o response para esse contrato e aplica
+<code>SET</code>/<code>CLEAR</code> sobre a cópia JSON completa. Omissão
+preserva os valores anteriores. Bean Validation, custom fields e
+<code>beforeUpdate</code> são executados em cópia destacada da entidade.
+<code>applyResourceUpdate(id, entity, dto)</code> centraliza
+hidratação/mapeamento de domínio e é usado tanto no PUT quanto nessa
+avaliação; o default chama o mapper. A conversão do plano rejeita
+coerção escalar, sem alterar o ObjectMapper global. Hooks de avaliação
+devem ser livres de escrita; dirty checking rejeita alterações
+incidentais em entidades gerenciadas. Sobrescreva
+<code>toBulkUpdate</code> quando os shapes de response e update
+diferirem e <code>snapshotBeforeMutation</code> quando o domínio exigir
+cópias de associações mutáveis. O default recusa associações que não
+consegue copiar com segurança.</p>
+<p>Para decisões dependentes da operação, use a <a
+href="RESOURCE-MUTATION-ADMISSION.md">admissão contextual de
+mutações</a>: avaliação e confirmação encaminham o modo real, a etapa e
+o instante do servidor. A revalidação de confirmação usa o contexto de
+confirmação, e a evidência retornada por <code>validateUpdate</code>
+integra a fotografia protegida comparada antes da escrita.</p>
+<p>Falhas previsíveis bloqueiam o alvo. Violações de regras preservam
+códigos, mensagens e campos de correção do catálogo da Onda 2 na
+evidência protegida. Somente mensagens explicitamente permitidas por
+<code>publicDiagnostics</code> entram na prévia pública; textos técnicos
+e causas de exceções não são publicados. O catálogo permitido pode ser
+maior que a prévia: somente os pares categoria/código emitidos são
+projetados, mantendo o limite público de 64 diagnósticos. Uma entrada
+explícita do host localiza a mensagem do mesmo par canônico.</p>
+<p>Na confirmação, <code>JdbcBulkDurableExecution</code> reserva a
+proposta, reconhece replay e executa unidades em sua transação
+operacional. A política é reavaliada; mudanças na governança, versão,
+fatos ou plano impedem a escrita. O update do service adquire
+<code>PESSIMISTIC_WRITE</code>, confere o ETag do item e executa mapper,
+<code>beforeUpdate</code>/<code>afterUpdate</code>, flush e refresh.
+Alteração e recibo confirmam ou revertem juntos. Se a revisão persistida
+permanece igual, o recibo registra <code>UNCHANGED</code>; uma revisão
+nova registra <code>CONFIRMED</code>. A resposta vem do reader público
+autorizado.</p>
+<p>Para <code>DOMAIN_COMMAND</code>, declare endpoints reais com
+<code>@WorkflowAction</code> de coleção,
+<code>@BulkOperation(mode=DOMAIN_COMMAND)</code> e DTO concreto de
+parâmetros. Use os helpers
+<code>evaluateBulkDomainCommand</code>/<code>confirmBulkDomainCommand</code>.
+O <code>BulkDomainCommandAdapter</code> deve avaliar sem escrita e, ao
+confirmar, adquirir os locks e validar o ETag antes dos efeitos de
+domínio. Pode reutilizar <code>executeVersionedMutation</code> do
+service. Regras, dependências e efeitos pertencem ao domínio; nenhum
+dispatcher de comandos é inferido de palavras ou caminhos.</p>
+<h2 id="limites-deste-corte">Limites deste corte</h2>
+<p>Durante a avaliação,
+<code>bulkDomainAdapter.discardEvaluationState</code> limpa o contexto
+JPA se um candidato deixar alterações não persistidas, impedindo
+contaminação do próximo item. A limpeza nunca faz flush. A projeção de
+UPDATE aceita custom fields read-only idênticos ao persistido,
+preservando o snapshot de PUT/bulk.</p>
+<p>Na confirmação, falhas funcionais reconhecidas durante a própria
+gravação (<code>412</code>, conflito de estado <code>409</code>,
+regra/validação <code>422</code>, acesso/existência) fazem rollback de
+todos os efeitos do item. Após esse rollback, o kernel registra o
+resultado local sob os mesmos fences de execução e permite o próximo
+item. Durante a própria gravação, falhas técnicas continuam
+interrompendo a execução; commit incerto continua exigindo
+reconciliação. Não se publica recibo de sucesso para um item
+rejeitado.</p>
+<p>A avaliação/admissão e a mutação compartilham a classificação de
+falhas por alvo. Ausência concorrente gera
+<code>TARGET_NOT_FOUND</code>; conflito de estado mantém
+<code>TARGET_STATE_CONFLICT</code>. Decisões técnicas/inconclusivas e
+indisponibilidade não viram validação. Erros do payload de campos usam
+<code>BulkFieldChangeValidationException</code>; uma
+<code>IllegalArgumentException</code> genérica de callback ou
+configuração não é presumida como erro de dados. Consulte as <a
+href="../technical/P5-A-CORRECTIONS-2026-11-02.md">correções
+R03–R05</a>.</p>
+<p>O controller possui resolução default dos IDs de propostas e
+execuções por <code>BulkOperationStatusLookup</code>, auto-configurado
+apenas com infraestrutura bulk explícita. A correlação filtra
+namespace/recurso e aceita somente operações reais de
+<code>BulkOperationIdentityDiscovery</code>. Isso resolve roteamento; os
+readers continuam exigindo autorização atual e não recebem permissão
+dessa correlação.</p>
+<p>O engine passa sua <code>BulkResourcePolicy</code> ao lookup.
+Resolução de bindings MVC e contexto autenticado ocorre antes do JDBC;
+os grants globais são consultados dentro do snapshot de leitura, antes
+de qualquer consulta por ID. A correlação filtra somente operações
+autorizadas. Sem grant, IDs conhecidos e ausentes têm o mesmo 403;
+autoridade ausente/indisponível falha com 503. Permissão parcial não
+permite correlacionar operações negadas. O reader ainda revalida o grant
+e a visibilidade do conjunto completo. Chamadas diretas ao lookup devem
+fornecer a política; a assinatura antiga sem autoridade foi removida no
+candidato beta.</p>
+<p>Este guia descreve fonte local não publicada. Migração de
+consumidores, publicação Maven, integração Neon, ASYNC/worker e
+composição de operações ATOMIC não são gates da Onda 3. Os contratos e
+provas desses mecanismos existentes permanecem nos respectivos
+documentos do SDK. A adoção do Ergon Showcase pertence à Onda 4.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

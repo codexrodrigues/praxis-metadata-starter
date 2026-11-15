@@ -45,7 +45,7 @@ commit, push do branch solicitado e abrir PR para `main` com `Closes #303`.
 | Metadata starter | Annotations/SPIs, lifecycle, Criteria, export resolver, schema/cache, domínio e auto-config; unitários focais e integração HTTP. |
 | Quickstart | Consumidor Maven e prova operacional; revisar impacto em schemas, sem presumir adoção de uma versão não publicada. |
 | Angular `@praxisui/*` | Consome `properties.*.x-ui`, schema e cache; manter contexto autorizado em cache/requests, sem declarar renderer adotado por este patch. |
-| Config starter / Policy Studio / rules engine | Consumidores potenciais do grafo; descritor de fato não é execução nem uma dependência Maven nova. |
+| Config starter / Rules Studio / rules engine | Consumidores potenciais do grafo; descritor de fato não é execução nem uma dependência Maven nova. |
 | Docs públicas / examples | README, CHANGELOG, docs/index, spec de campo, exemplo e contrato neste starter; guidance das skills sob responsabilidade do coordenador. |
 | Corpus HTTP / landing | Não há exemplo host adotado neste corte. Revisão de impacto permanece gate do coordenador; não declarar sincronização externa automática. |
 

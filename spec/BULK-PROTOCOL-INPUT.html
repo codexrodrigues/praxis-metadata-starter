@@ -396,6 +396,22 @@ consulta em população autorizada.</p>
 <code>proposalId</code> textual não vazio. Ler esse request não valida
 existência, acesso ou vigência de proposta. Esses controles e a
 idempotência pertencem a incrementos posteriores.</p>
+<h2 id="componentes-openapi-de-avaliação">Componentes OpenAPI de
+avaliação</h2>
+<p>O sintetizador publica o schema de cada avaliação pelo
+<code>$ref</code> do seu <code>requestBody</code>. Uma operação isolada
+ou um conjunto com o mesmo contrato usa o nome-base existente. Quando
+contratos distintos compartilham esse nome-base, cada shape recebe o
+sufixo da menor identidade canônica de avaliação entre as operações que
+compartilham o shape. O sufixo usa caracteres válidos de componente
+OpenAPI e o mesmo binding produz a mesma referência no documento
+completo e nos grupos. Componentes externos incompatíveis e DTOs
+distintos que geram o mesmo nome de referência continuam sendo
+rejeitados.</p>
+<p>Quando o tipo do filtro é <code>Void</code>, o schema publica somente
+seleção <code>EXPLICIT</code>, exige <code>mode</code> e
+<code>targets</code> e omite <code>filter</code> e
+<code>excludedIds</code>.</p>
 <h2 id="identidade-sem-coerção">Identidade sem coerção</h2>
 <table>
 <colgroup>

@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>P5-A — Correções da revisão ampliada R01–R07</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">P5-A — Correções da revisão ampliada R01–R07</h1>
+</header>
+<h1 id="p5-a-correções-da-revisão-ampliada-r01r07">P5-A — Correções da
+revisão ampliada R01–R07</h1>
+<p>Data: 2026-11-02. Classificação: <code>contrato-publico</code> e
+<code>transversal</code>. Situação: R01–R07 implementados, gate focal
+final e validação Angular PASS. O comando complementar amplo permaneceu
+FAIL; suas ocorrências passaram em revalidação isolada. Isso não
+constitui aprovação do gate amplo literal. Este registro complementa a
+revisão inicial de 02/11, cujas sondas foram incorporadas à suíte
+permanente.</p>
+<h2 id="mapa-de-impacto-e-decisões">Mapa de impacto e decisões</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Fonte canônica</th>
+<th>Aderência anterior</th>
+<th>Correção</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine JSON Logic</td>
+<td>Suportado parcialmente: código de tipo não indicava a origem
+nula</td>
+<td>Evidência imutável de paths de operandos nulos, sem alterar
+valores/decisões/corpus</td>
+</tr>
+<tr>
+<td>Custom-field adapter</td>
+<td>Suportado parcialmente: dispensa ampla e entity graph genérico</td>
+<td>Só dispensa origem comprovada em <code>value</code>; projeta
+escalares e o container JSON</td>
+</tr>
+<tr>
+<td>Engine bulk declarativo</td>
+<td>Categorias já suportadas, mal materializadas entre fases</td>
+<td>Uma classificação tipada por alvo para avaliação, admissão e
+gravação</td>
+</tr>
+<tr>
+<td>Mudanças de campos bulk</td>
+<td>Lacuna de discriminação entre payload e erro de programação</td>
+<td><code>BulkFieldChangeValidationException</code>, ainda subtipo de
+<code>IllegalArgumentException</code></td>
+</tr>
+<tr>
+<td>Status bulk</td>
+<td>Roteamento parcialmente suportado</td>
+<td>Política obrigatória e grants globais antes da correlação por
+ID</td>
+</tr>
+<tr>
+<td>Keyset</td>
+<td>Ordenação explícita existente, não aplicada ao fallback</td>
+<td>Mesma ordem Criteria e boundary nos dois caminhos</td>
+</tr>
+<tr>
+<td>Angular Core/Form</td>
+<td><code>decision</code> já vinha do backend, mas era descartada</td>
+<td>Preserva decisão; não transforma resultado técnico em erro de
+campo</td>
+</tr>
+</tbody>
+</table>
+<p>Não foram introduzidos novos endpoints, campos <code>x-ui</code>,
+parâmetros de authoring, flags ou regras locais de host. O engine mantém
+independência de Spring/JPA. Config Starter mantém sua própria fronteira
+de publicação e persistência.</p>
+<h2 id="tratamento-dos-achados">Tratamento dos achados</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Achado</th>
+<th>Implementação</th>
+<th>Evidência</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R01</td>
+<td><code>getNullOperandPaths()</code> comprova as origens explícitas; o
+adapter exige exclusivamente <code>value</code></td>
+<td>Divisão por zero, outro tipo inválido, outro root nulo e iterator
+local não são dispensados; comparação opcional válida continua não
+aplicável</td>
+</tr>
+<tr>
+<td>R02</td>
+<td><code>entityFacts</code> projeta escalares/embedded sem associações;
+restaura explicitamente o container custom fields</td>
+<td>Ciclo <code>ManyToOne</code> não é percorrido; os dois overloads de
+update preservam <code>entity.status</code> e
+<code>entity.customFields.amount</code></td>
+</tr>
+<tr>
+<td>R03</td>
+<td><code>EntityNotFoundException</code> recebe
+<code>TARGET_NOT_FOUND</code> também na avaliação/admissão</td>
+<td>HTTP/PostgreSQL: alvo removido após a proposta é INVALID; alvo
+seguinte CONFIRMED e alteração persistida</td>
+</tr>
+<tr>
+<td>R04</td>
+<td>Falhas técnicas/inconclusivas e 5xx não recebem resultado de
+validação</td>
+<td>Probes preservam exceções técnicas; HTTP/PostgreSQL confirma STOPPED
+e ausência de gravações em falha técnica de admissão</td>
+</tr>
+<tr>
+<td>R05</td>
+<td><code>CONFLICT</code> usa categoria <code>CONFLICT_DEPENDENCY</code>
+e conserva <code>TARGET_STATE_CONFLICT</code></td>
+<td>HTTP/PostgreSQL: primeiro alvo CONFLICT, segundo CONFIRMED;
+alteração do primeiro não é persistida</td>
+</tr>
+<tr>
+<td>R06</td>
+<td>Grants são verificados no snapshot antes do SELECT por ID; somente
+operações autorizadas entram no SQL</td>
+<td>HTTP/PostgreSQL: conhecidos/ausentes retornam 403 em proposta,
+execução, resultados e cancelamento; testes verificam ausência de SELECT
+quando negado</td>
+</tr>
+<tr>
+<td>R07</td>
+<td>Fallback usa <code>Specification</code> com ordem Criteria explícita
+e Pageable sem Sort nativo</td>
+<td>H2/JPA: todos os registros aparecem uma vez; nulos explícitos,
+ASC/DESC e retorno usam a mesma ordem do caminho EntityManager</td>
+</tr>
+</tbody>
+</table>
+<h3 id="contratos-de-falha-e-autoridade">Contratos de falha e
+autoridade</h3>
+<p>A classificação de alvo reconhece somente falhas tipadas: versão
+obsoleta, conflito de estado, ausência, acesso negado, validação e
+mudança de campos inválida. Uma <code>IllegalArgumentException</code>
+genérica em configuração/callback permanece técnica.
+<code>BulkFieldChanges</code> distingue os cinco erros de entrada do
+payload das allowlists inválidas do servidor. Erros Jackson
+<code>MismatchedInputException</code> ao converter o plano para
+UpdateDTO são traduzidos na fronteira do adapter; configuração inválida
+do mapper não é tratada como entrada corrigível.</p>
+<p>O lookup resolve bindings MVC/OpenAPI e contexto autenticado
+<strong>antes</strong> do JDBC; isso não concede leitura do ID. O
+<code>preAuthorize</code> de cada operação declarada roda
+<strong>dentro</strong> do snapshot operacional, com orçamento agregado
+de três segundos. Autoridade ausente, indisponível ou vinculada a outra
+infraestrutura/recurso falha fechada com 503. Sem grants, o resultado é
+403 independentemente do ID. Com grant parcial, somente operações
+autorizadas entram no filtro SQL. O reader subsequente ainda revalida o
+grant, o criador e a visibilidade do conjunto completo.</p>
+<p>Chamadas diretas a <code>BulkOperationStatusLookup</code> agora
+exigem <code>BulkResourcePolicy</code>. A assinatura sem autoridade foi
+removida; controllers da base passam a política pelo engine. Trata-se de
+correção do candidato beta local, sem alias permissivo. Não foi
+localizada chamada direta desse lookup nos sources do Quickstart, Config
+Starter ou Ergon Showcase.</p>
+<h3 id="ux-funcional">UX funcional</h3>
+<p><code>PraxisSubmitErrorDetail</code> preserva
+<code>DomainRuleDecision</code>. O normalizador aceita as cinco decisões
+canônicas; uma decisão desconhecida conserva a mensagem pública segura e
+não projeta target para correção. O formulário só materializa uma
+decisão governada no campo quando ela é <code>DENY</code>. As demais
+ficam no resumo, sem marcar o controle inválido/touched e sem retry
+automático. Erros legados sem decisão mantêm o comportamento por target,
+inclusive caminhos aninhados.</p>
+<p>Não há alteração de layout, editor, inputs/outputs, config
+persistida, tradução ou manifesto AI. A API pública já exportava o tipo
+de erro normalizado; ganhou somente o campo opcional
+<code>decision</code>. Os manifests e o round-trip de authoring não
+recebem nova semântica. A fixture <code>relatedResourceSurface</code> de
+um spec do Core estava declarada dentro de outro teste; seu escopo foi
+corrigido para permitir compilar e executar a prova focal, sem mudar
+suas expectativas.</p>
+<h2 id="gates">Gates</h2>
+<p>OpenJDK 21 e Maven 3.9.6 para Java; instalação Node Windows e
+ChromeHeadless para os specs Angular. O MCP Angular forneceu as boas
+práticas do CLI instalado.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine <code>mvn install</code>, incluindo
+testes/sources/Javadocs</td>
+<td>PASS — 125 testes, zero falhas/erros/skips; instalação somente
+local</td>
+</tr>
+<tr>
+<td>Starter seleção focal inicial ampliada</td>
+<td>PASS — 125 testes, incluindo as dez reproduções negativas da
+revisão</td>
+</tr>
+<tr>
+<td>Starter HTTP/PostgreSQL final</td>
+<td>PASS — 12 testes, incluindo quatro cenários novos de
+concorrência/autoridade</td>
+</tr>
+<tr>
+<td>Starter complementar Windows, árvore compartilhada</td>
+<td>FAIL — 1.862 testes: 1 falha, 2 erros, 6 ignorados; ocorrências
+descritas abaixo</td>
+</tr>
+<tr>
+<td>Starter focal final, snapshot isolado</td>
+<td>PASS — 160 testes, zero falhas/erros/skips, incluindo as 12 provas
+HTTP/PostgreSQL e o caso de bootstrap</td>
+</tr>
+<tr>
+<td>Delta concorrente do helper de patches</td>
+<td>PASS — 16 testes de cópia/commands/custom fields; inclui casos já
+presentes no gate focal, sem somar como testes únicos</td>
+</tr>
+<tr>
+<td>Angular Core: normalização e adapter de surface</td>
+<td>PASS — 24 specs em ChromeHeadless</td>
+</tr>
+<tr>
+<td>Build Core e dependentes pelo script canônico</td>
+<td>PASS — 13 bibliotecas, incluindo Dynamic Form</td>
+</tr>
+<tr>
+<td>Form consumidor: specs e build</td>
+<td>PASS — 238 specs ChromeHeadless; build incluído na sequência
+canônica</td>
+</tr>
+<tr>
+<td>Instalação do starter final</td>
+<td>PASS — <code>8.0.0-rc.188</code>, sources e Javadocs instalados
+localmente; não altera o FAIL do lote amplo</td>
+</tr>
+</tbody>
+</table>
+<p>Comando complementar:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>mvn test <span class="st">&quot;-Dtest=!*Neon*,!*PostgresTest,!BulkCapacityLocalAdministrationMainTest,!BulkCapacityProvisioningMainTest,!BulkConsumerArtifactIntegrationTest&quot;</span></span></code></pre></div>
+<p>Logs Java em <code>target/p5a-r1-r7-*.log</code>. Logs Angular em
+<code>D:\CodexHome\review-workspaces\p5a-20261102-1201\angular-*.log</code>.
+Manifesto das 13 fontes de produção relevantes em
+<code>target/p5a-r1-r7-source-manifest.json</code>. O JAR do engine
+instalado localmente tem SHA-256
+<code>e7ae99edde4350389e81ede78c3c140f56f1343cc21531f02e8a7e267e9cc13b</code>;
+o starter exige esse candidato com <code>getNullOperandPaths()</code>. A
+instalação local não prova disponibilidade dessas APIs em uma coordenada
+pública do registry. O manifesto
+<code>target/p5a-r1-r7-freeze-final-manifest.json</code> compara os 679
+arquivos de <code>src/main</code> e POM com o snapshot. Uma alteração
+concorrente em <code>ResourceStateCopySupport</code> foi detectada antes
+da instalação, incorporada ao snapshot e validada pelos 16 testes do
+delta, preservando o trabalho recebido. Após instalar, os 679 arquivos
+continuavam iguais ao snapshot final. O JAR do starter instalado tem
+SHA-256
+<code>bb971002e2ab1cc278861f24f6745095a839b90c83e59225880a5a7458c80c45</code>;
+os JARs de <code>target</code> e do repositório Maven local são
+idênticos para os dois artefatos, conforme
+<code>target/p5a-r1-r7-artifacts.json</code>. <code>javap</code>
+confirmou que o lookup empacotado exige a política nas duas chamadas. O
+Javadoc inclui essa assinatura e a exceção de payload tipada. O
+blueprint embarcado mantém SHA-256
+<code>655a53cb12012ba4ff3fe79662c3dffa8727d9c2c9eed6db9604d124fe0a2de2</code>,
+igual à fonte e ao GUIA-00. As primeiras tentativas HTTP detectaram
+problemas de composição que foram corrigidos antes do gate final; seus
+resultados não são contados como PASS.</p>
+<p>O lote complementar literal não terminou verde. Houve uma falha ao
+iniciar o PostgreSQL embarcado
+(<code>Gave up waiting for server to start after 10000ms</code>) antes
+de executar
+<code>BulkOperationStructuralCompilerTest.mixedResourceKeepsCommandFingerprintAndReadinessWhileUpdatesRemainUncomposed</code>.
+Também executou a versão antiga de uma expectativa de readonly de
+comandos, atualizada concorrentemente em
+<code>CustomFieldAdoptionRegressionTest</code>, e um probe novo com dado
+literal posicionado incorretamente como operador JSON Logic. O probe foi
+corrigido para usar <code>draft.rows</code>, preservando as expectativas
+e verificando o código de erro de tipo. As versões atuais foram
+revalidadas no snapshot isolado
+<code>D:\CodexHome\review-workspaces\p5a-corrections-20261102-2140\praxis-metadata-starter</code>.
+A repetição focal não apaga o resultado FAIL do comando amplo
+original.</p>
+<p>Comando do gate focal final, registrado em
+<code>target/p5a-r1-r7-isolated-final.log</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>mvn <span class="st">&quot;-Dtest=P5AIndependentReviewTest,P5ABulkIndependentReviewTest,P5AStatusAuthorizationReviewTest,P5ACursorIndependentReviewTest,P5ACustomFieldRegressionTest,P2CustomFieldContextTest,CustomFieldAdoptionRegressionTest,CustomFieldDomainMutationRegressionTest,CustomFieldJsonLogicTest,CustomFieldResourceLifecycleTest,CoreResourceEvolutionIntegrationTest,ResourceKeysetSupportTest,JpaResourceBulkEngineTest,BulkFieldChangeValidationTest,BulkOperationStatusLookupTest,BulkDeclarativeProtocolTest,BulkDeclarativeJpaHttpTest,GovernedResourceCommandExecutorTest,RuleViolationHttpTest,BulkOperationStructuralCompilerTest#mixedResourceKeepsCommandFingerprintAndReadinessWhileUpdatesRemainUncomposed&quot;</span> test</span></code></pre></div>
+<h2 id="limites-de-aceite">Limites de aceite</h2>
+<p>No fallback keyset sem EntityManager, consulta <code>distinct</code>
+falha explicitamente antes da leitura dos dados. Filtros relacionais que
+deduplicam resultados exigem a composição com EntityManager, que projeta
+também as expressões de ordenação. Esse limite não afeta o caminho
+Spring/JPA normalmente injetado e não é ocultado por ordenação em
+memória.</p>
+<p>O kernel SQL/Flyway e o caminho ATOMIC não foram alterados neste
+tratamento. O antigo gate amplo com ATOMIC continua sem aprovação; não
+foi substituído pela regressão complementar. Não houve execução
+Neon/POSIX, publicação remota, aceite de IAM de um host real nem prova
+de fluxo integrado backend/browser ou AXE. ChromeHeadless executa os
+specs dos runtimes; não certifica a jornada visual.</p>
+<p>O scorecard de completude de recursos corporativos segue N/A: este
+recorte é a infraestrutura compartilhada, sem migração de entidade/DTO
+de host. As mudanças anteriores e concorrentes das árvores foram
+preservadas e não são atribuídas a estas correções.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

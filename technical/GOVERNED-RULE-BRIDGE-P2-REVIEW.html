@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Revisão da P2 — integridade, contratos e experiência de consumo</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Revisão da P2 — integridade, contratos e experiência
+de consumo</h1>
+</header>
+<h1
+id="revisão-da-p2-integridade-contratos-e-experiência-de-consumo">Revisão
+da P2 — integridade, contratos e experiência de consumo</h1>
+<p>Data: 2026-11-01. Parecer: <strong>CHANGES REQUESTED</strong>.</p>
+<p>Registro histórico da revisão. Uma etapa posterior implementou as
+correções de R1–R3 e seus testes de regressão; veja o <a
+href="GOVERNED-RULE-BRIDGE-P2-CORRECTIONS.md">registro de correção</a>.
+O parecer e as reproduções abaixo descrevem os artefatos originais
+identificados pelos hashes.</p>
+<p>A implementação contém todos os componentes principais previstos, mas
+a revisão reproduziu uma possibilidade de descumprimento de regra no
+update e duas falhas de contrato/diagnóstico. As contagens verdes da
+implementação não cobrem esses cenários e não sustentam aprovação
+funcional da P2.</p>
+<h2 id="escopo-e-identificação-da-evidência">Escopo e identificação da
+evidência</h2>
+<p>Foram revisados os contratos de violação, fact-tree builder,
+template/cache, matcher de vigência, tri-state, integração de exceções,
+pipeline de custom fields, testes e guias. O consumidor Angular foi
+inspecionado no código de <code>ErrorMessageService</code> e
+<code>PraxisDynamicForm</code>, sem execução em browser.</p>
+<p>Os artefatos da implementação anterior foram copiados para
+<code>target/p2-review/candidate-{engine,metadata}.jar</code> antes das
+reproduções finais:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Artefato</th>
+<th>SHA-256</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine <code>0.1.0-beta.17</code></td>
+<td><code>708F41B4BEDD608BB75101324293452787FB31378D00D4EC32E697C5BC3B3441</code></td>
+</tr>
+<tr>
+<td>Metadata <code>8.0.0-rc.188</code></td>
+<td><code>C62B846C0C868AD189E1F05C0B3686A25A86C21FDCAFDF7A48BEFDA95AF7553D</code></td>
+</tr>
+</tbody>
+</table>
+<p>As reproduções imprimem o <code>CodeSource</code> para comprovar o
+uso dessas cópias fixas. Elas não usam a produção parcialmente
+recompilada da árvore em alteração. O cenário de update usa mocks de
+mapper/repository e verifica a chamada a <code>save</code>; não houve
+alteração de banco real nem alegação de prova de rollback/IAM.</p>
+<h2 id="achados-que-exigem-correção">Achados que exigem correção</h2>
+<h3
+id="r1-p1-a-raiz-entity-ausente-pode-permitir-uma-alteração-proibida">R1
+— P1 — A raiz entity ausente pode permitir uma alteração proibida</h3>
+<p>Fontes: <code>customfields/CustomFieldValidator.java:21-22</code>,
+<code>customfields/CustomFieldJsonLogic.java:39-43</code> e
+<code>service/base/AbstractBaseResourceService.java</code> nos métodos
+de validação/update.</p>
+<p>O caminho padrão chama o overload do validator sem entidade. Os
+updates validam os custom fields antes de carregar o registro existente.
+A expressão pode ser válida e fazer referência a <code>entity</code>,
+mas a raiz fica ausente. Isso não produz necessariamente erro técnico: a
+semântica canônica de ausência pode fazer uma condição negativa resultar
+em verdadeiro.</p>
+<p>Reprodução com regra de um campo:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;!=&quot;</span><span class="fu">:</span><span class="ot">[</span><span class="fu">{</span><span class="dt">&quot;var&quot;</span><span class="fu">:</span><span class="st">&quot;entity.status&quot;</span><span class="fu">}</span><span class="ot">,</span><span class="st">&quot;LOCKED&quot;</span><span class="ot">]</span><span class="fu">}</span></span></code></pre></div>
+<p>Para uma entidade armazenada com <code>status = LOCKED</code>, o
+overload que recebe a entidade rejeita corretamente. O
+<code>AbstractBaseResourceService.update</code>, com a mesma definição e
+DTO, permite a alteração e chama <code>repository.save</code>.</p>
+<p>Resultado observado:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;storedStatus&quot;</span><span class="fu">:</span><span class="st">&quot;LOCKED&quot;</span><span class="fu">,</span><span class="dt">&quot;directValidatorRejected&quot;</span><span class="fu">:</span><span class="kw">true</span><span class="fu">,</span><span class="dt">&quot;baseServiceSaved&quot;</span><span class="fu">:{</span><span class="dt">&quot;amount&quot;</span><span class="fu">:</span><span class="dv">8</span><span class="fu">}}</span></span></code></pre></div>
+<p>Impacto: um recurso que use essa regra de custom field como restrição
+de atualização pode descumpri-la. O problema é material para regras de
+estado, elegibilidade, limites e retenção de valores, mesmo sem usar
+operadores temporais.</p>
+<p>Correção canônica necessária: fornecer o estado previamente carregado
+e autorizado na etapa de avaliação do update, preservando o snapshot
+único de definições e as precondições de concorrência. A
+admissão/avaliação também precisa definir quando uma raiz de servidor é
+obrigatória e impedir ALLOW quando esse contexto estiver indisponível. O
+create deve ter uma semântica de ausência explicitamente documentada. O
+overload manual não fecha a integração nativa.</p>
+<p>Gate de fechamento: teste do serviço padrão, incluindo update
+versionado, com entidade bloqueada; nenhum hook de mutação, mapper de
+update ou <code>save</code> pode ser executado. Provar também o caso
+autorizado, isolamento do item e uso de uma única consulta ao provider
+de definições.</p>
+<h3
+id="r2-p2-um-ramo-not_applicable-vira-erro-de-campo-em-uma-negação-de-outro-ramo">R2
+— P2 — Um ramo NOT_APPLICABLE vira erro de campo em uma negação de outro
+ramo</h3>
+<p>Fontes:
+<code>rules/violation/PraxisRuleViolationException.java:40-41,71-81</code>
+no engine e
+<code>rest/exceptionhandler/GlobalExceptionHandler.java:84-108</code> no
+starter.</p>
+<p>O engine continua a avaliação depois de NOT_APPLICABLE para que outro
+binding estabeleça a decisão. Quando um binding posterior retorna DENY,
+o resultado consolidado contém somente a razão dessa negação. A exceção,
+porém, transforma todos os resultados diferentes de ALLOW em violações e
+acrescenta suas razões ao resultado consolidado.</p>
+<p>Plano reproduzido: ramo opcional <code>OUT_OF_SCOPE</code> retorna
+NOT_APPLICABLE; ramo <code>LIMIT</code> retorna DENY. Catálogo associa o
+primeiro a <code>category</code> e o segundo a <code>amount</code>.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;engineReasons&quot;</span><span class="fu">:</span><span class="ot">[</span><span class="st">&quot;LIMIT&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;exceptionReasons&quot;</span><span class="fu">:</span><span class="ot">[</span><span class="st">&quot;LIMIT&quot;</span><span class="ot">,</span><span class="st">&quot;OUT_OF_SCOPE&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;violationDecisions&quot;</span><span class="fu">:</span><span class="ot">[</span><span class="st">&quot;NOT_APPLICABLE&quot;</span><span class="ot">,</span><span class="st">&quot;DENY&quot;</span><span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;httpFirstCode&quot;</span><span class="fu">:</span><span class="st">&quot;OUT_OF_SCOPE&quot;</span><span class="fu">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;httpFirstTarget&quot;</span><span class="fu">:</span><span class="st">&quot;category&quot;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Impacto: o HTTP apresenta como primeiro erro um campo que não causou
+a negação. O Angular normaliza cada <code>errors[].target</code> e
+aplica <code>control.setErrors({server:...})</code>. O usuário pode
+receber um pedido de correção de categoria quando precisa apenas
+corrigir o valor. A decisão agregada permanece DENY, mas suas causas
+públicas e a orientação de correção deixam de ser fiéis ao resultado do
+engine.</p>
+<p>Correção canônica necessária: manter a autoridade de
+<code>RuleEvaluationResult</code> para as razões consolidadas e projetar
+como erros apenas as causas da decisão. Ramos não aplicáveis e
+dependências bloqueadas podem permanecer como diagnóstico de execução,
+distinguido dos erros de campo. Quando a decisão consolidada for
+NOT_APPLICABLE, preservar sua rejeição fail-closed e seus motivos
+terminais.</p>
+<p>Gate de fechamento: planos mistos NOT_APPLICABLE + DENY, INCONCLUSIVE
++ DENY, dependências inconclusivas e NOT_APPLICABLE consolidado.
+Verificar razões, proveniência, primeiro erro HTTP e ausência de campo
+falso no consumidor.</p>
+<h3
+id="r3-p2-operador-temporal-é-admitido-mas-não-possui-contexto-para-executar">R3
+— P2 — Operador temporal é admitido, mas não possui contexto para
+executar</h3>
+<p>Fontes: <code>customfields/CustomFieldJsonLogic.java:24-32</code> e
+<code>customfields/CustomFieldValidator.java:85-91</code>.</p>
+<p>A construção do descriptor faz validação estática com tempo/timezone
+nulos. Isso admite o operador canônico <code>now</code>. A execução usa
+novamente opções sem tempo/timezone e não oferece contrato para
+fornecê-los ao validator.</p>
+<p>Reprodução:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span><span class="dt">&quot;jsonLogic&quot;</span><span class="fu">:{</span><span class="dt">&quot;&gt;&quot;</span><span class="fu">:</span><span class="ot">[</span><span class="fu">{</span><span class="dt">&quot;now&quot;</span><span class="fu">:</span><span class="ot">[]</span><span class="fu">}</span><span class="ot">,</span><span class="dv">0</span><span class="ot">]</span><span class="fu">}}</span></span></code></pre></div>
+<p>A definição é construída com sucesso. A validação de um DTO válido
+lança <code>IllegalStateException</code>, cuja causa é
+<code>PraxisJsonLogicException</code> com código
+<code>RULE_TEMPORAL_INPUT_INVALID</code>. O handler genérico materializa
+500. A hipótese de nome alternativo <code>praxis:now</code> foi
+rejeitada na admissão e não é a reprodução: o defeito usa o nome
+canônico <code>now</code>.</p>
+<p>Impacto: o catálogo pode publicar uma restrição que nenhum valor do
+usuário consegue satisfazer por esse caminho. A mensagem de falha
+técnica não permite que o operador de configuração descubra o problema
+na admissão.</p>
+<p>Correção canônica necessária: alinhar capacidades de admissão e
+execução do adapter. Rejeitar expressões dependentes de contexto
+indisponível antes de publicá-las, ou definir um contexto temporal
+explícito e congelado por avaliação. O template governado já recebe
+contexto explícito e não precisa de mudança de dialeto ou relógio
+implícito para resolver essa diferença do adapter.</p>
+<p>Gate de fechamento: cada operador contextual admitido deve executar
+com o mesmo contrato de contexto; ausência/incompatibilidade deve falhar
+na fronteira prevista. Incluir <code>now</code>, ao menos um operador
+relativo de datas e um caso não temporal válido.</p>
+<h2 id="planejado-executado-e-lacunas">Planejado, executado e
+lacunas</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Item da P2</th>
+<th>Avaliação focal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Catálogo imutável e DTOs de violação</td>
+<td>Presentes; projeção causal precisa da correção R2</td>
+</tr>
+<tr>
+<td>Fact-tree builder</td>
+<td>Datas ISO, coleções, precisão e rejeição de ciclos/limites
+implementadas; nenhum bloqueador adicional confirmado</td>
+</tr>
+<tr>
+<td>Template e cache por <code>(ruleSetKey, scopeKey)</code></td>
+<td>Presentes, com tempo explícito e <code>enforce</code> permitindo
+apenas ALLOW; admissão/ativação continua pertencendo ao host</td>
+</tr>
+<tr>
+<td>Matcher de vigência</td>
+<td>Especificidade lexicográfica, vigência inclusiva e desempate
+explícito presentes</td>
+</tr>
+<tr>
+<td>Tri-state e número opcional</td>
+<td>Preservam proibição, zero e herança sem inventar permissão</td>
+</tr>
+<tr>
+<td>HTTP 422 e comandos governados</td>
+<td>Integração presente; campo de correção afetado por R2</td>
+</tr>
+<tr>
+<td>JSON Logic de custom fields</td>
+<td>Parcial: R1 e R3 impedem tratar as quatro roots e o dialeto como
+integração pronta</td>
+</tr>
+<tr>
+<td>UX Angular</td>
+<td>Consome target/message; aplicação dos estados e validação preventiva
+de <code>validationRules</code> não estão certificadas</td>
+</tr>
+<tr>
+<td>Comando amplo com filtro original</td>
+<td>Não ficou verde na implementação; rodada alternativa excluiu cinco
+classes Bulk adicionais</td>
+</tr>
+</tbody>
+</table>
+<p>O gate de completude Entity-to-DTO é <strong>não aplicável</strong>:
+esta revisão trata de bibliotecas/infraestrutura, sem adicionar ou
+aprovar recurso corporativo de host.</p>
+<h2 id="documentação-e-ux">Documentação e UX</h2>
+<p>Os guias passam a apontar este parecer e a separar overload
+disponível, integração nas bases e suporte de operadores. As contagens
+antigas são mantidas como histórico de execução, com a conclusão
+funcional corrigida.</p>
+<p>A inspeção estática do Angular identificou pontos para o fechamento
+de consumo:</p>
+<ul>
+<li><code>ErrorMessageService</code> preserva code/target/category, mas
+descarta decision e proveniência agregada. O campo de correção é
+aplicado sem filtrar categoria.</li>
+<li><code>PraxisDynamicForm.applySubmitFieldErrors</code> aplica todo
+target existente como erro de controle. Isso torna R2 diretamente
+relevante para a experiência.</li>
+<li>A mensagem genérica do envelope tem prioridade sobre a mensagem
+pt-BR do catálogo no resumo/snackbar. Convém definir resumo localizado e
+preservar os detalhes executivos de negócio, sem interpretar texto para
+classificar falhas.</li>
+<li>SYSTEM/TECHNICAL_ERROR/INCONCLUSIVE precisam de orientação de
+indisponibilidade ou diagnóstico, sem obrigar o usuário a editar um
+campo que não pode resolver a falha. Não há prova browser/E2E deste
+comportamento nesta revisão.</li>
+</ul>
+<h2 id="verificações-executadas-nesta-revisão">Verificações executadas
+nesta revisão</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Verificação</th>
+<th>Resultado e limite</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine — <code>mvn test</code>, JDK 21</td>
+<td>113 testes, zero falhas/erros/ignorados</td>
+</tr>
+<tr>
+<td>Starter — comando focal Maven da árvore atual</td>
+<td>Bloqueado na compilação por alterações Bulk/P3 concorrentes; não
+chegou à suíte de testes</td>
+</tr>
+<tr>
+<td>Subconjunto unitário sobre JARs e classes de teste congelados</td>
+<td>93 testes, zero falhas/erros/ignorados; não equivale à bateria focal
+completa de 188</td>
+</tr>
+<tr>
+<td>Probes adicionais sobre os mesmos JARs</td>
+<td>R1, R2 e R3 reproduzidos com assertions e CodeSource; sem banco
+real</td>
+</tr>
+</tbody>
+</table>
+<p>O subconjunto de 93 testes compreende
+<code>CustomFieldSchemaTenantIsolationTest</code>,
+<code>CustomFieldResourceLifecycleTest</code>,
+<code>CustomFieldSchemaProjectionTest</code>,
+<code>CustomFieldSpecContractTest</code>,
+<code>GlobalExceptionHandlerTest</code> e
+<code>CustomProblemDetailTest</code>. Os primeiros ensaios de launcher
+com classes ao vivo incompletas não foram aceitos como prova; o
+resultado acima usa cópias privadas.</p>
+<p>A compilação atual falhou em
+<code>BulkEvaluationSchemaSynthesizer</code> (retorno Schema versus
+StringSchema/ArraySchema) e em um acesso de
+<code>AbstractBaseResourceService</code> ao tipo inacessível
+<code>ResourceFilterQuery</code>. São mudanças de P3 fora desta revisão
+de P2. Elas foram preservadas. Não houve novo install, publicação,
+mudança de código de produção ou correção de Bulk nesta revisão.</p>
+<p>Evidências locais:</p>
+<ul>
+<li><code>target/p2-review-engine.log</code> no engine;</li>
+<li><code>target/p2-review-focused.log</code> no starter, incluindo
+erros de compilação;</li>
+<li><code>target/p2-review/P2ReviewProbe.java</code> e
+<code>probe-pinned.log</code>;</li>
+<li><code>target/p2-review/P2ReviewJUnit.java</code> e
+<code>junit-unit-subset.log</code>;</li>
+<li><code>target/p2-review/pinned-classpath.txt</code> e cópias dos dois
+JARs.</li>
+</ul>
+<h2 id="critério-para-nova-revisão">Critério para nova revisão</h2>
+<p>Fechar R1–R3 com testes permanentes que falhem antes da correção e
+passem depois, compilar um snapshot estável da P2, repetir os testes
+focais/HTTP sobre esse snapshot e atualizar a evidência. A aprovação
+permanece restrita à P2 e não abrange adoção P4, publicação, banco, IAM
+ou certificação do consumidor Angular.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

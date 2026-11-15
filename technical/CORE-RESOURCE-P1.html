@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>P1 — Core Resource Service (Onda 1)</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">P1 — Core Resource Service (Onda 1)</h1>
+</header>
+<h1 id="p1-core-resource-service-onda-1">P1 — Core Resource Service
+(Onda 1)</h1>
+<p>Escopo: implementação local exclusiva do
+<code>praxis-metadata-starter</code>. Adoção em hosts, publicação e
+demais ondas não fazem parte deste corte.</p>
+<h2 id="inventário-e-decisão-canônica">Inventário e decisão
+canônica</h2>
+<p>As capacidades eram suportadas parcialmente: contratos de cursor,
+exportação, stats, precondições, comandos e snapshots já existiam. A
+implementação completa permanece na hierarquia
+<code>AbstractBaseQueryResourceService</code> /
+<code>AbstractBaseResourceService</code> e no controller canônico. Não
+foi criada uma segunda hierarquia de recursos ou uma convenção de
+domínio consumidor.</p>
+<p>Lacunas de contrato acrescentadas:
+<code>DomainGovernance.exportable</code> (também projetado no schema e
+no catálogo de domínio), a porta opcional
+<code>ResourceCommandIdempotencyStore</code> e os hooks/templates Java
+previstos na P1. O armazenamento JDBC é opt-in e não executa migrações
+automaticamente. <code>BaseResourceQueryService</code> expõe a ponte
+opcional de identidade/snapshot para suportar também proxies Spring
+baseados em interfaces.</p>
+<h2 id="matriz-de-prova">Matriz de prova</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Capacidade</th>
+<th>Teste reprodutível no módulo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cursor simples/composto, navegação anterior, sort descendente,
+nulls, exclusão da âncora, COUNT SQL</td>
+<td><code>CoreResourceEvolutionIntegrationTest</code></td>
+</tr>
+<tr>
+<td>Escopo de coleção e 404/403 em item/update/exclusões; hooks por
+item</td>
+<td><code>CoreResourceEvolutionIntegrationTest</code>,
+<code>AbstractBaseResourceServiceTest</code></td>
+</tr>
+<tr>
+<td>Enriquecimento por lote nas superfícies de leitura, read-only e
+export</td>
+<td><code>CoreResourceEvolutionIntegrationTest</code></td>
+</tr>
+<tr>
+<td>Cinco escopos de export, seleção/exclusões, IDs compostos, limite e
+allowlist</td>
+<td><code>CoreResourceEvolutionIntegrationTest</code></td>
+</tr>
+<tr>
+<td>Fields/getters de DTO, export de container com filho restrito e
+codec de caracteres especiais</td>
+<td><code>ResourceCoreIntrospectionTest</code></td>
+</tr>
+<tr>
+<td><code>@Version</code> herdado em getter; accessor cache não congela
+valores</td>
+<td><code>ResourceCoreIntrospectionTest</code></td>
+</tr>
+<tr>
+<td>Update concreto, revisão final após hooks, dois writers sobre a
+mesma revisão, contexto JPA sujo</td>
+<td><code>CoreResourceEvolutionIntegrationTest</code>,
+<code>VersionedBaseResourceServiceTest</code></td>
+</tr>
+<tr>
+<td>ETag forte, 428/400/412, denial, replay histórico, verificação de
+acesso no replay, master-detail</td>
+<td><code>VersionedItemCommandHelpersTest</code></td>
+</tr>
+<tr>
+<td>Atomicidade JPA + JDBC, rollback externo, retries concorrentes,
+fingerprint e isolamento de chaves</td>
+<td><code>JdbcResourceCommandReceiptStoreTest</code> (PostgreSQL
+real)</td>
+</tr>
+<tr>
+<td>Auto-configuração, override único, chave ambígua, deduplicação e
+proxy JDK</td>
+<td><code>ResourceServiceStateSnapshotProviderTest</code></td>
+</tr>
+<tr>
+<td>Quatro modos stats AUTO por registry</td>
+<td><code>CoreResourceEvolutionIntegrationTest</code></td>
+</tr>
+<tr>
+<td>Builders de diretório e determinações, defaults e rejeições</td>
+<td><code>PlatformAuthoringBuildersTest</code></td>
+</tr>
+<tr>
+<td>Publicação e projeção de <code>exportable</code></td>
+<td><code>CustomOpenApiResolverTest</code>,
+<code>SemanticDomainCatalogServiceTest</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="baseline-de-execução">Baseline de execução</h2>
+<p>JDK de fechamento:
+<code>C:\Users\rodrigo.moreira\.jdks\openjdk-21.0.2</code> (OpenJDK
+21.0.2). As primeiras provas focais usaram também
+<code>D:\Developer\JAVA\graalvm-jdk-21.0.2+13.1</code>.</p>
+<p>A primeira execução integral revelou um desvio no POM: o kernel de
+storage existente exige PostgreSQL 17+, mas os binários embedded
+transitivos do Windows eram 14.22. Naquela sessão foi usado um BOM
+17.11.0 para repetir provas; essa configuração <strong>não está no POM
+atual</strong>. A árvore revisada (HEAD <code>53ab770a46</code>, versão
+<code>8.0.0-rc.188</code>) mantém apenas a dependência ARM/Darwin
+explícita e resolve binários transitivos antigos em Windows. As provas
+anteriores são históricas; não comprovam que a árvore atual satisfaça o
+requisito PG17. Nenhuma guarda do Bulk foi relaxada.</p>
+<p>A rodada integral com GraalVM também apresentou
+<code>Canonical bulk migration resource digest differs</code> em testes
+de Bulk. Os bytes dos SQLs, seus catálogos e suas cópias no classpath
+conferiram com os hashes esperados. Resoluções isoladas da cadeia
+(20.000 em cada JDK) passaram. A causa da divergência naquela execução
+não foi estabelecida; nenhum SQL/hash/verificador foi modificado. O
+fechamento usa OpenJDK 21, preservando separadamente os logs das rodadas
+interrompidas.</p>
+<h2 id="resultado-da-validação-local-2026-11-01">Resultado da validação
+local — 2026-11-01</h2>
+<p><strong>Registro da primeira implementação; gate integral não
+aprovado neste ambiente Windows.</strong></p>
+<p>A revisão posterior encontrou e corrigiu inconsistências funcionais.
+Os resultados abaixo são históricos; consulte <a
+href="CORE-RESOURCE-P1-REVIEW.md">CORE-RESOURCE-P1-REVIEW.md</a> para as
+correções, a validação da árvore atual e os limites de adoção
+corporativa.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Execução</th>
+<th>Resultado</th>
+<th>Log em <code>target/</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bateria ampliada de 21 classes afetadas</td>
+<td><strong>177 testes, 0 falhas, 0 erros, 0 skips</strong></td>
+<td><code>p1-mvn-final-affected.log</code></td>
+</tr>
+<tr>
+<td>Regressão final do cursor e core, incluindo enum com
+<code>toString</code> editorial e proxies JPA</td>
+<td><strong>21 testes, 0 falhas, 0 erros, 0 skips</strong></td>
+<td><code>p1-mvn-final-cursor.log</code></td>
+</tr>
+<tr>
+<td><code>mvn install -DskipTests</code>, OpenJDK 21</td>
+<td><strong>BUILD SUCCESS</strong>, instalação local de
+<code>8.0.0-rc.187</code></td>
+<td><code>p1-mvn-install-jdk21.log</code></td>
+</tr>
+<tr>
+<td>Reprodução Maven da fixture POSIX existente</td>
+<td><strong>2 erros</strong>,
+<code>UnsupportedOperationException: 'posix:permissions' not supported as initial attribute</code></td>
+<td><code>p1-mvn-posix-baseline.log</code></td>
+</tr>
+<tr>
+<td>Diagnóstico isolado do kernel Bulk + provider de snapshots, OpenJDK
+21</td>
+<td>75 testes: 71 passaram, 4 falharam em
+<code>BulkAtomicExecutionPostgresTest</code></td>
+<td><code>p1-isolated-openjdk21.log</code></td>
+</tr>
+</tbody>
+</table>
+<p>As tentativas de <code>mvn test</code> integral foram interrompidas e
+<strong>não</strong> têm resultado verde. O baseline POSIX foi
+reproduzido sem mudar a fixture:
+<code>BulkCapacityAuthorityRollbackPostgresTest</code>, linhas 69/140,
+construção de <code>Proof</code> na linha 642. As quatro falhas do
+diagnóstico isolado Bulk envolveram <code>UNAVAILABLE</code>,
+<code>RECONCILIATION_REQUIRED</code> e expectativa
+<code>COMPLETED</code> recebendo
+<code>UNIT_COMMITTED_PENDING_ACK</code>. A causa dessas falhas não foi
+atribuída a um timeout físico. Nenhum timeout, SQL, hash, guarda,
+requisito POSIX ou implementação do kernel foi alterado para forçar
+aprovação. O novo provider de snapshots passou nos quatro casos desse
+diagnóstico.</p>
+<p>O Ubuntu/WSL registrado falhou ao anexar seu disco com acesso negado;
+o engine Linux do Docker estava indisponível. Não foram alteradas
+permissões, configurações de virtualização ou serviços externos. O
+fechamento integral exige um ambiente POSIX operacional e investigação
+das falhas restantes do baseline Bulk. A bateria focal não substitui
+esse gate.</p>
+<p>A fixture HTTP/JPA também foi corrigida para informar ao MockMvc a
+porta local real do servidor aleatório: a descoberta interna de OpenAPI
+deixa de tentar a porta 80. A correção preserva o fetch HTTP e todas as
+guardas de disponibilidade, sem mockar a publicação.</p>
+<p>Comandos de reprodução das classes afetadas (PowerShell com o JDK
+acima em <code>JAVA_HOME</code>/<code>PATH</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="va">$p1Tests</span> <span class="op">=</span> <span class="op">@(</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;CoreResourceEvolutionIntegrationTest&#39;</span><span class="op">,</span> <span class="st">&#39;ResourceCoreIntrospectionTest&#39;</span><span class="op">,</span> <span class="st">&#39;ResourceStateCopySupportTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;ResourceServiceStateSnapshotProviderTest&#39;</span><span class="op">,</span> <span class="st">&#39;AbstractBaseResourceServiceTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;VersionedBaseResourceServiceTest&#39;</span><span class="op">,</span> <span class="st">&#39;VersionedItemCommandHelpersTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;PlatformAuthoringBuildersTest&#39;</span><span class="op">,</span> <span class="st">&#39;JdbcResourceCommandReceiptStoreTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;CustomOpenApiResolverTest&#39;</span><span class="op">,</span> <span class="st">&#39;SemanticDomainCatalogServiceTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;AbstractResourceControllerMappedCrudTest&#39;</span><span class="op">,</span> <span class="st">&#39;AbstractResourceControllerJpaWriteIntegrationTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;AbstractReadOnlyResourceControllerLinksTest&#39;</span><span class="op">,</span> <span class="st">&#39;AbstractResourceControllerLinksTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;AbstractResourceQueryControllerHateoasTest&#39;</span><span class="op">,</span> <span class="st">&#39;AbstractResourceQueryControllerBasePathDetectionTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;VersionedCreateUpdateResourceControllerTest&#39;</span><span class="op">,</span> <span class="st">&#39;OpenApiUiSchemaAutoConfigurationSurfaceAvailabilityTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;OpenApiUiSchemaAutoConfigurationActionAvailabilityTest&#39;</span><span class="op">,</span> <span class="st">&#39;DefaultCollectionExportExecutorTest&#39;</span><span class="op">,</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="st">&#39;CustomFieldCollectionExportTest&#39;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>mvn <span class="st">&quot;-Dtest=</span><span class="op">$(</span><span class="va">$p1Tests</span> <span class="op">-join</span> <span class="st">&#39;,&#39;</span><span class="op">)</span><span class="st">&quot;</span> test</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>mvn <span class="st">&#39;-Dtest=CoreResourceEvolutionIntegrationTest,ResourceCoreIntrospectionTest&#39;</span> test</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>mvn <span class="st">&#39;-Dtest=BulkCapacityAuthorityRollbackPostgresTest&#39;</span> test</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>mvn install <span class="op">-</span>DskipTests</span></code></pre></div>
+<h2 id="impacto-de-adoção">Impacto de adoção</h2>
+<ul>
+<li>Tokens posicionais antigos não são aceitos. Iniciar nova navegação
+após atualizar o starter.</li>
+<li>Exclusão inexistente retorna 404; exclusão múltipla verifica todos
+os alvos e executa hooks por item.</li>
+<li>Recursos com registry de stats passam a optar automaticamente por
+AUTO; infraestrutura e elegibilidade continuam necessárias para anunciar
+suporte executável.</li>
+<li>Recursos com campos de grade exportáveis e executor passam a dispor
+da implementação base de export.</li>
+<li><code>DomainGovernanceItem</code> ganha o componente Java
+<code>exportable</code>; revisar construção direta por
+consumidores.</li>
+<li>Serviços com estado devem publicar a mesma chave semântica do
+controller. O host conserva suas regras de estado, autorização,
+lifecycle, retenção dos recibos e políticas de seleção.</li>
+</ul>
+<h2 id="artefatos-derivados-e-limites-da-evidência">Artefatos derivados
+e limites da evidência</h2>
+<p>Foram atualizados README, índice, changelog, guia de adoção e
+especificação de governança/conformidade. Não há novo endpoint nem novo
+shape de <code>x-ui</code>; os schemas JSON existentes de
+<code>x-ui</code> não precisam de campos adicionais.
+<code>AutoConfiguration.imports</code> foi conferido: o bean mudou
+dentro de uma auto-configuração já registrada. Javadocs gerados não
+foram editados.</p>
+<p>O scorecard de completude de recursos de domínio não se aplica a esta
+infraestrutura de biblioteca; não foram criados recursos de negócio ou
+DTOs de hosts. As entidades/DTOs de teste são fixtures locais. Não foram
+alterados ou validados hosts, Angular, corpus HTTP nem os adaptadores da
+Onda 4. Provas remotas condicionadas por credenciais continuam sujeitas
+às condições nativas da suíte; testes skipped não certificam integração
+externa. Nenhuma release, tag ou workflow remoto foi acionado.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

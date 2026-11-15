@@ -280,6 +280,35 @@ Use acentos e portugues correto em textos publicos. O contrato pode conter nomes
 tecnicos em ingles (`resourceKey`, `id`, enum, path), mas `title`, `summary` e
 `description` devem ser escritos como documentacao de produto.
 
+### 8. Habilite investigacoes operacionais complexas (`operational_investigation`) com vocabulario humano e predicados de ausencia
+
+Quando um operador ou gestor pergunta ao assistente de IA algo como *"quero
+investigar servidores da saude que tiveram aumento superior a 30% sem
+movimentacao funcional nos ultimos 3 meses"*, o motor de grounding (`api_metadata`
++ `/schemas/filtered` + `/schemas/domain`) depende de tres propriedades no
+contrato publicado:
+
+1. **Vocabulario humano nos filtros relacionais de organizacao e classificacao:**
+   um usuario nunca pergunta por `setor = "03.01.01"` ou `empCodigo = 1`. O
+   `FilterDTO` precisa publicar filtros relacionais sobre nomes legiveis, tipos
+   de unidade e categorias de negocio (`lotacao.nome`, `lotacao.tipoSetor`,
+   `vinculo.categoria`, `cargoEntidade.nome`) e descrever explicitamente no
+   `@Schema(description = ...)` os valores de dominio aceitos (ex.: `SAUDE`,
+   `MAGISTERIO`, `GUARDA_MUNICIPAL`, `UNIDADE_SAUDE`, `ESCOLA`) para que o RAG
+   e o planejador da LLM saibam traduzir a linguagem natural em predicados exatos;
+2. **Predicados explicitos de ausencia, omissao ou estagnacao (`IS_NULL`,
+   `IS_FALSE`, janelas anti-evento):** alem de janelas positivas (`IN_LAST_DAYS`,
+   `IN_NEXT_DAYS`), documente claramente os filtros que provam a *ausencia* de
+   um evento ou estado (ex.: `semHomologacaoEstagio`, `semSubstitutoDesignado`,
+   `semParcelaProgramada`, `diasSemMovimentacaoFuncionalMin`), explicando no
+   `@Schema(description)` qual omissao ou inatividade aquele filtro audita;
+3. **Projecoes analiticas cross-domain (`Radar*`):** perguntas que cruzam
+   multiplos subdominios com calculos agregados ou temporais devem ser atendidas
+   por recursos read-only consolidados (`AbstractReadOnlyResourceController`)
+   cujo `@Schema(description)` no DTO e na operacao `/filter` declare
+   explicitamente as dimensoes cruzadas, os indicadores pre-calculados
+   (`@ResourceFact`) e as projecoes analiticas (`@UiAnalytics`).
+
 ## Como preencher `@Operation`
 
 ### `summary`
@@ -508,9 +537,9 @@ intent = "payroll-history"
 
 Nao use frases longas, labels de UI ou nomes acoplados ao frontend.
 
-### `tags`
+### `tags`, `legalPurpose` e `legalBasisRef`
 
-Tags devem ajudar agrupamento e discovery, sem virar saco de palavras-chave.
+Tags devem ajudar agrupamento e discovery, sem virar saco de palavras-chave. Quando a surface expuser dados pessoais, sensiveis, financeiros ou sujeitos a LGPD/compliance, preencha tambem `legalPurpose = LegalTreatmentPurpose.*` (`HUMAN_RESOURCES_ADMINISTRATION`, `PAYROLL_AND_TAX_COMPLIANCE`, `OFFICIAL_HEALTH_EXPERTISE`, `SOCIAL_SECURITY_AND_BENEFITS`, `ACTIVE_PUBLIC_TRANSPARENCY_LAI`, `EXTERNAL_AUDIT_CONTROL`, `EMPLOYEE_SELF_SERVICE`, `STATUTORY_LEGAL_OBLIGATION`) e `legalBasisRef` (ex.: `"LGPD:ART_7_III_EXECUCAO_POLITICAS_PUBLICAS"`, `"LGPD:ART_7_II_OBRIGACAO_LEGAL"`, `"LGPD:ART_11_II_A_OBRIGACAO_LEGAL_DADO_SENSIVEL"`), que sao publicados em `/schemas/surfaces` e consumidos pelo PEP/PDP (`praxis-authz-*`).
 
 Boas tags:
 
@@ -588,13 +617,14 @@ Ruim:
 Folha fechada, contabilizada e enviada ao banco.
 ```
 
-### `scope`, `allowedStates` e `requiredAuthorities`
+### `scope`, `allowedStates`, `requiredAuthorities`, `legalPurpose` e `legalBasisRef`
 
 Ao revisar uma action, valide tambem:
 
 - `scope`: item ou colecao, conforme o endpoint real.
 - `allowedStates`: estados reais em que o comando faz sentido.
 - `requiredAuthorities`: autoridades exigidas pelo dominio ou seguranca do host.
+- `legalPurpose` (`LegalTreatmentPurpose`) e `legalBasisRef`: finalidade e base legal LGPD do ato administrativo/comando, publicadas em `/schemas/actions` e auditadas em decisoes `decisionKind = AUTHORIZATION`.
 
 Nao use texto para compensar `scope`, estado ou autoridade mal modelados.
 
@@ -661,14 +691,17 @@ Label e rotulo; description e semantica.
 
 ## Governanca de dominio e dados sensiveis
 
-Quando o host usar anotacoes de governanca, o texto deve ser ainda mais preciso.
+Quando o host usar anotacoes de governanca (`@DomainGovernance`, `@DomainLineage`, `@AiUsagePolicy`), o texto deve ser ainda mais preciso:
+
+- Em `@DomainGovernance`, prefira `preset = DomainGovernancePreset.*` (`LGPD_PERSONAL_ID`, `LGPD_PERSONAL_CONTACT`, `LGPD_SENSITIVE_DATA`, `CONFIDENTIAL_FINANCIAL`, `SECURITY_CREDENTIAL`, `INTERNAL_OPERATIONAL`, `LEGAL_COMPLIANCE`) combinado com `reason` claro, `exportable` e `@AiUsagePolicy`. Suporta aplicacao na classe/interface (`@Target(ElementType.TYPE)`) com heranca monotônica para os campos, alem de meta-anotacoes compostas (`@SensitivePersonalHealthData`, `@PersonalIdentificationData`, `@ConfidentialFinancialData`). Os 9 atributos validos de `@DomainGovernance` sao `preset`, `kind`, `classification`, `dataCategory`, `complianceTags`, `exportable`, `aiUsage`, `reason` e `confidence`.
+- Em atributos projetados a partir de entidades JPA ou classes ancestrais, adicione `@DomainLineage(attributeId = "...", sourceClass = ..., sourcePaths = {...}, transformation = ...)` mantendo `@DomainGovernance` no DTO; o starter publica a linhagem em `x-domain-governance.lineage` e o `SemanticMetadataReviewer` (gate `P50` `lineage-governance-weakened`) bloqueia qualquer enfraquecimento de classificacao, exportabilidade ou politica de IA em relacao a origem.
 
 Descreva:
 
 - categoria real do dado
 - finalidade legitima
-- motivo de restricao
-- uso esperado por IA
+- motivo de restricao (`reason`)
+- uso esperado por IA (`AiVisibilityMode`, `AiTrainingUseMode`, `AiControlledUseMode`)
 - relacao com compliance ou politica interna
 
 Exemplo:
@@ -684,14 +717,17 @@ Dado sensivel.
 ```
 
 Se o starter ou host publicar catalogo de dominio, essas descricoes passam a
-alimentar descoberta semantica e politicas de uso por IA.
+alimentar descoberta semantica, governanca de regras (`decisionKind = BUSINESS`) e
+politicas de autorizacao/mascaramento (`decisionKind = AUTHORIZATION`).
 
-### Heuristica em `/schemas/domain` e texto em propriedades
+### Heuristica em `/schemas/domain`, modo estrito (`?strict=true`) e texto em propriedades
 
 No vocabulario agregado em `/schemas/domain`, classificacoes de governanca para
-campos podem considerar **nome do campo**, **`title` e `description` do schema
-OpenAPI**, `format` e padroes textuais (por exemplo termos que indicam credencial,
-saude, documento pessoal ou financeiro). Isso implica:
+campos sem `@DomainGovernance` explicito podem usar inferencia heuristica considerando
+**nome do campo**, **`title` e `description` do schema OpenAPI**, `format` e padroes
+textuais (marcados com `source = "heuristic"`). Quando chamado com `GET /schemas/domain?strict=true`
+(usado por compiladores de politica fail-closed e auditorias estritas), apenas governanca
+declarada explicitamente (`source = "annotation"`) e aceita. Isso implica:
 
 - Evite metaforas ou jargao que **acionem** uma classe de governanca sem que o
   dado seja realmente daquela categoria.

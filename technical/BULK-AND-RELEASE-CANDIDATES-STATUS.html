@@ -291,6 +291,18 @@ href="../architecture-overview.md">Visão Arquitetural</a> e o <a
 href="../guides/index.md">Hub de Guias</a>.</p>
 </blockquote>
 <hr />
+<h2 id="admissão-contextual-de-mutações-candidato-local-g3">Admissão
+contextual de mutações — candidato local G3</h2>
+<p>O contrato Java encaminha <code>ResourceMutationContext</code> entre
+avaliação, revalidação e escrita. A evidência de
+<code>validateUpdate</code> pode integrar a fotografia protegida
+comparada na confirmação. DELETE em lote admite todos os alvos antes de
+remover ou executar efeitos. A adoção e a migração incompatível dos
+adapters estão em <a
+href="../guides/RESOURCE-MUTATION-ADMISSION.md">RESOURCE-MUTATION-ADMISSION</a>.
+O incremento não publica versão nem ativa políticas de consumidores. Os
+gates do domínio e do contexto de execução permanecem separados dos
+testes do SDK.</p>
 <h2 id="visão-consolidada-dos-cortes-publicados-e-candidatos">1. Visão
 Consolidada dos Cortes Publicados e Candidatos</h2>
 <table>
@@ -628,6 +640,18 @@ do worker — candidato B5b.3</a></li>
 operações em lote por owner gerenciado (PostgreSQL 17+)</a></li>
 </ul></li>
 </ul>
+<h2
+id="candidato-local-captura-jpa-e-checkpoint-ontológico-8.22">Candidato
+local — Captura JPA e checkpoint ontológico 8.22</h2>
+<p>A correção alinha o prazo da avaliação JPA com o teto já existente de
+30s da captura protegida e conserva <code>unitDeadline &lt;= 5s</code>
+para mutações. O diagnóstico foi provado contra o JAR privado fixado: a
+avaliação anterior esgotava o saldo do chamador durante
+<code>MANIFEST</code>. A confirmação do host e os resultados finais
+pertencem ao checkpoint 8.22 do Showcase
+(<code>praxis-ergon-showcase/docs/rules/ontology/g3/bulk-openapi-gate/README.md</code>).
+Este candidato não constitui publicação ou adoção de coordenada pública;
+nenhuma migração SQL é introduzida.</p>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

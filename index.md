@@ -1,5 +1,7 @@
 # Praxis Metadata Starter — Documentação Oficial
 
+- [Ontologia do catálogo de domínio](guides/DOMAIN-CATALOG-ONTOLOGY.md): adoção de bindings por operação, determinações compiladas e fronteiras do G2.
+
 Bem-vindo à documentação pública do **`praxis-metadata-starter`**, a biblioteca Spring Boot canônica da **Praxis Platform** — uma **plataforma semanticamente orientada para aplicações corporativas AI-native**, em que recursos, regras, ações, dados e políticas são descritos uma vez e podem ser operados por **interfaces tradicionais, interfaces generativas, agentes de IA e integrações**.
 
 Em vez de construir IA ao lado da aplicação, o `praxis-metadata-starter` permite construir uma aplicação que, por definição, já nasce legível e operável por IA, publicando **contratos autodescritivos (*self-describing APIs*)**, enriquecimento OpenAPI com `x-ui`, descoberta semântica (`domain`, `surfaces`, `actions`, `capabilities`) e governança de metadados em tempo de execução.
@@ -69,6 +71,8 @@ O baseline canônico atual da plataforma organiza cada recurso sobre cinco pilar
 
 #### Especificações Técnicas do Protocolo de Lote (Bulk SDK) e Lifecycle Governado
 
+- [Admissão contextual de mutações e migração dos adapters](guides/RESOURCE-MUTATION-ADMISSION.html)
+
 - **Protocolo, Binding e Contratos CRUD Bulk**:
   - [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html)
   - [Propostas, resultados e fingerprint de intenção](spec/BULK-PROTOCOL-RESULTS.html)
@@ -104,3 +108,15 @@ Quando houver dúvida sobre a superfície publicada:
 1. Priorize os guias principais desta home (`Guia 01` a `Guia 06`) e a [Visão Arquitetural](architecture-overview.html).
 2. Trate `/schemas/filtered` como a única fonte estrutural de request/response e `/capabilities` como o snapshot agregado de disponibilidade.
 3. Consulte o [Status Consolidado do SDK Bulk e Candidatos de Release](technical/BULK-AND-RELEASE-CANDIDATES-STATUS.html) para distinguir capacidades já publicadas no Maven Central de candidatos internos em validação.
+
+## Core resource service
+
+Consulte a [ponte governada de regras](guides/GOVERNED-RULE-BRIDGE.md) para rejeições
+estruturadas e validação JSON Logic de campos customizados.
+
+Consulte o [guia de consultas, exportação e comandos versionados](guides/CORE-RESOURCE-SERVICE.md) para adotar os hooks e templates canônicos.
+Os limites e cenários de adoção corporativa estão na [revisão do core resource service](technical/CORE-RESOURCE-P1-REVIEW.md).
+
+## Bulk declarativo no core resource-oriented
+
+Consulte o [guia de operações em lote](guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md) para adotar a base de controller, o adapter JPA e a composição explícita de políticas e infraestrutura.

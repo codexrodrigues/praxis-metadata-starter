@@ -301,8 +301,12 @@ public class PayrollViewService extends AbstractReadOnlyResourceService<
         displayLabelField = "name"
     ),
     quickFilters = {
-        @QuickFilter(id = "active", label = "Ativos", filter = "active=true", icon = "check_circle"),
-        @QuickFilter(id = "inactive", label = "Inativos", filter = "active=false", icon = "remove_circle_outline")
+        @QuickFilter(id = "active", label = "Ativos", icon = "check_circle", tone = QuickFilterTone.SUCCESS,
+            description = "Funcionários com vínculo ativo.",
+            criteria = @FilterCriterion(field = "active", bool = true)),
+        @QuickFilter(id = "inactive", label = "Inativos", icon = "remove_circle_outline", tone = QuickFilterTone.NEUTRAL,
+            description = "Funcionários desligados ou com vínculo encerrado.",
+            criteria = @FilterCriterion(field = "active", bool = false))
     }
 )
 @ApiGroup("human-resources")

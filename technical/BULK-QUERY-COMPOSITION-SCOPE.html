@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Composição Bulk: índice MVC por fotografia</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Composição Bulk: índice MVC por fotografia</h1>
+</header>
+<h1 id="composição-bulk-índice-mvc-por-fotografia">Composição Bulk:
+índice MVC por fotografia</h1>
+<p><code>BulkOperationStructuralCompiler</code> compõe todas as
+declarações do host antes de admitir uma operação. O custo dessa
+validação também pertence ao prazo absoluto da confirmação QUERY.
+Reconstituir o índice completo de handlers para cada DTO de avaliação,
+confirmação e atualização multiplica trabalho determinístico pelo número
+de bindings, mesmo dentro da mesma fotografia OpenAPI.</p>
+<p><code>CanonicalOpenApiGroupSnapshot.CaptureScope</code> compartilha o
+índice MVC entre seus grupos e resoluções. O índice contém os handlers,
+IDs efetivos globais e rotas exatas. A identidade do resolver delimita
+seu uso: outra instância não herda a interpretação de bindings da
+primeira. Uma nova composição reconstrói o índice.</p>
+<p>Os DTOs de avaliação, confirmação e atualização de um binding são
+resolvidos num único batch estrito. Fora da composição completa, o
+registro MVC é verificado antes e depois desse batch; nenhum resultado
+parcial escapa se qualquer identidade/tipo ou a fotografia mudar. A
+resolução individual usa o mesmo caminho com um elemento. Resolvers
+próprios mantêm seu contrato estrito através da implementação default do
+batch.</p>
+<p>A sobrecarga
+<code>CanonicalOperationResolver.requireResourceRequestBody</code> que
+recebe <code>CanonicalOpenApiGroupSnapshot</code> permite resolver o
+tipo real do DTO nesse mesmo escopo. Resolvers próprios que não oferecem
+indexação por escopo continuam usando a sua implementação estrita de
+resolução de body; o default não utiliza discovery permissivo. A
+implementação canônica mantém as verificações de recurso, identidade,
+método, rota, body obrigatório e tipo genérico concreto.</p>
+<p>Na compilação completa, <code>CaptureScope.compose</code> delimita a
+leitura estrutural: usa os mapas MVC capturados e compara todos os
+registros vivos antes de devolver o resultado. Escopos já utilizados
+também são verificados na entrada. Nenhuma admissão intermediária é
+produzida. Fora dessa delimitação, a comparação ocorre antes e depois de
+cada batch de DTOs (inclusive resoluções individuais) e de cada batch de
+operações. A dispensa das verificações intermediárias termina inclusive
+quando a composição lança exceção; composições aninhadas são rejeitadas.
+Mudança de registro, inclusive a adição de um handler não relacionado,
+invalida aquela composição. A checagem de colisão de rota continua
+considerando mappings sem método HTTP explícito. Os documentos
+publicados mantêm seus próprios fences de geração, unicidade global,
+callbacks e webhooks.</p>
+<p>Esse índice não armazena READY, autorização, resultados de provider
+ou atestação de banco. Os providers continuam sendo capturados a cada
+composição, e os controles duráveis, identidade dos papéis e publicação
+viva continuam sendo verificados. O prazo operacional permanece em cinco
+segundos, sem retries.</p>
+<p>As leituras request/response/bodyless compartilham a interpretação de
+caminho da fotografia. O callback de caminho recebe uma cópia isolada;
+os leitores estritos continuam verificando a operação e sua unicidade.
+As capacidades <strong>baseline do OpenAPI</strong> são capturadas uma
+vez por resolver/recurso/grupo na composição e copiadas na entrada e na
+saída. Isso é distinto de availability contextual: autorização e
+admissão não passam por esse armazenamento. Uma nova fotografia consulta
+novamente os callbacks, inclusive após alteração de provider ou
+documento.</p>
+<p><code>FilteredSchemaProjection.resolveWithCapabilities</code> recebe
+esse resultado estrutural já capturado e lê somente a árvore interna. Os
+callbacks de referências recebem apenas argumentos escalares e os
+valores de seleção/evidência retornados continuam defensivamente
+copiados. Assim, uma projeção não exige clonar todo o catálogo de
+componentes novamente para cada leitura do mesmo recurso.</p>
+<p>Contratos request/response/bodyless e projeções já validados são
+reutilizados somente na mesma fotografia imutável. A chave da projeção
+inclui operação, tipo de schema, <code>idField</code>,
+<code>readOnly</code> e identidade dos dois resolvers. As referências
+canônicas são valores estruturais; a fotografia seguinte resolve suas
+dimensões novamente. Os getters de schema e evidência continuam
+retornando cópias defensivas, e a reutilização não permite que um
+consumidor altere outro contrato. O projetor e seu ObjectMapper
+configurado uma única vez não guardam documento, recurso ou resultado
+global.</p>
+<p>As regressões focais estão em
+<code>PublishedOpenApiOperationIndexTest</code>,
+<code>OpenApiCanonicalOperationResolverTest</code>,
+<code>BulkCrudStructuralCompilerTest</code> e
+<code>BulkOperationStructuralCompilerTest</code>. Elas cobrem
+reutilização limitada ao escopo, reconstrução em nova composição, tipos
+reais de DTO, mudança de MVC, colisão de endereço, troca/suspensão de
+publicação e colisões globais de OpenAPI. A validação de latência
+depende também de prova HTTP no consumidor com o artefato
+empacotado.</p>
+<p>Na equivalência de templates, o prefixo literal normalizado é
+comparado antes de substituir os nomes de parâmetros. Uma substituição
+de <code>{nome}</code> jamais altera esse prefixo: a eliminação de
+candidatos de outros recursos é exata e preserva tanto a precedência de
+matches exatos como a rejeição de aliases estruturais ambíguos.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

@@ -353,9 +353,10 @@ abrir acesso a dados internos.</p>
 <p>Regra:</p>
 <ul>
 <li>request sem campos usa a lista padrao do recurso;</li>
-<li>request com alguns campos validos exporta apenas os validos;</li>
-<li>request com campos informados, mas nenhum campo suportado, deve
-falhar com <code>400</code>.</li>
+<li>request com campos informados exige que todos sejam suportados e
+exportáveis;</li>
+<li>qualquer campo desconhecido ou proibido faz a requisição falhar com
+<code>400</code>, sem ampliar a seleção.</li>
 </ul>
 <p>Campos exportaveis podem declarar apresentacao serializavel por meio
 de <code>CollectionExportFieldPresentation</code>. Essa apresentacao
@@ -422,6 +423,17 @@ modo, valores sao materializados como texto. Quando
 <code>formatOptions.excel.typedCells=true</code> e
 <code>applyFormatting=false</code>, o engine pode escrever celulas
 numericas, booleanas e de data como tipos nativos do Excel.</p>
+<p>Células tipadas conservam a precisão do contrato. Campos declarados
+como <code>string</code> permanecem textuais mesmo quando o valor Java é
+numérico. Valores <code>BigDecimal</code>, <code>BigInteger</code> e
+<code>Long</code> que excedam a precisão ou o intervalo do Excel são
+gravados como texto com seus dígitos e sinal originais; valores seguros
+continuam numéricos. O Excel conserva até 15 dígitos significativos,
+conforme a <a
+href="https://support.microsoft.com/en-us/excel/excel-specifications-and-limits">documentação
+da Microsoft</a>. Isso evita arredondar identificadores e decimais
+extensos apenas por solicitar <code>typedCells</code>. O contrato HTTP
+de exportação e suas opções permanecem os mesmos.</p>
 <p>Opcoes XLSX suportadas:</p>
 <ul>
 <li><code>sheetName</code>: nome da aba, sanitizado e limitado a 31

@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>P5-A — Blindagem pós-auditorias das Ondas 1–3</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">P5-A — Blindagem pós-auditorias das Ondas 1–3</h1>
+</header>
+<h1 id="p5-a-blindagem-pós-auditorias-das-ondas-13">P5-A — Blindagem
+pós-auditorias das Ondas 1–3</h1>
+<p>Data: 2026-11-02. Classificação: <code>contrato-publico</code>, com
+impacto transversal entre <code>praxis-rules-engine</code> e
+<code>praxis-metadata-starter</code>.</p>
+<p>Resultado histórico da revisão ampliada de 02/11: <strong>CHANGES
+REQUESTED</strong>, com sete inconsistências reproduzidas na composição
+examinada. Os gates históricos são distintos da revalidação P5-C
+abaixo.</p>
+<p>O tratamento posterior de R01–R07, incluindo a correção funcional de
+UX no Angular, está em <a
+href="P5-A-CORRECTIONS-2026-11-02.md">P5-A-CORRECTIONS-2026-11-02.md</a>.
+Consulte seus resultados finais separadamente dos gates históricos
+abaixo.</p>
+<h2 id="p5-c-revalidação-do-candidato-local">P5-C — Revalidação do
+candidato local</h2>
+<p>Os IDs do anexo P5-C e da revisão ampliada nomeiam achados
+diferentes. A revisão ampliada continua coberta por testes
+permanentes:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Revisão original</th>
+<th>Regressão permanente</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R01–R02 — operandos nulos e projeção segura de
+<code>entity</code></td>
+<td><code>P5AIndependentReviewTest</code>,
+<code>P5ACustomFieldRegressionTest</code></td>
+</tr>
+<tr>
+<td>R03–R05 — classificação por item em lote</td>
+<td><code>P5ABulkIndependentReviewTest</code></td>
+</tr>
+<tr>
+<td>R06 — autorização antes de consultar IDs</td>
+<td><code>P5AStatusAuthorizationReviewTest</code></td>
+</tr>
+<tr>
+<td>R07 — ordenação de nulos e cursor em ambas as direções</td>
+<td><code>P5ACursorIndependentReviewTest</code></td>
+</tr>
+</tbody>
+</table>
+<p>No escopo técnico P5-C, a validação direta compara atribuições
+protegidas com um estado anterior vazio quando não há entidade
+confiável. O comando versionado valida a projeção anotada ou o estado
+persistido anotado quando a resposta não expõe custom fields, usando uma
+projeção de fatos segura quando a entidade precisa fornecer o rascunho.
+A travessia de metadados da expressão é iterativa; o capturador e o
+motor canônico limitam a profundidade a 64.</p>
+<p>O schema público expõe somente
+<code>validationMode: json-logic</code>, preserva a invalidação do
+fingerprint e deixa a execução da regra no servidor. O revisor semântico
+aceita descritores e o registry de stats da superfície e usa a mesma
+elegibilidade do runtime. As regressões ficam em
+<code>CustomFieldDomainMutationRegressionTest</code>,
+<code>CustomFieldJsonLogicTest</code> e
+<code>OptionSourceEligibilityTest</code>.</p>
+<p>No checkout atual, <code>GlobalExceptionHandler</code> aplica o
+status canônico a toda violação, inclusive ao erro único
+(<code>RuleViolationHttpTest</code>). O
+<code>JdbcResourceCommandReceiptStore</code> não possui TTL, limpeza de
+expirados nem estado <code>FAILED</code>: o recibo de sucesso faz parte
+da mesma transação da mutação e a rejeição permite nova tentativa.
+<code>TempoLicencaCommandReceiptTest</code> protege essa fronteira.
+Nenhum mecanismo de expiração ou nova semântica de retry foi
+introduzido.</p>
+<p><strong>Gate focal P5-C: PASS — 90 testes, sem falhas, erros ou
+skips</strong>, incluindo as três regressões do cursor R07. Engine: 125
+testes aprovados. Starter <code>8.0.0-rc.188</code> instalado com
+sources no Maven local; o SHA-256 do JAR é
+<code>8518c3e397dd51420325f6f516d3be31ca29ebb20ab72aea7cc2793c0c287587</code>
+em <code>target</code> e no <code>.m2</code>. A suíte ampla não pode
+receber selo PASS enquanto houver falhas nas provas HTTP de publicação
+governada.</p>
+<p>O comando amplo prescrito terminou com <strong>1.867 testes, 11
+falhas, 3 erros e 6 ignorados</strong>
+(<code>target/p5c-test-final.log</code>). Nenhuma classe
+<code>*PostgresTest</code> foi selecionada. Nas classes HTTP/estruturais
+que usam PostgreSQL embarcado, o servidor cancelou a consulta de
+atestação por <code>statement_timeout</code>
+(<code>SQLSTATE 57014</code>), inclusive durante a publicação inicial de
+<code>BulkDeclarativeJpaHttpTest</code>; as chamadas seguintes
+encontraram a publicação indisponível. As nove provas de
+<code>JdbcResourceCommandReceiptStoreTest</code> passaram no mesmo
+comando. A repetição isolada das duas classes HTTP e do cenário
+concorrente do compilador estrutural passou: <strong>14/14</strong>, sem
+alterar timeouts ou expectativas
+(<code>target/p5c-publication-replay.log</code>). Esse resultado não
+substitui o resultado da suíte ampla. Os relatórios e sondas temporários
+da revisão original foram retirados dos caminhos ativos e preservados em
+<code>target/p5c-cleanup/</code>.</p>
+<h2 id="escopo-e-impacto">Escopo e impacto</h2>
+<p>O engine é dono de fatos e diagnósticos neutros; o starter
+materializa HTTP, governança de comandos, validação de custom fields,
+consultas e transações bulk. O escopo P5-A é a infraestrutura desses
+dois módulos. A migração do Ergon Showcase corresponde à P5-B e não é
+certificada por este recorte.</p>
+<p>As duas árvores já continham mudanças locais extensas das Ondas 1–3.
+Esta Issue preserva essas mudanças. Os diffs contra HEAD incluem esse
+trabalho anterior e não representam isoladamente o patch P5-A. Nenhum
+commit, push, tag ou publicação foi solicitado ou executado.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Superfície</th>
+<th>Aderência encontrada</th>
+<th>Correção P5-A</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Erros do engine</td>
+<td>Suportado parcialmente</td>
+<td>Categoria por violação, mensagem resolvida e status neutro
+<code>409</code>/<code>422</code>; construtor original de nove
+argumentos preservado.</td>
+</tr>
+<tr>
+<td>Captura de fatos</td>
+<td>Suportado parcialmente; projeção escalar ausente</td>
+<td>Validação incremental por nó e agregada em <code>build</code>;
+helper escalar ignora associações JPA antes da leitura.</td>
+</tr>
+<tr>
+<td>HTTP de comandos</td>
+<td>Suportado parcialmente</td>
+<td>Propagação de falhas tipadas de custom fields; outcome
+<code>INVALID_ENTITY</code> materializa <code>422</code>.</td>
+</tr>
+<tr>
+<td>Custom fields</td>
+<td>Suportado parcialmente</td>
+<td>Comparação de read-only com o estado autorizado, opcionais vazios,
+entidade obrigatória em validação standalone e escopo local de
+iteradores.</td>
+</tr>
+<tr>
+<td>Draft de UPDATE</td>
+<td>Suportado parcialmente</td>
+<td>Mapper sobre cópia destacada, projeção DTO combinada com estado
+hidratado; estado persistido permanece a root <code>entity</code>.</td>
+</tr>
+<tr>
+<td>Consultas e locks</td>
+<td>Suportado parcialmente</td>
+<td>Guardas de item em locate/export/includeIds, autorização antes do
+lock e revalidação após refresh.</td>
+</tr>
+<tr>
+<td>Cursor</td>
+<td>Suportado parcialmente</td>
+<td>Assinatura SHA-256 truncada do Sort efetivo, incluindo
+propriedades/direções/null handling/case sensitivity.</td>
+</tr>
+<tr>
+<td>Bulk</td>
+<td>Suportado parcialmente</td>
+<td>Limpeza de avaliação suja; rejeição funcional de gravação causa
+rollback completo do item e registro local sob fences antes de
+continuar.</td>
+</tr>
+<tr>
+<td>Roteamento de status bulk</td>
+<td>Lacuna real</td>
+<td><code>BulkOperationStatusLookup</code>, condicionado à
+infraestrutura explícita, correlaciona namespace/recurso/ID com
+operações descobertas. A autorização permanece nos readers.</td>
+</tr>
+</tbody>
+</table>
+<p>Consumidores diretos: services/controllers dos hosts, clientes de
+cursores e clientes de comandos. <code>praxis-config-starter</code>
+mantém suas próprias fronteiras de persistência/publicação. O dialeto
+JSON Logic, seus operadores e corpus não foram alterados. O contrato
+HTTP agora diferencia conflitos do restante das rejeições; clientes
+devem consumir <code>decision</code>, código e target estruturados.</p>
+<p>Cursores antigos ou reaproveitados com outra ordenação são rejeitados
+como payload inválido; uma consulta nova obtém cursores compatíveis. Não
+há trilha de compatibilidade paralela. <code>category</code> e os
+outcomes acrescentam dados/valores ao contrato. O construtor Java
+original de nove argumentos permanece disponível, mas consumidores que
+decompõem o record <code>SlotViolationDetail</code> em record patterns
+precisam considerar seu décimo componente. Switches exaustivos sobre os
+enums de outcome/categoria também precisam considerar os novos valores
+ao recompilar. As coordenadas continuam sendo candidatos locais
+<code>0.1.0-beta.17</code> e <code>8.0.0-rc.188</code>.</p>
+<h2 id="evidências-de-regressão">Evidências de regressão</h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Área</th>
+<th>Prova</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine</td>
+<td><code>PraxisRuleViolationExceptionTest</code>,
+<code>PraxisFactTreeBuilderTest</code>: categoria default/CONFLICT,
+mensagem do catálogo/fallback, <code>409</code>/<code>422</code>,
+ausência de leitura de associações, limites agregados e cópias
+destacadas.</td>
+</tr>
+<tr>
+<td>HTTP</td>
+<td><code>RuleViolationHttpTest</code>,
+<code>GovernedResourceCommandExecutorTest</code>: status da
+resposta/problema, targets, categorias e falhas customizadas preservadas
+em comandos.</td>
+</tr>
+<tr>
+<td>Custom fields</td>
+<td><code>P5ACustomFieldRegressionTest</code>,
+<code>CustomFieldAdoptionRegressionTest</code>,
+<code>CustomFieldJsonLogicTest</code>,
+<code>P2CustomFieldContextTest</code>,
+<code>CustomFieldResourceLifecycleTest</code>: omissão/null/zero,
+condicional, iteradores, snapshot read-only, draft comum PUT/bulk e
+ausência de save na avaliação. O bulk voltou a usar
+<code>audit=99</code> read-only.</td>
+</tr>
+<tr>
+<td>Acesso e cursor</td>
+<td><code>CoreResourceEvolutionIntegrationTest</code>,
+<code>ResourceKeysetSupportTest</code>: H2/JPA real, guardas sem
+depender só de SQL scope, ausência de lock antes de <code>403</code>,
+rechecagem após refresh e rejeição de Sort incompatível.</td>
+</tr>
+<tr>
+<td>Bulk</td>
+<td><code>JpaResourceBulkEngineTest</code>: descarte de estado entre
+candidatos e classificação conservadora de falhas locais/técnicas.
+<code>BulkDurableExecutionPostgresTest.targetRejectionAfterJpaFlushRollsBackOnlyThatItemAndContinuesTheSuffix</code>:
+rollback JPA após flush, admissão local e continuidade do próximo
+item.</td>
+</tr>
+<tr>
+<td>Discovery</td>
+<td><code>BulkOperationStatusLookupTest</code>,
+<code>BulkDeclarativeProtocolTest</code>: correlação scoped, falha não
+enumeradora, default do controller e bootstrap/override sem I/O.
+<code>BulkDeclarativeJpaHttpTest</code> usa o default, sem SQL ad hoc no
+controller.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="validação">Validação</h2>
+<p>Gates finais com OpenJDK 21 (<code>21+35-2513</code>) e Maven
+3.9.6.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="va">$env</span><span class="op">:</span><span class="va">JAVA_HOME</span><span class="op">=</span><span class="st">&#39;D:\Developer\JAVA\openjdk-21_windows-x64_bin\jdk-21&#39;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="va">$env</span><span class="op">:</span><span class="va">Path</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$env</span><span class="op">:</span><span class="va">JAVA_HOME</span><span class="st">\bin;</span><span class="va">$env</span><span class="op">:</span><span class="va">Path</span><span class="st">&quot;</span></span></code></pre></div>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Gate</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine <code>mvn test</code></td>
+<td>PASS — 120 testes, zero falhas/erros/skips.</td>
+</tr>
+<tr>
+<td>Engine <code>mvn install -DskipTests</code></td>
+<td>PASS — instalação Maven local, incluindo sources e Javadocs.</td>
+</tr>
+<tr>
+<td>Starter focal</td>
+<td>PASS — 113 testes, zero falhas/erros/skips.</td>
+</tr>
+<tr>
+<td>Starter HTTP/JPA e rollback direcionados</td>
+<td>PASS — 9 testes PostgreSQL 17.11, incluindo rollback após flush e
+continuidade do próximo item.</td>
+</tr>
+<tr>
+<td>Reprodução com OpenJDK 21</td>
+<td>PASS — 17 testes da sequência HTTP/ASYNC/ATOMIC.</td>
+</tr>
+<tr>
+<td>Starter gate Windows solicitado</td>
+<td>FAIL — interrompido após a classe ATOMIC concluir 71 casos: 65 PASS,
+1 falha e 5 erros. Não constitui aprovação ampla.</td>
+</tr>
+<tr>
+<td>ATOMIC: reprodução isolada dos grupos de recibos/outbox
+afetados</td>
+<td>PASS — 15 testes, zero falhas/erros/skips. Não substitui o gate
+amplo.</td>
+</tr>
+<tr>
+<td>Starter complementar sem classes <code>*PostgresTest</code></td>
+<td>PASS — 1.832 testes, zero falhas/erros, 6 ignorados. Inclui os
+testes HTTP/JPA declarativos.</td>
+</tr>
+<tr>
+<td>PER_ITEM PostgreSQL no OpenJDK 21</td>
+<td>PASS — 1 teste JPA após flush: primeiro item revertido e registrado
+como conflito; segundo item confirmado.</td>
+</tr>
+<tr>
+<td>Starter <code>mvn install -DskipTests</code></td>
+<td>PASS — <code>8.0.0-rc.188</code> instalado localmente, incluindo
+sources e Javadocs. Não muda o resultado FAIL do gate amplo.</td>
+</tr>
+</tbody>
+</table>
+<p>Comando do gate Windows solicitado:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>mvn test <span class="st">&quot;-Dtest=!*Neon*,!BulkCapacityAuthorityRollbackPostgresTest,!BulkCapacityLocalAdministrationMainTest,!BulkCapacityProvisioningMainTest,!BulkConsumerArtifactIntegrationTest&quot;</span></span></code></pre></div>
+<p>Na execução OpenJDK, <code>BulkAtomicExecutionPostgresTest</code>
+concluiu em 1.469 segundos com falhas de reconciliação/recibo:
+<code>RECONCILIATION_REQUIRED</code>, ausência do recibo esperado e
+estado diferente do esperado nos testes de corrupção de vínculo de
+efeitos e de commit de conjuntos de 50 alvos. A execução foi
+interrompida após o resultado dessa classe; o restante da seleção não
+foi certificado. Os grupos de commit/outbox e readback/recovery passaram
+ao repetir seus 15 casos isolados. Isso delimita a instabilidade
+observada, sem estabelecer uma causa definitiva. O caminho ATOMIC não
+recebeu mudanças nesta Issue. Seus limites e testes foram preservados, e
+o gate amplo permanece reprovado.</p>
+<p>Gate complementar, registrado separadamente:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>mvn test <span class="st">&quot;-Dtest=!*Neon*,!*PostgresTest,!BulkCapacityLocalAdministrationMainTest,!BulkCapacityProvisioningMainTest,!BulkConsumerArtifactIntegrationTest&quot;</span></span></code></pre></div>
+<p>Logs locais:
+<code>praxis-rules-engine/target/p5a-engine-openjdk-test.log</code>,
+<code>praxis-rules-engine/target/p5a-engine-openjdk-install.log</code>,
+<code>praxis-metadata-starter/target/p5a-focal-test.log</code> e
+<code>praxis-metadata-starter/target/p5a-windows-openjdk21-test.log</code>.
+As validações complementares estão em
+<code>target/p5a-complementary-test.log</code>,
+<code>target/p5a-atomic-failures-isolated.log</code> e
+<code>target/p5a-per-item-openjdk21-test.log</code>; a instalação em
+<code>target/p5a-starter-install.log</code>.</p>
+<p>As primeiras tentativas amplas com GraalVM 21.0.2 foram interrompidas
+após uma divergência de SHA-256 durante a validação de V6. Uma captura
+dos bytes lidos na falha é idêntica ao recurso canônico (13.247 bytes,
+SHA-256
+<code>a554c758c995f91d1b75375fdc4577b5a5bba04b2d8880149bf7a99fce91d553</code>),
+embora aquela JVM tenha calculado outro digest. A mesma sequência de 17
+testes passou no OpenJDK 21. A evidência sustenta a troca do JDK de
+validação, sem atribuir uma causa interna definitiva ao runtime. A
+instrumentação temporária foi removida; recursos, catálogo de
+proveniência e verificador de hashes permanecem íntegros e sem mudanças.
+Os logs das tentativas anteriores e a captura
+<code>target/p5a-mismatch-V6.bin</code> foram preservados como evidência
+local.</p>
+<h2 id="artefatos-derivados">Artefatos derivados</h2>
+<p>O blueprint embarcado e o GUIA-00 são cópias integrais. A seção 2.1
+relaciona as APIs enumeradas pela Issue aos 20 pilares (a lista
+fornecida contém 13 nomes). O blueprint do JAR também é idêntico aos
+dois arquivos, SHA-256
+<code>655a53cb12012ba4ff3fe79662c3dffa8727d9c2c9eed6db9604d124fe0a2de2</code>.
+Os JARs instalados no repositório Maven local são idênticos aos builds
+verificados; o ABI instalado do engine expõe o construtor de nove
+argumentos, <code>category()</code> e <code>getHttpStatus()</code>. A
+instrumentação de diagnóstico temporária está ausente das fontes, dos
+testes compilados e do verificador empacotado. Guias de regras, bulk,
+especificação de custom fields e CHANGELOG refletem as semânticas
+corrigidas. Auto-configuração usa
+<code>PraxisBulkWebAutoConfiguration</code>, já registrada no manifesto;
+não há nova configuração a importar.</p>
+<p>As correções preservam rotas, envelopes e schemas de entrada
+existentes; não há novo campo <code>x-ui</code> nem alteração dos
+schemas JSON de UI. Nenhum exemplo HTTP, playground Angular ou site
+público foi alterado. Publicação Maven, downstream instalado do registry
+público, integração de host/Ergon, Neon e browser/E2E são gates
+distintos da instalação e dos testes locais desta Issue.</p>
+<p>A inspeção estática de <code>GenericCrudService</code> confirmou que
+ele propaga o <code>HttpErrorResponse</code> completo.
+<code>ErrorMessageService</code> já trata
+<code>400</code>/<code>422</code> e o contrato de erros permite os dados
+estruturados. Essa leitura apoia manter o recorte no backend; ela não é
+uma validação Angular/browser.</p>
+<h2 id="p5-c-revalidação-após-a-revisão">P5-C — Revalidação após a
+revisão</h2>
+<p>Em comandos versionados, o mapa anotado da entidade é a fonte dos
+valores validados. A projeção continua disponível como contexto de
+rascunho e fornece os valores quando a entidade não declara o contêiner.
+A regressão verifica uma projeção anotada que omite um valor persistido
+inválido e comprova a rejeição antes do save.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Gate local</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Focal de campos customizados e comandos versionados</td>
+<td>42 testes aprovados, sem falhas, erros ou skips</td>
+</tr>
+<tr>
+<td>Instalação Maven local de JAR e fontes</td>
+<td><code>8.0.0-rc.188</code>, SHA-256 do JAR
+<code>042daecec149b0fcfb4d713ce400a4c28c3190056327e452467609473efccadf</code></td>
+</tr>
+<tr>
+<td>Suíte Windows com as exclusões de P5-C</td>
+<td>1868 testes, zero falhas de asserção, dois erros e seis skips</td>
+</tr>
+<tr>
+<td>Provas incluídas na suíte Windows</td>
+<td>Nove testes de recibos JDBC e três de cursor R07 aprovados</td>
+</tr>
+</tbody>
+</table>
+<p>Os erros da suíte ampla ocorreram na atestação do papel de bulk, por
+timeout SQL, e em uma requisição HTTP local <code>/fast</code> que
+excedeu o orçamento do cliente interno de OpenAPI. O log completo é
+<code>target/p5c-followup-windows.log</code>. Na repetição focal, a
+atestação de bulk passou. O teste HTTP voltou a falhar, desta vez porque
+o handler de <code>/slow</code> não foi alcançado dentro da janela do
+teste. O log da repetição é
+<code>target/p5c-followup-timeout-replay.log</code>.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

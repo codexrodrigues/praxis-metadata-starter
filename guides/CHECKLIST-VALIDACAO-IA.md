@@ -23,7 +23,7 @@ metadata-driven no baseline atual ou um frontend Angular.
 - `POST /`, `PUT /{id}`, `DELETE /{id}`, `DELETE /batch`
   ou `405` quando read-only (`AbstractReadOnlyResourceController`)
 - `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities` respondem com snapshot agregado
-- `GET /schemas/catalog`, `GET /schemas/domain` e `GET /schemas/surfaces` incluem o recurso
+- `GET /schemas/catalog`, `GET /schemas/domain` (`?strict=true` excluindo inferencias heuristicas em fluxos fail-closed), `GET /schemas/surfaces` e `GET /schemas/actions` incluem o recurso (publicando `legalPurpose` e `legalBasisRef` quando aplicavel)
 
 ## 4. Options e Relacionamentos
 
@@ -53,7 +53,9 @@ metadata-driven no baseline atual ou um frontend Angular.
 - `ETag` e `X-Schema-Hash` estao presentes (`If-None-Match` retorna `304` quando o schema nao muda)
 - `x-ui.resource.idField` esta resolvido corretamente (`@ResourceIdentity` no Controller e `ResponseDTO`, `@QuickFilter` no Controller)
 - em request schemas com campos relacionais `...Id`, o `idField` nao e sequestrado pelo id da relacao
-- todos os campos dos DTOs possuem a triade completa: `@Schema(description = ...)` de negocio em PT-BR, `@UISchema` (`UISchemaPreset`, `FieldControlType`, `group`, `order`, `icon`, `NumericFormat`) e `@DomainGovernance` + `@AiUsagePolicy`
+- todos os campos dos DTOs possuem a triade completa: `@Schema(description = ...)` de negocio em PT-BR, `@UISchema` (`UISchemaPreset`, `FieldControlType`, `group`, `order`, `icon`, `NumericFormat`) e `@DomainGovernance` (`preset = DomainGovernancePreset.*`, `exportable`, `@AiUsagePolicy`) + `@DomainLineage` (quando projetado de entidade, sem enfraquecer a governanca da origem — validado pelo gate `P50` `lineage-governance-weakened`)
+- `@ResourceFact` declara contrato explicito de autoridade (`authority`, `evaluationPhase`, `missingValuePolicy`, `scope`) validado por `SemanticMetadataReviewer.reviewResourceFacts(...)`
+- `SemanticMetadataReviewer` (`reviewStrictGovernance` / `reviewResourceFacts`), `PraxisExpressionStaticValidator`, `OptionSourcePublicationInventory` e `FilterableIndexAdvisor` passam sem violacoes no teste JUnit do host
 
 ## 8. DTOs, mapeamentos e service
 

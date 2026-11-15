@@ -387,7 +387,15 @@ operacao real e para o schema canonico daquela operacao.</p>
 <li>projecao de leitura</li>
 <li>experiencia contextual por item</li>
 </ul>
-<p>Sem duplicar contrato de payload.</p>
+<p>Sem duplicar contrato de payload. Para o QuickView / Visao 360°,
+conecte a <code>@UiSurface</code> de leitura
+(<code>READ_PROJECTION</code> ou <code>VIEW</code>) ao
+<code>@ResourceIdentity</code>, aos campos
+<code>@UISchema(quickViewVisible = true, quickViewOrder = ...)</code>
+(sem sobrepor <code>metadataFields</code>), ao
+<code>@ResourceReference</code> no <code>titleField</code> e nos campos
+textuais de exibicao de FKs, e ao
+<code>LookupDetailDescriptor.forSurface(resourceKey, surfaceId, previewSurfaceId)</code>.</p>
 <h2 id="camada-4---workflowaction-publica-comando-de-negocio">Camada 4 -
 WorkflowAction publica comando de negocio</h2>
 <p><code>@WorkflowAction</code> e o eixo em que o Praxis vai claramente

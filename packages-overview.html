@@ -298,14 +298,18 @@ responsibility</h2>
 <tbody>
 <tr>
 <td><code>annotation</code></td>
-<td>Declares resource identity, semantic governance, UI surfaces and
-explicit workflow actions.</td>
-<td>Authoring the public meaning of a resource or field.</td>
+<td>Declares resource identity, semantic governance
+(<code>@DomainGovernance</code>, <code>@DomainLineage</code>,
+<code>LegalTreatmentPurpose</code>), UI surfaces and explicit workflow
+actions.</td>
+<td>Authoring the public meaning, lineage, and legal finality of a
+resource or field.</td>
 </tr>
 <tr>
 <td><code>extension</code></td>
-<td>Converts Java annotations and Bean Validation into OpenAPI
-<code>x-ui</code>.</td>
+<td>Converts Java annotations, presets (<code>UISchemaPreset</code>),
+and Bean Validation into OpenAPI <code>x-ui</code> and
+<code>x-domain-governance</code>.</td>
 <td>Extending OpenAPI enrichment or field-level metadata
 resolution.</td>
 </tr>
@@ -326,7 +330,7 @@ semantics.</td>
 <tr>
 <td><code>controller.base</code> and <code>service.base</code></td>
 <td>Provide the resource-oriented HTTP and service baseline.</td>
-<td>Creating mutable or read-only resources.</td>
+<td>Creating mutable, read-only, or duplicate-draft resources.</td>
 </tr>
 <tr>
 <td><code>surface</code>, <code>action</code>,
@@ -336,11 +340,19 @@ availability snapshots.</td>
 <td>Modelling experiences beyond generic CRUD.</td>
 </tr>
 <tr>
+<td><code>fact</code> and <code>customfields</code></td>
+<td>Declare server-computed <code>@ResourceFact</code>s (with
+pushdown/authority metadata) and tenant-scoped JSONB
+<code>@CustomFields</code>.</td>
+<td>Publishing deterministic domain facts or tenant custom fields into
+<code>/schemas/filtered</code> and <code>/schemas/domain</code>.</td>
+</tr>
+<tr>
 <td><code>filter</code>, <code>options</code>, <code>stats</code>,
 <code>exporting</code></td>
 <td>Provide focused operational capabilities derived from the resource
 contract.</td>
-<td>Adding filtering, lookup options, analytics or collection
+<td>Adding filtering, rich entity lookups, analytics or collection
 export.</td>
 </tr>
 <tr>
@@ -357,9 +369,12 @@ versions.</td>
 <tr>
 <td><code>domain</code>, <code>authoring</code>,
 <code>validation</code></td>
-<td>Support semantic domain discovery and validate authoring
-quality.</td>
-<td>Publishing governed metadata or validating declarative rules.</td>
+<td>Synthesize <code>/schemas/domain</code> (<code>?strict=true</code>)
+and enforce static authoring quality
+(<code>SemanticMetadataReviewer</code>,
+<code>PraxisExpressionStaticValidator</code>).</td>
+<td>Publishing governed metadata or running native JUnit completeness
+gates.</td>
 </tr>
 <tr>
 <td><code>id</code>, <code>mapper</code>, <code>repository</code>,

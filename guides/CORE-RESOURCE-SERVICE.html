@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Core resource service e comandos versionados</title>
+  <style>
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f9fafb;
+      --border: #e5e7eb;
+      --accent: #0284c7;
+      --code-bg: #1e293b;
+      --code-fg: #e2e8f0;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --surface: #151921;
+        --border: #2a2f3a;
+        --accent: #38bdf8;
+        --code-bg: #181c24;
+        --code-fg: #e5e7eb;
+      }
+    }
+    body {
+      font: 16px/1.65 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem;
+    }
+    h1, h2, h3, h4 { line-height: 1.3; margin-top: 1.6rem; margin-bottom: 0.6rem; }
+    h1 { border-bottom: 1px solid var(--border); padding-bottom: 0.45rem; }
+    h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.12rem 0.35rem;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-fg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface); font-weight: 600; }
+    blockquote {
+      margin: 1rem 0;
+      padding: 0.65rem 1rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+      border-radius: 0 8px 8px 0;
+    }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .praxis-topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+    .praxis-topnav strong { margin-right: 0.4rem; }
+  </style>
+</head>
+<body>
+<nav class="praxis-topnav" aria-label="Praxis Navigation">
+  <strong>Praxis Metadata Starter</strong>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/">Docs Home</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/guides/index.html">Guias</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/architecture-overview.html">Arquitetura</a>
+  <a href="https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/">Javadoc</a>
+  <a href="https://praxis-api-quickstart.onrender.com/praxis/cockpit" target="_blank" rel="noopener">Live Cockpit</a>
+  <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
+</nav>
+<header id="title-block-header">
+<h1 class="title">Core resource service e comandos versionados</h1>
+</header>
+<h1 id="core-resource-service-e-comandos-versionados">Core resource
+service e comandos versionados</h1>
+<p><code>AbstractBaseQueryResourceService</code> concentra consultas,
+enriquecimento e exportação tanto para serviços mutáveis quanto
+read-only. <code>AbstractBaseResourceService</code> acrescenta o ciclo
+transacional de escrita. O host fornece regras de domínio, escopo
+autenticado e mapeamento; não precisa reimplementar a infraestrutura
+descrita abaixo.</p>
+<h2 id="identidade-cursor-e-posição">Identidade, cursor e posição</h2>
+<p>O opt-in continua sendo <code>supportsCursorPagination()</code>.
+<code>getIdentityPaths()</code> detecta <code>@Id</code>,
+<code>@EmbeddedId</code> e identidades com múltiplos componentes; pode
+ser sobrescrito para mapeamentos explícitos. O sort público
+<code>id</code> expande para esses componentes. O cursor acrescenta os
+componentes da identidade como desempate às demais ordenações.</p>
+<p>Os tokens usam <code>CursorEncoder.BASE64_URL</code> sem padding, com
+valores separados por <code>:</code>; <code>%</code>, <code>:</code> e
+<code>~</code> literais são escapados e <code>~</code> representa null.
+Na ordenação apenas pela identidade, o token contém exatamente seus
+componentes. Nas demais ordenações contém a tupla completa de ordenação,
+inclusive o desempate. Isso permite continuar depois de excluir a linha
+que originou o token. Use o mesmo filtro e sort na navegação; reinicie
+os tokens quando qualquer um mudar. Os tokens são opacos para
+consumidores e não concedem acesso: o servidor reaplica o escopo em cada
+consulta. A ordenação determinística não cria um snapshot MVCC entre
+requests. Inserções e alterações concorrentes nos campos de sort podem
+mudar o conjunto observado. Relatórios de auditoria que exijam um
+instante contábil precisam de uma projeção/snapshot governado pelo
+domínio. Ordenação por coleção <code>1:N</code> é rejeitada; publique
+uma projeção com valor escalar agregado.</p>
+<p>No fallback com repositório JPA e sem EntityManager no serviço, a
+consulta usa a mesma ordenação Criteria explícita do boundary, incluindo
+precedência de nulos e navegação reversa; o Sort nativo do banco não
+decide a ordem. Consultas <code>distinct</code> nesse fallback exigem a
+composição com EntityManager, pois o caminho canônico precisa projetar
+as expressões de ordenação junto da entidade. Essa composição é
+obrigatória para filtros relacionais que deduplicam resultados.</p>
+<p><code>after</code> e <code>before</code> são exclusivos. A consulta
+usa predicado lexicográfico, janela de <code>size + 1</code> e ordenação
+invertida para navegação anterior. Não usa posição em memória nem
+deslocamento SQL. Nulls são ordenados explicitamente: por padrão ao
+final, ou conforme <code>Sort.NullHandling</code> explícito.
+<code>locate</code> consulta o item dentro do filtro/escopo e conta em
+SQL os registros anteriores; seu índice é baseado em zero. Não
+materializa a coleção inteira.</p>
+<h2 id="autorização-e-enriquecimento">Autorização e enriquecimento</h2>
+<ul>
+<li><code>resolveResourceFilterAccessScope()</code> é obrigatório para
+hosts que isolam linhas. Governa coleções, inclusão de IDs no filtro,
+cursor, locate, option sources, stats e exportação.</li>
+<li><code>assertEntityAccessAllowed(E)</code> executa depois do lookup
+por chave em leituras de item, by-ids, update e exclusões. O host lança
+sua exceção de acesso negado (<code>403</code>). Linha inexistente é
+<code>404</code>; leituras by-ids e exclusões exigem existência de todos
+os IDs informados. Isso não se aplica a <code>includeIds</code> do
+filtro, que ignora chaves fora do escopo. Exclusão múltipla valida os
+alvos antes de executar hooks, adquire locks em ordem estável e preserva
+a ordem solicitada ao executar
+<code>beforeDelete</code>/<code>afterDelete</code> por item na mesma
+transação.</li>
+<li><code>enrichResponses(List&lt;ResponseDTO&gt;)</code> recebe um lote
+de projeções para enriquecimento em batch. É chamado uma vez por
+resultado de item/coleção, filtro, cursor e exportação; também integra
+as respostas de create/update. Não substitui autorização nem pode
+alterar a revisão persistida.</li>
+</ul>
+<h2 id="exportação-governada">Exportação governada</h2>
+<p>O executor é fornecido pela auto-configuração existente, com CSV,
+JSON e Excel. O serviço suporta export quando há executor e pelo menos
+um campo permitido. O limite padrão síncrono é 10.000 linhas por
+formato; sobrescreva <code>maxExportRows(format)</code> para um limite
+explícito do recurso. <code>maxRows</code> deve ser positivo e não pode
+ultrapassar o limite publicado em capabilities.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Escopo</th>
+<th>Conjunto consultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AUTO</code></td>
+<td><code>SELECTED</code> se há seleção; caso contrário
+<code>FILTERED</code></td>
+</tr>
+<tr>
+<td><code>SELECTED</code></td>
+<td>Chaves explícitas dentro do escopo obrigatório; seleção de todos os
+correspondentes reaplica o filtro; subtrai
+<code>excludedKeys</code></td>
+</tr>
+<tr>
+<td><code>FILTERED</code></td>
+<td>Filtro funcional e escopo obrigatório</td>
+</tr>
+<tr>
+<td><code>CURRENT_PAGE</code></td>
+<td>Filtro e escopo com <code>pageIndex</code> baseado em zero (ou
+<code>pageNumber</code> baseado em um) e <code>pageSize</code>
+positivo</td>
+</tr>
+<tr>
+<td><code>ALL</code></td>
+<td>Todo o escopo obrigatório, independentemente do filtro
+funcional</td>
+</tr>
+</tbody>
+</table>
+<p>Chaves simples e compostas são convertidas pelo contrato canônico. A
+resposta publica <code>metadata.effectiveScope</code>,
+<code>metadata.maxRows</code> e <code>metadata.truncated</code>. Não há
+carga integral para aplicar o limite depois.
+<code>resolveExportSort</code> aceita <code>Sort</code>, strings
+<code>campo,asc|desc</code>, listas dessas strings e entradas
+<code>{property, direction}</code>. Caminhos inválidos falham na
+execução JPA.</p>
+<p><code>defaultExportFields()</code> resolve o tipo de resposta e
+seleciona somente propriedades anotadas com
+<code>@UISchema(tableHidden = false)</code>, por <code>order</code>.
+Infere data (<code>dd/MM/yyyy</code>), data/hora
+(<code>dd/MM/yyyy HH:mm</code>), moeda (<code>CURRENCY_INPUT</code>, sem
+inferir uma moeda de negócio) e labels de booleanos.
+<code>exportFields()</code> é o hook de curadoria explícita.
+<code>governedExportFields()</code> reaplica a restrição das
+propriedades do DTO, mesmo a listas sobrescritas:
+<code>@DomainGovernance(exportable = false)</code> e a tag
+<code>NON_EXPORTABLE</code> impedem exportação. O executor reconcilia os
+campos do cliente com essa allowlist, preservando o value path e a
+apresentação canônicos. <code>tableHidden</code> controla a seleção
+padrão; não é autorização.</p>
+<p>A governança percorre tipos genéricos em listas, mapas, arrays,
+opcionais e objetos de valor, inclusive getters e subtipos concretos.
+Exportar um objeto pai inteiro é bloqueado se algum filho for restrito;
+um caminho explícito para um filho permitido continua válido. Tipos
+opacos (<code>Object</code>, mapas sem tipo, <code>JsonNode</code>,
+<code>@JsonAnyGetter</code>/<code>@JsonValue</code>) exigem projeção
+tipada de exportação. Serializadores customizados do host devem
+respeitar a mesma governança.</p>
+<p>A curadoria em <code>exportFields()</code> deve declarar moeda,
+locale e fuso quando houver significado de negócio. Sem moeda explícita,
+o engine usa a moeda do locale efetivo da exportação;
+<code>BigDecimal</code> isolado não é classificado automaticamente como
+valor monetário. Quando há corte por limite,
+<code>warnings</code>/<code>X-Export-Warnings</code> e
+<code>X-Export-Truncated</code> informam o corte. O consumidor deve
+mostrar o aviso junto ao download e permitir refinar filtro/seleção. Em
+hosts com CORS, exponha esses headers na configuração existente; o
+starter não redefine o CORS do host.</p>
+<h2 id="draft-efetivo-para-validação-de-campos-dinâmicos">Draft efetivo
+para validação de campos dinâmicos</h2>
+<p>O request é capturado e suas guardas primitivas são verificadas antes
+dos hooks. Quando JSON Logic observa <code>draft</code>,
+<code>prepareCreateValidationDraft(dto, candidate)</code> pode hidratar
+o candidato novo e devolver uma projeção DTO autorizada.
+<code>prepareUpdateValidationDraft(id, candidate, dto)</code> recebe uma
+cópia destacada, após acesso e If-Match, conservando o estado persistido
+em <code>entity</code>. Os defaults preservam o request; as regras são
+avaliadas antes dos hooks de negócio/save. Os preparos não podem
+persistir, alterar entidades gerenciadas ou executar efeitos.</p>
+<p>Escritas especializadas reaproveitam
+<code>validatePreparedCustomFieldsForUpdate(prepared, id, existing, dto)</code>
+e preservam os valores read-only retornados. A avaliação de lote usa a
+mesma preparação. O <a href="GOVERNED-RULE-BRIDGE.md">guia de regras</a>
+define omissão opcional, raízes e a admissão compartilhada
+<code>CustomFieldValidationRules.validate</code>.</p>
+<h2 id="atualizações-e-comandos-versionados">Atualizações e comandos
+versionados</h2>
+<p>Serviços optam pelo contrato
+<code>VersionedCreateUpdateResourceService</code>; a base fornece o
+método concreto <code>update(id, dto, precondition)</code>.
+<code>getEntityResourceVersion</code> detecta <code>@Version</code>
+numérico em field ou getter, inclusive herdado, com cache de
+introspecção por classe. Um recurso versionado sem revisão persistida
+falha e reverte a mutação.</p>
+<p>O ciclo exige transação de escrita e contexto de persistência limpo
+antes das primeiras leituras, adquire <code>PESSIMISTIC_WRITE</code>,
+verifica acesso e compara a revisão sob o lock. Executa os hooks e o
+mapper, preserva custom fields readonly, salva, faz flush/refresh e
+captura corpo e revisão após o último hook modificador.
+<code>usePessimisticLockOnVersionedWrite()</code> permite optar por
+controle otimista, mantendo a comparação e o flush antes de sucesso. Sem
+EntityManager, a porta de repositório continua utilizável, mas o
+adaptador deve fornecer sua garantia transacional.</p>
+<p>Comandos/intents implementam um método público
+<code>@Transactional</code> no serviço e chamam
+<code>executeVersionedMutation(id, precondition, Consumer&lt;E&gt;)</code>.
+A variante <code>BiConsumer&lt;E,E&gt;</code> recebe uma cópia anterior
+e a entidade atual. A cópia padrão separa coleções/mapas/arrays
+aninhados, JSON, datas e <code>@Embeddable</code>, preservando ciclos.
+Associações lazy e objetos mutáveis não suportados falham antes do
+mutator; sobrescreva <code>snapshotBeforeMutation</code> com uma cópia
+anterior independente e limitada ao domínio. Evite inicializar grafos
+indiscriminadamente. O helper não inventa um <code>UpdateDTO</code> e
+não executa hooks de edição ordinária em nome de um comando de negócio.
+Com <code>@CustomFields</code> e o validador nativo configurado, o
+helper captura o estado anterior e valida a projeção DTO resultante
+antes do save final; <code>entity</code> representa o estado anterior
+autorizado e <code>draft</code> a projeção atual. Efeitos do callback
+devem participar da mesma transação para que uma rejeição também reverta
+eventuais flushes intermediários. Para intents tipados,
+<code>ResourceStateCopySupport.copySuppliedPatchProperties(patch, dto, objectMapper)</code>
+copia apenas propriedades fornecidas, preservando omissão,
+<code>null</code>, <code>false</code> e zero. A presença usa o nome
+público JSON, incluindo <code>@JsonProperty</code>, aliases admitidos e
+a estratégia de nomes do mapper HTTP. Os setters de
+<code>PartialUpdateInput</code> registram o nome público canônico, mesmo
+quando o JSON usa um alias. A variante de dois argumentos usa a
+configuração Jackson padrão. A autorização dos campos e sua nulabilidade
+continuam no contrato e no serviço do domínio.</p>
+<p>Guardas de coleção podem sobrescrever
+<code>assertEntitiesAccessAllowed(Collection&lt;E&gt;)</code> para
+carregar fatos compartilhados de autorização em lote. O default chama a
+guarda individual para cada entidade. Página, cursor, includeIds e
+exportação usam essa fronteira; o escopo SQL obrigatório de
+<code>ResourceFilterAccessScope</code> e a guarda de lookup individual
+continuam exigidos. Não mantenha grants num cache global entre
+requisições ou órgãos.</p>
+<p>No controller, use
+<code>executeVersionedItemCommand(actionId, id, ifMatch, idempotencyKey, payload, mutation)</code>
+ou
+<code>executeVersionedItemPatch(intentId, id, ifMatch, mutation)</code>.
+O executor governado aplica availability; a mutação continua responsável
+pela autorização transacional. O envelope mantém o <code>ETag</code>
+forte da revisão capturada e <code>Cache-Control: no-transform</code>,
+sem releitura para obter uma revisão mais recente. Preconditions
+ausentes, inválidas e obsoletas preservam respectivamente
+<code>428</code>, <code>400</code> e <code>412</code>. A base verifica
+também que a precondição está vinculada ao mesmo ID passado ao método;
+uma precondição de outro item nunca autoriza a escrita.</p>
+<h3 id="recibos-idempotentes-opcionais">Recibos idempotentes
+opcionais</h3>
+<p>Registre um bean <code>ResourceCommandIdempotencyStore</code>. A
+implementação PostgreSQL <code>JdbcResourceCommandReceiptStore</code>
+recebe <code>JdbcTemplate</code>, o <strong>mesmo transaction manager da
+mutação</strong> e <code>ObjectMapper</code>. Instale explicitamente
+<code>classpath:db/praxis-command-receipts.sql</code> como migração do
+host; a biblioteca não cria tabelas nem aplica migrações
+automaticamente. Um construtor adicional aceita um nome validado de
+tabela, inclusive qualificado por schema.</p>
+<p>O recibo isola chave por escopo confiável, ator autenticado, recurso,
+item e comando. O fingerprint inclui payload e If-Match. Um advisory
+lock transacional PostgreSQL serializa retries antes do lock de domínio.
+Mutação e gravação do corpo/revisão são uma única transação
+<code>READ COMMITTED</code>. O construtor exige o mesmo objeto
+DataSource do transaction manager JDBC/JPA, além do mesmo banco; a
+execução verifica a conexão efetivamente vinculada, writable e
+<code>READ COMMITTED</code>. Transações externas readonly ou com outro
+isolamento são rejeitadas, inclusive quando o isolamento efetivo difere
+do default declarado no Spring. Com JPA, um contexto sujo é rejeitado
+antes da consulta de autorização para impedir autoflush anterior à
+governança.</p>
+<p>Replay devolve corpo e revisão históricos antes das guardas de uma
+nova transição; não renova o ETag. Ainda verifica o acesso atual ao
+item, dentro da transação do recibo. Implementações da SPI devem
+executar <code>authorize</code> antes de consultar/devolver recibos,
+tanto na primeira execução quanto no replay, e executar
+<code>mutation</code> apenas quando não houver recibo. A mesma chave com
+payload ou If-Match diferente retorna <code>409</code>. Uma chave
+enviada sem store configurado retorna <code>503</code>, sem executar a
+mutação. <code>resourceCommandActor()</code> usa o principal Servlet;
+hosts com outro mecanismo de autenticação devem fornecer sua identidade
+confiável nesse hook. O fallback <code>anonymous</code> só distingue o
+escopo público, sem separar pessoas; recursos corporativos autenticados
+devem validar o principal real e nunca aceitar ator/tenant livremente no
+payload. Retenção/limpeza de recibos e coordenação de efeitos externos
+pertencem ao host; não remova um recibo enquanto o retry ainda for
+válido.</p>
+<h2 id="snapshots-stats-e-authoring">Snapshots, stats e authoring</h2>
+<p><code>toResourceStateSnapshot(E)</code> fornece o estado de domínio
+para availability. O provider padrão
+<code>ResourceServiceDelegatingStateSnapshotProvider</code> procura um
+serviço pelo seu <code>getResourceKey()</code> (derivado de
+<code>resolveResourceKey()</code>), converte o ID e delega ao método
+transacional que verifica existência e acesso. Declare a mesma chave
+semântica do controller no serviço/entidade ou no hook de resolução.
+Chaves ambíguas falham explicitamente. O provider é substituível por
+bean do host; <code>ResourceStateSnapshotScope</code> mantém a
+deduplicação por request/recurso.</p>
+<p>Discovery de item e consultas de coleções filhas verificam o item pai
+por <code>assertItemAccessible(id)</code>. A implementação padrão da
+interface delega a <code>findById</code>; a base canônica evita a
+montagem e o enriquecimento do DTO quando não existe override desse
+método. Acesso e existência continuam sendo validados por
+<code>findEntityById</code>. Overrides do host, inclusive por proxies de
+interface, mantêm suas verificações. Em capabilities, o snapshot obtido
+nessa verificação é reutilizado apenas no
+<code>ResourceStateSnapshotScope</code> corrente, identificado por
+serviço e ID. Não há cache de autorização entre requisições nem
+compartilhamento de estado entre itens.</p>
+<p>Os quatro modos de stats retornam <code>AUTO</code> quando o registry
+não é vazio. Elegibilidade dos campos, infraestrutura e limites
+continuam determinando as capabilities executáveis.</p>
+<p><code>EntityLookupDescriptor.directoryBuilder(entityKey, codePath, descriptionPaths...)</code>
+fornece selection policy, capabilities de leitura, drawer de detalhe,
+display directory e filtering. Informe status, política de seleção,
+dependências e surfaces reais do domínio. A surface default
+<code>detail</code> precisa existir no recurso referenciado.
+<code>LookupCapabilities.standardDirectory()</code> não anuncia
+create/edit, favoritos nem histórico privado.</p>
+<p><code>ReactiveDeterminationDefinition.forCrudResource(id, createOperationId, updateOperationId, determinationOperationId)</code>
+inicia o builder com os dois modos de formulário e IDs explícitos.
+Informe fontes, inputs, outputs e provenance. Os bindings usam JSON
+Pointer; as rotas e schemas continuam sendo resolvidos pelo compilador
+canônico, sem heurística de nomes.</p>
+<p><code>filterRelatedChildResource</code> valida o pai, limita
+<code>page &gt;= 0</code> e <code>size</code> entre 1 e 200, vincula o
+FilterDTO filho e retorna a página com link <code>collection</code>. O
+serviço filho mantém seu próprio escopo de acesso.
+<code>X-Data-Version</code> vem do serviço filho, não do pai.
+<code>childPath</code> é o caminho local canônico fornecido pelo
+host.</p>
+<script type="module">
+  const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
+  if (blocks.length > 0) {
+    const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    const nodes = [];
+    blocks.forEach((el) => {
+      const pre = el.tagName === 'PRE' ? el : el.parentElement;
+      const container = document.createElement('div');
+      container.className = 'mermaid';
+      container.textContent = el.textContent;
+      pre.replaceWith(container);
+      nodes.push(container);
+    });
+    await mermaid.run({ nodes });
+  }
+</script>
+</body>
+</html>

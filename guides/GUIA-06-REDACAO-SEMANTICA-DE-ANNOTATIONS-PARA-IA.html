@@ -667,6 +667,51 @@ conter nomes tecnicos em ingles (<code>resourceKey</code>,
 <code>id</code>, enum, path), mas <code>title</code>,
 <code>summary</code> e <code>description</code> devem ser escritos como
 documentacao de produto.</p>
+<h3
+id="habilite-investigacoes-operacionais-complexas-operational_investigation-com-vocabulario-humano-e-predicados-de-ausencia">8.
+Habilite investigacoes operacionais complexas
+(<code>operational_investigation</code>) com vocabulario humano e
+predicados de ausencia</h3>
+<p>Quando um operador ou gestor pergunta ao assistente de IA algo como
+<em>“quero investigar servidores da saude que tiveram aumento superior a
+30% sem movimentacao funcional nos ultimos 3 meses”</em>, o motor de
+grounding (<code>api_metadata</code> + <code>/schemas/filtered</code> +
+<code>/schemas/domain</code>) depende de tres propriedades no contrato
+publicado:</p>
+<ol type="1">
+<li><strong>Vocabulario humano nos filtros relacionais de organizacao e
+classificacao:</strong> um usuario nunca pergunta por
+<code>setor = "03.01.01"</code> ou <code>empCodigo = 1</code>. O
+<code>FilterDTO</code> precisa publicar filtros relacionais sobre nomes
+legiveis, tipos de unidade e categorias de negocio
+(<code>lotacao.nome</code>, <code>lotacao.tipoSetor</code>,
+<code>vinculo.categoria</code>, <code>cargoEntidade.nome</code>) e
+descrever explicitamente no <code>@Schema(description = ...)</code> os
+valores de dominio aceitos (ex.: <code>SAUDE</code>,
+<code>MAGISTERIO</code>, <code>GUARDA_MUNICIPAL</code>,
+<code>UNIDADE_SAUDE</code>, <code>ESCOLA</code>) para que o RAG e o
+planejador da LLM saibam traduzir a linguagem natural em predicados
+exatos;</li>
+<li><strong>Predicados explicitos de ausencia, omissao ou estagnacao
+(<code>IS_NULL</code>, <code>IS_FALSE</code>, janelas
+anti-evento):</strong> alem de janelas positivas
+(<code>IN_LAST_DAYS</code>, <code>IN_NEXT_DAYS</code>), documente
+claramente os filtros que provam a <em>ausencia</em> de um evento ou
+estado (ex.: <code>semHomologacaoEstagio</code>,
+<code>semSubstitutoDesignado</code>, <code>semParcelaProgramada</code>,
+<code>diasSemMovimentacaoFuncionalMin</code>), explicando no
+<code>@Schema(description)</code> qual omissao ou inatividade aquele
+filtro audita;</li>
+<li><strong>Projecoes analiticas cross-domain
+(<code>Radar*</code>):</strong> perguntas que cruzam multiplos
+subdominios com calculos agregados ou temporais devem ser atendidas por
+recursos read-only consolidados
+(<code>AbstractReadOnlyResourceController</code>) cujo
+<code>@Schema(description)</code> no DTO e na operacao
+<code>/filter</code> declare explicitamente as dimensoes cruzadas, os
+indicadores pre-calculados (<code>@ResourceFact</code>) e as projecoes
+analiticas (<code>@UiAnalytics</code>).</li>
+</ol>
 <h2 id="como-preencher-operation">Como preencher
 <code>@Operation</code></h2>
 <h3 id="summary"><code>summary</code></h3>
@@ -815,9 +860,24 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb23-1"><a href=
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>intent <span class="op">=</span> <span class="st">&quot;payroll-history&quot;</span></span></code></pre></div>
 <p>Nao use frases longas, labels de UI ou nomes acoplados ao
 frontend.</p>
-<h3 id="tags"><code>tags</code></h3>
+<h3 id="tags-legalpurpose-e-legalbasisref"><code>tags</code>,
+<code>legalPurpose</code> e <code>legalBasisRef</code></h3>
 <p>Tags devem ajudar agrupamento e discovery, sem virar saco de
-palavras-chave.</p>
+palavras-chave. Quando a surface expuser dados pessoais, sensiveis,
+financeiros ou sujeitos a LGPD/compliance, preencha tambem
+<code>legalPurpose = LegalTreatmentPurpose.*</code>
+(<code>HUMAN_RESOURCES_ADMINISTRATION</code>,
+<code>PAYROLL_AND_TAX_COMPLIANCE</code>,
+<code>OFFICIAL_HEALTH_EXPERTISE</code>,
+<code>SOCIAL_SECURITY_AND_BENEFITS</code>,
+<code>ACTIVE_PUBLIC_TRANSPARENCY_LAI</code>,
+<code>EXTERNAL_AUDIT_CONTROL</code>, <code>EMPLOYEE_SELF_SERVICE</code>,
+<code>STATUTORY_LEGAL_OBLIGATION</code>) e <code>legalBasisRef</code>
+(ex.: <code>"LGPD:ART_7_III_EXECUCAO_POLITICAS_PUBLICAS"</code>,
+<code>"LGPD:ART_7_II_OBRIGACAO_LEGAL"</code>,
+<code>"LGPD:ART_11_II_A_OBRIGACAO_LEGAL_DADO_SENSIVEL"</code>), que sao
+publicados em <code>/schemas/surfaces</code> e consumidos pelo PEP/PDP
+(<code>praxis-authz-*</code>).</p>
 <p>Boas tags:</p>
 <div class="sourceCode" id="cb24"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>tags <span class="op">=</span> <span class="op">{</span><span class="st">&quot;profile&quot;</span><span class="op">,</span> <span class="st">&quot;contact&quot;</span><span class="op">}</span></span>
@@ -862,8 +922,10 @@ nao garante.</p>
 <pre class="text"><code>Eventos pendentes aprovados com sucesso.</code></pre>
 <p>Ruim:</p>
 <pre class="text"><code>Folha fechada, contabilizada e enviada ao banco.</code></pre>
-<h3 id="scope-allowedstates-e-requiredauthorities"><code>scope</code>,
-<code>allowedStates</code> e <code>requiredAuthorities</code></h3>
+<h3
+id="scope-allowedstates-requiredauthorities-legalpurpose-e-legalbasisref"><code>scope</code>,
+<code>allowedStates</code>, <code>requiredAuthorities</code>,
+<code>legalPurpose</code> e <code>legalBasisRef</code></h3>
 <p>Ao revisar uma action, valide tambem:</p>
 <ul>
 <li><code>scope</code>: item ou colecao, conforme o endpoint real.</li>
@@ -871,6 +933,10 @@ nao garante.</p>
 sentido.</li>
 <li><code>requiredAuthorities</code>: autoridades exigidas pelo dominio
 ou seguranca do host.</li>
+<li><code>legalPurpose</code> (<code>LegalTreatmentPurpose</code>) e
+<code>legalBasisRef</code>: finalidade e base legal LGPD do ato
+administrativo/comando, publicadas em <code>/schemas/actions</code> e
+auditadas em decisoes <code>decisionKind = AUTHORIZATION</code>.</li>
 </ul>
 <p>Nao use texto para compensar <code>scope</code>, estado ou autoridade
 mal modelados.</p>
@@ -919,14 +985,44 @@ uso visual.</li>
 semantica.</p>
 <h2 id="governanca-de-dominio-e-dados-sensiveis">Governanca de dominio e
 dados sensiveis</h2>
-<p>Quando o host usar anotacoes de governanca, o texto deve ser ainda
-mais preciso.</p>
+<p>Quando o host usar anotacoes de governanca
+(<code>@DomainGovernance</code>, <code>@DomainLineage</code>,
+<code>@AiUsagePolicy</code>), o texto deve ser ainda mais preciso:</p>
+<ul>
+<li>Em <code>@DomainGovernance</code>, prefira
+<code>preset = DomainGovernancePreset.*</code>
+(<code>LGPD_PERSONAL_ID</code>, <code>LGPD_PERSONAL_CONTACT</code>,
+<code>LGPD_SENSITIVE_DATA</code>, <code>CONFIDENTIAL_FINANCIAL</code>,
+<code>SECURITY_CREDENTIAL</code>, <code>INTERNAL_OPERATIONAL</code>,
+<code>LEGAL_COMPLIANCE</code>) combinado com <code>reason</code> claro,
+<code>exportable</code> e <code>@AiUsagePolicy</code>. Suporta aplicacao
+na classe/interface (<code>@Target(ElementType.TYPE)</code>) com heranca
+monotônica para os campos, alem de meta-anotacoes compostas
+(<code>@SensitivePersonalHealthData</code>,
+<code>@PersonalIdentificationData</code>,
+<code>@ConfidentialFinancialData</code>). Os 9 atributos validos de
+<code>@DomainGovernance</code> sao <code>preset</code>,
+<code>kind</code>, <code>classification</code>,
+<code>dataCategory</code>, <code>complianceTags</code>,
+<code>exportable</code>, <code>aiUsage</code>, <code>reason</code> e
+<code>confidence</code>.</li>
+<li>Em atributos projetados a partir de entidades JPA ou classes
+ancestrais, adicione
+<code>@DomainLineage(attributeId = "...", sourceClass = ..., sourcePaths = {...}, transformation = ...)</code>
+mantendo <code>@DomainGovernance</code> no DTO; o starter publica a
+linhagem em <code>x-domain-governance.lineage</code> e o
+<code>SemanticMetadataReviewer</code> (gate <code>P50</code>
+<code>lineage-governance-weakened</code>) bloqueia qualquer
+enfraquecimento de classificacao, exportabilidade ou politica de IA em
+relacao a origem.</li>
+</ul>
 <p>Descreva:</p>
 <ul>
 <li>categoria real do dado</li>
 <li>finalidade legitima</li>
-<li>motivo de restricao</li>
-<li>uso esperado por IA</li>
+<li>motivo de restricao (<code>reason</code>)</li>
+<li>uso esperado por IA (<code>AiVisibilityMode</code>,
+<code>AiTrainingUseMode</code>, <code>AiControlledUseMode</code>)</li>
 <li>relacao com compliance ou politica interna</li>
 </ul>
 <p>Exemplo:</p>
@@ -934,15 +1030,25 @@ mais preciso.</p>
 <p>Evite:</p>
 <pre class="text"><code>Dado sensivel.</code></pre>
 <p>Se o starter ou host publicar catalogo de dominio, essas descricoes
-passam a alimentar descoberta semantica e politicas de uso por IA.</p>
-<h3 id="heuristica-em-schemasdomain-e-texto-em-propriedades">Heuristica
-em <code>/schemas/domain</code> e texto em propriedades</h3>
+passam a alimentar descoberta semantica, governanca de regras
+(<code>decisionKind = BUSINESS</code>) e politicas de
+autorizacao/mascaramento
+(<code>decisionKind = AUTHORIZATION</code>).</p>
+<h3
+id="heuristica-em-schemasdomain-modo-estrito-stricttrue-e-texto-em-propriedades">Heuristica
+em <code>/schemas/domain</code>, modo estrito
+(<code>?strict=true</code>) e texto em propriedades</h3>
 <p>No vocabulario agregado em <code>/schemas/domain</code>,
-classificacoes de governanca para campos podem considerar <strong>nome
-do campo</strong>, <strong><code>title</code> e <code>description</code>
-do schema OpenAPI</strong>, <code>format</code> e padroes textuais (por
-exemplo termos que indicam credencial, saude, documento pessoal ou
-financeiro). Isso implica:</p>
+classificacoes de governanca para campos sem
+<code>@DomainGovernance</code> explicito podem usar inferencia
+heuristica considerando <strong>nome do campo</strong>,
+<strong><code>title</code> e <code>description</code> do schema
+OpenAPI</strong>, <code>format</code> e padroes textuais (marcados com
+<code>source = "heuristic"</code>). Quando chamado com
+<code>GET /schemas/domain?strict=true</code> (usado por compiladores de
+politica fail-closed e auditorias estritas), apenas governanca declarada
+explicitamente (<code>source = "annotation"</code>) e aceita. Isso
+implica:</p>
 <ul>
 <li>Evite metaforas ou jargao que <strong>acionem</strong> uma classe de
 governanca sem que o dado seja realmente daquela categoria.</li>
@@ -1022,7 +1128,7 @@ exemplos OpenAPI</h2>
 quando exposto. Ferramentas, clientes gerados e ligacoes entre catalogos
 usam essa identidade. Renomear sem necessidade quebra referencias e
 confunde discovery.</p>
-<h3 id="tags-1"><code>tags</code></h3>
+<h3 id="tags"><code>tags</code></h3>
 <p>Use tags como <strong>eixo de agrupamento</strong> no OpenAPI e no
 <code>/schemas/catalog</code>. Evite tags decorativas, duplicadas ou
 excessivamente genericas que nao reflitam dominio ou modulo real.</p>

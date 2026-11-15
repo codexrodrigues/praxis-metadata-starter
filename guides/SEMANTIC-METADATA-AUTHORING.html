@@ -348,8 +348,35 @@ transformar a IA em geradora de texto de dominio plausivel.</p>
 negocio do campo.</li>
 <li><code>@UISchema</code> descreve apresentacao, controles, layout e
 comportamento de UI.</li>
-<li><code>@DomainGovernance</code> descreve classificacao, privacidade,
-compliance e uso por IA.</li>
+<li><code>@DomainGovernance</code> descreve classificacao
+(<code>preset</code>, <code>kind</code>, <code>classification</code>,
+<code>dataCategory</code>, <code>complianceTags</code>,
+<code>reason</code>, <code>confidence</code>), elegibilidade de
+exportacao (<code>exportable</code>) e uso por IA
+(<code>@AiUsagePolicy</code>), sendo publicado em
+<code>x-domain-governance</code> e no <code>/schemas/domain</code>.
+Suporta
+<code>@Target({ElementType.FIELD, ElementType.METHOD, ElementType.TYPE, ElementType.ANNOTATION_TYPE})</code>,
+permitindo heranca monotônica da classe/interface para os campos. (Nota:
+metadados organizacionais como <code>owner</code>, <code>steward</code>
+e <code>retentionPolicy</code> pertencem a
+<code>GovernanceSummary</code> de <code>/schemas/domain</code> e a
+<code>DomainRuleDefinition</code> no <code>praxis-config-starter</code>,
+nao sendo atributos da annotation <code>@DomainGovernance</code>).</li>
+<li><code>@DomainLineage</code> descreve a linhagem semantica
+deterministica (<code>attributeId</code>, <code>sourceClass</code>,
+<code>sourcePaths</code>, <code>sourceResourceKey</code>,
+<code>transformation</code>) de um atributo projetado em DTO a partir de
+uma Entidade JPA ou classe ancestral, publicada em
+<code>x-domain-governance.lineage</code> e validada para impedir que o
+DTO enfraqueca a governanca da origem
+(<code>lineage-governance-weakened</code>). Em DTOs,
+<code>@DomainLineage</code> complementa (e nao substitui) a declaracao
+de <code>@DomainGovernance</code>.</li>
+<li><code>LegalTreatmentPurpose</code> (<code>legalPurpose</code> e
+<code>legalBasisRef</code> em <code>@UiSurface</code> e
+<code>@WorkflowAction</code>) declara a finalidade e a base legal LGPD
+de cada superficie de visualizacao ou comando de negocio.</li>
 <li><code>@UISchema(preset = ...)</code> reduz repeticao visual, mas nao
 escreve descricao de dominio.</li>
 </ul>
@@ -366,7 +393,53 @@ escreve descricao de dominio.</li>
 <li><code>LEGAL_DOCUMENT_REFERENCE</code></li>
 <li><code>TENANT_LABEL</code></li>
 <li><code>AUDIT_TIMESTAMP</code></li>
+<li><code>CPF_CNPJ</code></li>
+<li><code>EMAIL_CONTACT</code></li>
+<li><code>PHONE_CONTACT</code></li>
+<li><code>INTEGER_COUNTER</code></li>
+<li><code>PERCENTAGE_RATE</code></li>
 </ul>
+<h3
+id="presets-de-governança-domaingovernancepreset-e-meta-anotações-compostas">Presets
+de Governança (<code>DomainGovernancePreset</code>) e Meta-Anotações
+Compostas</h3>
+<p>Para evitar repetição de atributos LGPD/segurança e políticas de IA
+em cada campo, <code>@DomainGovernance</code> aceita
+<code>preset = DomainGovernancePreset.*</code> (qualquer atributo
+explícito sobrescreve o preset):</p>
+<ul>
+<li><code>LGPD_PERSONAL_ID</code> (<code>PRIVACY</code>,
+<code>CONFIDENTIAL</code>, <code>PERSONAL</code>, tags
+<code>{"LGPD", "PII"}</code>, <code>visibility = MASK</code>)</li>
+<li><code>LGPD_PERSONAL_CONTACT</code> (<code>PRIVACY</code>,
+<code>CONFIDENTIAL</code>, <code>PERSONAL</code>, tags
+<code>{"LGPD", "PII"}</code>, <code>visibility = MASK</code>)</li>
+<li><code>LGPD_SENSITIVE_DATA</code> (<code>PRIVACY</code>,
+<code>RESTRICTED</code>, <code>SENSITIVE_PERSONAL</code>, tags
+<code>{"LGPD", "SENSITIVE_PII"}</code>, <code>exportable = false</code>,
+<code>visibility = MASK</code>,
+<code>reasoningUse = REVIEW_REQUIRED</code>)</li>
+<li><code>CONFIDENTIAL_FINANCIAL</code> (<code>PRIVACY</code>,
+<code>CONFIDENTIAL</code>, <code>FINANCIAL</code>, tags
+<code>{"LGPD", "FINANCIAL_CONFIDENTIAL"}</code>,
+<code>visibility = MASK</code>)</li>
+<li><code>SECURITY_CREDENTIAL</code> (<code>SECURITY</code>,
+<code>RESTRICTED</code>, <code>CREDENTIAL</code>, tags
+<code>{"SECURITY", "CREDENTIAL"}</code>,
+<code>exportable = false</code>, <code>visibility = DENY</code>,
+<code>ruleAuthoring = DENY</code>,
+<code>reasoningUse = DENY</code>)</li>
+<li><code>INTERNAL_OPERATIONAL</code> (<code>SECURITY</code>,
+<code>INTERNAL</code>, <code>OPERATIONAL</code>)</li>
+<li><code>LEGAL_COMPLIANCE</code> (<code>COMPLIANCE</code>,
+<code>INTERNAL</code>, <code>LEGAL</code>, tags
+<code>{"COMPLIANCE"}</code>)</li>
+</ul>
+<p>Além disso, <code>@UISchema</code>, <code>@DomainGovernance</code> e
+<code>@MicroVisualization</code> suportam
+<code>@Target(ElementType.ANNOTATION_TYPE)</code>, permitindo compor
+meta-anotações reutilizáveis resolvidas recursivamente por
+<code>ResolverUtils</code>.</p>
 <p>Exemplo:</p>
 <div class="sourceCode" id="cb1"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Schema</span><span class="op">(</span>description <span class="op">=</span> <span class="st">&quot;Codigo operacional reconhecido pelo backend legado de folha para classificar eventos e rubricas.&quot;</span><span class="op">)</span></span>
@@ -379,16 +452,72 @@ apresentacao semantica de leitura/lista em
 humano em <code>@Schema</code>.</p>
 <h2 id="review">Review</h2>
 <p>Use <code>SemanticMetadataReviewer</code> para produzir relatorios de
-autoria:</p>
+autoria e auditoria de governanca:</p>
 <div class="sourceCode" id="cb2"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport report <span class="op">=</span> <span class="kw">new</span> <span class="fu">SemanticMetadataReviewer</span><span class="op">().</span><span class="fu">review</span><span class="op">(</span>MeuDTO<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span></code></pre></div>
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewer reviewer <span class="op">=</span> <span class="kw">new</span> <span class="fu">SemanticMetadataReviewer</span><span class="op">();</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Revisao padrao do DTO</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport report <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">review</span><span class="op">(</span>MeuDTO<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Revisao com gate P50 (cruzando campos RESTRICTED/SENSITIVE_PERSONAL/CREDENTIAL contra OptionSources e StatsFieldRegistry)</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport fullReport <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">review</span><span class="op">(</span>MeuDTO<span class="op">.</span><span class="fu">class</span><span class="op">,</span> optionSourceDescriptors<span class="op">,</span> statsFieldRegistry<span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Revisao estrita (exige @DomainGovernance explicito em 100% dos campos expostos)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport strictReport <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">reviewStrictGovernance</span><span class="op">(</span>MeuDTO<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Revisao de fatos (@ResourceFact) e finalidade legal LGPD (@UiSurface / @WorkflowAction)</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport factsAndLegalReport <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">reviewResourceFacts</span><span class="op">(</span>MeuControllerOuProvider<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span></code></pre></div>
 <p>O reviewer aponta:</p>
+<ul>
+<li><strong>Qualidade Editorial de <code>@Schema</code> e
+<code>@UISchema</code>:</strong>
 <ul>
 <li><code>schema-description-missing</code></li>
 <li><code>schema-description-copies-ui-label</code></li>
 <li><code>schema-description-derived-from-field-name</code></li>
 <li><code>preset-without-domain-description</code></li>
+</ul></li>
+<li><strong>Governança, Sensibilidade, Linhagem
+(<code>@DomainLineage</code>) e Modo Estrito:</strong>
+<ul>
 <li><code>public-private-context-field-without-governance</code></li>
+<li><code>sensitive-field-without-governance</code></li>
+<li><code>sensitive-field-public-classification</code></li>
+<li><code>sensitive-field-allows-ai-training</code></li>
+<li><code>missing-explicit-domain-governance</code> (em
+<code>reviewStrictGovernance</code>)</li>
+<li><code>lineage-governance-weakened</code> (quando a governança do DTO
+é menos restritiva que a origem declarada em
+<code>@DomainLineage</code>)</li>
+<li><code>invalid-domain-lineage</code> (quando
+<code>sourceClass</code>/<code>sourcePaths</code> de
+<code>@DomainLineage</code> não podem ser resolvidos)</li>
+</ul></li>
+<li><strong>Proteção de Superfícies Analíticas e Lookups
+(<code>P50</code>):</strong>
+<ul>
+<li><code>restricted-field-in-analytics-or-option-source</code> (quando
+um campo <code>RESTRICTED</code>, <code>CREDENTIAL</code> ou
+<code>SENSITIVE_PERSONAL</code> é exposto em
+<code>StatsFieldRegistry</code> ou
+<code>OptionSourceDescriptor</code>)</li>
+</ul></li>
+<li><strong>Finalidade Legal LGPD (<code>@UiSurface</code> /
+<code>@WorkflowAction</code>) e Fatos Determinísticos
+(<code>@ResourceFact</code>):</strong>
+<ul>
+<li><code>legal-basis-without-legal-purpose</code>
+(<code>legalBasisRef</code> preenchido com
+<code>legalPurpose = UNSPECIFIED</code>)</li>
+<li><code>legal-purpose-without-legal-basis-ref</code>
+(<code>legalPurpose</code> regulado como <code>LEGAL_OBLIGATION</code>
+ou <code>PUBLIC_POLICY</code> sem <code>legalBasisRef</code>)</li>
+<li><code>resource-fact-client-overridable-not-allowed</code>,
+<code>resource-fact-invalid-authority</code>,
+<code>resource-fact-invalid-evaluation-phase</code>,
+<code>resource-fact-invalid-missing-value-policy</code>,
+<code>resource-fact-invalid-scope</code></li>
+</ul></li>
 </ul>
 <p>O reviewer nao gera descricoes. Ele apenas mostra onde a autoria
 humana ainda precisa decidir significado, limites, relacoes, impacto e
