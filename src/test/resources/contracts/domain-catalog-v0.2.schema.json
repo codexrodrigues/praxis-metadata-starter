@@ -65,7 +65,7 @@
         "nodeKey": { "$ref": "#/$defs/key" },
         "contextKey": { "$ref": "#/$defs/key" },
         "nodeType": {
-          "enum": ["concept", "resource", "entity", "field", "fact", "state", "operation", "action", "surface", "stats", "relationship", "policy_hint", "llm_visibility"]
+          "enum": ["concept", "resource", "entity", "field", "fact", "state", "operation", "action", "surface", "stats", "quick_filter", "relationship", "policy_hint", "llm_visibility"]
         },
         "label": { "$ref": "#/$defs/nonEmptyString" },
         "description": { "type": ["string", "null"] },
@@ -91,7 +91,7 @@
         "sourceNodeKey": { "$ref": "#/$defs/key" },
         "targetNodeKey": { "$ref": "#/$defs/key" },
         "edgeType": {
-          "enum": ["has_field", "provides_fact", "has_state", "has_action", "has_surface", "has_stats", "allowed_in_state", "selectable_when", "blocked_when", "uses_concept", "same_as", "depends_on", "references", "owned_by", "governed_by", "materializes"]
+          "enum": ["has_field", "provides_fact", "has_state", "has_action", "has_surface", "has_stats", "has_quick_filter", "filters_field", "allowed_in_state", "selectable_when", "blocked_when", "uses_concept", "same_as", "depends_on", "references", "owned_by", "governed_by", "materializes"]
         },
         "label": { "type": ["string", "null"] },
         "confidence": { "$ref": "#/$defs/confidence" },
@@ -106,7 +106,7 @@
         "bindingKey": { "$ref": "#/$defs/key" },
         "nodeKey": { "$ref": "#/$defs/key" },
         "bindingType": {
-          "enum": ["api_resource", "api_operation", "dto_schema", "dto_field", "resource_fact", "workflow_action", "approval_policy", "ui_surface", "option_source", "stats_endpoint", "form_config", "rule_definition", "external_reference"]
+          "enum": ["api_resource", "api_operation", "dto_schema", "dto_field", "resource_fact", "workflow_action", "approval_policy", "ui_surface", "option_source", "stats_endpoint", "quick_filter", "form_config", "rule_definition", "external_reference"]
         },
         "target": { "$ref": "#/$defs/freeObject" },
         "schemaLinks": { "type": "array", "items": { "$ref": "#/$defs/schemaLink" } },

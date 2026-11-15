@@ -184,13 +184,6 @@ class OntologyG2PublicationTest {
         assertThatThrownBy(() -> service.findByResourceKey("crm.customers")).hasMessageContaining("unknown");
     }
 
-    @Test void contractFixtureMatchesCanonicalConfigSchemaWhenGatePathIsProvided() throws Exception {
-        String canonical = System.getProperty("ontology.g2.catalog-schema");
-        org.junit.jupiter.api.Assumptions.assumeTrue(canonical != null, "Cross-repository gate supplies the canonical schema path");
-        assertThat(mapper.readTree(java.nio.file.Path.of(canonical).toFile())).isEqualTo(
-                mapper.readTree(getClass().getResourceAsStream("/contracts/domain-catalog-v0.2.schema.json")));
-    }
-
     @Test void publicationReadsAllSchemaSnapshotsUnderTheCanonicalCacheLock() {
         requireReadLock = true;
         assertThat(service.findByResourceKey("crm.customers").nodes()).isNotEmpty();

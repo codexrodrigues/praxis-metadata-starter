@@ -586,4 +586,25 @@ landed on `main`:
    - Adds re-entrant request-scoped operation map reuse in `ResourceOperationAvailabilityEvaluator.withOperations`, `CapabilityService.withOperationAvailabilityScope`, `DefaultCapabilityService`, `SurfaceCatalogService.withAvailabilityOnly`, and controller HATEOAS/batch operation scopes (`AbstractResourceQueryController`, `AbstractCreateUpdateResourceController`, `AbstractResourceController`, `AbstractDuplicateDraftResourceController`) so collection responses (`getAll`, `filter`, `filterCursor`) and batch guards resolve the resource's canonical operation map and collection surface baseline once per HTTP request instead of `O(N)` times per item.
    - Covered by `DiscoveryPublishedPhotographTest` and `CapabilityServiceTest` (`no_db`).
 
+## 2026-11-14 reconciliation: v8.0.0-rc.189 (declarative bulk, custom-field governance, quick-filters Onda 1, contextual quick-view, @UiOption/@ResourceFact vocabularies, and rules-engine 0.1.0-beta.19)
+
+Between `9cbea01f86` (`v8.0.0-rc.188`) and `00252a3803`, the repository integrated declarative bulk P1-P5 governance, custom-field JSON-logic validation and adoption contracts, typed `@QuickFilter`/`@FilterCriterion` Onda 1 support, contextual surface summary projection, `@UiOption`/`@ResourceFact`/`@ResourceIdentity` vocabularies, and `CalculationTrail`/`@MicroVisualization` metadata extensions. This reconciliation anchors `v8.0.0-rc.189`:
+
+1. **Released dependency alignment and POM deltas (`pom.xml`):**
+   - Updated `io.github.codexrodrigues:praxis-rules-engine` from `0.1.0-beta.19-SNAPSHOT` to the Maven Central release `0.1.0-beta.19`.
+   - Retained `embedded-postgres-binaries-bom:17.11.0` (`test` binary alignment) and `<parameters>true</parameters>` compiler configuration.
+2. **Added/updated `no_db` coverage (+46 new `no_db` classes) and `support` fixtures (+1):**
+   - Added 46 unit/H2/MockMvc `no_db` test classes (authoring, declarative bulk protocol/preparation/admission/quota/routing, cursor/keyset/mutation context, custom-field governance/JsonLogic, `@QuickFilter`/inherited JPA filters, contextual surface summary, `@UiOption`, `CalculationMemory`, `DomainCatalogIdentityTest`, `DomainRuleSetDescriptorTest`, and `OntologyG2PublicationTest`).
+   - Added `support` fixture `org.praxisplatform.uischema.bulk.p3fixture.DeclarativeBulkItem`.
+   - Split the 6-line optional `-Dontology.g2.catalog-schema` cross-repository check out of `OntologyG2PublicationTest` into `OntologyG2SchemaParityTest` (matching `JsonLogicExpressionValidatorParityTest`) so all 9 offline `/schemas/domain` v0.2 publication, lock, governance, and semantic validator checks in `OntologyG2PublicationTest` run unconditionally in `no_db` with zero JUnit skips.
+   - Synced test resource `src/test/resources/contracts/domain-catalog-v0.2.schema.json` with canonical `praxis-config-starter` `praxis-domain-catalog-v0.2.schema.json` (adding `quick_filter`, `has_quick_filter`, `filters_field` enums) and refreshed `src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker`.
+   - Aligned `CoreResourceEvolutionIntegrationTest.exportsAreBoundedAndGovernanceCannotBeOverriddenOrSpoofed` to assert the `"BRL"` currency default introduced in `af5091918d` on `ResourceExportSupport`.
+3. **New exclusions under `bulk_embedded_pg` (+3) and `external_workspace` (+1):**
+   - `BulkCatalogBatchTimeoutPostgresTest`, `BulkDeclarativeJpaHttpTest`, and `JdbcResourceCommandReceiptStoreTest` start `EmbeddedPostgres` locally (`fixtureGroup: bulk_embedded_pg`, `excluded_outside_impact` count `32 -> 35`); live PG17 atomic bulk/receipt/capacity behavior remains proved by `neon_required` (`BulkManagedOwnerNeonGateTest`, `BulkOptionalPoliciesNeonTest`, `ResourceContractCustomFieldsNeonTest`, `ResourceContractCompositeIdNeonTest`) and by `no_db` declarative/JDBC unit tests.
+   - `OntologyG2SchemaParityTest` compares `/contracts/domain-catalog-v0.2.schema.json` against the external `praxis-config-starter` path supplied via `-Dontology.g2.catalog-schema` (`fixtureGroup: external_workspace`, `excluded_outside_impact` count `1 -> 2`); cross-repo schema parity is verified in workspace runs, while runtime `/schemas/domain` schema validation executes unconditionally in `OntologyG2PublicationTest` (`no_db`).
+4. **Refreshed digests (`sha256`, `reviewedScopeDigest`, `historical_reuse`) across the release boundary:**
+   - Refreshed committed-blob `sha256` digests on modified `files`, `resources`, and `fixtureFiles`.
+   - Recomputed `impactReview.reviewedScopeDigest` across `excluded_outside_impact` and `superseded` entries and `reuse.reviewedScopeDigest` / `reuse.dependencyDigest` across the 3 `historical_reuse` entries (`BulkAsyncPublicAdmissionNeonTest`, `BulkCapacityAuthorityManagedNeonTest`, `BulkCapacityGlobalOccupancyNeonTest`) at the reconciled baseline, preserving the bounded prior claims for the four `neon_required` B–H / resource-contract gates.
+
+
 

@@ -102,13 +102,12 @@ sem se passar por conceitos. O schema JSON v0.2 continua sendo a validação de 
 Executar no Metadata com JDK 21:
 
 ```powershell
-mvn '-Dtest=DomainRuleSetDescriptorTest,DomainCatalogIdentityTest,OntologyG2PublicationTest,SemanticDomainCatalogServiceTest,ReactiveDeterminationMetadataCompilerTest,ReactiveDeterminationSpecContractTest,ApiDocsControllerTest,DomainCatalogControllerTest,ResourceFactAndCustomFieldDomainCatalogTest,OpenApiUiSchemaAutoConfigurationModelResolverTest' test
+mvn '-Dtest=DomainRuleSetDescriptorTest,DomainCatalogIdentityTest,OntologyG2PublicationTest,OntologyG2SchemaParityTest,SemanticDomainCatalogServiceTest,ReactiveDeterminationMetadataCompilerTest,ReactiveDeterminationSpecContractTest,ApiDocsControllerTest,DomainCatalogControllerTest,ResourceFactAndCustomFieldDomainCatalogTest,OpenApiUiSchemaAutoConfigurationModelResolverTest' test
 ```
 
-O gate entre repositórios passa `-Dontology.g2.catalog-schema=<caminho absoluto do
+O gate entre repositórios executa `OntologyG2SchemaParityTest` passando `-Dontology.g2.catalog-schema=<caminho absoluto do
 schema em praxis-config-starter/src/main/resources/domain-catalog/contracts/>`
-apontando para `praxis-domain-catalog-v0.2.schema.json`. O teste compara a cópia
-congelada exclusivamente de teste com a fonte Config; a cópia não é um novo contrato.
+apontando para `praxis-domain-catalog-v0.2.schema.json`, enquanto `OntologyG2PublicationTest` executa incondicionalmente offline contra a cópia congelada de teste. A cópia não é um novo contrato.
 Provas HTTP usam os controllers reais via MockMvc, compilador real e documentos
 OpenAPI locais. Compile os consumidores com o mesmo artefato candidato do Metadata.
 

@@ -194,7 +194,7 @@ class CoreResourceEvolutionIntegrationTest {
     @Test void exportsAreBoundedAndGovernanceCannotBeOverriddenOrSpoofed() throws Exception {
         assertEquals(List.of("id", "name", "date", "amount", "active"), service.defaultExportFields().stream().map(CollectionExportField::key).toList());
         assertEquals("dd/MM/yyyy", service.defaultExportFields().get(2).presentation().format());
-        assertNull(service.defaultExportFields().get(3).presentation().currency());
+        assertEquals("BRL", service.defaultExportFields().get(3).presentation().currency());
         assertEquals("Enabled", service.defaultExportFields().get(4).presentation().trueLabel());
         service.overrideFields = true;
         assertFalse(service.governedExportFields().stream().anyMatch(field -> field.key().equals("secret") || field.key().equals("tagged")));
