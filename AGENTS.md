@@ -53,13 +53,22 @@ Fronteira Canonica Local
   - `src/main/java/org/praxisplatform/uischema/configuration/OpenApiUiSchemaAutoConfiguration.java`
   - `src/main/java/org/praxisplatform/uischema/configuration/PraxisMetadataAutoConfiguration.java`
   - `src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
-- Anotacoes publicas do starter moram em:
+- Anotacoes publicas e contratos declarativos do starter moram em:
   - `src/main/java/org/praxisplatform/uischema/annotation/ApiResource.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/ApiGroup.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/UiSurface.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/WorkflowAction.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/ResourceIntent.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/ResourceReference.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/UiOption.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/QuickFilter.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/FilterCriterion.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/QuickFilterTone.java`
+  - `src/main/java/org/praxisplatform/uischema/schema/QuickFilterDescriptor.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/ReactiveDetermination.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/DeterminationOutput.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/BulkEditable.java`
+  - `src/main/java/org/praxisplatform/uischema/bulk/BulkResourceOperations.java`
   - `src/main/java/org/praxisplatform/uischema/fact/ResourceFact.java`
   - `src/main/java/org/praxisplatform/uischema/fact/ResourceFacts.java`
   - `src/main/java/org/praxisplatform/uischema/fact/ResourceFactDescriptor.java`
@@ -70,6 +79,10 @@ Fronteira Canonica Local
   - `src/main/java/org/praxisplatform/uischema/annotation/LegalTreatmentPurpose.java`
   - `src/main/java/org/praxisplatform/uischema/capability/ResourceStructuralCapabilities.java`
   - `src/main/java/org/praxisplatform/uischema/capability/ResourceStructuralCapabilityResolver.java`
+- Contratos canonicos auditados pelo `SemanticMetadataReviewer` (Ondas 1-3):
+  - **Quick Filters tipados (`@QuickFilter` / `defineQuickFilters()`):** `@ApiResource` deve declarar no minimo 2 filtros rapidos (`quick-filter-count-insufficient`) usando `criteria = {@FilterCriterion(field = "...", values/bool/number/decimal = ...)}` ou sobrescrevendo `AbstractResourceQueryController#defineQuickFilters()` (`QuickFilterDescriptor.<FD>builder(id, label).where(...)`), com `criteria.field` existente como `@Filterable` no `FilterDTO`, `label <= 36` caracteres sem ponto final e `icon` em `snake_case` minusculo; `@QuickFilter(filter = ...)` e `@Deprecated`.
+  - **Opcoes estaticas tipadas (`@UISchema` + `@UiOption`):** opcoes fechadas devem usar `optionItems = {@UiOption(...)}` (`org.praxisplatform.uischema.annotation.UiOption`) ou `optionEnum = MeuEnum.class`, com exclusividade mutua (`uischema-options-source-conflict`), `optionEnum` sendo um `enum` nao vazio (`uischema-option-enum-invalid`), valores unicos nao vazios, `label <= 36` chars sem ponto final e `icon` em `snake_case` minusculo; `@UISchema(options = ...)` e `@Deprecated(since = "2.1.0")`.
+  - **Fatos, determinacoes e lote (`@ResourceFact`, `@DeterminationOutput`, `@BulkResourceOperations`):** `@ResourceFact` herda `resourceKey` de `@ApiResource` quando omitido no controller ou no seu `<R>` `ResponseDTO`, valida os atributos `String` (`dataType`, `sourceKind`, `authority`, `evaluationPhase`, `missingValuePolicy`, `scope`) pelos enums `ResourceFact*` (exigindo propriedade correspondente no DTO quando `sourceKind` for `dto_field` ou `entity_field`), `label <= 36` chars sem ponto final e `icon` em `snake_case`; `@DeterminationOutput` exige shorthand `@DeterminationOutput("campo")` quando `response` e `field` sao iguais (`reactive-determination-output-redundant-explicit-pair`); e `@BulkResourceOperations(protectedUpdateFields = ...)` nao pode listar campos marcados com `@BulkEditable` (`bulk-protected-field-conflicts-with-bulk-editable`).
 - Fronteira da **Praxis Decision Platform**: o `praxis-metadata-starter` publica metadados semânticos declarativos (`@DomainGovernance`, `@DomainLineage`, `LegalTreatmentPurpose`, `x-ui.fieldAccess`, `@ResourceFact`) consumidos tanto pela trilha de regras de negócio determinísticas (`decisionKind = BUSINESS` -> `praxis-rules-engine`) quanto pela trilha de autorização/mascaramento (`decisionKind = AUTHORIZATION` -> `praxis-authz-*` / `OPA`). Não implementar PEP/PDP de segurança nem motor de regras de negócio dentro do metadata starter.
 - Mudancas semanticas devem privilegiar estruturas que melhorem o grounding de decisoes authoradas por IA, evitando empurrar logica de negocio para `x-ui` incidental ou para convenções locais do host.
 
