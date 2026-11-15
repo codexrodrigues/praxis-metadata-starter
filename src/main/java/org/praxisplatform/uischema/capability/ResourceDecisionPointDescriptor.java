@@ -18,9 +18,9 @@ import java.util.Objects;
  * bootstrap governado do {@code praxis-authz-starter}
  * ({@code org.praxisplatform.authz.contracts.decisionpoint.DecisionPointDescriptor}).
  *
- * @param decisionPointKey identificador único e estável do ponto de decisão (ex.: {@code "ergon.cargos:action:extinguir-cargo"})
- * @param resourceKey chave semântica do recurso proprietário (ex.: {@code "ergon.cargos"})
- * @param resourcePath caminho HTTP canônico do recurso (ex.: {@code "/api/ergon/cargos"})
+ * @param decisionPointKey identificador único e estável do ponto de decisão (ex.: {@code "workforce.cargos:action:extinguir-cargo"})
+ * @param resourceKey chave semântica do recurso proprietário (ex.: {@code "workforce.cargos"})
+ * @param resourcePath caminho HTTP canônico do recurso (ex.: {@code "/api/workforce/cargos"})
  * @param kind natureza estrutural do ponto de decisão ({@link DecisionPointKind})
  * @param targetId identificador do alvo dentro do recurso (ID da action, surface, bulk operation, nome do campo ou operação CRUD)
  * @param title título curto legível para humanos e catálogos

@@ -6,7 +6,7 @@ package org.praxisplatform.uischema.options.diagnostics;
  * <p>
  * The candidate is intentionally small: it identifies the public {@code sourceKey}, the expected public resource path
  * and a non-sensitive catalog key chosen by the host. It must not contain SQL, datasource, tenant, user, credential,
- * HADES locator, bind parameter or other private execution detail.
+ * internal package locator, bind parameter or other private execution detail.
  * </p>
  */
 public record OptionSourcePublicationCandidate(

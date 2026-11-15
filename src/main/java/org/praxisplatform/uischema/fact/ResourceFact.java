@@ -23,7 +23,7 @@ public @interface ResourceFact {
     String key();
 
     /**
-     * Canonical {@code resourceKey} of the owning resource (e.g., {@code "ergon.afastamentos"}).
+     * Canonical {@code resourceKey} of the owning resource (e.g., {@code "workforce.afastamentos"}).
      * When omitted or blank on a type/method owned by an {@code @ApiResource} controller (or its
      * resolved {@code ResponseDTO}), {@link AnnotationResourceFactCatalogProvider} inherits
      * {@code @ApiResource.resourceKey()} automatically.

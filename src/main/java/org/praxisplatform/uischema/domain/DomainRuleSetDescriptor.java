@@ -18,12 +18,12 @@ import java.util.Objects;
  * Descritor imutável que projeta um {@link RuleSetDefinition} governado do {@code praxis-rules-engine}
  * e seus metadados de razão/campo-alvo no catálogo semântico {@code /schemas/domain}.
  *
- * @param resourceKey chave canônica do recurso governado (ex.: {@code ergon.designacoes-chefia})
+ * @param resourceKey chave canônica do recurso governado (ex.: {@code workforce.designacoes-chefia})
  * @param definition contrato compilável do conjunto de regras (incluindo {@code availableRoots} e {@code referencedFactPaths})
  * @param label rótulo legível para exibição em catálogo e cockpit
  * @param description descrição funcional do conjunto de regras
  * @param conceptRootBindings explicit root-to-role/owner identity for this RuleSet operation
- * @param reasonDescriptors mapa opcional indexado pelo {@code reasonCode} (ex.: {@code ERG-01151}) com campo-alvo e linhagem
+ * @param reasonDescriptors mapa opcional indexado pelo {@code reasonCode} (ex.: {@code WF-01151}) com campo-alvo e linhagem
  */
 public record DomainRuleSetDescriptor(
         String resourceKey,
@@ -253,7 +253,7 @@ public record DomainRuleSetDescriptor(
      * {@code DecisionBinding}, conectando a violação de regra ao atributo do contrato ({@code targetField})
      * e à linhagem normativa/legada.
      *
-     * @param code código canônico da decisão (ex.: {@code ERG-01151})
+     * @param code código canônico da decisão (ex.: {@code WF-01151})
      * @param slotKey chave do {@code DecisionSlot} associado
      * @param targetField campo principal do DTO/contrato governado pela regra
      * @param message mensagem oficial de negócio

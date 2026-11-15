@@ -27,7 +27,7 @@ import java.lang.annotation.Target;
 public @interface DomainLineage {
 
     /**
-     * Identificador semantico canonico e estavel do atributo de dominio (ex.: {@code "ergon.pessoa.cpf"}).
+     * Identificador semantico canonico e estavel do atributo de dominio (ex.: {@code "workforce.pessoa.cpf"}).
      * Quando omitido e {@link #sourceClass()} + um unico {@link #sourcePaths()} forem informados,
      * e derivado deterministicamente da origem.
      */
@@ -47,7 +47,7 @@ public @interface DomainLineage {
     String[] sourcePaths() default {};
 
     /**
-     * Chave canonica opcional do recurso/conceito proprietario da origem (ex.: {@code "ergon.pessoas"}).
+     * Chave canonica opcional do recurso/conceito proprietario da origem (ex.: {@code "workforce.pessoas"}).
      */
     String sourceResourceKey() default "";
 

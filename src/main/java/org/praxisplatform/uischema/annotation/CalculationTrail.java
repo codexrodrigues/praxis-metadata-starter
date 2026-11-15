@@ -48,7 +48,7 @@ public @interface CalculationTrail {
     String icon() default "calculate";
 
     /**
-     * Codigo deterministico da regra de negocio ou formula (ex.: {@code "ERGON-TETO-CF88-37-XI"}).
+     * Codigo deterministico da regra de negocio ou formula (ex.: {@code "FIN-TETO-CF88-37-XI"}).
      */
     String ruleCode() default "";
 

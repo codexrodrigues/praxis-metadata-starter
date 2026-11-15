@@ -22,7 +22,7 @@ import java.lang.annotation.Target;
 public @interface ReactiveDetermination {
 
     /**
-     * Identificador estavel e globalmente unico da determinacao (ex.: {@code "ergon.folha.fichaFinanceira.previa"}).
+     * Identificador estavel e globalmente unico da determinacao (ex.: {@code "payroll.folha.fichaFinanceira.previa"}).
      */
     String id();
 

@@ -95,7 +95,7 @@ public class ApiResourceQuickFilterResolver {
     /**
      * Resolve a lista de filtros rapidos publicados para uma chave semantica de recurso ({@code resourceKey}).
      *
-     * @param resourceKey chave canonica do recurso (ex: "ergon.aposentadorias")
+     * @param resourceKey chave canonica do recurso (ex: "workforce.aposentadorias")
      * @return lista imutavel de mapas representando os filtros rapidos ou lista vazia
      */
     public List<Map<String, Object>> resolveByResourceKey(String resourceKey) {

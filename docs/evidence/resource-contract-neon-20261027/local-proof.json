@@ -19,10 +19,10 @@
     "CompositeIdResourceE2ETest"
   ],
   "neon": {
-    "project": "dark-mountain-25788969",
-    "branch": "br-wandering-bird-ad8qj4ae",
-    "parent": "br-solitary-thunder-ads5cf7r",
-    "endpoint": "ep-holy-flower-ad6mr8k6",
+    "project": "<neon-project-id>",
+    "branch": "<neon-branch-id>",
+    "parent": "<neon-parent-branch-id>",
+    "endpoint": "<neon-endpoint-id>",
     "postgres": "17.11",
     "tls": "verify-full, channelBinding=require, client peer verified",
     "runtime": "ordinary, no administrative attributes or outgoing memberships, schema-local USAGE/CREATE"
