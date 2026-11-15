@@ -614,5 +614,12 @@ Tag `v8.0.0-rc.189` run `43677163160` passed all offline gates, the full audited
 - The eleven-execute post-policy suffix (`TRANSPORT_SUFFIX_EXECUTES = 6 + 1 + 3 + 1 = 11`), `TRANSPORT_PRE_POLICY_RESERVE_MILLIS = 1500`, `100ms` floor, five-second unit deadline, and independent `COMPLETED`/one-effect/one-receipt/replay-without-callback assertions remain unchanged (`policyRemainingMillis = 2353`).
 - Updated `BulkOptionalPoliciesNeonTest`, `BulkOptionalPoliciesRecorderTest`, `tools/release/neon_gate.py`, `tools/release/test_neon_gate.py`, `RELEASING.md`, and `tools/release/neon-test-inventory.json` to require `37-executes` (`5`, `26`, `37`) and reject both the superseded `39-executes` marker and off-by-one counts.
 
+## 2026-11-15 reconciliation: v8.0.0-rc.191 (unique Surefire testcase identities for ResourceMutationBulkContextTest)
+
+Tag `v8.0.0-rc.190` run `43680554448` passed `259` `no_db` suites (`1932` testcases) and all three Neon PG17 gates (`managed-owner`, `optional-policies` with the `37-executes` transport profile, and `resource-contracts` with `OID-cleanup,PASS`), and stopped solely in `neon_gate.reports(...)` at `neon gate: duplicate JUnit testcase identity` for `org.praxisplatform.uischema.service.base.ResourceMutationBulkContextTest`:
+
+- `ResourceMutationBulkContextTest` contained the repository's sole JUnit 5 `@TestFactory` (`Stream<DynamicTest>`), for which Surefire `3.5.6` XML reports wrote four `<testcase>` elements sharing the identical method `name` (`bothModesCarryProposalAndConfirmationWithoutWritingDuringEvaluation`).
+- Converting that `@TestFactory` to `@ParameterizedTest` with `@CsvSource` (`UNIFORM_UPDATE`/`PER_ITEM_UPDATE` × `EVALUATION`/`CONFIRMATION`) emits four distinct Surefire testcase identities (`bothModesCarryProposalAndConfirmationWithoutWritingDuringEvaluation(BulkMode, Stage)[1..4]`) and isolates `@BeforeEach`/`@AfterEach` JPA setup per case without altering assertions.
+- Updated `tools/release/neon-test-inventory.json` SHA-256 for `src/test/java/org/praxisplatform/uischema/service/base/ResourceMutationBulkContextTest.java`.
 
 

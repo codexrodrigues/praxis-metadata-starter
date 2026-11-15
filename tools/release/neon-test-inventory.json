@@ -4695,7 +4695,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/service/base/ResourceMutationBulkContextTest.java",
-      "sha256": "ea6c8cb5234bdb8bd30f1cfa43d9eb06810a3d029d96ce2690fe9c7f2a35a7f7",
+      "sha256": "e66a34d6533d963557404969682ec441a9c871892342dca63c0386524aa00c5c",
       "kind": "no_db",
       "reason": "In-memory H2/Spring Web or JPA contract test; no external Neon/PostgreSQL or skipped assumption.",
       "className": "org.praxisplatform.uischema.service.base.ResourceMutationBulkContextTest"

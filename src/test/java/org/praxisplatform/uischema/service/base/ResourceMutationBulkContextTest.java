@@ -5,7 +5,8 @@ import com.fasterxml.jackson.databind.*;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Stream;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.hibernate.cfg.Configuration;
 import org.junit.jupiter.api.*;
 import org.praxisplatform.uischema.annotation.BulkEditable;
@@ -40,18 +41,27 @@ class ResourceMutationBulkContextTest {
         return BulkEditableFields.compile(json,json.constructType(Write.class),json.readTree("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}"),
             io.swagger.v3.oas.models.SpecVersion.V30,Set.of());
     }
-    @TestFactory Stream<DynamicTest> bothModesCarryProposalAndConfirmationWithoutWritingDuringEvaluation(){
-        return Stream.of(BulkMode.UNIFORM_UPDATE,BulkMode.PER_ITEM_UPDATE).flatMap(mode->Stream.of(ResourceMutationContext.Stage.EVALUATION,ResourceMutationContext.Stage.CONFIRMATION)
-            .map(stage->DynamicTest.dynamicTest(mode+"/"+stage,()->{
-                try(var validator=jakarta.validation.Validation.buildDefaultValidatorFactory()){
-                    var adapter=service.bulkDomainAdapter(json,validator.getValidator(),etags,()->scope);
-                    var context=stage==ResourceMutationContext.Stage.EVALUATION ? ResourceMutationContext.bulkEvaluation(mode,Instant.EPOCH)
-                        : ResourceMutationContext.bulkConfirmation(mode,Instant.EPOCH);
-                    var candidate=adapter.evaluate(1L,version(),List.of(BulkFieldChange.set("name",json.valueToTree("new"))),context,fields());
-                    assertEquals(context,service.contexts.getLast()); assertEquals("old",em.find(CoreResourceEvolutionIntegrationTest.Item.class,1L).name);
-                    assertEquals("1",candidate.facts().path("admission").path("policy").asText()); assertEquals(0,service.effects);
-                }
-            })));
+    @ParameterizedTest
+    @CsvSource({
+        "UNIFORM_UPDATE, EVALUATION",
+        "UNIFORM_UPDATE, CONFIRMATION",
+        "PER_ITEM_UPDATE, EVALUATION",
+        "PER_ITEM_UPDATE, CONFIRMATION"
+    })
+    void bothModesCarryProposalAndConfirmationWithoutWritingDuringEvaluation(
+            BulkMode mode, ResourceMutationContext.Stage stage) throws Exception {
+        try (var validator = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            var adapter = service.bulkDomainAdapter(json, validator.getValidator(), etags, () -> scope);
+            var context = stage == ResourceMutationContext.Stage.EVALUATION
+                ? ResourceMutationContext.bulkEvaluation(mode, Instant.EPOCH)
+                : ResourceMutationContext.bulkConfirmation(mode, Instant.EPOCH);
+            var candidate = adapter.evaluate(
+                1L, version(), List.of(BulkFieldChange.set("name", json.valueToTree("new"))), context, fields());
+            assertEquals(List.of(context), service.contexts);
+            assertEquals("old", em.find(CoreResourceEvolutionIntegrationTest.Item.class, 1L).name);
+            assertEquals("1", candidate.facts().path("admission").path("policy").asText());
+            assertEquals(0, service.effects);
+        }
     }
     @Test void confirmationReusesTheLockedVersionAndExecutesItsOwnContext() throws Exception {
         try(var validator=jakarta.validation.Validation.buildDefaultValidatorFactory()){
