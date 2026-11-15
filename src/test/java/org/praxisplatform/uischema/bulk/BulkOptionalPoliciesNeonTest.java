@@ -58,7 +58,7 @@ class BulkOptionalPoliciesNeonTest {
     static final String ORDERED_TRANSPORT_MARKER =
             "NEON_PROOF_ORDERED_UNIT_TRANSPORT=sdk-synthetic,5s-unit,100ms-floor,pre-policy-reserve-over-"
             + TRANSPORT_PRE_POLICY_RESERVE_MILLIS
-            + "ms,39-executes,one-domain-effect-and-receipt,completed,replay-without-callback";
+            + "ms,37-executes,one-domain-effect-and-receipt,completed,replay-without-callback";
 
     static boolean hasSyntheticPrePolicyReserve(long remainingMillis) {
         return remainingMillis > TRANSPORT_PRE_POLICY_RESERVE_MILLIS;
@@ -865,14 +865,14 @@ class BulkOptionalPoliciesNeonTest {
         assertThat(calls).hasValue(1); assertThat(mutations).hasValue(1);
         assertThat(state).isEqualTo("COMPLETED"); assertThat(effects).isEqualTo(1);
         assertThat(receipts).isEqualTo(1); assertThat(admissions).isZero();
-        assertThat(executes[0]).as("marker UPDATE plus apply infrastructure/setup/prefix").isEqualTo(7);
-        assertThat(executes[1]).as("all counted executes before policy reserve").isEqualTo(28);
+        assertThat(executes[0]).as("marker UPDATE plus apply infrastructure/setup/prefix").isEqualTo(5);
+        assertThat(executes[1]).as("all counted executes before policy reserve").isEqualTo(26);
         assertThat(executes[1]-executes[0]).isEqualTo(21);
         assertThat(executes[2]-executes[1]).isEqualTo(6);
         assertThat(executes[3]-executes[2]).isEqualTo(1); // Post-admission three-result batch.
         assertThat(executes[4]-executes[3]).isEqualTo(3);
         assertThat(runtime.recorder.unitExecutes-executes[4]).isEqualTo(1); // Receipt/pending/snapshot batch.
-        assertThat(runtime.recorder.unitExecutes).as("complete synthetic SDK transport profile").isEqualTo(39);
+        assertThat(runtime.recorder.unitExecutes).as("complete synthetic SDK transport profile").isEqualTo(37);
         assertThat(runtime.recorder.unitJdbcNanos + runtime.recorder.unitImposedNanos)
                 .isGreaterThanOrEqualTo(runtime.recorder.unitExecutes * TimeUnit.MILLISECONDS.toNanos(TRANSPORT_FLOOR_MILLIS));
         kernel.advance(reservation, unit -> { calls.incrementAndGet(); return BulkUnitAdmission.admit(); },

@@ -606,5 +606,13 @@ Between `9cbea01f86` (`v8.0.0-rc.188`) and `00252a3803`, the repository integrat
    - Refreshed committed-blob `sha256` digests on modified `files`, `resources`, and `fixtureFiles`.
    - Recomputed `impactReview.reviewedScopeDigest` across `excluded_outside_impact` and `superseded` entries and `reuse.reviewedScopeDigest` / `reuse.dependencyDigest` across the 3 `historical_reuse` entries (`BulkAsyncPublicAdmissionNeonTest`, `BulkCapacityAuthorityManagedNeonTest`, `BulkCapacityGlobalOccupancyNeonTest`) at the reconciled baseline, preserving the bounded prior claims for the four `neon_required` B–H / resource-contract gates.
 
+## 2026-11-15 reconciliation: v8.0.0-rc.190 (ordered transport profile alignment with batched live attestation)
+
+Tag `v8.0.0-rc.189` run `43677163160` passed all offline gates, the full audited `no_db` selection (`259` classes), and `managed-owner` (`BulkManagedOwnerNeonGateTest`) on `ubuntu-latest` + Neon PG17, and stopped solely in `optional-policies` (`BulkOptionalPoliciesNeonTest.assertOrderedTransportProfile`) at `executes[0] = 5` (previously `7`):
+
+- Commits `af5091918d` and `0f5ff35325` folded two operational `BulkExecutionInfrastructure.withConnection` JDBC round trips into adjacent SQL batches (`constrainLifecycleAttestationTimeouts` into `BulkCatalogPhase.LIVE` via `LiveTimeout`, and `restoreLifecycleStatementTimeout` + `verifyDurableNamespaceBinding` into `restoreAndVerifyLifecycleBinding`), deterministically reducing pre-admission JDBC executes inside `unitWindow` by `-2` (`executes[0]` `7 -> 5`, `executes[1]` `28 -> 26`, total `unitExecutes` `39 -> 37`).
+- The eleven-execute post-policy suffix (`TRANSPORT_SUFFIX_EXECUTES = 6 + 1 + 3 + 1 = 11`), `TRANSPORT_PRE_POLICY_RESERVE_MILLIS = 1500`, `100ms` floor, five-second unit deadline, and independent `COMPLETED`/one-effect/one-receipt/replay-without-callback assertions remain unchanged (`policyRemainingMillis = 2353`).
+- Updated `BulkOptionalPoliciesNeonTest`, `BulkOptionalPoliciesRecorderTest`, `tools/release/neon_gate.py`, `tools/release/test_neon_gate.py`, `RELEASING.md`, and `tools/release/neon-test-inventory.json` to require `37-executes` (`5`, `26`, `37`) and reject both the superseded `39-executes` marker and off-by-one counts.
+
 
 

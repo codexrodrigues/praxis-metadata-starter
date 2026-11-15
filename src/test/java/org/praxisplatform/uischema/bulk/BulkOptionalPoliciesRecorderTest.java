@@ -34,7 +34,7 @@ class BulkOptionalPoliciesRecorderTest {
         }
         assertThat(BulkOptionalPoliciesNeonTest.ORDERED_TRANSPORT_MARKER).isEqualTo(
                 "NEON_PROOF_ORDERED_UNIT_TRANSPORT=sdk-synthetic,5s-unit,100ms-floor,pre-policy-reserve-over-1500ms,"
-                + "39-executes,one-domain-effect-and-receipt,completed,replay-without-callback");
+                + "37-executes,one-domain-effect-and-receipt,completed,replay-without-callback");
     }
 
     @Test

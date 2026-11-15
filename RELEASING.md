@@ -81,15 +81,15 @@ com prova HTTP própria vinculada ao artefato adotado.
 
 A constante do teste deriva 1500 ms de onze executes restantes com piso de 100 ms
 (seis leituras sintéticas, um batch pós-admissão, três executes de mutação e um batch
-de receipt) mais 400 ms de tolerância para overhead. Os 28 executes anteriores
-mantêm seus pisos: `5000 - 28×100 - 1500 = 700 ms` de folga externa estrita antes
+de receipt) mais 400 ms de tolerância para overhead. Os 26 executes anteriores
+mantêm seus pisos: `5000 - 26×100 - 1500 = 900 ms` de folga externa estrita antes
 do guard. Isso é tolerância do harness, não garantia de latência do ambiente.
-Permanecem obrigatórios os 39 executes, conclusão `COMPLETED`, um efeito, um receipt,
+Permanecem obrigatórios os 37 executes, conclusão `COMPLETED`, um efeito, um receipt,
 replay sem nova callback e todos os negativos de prazo/rollback/fencing. Nenhum
 prazo, ancoragem, timeout de SQL/aquisição ou guard produtivo foi alterado.
 
 O marker exato agora é
-`NEON_PROOF_ORDERED_UNIT_TRANSPORT=sdk-synthetic,5s-unit,100ms-floor,pre-policy-reserve-over-1500ms,39-executes,one-domain-effect-and-receipt,completed,replay-without-callback`.
+`NEON_PROOF_ORDERED_UNIT_TRANSPORT=sdk-synthetic,5s-unit,100ms-floor,pre-policy-reserve-over-1500ms,37-executes,one-domain-effect-and-receipt,completed,replay-without-callback`.
 O verificador recusa o marker anterior como evidência da árvore atual. Recibos e
 runs históricos preservam seus limites originais; a mudança não converte uma
 falha anterior em PASS. A release continua exigindo P4 Neon fresco na fonte atual.
