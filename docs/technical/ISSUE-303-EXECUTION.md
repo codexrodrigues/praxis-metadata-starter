@@ -12,7 +12,7 @@ commit, push do branch solicitado e abrir PR para `main` com `Closes #303`.
 
 - Branch: `feat/custom-fields-and-resource-facts`.
 - Base atualizada por `git fetch origin`: `d57244ad51` (`origin/main` na criação).
-- Worktree: `/Users/rodrigo/Dev/pessoal/praxis-plataform/praxis-metadata-custom-fields`.
+- Worktree isolado dedicado para a entrega (`praxis-metadata-custom-fields`).
 - O checkout original tinha alterações de outro trabalho e foi preservado.
 - Política: `AGENTS.md` do workspace e do starter; guia `docs/engineering/agentes-e-modelos.md` do workspace.
 - Skill consultada pelo coordenador: `praxis-metadata-schema-contracts`.
@@ -69,9 +69,9 @@ alinhar schemas de request/response/filter e metadata geral de seu provider.
 
 | Identidade | Valor |
 | --- | --- |
-| Projeto | `dark-mountain-25788969` |
-| Branch | `br-young-scene-ad8dg9ip` (`metadata-303-custom-fields-20261027`) |
-| Endpoint | `ep-proud-sunset-adp7j1dj.c-2.us-east-1.aws.neon.tech` |
+| Projeto | `<neon-project-id>` |
+| Branch | `<neon-branch-id>` (`metadata-303-custom-fields-20261027`) |
+| Endpoint | `<neon-endpoint-host>` |
 | Database / schema | `metadata303` / `metadata303` |
 | Runtime | `metadata303_app`, papel ordinário |
 | PostgreSQL esperado | 17 |
@@ -411,10 +411,10 @@ pendente; não se desabilitaram triggers, fabricaram recibos ou ampliaram grants
 após o cutover. QuickstartMetadataMigration e OpenApiGroupResolutionIsolated não
 foram repetidos no candidato definitivo. `verify` integral permanece pendente.
 
-Branch Neon exclusiva `br-proud-cake-adwn97mh`, projeto `dark-mountain-25788969`,
+Branch PostgreSQL exclusiva (`<neon-branch-id>`), projeto isolado (`<neon-project-id>`),
 PostgreSQL 17.11, TLS verify-full e owner/runtime distintos. O journal confirma
 14 databases e 14 roles runtime removidos por OID. Postflight confirmou zero
-recursos/conexões de teste; endpoint `ep-aged-sky-adkwifgy` suspenso (`idle`) em
+recursos/conexões de teste; endpoint `<neon-endpoint-id>` suspenso (`idle`) em
 27/10/2026 18:11:46 UTC. Branch e três identidades de preparação foram retidas.
 
 Skills: `atualizar-existente`, [PR #868](https://github.com/codexrodrigues/praxis-codex-skills/pull/868),

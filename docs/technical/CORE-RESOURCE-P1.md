@@ -36,8 +36,8 @@ proxies Spring baseados em interfaces.
 
 ## Baseline de execução
 
-JDK de fechamento: `C:\Users\rodrigo.moreira\.jdks\openjdk-21.0.2` (OpenJDK 21.0.2).
-As primeiras provas focais usaram também `D:\Developer\JAVA\graalvm-jdk-21.0.2+13.1`.
+JDK de fechamento: `OpenJDK 21.0.2`.
+As primeiras provas focais usaram também `GraalVM JDK 21.0.2+13.1`.
 
 A primeira execução integral revelou um desvio no POM: o kernel de storage existente exige
 PostgreSQL 17+, mas os binários embedded transitivos do Windows eram 14.22. Naquela sessão foi

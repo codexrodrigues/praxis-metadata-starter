@@ -73,7 +73,7 @@ Resultado final em 2026-11-01, na árvore principal:
 - `mvn test`: **BUILD SUCCESS**, 13 min 28 s, encerrado às 19:55:03 (UTC−03:00).
 - `mvn install -DskipTests`: **BUILD SUCCESS**, 1 min 23 s, encerrado às 19:56:52 (UTC−03:00).
 - Instalados JAR, fontes, Javadocs e POM em
-  `C:\Users\rodrigo.moreira\.m2\repository\io\github\codexrodrigues\praxis-metadata-starter\8.0.0-rc.188`.
+  `~/.m2/repository/io/github/codexrodrigues/praxis-metadata-starter/8.0.0-rc.188`.
 - Os três JARs instalados conferem byte a byte com os gerados, por SHA-256;
   o runtime contém as cinco implementações P3 e o novo auto-configurador.
 

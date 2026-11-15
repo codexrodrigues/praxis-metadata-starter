@@ -64,7 +64,7 @@ recursos de domínio: este corte altera infraestrutura, com entidades de teste l
 
 ## Validação e limites
 
-JDK: `C:\Users\rodrigo.moreira\.jdks\openjdk-21.0.2`. A compilação de fechamento refez todos
+JDK: `OpenJDK 21.0.2`. A compilação de fechamento refez todos
 os arquivos Java alterados a partir de seus bytes finais. A opção do compiler abaixo controla
 recompilação, sem desativar testes ou guardas.
 

@@ -121,7 +121,7 @@ continuam sendo candidatos locais `0.1.0-beta.17` e `8.0.0-rc.188`.
 Gates finais com OpenJDK 21 (`21+35-2513`) e Maven 3.9.6.
 
 ```powershell
-$env:JAVA_HOME='D:\Developer\JAVA\openjdk-21_windows-x64_bin\jdk-21'
+$env:JAVA_HOME='<path-to-jdk-21>'
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
 ```
 

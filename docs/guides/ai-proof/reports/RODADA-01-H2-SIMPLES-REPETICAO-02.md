@@ -40,7 +40,7 @@
 - comando de build:
   - `mvn -q clean package`
 - comando de startup:
-  - `D:\Developer\JAVA\graalvm-jdk-21.0.2+13.1\bin\java.exe -jar target/ai-guide-proof-h2-simple-1.0.0-SNAPSHOT.jar`
+  - `java -jar target/ai-guide-proof-h2-simple-1.0.0-SNAPSHOT.jar`
 - endpoint `GET /v3/api-docs`:
   - `200 OK`
 - endpoint `GET /{resource}/schemas`:
