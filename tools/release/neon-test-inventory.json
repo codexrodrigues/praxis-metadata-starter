@@ -4772,7 +4772,7 @@
     },
     {
       "path": "src/test/java/org/praxisplatform/uischema/surface/DefaultSurfaceAvailabilityContextResolverTest.java",
-      "sha256": "8a88136b832a6e203e1731144238440dc796af2d4475d68b4f8273d466631f9c",
+      "sha256": "40b0e5093067c1a3365cec2b613a737367a1cefcf15083e070b5492c121a3882",
       "kind": "no_db",
       "reason": "Pure JUnit/Mockito/serialization/source contract; no datasource or local database fixture found.",
       "className": "org.praxisplatform.uischema.surface.DefaultSurfaceAvailabilityContextResolverTest"
