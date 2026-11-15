@@ -56,7 +56,7 @@ da apresentação efetiva. Evitar IDs sensíveis em hashes expostos/diagnostics.
 Fixtures mínimas: duas instâncias do mesmo recurso, Table/Form numa página
 com tabs, campo permitido/negado por principal, upgrade aditivo, remoção de
 selector e tentativa de executar action negada. Usar domínio sintético no
-Quickstart; nada exige HADES ou cadastro Ergon.
+Quickstart; nada exige motor legado externo ou cadastro específico de um único cliente.
 
 Somente uma lacuna comprovada nessas fixtures autoriza proposta de extensão
 pública Metadata. Resolver a composição de versões local antes de atribuir

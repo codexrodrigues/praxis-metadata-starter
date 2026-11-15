@@ -539,7 +539,7 @@ All notable changes to this module will be documented in this file.
   boundary governado e aos schemas filtrados da operacao real, sem expor CRUD, filtros ou
   persistencia ficticios.
 - Guia canonico `docs/guides/ENTERPRISE-AVAILABILITY-ADOPTION.md`,
-  checklist de readiness e fixture E2E non-Ergon para orientar availability
+  checklist de readiness e fixture E2E neutra para orientar availability
   enterprise entre `ResourceOperationAvailabilityProvider`,
   `ActionAvailabilityRule`, `SurfaceAvailabilityRule`,
   `ResourceStateSnapshotProvider`, `_links`, `/capabilities`, `/actions` e

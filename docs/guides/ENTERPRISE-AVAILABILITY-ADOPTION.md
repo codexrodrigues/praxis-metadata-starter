@@ -62,7 +62,7 @@ descrevem a operacao; nao substituem o enforcement do host.
 
 O provider deve encapsular policy privada, motor legado, autorizacao, agenda,
 tenant, sessao ou regra regulatoria. Ele nao deve publicar nomes internos de
-package, SQL, HADES, ROWID, usuario tecnico, locators ou detalhes de banco.
+package, SQL, metadados internos legados, ROWID, usuario tecnico, locators ou detalhes de banco.
 
 IDs estaveis recebidos pelo provider incluem `all`, `byId`, `filter`, `cursor`,
 `options`, `optionSources`, `statsGroupBy`, `statsTimeSeries`,
@@ -182,7 +182,7 @@ Chaves recomendadas:
 Evite:
 
 - SQL, package, stack trace ou procedure
-- HADES, Oracle, ROWID, Archon, locators internos ou nomes de guards privados
+- motores legados, bancos proprietários, ROWID, locators internos ou nomes de guards privados
 - identificadores de tenant, usuario, sessao ou empresa que nao sejam parte do
   contrato publico
 - mensagem interna de exception
@@ -223,9 +223,9 @@ Boas praticas:
 - testes de host devem cobrir uma colecao com varios itens para detectar N+1
   evitavel
 
-## Exemplo non-Ergon
+## Exemplo neutro (host-agnostic)
 
-A fixture E2E do starter demonstra o padrao sem depender de Ergon:
+A fixture E2E do starter demonstra o padrao sem depender de nenhum sistema legado externo:
 
 - `EmployeeSurfaceStateSnapshotProvider` publica estado publico de employee
 - `EmployeeResourceOperationAvailabilityProvider` bloqueia `delete` quando o
@@ -238,8 +238,8 @@ A fixture E2E do starter demonstra o padrao sem depender de Ergon:
   `HypermediaDiscoveryE2ETest` provam que actions e surfaces mantem a mesma
   disponibilidade publica nos endpoints dedicados e no snapshot agregado
 
-Esse exemplo e propositalmente host-neutral. Em um host corporativo, HADES,
-Oracle, Archon, IAM ou motor regulatorio ficam atras da SPI. Nenhum desses nomes
+Esse exemplo e propositalmente host-neutral. Em um host corporativo, motores
+legados, bancos externos, IAM ou motor regulatorio ficam atras da SPI. Nenhum desses nomes
 deve virar semantica publica do Praxis.
 
 ## Checklist de aceite para hosts

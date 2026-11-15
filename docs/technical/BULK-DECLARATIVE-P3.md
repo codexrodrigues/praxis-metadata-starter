@@ -1,7 +1,7 @@
 # Onda 3 / P3 — kernel declarativo de operações em lote
 
-Este corte implementa a P3 dos documentos `plano-issues-evolucao-plataforma-3-ondas.md`
-e `auditoria-evolucao-plataforma-ergon-showcase.md`, exclusivamente no starter.
+Este corte implementa a P3 dos documentos de planejamento de evolução da plataforma
+(ondas de arquitetura de recursos corporativos), exclusivamente no starter.
 As alterações locais das Ondas 1 e 2 permanecem na árvore. Não há migração de host,
 publicação, alteração de versão ou execução de workflows remotos neste corte.
 

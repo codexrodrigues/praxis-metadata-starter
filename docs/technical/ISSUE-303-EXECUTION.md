@@ -297,7 +297,7 @@ Revisão independente nesta rodada:
 
 Skills: `atualizar-existente`, mantendo as duas skills do PR #868 e seus hashes.
 Preflight canônico passou **41 testes**, auditoria isolada de **168 skills Praxis
-+ 19 Ergon**, sem drift/ausências/inventário inválido, e validação estrutural das
++ 19 skills de migração corporativa**, sem drift/ausências/inventário inválido, e validação estrutural das
 duas skills. Logs `review-skills-preflight.log` e `review-skills-fix-manifest.log`.
 A auditoria do destino instalado identificou drifts preexistentes fora do escopo;
 não houve force/sync local. Integração canônica e sincronização continuam pendentes
@@ -419,7 +419,7 @@ recursos/conexões de teste; endpoint `ep-aged-sky-adkwifgy` suspenso (`idle`) e
 
 Skills: `atualizar-existente`, [PR #868](https://github.com/codexrodrigues/praxis-codex-skills/pull/868),
 HEAD `62008cc0f2c7619c775fb14b0c57620c450e0160`: schema, domínio e operational-proof.
-Preflight Python 41 testes, estrutura e auditorias isoladas de 168 Praxis +19 Ergon
+Preflight Python 41 testes, estrutura e auditorias isoladas de 168 Praxis + 19 skills de migração corporativa
 aprovados; último incremento de grants/fixtures validado novamente. A integração
 canônica e sincronização instalada permanecem pendentes por decisão de não merge.
 O Angular segue coordenado separadamente no PR #658. Nenhum merge, release,

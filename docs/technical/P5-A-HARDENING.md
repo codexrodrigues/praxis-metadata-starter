@@ -69,8 +69,8 @@ retirados dos caminhos ativos e preservados em `target/p5c-cleanup/`.
 
 O engine é dono de fatos e diagnósticos neutros; o starter materializa HTTP,
 governança de comandos, validação de custom fields, consultas e transações bulk.
-O escopo P5-A é a infraestrutura desses dois módulos. A migração do Ergon
-Showcase corresponde à P5-B e não é certificada por este recorte.
+O escopo P5-A é a infraestrutura desses dois módulos. A adoção em
+hosts corporativos consumidores corresponde à P5-B e não é certificada por este recorte.
 
 As duas árvores já continham mudanças locais extensas das Ondas 1–3. Esta Issue
 preserva essas mudanças. Os diffs contra HEAD incluem esse trabalho anterior e
@@ -197,7 +197,7 @@ já registrada no manifesto; não há nova configuração a importar.
 As correções preservam rotas, envelopes e schemas de entrada existentes; não há
 novo campo `x-ui` nem alteração dos schemas JSON de UI. Nenhum exemplo HTTP,
 playground Angular ou site público foi alterado. Publicação Maven, downstream
-instalado do registry público, integração de host/Ergon, Neon e browser/E2E são
+instalado do registry público, integração de hosts corporativos, PostgreSQL e browser/E2E são
 gates distintos da instalação e dos testes locais desta Issue.
 
 A inspeção estática de `GenericCrudService` confirmou que ele propaga o

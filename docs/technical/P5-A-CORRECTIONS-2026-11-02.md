@@ -57,7 +57,7 @@ Chamadas diretas a `BulkOperationStatusLookup` agora exigem `BulkResourcePolicy`
 A assinatura sem autoridade foi removida; controllers da base passam a política
 pelo engine. Trata-se de correção do candidato beta local, sem alias permissivo.
 Não foi localizada chamada direta desse lookup nos sources do Quickstart,
-Config Starter ou Ergon Showcase.
+Config Starter ou hosts consumidores corporativos.
 
 ### UX funcional
 
