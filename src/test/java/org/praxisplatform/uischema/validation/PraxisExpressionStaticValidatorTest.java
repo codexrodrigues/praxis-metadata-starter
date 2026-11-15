@@ -327,6 +327,47 @@ class PraxisExpressionStaticValidatorTest {
         );
     }
 
+    @Test
+    @DisplayName("Rejects calculation trails where additionExpr or deductionExpr duplicates baseExpr")
+    void testRejectsDuplicateBaseAndAdjustmentInCalculationTrail() {
+        List<String> errors = validator.validateDtoClass(DuplicateCalculationParcelDTO.class, false);
+        assertEquals(2, errors.size(), () -> "Expected duplicate base parcel errors, got: " + errors);
+        assertTrue(errors.stream().anyMatch(e -> e.contains("additionExpr") && e.contains("duplicates baseExpr")));
+        assertTrue(errors.stream().anyMatch(e -> e.contains("deductionExpr") && e.contains("duplicates baseExpr")));
+        assertThrows(InvalidDomainExpressionException.class, () ->
+                validator.validateDtoClass(DuplicateCalculationParcelDTO.class, true)
+        );
+    }
+
+    @CalculationMemory(
+            title = "Duplicacao de Parcela",
+            trails = {
+                    @CalculationTrail(
+                            id = "adicao-duplicada",
+                            title = "Adicao Duplicada",
+                            baseLabel = "Base",
+                            baseExpr = "= coalesce(row.carenciaApurada, 0)",
+                            additionLabel = "Acrescimo Fantasma",
+                            additionExpr = "= coalesce(row.carenciaApurada, 0)",
+                            resultLabel = "Total",
+                            resultExpr = "= coalesce(row.carenciaApurada, 0)"
+                    ),
+                    @CalculationTrail(
+                            id = "deducao-duplicada",
+                            title = "Deducao Duplicada",
+                            baseLabel = "Base",
+                            baseExpr = "= coalesce(row.carenciaApurada, 0)",
+                            deductionLabel = "Desconto Fantasma",
+                            deductionExpr = "=coalesce(row.carenciaApurada,0)",
+                            resultLabel = "Total",
+                            resultExpr = "= coalesce(row.carenciaApurada, 0)"
+                    )
+            }
+    )
+    public static class DuplicateCalculationParcelDTO {
+        public Integer carenciaApurada;
+    }
+
     @CalculationMemory(
             title = "Meta Mínima",
             trails = {

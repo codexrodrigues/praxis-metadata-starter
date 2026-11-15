@@ -963,27 +963,31 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         Path<?> valuePath = resolvePath(root, descriptor.keyPropertyPath());
 
         Predicate predicate = specification == null ? null : specification.toPredicate(root, query, cb);
-        if (predicate != null) {
-            query.where(predicate);
-        }
+        Predicate notNullPredicate = cb.isNotNull(valuePath);
+        query.where(predicate == null ? notNullPredicate : cb.and(predicate, notNullPredicate));
         query.select(valuePath);
 
         @SuppressWarnings("unchecked")
         List<Object> values = entityManager.createQuery(query).getResultList();
 
-        double bucketSize = request.bucketSize().doubleValue();
-        Map<Double, Long> buckets = new LinkedHashMap<>();
+        BigDecimal bucketSize = toBigDecimal(request.bucketSize());
+        if (bucketSize == null || bucketSize.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Histogram distribution requires a positive bucketSize.");
+        }
+        Map<BigDecimal, Long> buckets = new LinkedHashMap<>();
         for (Object value : values) {
-            Double numeric = toDouble(value);
+            BigDecimal numeric = toBigDecimal(value);
             if (numeric == null) {
                 continue;
             }
-            double start = Math.floor(numeric / bucketSize) * bucketSize;
+            BigDecimal start = canonicalHistogramBoundary(
+                    numeric.divide(bucketSize, 0, java.math.RoundingMode.FLOOR).multiply(bucketSize)
+            );
             buckets.merge(start, 1L, Long::sum);
         }
 
-        Comparator<Map.Entry<Double, Long>> comparator = resolveHistogramOrder(request.orderBy());
-        Stream<Map.Entry<Double, Long>> stream = buckets.entrySet().stream().sorted(comparator);
+        Comparator<Map.Entry<BigDecimal, Long>> comparator = resolveHistogramOrder(request.orderBy());
+        Stream<Map.Entry<BigDecimal, Long>> stream = buckets.entrySet().stream().sorted(comparator);
 
         int effectiveLimit = request.limit() == null ? maxBuckets : Math.min(request.limit(), maxBuckets);
         if (request.bucketCount() != null) {
@@ -993,8 +997,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         List<DistributionBucket> distributionBuckets = stream
                 .limit(effectiveLimit)
                 .map(entry -> {
-                    double from = entry.getKey();
-                    double to = from + bucketSize;
+                    BigDecimal from = entry.getKey();
+                    BigDecimal to = canonicalHistogramBoundary(from.add(bucketSize));
                     long count = entry.getValue();
                     return new DistributionBucket(from, to, from, formatHistogramLabel(from, to), count, count);
                 })
@@ -1057,16 +1061,16 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         return resolveValueExpression(cb, root, new ResolvedStatsMetric(metric, metricDescriptor));
     }
 
-    private Comparator<Map.Entry<Double, Long>> resolveHistogramOrder(StatsBucketOrder order) {
+    private Comparator<Map.Entry<BigDecimal, Long>> resolveHistogramOrder(StatsBucketOrder order) {
         StatsBucketOrder effective = order == null ? StatsBucketOrder.KEY_ASC : order;
         if (effective == StatsBucketOrder.KEY_DESC) {
-            return Map.Entry.<Double, Long>comparingByKey().reversed();
+            return Map.Entry.<BigDecimal, Long>comparingByKey().reversed();
         }
         if (effective == StatsBucketOrder.VALUE_ASC) {
-            return Map.Entry.<Double, Long>comparingByValue().thenComparing(Map.Entry.comparingByKey());
+            return Map.Entry.<BigDecimal, Long>comparingByValue().thenComparing(Map.Entry.comparingByKey());
         }
         if (effective == StatsBucketOrder.VALUE_DESC) {
-            return Map.Entry.<Double, Long>comparingByValue().reversed()
+            return Map.Entry.<BigDecimal, Long>comparingByValue().reversed()
                     .thenComparing(Map.Entry.comparingByKey());
         }
         return Map.Entry.comparingByKey();
@@ -1273,22 +1277,34 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         return javaType;
     }
 
-    private Double toDouble(Object value) {
+    private BigDecimal toBigDecimal(Object value) {
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof java.math.BigInteger integer) {
+            return new BigDecimal(integer);
+        }
+        if (value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long) {
+            return BigDecimal.valueOf(((Number) value).longValue());
+        }
         if (value instanceof Number number) {
-            return number.doubleValue();
+            return BigDecimal.valueOf(number.doubleValue());
         }
         return null;
     }
 
-    private String formatHistogramLabel(double from, double to) {
-        return stripTrailingZero(from) + " - " + stripTrailingZero(to);
+    private BigDecimal canonicalHistogramBoundary(BigDecimal value) {
+        if (value.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal stripped = value.stripTrailingZeros();
+        return stripped.scale() < 0
+                ? stripped.setScale(0, java.math.RoundingMode.UNNECESSARY)
+                : stripped;
     }
 
-    private String stripTrailingZero(double value) {
-        if (value == Math.rint(value)) {
-            return Long.toString((long) value);
-        }
-        return Double.toString(value);
+    private String formatHistogramLabel(BigDecimal from, BigDecimal to) {
+        return from.toPlainString() + " - " + to.toPlainString();
     }
 
     private record CellCoordinateKey(List<Object> coordinates) {

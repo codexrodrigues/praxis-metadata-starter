@@ -50,6 +50,7 @@ public class JpaOptionSourceProvider implements OptionSourceProvider {
                 request.filterPayload(),
                 request.descriptor(),
                 request.search(),
+                request.searchStrategy(),
                 request.filters(),
                 request.sortKey(),
                 request.pageable(),

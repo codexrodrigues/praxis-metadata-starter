@@ -20,6 +20,7 @@ import org.praxisplatform.uischema.options.EntityLookupDescriptor;
 import org.praxisplatform.uischema.options.LookupFilterDefinition;
 import org.praxisplatform.uischema.options.LookupFilterRequest;
 import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
+import org.praxisplatform.uischema.options.LookupSearchStrategyDefinition;
 import org.praxisplatform.uischema.options.LookupDetailDescriptor;
 import org.praxisplatform.uischema.options.LookupDisplayDescriptor;
 import org.praxisplatform.uischema.options.LookupDisplayFieldDescriptor;
@@ -76,7 +77,40 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             Pageable pageable,
             Collection<Object> includeIds
     ) {
+        return filterOptions(
+                entityManager,
+                entityClass,
+                specification,
+                filterPayload,
+                descriptor,
+                search,
+                null,
+                filters,
+                sortKey,
+                pageable,
+                includeIds
+        );
+    }
+
+    @Override
+    public <E> Page<OptionDTO<Object>> filterOptions(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            Object filterPayload,
+            OptionSourceDescriptor descriptor,
+            String search,
+            String searchStrategy,
+            List<LookupFilterRequest> filters,
+            String sortKey,
+            Pageable pageable,
+            Collection<Object> includeIds
+    ) {
         ensureSupported(descriptor);
+        LookupSearchStrategyDefinition resolvedStrategy = resolveEffectiveSearchStrategy(descriptor, search, searchStrategy);
+        String effectiveSearch = resolvedStrategy != null && search != null
+                ? resolvedStrategy.normalizeSearch(search)
+                : search;
 
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
@@ -91,7 +125,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
 
         Predicate predicate = applyPredicate(specification, root, query, cb);
         Predicate notNullPredicate = JpaCriteriaPathSupport.buildIsNotNullPredicate(cb, valuePath);
-        Predicate searchPredicate = buildSearchPredicate(cb, root, labelPath, descriptor, search);
+        Predicate searchPredicate = buildSearchPredicate(cb, root, labelPath, descriptor, resolvedStrategy, effectiveSearch);
         Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, root, descriptor, filters);
         Predicate mergedPredicate = mergePredicates(
                 cb,
@@ -123,7 +157,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                 .toList();
         pageContent = dedupeOptions(pageContent);
 
-        long total = countDistinct(entityManager, entityClass, specification, descriptor, search, filters);
+        long total = countDistinct(entityManager, entityClass, specification, descriptor, resolvedStrategy, effectiveSearch, filters);
         List<OptionDTO<Object>> merged = mergeIncludedOptions(
                 pageContent,
                 byIdsOptions(
@@ -222,11 +256,27 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         return descriptor.type() == OptionSourceType.RESOURCE_ENTITY && descriptor.entityLookup() != null;
     }
 
+    private LookupSearchStrategyDefinition resolveEffectiveSearchStrategy(
+            OptionSourceDescriptor descriptor,
+            String search,
+            String searchStrategy
+    ) {
+        LookupFilteringDescriptor filtering = descriptor.effectiveFiltering();
+        if (filtering != null) {
+            return filtering.resolveSearchStrategy(searchStrategy, search);
+        }
+        if (searchStrategy != null && !searchStrategy.isBlank()) {
+            throw new IllegalArgumentException("Lookup searchStrategy is not declared for this option source.");
+        }
+        return null;
+    }
+
     private <E> long countDistinct(
             EntityManager entityManager,
             Class<E> entityClass,
             Specification<E> specification,
             OptionSourceDescriptor descriptor,
+            LookupSearchStrategyDefinition searchStrategy,
             String search,
             List<LookupFilterRequest> filters
     ) {
@@ -238,7 +288,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             Path<?> valuePath = resolveValuePath(probeRoot, descriptor);
             Predicate predicate = applyPredicate(specification, probeRoot, probeQuery, cb);
             Predicate notNullPredicate = JpaCriteriaPathSupport.buildIsNotNullPredicate(cb, valuePath);
-            Predicate searchPredicate = buildSearchPredicate(cb, probeRoot, resolveLabelPath(probeRoot, descriptor), descriptor, search);
+            Predicate searchPredicate = buildSearchPredicate(cb, probeRoot, resolveLabelPath(probeRoot, descriptor), descriptor, searchStrategy, search);
             Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, probeRoot, descriptor, filters);
             Predicate mergedPredicate = mergePredicates(
                     cb,
@@ -261,7 +311,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
 
         Predicate predicate = applyPredicate(specification, root, countQuery, cb);
         Predicate notNullPredicate = JpaCriteriaPathSupport.buildIsNotNullPredicate(cb, valuePath);
-        Predicate searchPredicate = buildSearchPredicate(cb, root, resolveLabelPath(root, descriptor), descriptor, search);
+        Predicate searchPredicate = buildSearchPredicate(cb, root, resolveLabelPath(root, descriptor), descriptor, searchStrategy, search);
         Predicate structuredFilterPredicate = buildStructuredFilterPredicate(cb, root, descriptor, filters);
         Predicate mergedPredicate = mergePredicates(
                 cb,
@@ -281,19 +331,21 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             Root<?> root,
             Path<?> labelPath,
             OptionSourceDescriptor descriptor,
+            LookupSearchStrategyDefinition searchStrategy,
             String search
     ) {
         if (search == null || search.isBlank() || !descriptor.policy().allowSearch()) {
             return null;
         }
         String normalized = search.trim();
-        if (normalized.length() < descriptor.policy().minSearchChars()) {
+        int minSearchChars = searchStrategy != null ? searchStrategy.minSearchChars() : descriptor.policy().minSearchChars();
+        if (normalized.length() < minSearchChars) {
             return null;
         }
         List<Path<?>> searchPaths = resolveSearchPaths(root, labelPath, descriptor);
         String lowered = normalized.toLowerCase(Locale.ROOT);
         List<Predicate> predicates = searchPaths.stream()
-                .map(path -> buildSearchPredicateForPath(cb, path, descriptor, lowered))
+                .map(path -> buildSearchPredicateForPath(cb, path, descriptor, searchStrategy, lowered))
                 .filter(Objects::nonNull)
                 .toList();
         if (predicates.isEmpty()) {
@@ -306,6 +358,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             CriteriaBuilder cb,
             Path<?> path,
             OptionSourceDescriptor descriptor,
+            LookupSearchStrategyDefinition searchStrategy,
             String lowered
     ) {
         Class<?> javaType = path.getJavaType();
@@ -336,7 +389,34 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             };
         }
         Expression<String> text = cb.lower(path.as(String.class));
-        return switch (descriptor.policy().searchMode()) {
+        if (searchStrategy != null && "normalized-document".equals(searchStrategy.kind())) {
+            String searchMode = descriptor.policy().searchMode();
+            if ("none".equals(searchMode)) {
+                return null;
+            }
+            Expression<String> normalizedText = normalizeDocumentExpression(cb, text);
+            Predicate normalizedPredicate = matchSearchExpression(cb, normalizedText, searchMode, lowered);
+            Predicate rawPredicate = matchSearchExpression(cb, text, searchMode, lowered);
+            return cb.or(normalizedPredicate, rawPredicate);
+        }
+        return matchSearchExpression(cb, text, descriptor.policy().searchMode(), lowered);
+    }
+
+    private Expression<String> normalizeDocumentExpression(CriteriaBuilder cb, Expression<String> lowerTextExpr) {
+        Expression<String> current = lowerTextExpr;
+        for (String separator : List.of(".", "-", "/", " ")) {
+            current = cb.function("replace", String.class, current, cb.literal(separator), cb.literal(""));
+        }
+        return current;
+    }
+
+    private Predicate matchSearchExpression(
+            CriteriaBuilder cb,
+            Expression<String> text,
+            String searchMode,
+            String lowered
+    ) {
+        return switch (searchMode) {
             case "none" -> null;
             case "exact" -> cb.equal(text, lowered);
             case "starts-with" -> cb.like(text, lowered + "%");
@@ -469,10 +549,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                         )
                 );
             }
-            Path<?> resolvedPath = tryResolvePath(root, definition.field(), "filtering.availableFilters");
-            if (resolvedPath != null) {
-                predicates.add(buildPredicateForStructuredFilter(cb, resolvedPath, definition, filter));
-            }
+            Path<?> resolvedPath = resolvePath(root, definition.field());
+            predicates.add(buildPredicateForStructuredFilter(cb, resolvedPath, definition, filter));
         }
         return predicates.isEmpty() ? null : cb.and(predicates.toArray(Predicate[]::new));
     }

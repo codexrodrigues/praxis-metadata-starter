@@ -65,6 +65,7 @@ class OptionSourceDescriptorTest {
         LookupSearchStrategyDefinition document =
                 new LookupSearchStrategyDefinition("document", "normalized-document", 11);
         assertEquals("12345678900", document.normalizeSearch("123.456.789-00"));
+        assertEquals("12345678000190", document.normalizeSearch("12.345.678/0001-90"));
         assertThrows(IllegalArgumentException.class, () -> document.normalizeSearch("123-ABC"));
     }
 

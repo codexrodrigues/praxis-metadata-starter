@@ -64,7 +64,7 @@ public record LookupSearchStrategyDefinition(String key, String kind, int minSea
             char character = normalized.charAt(index);
             if (isAsciiDigit(character)) {
                 digits.append(character);
-            } else if (!Character.isWhitespace(character) && character != '.' && character != '-') {
+            } else if (!Character.isWhitespace(character) && character != '.' && character != '-' && character != '/') {
                 throw new IllegalArgumentException("Normalized document search accepts digits and visual separators only.");
             }
         }

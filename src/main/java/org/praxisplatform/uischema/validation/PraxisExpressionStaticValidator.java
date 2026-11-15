@@ -364,6 +364,18 @@ public class PraxisExpressionStaticValidator {
                     errors.addAll(res.errors());
                 }
             }
+            if (trailMap.get("baseExpr") instanceof String baseExpr && !baseExpr.isBlank()) {
+                String normalizedBase = baseExpr.replaceAll("\\s+", "");
+                for (String duplicateCandidateKey : List.of("additionExpr", "deductionExpr")) {
+                    if (trailMap.get(duplicateCandidateKey) instanceof String candidateExpr
+                            && !candidateExpr.isBlank()
+                            && normalizedBase.equals(candidateExpr.replaceAll("\\s+", ""))) {
+                        errors.add(trailPrefix + "." + duplicateCandidateKey
+                                + " duplicates baseExpr ('" + baseExpr.trim()
+                                + "'); avoid repeating the base parcel as an adjustment.");
+                    }
+                }
+            }
             if (trailMap.get("steps") instanceof List<?> steps) {
                 for (int s = 0; s < steps.size(); s++) {
                     if (steps.get(s) instanceof Map<?, ?> stepMap) {
