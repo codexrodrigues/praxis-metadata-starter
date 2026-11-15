@@ -1028,14 +1028,14 @@ Voce esta criando uma nova aplicacao Spring Boot sobre o baseline atual do praxi
 Gere uma aplicacao compilavel, completa e rica em metadados de negocio na primeira tentativa.
 
 Use obrigatoriamente:
-- @ApiResource(value=..., resourceKey=..., title=..., description=..., icon=..., identity=@ResourceIdentity(...), quickFilters={@QuickFilter(...)})
+- @ApiResource(value=..., resourceKey=..., title=..., description=..., icon=..., identity=@ResourceIdentity(...), quickFilters={@QuickFilter(id=..., label=..., criteria=@FilterCriterion(...), icon=..., tone=...)})
 - @ApiGroup
 - Entidade com @OptionLabel e @DefaultSortColumn
 - BaseCrudRepository<E, ID>
 - ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>
 - AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>
 - AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceController<ResponseDTO, ID, FilterDTO>
-- DTOs separados: ResponseDTO, CreateDTO, UpdateDTO, FilterDTO (com @Schema de dominio em PT-BR, @UISchema com grupos/icones/presets, @DomainGovernance e @Filterable rico)
+- DTOs separados: ResponseDTO, CreateDTO, UpdateDTO, FilterDTO (com @Schema de dominio em PT-BR, @UISchema com grupos/icones em snake_case minusculo/presets/@UiOption ou optionEnum sem options JSON legado, @DomainGovernance e @Filterable rico)
 
 Para recurso mutavel, gere nesta ordem:
 1. ApiPaths

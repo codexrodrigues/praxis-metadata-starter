@@ -49,7 +49,7 @@ Como `metadataFields` ocupa as **primeiras linhas** do corpo do cartão Quick Vi
 - **`quickViewVisible = true` (4 a 8 campos com `quickViewOrder = 1..N` sequencial):**
   Ordene os campos pela pirâmide de decisão operacional:
   1. **`quickViewOrder = 1` — Situação / Status Operacional:** (`situacao`, `ativa`, `status` — com `UISchemaPreset.ENTERPRISE_STATUS` ou `tone` e `icon = "verified"`), permitindo ver imediatamente o badge colorido (`Ativo`, `Afastado`, `Cedido`, `Homologado`);
-  2. **`quickViewOrder = 2..3` — Papel, Cargo, Lotação ou Classificação Principal:** (`cargoNome`, `tipovinc`, `estcivil`, `escolaridade` — sempre usando o campo de nome resolvido ou `SELECT` com `options`, nunca IDs brutos);
+  2. **`quickViewOrder = 2..3` — Papel, Cargo, Lotação ou Classificação Principal:** (`cargoNome`, `tipovinc`, `estcivil`, `escolaridade` — sempre usando o campo de nome resolvido ou `SELECT` com `@UiOption`/`optionEnum`, nunca IDs brutos);
   3. **`quickViewOrder = 4..5` — Marcos Temporais, Vigência ou Canais de Contato Direto:** (`dtexerc`, `dtnasc`, `dtini`, `dtfim`, `eMail`, `numtelCelular`);
   4. **`quickViewOrder = 6..8` — Indicadores Quantitativos, Contadores Derivados ou Escopo Institucional:** (`jornadaSemanal`, `orgaoNome`, `diasDesdeExercicio`, `diasReconhecidos`, `saldoVagasDisponiveis`, `dtRecadast`).
 - **O que é PROIBIDO colocar em `metadataFields` ou `quickViewVisible`:**
@@ -57,9 +57,9 @@ Como `metadataFields` ocupa as **primeiras linhas** do corpo do cartão Quick Vi
   - Campos quase sempre nulos ou constantes em 99% da base (ex.: `observacao` livre, `nacionalidade = 10` quando não é recorte internacional, `ufender` solto sem município);
   - Chaves estrangeiras numéricas brutas (`empCodigo`, `titularAtualId`, `setorId`, `cargoId`) quando o DTO possui (ou deve possuir) o campo de exibição humano (`orgaoNome`, `titularAtualNome`, `setorNome`, `cargoNome`).
 
-### Regra 3 — Tradução Obrigatória de Códigos de Domínio (`options` vs. `OptionSource`)
+### Regra 3 — Tradução Obrigatória de Códigos de Domínio (`@UiOption` / `optionEnum` vs. `OptionSource`)
 Nenhum campo exibido no Quick View, na tabela ou na gaveta 360° pode apresentar códigos técnicos crus do banco (`MESTRADO`, `CASADO`, `10`, `1`, `C`, `F`) sem tradução semântica:
-- **Domínios fechados / tabelas de código estáveis:** declare `controlType = FieldControlType.SELECT` e `options = "[{\"value\":\"MESTRADO\",\"label\":\"Pós-Graduação Stricto Sensu (Mestrado)\"}, ...]"` no `@UISchema`. O `ResourceQuickViewService` resolve automaticamente `rawValue -> option.label` tanto na exibição do cartão quanto no texto de `Copiar resumo`.
+- **Domínios fechados / tabelas de código estáveis:** declare `controlType = FieldControlType.SELECT` e `optionItems = {@UiOption(value = "MESTRADO", label = "Mestrado", icon = "school", tone = QuickFilterTone.INFO), ...}` ou `optionEnum = Escolaridade.class` no `@UISchema` (mutuamente exclusivos, `label` curto `<= 36` caracteres sem ponto final e `icon` em `snake_case` minúsculo; proibido `options = "..."` JSON/stringificado, `@Deprecated(since = "2.1.0")`). O `ResourceQuickViewService` resolve automaticamente `rawValue -> option.label` tanto na exibição do cartão quanto no texto de `Copiar resumo`.
 - **Entidades relacionais ou catálogos dinâmicos por tenant:** exponha o campo de exibição resolvido (`cargoNome`, `setorNome`, `orgaoNome`) anotado com `@ResourceReference(...)` ou vincule o campo via `OptionSourceDescriptor`.
 
 ### Regra 4 — Formatação Numérica Estrita (`NumericFormat.INTEGER` para Inteiros e Contadores)
@@ -96,7 +96,8 @@ Todo atributo listado em `metadataFields` ou com `quickViewVisible = true` deve 
   - `resource-identity-metadata-duplicate` e `resource-identity-metadata-repeats-header-field`: duplicidade dentro de `metadataFields` ou repetição de campos do cabeçalho (`keyField`, `titleField`, `subtitleField`, `avatarField`);
   - `resource-identity-metadata-count-out-of-range`: contagem de `metadataFields` fora da faixa executiva canônica (`2..3`, ou `1..3` quando o DTO possui apenas 1 atributo escalar elegível além do cabeçalho);
   - `quick-view-repeats-identity-field` e `quick-view-field-count-out-of-range`: repetição de campos de `@ResourceIdentity` em `@UISchema(quickViewVisible = true)` ou quantidade de campos `quickViewVisible = true` fora da faixa executiva (`4..8`);
-  - `resource-reference-value-field-missing`, `resource-reference-preview-surface-missing`, `title-field-self-reference-missing` e `resource-reference-surface-unresolved`: `@ResourceReference` apontando para `valueField` inexistente, sem `previewSurfaceId` preenchido, campo `titleField` do próprio recurso sem auto-referência `@ResourceReference(resourceKey = "<resourceKey do próprio recurso>", ...)` ou `surfaceId`/`previewSurfaceId` não publicado como `@UiSurface` (`VIEW`/`READ_PROJECTION`) no Controller.
+  - `resource-reference-value-field-missing`, `resource-reference-preview-surface-missing`, `title-field-self-reference-missing` e `resource-reference-surface-unresolved`: `@ResourceReference` apontando para `valueField` inexistente, sem `previewSurfaceId` preenchido, campo `titleField` do próprio recurso sem auto-referência `@ResourceReference(resourceKey = "<resourceKey do próprio recurso>", ...)` ou `surfaceId`/`previewSurfaceId` não publicado como `@UiSurface` (`VIEW`/`READ_PROJECTION`) no Controller;
+  - `quick-filter-legacy-filter-deprecated`, `quick-filter-field-not-filterable`, `select-options-legacy-string-deprecated`, `select-options-mutual-exclusivity`, `ui-option-duplicate-value`, `ui-option-label-invalid`, `ui-option-icon-not-snake-case`, `bulk-protected-field-conflicts-with-bulk-editable`, `reactive-determination-output-redundant-explicit-pair` e `calculation-trail-duplicate-parcel-expression`: validações das Ondas 1–3 para filtros rápidos tipados (`@FilterCriterion`), opções fechadas tipadas (`@UiOption` / `optionEnum`), integridade de campos em lote, shorthand `@DeterminationOutput("campo")` e `@CalculationMemory` sem parcelas duplicadas.
 
 ---
 
@@ -133,8 +134,8 @@ public class ServidorPessoaResponseDTO extends ServidorPessoaDados {
 
   // Em ServidorPessoaDados:
   // quickViewOrder = 1: dtnasc (Nascimento, icon = "event", DATE_PICKER)
-  // quickViewOrder = 2: estcivil (Estado civil, icon = "favorite", SELECT com options legíveis)
-  // quickViewOrder = 3: escolaridade (Escolaridade, icon = "school", SELECT com options legíveis)
+  // quickViewOrder = 2: estcivil (Estado civil, icon = "favorite", SELECT com @UiOption / optionEnum)
+  // quickViewOrder = 3: escolaridade (Escolaridade, icon = "school", SELECT com @UiOption / optionEnum)
   // quickViewOrder = 4: eMail (E-mail, icon = "email", EMAIL_INPUT)
   // quickViewOrder = 5: numtelCelular (Celular, icon = "smartphone")
   // quickViewOrder = 6: cidadeender (Município, icon = "location_city")

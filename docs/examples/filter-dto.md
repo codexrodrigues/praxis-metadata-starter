@@ -11,6 +11,7 @@ package com.example.hr.employee.filter;
 
 import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.NumericFormat;
+import org.praxisplatform.uischema.annotation.UiOption;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
@@ -55,7 +56,10 @@ public class EmployeeFilterDTO implements GenericFilterDTO {
     @UISchema(
         label = "Visualização",
         controlType = FieldControlType.BUTTON_TOGGLE,
-        options = "[{\"label\":\"Ativos\",\"value\":\"ACTIVE\"},{\"label\":\"Todos\",\"value\":\"ALL\"}]",
+        optionItems = {
+            @UiOption(value = "ACTIVE", label = "Ativos", icon = "check_circle"),
+            @UiOption(value = "ALL", label = "Todos", icon = "list")
+        },
         order = 27
     )
     private String viewMode;

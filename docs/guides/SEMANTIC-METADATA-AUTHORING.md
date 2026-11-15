@@ -74,6 +74,10 @@ SemanticMetadataReviewReport fullReport = reviewer.review(MeuDTO.class, optionSo
 // Revisao estrita (exige @DomainGovernance explicito em 100% dos campos expostos)
 SemanticMetadataReviewReport strictReport = reviewer.reviewStrictGovernance(MeuDTO.class);
 
+// Revisao completa do Controller e dos OptionSources:
+SemanticMetadataReviewReport ctrlReport = reviewer.reviewResourceController(MeuController.class, MeuResponseDTO.class, MeuFilterDTO.class);
+SemanticMetadataReviewReport regReport = reviewer.reviewOptionSourceRegistry(optionSourceRegistry);
+
 // Revisao de fatos (@ResourceFact) e finalidade legal LGPD (@UiSurface / @WorkflowAction)
 SemanticMetadataReviewReport factsAndLegalReport = reviewer.reviewResourceFacts(MeuControllerOuProvider.class);
 ```
@@ -85,6 +89,12 @@ O reviewer aponta:
   - `schema-description-copies-ui-label`
   - `schema-description-derived-from-field-name`
   - `preset-without-domain-description`
+- **Quick Filters, Opcoes Tipadas (`@UiOption` / `optionEnum`), Bulking, Determinacoes & Calculo (Ondas 1-3):**
+  - `quick-filter-legacy-filter-deprecated`, `quick-filter-field-not-filterable`
+  - `select-options-legacy-string-deprecated`, `select-options-mutual-exclusivity`, `ui-option-duplicate-value`, `ui-option-label-invalid`, `ui-option-icon-not-snake-case`
+  - `bulk-protected-field-conflicts-with-bulk-editable`
+  - `reactive-determination-output-redundant-explicit-pair`
+  - `calculation-trail-duplicate-parcel-expression`
 - **Governança, Sensibilidade, Linhagem (`@DomainLineage`) e Modo Estrito:**
   - `public-private-context-field-without-governance`
   - `sensitive-field-without-governance`

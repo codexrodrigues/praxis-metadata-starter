@@ -45,7 +45,9 @@ necessário habilitar coerções gerais para transportar um decimal exato.
 Herde `AbstractBulkGovernedResourceController<R, ID, F, C, U>` e declare
 `@ApiResource(resourceKey=...)` e `@BulkResourceOperations`, incluindo
 `updateSourceOperationId` e `protectedUpdateFields` com as identidades, versões e
-campos exclusivos de workflow aceitos no DTO. No PUT unitário, declare `@BulkResourceOperation(UPDATE_SOURCE)` e um
+campos exclusivos de workflow aceitos no DTO (sem jamais incluir em
+`protectedUpdateFields` campos anotados com `@BulkEditable` no `UpdateDTO`,
+regra validada via `bulk-protected-field-conflicts-with-bulk-editable`). No PUT unitário, declare `@BulkResourceOperation(UPDATE_SOURCE)` e um
 `@Operation(operationId=...)` correspondente a `updateSourceOperationId`; se
 usar o PUT da base, sobrescreva o método apenas para essas declarações e delegue
 para `super.update`. Não anote uma identidade imutável com `@BulkEditable`.
