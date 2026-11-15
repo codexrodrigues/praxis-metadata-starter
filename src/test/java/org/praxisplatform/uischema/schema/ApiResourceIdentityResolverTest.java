@@ -349,4 +349,72 @@ class ApiResourceIdentityResolverTest {
     static class UnconfiguredController {
         void list() { }
     }
+
+    @Test
+    void resolvesResourcePathWithFallbackToControllerAndResponseDtoIdentity() throws NoSuchMethodException {
+        RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
+        var ctrlIdentityController = new StandaloneControllerIdentityController();
+        var dtoIdentityController = new DtoBackedIdentityController();
+        HandlerMethod projectionMethod = new HandlerMethod(
+                dtoIdentityController,
+                DtoBackedIdentityController.class.getDeclaredMethod("summary")
+        );
+        HandlerMethod canonicalMethod = new HandlerMethod(
+                dtoIdentityController,
+                DtoBackedIdentityController.class.getDeclaredMethod("detail")
+        );
+        HandlerMethod ctrlMethod = new HandlerMethod(
+                ctrlIdentityController,
+                StandaloneControllerIdentityController.class.getDeclaredMethod("list")
+        );
+
+        Map<RequestMappingInfo, HandlerMethod> mappings = new java.util.LinkedHashMap<>();
+        mappings.put(RequestMappingInfo.paths("/api/dto-identity/summary").build(), projectionMethod);
+        mappings.put(RequestMappingInfo.paths("/api/dto-identity/detail").build(), canonicalMethod);
+        mappings.put(RequestMappingInfo.paths("/api/ctrl-identity").build(), ctrlMethod);
+        when(mapping.getHandlerMethods()).thenReturn(mappings);
+
+        var resolver = new ApiResourceIdentityResolver(mapping);
+
+        Map<String, Object> ctrlIdentity = resolver.resolve("/api/ctrl-identity").orElseThrow();
+        assertEquals("codigo", ctrlIdentity.get("keyField"));
+        assertEquals("titulo", ctrlIdentity.get("titleField"));
+
+        Map<String, Object> dtoIdentity = resolver.resolve("/api/dto-identity").orElseThrow();
+        assertEquals("id", dtoIdentity.get("keyField"));
+        assertEquals("nomePrincipal", dtoIdentity.get("titleField"));
+        assertEquals("cargoAtual", dtoIdentity.get("subtitleField"));
+        assertEquals(java.util.List.of("lotacao", "situacao"), dtoIdentity.get("metadataFields"));
+    }
+
+    @ApiResource(value = "/api/ctrl-identity", resourceKey = "test.ctrl-identity")
+    @ResourceIdentity(keyField = "codigo", titleField = "titulo")
+    static class StandaloneControllerIdentityController {
+        void list() { }
+    }
+
+    @ResourceIdentity(keyField = "id", titleField = "nomePrincipal", subtitleField = "cargoAtual", metadataFields = {"lotacao", "situacao"})
+    record DtoBackedIdentityPayload(Long id, String nomePrincipal, String cargoAtual, String lotacao, String situacao) {
+    }
+
+    record DtoProjectionPayload(String titulo) {
+    }
+
+    @ApiResource(value = "/api/dto-identity", resourceKey = "test.dto-identity")
+    static class DtoBackedIdentityController {
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "summary",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.READ_PROJECTION,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.COLLECTION,
+                title = "Summary",
+                description = "Summary projection."
+        )
+        org.springframework.http.ResponseEntity<org.praxisplatform.uischema.rest.response.RestApiResponse<DtoProjectionPayload>> summary() {
+            return null;
+        }
+
+        org.springframework.http.ResponseEntity<org.praxisplatform.uischema.rest.response.RestApiResponse<DtoBackedIdentityPayload>> detail() {
+            return null;
+        }
+    }
 }

@@ -11,7 +11,7 @@ import java.lang.annotation.*;
  *
  * <p>Catalog discovery is strictly reflective and never invokes the annotated method. Every declared
  * fact must make its authority, evaluation phase, missing-value behavior, and scope explicit so that
- * static reviewers ({@link org.praxisplatform.uischema.validation.SemanticMetadataReviewer}) and
+ * static reviewers ({@link org.praxisplatform.uischema.authoring.SemanticMetadataReviewer}) and
  * downstream policy compilers can reject unverified or client-overridable inputs in fail-closed flows.</p>
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
@@ -22,8 +22,13 @@ public @interface ResourceFact {
     /** Stable canonical key of the fact within the resource (e.g., {@code "diasAfastadoNoAno"}). */
     String key();
 
-    /** Canonical {@code resourceKey} of the owning resource (e.g., {@code "ergon.afastamentos"}). */
-    String resourceKey();
+    /**
+     * Canonical {@code resourceKey} of the owning resource (e.g., {@code "ergon.afastamentos"}).
+     * When omitted or blank on a type/method owned by an {@code @ApiResource} controller (or its
+     * resolved {@code ResponseDTO}), {@link AnnotationResourceFactCatalogProvider} inherits
+     * {@code @ApiResource.resourceKey()} automatically.
+     */
+    String resourceKey() default "";
 
     /** Short UI/executive label (1 to 4 words, max ~35 chars, no trailing period). */
     String label() default "";
@@ -31,16 +36,21 @@ public @interface ResourceFact {
     /** Product-grade semantic description of what the fact represents in the domain. */
     String description() default "";
 
-    /** Canonical scalar/value data type (e.g., {@code "string"}, {@code "integer"}, {@code "number"}, {@code "boolean"}, {@code "date"}). */
+    /**
+     * Canonical scalar/value data type matching {@link ResourceFactDataType}
+     * ({@code "string"}, {@code "number"}, {@code "integer"}, {@code "decimal"}, {@code "currency"},
+     * {@code "percentage"}, {@code "boolean"}, {@code "date"}, {@code "datetime"}, {@code "enum"},
+     * {@code "object"}, or {@code "array"}).
+     */
     String dataType() default "string";
 
     /** Optional measurement unit (e.g., {@code "days"}, {@code "BRL"}, {@code "%"}). */
     String unit() default "";
 
-    /** Optional Material icon identifier for executive cards and cockpit catalogs. */
+    /** Optional Material icon identifier in lowercase {@code snake_case} for executive cards and cockpit catalogs. */
     String icon() default "";
 
-    /** Optional semantic tone hint (e.g., {@code "info"}, {@code "warning"}, {@code "danger"}, {@code "success"}). */
+    /** Optional semantic tone hint ({@code "neutral"}, {@code "info"}, {@code "success"}, {@code "warning"}, {@code "danger"}, {@code "primary"}, or {@code "secondary"}). */
     String tone() default "";
 
     /** Optional scalar presentation preset or format hint. */
@@ -55,28 +65,38 @@ public @interface ResourceFact {
     /** Whether the fact is deterministic for the same resource state and parameters. */
     boolean deterministic() default true;
 
-    /** Provenance kind of the fact implementation (e.g., {@code "computed"}, {@code "column"}, {@code "aggregate"}). */
+    /**
+     * Provenance kind of the fact implementation matching {@link ResourceFactSourceKind}
+     * ({@code "computed"}, {@code "field"}, {@code "property"}, {@code "column"}, {@code "expression"},
+     * {@code "aggregate"}, {@code "context"}, or {@code "grant"}).
+     */
     String sourceKind() default "computed";
 
     /**
-     * Authoritative origin of the fact value. Must be one of {@code "server_computed"},
-     * {@code "persisted_column"}, or {@code "verified_principal_claim"} when consumed by governed
-     * decisions; {@code "client_supplied"} is rejected for authorization/business enforcement.
+     * Authoritative origin of the fact value matching {@link ResourceFactAuthority}. Must be one of
+     * {@code "server_computed"}, {@code "persisted_state"}, {@code "authenticated_context"}, or
+     * {@code "governed_grant"} as enforced by {@link ResourceFactDescriptor}; raw client inputs
+     * and unknown authorities are rejected fail-closed.
      */
     String authority() default "server_computed";
 
     /**
-     * Lifecycle phase in which the fact is available ({@code "pre_write"}, {@code "post_read"},
-     * {@code "query_projection"}, or {@code "request_admission"}).
+     * Lifecycle phase in which the fact is available matching {@link ResourceFactEvaluationPhase}
+     * ({@code "pre_authorize"}, {@code "post_read"}, {@code "pre_write"}, {@code "post_write"},
+     * or {@code "query_projection"}).
      */
     String evaluationPhase() default "post_read";
 
     /**
-     * Behavior when the fact cannot be resolved at runtime ({@code "fail_closed"},
-     * {@code "not_applicable"}, or {@code "default_value"}).
+     * Fail-closed behavior when the fact cannot be resolved at runtime matching
+     * {@link ResourceFactMissingValuePolicy} ({@code "fail_closed"}, {@code "deny"},
+     * {@code "explicit_null"}, or {@code "error"}).
      */
     String missingValuePolicy() default "fail_closed";
 
-    /** Cardinality scope of the fact ({@code "item"} or {@code "collection"}). */
+    /**
+     * Cardinality scope of the fact matching {@link ResourceFactScope}
+     * ({@code "item"}, {@code "collection"}, {@code "tenant"}, or {@code "principal"}).
+     */
     String scope() default "item";
 }

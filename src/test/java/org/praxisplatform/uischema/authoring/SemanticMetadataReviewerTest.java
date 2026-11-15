@@ -2054,4 +2054,434 @@ class SemanticMetadataReviewerTest {
                 .filter(i -> "quick-filter-option-value-invalid".equals(i.code()))
                 .allMatch(i -> i.message().contains("CANCELADA")));
     }
+
+    @Test
+    void validatesCanonicalResourceFactVocabulariesDuplicatesAndInheritance() {
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+        SemanticMetadataReviewReport validControllerFacts = reviewer.reviewResourceFacts(ValidInheritedFactController.class);
+        assertFalse(validControllerFacts.hasErrors(), validControllerFacts.issues().toString());
+        SemanticMetadataReviewReport validControllerReport = reviewer.reviewResourceController(ValidInheritedFactController.class);
+        assertFalse(validControllerReport.hasErrors(), validControllerReport.issues().toString());
+
+        Set<String> invalidControllerFactCodes = reviewer.reviewResourceFacts(InvalidResourceFactController.class).issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(invalidControllerFactCodes.containsAll(Set.of(
+                "resource-fact-key-invalid",
+                "resource-fact-duplicate-key",
+                "resource-fact-resource-key-mismatch",
+                "resource-fact-data-type-invalid",
+                "resource-fact-source-kind-invalid",
+                "resource-fact-authority-invalid",
+                "resource-fact-evaluation-phase-invalid",
+                "resource-fact-missing-value-policy-invalid",
+                "resource-fact-scope-invalid",
+                "resource-fact-tone-invalid",
+                "resource-fact-icon-not-snake-case",
+                "resource-fact-source-field-unknown",
+                "resource-fact-threshold-tone-invalid"
+        )));
+
+        Set<String> unscopedFactCodes = reviewer.reviewResourceFacts(UnscopedBlankResourceKeyFactHost.class).issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(unscopedFactCodes.contains("resource-fact-resource-key-missing"));
+    }
+
+    @Test
+    void validatesReactiveDeterminationsAndBulkGovernance() {
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+        SemanticMetadataReviewReport validReport = reviewer.reviewResourceController(ValidDeterminationAndBulkController.class);
+        assertFalse(validReport.hasErrors(), validReport.issues().toString());
+
+        Set<String> invalidDtoCodes = reviewer.review(InvalidBulkEditableDTO.class).issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(invalidDtoCodes.containsAll(Set.of(
+                "bulk-editable-invalid-mode",
+                "bulk-editable-clear-requires-nullable-schema"
+        )));
+
+        Set<String> invalidControllerCodes = reviewer.reviewResourceController(InvalidDeterminationAndBulkController.class).issues().stream()
+                .map(SemanticMetadataReviewIssue::code)
+                .collect(Collectors.toSet());
+        assertTrue(invalidControllerCodes.containsAll(Set.of(
+                "reactive-determination-operation-id-missing",
+                "reactive-determination-id-invalid",
+                "reactive-determination-duplicate-id",
+                "reactive-determination-scope-conflict",
+                "reactive-determination-target-operation-unknown",
+                "reactive-determination-input-mapping-invalid",
+                "reactive-determination-output-mapping-invalid",
+                "reactive-determination-input-field-unknown",
+                "reactive-determination-input-request-field-unknown",
+                "reactive-determination-output-field-unknown",
+                "reactive-determination-output-response-field-unknown",
+                "reactive-determination-json-pointer-invalid",
+                "reactive-determination-source-field-unknown",
+                "bulk-resource-operations-operation-id-missing",
+                "bulk-protected-field-blank",
+                "bulk-protected-field-duplicate",
+                "bulk-protected-field-unknown",
+                "bulk-protected-field-conflicts-with-bulk-editable"
+        )));
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(
+            keyField = "id",
+            titleField = "nomeCompleto"
+    )
+    private static final class FactBackedResponseDTO {
+        @Schema(description = "Identificador unico do item de amostra no catalogo.")
+        @UISchema(label = "ID", controlType = FieldControlType.INPUT, group = "Geral")
+        private Long id;
+
+        @Schema(description = "Titulo principal exibido nos cartoes executivos.")
+        @UISchema(label = "Titulo", controlType = FieldControlType.INPUT, group = "Geral")
+        @org.praxisplatform.uischema.annotation.ResourceReference(resourceKey = "sample.facts", valueField = "id", surfaceId = "detail")
+        private String nomeCompleto;
+
+        @Schema(description = "Saldo de dias disponiveis apurados no backend.")
+        @UISchema(label = "Saldo Dias", controlType = FieldControlType.INPUT, group = "Geral")
+        private Integer saldoDias;
+
+        public Long getId() { return id; }
+        public String getNomeCompleto() { return nomeCompleto; }
+        public Integer getSaldoDias() { return saldoDias; }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/facts-inherited",
+            resourceKey = "sample.facts",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto"
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "ativos",
+                            label = "Ativos",
+                            criteria = {@org.praxisplatform.uischema.annotation.FilterCriterion(field = "status", values = {"ATIVO"})}
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "com-atraso",
+                            label = "Com Atraso",
+                            criteria = {@org.praxisplatform.uischema.annotation.FilterCriterion(field = "diasAtraso", values = {"15"})}
+                    )
+            }
+    )
+    @org.praxisplatform.uischema.fact.ResourceFact(
+            key = "saldoDias",
+            label = "Saldo de Dias",
+            description = "Saldo apurado direto do campo do DTO herdando resourceKey do controller.",
+            dataType = "integer",
+            sourceKind = "field",
+            icon = "event_available",
+            tone = "positive",
+            thresholds = {@org.praxisplatform.uischema.annotation.Threshold(equalsValue = "0", tone = "neutral")}
+    )
+    private static class ValidInheritedFactController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    FactBackedResponseDTO, Long, SampleControllerFilterDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                FactBackedResponseDTO, Long, SampleControllerFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(FactBackedResponseDTO dto) {
+            return dto == null ? null : dto.getId();
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Detalhe 360."
+        )
+        public void detail() {
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(value = "/api/sample/facts-invalid", resourceKey = "sample.facts")
+    @org.praxisplatform.uischema.fact.ResourceFact(
+            key = "1bad key!",
+            resourceKey = "other.resource",
+            label = "Invalid Key",
+            description = "Invalid fact key and conflicting resourceKey.",
+            dataType = "bogus_type",
+            sourceKind = "bogus_kind",
+            authority = "client_side",
+            evaluationPhase = "after_dinner",
+            missingValuePolicy = "ignore",
+            scope = "planet",
+            tone = "rainbow",
+            icon = "InvalidIcon",
+            thresholds = {@org.praxisplatform.uischema.annotation.Threshold(min = 0, max = 10, tone = "neon")}
+    )
+    @org.praxisplatform.uischema.fact.ResourceFact(
+            key = "missingFieldKey",
+            label = "Missing DTO Field",
+            description = "References field absent from backing DTO.",
+            sourceKind = "field"
+    )
+    @org.praxisplatform.uischema.fact.ResourceFact(
+            key = "missingFieldKey",
+            label = "Duplicate Key",
+            description = "Duplicate fact key on controller.",
+            sourceKind = "computed"
+    )
+    private static class InvalidResourceFactController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    FactBackedResponseDTO, Long, SampleControllerFilterDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                FactBackedResponseDTO, Long, SampleControllerFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(FactBackedResponseDTO dto) {
+            return null;
+        }
+    }
+
+    @org.praxisplatform.uischema.fact.ResourceFact(
+            key = "unscoped_fact",
+            label = "Unscoped Fact",
+            description = "Fails because host is not @ApiResource and resourceKey is blank."
+    )
+    private static class UnscopedBlankResourceKeyFactHost {
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(
+            keyField = "id",
+            titleField = "nomeCompleto"
+    )
+    private static class ValidDeterminationDTO {
+        @Schema(description = "Identificador unico do calculo.")
+        @UISchema(label = "ID", controlType = FieldControlType.INPUT, group = "Geral")
+        private Long id;
+
+        @Schema(description = "Titulo principal exibido nos cartoes.")
+        @UISchema(label = "Titulo", controlType = FieldControlType.INPUT, group = "Geral")
+        @org.praxisplatform.uischema.annotation.ResourceReference(resourceKey = "sample.det", valueField = "id", surfaceId = "detail")
+        private String nomeCompleto;
+
+        @Schema(description = "Salario base para previa reativa.")
+        @UISchema(label = "Salario Base", controlType = FieldControlType.CURRENCY_INPUT, group = "Geral")
+        private java.math.BigDecimal salarioBase;
+
+        @Schema(description = "Gratificacao ajustavel em lote.", nullable = true)
+        @UISchema(label = "Gratificacao", controlType = FieldControlType.CURRENCY_INPUT, group = "Geral")
+        @org.praxisplatform.uischema.annotation.BulkEditable(allowClear = true)
+        private java.math.BigDecimal gratificacao;
+
+        @Schema(description = "Valor liquido previsto calculado pela previa reativa.")
+        @UISchema(label = "Liquido Previsto", controlType = FieldControlType.CURRENCY_INPUT, group = "Geral")
+        private java.math.BigDecimal valorLiquido;
+
+        public Long getId() { return id; }
+        public String getNomeCompleto() { return nomeCompleto; }
+        public java.math.BigDecimal getSalarioBase() { return salarioBase; }
+        public java.math.BigDecimal getGratificacao() { return gratificacao; }
+        public java.math.BigDecimal getValorLiquido() { return valorLiquido; }
+    }
+
+    record DeterminationRequestPayload(java.math.BigDecimal baseInformada) {}
+    record DeterminationResponsePayload(java.math.BigDecimal valorLiquido) {}
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/det-valid",
+            resourceKey = "sample.det",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto"
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "ativos",
+                            label = "Ativos",
+                            criteria = {@org.praxisplatform.uischema.annotation.FilterCriterion(field = "status", values = {"ATIVO"})}
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "com-atraso",
+                            label = "Com Atraso",
+                            criteria = {@org.praxisplatform.uischema.annotation.FilterCriterion(field = "diasAtraso", values = {"15"})}
+                    )
+            }
+    )
+    @org.praxisplatform.uischema.bulk.BulkResourceOperations(
+            proposalOperationId = "sample.bulk.proposal",
+            proposalResultsOperationId = "sample.bulk.proposal-results",
+            executionOperationId = "sample.bulk.execution",
+            executionResultsOperationId = "sample.bulk.results",
+            cancelOperationId = "sample.bulk.cancel",
+            protectedUpdateFields = {"salarioBase"}
+    )
+    private static class ValidDeterminationAndBulkController
+            extends org.praxisplatform.uischema.controller.base.AbstractResourceController<
+                    ValidDeterminationDTO, Long, SampleControllerFilterDTO, ValidDeterminationDTO, ValidDeterminationDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceService<
+                ValidDeterminationDTO, Long, SampleControllerFilterDTO, ValidDeterminationDTO, ValidDeterminationDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(ValidDeterminationDTO dto) {
+            return dto == null ? null : dto.getId();
+        }
+
+        @io.swagger.v3.oas.annotations.Operation(operationId = "createDetValid", summary = "Criar")
+        @Override
+        public org.springframework.http.ResponseEntity<org.praxisplatform.uischema.rest.response.RestApiResponse<ValidDeterminationDTO>> create(
+                ValidDeterminationDTO dto
+        ) {
+            return null;
+        }
+
+        @io.swagger.v3.oas.annotations.Operation(operationId = "updateDetValid", summary = "Atualizar")
+        @Override
+        public org.springframework.http.ResponseEntity<org.praxisplatform.uischema.rest.response.RestApiResponse<ValidDeterminationDTO>> update(
+                Long id,
+                ValidDeterminationDTO dto
+        ) {
+            return null;
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Detalhe 360."
+        )
+        public void detail() {
+        }
+
+        @io.swagger.v3.oas.annotations.Operation(operationId = "previewDetValid", summary = "Preview")
+        @org.praxisplatform.uischema.annotation.ReactiveDetermination(
+                id = "sample.preview.valid",
+                createOperationId = "createDetValid",
+                updateOperationId = "updateDetValid",
+                sourceFields = {"salarioBase"},
+                inputs = {@org.praxisplatform.uischema.annotation.DeterminationInput(field = "salarioBase", request = "baseInformada")},
+                outputs = {@org.praxisplatform.uischema.annotation.DeterminationOutput("valorLiquido")}
+        )
+        public org.springframework.http.ResponseEntity<org.praxisplatform.uischema.rest.response.RestApiResponse<DeterminationResponsePayload>> preview(
+                @org.springframework.web.bind.annotation.RequestBody DeterminationRequestPayload body
+        ) {
+            return null;
+        }
+    }
+
+    private static class InvalidBulkEditableDTO {
+        @Schema(description = "Campo com modo invalido de edicao em lote e limpeza sem nullability.")
+        @UISchema(label = "Campo Invalido", controlType = FieldControlType.INPUT, group = "Geral")
+        @org.praxisplatform.uischema.annotation.BulkEditable(
+                modes = {org.praxisplatform.uischema.bulk.BulkMode.DOMAIN_COMMAND},
+                allowClear = true
+        )
+        private String campoInvalido;
+
+        public String getCampoInvalido() { return campoInvalido; }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/det-invalid",
+            resourceKey = "sample.det.invalid",
+            identity = @org.praxisplatform.uischema.annotation.ResourceIdentity(
+                    keyField = "id",
+                    titleField = "nomeCompleto"
+            ),
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(id = "all", label = "Todos"),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "por-nome",
+                            label = "Por Nome",
+                            criteria = {@org.praxisplatform.uischema.annotation.FilterCriterion(field = "nome", values = {"a"})}
+                    )
+            }
+    )
+    @org.praxisplatform.uischema.bulk.BulkResourceOperations(
+            proposalOperationId = "",
+            proposalResultsOperationId = "r",
+            executionOperationId = "e",
+            executionResultsOperationId = "er",
+            cancelOperationId = "c",
+            protectedUpdateFields = {" ", "salarioBase", "salarioBase", "gratificacao", "campoFantasma"}
+    )
+    private static class InvalidDeterminationAndBulkController
+            extends org.praxisplatform.uischema.controller.base.AbstractResourceController<
+                    ValidDeterminationDTO, Long, SampleControllerFilterDTO, ValidDeterminationDTO, ValidDeterminationDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceService<
+                ValidDeterminationDTO, Long, SampleControllerFilterDTO, ValidDeterminationDTO, ValidDeterminationDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(ValidDeterminationDTO dto) {
+            return null;
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Detalhe 360."
+        )
+        public void detail() {
+        }
+
+        @org.praxisplatform.uischema.annotation.ReactiveDetermination(
+                id = "bad id with spaces",
+                createOperationId = "missingCreateOp",
+                scopes = {@org.praxisplatform.uischema.annotation.DeterminationScope(
+                        schemaOperationId = "missingScopeOp",
+                        formMode = org.praxisplatform.uischema.determination.ReactiveDeterminationFormMode.CREATE
+                )},
+                sourceFields = {"fonteInexistente"},
+                inputs = {
+                        @org.praxisplatform.uischema.annotation.DeterminationInput(value = "x", field = "y"),
+                        @org.praxisplatform.uischema.annotation.DeterminationInput(field = "campoFormInexistente", request = "reqFantasma")
+                },
+                outputs = {
+                        @org.praxisplatform.uischema.annotation.DeterminationOutput(value = "a", response = "b"),
+                        @org.praxisplatform.uischema.annotation.DeterminationOutput(response = "respFantasma", field = "outFormInexistente"),
+                        @org.praxisplatform.uischema.annotation.DeterminationOutput("bad//pointer/")
+                }
+        )
+        public DeterminationResponsePayload brokenOne(@org.springframework.web.bind.annotation.RequestBody DeterminationRequestPayload body) {
+            return null;
+        }
+
+        @io.swagger.v3.oas.annotations.Operation(operationId = "detOpOne", summary = "Op 1")
+        @org.praxisplatform.uischema.annotation.ReactiveDetermination(
+                id = "dup.id",
+                createOperationId = "unknownOp",
+                inputs = {@org.praxisplatform.uischema.annotation.DeterminationInput("salarioBase")},
+                outputs = {@org.praxisplatform.uischema.annotation.DeterminationOutput("valorLiquido")}
+        )
+        public DeterminationResponsePayload dupOne(@org.springframework.web.bind.annotation.RequestBody DeterminationRequestPayload body) {
+            return null;
+        }
+
+        @io.swagger.v3.oas.annotations.Operation(operationId = "detOpTwo", summary = "Op 2")
+        @org.praxisplatform.uischema.annotation.ReactiveDetermination(
+                id = "dup.id",
+                createOperationId = "unknownOpTwo",
+                inputs = {@org.praxisplatform.uischema.annotation.DeterminationInput("salarioBase")},
+                outputs = {@org.praxisplatform.uischema.annotation.DeterminationOutput("valorLiquido")}
+        )
+        public DeterminationResponsePayload dupTwo(@org.springframework.web.bind.annotation.RequestBody DeterminationRequestPayload body) {
+            return null;
+        }
+    }
 }

@@ -222,4 +222,60 @@ class AnnotationResourceFactCatalogProviderTest {
         FactsApi declaredFact() { throw new AssertionError("Catalog must not execute factory methods"); }
         @Bean @Lazy LazyFacts concreteFacts() { throw new AssertionError("Catalog must not execute factory methods"); }
     }
+
+    @Test
+    void inheritsApiResourceKeyOnControllerAndResponseDtoAndRejectsConflict() {
+        try (var context = new AnnotationConfigApplicationContext(ObjectMapperTestConfig.class, InheritedFactController.class)) {
+            var provider = new AnnotationResourceFactCatalogProvider(context.getBeanFactory());
+            assertThat(provider.findFacts(RESOURCE, null))
+                    .extracting(ResourceFactDescriptor::key)
+                    .containsExactlyInAnyOrder("controller_inherited_fact", "dto_inherited_fact");
+            assertThat(provider.findFacts(RESOURCE, null))
+                    .allSatisfy(descriptor -> assertThat(descriptor.resourceKey()).isEqualTo(RESOURCE));
+        }
+
+        try (var conflicting = new AnnotationConfigApplicationContext(ObjectMapperTestConfig.class, ConflictingFactController.class)) {
+            var provider = new AnnotationResourceFactCatalogProvider(conflicting.getBeanFactory());
+            assertThatThrownBy(() -> provider.findFacts(RESOURCE, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Conflicting @ResourceFact.resourceKey");
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class ObjectMapperTestConfig {
+        @Bean
+        com.fasterxml.jackson.databind.ObjectMapper objectMapper() {
+            return new com.fasterxml.jackson.databind.ObjectMapper();
+        }
+    }
+
+    record InheritedFactFilterDto() implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
+    }
+
+    @ResourceFact(key = "dto_inherited_fact", label = "DTO Fact", description = "Fact discovered on <R> ResponseDTO inheriting @ApiResource.resourceKey().")
+    record InheritedFactResponseDto(Long id) {
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(value = "/api/test/inherited-facts", resourceKey = RESOURCE)
+    @ResourceFact(key = "controller_inherited_fact", label = "Ctrl Fact", description = "Fact declared on controller inheriting @ApiResource.resourceKey().")
+    static class InheritedFactController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    InheritedFactResponseDto, Long, InheritedFactFilterDto> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                InheritedFactResponseDto, Long, InheritedFactFilterDto> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(InheritedFactResponseDto dto) {
+            return dto == null ? null : dto.id();
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(value = "/api/test/conflicting-facts", resourceKey = RESOURCE)
+    @ResourceFact(key = "conflicting_fact", resourceKey = "other.resource", label = "Conflict", description = "Mismatched resourceKey.")
+    static class ConflictingFactController {
+    }
 }

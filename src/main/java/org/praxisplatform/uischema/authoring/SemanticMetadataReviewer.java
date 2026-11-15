@@ -122,9 +122,17 @@ public class SemanticMetadataReviewer {
                     annotatedGetterProperties.putIfAbsent(propName, method);
                 }
             }
-            reviewResourceFactsOnType(targetType, currentType, issues);
             currentType = currentType.getSuperclass();
         }
+
+        reviewResourceFactsHierarchy(
+                targetType,
+                resolveOwnerApiResourceKey(targetType),
+                allPropertyNames,
+                new java.util.LinkedHashSet<>(),
+                false,
+                issues
+        );
 
         java.util.Set<String> quickViewVisibleFields = new java.util.LinkedHashSet<>();
         java.util.Set<String> hiddenTechnicalFields = new java.util.LinkedHashSet<>();
@@ -729,10 +737,18 @@ public class SemanticMetadataReviewer {
         }
 
         List<SemanticMetadataReviewIssue> issues = new ArrayList<>();
-        Class<?> currentType = targetType;
-        while (currentType != null && currentType != Object.class && currentType != Record.class) {
-            reviewResourceFactsOnType(targetType, currentType, issues);
-            currentType = currentType.getSuperclass();
+        String ownerResourceKey = resolveOwnerApiResourceKey(targetType);
+        Class<?> responseDto = resolveControllerResponseDtoType(targetType);
+        boolean controllerHost = findTypeAnnotation(targetType, org.praxisplatform.uischema.annotation.ApiResource.class) != null
+                || findTypeAnnotation(targetType, org.springframework.web.bind.annotation.RestController.class) != null
+                || findTypeAnnotation(targetType, org.springframework.stereotype.Controller.class) != null;
+        Set<String> knownDtoProperties = responseDto != null && responseDto != targetType
+                ? collectDtoPropertyNames(responseDto)
+                : (controllerHost ? Set.of() : collectDtoPropertyNames(targetType));
+        Set<String> seenFactKeys = new java.util.LinkedHashSet<>();
+        reviewResourceFactsHierarchy(targetType, ownerResourceKey, knownDtoProperties, seenFactKeys, true, issues);
+        if (responseDto != null && responseDto != targetType) {
+            reviewResourceFactsHierarchy(responseDto, ownerResourceKey, knownDtoProperties, seenFactKeys, false, issues);
         }
         return new SemanticMetadataReviewReport(targetType, issues);
     }
@@ -772,7 +788,7 @@ public class SemanticMetadataReviewer {
         java.util.Set<String> readSurfaceIds = new java.util.LinkedHashSet<>();
         Class<?> currentType = controllerClass;
         while (currentType != null && currentType != Object.class && currentType != Record.class) {
-            reviewResourceFactsOnType(controllerClass, currentType, issues);
+            reviewLegalTreatmentBindingsOnType(controllerClass, currentType, issues);
             for (Method method : currentType.getDeclaredMethods()) {
                 if (method.isSynthetic() || method.isBridge()) {
                     continue;
@@ -1222,6 +1238,44 @@ public class SemanticMetadataReviewer {
                 }
             }
         }
+
+        Class<?> effectiveCreateDto = resolveControllerCreateDtoType(controllerClass);
+        Class<?> effectiveUpdateDto = resolveControllerUpdateDtoType(controllerClass);
+        String ownerResourceKey = apiResource == null ? "" : normalize(apiResource.resourceKey());
+        Set<String> responseProperties = collectDtoPropertyNames(effectiveResponseDto);
+        Set<String> seenFactKeys = new java.util.LinkedHashSet<>();
+        reviewResourceFactsHierarchy(
+                controllerClass,
+                ownerResourceKey,
+                responseProperties,
+                seenFactKeys,
+                false,
+                issues
+        );
+        if (effectiveResponseDto != null && effectiveResponseDto != controllerClass) {
+            reviewResourceFactsHierarchy(
+                    effectiveResponseDto,
+                    ownerResourceKey,
+                    responseProperties,
+                    seenFactKeys,
+                    false,
+                    issues
+            );
+        }
+        reviewReactiveDeterminations(
+                controllerClass,
+                effectiveResponseDto,
+                effectiveCreateDto,
+                effectiveUpdateDto,
+                issues
+        );
+        reviewBulkResourceOperations(
+                controllerClass,
+                effectiveResponseDto,
+                effectiveCreateDto,
+                effectiveUpdateDto,
+                issues
+        );
 
         return new SemanticMetadataReviewReport(controllerClass, issues);
     }
@@ -2486,13 +2540,55 @@ public class SemanticMetadataReviewer {
         return null;
     }
 
+    private static final String FACT_KEY_PATTERN = "^[a-zA-Z][a-zA-Z0-9_.-]*$";
+    private static final String ICON_SNAKE_CASE_PATTERN = "^[a-z0-9]+(_[a-z0-9]+)*$";
+    private static final Set<String> ALLOWED_FACT_AND_THRESHOLD_TONES = Set.of(
+            "neutral", "info", "success", "warning", "danger", "primary", "secondary", "critical", "positive", "negative"
+    );
+    private static final Set<String> PROPERTY_BACKED_FACT_SOURCE_KINDS = Set.of("field", "property", "column");
+
+    private void reviewResourceFactsHierarchy(
+            Class<?> targetType,
+            String ownerResourceKey,
+            Set<String> knownDtoProperties,
+            Set<String> seenFactKeys,
+            boolean includeLegalTreatment,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        Class<?> currentType = targetType;
+        while (currentType != null && currentType != Object.class && currentType != Record.class) {
+            reviewResourceFactsOnType(
+                    targetType,
+                    currentType,
+                    ownerResourceKey,
+                    knownDtoProperties,
+                    seenFactKeys,
+                    includeLegalTreatment,
+                    issues
+            );
+            currentType = currentType.getSuperclass();
+        }
+    }
+
     private void reviewResourceFactsOnType(
             Class<?> targetType,
             Class<?> currentType,
+            String ownerResourceKey,
+            Set<String> knownDtoProperties,
+            Set<String> seenFactKeys,
+            boolean includeLegalTreatment,
             List<SemanticMetadataReviewIssue> issues
     ) {
         for (ResourceFact fact : currentType.getDeclaredAnnotationsByType(ResourceFact.class)) {
-            reviewResourceFact(targetType, "@ResourceFact(" + normalize(fact.key()) + ")", fact, issues);
+            reviewResourceFact(
+                    targetType,
+                    "@ResourceFact(" + normalize(fact.key()) + ")",
+                    fact,
+                    ownerResourceKey,
+                    knownDtoProperties,
+                    seenFactKeys,
+                    issues
+            );
         }
         for (Method method : currentType.getDeclaredMethods()) {
             if (method.isSynthetic() || method.isBridge()) {
@@ -2501,7 +2597,30 @@ public class SemanticMetadataReviewer {
             for (ResourceFact fact : method.getDeclaredAnnotationsByType(ResourceFact.class)) {
                 String factKey = normalize(fact.key());
                 String memberName = factKey.isBlank() ? method.getName() : method.getName() + "@ResourceFact(" + factKey + ")";
-                reviewResourceFact(targetType, memberName, fact, issues);
+                reviewResourceFact(
+                        targetType,
+                        memberName,
+                        fact,
+                        ownerResourceKey,
+                        knownDtoProperties,
+                        seenFactKeys,
+                        issues
+                );
+            }
+        }
+        if (includeLegalTreatment) {
+            reviewLegalTreatmentBindingsOnType(targetType, currentType, issues);
+        }
+    }
+
+    private void reviewLegalTreatmentBindingsOnType(
+            Class<?> targetType,
+            Class<?> currentType,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        for (Method method : currentType.getDeclaredMethods()) {
+            if (method.isSynthetic() || method.isBridge()) {
+                continue;
             }
             org.praxisplatform.uischema.annotation.UiSurface surface =
                     method.getDeclaredAnnotation(org.praxisplatform.uischema.annotation.UiSurface.class);
@@ -2569,10 +2688,65 @@ public class SemanticMetadataReviewer {
             Class<?> targetType,
             String memberName,
             ResourceFact fact,
+            String ownerResourceKey,
+            Set<String> knownDtoProperties,
+            Set<String> seenFactKeys,
             List<SemanticMetadataReviewIssue> issues
     ) {
+        String factKey = normalize(fact.key());
+        String explicitResourceKey = normalize(fact.resourceKey());
+        String effectiveResourceKey = explicitResourceKey.isBlank() ? normalize(ownerResourceKey) : explicitResourceKey;
         String label = normalize(fact.label());
         String description = normalize(fact.description());
+
+        if (factKey.isBlank()) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-fact-key-missing",
+                    targetType.getName(),
+                    memberName,
+                    "@ResourceFact requires a non-blank key."
+            ));
+        } else {
+            if (!factKey.matches(FACT_KEY_PATTERN)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "resource-fact-key-invalid",
+                        targetType.getName(),
+                        memberName,
+                        "@ResourceFact(key) '" + factKey + "' must start with a letter and contain only letters, digits, '_', '.', or '-'."
+                ));
+            }
+            if (seenFactKeys != null && !seenFactKeys.add(factKey.toLowerCase(Locale.ROOT))) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "resource-fact-duplicate-key",
+                        targetType.getName(),
+                        memberName,
+                        "@ResourceFact(key) '" + factKey + "' is duplicated on " + targetType.getSimpleName() + "."
+                ));
+            }
+        }
+
+        if (effectiveResourceKey.isBlank()) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-fact-resource-key-missing",
+                    targetType.getName(),
+                    memberName,
+                    "@ResourceFact requires resourceKey when not inherited from an enclosing @ApiResource."
+            ));
+        } else if (!explicitResourceKey.isBlank() && !normalize(ownerResourceKey).isBlank()
+                && !explicitResourceKey.equals(normalize(ownerResourceKey))) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-fact-resource-key-mismatch",
+                    targetType.getName(),
+                    memberName,
+                    "@ResourceFact(resourceKey='" + explicitResourceKey + "') conflicts with @ApiResource(resourceKey='"
+                            + normalize(ownerResourceKey) + "')."
+            ));
+        }
 
         if (description.isBlank()) {
             issues.add(new SemanticMetadataReviewIssue(
@@ -2602,16 +2776,85 @@ public class SemanticMetadataReviewer {
             ));
         }
 
+        reviewFactVocabulary(
+                targetType, memberName, "resource-fact-data-type-invalid", "dataType",
+                fact.dataType(), org.praxisplatform.uischema.fact.ResourceFactDataType.isValidWireValue(fact.dataType()),
+                org.praxisplatform.uischema.fact.ResourceFactDataType.allowedWireValues(), issues
+        );
+        String sourceKind = normalize(fact.sourceKind()).toLowerCase(Locale.ROOT);
+        reviewFactVocabulary(
+                targetType, memberName, "resource-fact-source-kind-invalid", "sourceKind",
+                fact.sourceKind(), org.praxisplatform.uischema.fact.ResourceFactSourceKind.isValidWireValue(fact.sourceKind()),
+                org.praxisplatform.uischema.fact.ResourceFactSourceKind.allowedWireValues(), issues
+        );
+        reviewFactVocabulary(
+                targetType, memberName, "resource-fact-authority-invalid", "authority",
+                fact.authority(), org.praxisplatform.uischema.fact.ResourceFactAuthority.isValidWireValue(fact.authority()),
+                org.praxisplatform.uischema.fact.ResourceFactAuthority.allowedWireValues(), issues
+        );
+        reviewFactVocabulary(
+                targetType, memberName, "resource-fact-evaluation-phase-invalid", "evaluationPhase",
+                fact.evaluationPhase(), org.praxisplatform.uischema.fact.ResourceFactEvaluationPhase.isValidWireValue(fact.evaluationPhase()),
+                org.praxisplatform.uischema.fact.ResourceFactEvaluationPhase.allowedWireValues(), issues
+        );
+        reviewFactVocabulary(
+                targetType, memberName, "resource-fact-missing-value-policy-invalid", "missingValuePolicy",
+                fact.missingValuePolicy(), org.praxisplatform.uischema.fact.ResourceFactMissingValuePolicy.isValidWireValue(fact.missingValuePolicy()),
+                org.praxisplatform.uischema.fact.ResourceFactMissingValuePolicy.allowedWireValues(), issues
+        );
+        reviewFactVocabulary(
+                targetType, memberName, "resource-fact-scope-invalid", "scope",
+                fact.scope(), org.praxisplatform.uischema.fact.ResourceFactScope.isValidWireValue(fact.scope()),
+                org.praxisplatform.uischema.fact.ResourceFactScope.allowedWireValues(), issues
+        );
+
+        String factTone = normalize(fact.tone());
+        if (!factTone.isBlank() && !isAllowedTone(factTone)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-fact-tone-invalid",
+                    targetType.getName(),
+                    memberName,
+                    "@ResourceFact(tone='" + factTone + "') must be one of " + ALLOWED_FACT_AND_THRESHOLD_TONES + "."
+            ));
+        }
+
+        String factIcon = normalize(fact.icon());
+        if (!factIcon.isBlank() && !isValidSnakeCaseIcon(factIcon)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-fact-icon-not-snake-case",
+                    targetType.getName(),
+                    memberName,
+                    "@ResourceFact(icon='" + factIcon + "') must be a lowercase snake_case Material Icons ligature."
+            ));
+        }
+
+        if (!factKey.isBlank() && PROPERTY_BACKED_FACT_SOURCE_KINDS.contains(sourceKind)
+                && knownDtoProperties != null && !knownDtoProperties.isEmpty()
+                && !knownDtoProperties.contains(factKey)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-fact-source-field-unknown",
+                    targetType.getName(),
+                    memberName,
+                    "@ResourceFact(key='" + factKey + "', sourceKind='" + sourceKind
+                            + "') does not match any property on the backing DTO."
+            ));
+        }
+
         for (org.praxisplatform.uischema.annotation.Threshold threshold : fact.thresholds()) {
             boolean minUnset = Double.isNaN(threshold.min());
             boolean maxUnset = Double.isNaN(threshold.max());
-            if (minUnset && maxUnset) {
+            boolean valueUnset = Double.isNaN(threshold.value());
+            boolean equalsUnset = normalize(threshold.equalsValue()).isBlank();
+            if (minUnset && maxUnset && valueUnset && equalsUnset) {
                 issues.add(new SemanticMetadataReviewIssue(
                         SemanticMetadataIssueSeverity.ERROR,
                         "resource-fact-threshold-bounds-missing",
                         targetType.getName(),
                         memberName,
-                        "@ResourceFact threshold must declare at least min or max."
+                        "@ResourceFact threshold must declare at least min, max, value, or equalsValue."
                 ));
             } else if (!minUnset && !maxUnset && threshold.min() > threshold.max()) {
                 issues.add(new SemanticMetadataReviewIssue(
@@ -2622,7 +2865,8 @@ public class SemanticMetadataReviewer {
                         "@ResourceFact threshold min (" + threshold.min() + ") cannot exceed max (" + threshold.max() + ")."
                 ));
             }
-            if (normalize(threshold.tone()).isBlank()) {
+            String thresholdTone = normalize(threshold.tone());
+            if (thresholdTone.isBlank()) {
                 issues.add(new SemanticMetadataReviewIssue(
                         SemanticMetadataIssueSeverity.ERROR,
                         "resource-fact-threshold-tone-missing",
@@ -2630,8 +2874,734 @@ public class SemanticMetadataReviewer {
                         memberName,
                         "@ResourceFact threshold requires a non-blank semantic tone."
                 ));
+            } else if (!isAllowedTone(thresholdTone)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "resource-fact-threshold-tone-invalid",
+                        targetType.getName(),
+                        memberName,
+                        "@ResourceFact threshold tone '" + thresholdTone + "' must be one of " + ALLOWED_FACT_AND_THRESHOLD_TONES + "."
+                ));
             }
         }
+    }
+
+    private void reviewFactVocabulary(
+            Class<?> targetType,
+            String memberName,
+            String issueCode,
+            String attributeName,
+            String rawValue,
+            boolean valid,
+            Set<String> allowedValues,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        if (valid) {
+            return;
+        }
+        issues.add(new SemanticMetadataReviewIssue(
+                SemanticMetadataIssueSeverity.ERROR,
+                issueCode,
+                targetType.getName(),
+                memberName,
+                "@ResourceFact(" + attributeName + "='" + normalize(rawValue) + "') must be one of " + allowedValues + "."
+        ));
+    }
+
+    private void reviewReactiveDeterminations(
+            Class<?> controllerClass,
+            Class<?> responseDto,
+            Class<?> createDto,
+            Class<?> updateDto,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        Method[] methods = org.springframework.util.ReflectionUtils.getUniqueDeclaredMethods(
+                controllerClass,
+                method -> !method.isBridge() && !method.isSynthetic()
+        );
+        Set<String> declaredOperationIds = new java.util.LinkedHashSet<>();
+        List<Method> determinationMethods = new ArrayList<>();
+        for (Method method : methods) {
+            io.swagger.v3.oas.annotations.Operation operation =
+                    org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                            method,
+                            io.swagger.v3.oas.annotations.Operation.class
+                    );
+            if (operation != null) {
+                String opId = normalize(operation.operationId());
+                if (!opId.isBlank()) {
+                    declaredOperationIds.add(opId);
+                }
+            }
+            if (org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                    method,
+                    org.praxisplatform.uischema.annotation.ReactiveDetermination.class
+            ) != null) {
+                determinationMethods.add(method);
+            }
+        }
+        if (determinationMethods.isEmpty()) {
+            return;
+        }
+
+        Set<String> formProperties = new java.util.LinkedHashSet<>();
+        formProperties.addAll(collectDtoPropertyNames(createDto));
+        formProperties.addAll(collectDtoPropertyNames(updateDto));
+        formProperties.addAll(collectDtoPropertyNames(responseDto));
+        Set<String> seenDeterminationIds = new java.util.LinkedHashSet<>();
+
+        for (Method method : determinationMethods) {
+            org.praxisplatform.uischema.annotation.ReactiveDetermination determination =
+                    org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                            method,
+                            org.praxisplatform.uischema.annotation.ReactiveDetermination.class
+                    );
+            if (determination == null) {
+                continue;
+            }
+            String detId = normalize(determination.id());
+            String memberName = detId.isBlank()
+                    ? method.getName() + "@ReactiveDetermination"
+                    : method.getName() + "@ReactiveDetermination(" + detId + ")";
+
+            io.swagger.v3.oas.annotations.Operation methodOp =
+                    org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                            method,
+                            io.swagger.v3.oas.annotations.Operation.class
+                    );
+            if (methodOp == null || normalize(methodOp.operationId()).isBlank()) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "reactive-determination-operation-id-missing",
+                        controllerClass.getName(),
+                        memberName,
+                        "@ReactiveDetermination method must declare @Operation(operationId = ...)."
+                ));
+            }
+
+            if (detId.isBlank() || containsWhitespace(detId)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "reactive-determination-id-invalid",
+                        controllerClass.getName(),
+                        memberName,
+                        "@ReactiveDetermination(id) must be non-blank and contain no whitespace."
+                ));
+            } else if (!seenDeterminationIds.add(detId)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "reactive-determination-duplicate-id",
+                        controllerClass.getName(),
+                        memberName,
+                        "@ReactiveDetermination(id='" + detId + "') is duplicated on " + controllerClass.getSimpleName() + "."
+                ));
+            }
+
+            validateDeterminationScopes(controllerClass, memberName, determination, declaredOperationIds, issues);
+
+            Class<?> requestDto = resolveRequestBodyDtoType(method, controllerClass);
+            Set<String> requestDtoProperties = collectDtoPropertyNames(requestDto);
+            Class<?> methodResponseDto = resolveUnwrappedMethodReturnDtoType(method, controllerClass);
+            Set<String> responseDtoProperties = collectDtoPropertyNames(methodResponseDto);
+
+            if (determination.inputs().length == 0) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "reactive-determination-inputs-empty",
+                        controllerClass.getName(),
+                        memberName,
+                        "@ReactiveDetermination must declare at least one @DeterminationInput."
+                ));
+            }
+            if (determination.outputs().length == 0) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "reactive-determination-outputs-empty",
+                        controllerClass.getName(),
+                        memberName,
+                        "@ReactiveDetermination must declare at least one @DeterminationOutput."
+                ));
+            }
+
+            boolean hasAutoTriggerInput = false;
+            for (org.praxisplatform.uischema.annotation.DeterminationInput input : determination.inputs()) {
+                if (input.triggerSource()) {
+                    hasAutoTriggerInput = true;
+                }
+                validateDeterminationInput(
+                        controllerClass, memberName, input, formProperties, requestDtoProperties, issues
+                );
+            }
+            for (org.praxisplatform.uischema.annotation.DeterminationOutput output : determination.outputs()) {
+                validateDeterminationOutput(
+                        controllerClass, memberName, output, formProperties, responseDtoProperties, issues
+                );
+            }
+
+            if (determination.sourceFields().length == 0
+                    && determination.triggerMode().requiresSourcePaths()
+                    && !hasAutoTriggerInput) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "reactive-determination-trigger-sources-empty",
+                        controllerClass.getName(),
+                        memberName,
+                        "@ReactiveDetermination with triggerMode=" + determination.triggerMode()
+                                + " requires explicit sourceFields or at least one triggerSource=true input."
+                ));
+            }
+            for (String sourceField : determination.sourceFields()) {
+                String pointer = normalizeDeterminationPointer(sourceField);
+                if (pointer == null) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "reactive-determination-source-field-unknown",
+                            controllerClass.getName(),
+                            memberName,
+                            "@ReactiveDetermination sourceField '" + normalize(sourceField) + "' is not a valid JSON Pointer or property name."
+                    ));
+                    continue;
+                }
+                String rootProperty = extractJsonPointerRootProperty(pointer);
+                if (!formProperties.isEmpty() && !formProperties.contains(rootProperty)) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "reactive-determination-source-field-unknown",
+                            controllerClass.getName(),
+                            memberName,
+                            "@ReactiveDetermination sourceField '" + sourceField + "' (root property '" + rootProperty
+                                    + "') does not match any property on CreateDTO/UpdateDTO/ResponseDTO."
+                    ));
+                }
+            }
+        }
+    }
+
+    private void validateDeterminationScopes(
+            Class<?> controllerClass,
+            String memberName,
+            org.praxisplatform.uischema.annotation.ReactiveDetermination determination,
+            Set<String> declaredOperationIds,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        String createOpId = normalize(determination.createOperationId());
+        String updateOpId = normalize(determination.updateOperationId());
+        boolean hasCreate = !createOpId.isBlank();
+        boolean hasUpdate = !updateOpId.isBlank();
+        boolean hasScopes = determination.scopes().length > 0;
+
+        if (!hasCreate && !hasUpdate && !hasScopes) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "reactive-determination-scope-missing",
+                    controllerClass.getName(),
+                    memberName,
+                    "@ReactiveDetermination must declare createOperationId/updateOperationId or @DeterminationScope entries."
+            ));
+            return;
+        }
+        if (hasScopes && (hasCreate || hasUpdate)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "reactive-determination-scope-conflict",
+                    controllerClass.getName(),
+                    memberName,
+                    "@ReactiveDetermination cannot combine scopes() with createOperationId/updateOperationId."
+            ));
+        }
+        if (hasCreate && hasUpdate && createOpId.equals(updateOpId)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "reactive-determination-scope-conflict",
+                    controllerClass.getName(),
+                    memberName,
+                    "@ReactiveDetermination createOperationId and updateOperationId must be distinct."
+            ));
+        }
+        if (hasCreate && !declaredOperationIds.contains(createOpId)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "reactive-determination-target-operation-unknown",
+                    controllerClass.getName(),
+                    memberName,
+                    "@ReactiveDetermination createOperationId='" + createOpId + "' was not found among controller @Operation(operationId) declarations."
+            ));
+        }
+        if (hasUpdate && !declaredOperationIds.contains(updateOpId)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "reactive-determination-target-operation-unknown",
+                    controllerClass.getName(),
+                    memberName,
+                    "@ReactiveDetermination updateOperationId='" + updateOpId + "' was not found among controller @Operation(operationId) declarations."
+            ));
+        }
+        for (org.praxisplatform.uischema.annotation.DeterminationScope scope : determination.scopes()) {
+            String schemaOpId = normalize(scope.schemaOperationId());
+            if (schemaOpId.isBlank() || !declaredOperationIds.contains(schemaOpId)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "reactive-determination-target-operation-unknown",
+                        controllerClass.getName(),
+                        memberName,
+                        "@DeterminationScope schemaOperationId='" + schemaOpId + "' was not found among controller @Operation(operationId) declarations."
+                ));
+            }
+        }
+    }
+
+    private void validateDeterminationInput(
+            Class<?> controllerClass,
+            String memberName,
+            org.praxisplatform.uischema.annotation.DeterminationInput input,
+            Set<String> formProperties,
+            Set<String> requestDtoProperties,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        String val = normalize(input.value());
+        String field = normalize(input.field());
+        String request = normalize(input.request());
+        if ((!val.isBlank() && (!field.isBlank() || !request.isBlank()))
+                || (val.isBlank() && (field.isBlank() || request.isBlank()))) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "reactive-determination-input-mapping-invalid",
+                    controllerClass.getName(),
+                    memberName,
+                    "@DeterminationInput must either specify value() alone or both field() and request()."
+            ));
+            return;
+        }
+        String rawFieldPath = val.isBlank() ? field : val;
+        String rawRequestPath = val.isBlank() ? request : val;
+        validateDeterminationPointerAndProperty(
+                controllerClass, memberName, rawFieldPath, formProperties,
+                "reactive-determination-input-field-unknown", "input field path", issues
+        );
+        validateDeterminationPointerAndProperty(
+                controllerClass, memberName, rawRequestPath, requestDtoProperties,
+                "reactive-determination-input-request-field-unknown", "input request path", issues
+        );
+    }
+
+    private void validateDeterminationOutput(
+            Class<?> controllerClass,
+            String memberName,
+            org.praxisplatform.uischema.annotation.DeterminationOutput output,
+            Set<String> formProperties,
+            Set<String> responseDtoProperties,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        String val = normalize(output.value());
+        String response = normalize(output.response());
+        String field = normalize(output.field());
+        if ((!val.isBlank() && (!response.isBlank() || !field.isBlank()))
+                || (val.isBlank() && (response.isBlank() || field.isBlank()))) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "reactive-determination-output-mapping-invalid",
+                    controllerClass.getName(),
+                    memberName,
+                    "@DeterminationOutput must either specify value() alone or both response() and field()."
+            ));
+            return;
+        }
+        String rawResponsePath = val.isBlank() ? response : val;
+        String rawFieldPath = val.isBlank() ? field : val;
+        validateDeterminationPointerAndProperty(
+                controllerClass, memberName, rawFieldPath, formProperties,
+                "reactive-determination-output-field-unknown", "output field path", issues
+        );
+        validateDeterminationPointerAndProperty(
+                controllerClass, memberName, rawResponsePath, responseDtoProperties,
+                "reactive-determination-output-response-field-unknown", "output response path", issues
+        );
+    }
+
+    private void validateDeterminationPointerAndProperty(
+            Class<?> controllerClass,
+            String memberName,
+            String rawPath,
+            Set<String> targetProperties,
+            String unknownFieldCode,
+            String pathRole,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        String pointer = normalizeDeterminationPointer(rawPath);
+        if (pointer == null) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "reactive-determination-json-pointer-invalid",
+                    controllerClass.getName(),
+                    memberName,
+                    "Invalid JSON Pointer '" + rawPath + "' for " + pathRole + "."
+            ));
+            return;
+        }
+        String rootProperty = extractJsonPointerRootProperty(pointer);
+        if (targetProperties != null && !targetProperties.isEmpty() && !targetProperties.contains(rootProperty)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    unknownFieldCode,
+                    controllerClass.getName(),
+                    memberName,
+                    "@ReactiveDetermination " + pathRole + " '" + rawPath + "' (root property '" + rootProperty
+                            + "') does not exist on target DTO."
+            ));
+        }
+    }
+
+    private void reviewBulkEditableProperty(
+            Class<?> targetType,
+            String memberName,
+            org.praxisplatform.uischema.annotation.BulkEditable bulkEditable,
+            Schema schema,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        if (bulkEditable == null) {
+            return;
+        }
+        org.praxisplatform.uischema.bulk.BulkMode[] modes = bulkEditable.modes();
+        boolean hasDomainCommand = false;
+        if (modes != null) {
+            for (org.praxisplatform.uischema.bulk.BulkMode mode : modes) {
+                if (mode == org.praxisplatform.uischema.bulk.BulkMode.DOMAIN_COMMAND) {
+                    hasDomainCommand = true;
+                    break;
+                }
+            }
+        }
+        if (modes == null || modes.length == 0 || hasDomainCommand) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "bulk-editable-invalid-mode",
+                    targetType.getName(),
+                    memberName,
+                    "@BulkEditable supports only UNIFORM_UPDATE and/or PER_ITEM_UPDATE and must declare at least one mode."
+            ));
+        }
+        if (bulkEditable.allowClear() && (schema == null || !schema.nullable())) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "bulk-editable-clear-requires-nullable-schema",
+                    targetType.getName(),
+                    memberName,
+                    "@BulkEditable(allowClear = true) requires explicit @Schema(nullable = true) on the property."
+            ));
+        }
+    }
+
+    private void reviewBulkResourceOperations(
+            Class<?> controllerClass,
+            Class<?> responseDto,
+            Class<?> createDto,
+            Class<?> updateDto,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        org.praxisplatform.uischema.bulk.BulkResourceOperations bulkOps =
+                findTypeAnnotation(controllerClass, org.praxisplatform.uischema.bulk.BulkResourceOperations.class);
+        if (bulkOps == null) {
+            return;
+        }
+        checkRequiredBulkOperationId(controllerClass, "proposalOperationId", bulkOps.proposalOperationId(), issues);
+        checkRequiredBulkOperationId(controllerClass, "proposalResultsOperationId", bulkOps.proposalResultsOperationId(), issues);
+        checkRequiredBulkOperationId(controllerClass, "executionOperationId", bulkOps.executionOperationId(), issues);
+        checkRequiredBulkOperationId(controllerClass, "executionResultsOperationId", bulkOps.executionResultsOperationId(), issues);
+        checkRequiredBulkOperationId(controllerClass, "cancelOperationId", bulkOps.cancelOperationId(), issues);
+
+        Set<String> knownProperties = new java.util.LinkedHashSet<>();
+        knownProperties.addAll(collectDtoPropertyNames(responseDto));
+        knownProperties.addAll(collectDtoPropertyNames(createDto));
+        knownProperties.addAll(collectDtoPropertyNames(updateDto));
+        Set<String> bulkEditableUpdateFields = collectBulkEditablePropertyNames(updateDto);
+        Set<String> seenProtectedFields = new java.util.LinkedHashSet<>();
+
+        for (String protectedField : bulkOps.protectedUpdateFields()) {
+            String normalizedField = normalize(protectedField);
+            if (normalizedField.isBlank()) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "bulk-protected-field-blank",
+                        controllerClass.getName(),
+                        "@BulkResourceOperations.protectedUpdateFields",
+                        "@BulkResourceOperations(protectedUpdateFields) must not contain blank field names."
+                ));
+                continue;
+            }
+            if (!seenProtectedFields.add(normalizedField)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "bulk-protected-field-duplicate",
+                        controllerClass.getName(),
+                        "@BulkResourceOperations.protectedUpdateFields",
+                        "@BulkResourceOperations(protectedUpdateFields) repeats '" + normalizedField + "'."
+                ));
+            }
+            if (!knownProperties.isEmpty() && !knownProperties.contains(normalizedField)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "bulk-protected-field-unknown",
+                        controllerClass.getName(),
+                        "@BulkResourceOperations.protectedUpdateFields",
+                        "@BulkResourceOperations(protectedUpdateFields) references unknown property '" + normalizedField + "'."
+                ));
+            }
+            if (bulkEditableUpdateFields.contains(normalizedField)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "bulk-protected-field-conflicts-with-bulk-editable",
+                        controllerClass.getName(),
+                        "@BulkResourceOperations.protectedUpdateFields",
+                        "Property '" + normalizedField + "' cannot be both @BulkEditable on UpdateDTO and listed in protectedUpdateFields."
+                ));
+            }
+        }
+    }
+
+    private void checkRequiredBulkOperationId(
+            Class<?> controllerClass,
+            String attributeName,
+            String operationId,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        if (normalize(operationId).isBlank()) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "bulk-resource-operations-operation-id-missing",
+                    controllerClass.getName(),
+                    "@BulkResourceOperations." + attributeName,
+                    "@BulkResourceOperations requires non-blank " + attributeName + "."
+            ));
+        }
+    }
+
+    private String resolveOwnerApiResourceKey(Class<?> targetType) {
+        org.praxisplatform.uischema.annotation.ApiResource apiResource =
+                findTypeAnnotation(targetType, org.praxisplatform.uischema.annotation.ApiResource.class);
+        return apiResource == null ? "" : normalize(apiResource.resourceKey());
+    }
+
+    private Class<?> resolveControllerCreateDtoType(Class<?> controllerClass) {
+        Class<?> fromCreateUpdate = resolveControllerGenericTypeArg(
+                controllerClass,
+                org.praxisplatform.uischema.controller.base.AbstractCreateUpdateResourceController.class,
+                3
+        );
+        if (fromCreateUpdate != null) {
+            return fromCreateUpdate;
+        }
+        return resolveControllerGenericTypeArg(
+                controllerClass,
+                org.praxisplatform.uischema.controller.base.AbstractCreateResourceController.class,
+                3
+        );
+    }
+
+    private Class<?> resolveControllerUpdateDtoType(Class<?> controllerClass) {
+        return resolveControllerGenericTypeArg(
+                controllerClass,
+                org.praxisplatform.uischema.controller.base.AbstractCreateUpdateResourceController.class,
+                4
+        );
+    }
+
+    private Class<?> resolveControllerGenericTypeArg(Class<?> controllerClass, Class<?> baseClass, int argIndex) {
+        if (controllerClass == null || !baseClass.isAssignableFrom(controllerClass)) {
+            return null;
+        }
+        Class<?>[] args = org.springframework.core.GenericTypeResolver.resolveTypeArguments(controllerClass, baseClass);
+        if (args != null && args.length > argIndex && args[argIndex] != null && args[argIndex] != Object.class) {
+            return args[argIndex];
+        }
+        return null;
+    }
+
+    private Class<?> resolveRequestBodyDtoType(Method method, Class<?> controllerClass) {
+        java.lang.reflect.Parameter[] params = method.getParameters();
+        for (int i = 0; i < params.length; i++) {
+            if (params[i].isAnnotationPresent(org.springframework.web.bind.annotation.RequestBody.class)
+                    || org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(
+                    params[i], org.springframework.web.bind.annotation.RequestBody.class)) {
+                return unwrapContainerType(org.springframework.core.ResolvableType.forMethodParameter(method, i, controllerClass));
+            }
+        }
+        return null;
+    }
+
+    private Class<?> resolveUnwrappedMethodReturnDtoType(Method method, Class<?> controllerClass) {
+        return unwrapContainerType(org.springframework.core.ResolvableType.forMethodReturnType(method, controllerClass));
+    }
+
+    private Class<?> unwrapContainerType(org.springframework.core.ResolvableType type) {
+        org.springframework.core.ResolvableType current = type;
+        for (int depth = 0; depth < 4 && current != null; depth++) {
+            Class<?> raw = current.resolve();
+            if (raw == null) {
+                return null;
+            }
+            if (org.springframework.http.ResponseEntity.class.isAssignableFrom(raw)
+                    || org.springframework.http.HttpEntity.class.isAssignableFrom(raw)
+                    || org.praxisplatform.uischema.rest.response.RestApiResponse.class.isAssignableFrom(raw)) {
+                current = current.getGeneric(0);
+                continue;
+            }
+            return raw;
+        }
+        return null;
+    }
+
+    private Set<String> collectDtoPropertyNames(Class<?> dtoType) {
+        if (!isComplexBeanOrRecordDto(dtoType)) {
+            return Set.of();
+        }
+        Set<String> names = new java.util.LinkedHashSet<>();
+        Class<?> currentType = dtoType;
+        while (currentType != null && currentType != Object.class && currentType != Record.class) {
+            if (currentType.isRecord()) {
+                for (RecordComponent component : currentType.getRecordComponents()) {
+                    var ignored = component.getDeclaredAnnotation(com.fasterxml.jackson.annotation.JsonIgnore.class);
+                    if (ignored != null && ignored.value()) {
+                        continue;
+                    }
+                    names.add(component.getName());
+                    var jsonProp = component.getDeclaredAnnotation(com.fasterxml.jackson.annotation.JsonProperty.class);
+                    if (jsonProp != null && !normalize(jsonProp.value()).isBlank()) {
+                        names.add(normalize(jsonProp.value()));
+                    }
+                }
+            }
+            for (Field field : currentType.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) {
+                    continue;
+                }
+                var ignored = findMemberAnnotation(currentType, field, com.fasterxml.jackson.annotation.JsonIgnore.class);
+                if (ignored != null && ignored.value()) {
+                    continue;
+                }
+                names.add(field.getName());
+                var jsonProp = findMemberAnnotation(currentType, field, com.fasterxml.jackson.annotation.JsonProperty.class);
+                if (jsonProp != null && !normalize(jsonProp.value()).isBlank()) {
+                    names.add(normalize(jsonProp.value()));
+                }
+            }
+            for (Method method : currentType.getDeclaredMethods()) {
+                if (Modifier.isStatic(method.getModifiers()) || method.isSynthetic()
+                        || method.isBridge() || method.getParameterCount() != 0) {
+                    continue;
+                }
+                String propName = extractGetterPropertyName(method);
+                if (propName == null) {
+                    continue;
+                }
+                var ignored = method.getDeclaredAnnotation(com.fasterxml.jackson.annotation.JsonIgnore.class);
+                if (ignored != null && ignored.value()) {
+                    continue;
+                }
+                names.add(propName);
+                var jsonProp = method.getDeclaredAnnotation(com.fasterxml.jackson.annotation.JsonProperty.class);
+                if (jsonProp != null && !normalize(jsonProp.value()).isBlank()) {
+                    names.add(normalize(jsonProp.value()));
+                }
+            }
+            currentType = currentType.getSuperclass();
+        }
+        return names;
+    }
+
+    private Set<String> collectBulkEditablePropertyNames(Class<?> dtoType) {
+        if (!isComplexBeanOrRecordDto(dtoType)) {
+            return Set.of();
+        }
+        Set<String> names = new java.util.LinkedHashSet<>();
+        Class<?> currentType = dtoType;
+        while (currentType != null && currentType != Object.class && currentType != Record.class) {
+            if (currentType.isRecord()) {
+                for (RecordComponent component : currentType.getRecordComponents()) {
+                    if (component.getDeclaredAnnotation(org.praxisplatform.uischema.annotation.BulkEditable.class) != null) {
+                        names.add(component.getName());
+                    }
+                }
+            }
+            for (Field field : currentType.getDeclaredFields()) {
+                if (!Modifier.isStatic(field.getModifiers()) && !field.isSynthetic()
+                        && findMemberAnnotation(
+                        currentType, field, org.praxisplatform.uischema.annotation.BulkEditable.class) != null) {
+                    names.add(field.getName());
+                }
+            }
+            for (Method method : currentType.getDeclaredMethods()) {
+                if (Modifier.isStatic(method.getModifiers()) || method.isSynthetic()
+                        || method.isBridge() || method.getParameterCount() != 0) {
+                    continue;
+                }
+                String propName = extractGetterPropertyName(method);
+                if (propName != null
+                        && method.getDeclaredAnnotation(org.praxisplatform.uischema.annotation.BulkEditable.class) != null) {
+                    names.add(propName);
+                }
+            }
+            currentType = currentType.getSuperclass();
+        }
+        return names;
+    }
+
+    private static boolean isComplexBeanOrRecordDto(Class<?> type) {
+        if (type == null || type == Object.class || type == void.class || type == Void.class
+                || type.isPrimitive() || type.isArray() || type.isEnum() || type.isInterface()) {
+            return false;
+        }
+        if (java.util.Map.class.isAssignableFrom(type)
+                || Iterable.class.isAssignableFrom(type)
+                || CharSequence.class.isAssignableFrom(type)
+                || Number.class.isAssignableFrom(type)
+                || Boolean.class == type
+                || Character.class == type
+                || com.fasterxml.jackson.databind.JsonNode.class.isAssignableFrom(type)) {
+            return false;
+        }
+        String name = type.getName();
+        return !name.startsWith("java.")
+                && !name.startsWith("jakarta.")
+                && !name.startsWith("org.springframework.");
+    }
+
+    private static String normalizeDeterminationPointer(String rawPath) {
+        if (rawPath == null) {
+            return null;
+        }
+        String trimmed = rawPath.trim();
+        if (trimmed.isEmpty() || containsWhitespace(trimmed)) {
+            return null;
+        }
+        String pointer = trimmed.startsWith("/") ? trimmed : "/" + trimmed;
+        if (pointer.length() < 2 || pointer.endsWith("/") || pointer.contains("//")) {
+            return null;
+        }
+        return pointer;
+    }
+
+    private static String extractJsonPointerRootProperty(String normalizedPointer) {
+        String tail = normalizedPointer.substring(1);
+        int slashIdx = tail.indexOf('/');
+        String root = slashIdx >= 0 ? tail.substring(0, slashIdx) : tail;
+        return root.replace("~1", "/").replace("~0", "~");
+    }
+
+    private static boolean isValidSnakeCaseIcon(String icon) {
+        return icon != null && icon.matches(ICON_SNAKE_CASE_PATTERN);
+    }
+
+    private static boolean isAllowedTone(String tone) {
+        return tone != null && ALLOWED_FACT_AND_THRESHOLD_TONES.contains(tone.toLowerCase(Locale.ROOT));
+    }
+
+    private static boolean containsWhitespace(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isWhitespace(value.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void reviewField(Class<?> targetType, Class<?> declaringType, Field field, List<SemanticMetadataReviewIssue> issues) {
@@ -2706,6 +3676,13 @@ public class SemanticMetadataReviewer {
             ));
         }
         reviewUiSchemaOptions(targetType, field.getName(), uiSchema, issues);
+        reviewBulkEditableProperty(
+                targetType,
+                field.getName(),
+                findMemberAnnotation(declaringType, field, org.praxisplatform.uischema.annotation.BulkEditable.class),
+                schema,
+                issues
+        );
     }
 
     private String extractGetterPropertyName(Method method) {
@@ -2788,6 +3765,13 @@ public class SemanticMetadataReviewer {
             ));
         }
         reviewUiSchemaOptions(targetType, propertyName, uiSchema, issues);
+        reviewBulkEditableProperty(
+                targetType,
+                propertyName,
+                findGetterAnnotation(targetType, propertyName, org.praxisplatform.uischema.annotation.BulkEditable.class),
+                schema,
+                issues
+        );
     }
 
     private void reviewUiSchemaOptions(

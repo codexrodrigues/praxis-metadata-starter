@@ -1,15 +1,19 @@
 package org.praxisplatform.uischema.fact;
 
+import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.annotation.DomainGovernance;
+import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.RootBeanDefinition;
-import org.praxisplatform.uischema.annotation.DomainGovernance;
+import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.util.StringUtils;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -17,6 +21,8 @@ import java.util.*;
 
 /** Inspects bean types without instantiating beans or executing domain computations. */
 public final class AnnotationResourceFactCatalogProvider implements ResourceFactCatalogProvider {
+    private record InspectionKey(Class<?> type, Class<?> ownerContext) {}
+
     private final ListableBeanFactory beanFactory;
     private volatile List<ResourceFactDescriptor> catalog;
     public AnnotationResourceFactCatalogProvider(ListableBeanFactory beanFactory) { this.beanFactory = beanFactory; }
@@ -32,7 +38,7 @@ public final class AnnotationResourceFactCatalogProvider implements ResourceFact
     }
     private List<ResourceFactDescriptor> discover() {
         Map<String, ResourceFactDescriptor> facts = new TreeMap<>();
-        Set<Class<?>> inspectedTypes = new HashSet<>();
+        Set<InspectionKey> inspectedTypes = new HashSet<>();
         Set<Method> factoryDeclarations = new HashSet<>();
         if (beanFactory instanceof ConfigurableListableBeanFactory factory) {
             for (String name : factory.getBeanDefinitionNames()) {
@@ -43,26 +49,26 @@ public final class AnnotationResourceFactCatalogProvider implements ResourceFact
             }
         }
         for (String name : beanFactory.getBeanDefinitionNames()) {
-            inspectType(beanFactory.getType(name, false), facts, inspectedTypes, factoryDeclarations);
+            inspectType(beanFactory.getType(name, false), null, facts, inspectedTypes, factoryDeclarations);
             if (beanFactory instanceof ConfigurableListableBeanFactory factory) {
                 inspectDefinition(factory.getMergedBeanDefinition(name), factory, facts, inspectedTypes, factoryDeclarations,
                         Collections.newSetFromMap(new IdentityHashMap<>()));
                 // Existing proxies expose target-class metadata without resolving their target.
                 Object singleton = factory.getSingleton(name);
-                if (singleton != null) inspectType(AopUtils.getTargetClass(singleton), facts, inspectedTypes, factoryDeclarations);
+                if (singleton != null) inspectType(AopUtils.getTargetClass(singleton), null, facts, inspectedTypes, factoryDeclarations);
             }
         }
         return List.copyOf(facts.values());
     }
 
     private void inspectDefinition(BeanDefinition definition, ConfigurableListableBeanFactory factory,
-            Map<String, ResourceFactDescriptor> facts, Set<Class<?>> inspectedTypes, Set<Method> factoryDeclarations,
+            Map<String, ResourceFactDescriptor> facts, Set<InspectionKey> inspectedTypes, Set<Method> factoryDeclarations,
             Set<BeanDefinition> inspectedDefinitions) {
         if (!inspectedDefinitions.add(definition)) return;
-        inspectType(definition.getResolvableType().resolve(), facts, inspectedTypes, factoryDeclarations);
+        inspectType(definition.getResolvableType().resolve(), null, facts, inspectedTypes, factoryDeclarations);
         if (definition.getFactoryMethodName() == null) {
             if (definition instanceof AbstractBeanDefinition concrete && concrete.hasBeanClass()) {
-                inspectType(concrete.getBeanClass(), facts, inspectedTypes, factoryDeclarations);
+                inspectType(concrete.getBeanClass(), null, facts, inspectedTypes, factoryDeclarations);
             }
         } else {
             Method resolved = definition instanceof RootBeanDefinition root ? root.getResolvedFactoryMethod() : null;
@@ -140,31 +146,41 @@ public final class AnnotationResourceFactCatalogProvider implements ResourceFact
     }
 
     private void inspectFactoryMethod(Method method, Map<String, ResourceFactDescriptor> facts,
-            Set<Class<?>> inspectedTypes, Set<Method> factoryDeclarations) {
-        add(method, facts);
-        inspectType(method.getReturnType(), facts, inspectedTypes, factoryDeclarations);
+            Set<InspectionKey> inspectedTypes, Set<Method> factoryDeclarations) {
+        Class<?> returnType = method.getReturnType();
+        add(method, returnType, facts);
+        inspectType(returnType, null, facts, inspectedTypes, factoryDeclarations);
     }
 
-    private void inspectType(Class<?> type, Map<String, ResourceFactDescriptor> facts, Set<Class<?>> inspectedTypes,
-            Set<Method> factoryDeclarations) {
-        if (type == null) return;
+    private void inspectType(Class<?> type, Class<?> ownerContext, Map<String, ResourceFactDescriptor> facts,
+            Set<InspectionKey> inspectedTypes, Set<Method> factoryDeclarations) {
+        if (type == null || type == Object.class || type == Record.class) return;
         type = ClassUtils.getUserClass(type);
-        if (!inspectedTypes.add(type)) return;
-        add(type, facts);
-        ReflectionUtils.doWithMethods(type, method -> add(method, facts),
+        Class<?> effectiveOwner = ownerContext != null ? ClassUtils.getUserClass(ownerContext) : type;
+        if (!inspectedTypes.add(new InspectionKey(type, effectiveOwner))) return;
+        add(type, effectiveOwner, facts);
+        ReflectionUtils.doWithMethods(type, method -> add(method, effectiveOwner, facts),
                 method -> ReflectionUtils.USER_DECLARED_METHODS.matches(method) && !factoryDeclarations.contains(method));
         for (Class<?> contract : ClassUtils.getAllInterfacesForClassAsSet(type)) {
-            inspectType(contract, facts, inspectedTypes, factoryDeclarations);
+            inspectType(contract, effectiveOwner, facts, inspectedTypes, factoryDeclarations);
+        }
+        if (AbstractResourceQueryController.class.isAssignableFrom(type)) {
+            Class<?>[] typeArgs = GenericTypeResolver.resolveTypeArguments(type, AbstractResourceQueryController.class);
+            if (typeArgs != null && typeArgs.length >= 1 && typeArgs[0] != null && typeArgs[0] != Object.class) {
+                inspectType(typeArgs[0], type, facts, inspectedTypes, factoryDeclarations);
+            }
         }
     }
-    private void add(AnnotatedElement element, Map<String, ResourceFactDescriptor> facts) {
+
+    private void add(AnnotatedElement element, Class<?> ownerContext, Map<String, ResourceFactDescriptor> facts) {
         for (ResourceFact fact : AnnotatedElementUtils.getMergedRepeatableAnnotations(element, ResourceFact.class)) {
             Map<String, Object> parameters = new LinkedHashMap<>();
             for (String parameter : fact.parameters()) {
                 if (!parameter.matches("[A-Za-z][A-Za-z0-9_]{0,63}")) throw new IllegalArgumentException("Invalid fact parameter");
                 parameters.put(parameter, Map.of("type", "string"));
             }
-            var descriptor = new ResourceFactDescriptor(fact.key(), fact.resourceKey(), fact.label(),
+            String effectiveResourceKey = resolveResourceKey(fact, element, ownerContext);
+            var descriptor = new ResourceFactDescriptor(fact.key(), effectiveResourceKey, fact.label(),
                     fact.description(), fact.dataType(), fact.unit(), parameters, fact.deterministic(),
                     fact.sourceKind(), governance(element), fact.icon(), fact.tone(),
                     fact.valuePresentation(), thresholds(fact),
@@ -173,6 +189,32 @@ public final class AnnotationResourceFactCatalogProvider implements ResourceFact
             var previous = facts.putIfAbsent(key, descriptor);
             if (previous != null && !previous.equals(descriptor)) throw new IllegalStateException("Conflicting fact declaration: " + key);
         }
+    }
+
+    private String resolveResourceKey(ResourceFact fact, AnnotatedElement element, Class<?> ownerContext) {
+        String declaredKey = fact.resourceKey() == null ? "" : fact.resourceKey().strip();
+        Class<?> resolvedOwner = ownerContext != null
+                ? ClassUtils.getUserClass(ownerContext)
+                : (element instanceof Class<?> cls ? ClassUtils.getUserClass(cls)
+                   : (element instanceof Method method ? ClassUtils.getUserClass(method.getDeclaringClass()) : null));
+        String ownerApiResourceKey = resolveApiResourceKey(resolvedOwner);
+        if (!declaredKey.isEmpty() && !ownerApiResourceKey.isEmpty() && !declaredKey.equals(ownerApiResourceKey)) {
+            String location = resolvedOwner != null ? resolvedOwner.getName() : String.valueOf(element);
+            throw new IllegalStateException(
+                    "Conflicting @ResourceFact.resourceKey '" + declaredKey
+                            + "' and @ApiResource.resourceKey '" + ownerApiResourceKey + "' on " + location);
+        }
+        return !declaredKey.isEmpty() ? declaredKey : ownerApiResourceKey;
+    }
+
+    private String resolveApiResourceKey(Class<?> candidate) {
+        if (candidate == null) {
+            return "";
+        }
+        ApiResource resource = AnnotatedElementUtils.findMergedAnnotation(candidate, ApiResource.class);
+        return (resource != null && StringUtils.hasText(resource.resourceKey()))
+                ? resource.resourceKey().strip()
+                : "";
     }
     @SuppressWarnings("unchecked")
     private Map<String, Object> governance(AnnotatedElement element) {

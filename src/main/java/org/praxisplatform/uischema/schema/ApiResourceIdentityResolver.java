@@ -4,8 +4,10 @@ import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.ResourceIdentity;
 import org.praxisplatform.uischema.annotation.ResourceHierarchy;
 import org.praxisplatform.uischema.annotation.UiSurface;
+import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.hateoas.CollectionModel;
@@ -14,6 +16,7 @@ import org.springframework.hateoas.PagedModel;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
@@ -39,10 +42,8 @@ public class ApiResourceIdentityResolver {
     }
 
     public Optional<Map<String, Object>> resolve(String resourcePath) {
-        return findApiResourceByPath(resourcePath)
-                .map(ApiResource::identity)
-                .filter(ApiResourceIdentityResolver::isConfigured)
-                .map(ApiResourceIdentityResolver::toMap);
+        return findControllerTypeByPath(resourcePath)
+                .flatMap(this::resolveControllerIdentity);
     }
 
     public Optional<Map<String, Object>> resolve(String basePath, String canonicalPath, String httpMethod) {
@@ -75,10 +76,9 @@ public class ApiResourceIdentityResolver {
                     }
                 }
                 if (StringUtils.hasText(surface.relatedChildResourceKey())) {
-                    Optional<Map<String, Object>> childByKeyIdentity = findApiResourceByKey(surface.relatedChildResourceKey())
-                            .map(ApiResource::identity)
-                            .filter(ApiResourceIdentityResolver::isConfigured)
-                            .map(ApiResourceIdentityResolver::toMap);
+                    Optional<Map<String, Object>> childByKeyIdentity =
+                            findControllerTypeByKey(surface.relatedChildResourceKey())
+                                    .flatMap(this::resolveControllerIdentity);
                     if (childByKeyIdentity.isPresent()) {
                         return childByKeyIdentity;
                     }
@@ -188,27 +188,90 @@ public class ApiResourceIdentityResolver {
         return result.isEmpty() ? Optional.empty() : Optional.of(result);
     }
 
-    private Optional<ApiResource> findApiResourceByPath(String resourcePath) {
+    private Optional<Map<String, Object>> resolveControllerIdentity(Class<?> controllerType) {
+        if (controllerType == null) {
+            return Optional.empty();
+        }
+        ApiResource resource = AnnotationUtils.findAnnotation(controllerType, ApiResource.class);
+        if (resource != null && isConfigured(resource.identity())) {
+            return Optional.of(toMap(resource.identity()));
+        }
+        ResourceIdentity controllerIdentity = AnnotationUtils.findAnnotation(controllerType, ResourceIdentity.class);
+        if (controllerIdentity != null && isConfigured(controllerIdentity)) {
+            return Optional.of(toMap(controllerIdentity));
+        }
+        Class<?> responseDtoClass = resolveControllerResponseDtoClass(controllerType);
+        if (responseDtoClass != null) {
+            ResourceIdentity dtoIdentity = AnnotationUtils.findAnnotation(responseDtoClass, ResourceIdentity.class);
+            if (dtoIdentity != null && isConfigured(dtoIdentity)) {
+                return Optional.of(toMap(dtoIdentity));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Class<?> resolveControllerResponseDtoClass(Class<?> controllerType) {
+        Class<?> userType = ClassUtils.getUserClass(controllerType);
+        if (AbstractResourceQueryController.class.isAssignableFrom(userType)) {
+            Class<?>[] args = GenericTypeResolver.resolveTypeArguments(userType, AbstractResourceQueryController.class);
+            if (args != null && args.length >= 1 && args[0] != null && args[0] != Object.class) {
+                return args[0];
+            }
+        }
+        return handlerMapping.getHandlerMethods().values().stream()
+                .filter(handler -> ClassUtils.getUserClass(handler.getBeanType()).equals(userType))
+                .sorted(java.util.Comparator.comparing(handler -> AnnotationUtils.findAnnotation(
+                        handler.getMethod(),
+                        org.praxisplatform.uischema.annotation.UiSurface.class
+                ) != null))
+                .map(handler -> resolveResponseDtoClass(
+                        ResolvableType.forMethodReturnType(handler.getMethod(), handler.getBeanType())))
+                .filter(dto -> {
+                    if (dto == null) {
+                        return false;
+                    }
+                    ResourceIdentity identity = AnnotationUtils.findAnnotation(dto, ResourceIdentity.class);
+                    return identity != null && isConfigured(identity);
+                })
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Optional<Class<?>> findControllerTypeByPath(String resourcePath) {
         String expectedPath = normalize(resourcePath);
         return handlerMapping.getHandlerMethods().values().stream()
-                .map(HandlerMethod::getBeanType)
+                .<Class<?>>map(HandlerMethod::getBeanType)
                 .distinct()
-                .map(type -> AnnotationUtils.findAnnotation(type, ApiResource.class))
-                .filter(annotation -> annotation != null && matches(annotation, expectedPath))
+                .filter(type -> {
+                    ApiResource annotation = AnnotationUtils.findAnnotation(type, ApiResource.class);
+                    return annotation != null && matches(annotation, expectedPath);
+                })
                 .findFirst();
     }
 
-    private Optional<ApiResource> findApiResourceByKey(String resourceKey) {
+    private Optional<Class<?>> findControllerTypeByKey(String resourceKey) {
         if (!StringUtils.hasText(resourceKey)) {
             return Optional.empty();
         }
         String expectedKey = resourceKey.trim();
         return handlerMapping.getHandlerMethods().values().stream()
-                .map(HandlerMethod::getBeanType)
+                .<Class<?>>map(HandlerMethod::getBeanType)
                 .distinct()
-                .map(type -> AnnotationUtils.findAnnotation(type, ApiResource.class))
-                .filter(annotation -> annotation != null && expectedKey.equals(annotation.resourceKey().trim()))
+                .filter(type -> {
+                    ApiResource annotation = AnnotationUtils.findAnnotation(type, ApiResource.class);
+                    return annotation != null && expectedKey.equals(annotation.resourceKey().trim());
+                })
                 .findFirst();
+    }
+
+    private Optional<ApiResource> findApiResourceByPath(String resourcePath) {
+        return findControllerTypeByPath(resourcePath)
+                .map(type -> AnnotationUtils.findAnnotation(type, ApiResource.class));
+    }
+
+    private Optional<ApiResource> findApiResourceByKey(String resourceKey) {
+        return findControllerTypeByKey(resourceKey)
+                .map(type -> AnnotationUtils.findAnnotation(type, ApiResource.class));
     }
 
     private Optional<HandlerMethod> findHandlerMethod(String canonicalPath, String httpMethod) {

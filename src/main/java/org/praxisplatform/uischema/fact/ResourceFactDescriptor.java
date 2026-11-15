@@ -39,23 +39,23 @@ public record ResourceFactDescriptor(String key, String resourceKey, String labe
         authority = authority == null || authority.isBlank()
                 ? "server_computed"
                 : authority.trim().toLowerCase(Locale.ROOT);
-        if (!Set.of("server_computed", "persisted_state", "authenticated_context", "governed_grant").contains(authority))
+        if (!ResourceFactAuthority.allowedWireValues().contains(authority))
             throw new IllegalArgumentException(
                     "Invalid resource fact authority: facts cannot trust raw client_input or unknown authority (" + authority + ")");
         evaluationPhase = evaluationPhase == null || evaluationPhase.isBlank()
                 ? "post_read"
                 : evaluationPhase.trim().toLowerCase(Locale.ROOT);
-        if (!Set.of("pre_authorize", "post_read", "pre_write", "post_write", "query_projection").contains(evaluationPhase))
+        if (!ResourceFactEvaluationPhase.allowedWireValues().contains(evaluationPhase))
             throw new IllegalArgumentException("Invalid resource fact evaluationPhase: " + evaluationPhase);
         missingValuePolicy = missingValuePolicy == null || missingValuePolicy.isBlank()
                 ? "fail_closed"
                 : missingValuePolicy.trim().toLowerCase(Locale.ROOT);
-        if (!Set.of("fail_closed", "deny", "explicit_null", "error").contains(missingValuePolicy))
+        if (!ResourceFactMissingValuePolicy.allowedWireValues().contains(missingValuePolicy))
             throw new IllegalArgumentException("Invalid resource fact missingValuePolicy: must be fail-closed (" + missingValuePolicy + ")");
         scope = scope == null || scope.isBlank()
                 ? "item"
                 : scope.trim().toLowerCase(Locale.ROOT);
-        if (!Set.of("item", "collection", "tenant", "principal").contains(scope))
+        if (!ResourceFactScope.allowedWireValues().contains(scope))
             throw new IllegalArgumentException("Invalid resource fact scope: " + scope);
     }
     private static Map<String, Object> immutableMap(Map<String, Object> value) {
