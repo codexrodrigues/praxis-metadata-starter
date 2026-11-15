@@ -37,7 +37,7 @@
 ## Evidencias minimas
 
 - comando de build:
-  - `./mvnw -B -f /mnt/d/Developer/praxis-plataform/tmp/ai-guide-proof-h2-filters-r1/pom.xml clean package`
+  - `./mvnw -B clean package`
 - comando de startup:
   - `java -jar target/ai-guide-proof-h2-simple-1.0.0-SNAPSHOT.jar`
 - migration adicional:
