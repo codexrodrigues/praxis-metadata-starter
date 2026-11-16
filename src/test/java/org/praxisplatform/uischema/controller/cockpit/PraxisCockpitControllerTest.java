@@ -2,6 +2,12 @@ package org.praxisplatform.uischema.controller.cockpit;
 
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.constants.ApiPaths;
+import org.praxisplatform.uischema.determination.ReactiveDeterminationDefinition;
+import org.praxisplatform.uischema.determination.ReactiveDeterminationProvenance;
+import org.praxisplatform.uischema.determination.ReactiveDeterminationProvenanceKind;
+import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
+import org.praxisplatform.uischema.repository.base.BaseResourceRepository;
+import org.springframework.data.repository.NoRepositoryBean;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -403,6 +409,31 @@ class PraxisCockpitControllerTest {
         assertThat(readiness.hint())
                 .isEqualTo("Prontidão metadata-driven; Saúde operacional do host: UP. "
                         + "O health não entra no score semântico.");
+    }
+
+    @Test
+    void baseResourceRepositoryAndDeterminationForResourcePreserveCanonicalContracts() {
+        assertThat(BaseCrudRepository.class.isAssignableFrom(BaseResourceRepository.class)).isTrue();
+        assertThat(BaseResourceRepository.class.isAnnotationPresent(NoRepositoryBean.class)).isTrue();
+
+        ReactiveDeterminationProvenance provenance = new ReactiveDeterminationProvenance(
+                ReactiveDeterminationProvenanceKind.HOST, "hr-rules", "1");
+        ReactiveDeterminationDefinition canonical = ReactiveDeterminationDefinition
+                .forResource("det-1", "createOp", "updateOp", "determineOp")
+                .source("/departamentoId")
+                .input("/departamentoId", "/departamentoId")
+                .output("/salarioSugerido", "/salarioSugerido")
+                .provenance(provenance)
+                .build();
+        ReactiveDeterminationDefinition legacyCompatible = ReactiveDeterminationDefinition
+                .forCrudResource("det-1", "createOp", "updateOp", "determineOp")
+                .source("/departamentoId")
+                .input("/departamentoId", "/departamentoId")
+                .output("/salarioSugerido", "/salarioSugerido")
+                .provenance(provenance)
+                .build();
+
+        assertThat(canonical).isEqualTo(legacyCompatible);
     }
 
     private HostReadiness hostReadinessFor(

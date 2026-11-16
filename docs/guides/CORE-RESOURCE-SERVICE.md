@@ -209,7 +209,7 @@ Informe status, política de seleção, dependências e surfaces reais do domín
 `detail` precisa existir no recurso referenciado. `LookupCapabilities.standardDirectory()` não
 anuncia create/edit, favoritos nem histórico privado.
 
-`ReactiveDeterminationDefinition.forCrudResource(id, createOperationId, updateOperationId,
+`ReactiveDeterminationDefinition.forResource(id, createOperationId, updateOperationId,
 determinationOperationId)` inicia o builder com os dois modos de formulário e IDs explícitos.
 Informe fontes, inputs, outputs e provenance. Os bindings usam JSON Pointer; as rotas e schemas
 continuam sendo resolvidos pelo compilador canônico, sem heurística de nomes.

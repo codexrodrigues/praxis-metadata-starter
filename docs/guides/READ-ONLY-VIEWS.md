@@ -33,7 +33,7 @@ Acelere telas baseadas em views do banco, relatorios analiticos ou entidades mar
 
 | Camada | Tipo Base | Ordem dos Parametros Genericos |
 | --- | --- | --- |
-| **Repository** | `BaseCrudRepository` | `<E, ID>` *(2 parametros)* |
+| **Repository** | `BaseResourceRepository` | `<E, ID>` *(2 parametros)* |
 | **Mapper** | `ResourceMapper` | `<E, ResponseDTO, Void, Void, ID>` *(5 parametros — use `Void` em `CreateDTO` e `UpdateDTO`)* |
 | **Service** | `AbstractReadOnlyResourceService` | `<E, ResponseDTO, ID, FilterDTO>` *(4 parametros — `E` e o 1º, `ID` e o 3º)* |
 | **Controller** | `AbstractReadOnlyResourceController` | `<ResponseDTO, ID, FilterDTO>` *(3 parametros — **sem `E`**, `ID` e o 2º)* |
@@ -77,9 +77,9 @@ public class VendaResumo {
 ### 2) Repository
 
 ```java
-import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
+import org.praxisplatform.uischema.repository.base.BaseResourceRepository;
 
-public interface VendaResumoRepository extends BaseCrudRepository<VendaResumo, Long> {
+public interface VendaResumoRepository extends BaseResourceRepository<VendaResumo, Long> {
 }
 ```
 

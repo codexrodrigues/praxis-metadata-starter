@@ -93,10 +93,10 @@ Baseline Resource-Oriented
 
 Regras Locais Obrigatorias
 - O baseline canonico do starter e `resource + surfaces + actions + capabilities`.
-- Recursos mutaveis novos devem subir por `AbstractResourceController` + `AbstractBaseResourceService` + `ResourceMapper`.
-- Recursos read-only novos devem subir por `AbstractReadOnlyResourceController` + `AbstractReadOnlyResourceService`.
+- Recursos mutaveis novos devem subir por `AbstractResourceController` + `AbstractBaseResourceService` + `ResourceMapper` + `BaseResourceRepository`.
+- Recursos read-only novos devem subir por `AbstractReadOnlyResourceController` + `AbstractReadOnlyResourceService` + `BaseResourceRepository`.
 - `@UiSurface` e discovery semantico sobre operacao real. Nao use para modelar workflow action.
-- `@WorkflowAction` e somente para comando de negocio explicito. Nao inferir action por nome de metodo, CRUD generico ou path parecido com workflow.
+- `@WorkflowAction` e somente para comando de negocio explicito. Nao inferir action por nome de metodo, persistencia basica de recurso ou path parecido com workflow.
 - `@UiSurface` e `@WorkflowAction` no mesmo metodo entram em zona de validacao de conflito. Nao combinar os dois sem necessidade explicita e sem revisar os modos `praxis.metadata.validation.*`.
 - `/capabilities` agrega operacoes canonicas, surfaces e actions; nao deve redefinir payload, schema ou semantica ja publicada em `/schemas/filtered`.
 - `RestApiResponse` publica `_links` via `@JsonProperty("_links")`. Nao regredir para `links`.

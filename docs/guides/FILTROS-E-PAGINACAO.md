@@ -31,7 +31,7 @@ public class FuncionarioFilterDTO implements GenericFilterDTO {
 ```java
 public class FuncionarioService extends AbstractBaseResourceService<
     Funcionario, FuncionarioResponseDTO, Long, FuncionarioFilterDTO, CreateFuncionarioDTO, UpdateFuncionarioDTO> {
-  public FuncionarioService(BaseCrudRepository<Funcionario, Long> repo, Class<Funcionario> entityClass) {
+  public FuncionarioService(BaseResourceRepository<Funcionario, Long> repo, Class<Funcionario> entityClass) {
     super(repo, entityClass);
   }
 }

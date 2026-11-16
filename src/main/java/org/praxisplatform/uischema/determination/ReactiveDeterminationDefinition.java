@@ -19,6 +19,11 @@ public record ReactiveDeterminationDefinition(
         List<ReactiveDeterminationOutputBinding> outputs,
         ReactiveDeterminationProvenance provenance
 ) {
+    /** Canonical resource-oriented factory; explicit operation IDs keep lifecycle bindings independent of routes and naming heuristics. */
+    public static CrudBuilder forResource(String id, String createOperationId, String updateOperationId, String determinationOperationId) {
+        return forCrudResource(id, createOperationId, updateOperationId, determinationOperationId);
+    }
+
     /** Explicit operation IDs keep resource lifecycle bindings independent of routes and naming heuristics. */
     public static CrudBuilder forCrudResource(String id, String createOperationId, String updateOperationId, String determinationOperationId) {
         return new CrudBuilder(id, createOperationId, updateOperationId, determinationOperationId);

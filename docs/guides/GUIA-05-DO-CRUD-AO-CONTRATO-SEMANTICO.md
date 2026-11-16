@@ -22,8 +22,8 @@ Uma leitura simplificada seria:
 
 ```mermaid
 flowchart LR
-    dto["DTO anotado"] --> crud["Cadastro generico"]
-    crud --> ui["UI renderizada"]
+    dto["DTO anotado"] --> basic["Cadastro generico"]
+    basic --> ui["UI renderizada"]
 ```
 
 O contrato canonico do starter e:
