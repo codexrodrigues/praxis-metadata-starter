@@ -5,7 +5,7 @@ package org.praxisplatform.uischema.service.base;
  *
  * <p>
  * A camada de comando separa explicitamente criacao e atualizacao, permitindo DTOs distintos para
- * cada intencao sem reintroduzir um DTO monolitico de CRUD.
+ * cada intencao sem reintroduzir um DTO monolitico de persistencia.
  * </p>
  */
 public interface BaseResourceCommandService<ResponseDTO, ID, CreateDTO, UpdateDTO>

@@ -20,14 +20,14 @@
 
   <h2>Visão Geral</h2>
   <ul>
-    <li><strong>Controllers</strong>: estenda <code>AbstractResourceController</code> (CRUD completo), <code>AbstractUnitDeleteResourceController</code> (create/update/delete unitario sem batch), <code>AbstractCreateUpdateResourceController</code> (create/update sem delete) ou <code>AbstractReadOnlyResourceController</code> (somente leitura).</li>
+    <li><strong>Controllers</strong>: estenda <code>AbstractResourceController</code> (ciclo de vida completo do recurso), <code>AbstractUnitDeleteResourceController</code> (create/update/delete unitario sem batch), <code>AbstractCreateUpdateResourceController</code> (create/update sem delete) ou <code>AbstractReadOnlyResourceController</code> (somente leitura).</li>
     <li><strong>Anotações</strong>: use <code>@ApiResource</code> para declarar o path e <code>@ApiGroup</code> para organização do OpenAPI.</li>
     <li><strong>Service</strong>: para integracoes JPA com relacionamentos <code>LAZY</code>, herde de <code>AbstractBaseResourceService</code>. Recursos somente leitura devem usar <code>AbstractReadOnlyResourceService</code>.</li>
     <li><strong>HATEOAS (opt‑in)</strong>: controlado por <code>praxis.hateoas.enabled=true</code>. Itens trazem <code>self</code>, <code>create</code>, <code>update</code>, <code>delete</code> quando aplicável; respostas agregadas incluem links úteis (<code>all</code>, <code>filter</code>, <code>filter-cursor</code>, <code>schema</code>).</li>
     <li><strong>Versão de dados</strong>: algumas respostas incluem o cabeçalho <code>X-Data-Version</code> (via <code>getDatasetVersion()</code> no service) para suportar cache/ETag na UI.</li>
   </ul>
 
-  <h2>CRUD e Listagens</h2>
+  <h2>Ciclo de Vida do Recurso, Consultas e Listagens</h2>
   <table>
     <thead>
       <tr><th>Método</th><th>Path</th><th>Quando usar</th><th>Parâmetros</th><th>Retorno</th><th>Notas</th></tr>
@@ -156,7 +156,7 @@
     <li><strong>/option-sources/{sourceKey}/options/by-ids</strong>: reidrata valores salvos sem depender da primeira pagina do autocomplete.</li>
   </ul>
 
-  <h2>CRUD (escrita)</h2>
+  <h2>Mutações do Ciclo de Vida (Escrita)</h2>
   <table>
     <thead>
       <tr><th>Método</th><th>Path</th><th>Quando usar</th><th>Parâmetros</th><th>Retorno</th><th>Notas</th></tr>
@@ -519,7 +519,7 @@ Content-Type: application/json
     <li><strong>Chunk</strong>: se exceder <code>praxis.query.by-ids.max</code>, divida requisições.</li>
   </ul>
 
-  <h3>CRUD (GET/POST/PUT/DELETE)</h3>
+  <h3>Operações Base do Recurso (GET/POST/PUT/DELETE)</h3>
   <ul>
     <li><strong>Toasts</strong>: 201 (criado), 200 (atualizado), 204 (removido) → mensagens claras.</li>
     <li><strong>Read‑only</strong>: 405 → desabilite botões de escrita na UI.</li>

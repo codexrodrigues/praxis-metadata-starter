@@ -4,7 +4,7 @@ A **Praxis** é uma **plataforma semanticamente orientada para aplicações corp
 
 Dentro dessa arquitetura, o `praxis-metadata-starter` publica o contrato canônico de recursos, esquemas, superfícies, ações, capacidades e governança de domínio do backend Praxis para aplicações Spring Boot.
 
-Hoje esse contrato vai muito além de "DTO anotado + CRUD". O baseline atual da plataforma combina cinco pilares (`resource + surface + action + capability + HATEOAS`) e expõe:
+Hoje esse contrato vai muito além de um cadastro básico orientado a DTO. O baseline atual da plataforma combina cinco pilares (`resource + surface + action + capability + HATEOAS`) e expõe:
 
 - **OpenAPI enriquecido com `x-ui`** resolvido por grupo e path
 - **`/schemas/filtered`** como contrato estrutural canônico consumido pelo runtime de UI
@@ -42,9 +42,9 @@ Hoje esse contrato vai muito além de "DTO anotado + CRUD". O baseline atual da 
 
 0. Consulte o [Guia 00 — Blueprint Completo de um Recurso Praxis (20 Pilares e 3 Fases)](../guides/GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md).
 1. Siga o [Guia 01 — Aplicação Nova](../guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md).
-2. Modele o primeiro recurso seguindo o [Guia 02 — Recurso Metadata-Driven](../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md).
+2. Modele o primeiro recurso seguindo o [Guia 02 — Recurso Semântico Metadata-Driven](../guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md).
 3. Valide `/schemas/filtered`, `/schemas/catalog`, `/schemas/domain`, `/schemas/surfaces`, `/schemas/actions`, `/{resource}/capabilities` e `/praxis/cockpit`.
-4. Integre o frontend Angular oficial seguindo o [Guia 03 — Angular CRUD Completo](../guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md).
+4. Integre o frontend Angular oficial seguindo o [Guia 03 — Runtime Angular de Recursos Completo](../guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md).
 
 ## Leitura recomendada
 
@@ -52,4 +52,4 @@ Hoje esse contrato vai muito além de "DTO anotado + CRUD". O baseline atual da 
 - [Mapa de Pacotes Java](../packages-overview.md)
 - [Hub dos Guias](../guides/README.md)
 - [Guia 04 — Quando usar Resource, Surface, Action e Capability](../guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
-- [Guia 05 — Do CRUD ao Contrato Semântico](../guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
+- [Guia 05 — Do Cadastro Básico ao Contrato Semântico](../guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)

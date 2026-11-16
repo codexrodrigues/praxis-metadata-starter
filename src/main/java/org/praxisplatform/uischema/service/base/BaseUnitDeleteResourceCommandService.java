@@ -6,7 +6,7 @@ package org.praxisplatform.uischema.service.base;
  *
  * <p>
  * Use este contrato quando a evidencia de rota ou governanca do recurso aprovar
- * {@code DELETE /{id}}, mas nao aprovar {@code DELETE /batch}. Recursos CRUD completos continuam
+ * {@code DELETE /{id}}, mas nao aprovar {@code DELETE /batch}. Recursos mutaveis completos continuam
  * usando {@link BaseResourceCommandService}.
  * </p>
  */

@@ -19,7 +19,7 @@ public record ReactiveDeterminationDefinition(
         List<ReactiveDeterminationOutputBinding> outputs,
         ReactiveDeterminationProvenance provenance
 ) {
-    /** Explicit operation IDs keep CRUD bindings independent of routes and naming heuristics. */
+    /** Explicit operation IDs keep resource lifecycle bindings independent of routes and naming heuristics. */
     public static CrudBuilder forCrudResource(String id, String createOperationId, String updateOperationId, String determinationOperationId) {
         return new CrudBuilder(id, createOperationId, updateOperationId, determinationOperationId);
     }

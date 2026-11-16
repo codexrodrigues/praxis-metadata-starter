@@ -11,7 +11,7 @@ Resultado prático: menos boilerplate, regras consistentes ponta a ponta, govern
 - **Anotações de Contrato, Linhagem e Governança (`@UISchema`, `@DomainGovernance`, `@DomainLineage`, `LegalTreatmentPurpose`, `@ResourceFact`, `@Filterable`)**: declare metadados de apresentação (`UISchemaPreset`), classificação/privacidade (`DomainGovernancePreset`), linhagem de origem (`x-domain-governance.lineage`), finalidade legal LGPD em superfícies e comandos, fatos determinísticos de domínio, validações, permissões de campo (`fieldAccess`) e políticas de IA (`@AiUsagePolicy`) diretamente nos DTOs e controllers — alimentando simultaneamente a trilha de regras de negócio (`decisionKind = BUSINESS` no `praxis-rules-engine`) e a trilha de autorização/proteção de dados (`decisionKind = AUTHORIZATION` nos módulos `praxis-authz-*` / `OPA`).
 - **Enriquecimento Automático do OpenAPI (`x-ui`)**: converte tipos, formatos e restrições Jakarta Bean Validation (`@NotBlank`, `@Size`, etc.) em `x-ui` e `x-ui.validation`.
 - **Contrato Estrutural Versionado (`/schemas/filtered`)**: entrega o schema exato da operação (`request` ou `response`) com `x-ui.resource.idField`, `ETag` e `X-Schema-Hash` para revalidação condicional (`304 Not Modified`).
-- **Descoberta Semântica Além do CRUD**:
+- **Descoberta Semântica Completa (Resource, Surface, Action, Capabilities)**:
   - `/schemas/catalog` (catálogo documental e exemplos)
   - `/schemas/domain` (vocabulário de domínio, evidências e governança para IA)
   - `/schemas/surfaces` (`@UiSurface`: formulários parciais, visões analíticas e sub-coleções)
@@ -32,7 +32,7 @@ sequenceDiagram
   DOCS-->>UI: 200/304 (schema + x-ui + idField)
   UI->>DOCS: GET /api/{resource}/capabilities
   DOCS-->>UI: Operações suportadas, surfaces, actions e availability
-  UI->>OAS: Executa operações (filter, options, CRUD, stats, export, actions)
+  UI->>OAS: Executa operações (filter, options, get/create/update, stats, export, actions)
 ```
 
 ---

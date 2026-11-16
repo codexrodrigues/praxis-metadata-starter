@@ -41,8 +41,8 @@ Chaves de RuleSet incluem a tupla serviço/recurso/RuleSet/operação por hash e
 consumidores devem usar os vínculos publicados, sem reconstruir identificadores.
 
 Uma referência pode apontar para o próprio recurso, para outro serviço ou para um
-conceito sem CRUD local. Referências têm `projectionRole=REFERENCE`, identidade
-explícita e `source=concept-reference`; não recebem capacidades CRUD presumidas.
+conceito sem operações locais de persistência. Referências têm `projectionRole=REFERENCE`, identidade
+explícita e `source=concept-reference`; não recebem capacidades operacionais presumidas.
 Definições locais têm `projectionRole=DEFINITION`. Uma referência não substitui
 uma definição; conflitos de proprietário/contexto falham. Isso descreve a identidade
 declarada pelo produtor: a verificação federada de autoridade pertence ao Config.

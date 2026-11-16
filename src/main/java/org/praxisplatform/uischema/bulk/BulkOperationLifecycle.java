@@ -268,7 +268,7 @@ public final class BulkOperationLifecycle {
     }
 
     /**
-     * Captures READY CRUD contracts and a shared action frame for one resource response. The entire
+     * Captures READY resource mutation contracts and a shared action frame for one resource response. The entire
      * synchronous builder, including host availability, executes outside preparation/cache locks.
      * Final provider, document and durable generation fences run even when a host swallowed denial.
      * No frame or readiness result is retained across responses.

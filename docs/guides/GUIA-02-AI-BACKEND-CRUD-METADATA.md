@@ -48,7 +48,7 @@ Entrada:
 Peca explicitamente para a LLM gerar nesta ordem:
 
 1. DTOs (`ResponseDTO`, `CreateDTO`, `UpdateDTO`, `FilterDTO`)
-2. repository (`extends BaseCrudRepository<E, ID>`)
+2. repository (`extends BaseResourceRepository<E, ID>`)
 3. mapper (`implements ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>`)
 4. service (`extends AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>`)
 5. controller (`extends AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>`)
@@ -142,7 +142,7 @@ materializar a fronteira entre persistencia e contrato.
 ## Repository minimo
 
 ```java
-public interface EmployeeRepository extends BaseCrudRepository<Employee, Long> {
+public interface EmployeeRepository extends BaseResourceRepository<Employee, Long> {
 }
 ```
 
@@ -514,14 +514,14 @@ Use obrigatoriamente:
 - @ApiResource(value = ..., resourceKey = ..., title = ..., description = ..., icon = ..., identity = @ResourceIdentity(...), quickFilters = {@QuickFilter(id = ..., label = ..., criteria = @FilterCriterion(...), icon = ..., tone = ...)})
 - @ApiGroup
 - Entidade com @OptionLabel e @DefaultSortColumn
-- BaseCrudRepository<E, ID>
+- BaseResourceRepository<E, ID>
 - ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>
 - AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>
 - AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceController<ResponseDTO, ID, FilterDTO>
 
 Gere, nesta ordem:
 1. DTOs (ResponseDTO, CreateDTO, UpdateDTO, FilterDTO com @Schema de negocio em PT-BR, @UISchema com grupos/icones em snake_case minusculo/presets/@UiOption ou optionEnum sem options JSON legado, @DomainGovernance e @Filterable rico)
-2. repository (extends BaseCrudRepository<E, ID>)
+2. repository (extends BaseResourceRepository<E, ID>)
 3. mapper (implements ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>)
 4. service (com getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e modos StatsSupportMode.AUTO)
 5. controller (com getService() e getResponseId())
@@ -546,7 +546,7 @@ Antes de concluir:
 - o recurso nao usa DTO unico
 - `FilterDTO implements GenericFilterDTO` com `@Filterable` e `@UISchema`
 - entidade declara `@OptionLabel` para alimentar `/options/filter` e `/options/by-ids`
-- repository estende `BaseCrudRepository`
+- repository estende `BaseResourceRepository`
 - service sobrescreve `getResourceMapper()`, `getDatasetVersion()` e `getStatsFieldRegistry()` (quando houver dimensoes/metricas analiticas)
 - controller sobrescreve `getService()` e `getResponseId()`
 - `/schemas/filtered` resolve request e response

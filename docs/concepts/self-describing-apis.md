@@ -22,7 +22,7 @@ Além dos endpoints JSON, o starter embute o **`/praxis/cockpit`**, que lê as p
 
 - [Visão geral da arquitetura](../architecture-overview.md)
 - [Quando usar Resource, Surface, Action e Capability](../guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
-- [Do CRUD ao contrato semântico](../guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
+- [Do cadastro básico ao contrato semântico](../guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
 
 ## Referências públicas
 

@@ -27,17 +27,17 @@ public @interface ReactiveDetermination {
     String id();
 
     /**
-     * {@code operationId} OpenAPI da operacao {@code POST} de criacao do recurso (atalho CRUD em par com {@link #updateOperationId()}).
+     * {@code operationId} OpenAPI da operacao {@code POST} de criacao do recurso (atalho do ciclo de vida do recurso em par com {@link #updateOperationId()}).
      */
     String createOperationId() default "";
 
     /**
-     * {@code operationId} OpenAPI da operacao {@code PUT} de edicao do recurso (atalho CRUD em par com {@link #createOperationId()}).
+     * {@code operationId} OpenAPI da operacao {@code PUT} de edicao do recurso (atalho do ciclo de vida do recurso em par com {@link #createOperationId()}).
      */
     String updateOperationId() default "";
 
     /**
-     * Escopos explicitos de formulario quando a determinacao nao usar o par CRUD padrao ou possuir escopos adicionais.
+     * Escopos explicitos de formulario quando a determinacao nao usar o par padrao de criacao/edicao do recurso ou possuir escopos adicionais.
      */
     DeterminationScope[] scopes() default {};
 

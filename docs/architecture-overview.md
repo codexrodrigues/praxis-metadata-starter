@@ -7,7 +7,7 @@ agentes de IA e integracoes — construindo aplicacoes que, por definicao, ja sa
 legiveis e operaveis por IA.
 
 Dentro dessa arquitetura, o `praxis-metadata-starter` nao deve mais ser explicado
-como "DTO anotado gera CRUD". Ele e o owner canonico da semantica de recursos,
+como um gerador de telas basicas. Ele e o owner canonico da semantica de recursos,
 dados, superficies, acoes e governanca de campo no backend Java/Spring Boot,
 publicando:
 
@@ -127,7 +127,7 @@ Esses controllers nao sao equivalentes entre si:
 - `@WorkflowAction`
 - resolvers de capability
 
-Aqui a arquitetura deixa claro que "CRUD com metadata" e uma leitura
+Aqui a arquitetura deixa claro que "cadastro com metadata" e uma leitura
 insuficiente. O contrato canonico combina recurso, experiencia e acao de
 negocio.
 
@@ -224,8 +224,8 @@ sendo a base do runtime.
 
 Nao explicar o starter como se ele fosse:
 
-- apenas um gerador de CRUD
-- apenas DTO anotado + CRUD generico
+- apenas um gerador de telas de cadastro
+- apenas DTO anotado + operacoes basicas genericas
 - um sistema em que `/schemas/catalog` substitui `/schemas/filtered`
 - um backend que publica schema estrutural sem semantica de recurso
 

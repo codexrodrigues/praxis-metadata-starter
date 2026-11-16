@@ -1289,7 +1289,7 @@
     const workflowText = workflowBlocking
       ? `${metrics.actionGaps} recurso(s) parecem exigir comando de negócio sem action publicada.`
       : metrics.actionResources
-        ? `${metrics.actionResources} recurso(s) publicam workflows acionáveis; os demais ficam como CRUD, consulta ou analytics sem bloquear a materialização.`
+        ? `${metrics.actionResources} recurso(s) publicam workflows acionáveis; os demais ficam como persistência de recurso, consulta ou analytics sem bloquear a materialização.`
         : 'Nenhum workflow acionável publicado; trate como lacuna apenas quando houver comando de negócio explícito.';
     els.hostDecisionTitle.textContent = decisionLabel;
     els.hostDecisionSummary.textContent = hasResources
@@ -1351,10 +1351,10 @@
         label: 'Workflows acionáveis',
         value: metrics.actionGaps ? `${metrics.actionResources}/${metrics.actionResources + metrics.actionGaps}` : String(metrics.actionResources),
         detail: metrics.actionGaps
-          ? `${metrics.actionGaps} recurso(s) parecem exigir action; CRUD não é bloqueado.`
+          ? `${metrics.actionGaps} recurso(s) parecem exigir action; a operação básica do recurso não é bloqueada.`
           : metrics.actionResources
             ? `${metrics.actionResources} recurso(s) publicam comandos explícitos; ausência nos demais é opcional.`
-            : 'Nenhum comando explícito publicado; não é falha para recursos CRUD/read-only.'
+            : 'Nenhum comando explícito publicado; não é falha para recursos básicos ou read-only.'
       }
     ];
     return cards.map((card) => `
@@ -1446,7 +1446,7 @@
       diagnostics.push({
         level: 'optional',
         title: 'Sem action de workflow',
-        impact: 'CRUD pode existir, mas não há comando de negócio publicado.'
+        impact: 'Operações básicas podem existir, mas não há comando de negócio publicado.'
       });
     }
     return diagnostics;
@@ -2215,7 +2215,7 @@
         key: 'actions',
         label: 'Ações',
         status: loading ? 'loading' : resource.actions.length ? 'ok' : 'optional',
-        impact: loading ? 'Lendo comandos de negócio declarados.' : resource.actions.length ? 'Há comandos de negócio acionáveis além de CRUD.' : 'Ausência aceitável para recursos CRUD; limita automações de negócio.',
+        impact: loading ? 'Lendo comandos de negócio declarados.' : resource.actions.length ? 'Há comandos de negócio acionáveis além das operações base do recurso.' : 'Ausência aceitável para recursos cadastrais; limita automações de negócio.',
         detail: loading ? 'lendo actions escopadas' : resource.actions.length ? `${resource.actions.length} workflow action publicada` : 'sem workflow action publicada'
       }
     ];
@@ -2264,7 +2264,7 @@
     if (filteredSchemaFields(resource).length && !resource.schemaSource?.canonical) return `Os campos foram lidos de ${resource.schemaSource?.label || 'schema'}, não de schema filtrado canônico.`;
     if (!resource.capability) return 'Capabilities ainda não foram lidas ou não estão disponíveis para este recurso.';
     if (!resource.surfaces.length) return 'Nenhuma surface foi publicada para este recurso; a API existe, mas a experiência metadata-driven ainda não aparece.';
-    if (!resource.actions.length) return 'Não há workflow action publicada; isso não bloqueia CRUD, mas limita decisões de negócio acionáveis.';
+    if (!resource.actions.length) return 'Não há workflow action publicada; isso não bloqueia operações base do recurso, mas limita decisões de negócio acionáveis.';
     return 'O recurso tem domínio, schema, capabilities e materializações suficientes para inspeção semântica.';
   }
 
@@ -2337,7 +2337,7 @@
       diagnostics.push({
         level: 'optional',
         title: 'Sem action de workflow',
-        impact: 'Isso não bloqueia CRUD, mas reduz automações e decisões de negócio acionáveis.',
+        impact: 'Isso não bloqueia operações base do recurso, mas reduz automações e decisões de negócio acionáveis.',
         action: 'Modele workflow actions apenas para comandos de negócio explícitos.'
       });
     }
@@ -3260,7 +3260,7 @@
         detail: `${countByType('action')} action(s) conectam o recurso a comandos de negócio, payload, estados permitidos e resultado.`,
         evidence: [
           { label: 'Leitura rápida', detail: 'A linha mostra pré-condição, action e resultado quando o host publicou essa semântica.' },
-          { label: 'Uso corporativo', detail: 'Permite validar se uma automação é realmente governada ou apenas CRUD com botão.' }
+          { label: 'Uso corporativo', detail: 'Permite validar se uma automação é realmente governada ou apenas formulário básico com botão.' }
         ]
       }
     };

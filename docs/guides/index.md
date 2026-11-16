@@ -6,12 +6,12 @@ Esta é a trilha principal de leitura para uma pessoa ou uma LLM que queira impl
 
 0. [Guia 00 - Blueprint Completo de um Recurso Praxis (20 Pilares e 3 Fases)](GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.html)
 1. [Guia 01 - Backend - Aplicação Nova](GUIA-01-AI-BACKEND-APLICACAO-NOVA.html)
-2. [Guia 02 - Backend - Recurso Metadata-Driven](GUIA-02-AI-BACKEND-CRUD-METADATA.html)
+2. [Guia 02 - Backend - Recurso Semântico Metadata-Driven](GUIA-02-AI-BACKEND-CRUD-METADATA.html)
 3. [Guia 04 - Quando usar Resource, Surface, Action e Capability](GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html)
-4. [Guia 05 - Do CRUD ao Contrato Semântico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
+4. [Guia 05 - Do Cadastro Básico ao Contrato Semântico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
 5. [Guia 06 - Redação Semântica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html)
 6. [Enterprise Availability Adoption](ENTERPRISE-AVAILABILITY-ADOPTION.html)
-7. [Guia 03 - Frontend - Angular CRUD Completo](GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html)
+7. [Guia 03 - Frontend - Runtime Angular de Recursos Completo](GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html)
 8. [Checklist de Validação](CHECKLIST-VALIDACAO-IA.html)
 
 ## Guias de adequação específica
@@ -24,7 +24,7 @@ O nome do arquivo `GUIA-02-AI-BACKEND-CRUD-METADATA` permanece estável para lin
 
 ## Apoio
 
-- [Do CRUD ao Contrato Semântico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
+- [Do Cadastro Básico ao Contrato Semântico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
 - [Redação Semântica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html)
 - [Semantic Metadata Authoring](SEMANTIC-METADATA-AUTHORING.html)
 - [Quick View 360° e Curadoria Executiva Inteligente](QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.html)

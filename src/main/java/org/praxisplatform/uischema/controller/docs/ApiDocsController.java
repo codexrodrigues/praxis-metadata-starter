@@ -700,7 +700,7 @@ public class ApiDocsController {
      * Deriva o path base do recurso a partir de um path de operacao.
      *
      * <p>
-     * Remove sufixos conhecidos de CRUD, filtro, options e stats para permitir calculo de
+     * Remove sufixos conhecidos de operacoes do recurso, filtro, options e stats para permitir calculo de
      * capacidades e metadados em {@code x-ui.resource}.
      * </p>
      */

@@ -120,7 +120,7 @@ Compatibilidade transitória:
   - use quando existe um recurso proprio para a selecao
   - exemplos: `funcionarios`, `cargos`, `departamentos`
 - `/{resource}/option-sources/{sourceKey}/options/*`
-  - use quando a fonte e derivada do proprio recurso atual e nao possui CRUD proprio
+  - use quando a fonte e derivada do proprio recurso atual e nao possui endpoint ou ciclo de vida proprio de recurso
   - exemplos tipicos: buckets categóricos, distinct values governados, dimensoes derivadas
 
 Regra pratica:

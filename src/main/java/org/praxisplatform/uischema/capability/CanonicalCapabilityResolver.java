@@ -30,7 +30,7 @@ public interface CanonicalCapabilityResolver {
      *
      * <p>
      * O default preserva implementacoes customizadas anteriores que conhecem apenas o recorte
-     * CRUD. Resolvers baseados no contrato HTTP devem sobrescrever este metodo para publicar
+     * base do ciclo de vida do recurso. Resolvers baseados no contrato HTTP devem sobrescrever este metodo para publicar
      * tambem query, options, stats e demais operacoes canonicas executaveis.
      * </p>
      */
@@ -46,12 +46,12 @@ public interface CanonicalCapabilityResolver {
     }
 
     /**
-     * Resolve a semantica operacional minima de CRUD para o recurso informado.
+     * Resolve a semantica operacional minima do ciclo de vida do recurso para o recurso informado.
      */
     Map<String, CapabilityOperation> resolveCrudOperations(String resourcePath);
 
     /**
-     * Resolve a semantica operacional minima de CRUD usando um documento OpenAPI ja carregado.
+     * Resolve a semantica operacional minima do ciclo de vida do recurso usando um documento OpenAPI ja carregado.
      */
     Map<String, CapabilityOperation> resolveCrudOperations(JsonNode openApiDocument, String resourcePath);
 }

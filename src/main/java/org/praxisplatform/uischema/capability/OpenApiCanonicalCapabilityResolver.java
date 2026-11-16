@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>
  * A implementacao interpreta o baseline resource-oriented diretamente do documento OpenAPI do
  * grupo, convertendo paths e metodos publicados em um mapa normalizado de capacidades. Ela
- * ignora paths de workflow item-level quando esses paths nao pertencem ao baseline CRUD/query.
+ * ignora paths de workflow item-level quando esses paths nao pertencem ao baseline de ciclo de vida e consulta do recurso.
  * </p>
  */
 public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityResolver {

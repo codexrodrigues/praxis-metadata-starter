@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.repository.NoRepositoryBean;
 
 /**
- * Repositório base com suporte a CRUD e Specifications.
+ * Repositório base compatível com suporte a persistência JPA e Specifications (prefira {@link BaseResourceRepository} em recursos novos).
  * <p>
  * Marcado com {@link NoRepositoryBean} para evitar instanciação direta; deve ser
  * estendido por repositórios concretos nas aplicações.

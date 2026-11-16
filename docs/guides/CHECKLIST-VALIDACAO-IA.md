@@ -16,7 +16,7 @@ metadata-driven no baseline atual ou um frontend Angular.
 - grupos OpenAPI esperados existem (`@ApiGroup`)
 - Swagger UI esta disponivel
 
-## 3. Endpoints CRUD e Discovery
+## 3. Operações de Recurso e Discovery
 
 - `GET /{id}`, `GET /all`, `POST /filter`, `POST /filter/cursor`,
   `POST /locate`, `GET /by-ids`
@@ -72,7 +72,7 @@ metadata-driven no baseline atual ou um frontend Angular.
 
 ## 10. Frontend Angular
 
-- existe um host `praxis-crud` para CRUD completo (sem servicos HTTP manuais nem colunas hardcoded)
+- existe um host `praxis-crud` para gerenciamento completo de recursos (sem servicos HTTP manuais nem colunas hardcoded)
 - `resource.path` (sem prefixo `/api`) e `idField` estao corretos
 - `praxis-dynamic-form` usa `layoutPolicy.source = 'schema'` (`groupedCommand` / `compactPresentation`) sem `FormConfig.sections` manuais redundantes
 - `API_URL` esta coerente

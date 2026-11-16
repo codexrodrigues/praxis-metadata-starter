@@ -236,7 +236,7 @@ class PraxisCockpitControllerTest {
                 .contains("formulários esperados")
                 .contains("const readySentence")
                 .doesNotContain("resource-brief-label")
-                .contains("os demais ficam como CRUD, consulta ou analytics sem bloquear")
+                .contains("os demais ficam como persistência de recurso, consulta ou analytics sem bloquear")
                 .contains("trackContractRead('health', '/actuator/health', { timeoutMs: 10000 })")
                 .contains("trackContractRead('build', '/actuator/info', { timeoutMs: 10000 })")
                 .contains("trackContractRead('catalog', '/schemas/catalog', { timeoutMs: 15000 })")

@@ -99,7 +99,7 @@ public abstract class AbstractCollectionCommandResourceController {
     }
 
     /**
-     * Retorna o snapshot agregado de capabilities da colecao, sem declarar operacoes CRUD.
+     * Retorna o snapshot agregado de capabilities da colecao, sem declarar operacoes de mutacao individual de item.
      */
     @GetMapping("/capabilities")
     @Operation(

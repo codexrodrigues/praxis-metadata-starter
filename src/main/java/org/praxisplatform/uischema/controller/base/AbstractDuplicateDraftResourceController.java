@@ -92,7 +92,7 @@ public abstract class AbstractDuplicateDraftResourceController<ResponseDTO, ID, 
         });
     }
 
-    // Duplication requires affirmative decisions. Generic CRUD helpers retain their existing
+    // Duplication requires affirmative decisions. Standard resource lifecycle helpers retain their existing
     // optional-discovery semantics; their permissive null fallback is not suitable here.
     private boolean isDuplicateDraftAvailable(ID id) {
         return DuplicateDraftEndpointSupport.available(this, id);

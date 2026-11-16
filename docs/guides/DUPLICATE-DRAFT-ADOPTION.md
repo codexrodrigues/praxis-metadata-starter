@@ -40,7 +40,7 @@ Um objeto `initialValue` create, inclusive `{}`, suprime defaults omitidos mesmo
 em rebuild; sem objeto seed o create ordinário mantém defaults. Não copiar a
 política do backend para a UI nem abrir formulário vazio em erro. Create com seed
 em rota requer `createCrudFormRoute`; edit/view do host mantém seu fluxo de leitura.
-O handoff privado CRUD é efêmero e single-use, sem payload em URL/history/storage.
+O handoff privado de rascunho/formulário é efêmero e single-use, sem payload em URL/history/storage.
 
 ## Decisão de domínio e schema
 

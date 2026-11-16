@@ -5,7 +5,7 @@ package org.praxisplatform.uischema.service.base;
  *
  * <p>
  * Use esta porta quando o recurso publica criacao e atualizacao como operacoes canonicas do
- * proprio resource, mas nao publica exclusao. Recursos CRUD completos continuam usando
+ * proprio resource, mas nao publica exclusao. Recursos mutaveis completos continuam usando
  * {@link BaseResourceCommandService}.
  * </p>
  */

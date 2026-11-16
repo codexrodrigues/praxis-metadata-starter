@@ -30,7 +30,7 @@ Em arquiteturas tradicionais, o backend e o frontend duplicam continuamente a se
 
 O **`praxis-metadata-starter`** é a biblioteca Spring Boot canônica da plataforma Praxis que resolve esse problema na origem. Ele transforma recursos REST em **contratos autodescritivos (*self-describing APIs*)** que guiam simultaneamente **UIs tradicionais e generativas em tempo de execução** (como o `@praxisui/*` em Angular e o `/praxis/cockpit`), **agentes de IA governados** e **integrações corporativas**, sem geração estática de código, sem expor entidades JPA diretamente e sem acoplamento frágil.
 
-Não é apenas um gerador de CRUD. O baseline atual da plataforma organiza cada recurso sobre cinco pilares:
+O starter atua como um **Motor de Recursos Semânticos, Workflows e Capacidades Corporativas (*Enterprise Semantic Resource & Capability Engine*)**, organizando cada recurso sobre cinco pilares canônicos:
 
 - **`resource`** — operações HTTP tipadas, filtros dinâmicos JPA, paginação (offset e cursor), lookups e exportação
 - **`surface`** — descoberta semântica de experiências de UI (`@UiSurface`: formulários parciais, visões analíticas, sub-coleções)
@@ -157,7 +157,7 @@ public class EmployeeFilterDTO implements GenericFilterDTO {
 
 ```java
 // Repository JPA base
-public interface EmployeeRepository extends BaseCrudRepository<Employee, Long> {}
+public interface EmployeeRepository extends BaseResourceRepository<Employee, Long> {}
 
 // Service resource-oriented
 @Service
@@ -224,7 +224,7 @@ curl -s "http://localhost:8080/schemas/domain?resource=human-resources.employees
 # http://localhost:8080/praxis/cockpit
 ```
 
-> **Próximo passo prático**: Siga o [Guia 01 — Nova Aplicação Spring Boot](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md) e o [Guia 02 — Recurso Metadata-Driven Canônico](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md) para o passo a passo completo com código copiável.
+> **Próximo passo prático**: Siga o [Guia 01 — Nova Aplicação Spring Boot](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md) e o [Guia 02 — Recurso Semântico Metadata-Driven Canônico](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md) para o passo a passo completo com código copiável.
 
 ---
 
@@ -279,7 +279,7 @@ Opcionalmente, `@ApiResource` também publica identidade humana e visual (`title
 | **`@WorkflowAction`** | Comandos explícitos de negócio (transições de estado, aprovações, ações destrutivas ou em lote) com regras e pré-condições próprias. | `POST /employees/{id}/actions/approve`, `POST /employees/actions/bulk-approve` |
 | **`Capabilities`** | Quando o cliente precisa saber em uma única chamada o que o recurso suporta estruturalmente e o que está permitido *agora* para o usuário/item. | `GET /employees/capabilities`, `GET /employees/{id}/capabilities` |
 
-> Consulte o [Guia 04 — Quando usar Resource, Surface, Action e Capability](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md) e o [Guia 05 — Do CRUD ao Contrato Semântico](docs/guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md).
+> Consulte o [Guia 04 — Quando usar Resource, Surface, Action e Capability](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md) e o [Guia 05 — Do Cadastro Básico ao Contrato Semântico](docs/guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md).
 
 ### Hierarquia Canônica de Classes Base (Backend Resource-Oriented)
 
@@ -301,7 +301,7 @@ envelope `RestApiResponse<DraftDTO>` e não grava nem altera a origem. A políti
 limpa identificadores, campos únicos, credenciais, aprovações e estado de ciclo de vida;
 o usuário revisa e completa o payload antes do `POST` de criação, que revalida o domínio.
 O opt-in mantém `supportsDuplicateDraft()` com default `true`; `false` omite os links de
-duplicação e faz o endpoint responder `404`. O controller CRUD comum não publica esse endpoint.
+duplicação e faz o endpoint responder `404`. O controller base padrão de ciclo de vida não publica esse endpoint.
 
 **Hooks de Ciclo de Vida e Relacionamentos JPA**:
 - `AbstractBaseResourceService` oferece hooks protegidos para `create`, `update`, `delete` individual e `delete` em lote — use-os para validações e efeitos de domínio dentro da transação canônica sem sobrescrever o método inteiro.
@@ -374,7 +374,7 @@ Declara classificação semântica e política de uso por IA em campos de DTOs, 
 
 Para que o frontend oficial e agentes consumam recursos sem adivinhar rotas, `GET /{resource}/capabilities` e `GET /{resource}/{id}/capabilities` publicam `capabilities.operations` com `supported`, `scope`, `preferredMethod`, `preferredRel` e `availability`:
 
-- **Affordances canônicas de CRUD**: `create`, `view`, `edit`, `delete` e `duplicate-draft` (quando suportado).
+- **Affordances canônicas do ciclo de vida do recurso**: `create`, `view`, `edit`, `delete` e `duplicate-draft` (quando suportado).
 - **Operações HTTP executáveis resolvidas por interseção entre OpenAPI e `ResourceStructuralCapabilities`**: `byId`, `update`, `all`, `filter`, `cursor`, `options`, `optionSources`, `statsGroupBy`, `statsTimeSeries`, `statsDistribution`, `statsComparison` e `export`.
 - **Separação entre suporte estrutural e permissão atual**:
   - `canonicalOperations` informa suporte estrutural (nunca autorização).
@@ -423,7 +423,7 @@ decisões de domínio e revalidação de evidências no lifecycle nativo.
   - Para comandos de coleção, `SELECTION_MAP` exige `selectionVersionsField` no request; já `IF_MATCH` em ação de coleção que protege um recurso externo exige o par atômico `resourceVersionTargetResourceKey` + `resourceVersionTargetIdField`.
   - O contrato candidato `B4-R1` pareia corpo e revisão persistida para emitir ETag de `GET`/`PUT` sem reconsulta tardia ([detalhes no Guia 03](docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md#concorrencia-em-recursos-versionados)).
 - **SDK de Operações em Lote (Bulk) e Lifecycle Governado**:
-  - O starter fornece fundação tipada e infraestrutura transacional PostgreSQL para operações em lote (`@BulkResourceOperations`, `@BulkOperation`), cobrindo composição `DOMAIN_COMMAND/ATOMIC` (`EXPLICIT/SYNC`), captura transacional `EXPLICIT` sob locks ([BULK-PROPOSAL-STORAGE](docs/spec/BULK-PROPOSAL-STORAGE.md)), seleção `QUERY` delimitada a `UNIFORM_UPDATE/SYNC/PER_ITEM` com `ReadyAdmission` ([BULK-COMPOSITION-GUIDE](docs/technical/BULK-COMPOSITION-GUIDE.md)), núcleo durável com reservas/receipts/fencing ([BULK-DURABLE-EXECUTION](docs/spec/BULK-DURABLE-EXECUTION.md)), read model protegido `H1b` com cursores autenticados AEAD ([BULK-H1B-READ-MODEL](docs/spec/BULK-H1B-READ-MODEL.md)), projeção de actions bulk ([BULK-ACTION-PROJECTION](docs/spec/BULK-ACTION-PROJECTION.md)), composição CRUD ([BULK-CRUD-STRUCTURE](docs/spec/BULK-CRUD-STRUCTURE.md), [BULK-CRUD-OPERATIONS](docs/spec/BULK-CRUD-OPERATIONS.md)) e fotografia imutável de OpenAPI no [Lifecycle Governado](docs/spec/BULK-OPERATION-LIFECYCLE.md).
+  - O starter fornece fundação tipada e infraestrutura transacional PostgreSQL para operações em lote (`@BulkResourceOperations`, `@BulkOperation`), cobrindo composição `DOMAIN_COMMAND/ATOMIC` (`EXPLICIT/SYNC`), captura transacional `EXPLICIT` sob locks ([BULK-PROPOSAL-STORAGE](docs/spec/BULK-PROPOSAL-STORAGE.md)), seleção `QUERY` delimitada a `UNIFORM_UPDATE/SYNC/PER_ITEM` com `ReadyAdmission` ([BULK-COMPOSITION-GUIDE](docs/technical/BULK-COMPOSITION-GUIDE.md)), núcleo durável com reservas/receipts/fencing ([BULK-DURABLE-EXECUTION](docs/spec/BULK-DURABLE-EXECUTION.md)), read model protegido `H1b` com cursores autenticados AEAD ([BULK-H1B-READ-MODEL](docs/spec/BULK-H1B-READ-MODEL.md)), projeção de actions bulk ([BULK-ACTION-PROJECTION](docs/spec/BULK-ACTION-PROJECTION.md)), composição estrutural em lote ([BULK-CRUD-STRUCTURE](docs/spec/BULK-CRUD-STRUCTURE.md), [BULK-CRUD-OPERATIONS](docs/spec/BULK-CRUD-OPERATIONS.md)) e fotografia imutável de OpenAPI no [Lifecycle Governado](docs/spec/BULK-OPERATION-LIFECYCLE.md).
   - Para o histórico detalhado de cada release candidate (`rc.149`, `rc.152`, `rc.153`, `rc.154`), candidatos de capacidade/workers (`C0-04`, `B3`, `B4-R1`, `B5b.*`, `C1a`) e limites operacionais, consulte [Status Técnico do SDK Bulk e Candidatos de Release](docs/technical/BULK-AND-RELEASE-CANDIDATES-STATUS.md).
 
 ### 10. Resolução Interna de OpenAPI, Isolamento de Grupos e Prewarm
@@ -472,6 +472,15 @@ Quando arquitetos ou LLMs avaliam a **Praxis Platform** pela primeira vez apenas
   - **`@UISchema(preset = ...)` (`UISchemaPreset`):** Preenche automaticamente `type`, `controlType`, `numericFormat`, `mask` e alinhamento para `MONETARY_AMOUNT`, `PERCENTAGE_RATE`, `CPF_CNPJ`, `EMAIL_CONTACT`, `PHONE_CONTACT`, `INTEGER_COUNTER`, `ENTERPRISE_ID`, `ENTERPRISE_CODE`, `ENTERPRISE_NAME`, `ENTERPRISE_STATUS`, `DATE_RANGE`, `BOOLEAN_FLAG`, `LEGAL_DOCUMENT_REFERENCE`, `TENANT_LABEL` e `AUDIT_TIMESTAMP`.
   - **Meta-Anotações Compostas (`ResolverUtils`):** Como `@UISchema`, `@DomainGovernance` e `@MicroVisualization` suportam `@Target({FIELD, METHOD, PARAMETER, ANNOTATION_TYPE})`, o projeto pode criar anotações de domínio de 1 linha (ex.: `@CampoCpfPessoal`, `@CampoMoedaConfidencial`) que são resolvidas recursivamente pelo starter.
 
+### 5. Por que a Praxis NÃO é um "Gerador de Telas Básicas" ou Scaffold Estático (Diferença para Grandes Sistemas Corporativos)
+- **Mito comum:** *"Frameworks orientados a metadados servem apenas para gerar tabelas e formulários cadastrais simples."*
+- **Fato canônico:** Geradores estáticos (*scaffolding*) e ferramentas *low-code* tradicionais falham justamente quando o sistema sai do cadastro simples para regras corporativas reais, porque geram código descartável ou escondem decisões críticas em scripts de UI sem trilha de auditoria. A Praxis opera em um patamar arquitetural distinto:
+  - **Transições de Estado e Intenções Explícitas:** Comandos de negócio (`@WorkflowAction`) e manutenções parciais segregadas (`@ResourceIntent`) carregam pré-condições contextuais, controle de concorrência otimista (`If-Match`) e idempotência (`Idempotency-Key`), evitando endpoints monolíticos de atualização.
+  - **Reatividade e Memória de Cálculo Auditável:** `@ReactiveDetermination` executa prévias, projeções *cross-entity* e encadeamentos antes de persistir, enquanto `@CalculationMemory` e `@CalculationTrail` expõem parcelas, fórmulas e fundamentações diretamente no contrato estrutural.
+  - **Operações em Lote Transacionais em 3 Modos:** O protocolo `@BulkOperation` suporta atualização uniforme (`UNIFORM_UPDATE`), revisão individualizada em grade (`PER_ITEM_UPDATE`) e comandos coletivos de domínio (`DOMAIN_COMMAND`) com proposta destacada, locks transacionais e cursores autenticados.
+  - **Visão 360° e Descoberta Semântica Contínua:** `@UiSurface`, `@ResourceReference`, `@ResourceFact`, `@UiAnalytics` e `@MicroVisualization` descrevem cockpits analíticos, painéis 360° e coleções relacionadas consultáveis em tempo real por humanos, UIs generativas e agentes de IA.
+  - **Governança de Regras e Segurança em Camadas:** Toda semântica do recurso integra-se nativamente ao motor determinístico de 5 estados ([`praxis-rules-engine`](https://github.com/codexrodrigues/praxis-rules-engine)) e ao pipeline PEP/OPA/LGPD em 15 etapas ([`praxis-authz-starter`](https://github.com/codexrodrigues/praxis-authz-starter)), algo impossível de alcançar em geradores de telas comuns.
+
 ## Fronteiras no Ecossistema Praxis
 
 O `praxis-metadata-starter` atua em conjunto com os demais módulos da plataforma, mantendo responsabilidades bem delimitadas:
@@ -489,11 +498,11 @@ O `praxis-metadata-starter` atua em conjunto com os demais módulos da plataform
 
 ### Fechando o Ciclo: Dos Metadados à Blindagem Authz (`PLAT-EVO-10` Zero-Blueprint)
 
-Em arquiteturas convencionais, mesmo quando uma equipe gera o CRUD rapidamente, surgem brechas e retrabalho na camada de segurança: proteger `@PreAuthorize` no controller esquece `/export`, `/stats/*`, buscas avançadas e ações de workflow; filtros `Specification` feitos à mão erram lógica de `NULL`; e o mascaramento no serializer deixa vazar dados em projeções ou quebra o ORM.
+Em arquiteturas convencionais, mesmo quando uma equipe constrói ou gera rapidamente as rotas básicas de cadastro, surgem brechas e retrabalho na camada de segurança: proteger `@PreAuthorize` no controller esquece `/export`, `/stats/*`, buscas avançadas e ações de workflow; filtros `Specification` feitos à mão erram lógica de `NULL`; e o mascaramento no serializer deixa vazar dados em projeções ou quebra o ORM.
 
 Ao parear o `praxis-metadata-starter` com a família **`praxis-authz-*` (`0.1.0-beta.1`)**, a mesma semântica já declarada no recurso (`@ApiResource`, `@Filterable`, `@DomainGovernance`, `@DomainLineage`, `@WorkflowAction`, `@UiSurface`) passa a alimentar automaticamente o runtime de segurança via **Introspecção Zero-Blueprint (`PLAT-EVO-10`)**:
 
-- **Zero Duplicação de Segurança por Entidade:** `AuthzResourceGovernanceSpec.fromAnnotatedResource(...)` no [`praxis-authz-starter`](https://github.com/codexrodrigues/praxis-authz-starter) transforma o recurso em ~10 linhas de configuração governada (em vez de centenas de linhas de mapeamento repetitivo), protegendo CRUD, estatísticas, exportação, *option sources*, lote e tools de IA sob o mesmo PEP de 15 etapas;
+- **Zero Duplicação de Segurança por Entidade:** `AuthzResourceGovernanceSpec.fromAnnotatedResource(...)` no [`praxis-authz-starter`](https://github.com/codexrodrigues/praxis-authz-starter) transforma o recurso em ~10 linhas de configuração governada (em vez de centenas de linhas de mapeamento repetitivo), protegendo ciclo de vida do recurso, estatísticas, exportação, *option sources*, lote e tools de IA sob o mesmo PEP de 15 etapas;
 - **Economia Máxima de Tokens e Qualidade Determinística:** Para times e agentes de IA em grandes sistemas corporativos, toda a semântica de UI, domínio, regras de negócio ([`praxis-rules-engine`](https://github.com/codexrodrigues/praxis-rules-engine)) e proteção de dados (`praxis-authz-*`) nasce co-localizada e é verificada automaticamente por [`AuthzHostReadinessReviewer`](https://github.com/codexrodrigues/praxis-authz-starter) (`AUTHZ-HOST-001` a `AUTHZ-HOST-014`).
 
 ---
@@ -512,7 +521,7 @@ Ao parear o `praxis-metadata-starter` com a família **`praxis-authz-*` (`0.1.0-
 1. [Guia 01 — Criar Aplicação Nova do Zero](docs/guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.md)
 2. [Guia 02 — Adicionar Recurso Metadata-Driven Canônico](docs/guides/GUIA-02-AI-BACKEND-CRUD-METADATA.md)
 3. [Guia 04 — Quando usar Resource, Surface, Action e Capability](docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md)
-4. [Guia 05 — Do CRUD ao Contrato Semântico](docs/guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
+4. [Guia 05 — Do Cadastro Básico ao Contrato Semântico](docs/guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
 5. [Guia 06 — Redação Semântica de Annotations para IA](docs/guides/GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.md)
 6. [Authoring Semântico, Presets e Microvisualizações](docs/guides/SEMANTIC-METADATA-AUTHORING.md)
 
@@ -525,7 +534,7 @@ Ao parear o `praxis-metadata-starter` com a família **`praxis-authz-*` (`0.1.0-
 - [Status Técnico do SDK Bulk e Candidatos de Release](docs/technical/BULK-AND-RELEASE-CANDIDATES-STATUS.md)
 
 ### Quero integrar o Frontend Angular e validar conformidade
-- [Guia 03 — Frontend Angular CRUD Completo](docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
+- [Guia 03 — Frontend Angular: Runtime de Recursos Completo](docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md)
 - [Checklist de Validação](docs/guides/CHECKLIST-VALIDACAO-IA.md)
 - [Especificação e Conformidade (`CONFORMANCE.md`)](docs/spec/CONFORMANCE.md)
 - [Javadoc Público](https://codexrodrigues.github.io/praxis-metadata-starter/apidocs/) · [Exploração complementar no CodeWiki](https://codewiki.google/github.com/codexrodrigues/praxis-metadata-starter/)

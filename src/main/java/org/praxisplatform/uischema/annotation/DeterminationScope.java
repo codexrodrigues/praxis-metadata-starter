@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
 /**
  * Escopo explicito de formulario ao qual uma {@link ReactiveDetermination} se aplica.
  *
- * <p>Use quando a determinacao nao seguir o atalho CRUD padrao
+ * <p>Use quando a determinacao nao seguir o atalho de criacao/atualizacao padrao do recurso
  * ({@code createOperationId} + {@code updateOperationId}), por exemplo em formularios somente de
  * criacao, edicao parcial ({@code @ResourceIntent}) ou fluxos especializados.</p>
  */

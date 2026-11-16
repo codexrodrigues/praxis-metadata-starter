@@ -22,7 +22,7 @@ import java.util.Objects;
  * @param resourceKey chave semântica do recurso proprietário (ex.: {@code "workforce.cargos"})
  * @param resourcePath caminho HTTP canônico do recurso (ex.: {@code "/api/workforce/cargos"})
  * @param kind natureza estrutural do ponto de decisão ({@link DecisionPointKind})
- * @param targetId identificador do alvo dentro do recurso (ID da action, surface, bulk operation, nome do campo ou operação CRUD)
+ * @param targetId identificador do alvo dentro do recurso (ID da action, surface, bulk operation, nome do campo ou operação do ciclo de vida do recurso)
  * @param title título curto legível para humanos e catálogos
  * @param description descrição semântica e normativa do ponto de decisão
  * @param legalPurpose finalidade legal do tratamento ({@code LegalTreatmentPurpose.wireValue()}, ou {@code null} quando não especificada)

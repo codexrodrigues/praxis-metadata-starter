@@ -74,7 +74,7 @@ public record BulkExecutionContract(
             throw new IllegalArgumentException("parametersPointer must identify the canonical parameters property");
     }
 
-    /** Stable CRUD capability identity; domain commands retain their workflow action identity. */
+    /** Stable resource lifecycle capability identity; domain commands retain their workflow action identity. */
     public String crudCapabilityId() {
         return crudCapabilityId(mode, atomicity);
     }

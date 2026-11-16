@@ -117,7 +117,7 @@ Entram aqui:
 
 Regra:
 
-- `action` nao e CRUD
+- `action` nao e persistencia basica de cadastro
 - `action` nao e patch de manutencao do recurso
 - execucao sempre por endpoint tipado real
 - `/schemas/actions` faz discovery semantico; nao publica um segundo contrato de payload

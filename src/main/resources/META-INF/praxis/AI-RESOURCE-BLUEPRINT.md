@@ -209,7 +209,7 @@ class PraxisMetadataCompletenessTest {
 
 ## 4. Protocolo de Descoberta Profunda de Domínio e Síntese Relacional ("Além do Óbvio")
 
-Ao construir ou evoluir um host Praxis, **é proibido atuar como um gerador mecânico `1 tabela = 1 CRUD óbvio`**. O agente de IA deve analisar **o domínio de negócio em si e o grafo de relacionamentos entre as entidades (`@ManyToOne`, `@OneToMany`, `@Embedded`)** para descobrir e implementar capacidades corporativas não-óbvias nas 4 dimensões abaixo:
+Ao construir ou evoluir um host Praxis, **é proibido atuar como um gerador mecânico `1 tabela = 1 cadastro raso`**. O agente de IA deve analisar **o domínio de negócio em si e o grafo de relacionamentos entre as entidades (`@ManyToOne`, `@OneToMany`, `@Embedded`)** para descobrir e implementar capacidades corporativas não-óbvias nas 4 dimensões abaixo:
 
 ### 4.1. Filtragem Profunda, Multi-Operador, Cross-Entity e Busca Ampla (`Omnibox`)
 1. **Busca Unificada num Único Campo (`@Filterable(relations = {...})`):**
@@ -258,7 +258,7 @@ as composições específicas existentes do SDK. Guia de adoção no repositóri
 `docs/guides/BULK-DECLARATIVE-RESOURCE-ENGINE.md`.
 
 ### 4.3. Criação de Novos Endpoints, Projeções Analíticas Cross-Entity (`Radar*`), Knowledge Graph e Data Products
-Ao analisar os relacionamentos entre entidades (`Entidade A <-> Entidade B <-> Entidade C`), o agente deve ir além dos endpoints CRUD óbvios:
+Ao analisar os relacionamentos entre entidades (`Entidade A <-> Entidade B <-> Entidade C`), o agente deve ir além dos endpoints básicos de tabela individual:
 1. **Novos Endpoints Read-Only de Visão Consolidada e Investigação Multi-Domínio (`AbstractReadOnlyResourceController` — Analytical Data Products):** criar recursos analíticos/operacionais dedicados (`Radar*`) que cruzem entidades (via `@Subselect` ou `VIEW`) para responder perguntas executivas e investigativas de alta complexidade sem exigir joins ad-hoc no cliente (ex.: matriz de ocupação e vagas por cargo/unidade, radar de prescrição de férias e licença especial, radar de cobertura de chefias e substituições, radar de variação remuneratória vs. movimentação funcional). Todo endpoint `Radar*` **deve** publicar `@ResourceFact`s, `StatsFieldRegistry` (`StatsSupportMode.AUTO`) e `@UiAnalytics` (`COMPOSITION`, `RANKING` com `recordOpen`, `TIMESERIES`, `DISTRIBUTION`, `COMPARISON`).
 2. **Superfícies Master-Detail 360° (`@UiSurface` + `relatedChildResourceKey`):** expor todas as coleções filhas `1:N` relevantes como superfícies navegáveis no Quick View 360° e nas fichas de detalhe.
 3. **Intents Especializadas por Persona (`@ResourceIntent` + `SurfaceKind.PARTIAL_FORM`):** decompor entidades extensas em múltiplos endpoints `PATCH` orientados aos processos reais de cada área operacional (alocação, pagamento/bancário, endereço/contato, parâmetros contratuais).

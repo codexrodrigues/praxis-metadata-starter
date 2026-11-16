@@ -445,9 +445,9 @@ public class Employee {
 package com.example.hr.employee.repository;
 
 import com.example.hr.employee.entity.Employee;
-import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
+import org.praxisplatform.uischema.repository.base.BaseResourceRepository;
 
-public interface EmployeeRepository extends BaseCrudRepository<Employee, Long> {
+public interface EmployeeRepository extends BaseResourceRepository<Employee, Long> {
 }
 ```
 
@@ -1011,7 +1011,7 @@ Regras importantes:
 - usar DTO unico para tudo ou gerar DTOs sem `@Schema(description = ...)`, grupos, icones, `@UISchema(preset = ...)` e `@DomainGovernance`
 - esquecer `implements GenericFilterDTO` ou deixar o `FilterDTO` sem `@Filterable` e `@UISchema`
 - esquecer `@OptionLabel` na entidade (degradando `/options/filter` e `/options/by-ids`)
-- esquecer `extends BaseCrudRepository<Entidade, ID>` no repository
+- esquecer `extends BaseResourceRepository<Entidade, ID>` no repository
 - gerar `ResourceMapper` sem `extractId`, inverter `applyUpdate(E entity, UpdateDTO dto)` ou sobrescrever `entity.setId(...)` no update
 - gerar `Service` sem sobrescrever `getResourceMapper()`, `getDatasetVersion()`, `getStatsFieldRegistry()` e `StatsSupportMode.AUTO` (ou esquecer `praxis.stats.enabled: true` no `application.yml`)
 - em bancos PostgreSQL com `spring.jpa.hibernate.ddl-auto=validate`, mapear colunas `CHAR(n)` (`character(1)` / `character(2)` / `bpchar`) como `String` sem `@JdbcTypeCode(SqlTypes.CHAR)`
@@ -1031,7 +1031,7 @@ Use obrigatoriamente:
 - @ApiResource(value=..., resourceKey=..., title=..., description=..., icon=..., identity=@ResourceIdentity(...), quickFilters={@QuickFilter(id=..., label=..., criteria=@FilterCriterion(...), icon=..., tone=...)})
 - @ApiGroup
 - Entidade com @OptionLabel e @DefaultSortColumn
-- BaseCrudRepository<E, ID>
+- BaseResourceRepository<E, ID>
 - ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>
 - AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>
 - AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceController<ResponseDTO, ID, FilterDTO>
@@ -1040,7 +1040,7 @@ Use obrigatoriamente:
 Para recurso mutavel, gere nesta ordem:
 1. ApiPaths
 2. entidade (com @OptionLabel e @DefaultSortColumn)
-3. repository (extends BaseCrudRepository<E, ID>)
+3. repository (extends BaseResourceRepository<E, ID>)
 4. DTOs (ResponseDTO, CreateDTO, UpdateDTO, FilterDTO)
 5. mapper (implements ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>)
 6. service (com getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e StatsSupportMode.AUTO)
@@ -1050,7 +1050,7 @@ Regras obrigatorias:
 - nao use @RestController quando houver @ApiResource
 - nao gere classes fora do baseline resource-oriented atual
 - FilterDTO deve implementar GenericFilterDTO e usar @Filterable (LIKE, EQUAL, IN, BETWEEN, IN_LAST_DAYS) + @UISchema
-- Repository deve estender BaseCrudRepository<Entidade, ID>
+- Repository deve estender BaseResourceRepository<Entidade, ID>
 - Service deve sobrescrever getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e modos StatsSupportMode.AUTO
 - Controller deve sobrescrever getService() e getResponseId()
 - ResourceMapper deve implementar toResponse, newEntity, applyUpdate(E entity, UpdateDTO dto) (sem sobrescrever id) e extractId
@@ -1059,7 +1059,7 @@ Entrega esperada:
 - arquivos completos
 - imports corretos (org.praxisplatform.uischema.*)
 - codigo compilavel na primeira tentativa
-- um primeiro recurso metadata-driven com CRUD, filtros ricos, options, stats e capabilities ativos
+- um primeiro recurso metadata-driven com operacoes tipadas, filtros ricos, options, stats e capabilities ativos
 ```
 
 ## Checklist minimo

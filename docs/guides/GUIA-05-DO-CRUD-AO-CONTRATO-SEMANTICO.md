@@ -1,9 +1,9 @@
-# Guia 05 - Do CRUD ao Contrato Semantico
+# Guia 05 - Do Cadastro Basico ao Contrato Semantico
 
 ## Objetivo
 
 Este guia mostra visualmente por que o `praxis-metadata-starter` nao deve ser
-lido como "CRUD com DTO anotado", mas como a fundacao de contratos de uma
+lido como "apenas telas de cadastro com DTO anotado", mas como a fundacao de contratos de uma
 **plataforma semanticamente orientada para aplicacoes corporativas AI-native** —
 onde nao se constroi IA ao lado da aplicacao, e sim uma aplicacao que, por
 definicao, ja nasce legivel e operavel por IA, humanos e integracoes.
@@ -22,7 +22,7 @@ Uma leitura simplificada seria:
 
 ```mermaid
 flowchart LR
-    dto["DTO anotado"] --> crud["CRUD generico"]
+    dto["DTO anotado"] --> crud["Cadastro generico"]
     crud --> ui["UI renderizada"]
 ```
 
@@ -45,7 +45,7 @@ flowchart LR
     capabilities --> integrations["Integracoes HTTP"]
 ```
 
-Praxis continua tendo CRUD quando o recurso realmente e CRUD.
+Praxis oferece operacoes cadastrais basicas quando o recurso exige apenas manutencao direta.
 O ganho estrategico da plataforma esta em descrever recursos, regras, acoes,
 dados e politicas uma vez para que multiplos canais operem sobre a mesma verdade.
 
@@ -123,7 +123,7 @@ Sem duplicar contrato de payload. Para o QuickView / Visao 360°, conecte a `@Ui
 
 ## Camada 4 - WorkflowAction publica comando de negocio
 
-`@WorkflowAction` e o eixo em que o Praxis vai claramente alem do CRUD.
+`@WorkflowAction` e o eixo em que o Praxis vai claramente alem de operacoes cadastrais basicas.
 
 Exemplos:
 
@@ -248,9 +248,9 @@ O ponto e publicar semantica de plataforma sobre endpoints reais.
 
 ## Regra de ouro
 
-Praxis nao vai alem do CRUD porque inventa uma segunda API.
+Praxis nao supera um gerador cadastral porque inventa uma segunda API.
 
-Praxis vai alem do CRUD porque:
+Praxis vai alem do cadastro basico porque:
 
 - preserva o recurso como fonte da verdade
 - adiciona discovery semantico sobre operacoes reais

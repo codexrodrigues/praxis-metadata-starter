@@ -42,7 +42,7 @@ O baseline canônico atual da plataforma organiza cada recurso sobre cinco pilar
 1. [Guia 01 — Backend: Aplicação Nova com Core Canônico](guides/GUIA-01-AI-BACKEND-APLICACAO-NOVA.html)
 2. [Guia 02 — Backend: Recurso Metadata-Driven](guides/GUIA-02-AI-BACKEND-CRUD-METADATA.html)
 3. [Guia 04 — Quando usar Resource, Surface, Action e Capability](guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.html)
-4. [Guia 05 — Do CRUD ao Contrato Semântico](guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
+4. [Guia 05 — Do Cadastro Básico ao Contrato Semântico](guides/GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.html)
 5. [Guia 06 — Redação Semântica de Annotations para IA](guides/GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.html)
 6. [Authoring Semântico de Metadata (`@UISchema` Presets e `@MicroVisualization`)](guides/SEMANTIC-METADATA-AUTHORING.html)
 7. [Hub Completo de Guias](guides/index.html)
@@ -59,7 +59,7 @@ O baseline canônico atual da plataforma organiza cada recurso sobre cinco pilar
 
 ### 4. Quero integrar um runtime Angular
 
-- [Guia 03 — Frontend: Angular CRUD Completo](guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html)
+- [Guia 03 — Frontend: Runtime Angular de Recursos Completo](guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.html)
 - [Checklist de Validação Ponta a Ponta](guides/CHECKLIST-VALIDACAO-IA.html)
 
 ### 5. Quero referência técnica Java e especificações do SDK de Operações em Lote (Bulk)
@@ -73,14 +73,14 @@ O baseline canônico atual da plataforma organiza cada recurso sobre cinco pilar
 
 - [Admissão contextual de mutações e migração dos adapters](guides/RESOURCE-MUTATION-ADMISSION.html)
 
-- **Protocolo, Binding e Contratos CRUD Bulk**:
+- **Protocolo, Binding e Contratos de Operações em Lote (Bulk)**:
   - [Entrada do protocolo de operações em lote](spec/BULK-PROTOCOL-INPUT.html)
   - [Propostas, resultados e fingerprint de intenção](spec/BULK-PROTOCOL-RESULTS.html)
   - [Binding canônico de operações](spec/CANONICAL-OPERATION-BINDING.html)
   - [Leitura estrita de request](spec/CANONICAL-REQUEST-SCHEMA.html)
   - [Campos editáveis em lote (`@BulkEditable`)](spec/BULK-EDITABLE-FIELDS.html)
-  - [Composição estrutural CRUD](spec/BULK-CRUD-STRUCTURE.html)
-  - [Composição operacional CRUD (`UNIFORM_UPDATE` / `PER_ITEM_UPDATE`)](spec/BULK-CRUD-OPERATIONS.html)
+  - [Composição estrutural de alterações em lote](spec/BULK-CRUD-STRUCTURE.html)
+  - [Composição operacional em lote (`UNIFORM_UPDATE` / `PER_ITEM_UPDATE`)](spec/BULK-CRUD-OPERATIONS.html)
   - [Projeção P1 de action bulk (`execution.bulk`)](spec/BULK-ACTION-PROJECTION.html)
 - **Persistência, Execução Durável, Read Model e Lifecycle OpenAPI**:
   - [Infraestrutura transacional de lote](spec/BULK-EXECUTION-INFRASTRUCTURE.html)
