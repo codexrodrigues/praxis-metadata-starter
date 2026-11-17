@@ -1570,48 +1570,121 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     protected ResponseEntity<?> executeVersionedItemCommand(String actionId, ID id, String ifMatch,
             String idempotencyKey, Object payload,
             Function<ResourceVersionUpdatePrecondition<ID>, ResourceRepresentationResult<ResponseDTO>> mutation) {
+        @SuppressWarnings("unchecked")
+        Class<ResponseDTO> responseType = (Class<ResponseDTO>) ResolvableType.forClass(getClass())
+                .as(AbstractResourceQueryController.class).getGeneric(0).resolve();
+        return withOperationAvailabilityScope(() -> {
+            try {
+                ResourceRepresentationResult<ResponseDTO> result = executeVersionedItemCore(
+                        actionId, id, ifMatch, idempotencyKey, payload, responseType, mutation);
+                return withResourceVersion(ResponseEntity.ok(), id, new ResourceRepresentationResult<>(
+                        RestApiResponse.success(result.body(), hateoasOrNull(Links.of(linkToSelf(id), linkToAll()))),
+                        result.persistedVersion()));
+            } catch (VersionedCommandRejected rejected) {
+                return withCommandDatasetVersion(new ResourceCommandHttpResponseAdapter().toResponse(rejected.result));
+            }
+        });
+    }
+
+    /**
+     * Direct-body variant of {@link #executeVersionedItemCommand(String, Object, String, String, Object, Function)}
+     * returning an unwrapped response DTO (for example custom command outputs) on 2xx with ETag headers.
+     */
+    protected <B> ResponseEntity<B> executeVersionedItemCommandDirect(
+            String actionId,
+            ID id,
+            String ifMatch,
+            String idempotencyKey,
+            Object payload,
+            Class<B> responseType,
+            Function<ResourceVersionUpdatePrecondition<ID>, ResourceRepresentationResult<B>> mutation
+    ) {
+        Objects.requireNonNull(responseType, "responseType");
+        return withOperationAvailabilityScope(() -> {
+            try {
+                ResourceRepresentationResult<B> result = executeVersionedItemCore(
+                        actionId, id, ifMatch, idempotencyKey, payload, responseType, mutation);
+                return withResourceVersion(ResponseEntity.ok(), id, result);
+            } catch (VersionedCommandRejected rejected) {
+                throw mapVersionedCommandRejection(rejected.result);
+            }
+        });
+    }
+
+    /** Direct-body convenience overload inferring {@code ResponseDTO} as the response body type. */
+    protected ResponseEntity<ResponseDTO> executeVersionedItemCommandDirect(
+            String actionId,
+            ID id,
+            String ifMatch,
+            String idempotencyKey,
+            Object payload,
+            Function<ResourceVersionUpdatePrecondition<ID>, ResourceRepresentationResult<ResponseDTO>> mutation
+    ) {
+        @SuppressWarnings("unchecked")
+        Class<ResponseDTO> responseType = (Class<ResponseDTO>) ResolvableType.forClass(getClass())
+                .as(AbstractResourceQueryController.class).getGeneric(0).resolve();
+        if (responseType == null) {
+            throw new IllegalStateException("Versioned command response type is unresolved");
+        }
+        return executeVersionedItemCommandDirect(actionId, id, ifMatch, idempotencyKey, payload, responseType, mutation);
+    }
+
+    private <B> ResourceRepresentationResult<B> executeVersionedItemCore(
+            String actionId,
+            ID id,
+            String ifMatch,
+            String idempotencyKey,
+            Object payload,
+            Class<B> responseType,
+            Function<ResourceVersionUpdatePrecondition<ID>, ResourceRepresentationResult<B>> mutation
+    ) {
         Objects.requireNonNull(mutation, "mutation");
-        if (idempotencyKey != null && !StringUtils.hasText(idempotencyKey))
+        if (idempotencyKey != null && !StringUtils.hasText(idempotencyKey)) {
             throw new IllegalArgumentException("Idempotency-Key must not be blank");
+        }
         var precondition = resourceVersionUpdatePrecondition(id, ifMatch);
         var request = new ResourceCommandExecutionRequest(getResourceKey(), getBasePath(), actionId,
                 ResourceCommandScope.ITEM, id, payload, ResourceCommandResponsePolicy.RETURN_COMMAND_RESULT, Map.of());
-        Supplier<ResourceRepresentationResult<ResponseDTO>> execute = () -> {
+        Supplier<ResourceRepresentationResult<B>> execute = () -> {
             var executor = new GovernedResourceCommandExecutor(command -> {
                 var result = Objects.requireNonNull(mutation.apply(precondition));
                 result.requirePersistedVersion();
                 return ResourceCommandExecutionResult.success(command, id, result, Map.of());
             }, this::evaluateResourceCommandAvailability, ResourceCommandEvidenceSanitizer.defaults());
             ResourceCommandExecutionResult result = executor.execute(request);
-            if (!result.successful()) throw new VersionedCommandRejected(result);
+            if (!result.successful()) {
+                throw new VersionedCommandRejected(result);
+            }
             @SuppressWarnings("unchecked")
-            ResourceRepresentationResult<ResponseDTO> representation = (ResourceRepresentationResult<ResponseDTO>) result.body();
+            ResourceRepresentationResult<B> representation = (ResourceRepresentationResult<B>) result.body();
             return representation;
         };
-        return withOperationAvailabilityScope(() -> {
-            try {
-                ResourceRepresentationResult<ResponseDTO> result;
-                if (StringUtils.hasText(idempotencyKey)) {
-                    if (resourceCommandIdempotencyStore == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                            "Idempotent resource commands are not configured");
-                    Class<?> responseType = ResolvableType.forClass(getClass()).as(AbstractResourceQueryController.class).getGeneric(0).resolve();
-                    if (responseType == null) throw new IllegalStateException("Versioned command response type is unresolved");
-                    var identity = new ResourceCommandIdempotencyStore.Identity(resourceVersionScope().value(),
-                            resourceCommandActor(), getResourceKey(), org.praxisplatform.uischema.id.CompositeIdSupport.stringify(id), actionId, idempotencyKey);
-                    ObjectMapper mapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
-                    Map<String, Object> fingerprint = new LinkedHashMap<>();
-                    fingerprint.put("payload", payload);
-                    fingerprint.put("ifMatch", ifMatch);
-                    @SuppressWarnings("unchecked") Class<ResponseDTO> bodyType = (Class<ResponseDTO>) responseType;
-                    result = resourceCommandIdempotencyStore.execute(identity, ResourceCommandFingerprint.of(mapper, fingerprint), bodyType,
-                            () -> getService().findById(id), execute);
-                } else result = execute.get();
-                return withResourceVersion(ResponseEntity.ok(), id, new ResourceRepresentationResult<>(
-                        RestApiResponse.success(result.body(), hateoasOrNull(Links.of(linkToSelf(id), linkToAll()))), result.persistedVersion()));
-            } catch (VersionedCommandRejected rejected) {
-                return withCommandDatasetVersion(new ResourceCommandHttpResponseAdapter().toResponse(rejected.result));
+        if (StringUtils.hasText(idempotencyKey)) {
+            if (resourceCommandIdempotencyStore == null) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Idempotent resource commands are not configured");
             }
-        });
+            if (responseType == null) {
+                throw new IllegalStateException("Versioned command response type is unresolved");
+            }
+            var identity = new ResourceCommandIdempotencyStore.Identity(resourceVersionScope().value(),
+                    resourceCommandActor(), getResourceKey(), org.praxisplatform.uischema.id.CompositeIdSupport.stringify(id), actionId, idempotencyKey);
+            ObjectMapper mapper = objectMapper != null ? objectMapper : new ObjectMapper().findAndRegisterModules();
+            Map<String, Object> fingerprint = new LinkedHashMap<>();
+            fingerprint.put("payload", payload);
+            fingerprint.put("ifMatch", ifMatch);
+            return resourceCommandIdempotencyStore.execute(identity, ResourceCommandFingerprint.of(mapper, fingerprint),
+                    responseType, () -> getService().findById(id), execute);
+        }
+        return execute.get();
+    }
+
+    private ResponseStatusException mapVersionedCommandRejection(ResourceCommandExecutionResult result) {
+        ResponseEntity<?> adapted = new ResourceCommandHttpResponseAdapter().toResponse(result);
+        String message = adapted.getBody() instanceof RestApiResponse<?> body && StringUtils.hasText(body.getMessage())
+                ? body.getMessage()
+                : "Command execution failed.";
+        return new ResponseStatusException(adapted.getStatusCode(), message);
     }
 
     /** Trusted actor identity; hosts with non-servlet authentication may override this hook. */
@@ -1627,6 +1700,12 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     protected ResponseEntity<?> executeVersionedItemPatch(String intentId, ID id, String ifMatch,
             Function<ResourceVersionUpdatePrecondition<ID>, ResourceRepresentationResult<ResponseDTO>> mutation) {
         return executeVersionedItemCommand(intentId, id, ifMatch, null, null, mutation);
+    }
+
+    /** Direct-body partial intent patch helper returning unwrapped {@code ResponseDTO} with ETag headers. */
+    protected ResponseEntity<ResponseDTO> executeVersionedItemPatchDirect(String intentId, ID id, String ifMatch,
+            Function<ResourceVersionUpdatePrecondition<ID>, ResourceRepresentationResult<ResponseDTO>> mutation) {
+        return executeVersionedItemCommandDirect(intentId, id, ifMatch, null, null, mutation);
     }
 
     private static final class VersionedCommandRejected extends RuntimeException {

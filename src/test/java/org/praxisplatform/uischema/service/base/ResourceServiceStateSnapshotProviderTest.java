@@ -66,8 +66,11 @@ class ResourceServiceStateSnapshotProviderTest {
                     assertInstanceOf(ResourceServiceDelegatingStateSnapshotProvider.class, provider);
                     assertEquals("OPEN", provider.resolve("items", "1").orElseThrow().state());
                     assertTrue(provider.resolve("unknown", 1).isEmpty());
-                    assertThrows(org.springframework.web.server.ResponseStatusException.class, () -> provider.resolve("items", "2"));
-                    assertThrows(jakarta.persistence.EntityNotFoundException.class, () -> provider.resolve("items", "99"));
+                    assertTrue(provider.resolve("items", "2").isEmpty());
+                    assertTrue(provider.resolve("items", "99").isEmpty());
+                    var denied = assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                            () -> context.getBean(CoreResourceEvolutionIntegrationTest.ItemService.class).assertItemAccessible(2L));
+                    assertEquals(403, denied.getStatusCode().value());
                     try (var ignored = ResourceStateSnapshotScope.open()) {
                         ResourceStateSnapshotScope.resolve(provider, "items", 1L);
                         ResourceStateSnapshotScope.resolve(provider, "items", 1L);

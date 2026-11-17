@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -68,8 +69,22 @@ public class CustomOpenApiResolver extends ModelResolver {
         initializePropertiesMap(ValidationProperties.class, VALIDATION_PROPERTIES_MAP);
     }
 
+    private final Map<Class<?>, Class<?>> filterResponsePairs = new java.util.concurrent.ConcurrentHashMap<>();
+
     public CustomOpenApiResolver(ObjectMapper mapper) {
         super(mapper);
+    }
+
+    /**
+     * Registra explicitamente o par {@code FilterDTO -> ResponseDTO} para heranca automatica de metadados
+     * omitidos ({@code icon}, {@code endpoint}, {@code valueField}, {@code displayField}, {@code options})
+     * quando o schema do filtro for resolvido diretamente por esta instancia.
+     */
+    public CustomOpenApiResolver registerFilterResponsePair(Class<?> filterDtoClass, Class<?> responseDtoClass) {
+        if (filterDtoClass != null && responseDtoClass != null) {
+            filterResponsePairs.put(filterDtoClass, responseDtoClass);
+        }
+        return this;
     }
 
     /** Materializes typed resource bulk requests in the same document consumed by filtered schemas and discovery. */
@@ -98,6 +113,8 @@ public class CustomOpenApiResolver extends ModelResolver {
         // Swagger applies property-level schema siblings after resolving this intermediate type.
         // Propagate from the final model instead, so an eventual union cannot inherit an array control.
         if (!type.isSchemaProperty()) {
+            applyTableView(schema, rawClass);
+            applyRegisteredFilterInheritance(schema, rawClass, context);
             propagateOptionsInSchema(schema, context, java.util.Collections.newSetFromMap(new IdentityHashMap<>()));
         }
         return schema;
@@ -142,6 +159,41 @@ public class CustomOpenApiResolver extends ModelResolver {
             var calculationMemory = org.praxisplatform.uischema.schema.CalculationMemoryMetadataResolver.resolve(rawClass);
             if (calculationMemory != null) {
                 getUIExtensionMap(schema).put("calculationMemory", calculationMemory);
+            }
+            var formLayout = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.UiFormLayout.class);
+            if (formLayout != null) {
+                getUIExtensionMap(schema).put(
+                        FieldConfigProperties.FORM_LAYOUT.getValue(),
+                        serializeFormLayout(formLayout)
+                );
+            }
+            var contextBinding = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.ContextScopeBinding.class);
+            if (contextBinding != null) {
+                getUIExtensionMap(schema).put(
+                        FieldConfigProperties.CONTEXT_BINDING.getValue(),
+                        serializeContextScopeBinding(contextBinding)
+                );
+            }
+            var progression = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.ResourceProgression.class);
+            if (progression != null) {
+                Map<String, Object> progressionMap = serializeResourceProgression(progression);
+                if (!progressionMap.isEmpty()) {
+                    getUIExtensionMap(schema).put(FieldConfigProperties.PROGRESSION.getValue(), progressionMap);
+                }
+            }
+            var timeline = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.ResourceTimeline.class);
+            if (timeline != null) {
+                Map<String, Object> timelineMap = serializeResourceTimeline(timeline);
+                if (!timelineMap.isEmpty()) {
+                    getUIExtensionMap(schema).put(FieldConfigProperties.TIMELINE.getValue(), timelineMap);
+                }
+            }
+            var schedule = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.ResourceSchedule.class);
+            if (schedule != null) {
+                Map<String, Object> scheduleMap = serializeResourceSchedule(schedule);
+                if (!scheduleMap.isEmpty()) {
+                    getUIExtensionMap(schema).put(FieldConfigProperties.SCHEDULE.getValue(), scheduleMap);
+                }
             }
         }
         if (isOpenapi31() || schema == null || annotatedType == null || annotatedType.getType() == null
@@ -292,6 +344,10 @@ public class CustomOpenApiResolver extends ModelResolver {
 
         if (annotations != null) {
             applyDomainGovernance(property, annotations);
+            applyFilterableMetadata(property, annotations);
+            applyContextScopeBinding(property, annotations);
+            applyDraftCleared(property, annotations);
+            applyResourceState(property, annotations);
             validateEffectiveMicroVisualization(property, annotations);
         }
         return validatorUpdated;
@@ -1116,6 +1172,29 @@ public class CustomOpenApiResolver extends ModelResolver {
                 putPreset(uiExtension, FieldConfigProperties.WIDTH.getValue(), "9rem");
                 putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "percent");
             }
+            case LOCAL_DATE -> {
+                if (!isRangeArrayControl) {
+                    putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.DATE.getValue());
+                    putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.DATE_PICKER.getValue());
+                }
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "calendar_today");
+            }
+            case LOCAL_DATE_TIME -> {
+                if (!isRangeArrayControl) {
+                    putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.DATE.getValue());
+                    putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.DATE_TIME_PICKER.getValue());
+                }
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "schedule");
+            }
+            case ENTITY_LOOKUP -> {
+                if (!isRangeArrayControl) {
+                    putPreset(uiExtension, FieldConfigProperties.TYPE.getValue(), FieldDataType.NUMBER.getValue());
+                    putPreset(uiExtension, FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.ENTITY_LOOKUP.getValue());
+                }
+                putPreset(uiExtension, FieldConfigProperties.VALUE_FIELD.getValue(), "id");
+                putPreset(uiExtension, FieldConfigProperties.DISPLAY_FIELD.getValue(), "label");
+                putPreset(uiExtension, FieldConfigProperties.ICON.getValue(), "link");
+            }
             case NONE -> {
                 // handled above
             }
@@ -1693,6 +1772,21 @@ public class CustomOpenApiResolver extends ModelResolver {
                             FieldConfigProperties.CONDITIONAL_DISPLAY.getValue(),
                             true));
         }
+        if (!annotation.conditionalReadOnly().isEmpty()) {
+            uiExtension.put(
+                    FieldConfigProperties.CONDITIONAL_READ_ONLY.getValue(),
+                    parseJsonLogicCondition(
+                            annotation.conditionalReadOnly(),
+                            FieldConfigProperties.CONDITIONAL_READ_ONLY.getValue(),
+                            true));
+        }
+        if (annotation.colSpan() != 0) {
+            if (annotation.colSpan() < 1 || annotation.colSpan() > 12) {
+                throw new IllegalArgumentException(
+                        "@UISchema.colSpan must be 0 or between 1 and 12 (got " + annotation.colSpan() + ")");
+            }
+            uiExtension.put(FieldConfigProperties.COL_SPAN.getValue(), annotation.colSpan());
+        }
         if (!annotation.dependsOn().isEmpty()) {
             putNestedExtraProperty(uiExtension, "optionSource.dependsOn", parseDependsOn(annotation.dependsOn()));
         }
@@ -1760,8 +1854,8 @@ public class CustomOpenApiResolver extends ModelResolver {
             uiExtension.put(FieldConfigProperties.ICON_POSITION.getValue(), annotation.iconPosition().getValue());
         }
 
-        // NumericFormat explícito (diferente do padrão INTEGER)
-        if (annotation.numericFormat() != NumericFormat.INTEGER) {
+        // NumericFormat explicito (diferente do sentinela AUTO)
+        if (annotation.numericFormat() != NumericFormat.AUTO) {
             uiExtension.put(FieldConfigProperties.NUMERIC_FORMAT.getValue(), annotation.numericFormat().getValue());
         }
         if (!annotation.numericStep().isEmpty()) {
@@ -2631,5 +2725,263 @@ public class CustomOpenApiResolver extends ModelResolver {
             return property.getItems().getEnum();
         }
         return null;
+    }
+
+    private void applyTableView(Schema<?> schema, Class<?> rawClass) {
+        if (schema == null || rawClass == null) {
+            return;
+        }
+        var tableView = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.TableView.class);
+        if (tableView == null) {
+            return;
+        }
+        Map<String, Schema> properties = collectDirectTableProperties(schema);
+        if (properties.isEmpty()) {
+            return;
+        }
+        Map<String, Integer> columnOrder = new LinkedHashMap<>();
+        int index = 0;
+        for (String col : tableView.columns()) {
+            if (col != null && !col.isBlank()) {
+                columnOrder.putIfAbsent(col.trim(), index++);
+            }
+        }
+        Set<String> pinnedStart = new LinkedHashSet<>();
+        for (String col : tableView.pinnedStart()) {
+            if (col != null && !col.isBlank()) {
+                pinnedStart.add(col.trim());
+            }
+        }
+        Set<String> pinnedEnd = new LinkedHashSet<>();
+        for (String col : tableView.pinnedEnd()) {
+            if (col != null && !col.isBlank()) {
+                String clean = col.trim();
+                if (pinnedStart.contains(clean)) {
+                    throw new IllegalArgumentException(
+                            "@TableView cannot pin the same column in both pinnedStart and pinnedEnd: " + clean);
+                }
+                pinnedEnd.add(clean);
+            }
+        }
+        for (Map.Entry<String, Schema> entry : properties.entrySet()) {
+            String propName = entry.getKey();
+            Schema<?> propSchema = entry.getValue();
+            if (propSchema == null) {
+                continue;
+            }
+            Map<String, Object> xUi = getUIExtensionMap(propSchema);
+            Integer order = columnOrder.get(propName);
+            if (order != null) {
+                xUi.put(FieldConfigProperties.TABLE_ORDER.getValue(), order);
+            } else {
+                xUi.put(FieldConfigProperties.TABLE_HIDDEN.getValue(), true);
+            }
+            if (pinnedStart.contains(propName)) {
+                xUi.put(FieldConfigProperties.PINNED.getValue(), "start");
+            } else if (pinnedEnd.contains(propName)) {
+                xUi.put(FieldConfigProperties.PINNED.getValue(), "end");
+            }
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private Map<String, Schema> collectDirectTableProperties(Schema<?> schema) {
+        Map<String, Schema> combined = new LinkedHashMap<>();
+        if (schema.getProperties() != null) {
+            combined.putAll(schema.getProperties());
+        }
+        if (schema.getAllOf() != null) {
+            for (Schema<?> sub : schema.getAllOf()) {
+                if (sub != null && sub.get$ref() == null && sub.getProperties() != null) {
+                    combined.putAll(sub.getProperties());
+                }
+            }
+        }
+        return combined;
+    }
+
+    private void applyRegisteredFilterInheritance(
+            Schema<?> schema,
+            Class<?> rawClass,
+            io.swagger.v3.core.converter.ModelConverterContext context
+    ) {
+        if (schema == null || rawClass == null || context == null) {
+            return;
+        }
+        Class<?> responseDtoClass = filterResponsePairs.get(rawClass);
+        if (responseDtoClass == null || responseDtoClass == rawClass) {
+            return;
+        }
+        Schema<?> responseSchema = context.resolve(
+                new io.swagger.v3.core.converter.AnnotatedType(responseDtoClass).resolveAsRef(false));
+        FilterFieldMetadataInheritanceSupport.inheritToOpenApiFilterSchema(
+                schema,
+                rawClass,
+                responseSchema,
+                context.getDefinedModels()
+        );
+    }
+
+    private void applyFilterableMetadata(Schema<?> property, Annotation[] annotations) {
+        Filterable filterable = ResolverUtils.getAnnotation(Filterable.class, annotations);
+        if (filterable != null && filterable.primarySearch()) {
+            getUIExtensionMap(property).put(FieldConfigProperties.PRIMARY_SEARCH.getValue(), true);
+        }
+    }
+
+    private void applyContextScopeBinding(Schema<?> property, Annotation[] annotations) {
+        var binding = ResolverUtils.getAnnotation(
+                org.praxisplatform.uischema.annotation.ContextScopeBinding.class,
+                annotations
+        );
+        if (binding != null) {
+            getUIExtensionMap(property).put(
+                    FieldConfigProperties.CONTEXT_BINDING.getValue(),
+                    serializeContextScopeBinding(binding)
+            );
+        }
+    }
+
+    private void applyDraftCleared(Schema<?> property, Annotation[] annotations) {
+        var draftCleared = ResolverUtils.getAnnotation(
+                org.praxisplatform.uischema.annotation.DraftCleared.class,
+                annotations
+        );
+        if (draftCleared != null) {
+            getUIExtensionMap(property).put(FieldConfigProperties.DRAFT_CLEARED.getValue(), true);
+        }
+    }
+
+    private void applyResourceState(Schema<?> property, Annotation[] annotations) {
+        var resourceState = ResolverUtils.getAnnotation(
+                org.praxisplatform.uischema.annotation.ResourceState.class,
+                annotations
+        );
+        if (resourceState == null) {
+            return;
+        }
+        Map<String, Object> stateMap = new LinkedHashMap<>();
+        List<String> initial = Arrays.stream(resourceState.initialStates())
+                .filter(org.springframework.util.StringUtils::hasText)
+                .map(String::trim)
+                .distinct()
+                .toList();
+        List<String> putMutable = Arrays.stream(resourceState.putMutableStates())
+                .filter(org.springframework.util.StringUtils::hasText)
+                .map(String::trim)
+                .distinct()
+                .toList();
+        if (!initial.isEmpty()) {
+            stateMap.put("initialStates", initial);
+        }
+        if (!putMutable.isEmpty()) {
+            stateMap.put("putMutableStates", putMutable);
+        }
+        getUIExtensionMap(property).put(FieldConfigProperties.RESOURCE_STATE.getValue(), stateMap);
+    }
+
+    public static Map<String, Object> serializeContextScopeBinding(
+            org.praxisplatform.uischema.annotation.ContextScopeBinding binding
+    ) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("dimension", binding.dimension().wireValue());
+        map.put("lockWhenActive", binding.lockWhenActive());
+        if (org.springframework.util.StringUtils.hasText(binding.targetField())) {
+            map.put("targetField", binding.targetField().trim());
+        }
+        return java.util.Collections.unmodifiableMap(map);
+    }
+
+    public static Map<String, Object> serializeFormLayout(
+            org.praxisplatform.uischema.annotation.UiFormLayout formLayout
+    ) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("mode", formLayout.mode() != null
+                ? formLayout.mode().wireValue()
+                : org.praxisplatform.uischema.annotation.LayoutMode.FLAT.wireValue());
+        if (formLayout.sections().length > 0) {
+            List<org.praxisplatform.uischema.annotation.UiSection> orderedSections = Arrays.stream(formLayout.sections())
+                    .sorted(java.util.Comparator.comparingInt(org.praxisplatform.uischema.annotation.UiSection::order))
+                    .toList();
+            List<Map<String, Object>> sections = new ArrayList<>(orderedSections.size());
+            for (org.praxisplatform.uischema.annotation.UiSection section : orderedSections) {
+                Map<String, Object> sectionMap = new LinkedHashMap<>();
+                sectionMap.put("id", section.id() != null ? section.id().trim() : "");
+                sectionMap.put("title", section.title() != null ? section.title().trim() : "");
+                if (org.springframework.util.StringUtils.hasText(section.subtitle())) {
+                    sectionMap.put("subtitle", section.subtitle().trim());
+                }
+                if (org.springframework.util.StringUtils.hasText(section.icon())) {
+                    sectionMap.put("icon", section.icon().trim());
+                }
+                sectionMap.put("order", section.order());
+                List<String> groups = Arrays.stream(section.groups())
+                        .filter(org.springframework.util.StringUtils::hasText)
+                        .map(String::trim)
+                        .toList();
+                if (!groups.isEmpty()) {
+                    sectionMap.put("groups", groups);
+                }
+                sections.add(java.util.Collections.unmodifiableMap(sectionMap));
+            }
+            map.put("sections", List.copyOf(sections));
+        }
+        return java.util.Collections.unmodifiableMap(map);
+    }
+
+    public static Map<String, Object> serializeResourceProgression(
+            org.praxisplatform.uischema.annotation.ResourceProgression progression
+    ) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        putText(map, "title", progression.title());
+        putText(map, "currentLevelField", progression.currentLevelField());
+        putText(map, "currentStepField", progression.currentStepField());
+        putText(map, "maxLevelField", progression.maxLevelField());
+        putText(map, "nextStepField", progression.nextStepField());
+        putText(map, "nextEligibleDateField", progression.nextEligibleDateField());
+        putText(map, "remainingDaysField", progression.remainingDaysField());
+        putText(map, "scoreField", progression.scoreField());
+        putText(map, "unitLabel", progression.unitLabel());
+        putText(map, "statusField", progression.statusField());
+        return java.util.Collections.unmodifiableMap(map);
+    }
+
+    public static Map<String, Object> serializeResourceTimeline(
+            org.praxisplatform.uischema.annotation.ResourceTimeline timeline
+    ) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        putText(map, "title", timeline.title());
+        putText(map, "startDateField", timeline.startDateField());
+        putText(map, "endDateField", timeline.endDateField());
+        putText(map, "referenceDateField", timeline.referenceDateField());
+        putText(map, "statusField", timeline.statusField());
+        putText(map, "categoryField", timeline.categoryField());
+        putText(map, "labelField", timeline.labelField());
+        putText(map, "durationField", timeline.durationField());
+        putText(map, "actorField", timeline.actorField());
+        return java.util.Collections.unmodifiableMap(map);
+    }
+
+    public static Map<String, Object> serializeResourceSchedule(
+            org.praxisplatform.uischema.annotation.ResourceSchedule schedule
+    ) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        putText(map, "title", schedule.title());
+        putText(map, "startTimeField", schedule.startTimeField());
+        putText(map, "endTimeField", schedule.endTimeField());
+        putText(map, "timezoneField", schedule.timezoneField());
+        putText(map, "recurrenceField", schedule.recurrenceField());
+        putText(map, "dayOfWeekField", schedule.dayOfWeekField());
+        putText(map, "shiftField", schedule.shiftField());
+        putText(map, "capacityField", schedule.capacityField());
+        putText(map, "allocatedField", schedule.allocatedField());
+        putText(map, "statusField", schedule.statusField());
+        return java.util.Collections.unmodifiableMap(map);
+    }
+
+    private static void putText(Map<String, Object> target, String key, String value) {
+        if (org.springframework.util.StringUtils.hasText(value)) {
+            target.put(key, value.trim());
+        }
     }
 }

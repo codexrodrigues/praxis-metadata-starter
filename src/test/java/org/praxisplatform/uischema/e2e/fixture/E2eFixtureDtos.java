@@ -354,7 +354,7 @@ class EmployeeFilterDTO implements GenericFilterDTO {
     private java.time.LocalDate effectiveDate;
 
     @Filterable(operation = Filterable.FilterOperation.EFFECTIVE_ON_DATE,
-            relation = "department.dtini", endRelation = "department.dtfim")
+            relation = "department.validFrom", endRelation = "department.validTo")
     private java.time.LocalDate departmentEffectiveDate;
 
     public java.time.LocalDate getDepartmentEffectiveDate() {
@@ -379,7 +379,7 @@ class EmployeeFilterDTO implements GenericFilterDTO {
     @Filterable(operation = Filterable.FilterOperation.EQUAL)
     @UISchema(extraProperties = {
             @ExtensionProperty(name = "optionSource.sql", value = "select secret from private_table"),
-            @ExtensionProperty(name = "optionSource.providerConfig", value = "{\"package\":\"HADES.FLAG_PACK\"}"),
+            @ExtensionProperty(name = "optionSource.providerConfig", value = "{\"package\":\"PKG_LEGACY_RULES.FLAG_PACK\"}"),
             @ExtensionProperty(name = "optionSource.display.showDisabledReason", value = "true")
     })
     private String payrollProfile;

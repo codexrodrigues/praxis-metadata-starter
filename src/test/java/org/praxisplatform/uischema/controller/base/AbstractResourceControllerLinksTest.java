@@ -148,7 +148,7 @@ class AbstractResourceControllerLinksTest {
     @Test
     void resourceOperationalAndDiscoveryLinksUseRelativeSameOriginPaths() {
         SimpleController controller = new SimpleController();
-        ReflectionTestUtils.setField(controller, "contextPath", "/ergon");
+        ReflectionTestUtils.setField(controller, "contextPath", "/workforce");
         ReflectionTestUtils.setField(controller, "surfaceCatalogService", mock(SurfaceCatalogService.class));
         ReflectionTestUtils.setField(controller, "capabilityService", mock(CapabilityService.class));
         ReflectionTestUtils.setField(controller, "actionCatalogService", mock(org.praxisplatform.uischema.action.ActionCatalogService.class));
@@ -156,18 +156,18 @@ class AbstractResourceControllerLinksTest {
         ReflectionTestUtils.setField(controller, "actionDefinitionRegistry", registry);
         when(registry.findByResourceKey("test.simple")).thenReturn(List.of(collectionAction(), itemAction()));
 
-        assertEquals("/ergon/simple/10", controller.exposeSelfLink(10L).getHref());
-        assertEquals("/ergon/simple/all", controller.exposeAllLink().getHref());
-        assertEquals("/ergon/simple/filter", controller.exposeFilterLink().getHref());
-        assertEquals("/ergon/simple/filter/cursor", controller.exposeFilterCursorLink().getHref());
-        assertEquals("/ergon/simple", controller.exposeCreateLink().getHref());
-        assertEquals("/ergon/simple/10", controller.exposeUpdateLink(10L).getHref());
-        assertEquals("/ergon/simple/10", controller.exposeDeleteLink(10L).getHref());
-        assertEquals("/ergon/simple/actions", controller.exposeCollectionActionsLink().getHref());
-        assertEquals("/ergon/simple/capabilities", controller.exposeCollectionCapabilitiesLink().getHref());
-        assertEquals("/ergon/simple/10/surfaces", controller.exposeItemSurfacesLink(10L).getHref());
-        assertEquals("/ergon/simple/10/actions", controller.exposeItemActionsLink(10L).getHref());
-        assertEquals("/ergon/simple/10/capabilities", controller.exposeItemCapabilitiesLink(10L).getHref());
+        assertEquals("/workforce/simple/10", controller.exposeSelfLink(10L).getHref());
+        assertEquals("/workforce/simple/all", controller.exposeAllLink().getHref());
+        assertEquals("/workforce/simple/filter", controller.exposeFilterLink().getHref());
+        assertEquals("/workforce/simple/filter/cursor", controller.exposeFilterCursorLink().getHref());
+        assertEquals("/workforce/simple", controller.exposeCreateLink().getHref());
+        assertEquals("/workforce/simple/10", controller.exposeUpdateLink(10L).getHref());
+        assertEquals("/workforce/simple/10", controller.exposeDeleteLink(10L).getHref());
+        assertEquals("/workforce/simple/actions", controller.exposeCollectionActionsLink().getHref());
+        assertEquals("/workforce/simple/capabilities", controller.exposeCollectionCapabilitiesLink().getHref());
+        assertEquals("/workforce/simple/10/surfaces", controller.exposeItemSurfacesLink(10L).getHref());
+        assertEquals("/workforce/simple/10/actions", controller.exposeItemActionsLink(10L).getHref());
+        assertEquals("/workforce/simple/10/capabilities", controller.exposeItemCapabilitiesLink(10L).getHref());
     }
 
     private static ActionDefinition collectionAction() {

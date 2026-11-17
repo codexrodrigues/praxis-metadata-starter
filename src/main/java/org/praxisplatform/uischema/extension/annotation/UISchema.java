@@ -202,6 +202,8 @@ public @interface UISchema {
 
     // 6. Dependências e Ações Dinâmicas
     String conditionalDisplay() default "";
+    /** Expressao Json Logic que torna o campo somente leitura quando avaliada como verdadeira. */
+    String conditionalReadOnly() default "";
     String dependsOn() default "";
     String dependentField() default "";
     boolean resetOnDependentChange() default false;
@@ -269,8 +271,11 @@ public @interface UISchema {
     String filter() default "";
     String filterOptions() default "";
 
-    // 11. Propriedades Específicas para Input Numérico
-    NumericFormat numericFormat() default NumericFormat.INTEGER;
+    // 11. Propriedades Específicas para Input Numérico e Layout
+    NumericFormat numericFormat() default NumericFormat.AUTO;
+
+    /** Largura em colunas (1..12) do campo no grid de formulario; 0 indica automatico. */
+    int colSpan() default 0;
     String numericStep() default "";
     String numericMin() default "";
     String numericMax() default "";

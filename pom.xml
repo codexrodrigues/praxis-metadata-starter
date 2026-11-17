@@ -67,13 +67,13 @@
         <dependency>
             <groupId>io.github.codexrodrigues</groupId>
             <artifactId>praxis-rules-engine</artifactId>
-            <version>0.1.0-beta.19</version>
+            <version>0.1.0-beta.20</version>
         </dependency>
-        <!-- Real Servlet security-chain integration proof; not a runtime security policy. -->
+        <!-- Optional Servlet security integration; hosts opt in via Spring Security on classpath. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
-            <scope>test</scope>
+            <optional>true</optional>
         </dependency>
         <!-- MapStruct API for @MapperConfig -->
         <dependency>

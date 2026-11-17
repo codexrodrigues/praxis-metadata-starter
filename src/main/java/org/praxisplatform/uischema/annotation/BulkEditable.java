@@ -13,7 +13,7 @@ import java.lang.annotation.Target;
  * update schema and protected identity/version/workflow fields. It does not authorize an
  * actor, publish an executable capability or replace domain validation.
  */
-@Target({ElementType.FIELD, ElementType.RECORD_COMPONENT})
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface BulkEditable {
     /** Update families accepting this field; domain commands use their own parameters. */

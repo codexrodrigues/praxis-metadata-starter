@@ -11,8 +11,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.lang.reflect.Field;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,38 +41,58 @@ import java.util.Optional;
  * @param <E> Tipo da entidade alvo da consulta.
  */
 public class GenericSpecificationsBuilder<E> {
+    private final Clock clock;
+    private final List<PredicateBuilder> predicateBuilders;
+
     /**
-     * Lista de construtores de predicados. Cada implementação de {@link PredicateBuilder} é responsável
-     * por criar um tipo específico de predicado (e.g., igual, maior que, menor que, LIKE, IN).
+     * Cria um builder com relogio em UTC, preservando o comportamento deterministico padrao.
      */
-    private final List<PredicateBuilder> predicateBuilders = List.of(
-            new EqualPredicateBuilder(),
-            new NotEqualPredicateBuilder(),
-            new LikePredicateBuilder(),
-            new NotLikePredicateBuilder(),
-            new StartsWithPredicateBuilder(),
-            new EndsWithPredicateBuilder(),
-            new GreaterThanPredicateBuilder(),
-            new GreaterOrEqualPredicateBuilder(),
-            new LessThanPredicateBuilder(),
-            new LessOrEqualPredicateBuilder(),
-            new InPredicateBuilder(),
-            new NotInPredicateBuilder(),
-            new BetweenPredicateBuilder(), // BETWEEN
-            new BetweenExclusivePredicateBuilder(),
-            new NotBetweenPredicateBuilder(),
-            new OutsideRangePredicateBuilder(),
-            new OnDatePredicateBuilder(),
-            new InLastDaysPredicateBuilder(),
-            new InNextDaysPredicateBuilder(),
-            new SizeEqPredicateBuilder(),
-            new SizeGtPredicateBuilder(),
-            new SizeLtPredicateBuilder(),
-            new IsTruePredicateBuilder(),
-            new IsFalsePredicateBuilder(),
-            new IsNullPredicateBuilder(),
-            new IsNotNullPredicateBuilder()
-    );
+    public GenericSpecificationsBuilder() {
+        this(Clock.systemUTC());
+    }
+
+    /**
+     * Cria um builder com fuso horario configuravel para predicados temporais relativos
+     * ({@code IN_LAST_DAYS}, {@code IN_NEXT_DAYS}).
+     */
+    public GenericSpecificationsBuilder(ZoneId zoneId) {
+        this(Clock.system(zoneId != null ? zoneId : ZoneOffset.UTC));
+    }
+
+    /**
+     * Cria um builder com {@link Clock} configuravel para testes e fuso horario operacional.
+     */
+    public GenericSpecificationsBuilder(Clock clock) {
+        this.clock = clock != null ? clock : Clock.systemUTC();
+        this.predicateBuilders = List.of(
+                new EqualPredicateBuilder(),
+                new NotEqualPredicateBuilder(),
+                new LikePredicateBuilder(),
+                new NotLikePredicateBuilder(),
+                new StartsWithPredicateBuilder(),
+                new EndsWithPredicateBuilder(),
+                new GreaterThanPredicateBuilder(),
+                new GreaterOrEqualPredicateBuilder(),
+                new LessThanPredicateBuilder(),
+                new LessOrEqualPredicateBuilder(),
+                new InPredicateBuilder(),
+                new NotInPredicateBuilder(),
+                new BetweenPredicateBuilder(), // BETWEEN
+                new BetweenExclusivePredicateBuilder(),
+                new NotBetweenPredicateBuilder(),
+                new OutsideRangePredicateBuilder(),
+                new OnDatePredicateBuilder(),
+                new InLastDaysPredicateBuilder(this.clock),
+                new InNextDaysPredicateBuilder(this.clock),
+                new SizeEqPredicateBuilder(),
+                new SizeGtPredicateBuilder(),
+                new SizeLtPredicateBuilder(),
+                new IsTruePredicateBuilder(),
+                new IsFalsePredicateBuilder(),
+                new IsNullPredicateBuilder(),
+                new IsNotNullPredicateBuilder()
+        );
+    }
 
     /**
      * Método principal que constrói uma Specification com base em um DTO de filtro, além de processar
@@ -105,6 +127,28 @@ public class GenericSpecificationsBuilder<E> {
     private <FDT extends GenericFilterDTO> Specification<E> processSpecification(FDT filter,
             org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider definitions,
             org.praxisplatform.uischema.customfields.ResourceTenantContextResolver tenant, String resourceKey) {
+        if (filter != null) {
+            for (Field field : getAnnotatedFields(filter)) {
+                Filterable filterable = field.getAnnotation(Filterable.class);
+                if (filterable != null && filterable.operation() == Filterable.FilterOperation.EFFECTIVE_ON_DATE) {
+                    try {
+                        field.setAccessible(true);
+                        if (field.get(filter) != null) {
+                            if (filterable.relations().length != 0) {
+                                throw new IllegalArgumentException(
+                                        "EFFECTIVE_ON_DATE requires relation and endRelation, not relations.");
+                            }
+                            if (filterable.relation().isBlank() || filterable.endRelation().isBlank()) {
+                                throw new IllegalArgumentException(
+                                        "EFFECTIVE_ON_DATE requires explicit non-blank relation and endRelation.");
+                            }
+                        }
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException("Error inspecting EFFECTIVE_ON_DATE filter field: " + field.getName(), e);
+                    }
+                }
+            }
+        }
         var customValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.read(filter);
         var customDefinitions = customValues.isEmpty() ? java.util.List.<org.praxisplatform.uischema.customfields.CustomFieldDescriptor>of()
                 : definitions.findDefinitions(
@@ -201,8 +245,12 @@ public class GenericSpecificationsBuilder<E> {
                     if (filterable.relations().length != 0) {
                         throw new IllegalArgumentException("EFFECTIVE_ON_DATE requires relation and endRelation, not relations.");
                     }
-                    String start = filterable.relation().isBlank() ? "dtini" : filterable.relation().trim();
-                    String end = filterable.endRelation().isBlank() ? "dtfim" : filterable.endRelation().trim();
+                    if (filterable.relation().isBlank() || filterable.endRelation().isBlank()) {
+                        throw new IllegalArgumentException(
+                                "EFFECTIVE_ON_DATE requires explicit non-blank relation and endRelation.");
+                    }
+                    String start = filterable.relation().trim();
+                    String end = filterable.endRelation().trim();
                     var startPath = org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, start, true);
                     var endPath = org.praxisplatform.uischema.id.JpaCriteriaPathSupport.resolvePath(root, end, true);
                     predicates.add(effectiveOnDate(criteriaBuilder, startPath, endPath, value));
@@ -1039,6 +1087,16 @@ class OnDatePredicateBuilder implements PredicateBuilder {
 }
 
 class InLastDaysPredicateBuilder implements PredicateBuilder {
+    private final Clock clock;
+
+    InLastDaysPredicateBuilder() {
+        this(Clock.systemUTC());
+    }
+
+    InLastDaysPredicateBuilder(Clock clock) {
+        this.clock = clock != null ? clock : Clock.systemUTC();
+    }
+
     @Override
     public boolean supports(Filterable.FilterOperation operation) {
         return operation == Filterable.FilterOperation.IN_LAST_DAYS;
@@ -1051,7 +1109,7 @@ class InLastDaysPredicateBuilder implements PredicateBuilder {
             long days = n.longValue();
             Class<?> pathType = RangeBounds.safePathType(path);
             if (pathType == LocalDate.class) {
-                LocalDate today = LocalDate.now(ZoneOffset.UTC);
+                LocalDate today = LocalDate.now(clock);
                 return criteriaBuilder.between(
                         (jakarta.persistence.criteria.Expression<LocalDate>) path,
                         today.minusDays(days),
@@ -1059,7 +1117,7 @@ class InLastDaysPredicateBuilder implements PredicateBuilder {
                 );
             }
             if (pathType == java.time.LocalDateTime.class) {
-                java.time.LocalDateTime now = java.time.LocalDateTime.now(ZoneOffset.UTC);
+                java.time.LocalDateTime now = java.time.LocalDateTime.now(clock);
                 return criteriaBuilder.between(
                         (jakarta.persistence.criteria.Expression<java.time.LocalDateTime>) path,
                         now.minusDays(days),
@@ -1067,14 +1125,14 @@ class InLastDaysPredicateBuilder implements PredicateBuilder {
                 );
             }
             if (pathType == java.time.OffsetDateTime.class) {
-                java.time.OffsetDateTime now = java.time.OffsetDateTime.now(ZoneOffset.UTC);
+                java.time.OffsetDateTime now = java.time.OffsetDateTime.now(clock);
                 return criteriaBuilder.between(
                         (jakarta.persistence.criteria.Expression<java.time.OffsetDateTime>) path,
                         now.minusDays(days),
                         now
                 );
             }
-            Instant now = Instant.now();
+            Instant now = clock.instant();
             Instant start = now.minusSeconds(days * 24 * 60 * 60);
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
             return criteriaBuilder.between(expression, (Comparable) start, (Comparable) now);
@@ -1084,6 +1142,16 @@ class InLastDaysPredicateBuilder implements PredicateBuilder {
 }
 
 class InNextDaysPredicateBuilder implements PredicateBuilder {
+    private final Clock clock;
+
+    InNextDaysPredicateBuilder() {
+        this(Clock.systemUTC());
+    }
+
+    InNextDaysPredicateBuilder(Clock clock) {
+        this.clock = clock != null ? clock : Clock.systemUTC();
+    }
+
     @Override
     public boolean supports(Filterable.FilterOperation operation) {
         return operation == Filterable.FilterOperation.IN_NEXT_DAYS;
@@ -1096,7 +1164,7 @@ class InNextDaysPredicateBuilder implements PredicateBuilder {
             long days = n.longValue();
             Class<?> pathType = RangeBounds.safePathType(path);
             if (pathType == LocalDate.class) {
-                LocalDate today = LocalDate.now(ZoneOffset.UTC);
+                LocalDate today = LocalDate.now(clock);
                 return criteriaBuilder.between(
                         (jakarta.persistence.criteria.Expression<LocalDate>) path,
                         today,
@@ -1104,7 +1172,7 @@ class InNextDaysPredicateBuilder implements PredicateBuilder {
                 );
             }
             if (pathType == java.time.LocalDateTime.class) {
-                java.time.LocalDateTime now = java.time.LocalDateTime.now(ZoneOffset.UTC);
+                java.time.LocalDateTime now = java.time.LocalDateTime.now(clock);
                 return criteriaBuilder.between(
                         (jakarta.persistence.criteria.Expression<java.time.LocalDateTime>) path,
                         now,
@@ -1112,14 +1180,14 @@ class InNextDaysPredicateBuilder implements PredicateBuilder {
                 );
             }
             if (pathType == java.time.OffsetDateTime.class) {
-                java.time.OffsetDateTime now = java.time.OffsetDateTime.now(ZoneOffset.UTC);
+                java.time.OffsetDateTime now = java.time.OffsetDateTime.now(clock);
                 return criteriaBuilder.between(
                         (jakarta.persistence.criteria.Expression<java.time.OffsetDateTime>) path,
                         now,
                         now.plusDays(days)
                 );
             }
-            Instant now = Instant.now();
+            Instant now = clock.instant();
             Instant end = now.plusSeconds(days * 24 * 60 * 60);
             jakarta.persistence.criteria.Expression<? extends Comparable> expression = path.as(Instant.class);
             return criteriaBuilder.between(expression, (Comparable) now, (Comparable) end);

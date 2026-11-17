@@ -33,7 +33,7 @@ import java.lang.annotation.Target;
  * @see org.praxisplatform.uischema.service.base.BaseResourceQueryService#getDefaultSort()
  * @see org.praxisplatform.uischema.controller.base.AbstractResourceQueryController
  */
-@Target(ElementType.FIELD)
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface DefaultSortColumn {
     /**

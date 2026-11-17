@@ -49,7 +49,7 @@ class PlatformStructuralEvolutionsTest {
 
         private Long cargoId;
 
-        @ResourceReference(resourceKey = "ergon.cargos", valueField = "cargoId", surfaceId = "detail")
+        @ResourceReference(resourceKey = "workforce.roles", valueField = "cargoId", surfaceId = "detail")
         @UISchema(label = "Cargo", icon = "work", order = 4)
         private String cargoNome;
 
@@ -158,7 +158,7 @@ class PlatformStructuralEvolutionsTest {
                 .thenReturn(Map.of(100L, "Auditor Fiscal"));
 
         ScopedBatchReferenceHydrator hydrator = new ScopedBatchReferenceHydrator(
-                Map.of("ergon.cargos", cargoService));
+                Map.of("workforce.roles", cargoService));
 
         SampleResponseDto r1 = new SampleResponseDto();
         r1.cargoId = 100L;
@@ -216,13 +216,13 @@ class PlatformStructuralEvolutionsTest {
     void entityLookupDescriptorDirectoryBuilderFromDtoAutoDerivesIdentityAndUiSchemaDisplay() {
         org.praxisplatform.uischema.options.EntityLookupDescriptor lookup =
                 org.praxisplatform.uischema.options.EntityLookupDescriptor
-                        .directoryBuilderFromDto("ergon.tabelas-vencimento", AnnotatedIdentityDto.class)
+                        .directoryBuilderFromDto("workforce.salary-schedules", AnnotatedIdentityDto.class)
                         .status("situacaoLookup")
                         .statusLabels(Map.of("VIGENTE", "Vigente", "ENCERRADO", "Encerrado"))
                         .detailSurface("detail", "detail")
                         .build();
 
-        assertThat(lookup.entityKey()).isEqualTo("ergon.tabelas-vencimento");
+        assertThat(lookup.entityKey()).isEqualTo("workforce.salary-schedules");
         assertThat(lookup.codePropertyPath()).isEqualTo("codigo");
         assertThat(lookup.descriptionPropertyPaths())
                 .containsExactly("descricaoDetalhada", "cargoNome", "valorBase", "dtInicio");
@@ -239,7 +239,7 @@ class PlatformStructuralEvolutionsTest {
         // Surrogate-PK DTO with visible @UISchema(preset = ENTERPRISE_CODE) resolves business code without leaking hidden id
         org.praxisplatform.uischema.options.EntityLookupDescriptor surrogateLookup =
                 org.praxisplatform.uischema.options.EntityLookupDescriptor
-                        .directoryBuilderFromDto("ergon.tabelas-surrogate", SurrogatePkEnterpriseCodeDto.class)
+                        .directoryBuilderFromDto("workforce.surrogate-schedules", SurrogatePkEnterpriseCodeDto.class)
                         .build();
         assertThat(surrogateLookup.codePropertyPath()).isEqualTo("codigoNegocio");
         assertThat(surrogateLookup.descriptionPropertyPaths())
@@ -252,7 +252,7 @@ class PlatformStructuralEvolutionsTest {
                 .containsExactly("codigoNegocio", "descricaoDetalhada", "cargoNome", "valorBase");
 
         assertThatThrownBy(() -> org.praxisplatform.uischema.options.EntityLookupDescriptor
-                .directoryBuilderFromDto("ergon.sem-identidade", SampleResponseDto.class))
+                .directoryBuilderFromDto("workforce.unidentified", SampleResponseDto.class))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("@ResourceIdentity");
     }

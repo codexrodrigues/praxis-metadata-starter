@@ -20,20 +20,20 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface BulkResourceOperations {
 
-    /** Global operationId for reading one retained bulk proposal. */
-    String proposalOperationId();
+    /** Global operationId for reading one retained bulk proposal; defaults to {@code <resourceKey>.bulk.proposal}. */
+    String proposalOperationId() default "";
 
-    /** Global operationId for reading the paged results of one bulk proposal. */
-    String proposalResultsOperationId();
+    /** Global operationId for reading the paged results of one bulk proposal; defaults to {@code <resourceKey>.bulk.proposal-results}. */
+    String proposalResultsOperationId() default "";
 
-    /** Global operationId for reading one bulk execution. */
-    String executionOperationId();
+    /** Global operationId for reading one bulk execution; defaults to {@code <resourceKey>.bulk.execution}. */
+    String executionOperationId() default "";
 
-    /** Global operationId for reading the paged results of one bulk execution. */
-    String executionResultsOperationId();
+    /** Global operationId for reading the paged results of one bulk execution; defaults to {@code <resourceKey>.bulk.execution-results}. */
+    String executionResultsOperationId() default "";
 
-    /** Global operationId for requesting cancellation of one bulk execution. */
-    String cancelOperationId();
+    /** Global operationId for requesting cancellation of one bulk execution; defaults to {@code <resourceKey>.bulk.cancel}. */
+    String cancelOperationId() default "";
     /**
      * Explicit operationId assigned to the real UPDATE_SOURCE handler. Required for update
      * modes; empty leaves an inherited ordinary PUT untouched on command-only resources.

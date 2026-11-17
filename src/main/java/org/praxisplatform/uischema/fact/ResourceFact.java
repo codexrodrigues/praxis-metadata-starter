@@ -9,10 +9,26 @@ import java.lang.annotation.*;
  * ({@code decisionKind = BUSINESS} via {@code praxis-rules-engine}) and the authorization track
  * ({@code decisionKind = AUTHORIZATION} via {@code praxis-authz-*}).
  *
- * <p>Catalog discovery is strictly reflective and never invokes the annotated method. Every declared
- * fact must make its authority, evaluation phase, missing-value behavior, and scope explicit so that
- * static reviewers ({@link org.praxisplatform.uischema.authoring.SemanticMetadataReviewer}) and
- * downstream policy compilers can reject unverified or client-overridable inputs in fail-closed flows.</p>
+ * <p>Catalog discovery is strictly reflective and never invokes the annotated method. When declared on
+ * a controller annotated with {@link org.praxisplatform.uischema.annotation.ApiResource} or on its
+ * resolved {@code ResponseDTO}, {@link #resourceKey()} inherits {@code @ApiResource.resourceKey()}
+ * automatically when omitted. Every declared fact must make its authority, evaluation phase,
+ * missing-value behavior, and scope explicit so that static reviewers
+ * ({@link org.praxisplatform.uischema.authoring.SemanticMetadataReviewer}) and downstream policy
+ * compilers can reject unverified or client-overridable inputs in fail-closed flows.</p>
+ *
+ * <pre>{@code
+ * @ResourceFact(
+ *     key = "activeAssignmentsCount",
+ *     label = "Vínculos ativos",
+ *     description = "Quantidade de vínculos funcionais ativos sob o titular.",
+ *     dataType = ResourceFactDataType.INTEGER,
+ *     icon = "badge",
+ *     tone = "info",
+ *     authority = ResourceFactAuthority.SERVER_COMPUTED,
+ *     evaluationPhase = ResourceFactEvaluationPhase.POST_READ
+ * )
+ * }</pre>
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)

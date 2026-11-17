@@ -188,7 +188,8 @@ final class BulkOperationStructuralCompiler {
         if (!Objects.equals(binding.updateSourceOperationId().orElse(""), lifecycle.updateSourceOperationId())
                 || !binding.protectedUpdateFields().equals(java.util.Set.of(lifecycle.protectedUpdateFields())))
             throw invalid("Unit update declaration changed after MVC binding");
-        Map<BulkResourceOperation.Role, String> lifecycleIds = lifecycleIds(lifecycle);
+        Map<BulkResourceOperation.Role, String> lifecycleIds = lifecycleIds(
+                binding.confirmationHandler().getBeanType(), lifecycle);
         List<PendingOperation> pending = new ArrayList<>(BulkOperationStructuralDescriptor.Role.values().length);
         for (BulkResourceOperation.Role role : lifecycleIds.keySet()) {
             String operationId = lifecycleIds.get(role);
@@ -460,13 +461,21 @@ final class BulkOperationStructuralCompiler {
         return normalized;
     }
 
-    private static Map<BulkResourceOperation.Role, String> lifecycleIds(BulkResourceOperations declaration) {
+    private static Map<BulkResourceOperation.Role, String> lifecycleIds(
+            Class<?> controllerType,
+            BulkResourceOperations declaration
+    ) {
         Map<BulkResourceOperation.Role, String> result = new EnumMap<>(BulkResourceOperation.Role.class);
-        result.put(BulkResourceOperation.Role.PROPOSAL, declaration.proposalOperationId());
-        result.put(BulkResourceOperation.Role.PROPOSAL_RESULTS, declaration.proposalResultsOperationId());
-        result.put(BulkResourceOperation.Role.EXECUTION, declaration.executionOperationId());
-        result.put(BulkResourceOperation.Role.EXECUTION_RESULTS, declaration.executionResultsOperationId());
-        result.put(BulkResourceOperation.Role.CANCEL, declaration.cancelOperationId());
+        result.put(BulkResourceOperation.Role.PROPOSAL,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.PROPOSAL));
+        result.put(BulkResourceOperation.Role.PROPOSAL_RESULTS,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.PROPOSAL_RESULTS));
+        result.put(BulkResourceOperation.Role.EXECUTION,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.EXECUTION));
+        result.put(BulkResourceOperation.Role.EXECUTION_RESULTS,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.EXECUTION_RESULTS));
+        result.put(BulkResourceOperation.Role.CANCEL,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.CANCEL));
         return result;
     }
 

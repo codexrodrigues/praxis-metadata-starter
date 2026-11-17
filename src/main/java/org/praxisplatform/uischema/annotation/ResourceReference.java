@@ -6,20 +6,24 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declara que uma propriedade de resposta ou projecao referencia outro recurso canonico da
- * plataforma, permitindo que superficies de leitura (tabelas, listas, Quick View) oferecam
- * inspecao contextual in-place e navegacao governada para o registro referenciado.
+ * Declara que uma propriedade de resposta ou projeção referencia outro recurso canônico da
+ * plataforma, permitindo que superfícies de leitura (tabelas, listas, Quick View) ofereçam
+ * inspeção contextual in-place e navegação governada para o registro referenciado.
  *
- * <p>Exemplo tipico em DTO de leitura ou projecao:</p>
+ * <p>Exemplo típico em DTO de leitura ou projeção:</p>
  * <pre>{@code
  * @ResourceReference(
- *     resourceKey = "human-resources.funcionarios",
- *     valueField = "funcionarioId",
+ *     resourceKey = "human-resources.employees",
+ *     valueField = "employeeId",
  *     surfaceId = "detail",
- *     previewSurfaceId = "hero-profile"
+ *     previewSurfaceId = "hero-profile",
+ *     detailPresentation = "drawer"
  * )
- * private String funcionarioNome;
+ * private String employeeName;
  * }</pre>
+ *
+ * @see UiSurface
+ * @see ResourceIdentity
  */
 @Target({
         ElementType.FIELD,

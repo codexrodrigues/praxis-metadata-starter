@@ -39,7 +39,7 @@ public class AllowedStatesActionAvailabilityRule implements ActionAvailabilityRu
         String currentState = context.resourceState().state();
         metadata.put("resourceState", currentState);
         if (!allowedStates.contains(currentState)) {
-            return AvailabilityDecision.deny("resource-state-blocked", metadata);
+            String reason = StringUtils.hasText(definition.disallowedStateReason()) ? definition.disallowedStateReason().trim() : "resource-state-blocked"; return AvailabilityDecision.deny(reason, metadata);
         }
 
         return AvailabilityDecision.allow(metadata);

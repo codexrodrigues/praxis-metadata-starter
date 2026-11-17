@@ -111,8 +111,6 @@ apontando para `praxis-domain-catalog-v0.2.schema.json`, enquanto `OntologyG2Pub
 Provas HTTP usam os controllers reais via MockMvc, compilador real e documentos
 OpenAPI locais. Compile os consumidores com o mesmo artefato candidato do Metadata.
 
-Esta entrega não migra providers/fatos, não limpa as classificações legadas
-`existing*`/`active*` do Engine e não altera snapshots/heads. Bindings explícitos
-com esses prefixos não são filtrados pelo Metadata. A migração dos providers é G3;
-Config, reparo, redaction federada e Studio são G4; ativação e rollback são G5.
-Aceite local G2 não equivale a publicação de artefato, prova Neon ou implantação.
+Esta entrega não migra providers/fatos externos nem limpa classificações auxiliares
+mantidas pelo host para compatibilidade de transição.
+Aceite local de publicação e paridade do schema não equivale a publicação de artefato, prova de banco de dados remoto ou implantação em produção.

@@ -212,7 +212,11 @@ public class ActionCatalogService {
                 definition.tags(),
                 executions.getOrDefault(definition.operation().operationId(), definition.execution().withBulk(null)),
                 effectiveLegalPurpose,
-                effectiveLegalBasis
+                effectiveLegalBasis,
+                definition.icon(),
+                definition.tone(),
+                definition.modifiedFields(),
+                definition.disallowedStateReason()
         );
     }
 

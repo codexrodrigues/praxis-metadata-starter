@@ -106,7 +106,7 @@ class BulkCapacityTwoClusterQuarantinePostgresTest {
                 proof.firstStopOffset = Files.size(proof.firstLog);
                 local.assertionsComplete();
             }
-            // close() logs stop failures internally: a normal return alone is never a success oracle.
+            // close() logs stop failures internally: a normal return alone is never a success indicator.
             String cleanStop = assertStopped(stopped, proof.originData, proof.firstLog, proof.firstStopOffset);
             proof.phase("OFFICIAL_CLOSE_NATIVE_CLEAN_STOP_AND_ACTUAL_POSTMASTER_EXIT")
                     .put("postmasterPid", stopped.pid()).put("stopExitStatusExposed", false).put("nativeRecord", cleanStop);

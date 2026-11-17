@@ -13,7 +13,7 @@ import org.junit.jupiter.engine.JupiterTestEngine;
 import org.junit.platform.engine.*;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 
-/** Real Jupiter lifecycle oracle; no database, launcher dependency or POM change. */
+/** Real Jupiter lifecycle test harness; no database, launcher dependency or POM change. */
 class BulkAsyncNeonFailFastTest {
     @Test void bodyFailureBlocksLaterBodyAndRunsCleanup() { verify(BodyFailure.class, 1, 1); }
     @Test void beforeEachFailureBlocksLaterBodyAndRunsCleanup() { verify(BeforeFailure.class, 0, 1); }

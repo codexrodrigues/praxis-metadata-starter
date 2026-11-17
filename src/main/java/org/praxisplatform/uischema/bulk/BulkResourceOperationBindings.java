@@ -120,8 +120,8 @@ public final class BulkResourceOperationBindings {
         Set<String> bodylessLifecycleIds = new HashSet<>();
         List<BoundResource> valid = new ArrayList<>();
         for (ResourceCandidate candidate : candidates.values()) {
-            operationIds(candidate.declaration).values().stream().filter(StringUtils::hasText).forEach(declaredIds::add);
-            operationIds(candidate.declaration).entrySet().stream()
+            operationIds(candidate.controllerType, candidate.declaration).values().stream().filter(StringUtils::hasText).forEach(declaredIds::add);
+            operationIds(candidate.controllerType, candidate.declaration).entrySet().stream()
                     .filter(entry -> entry.getKey() != BulkResourceOperation.Role.UPDATE_SOURCE)
                     .map(Map.Entry::getValue).filter(StringUtils::hasText).forEach(bodylessLifecycleIds::add);
             candidate.actions.forEach(action -> {
@@ -265,7 +265,7 @@ public final class BulkResourceOperationBindings {
         ApiResource resource = AnnotatedElementUtils.findMergedAnnotation(candidate.controllerType, ApiResource.class);
         if (resource == null || !isCanonicalText(resource.resourceKey()))
             errors.add("@ApiResource resourceKey must be canonical nonblank text");
-        Map<BulkResourceOperation.Role, String> ids = operationIds(candidate.declaration);
+        Map<BulkResourceOperation.Role, String> ids = operationIds(candidate.controllerType, candidate.declaration);
         Set<String> uniqueIds = new HashSet<>();
         ids.forEach((role, id) -> {
             if (!isCanonicalText(id)) errors.add("operationId for " + role + " must be canonical nonblank text");
@@ -449,7 +449,7 @@ public final class BulkResourceOperationBindings {
     private static BoundResource bind(ResourceCandidate candidate, RequestMappingHandlerMapping registry) {
         ApiResource resource = AnnotatedElementUtils.findMergedAnnotation(candidate.controllerType, ApiResource.class);
         Map<BulkResourceOperation.Role, RoleBinding> byRole = new EnumMap<>(BulkResourceOperation.Role.class);
-        operationIds(candidate.declaration).forEach((role, id) ->
+        operationIds(candidate.controllerType, candidate.declaration).forEach((role, id) ->
                 byRole.put(role, new RoleBinding(id, candidate.roles.get(role).getFirst())));
         List<BulkOperationBinding> actions = candidate.actions.stream().map(action -> {
             String confirmationId = explicitOperationId(action.handler);
@@ -469,13 +469,21 @@ public final class BulkResourceOperationBindings {
                 Collections.unmodifiableMap(byRole), actions);
     }
 
-    private static Map<BulkResourceOperation.Role, String> operationIds(BulkResourceOperations declaration) {
+    private static Map<BulkResourceOperation.Role, String> operationIds(
+            Class<?> controllerType,
+            BulkResourceOperations declaration
+    ) {
         Map<BulkResourceOperation.Role, String> result = new EnumMap<>(BulkResourceOperation.Role.class);
-        result.put(BulkResourceOperation.Role.PROPOSAL, declaration.proposalOperationId());
-        result.put(BulkResourceOperation.Role.PROPOSAL_RESULTS, declaration.proposalResultsOperationId());
-        result.put(BulkResourceOperation.Role.EXECUTION, declaration.executionOperationId());
-        result.put(BulkResourceOperation.Role.EXECUTION_RESULTS, declaration.executionResultsOperationId());
-        result.put(BulkResourceOperation.Role.CANCEL, declaration.cancelOperationId());
+        result.put(BulkResourceOperation.Role.PROPOSAL,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.PROPOSAL));
+        result.put(BulkResourceOperation.Role.PROPOSAL_RESULTS,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.PROPOSAL_RESULTS));
+        result.put(BulkResourceOperation.Role.EXECUTION,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.EXECUTION));
+        result.put(BulkResourceOperation.Role.EXECUTION_RESULTS,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.EXECUTION_RESULTS));
+        result.put(BulkResourceOperation.Role.CANCEL,
+                BulkControllerOperationIds.lifecycleOperationId(controllerType, declaration, BulkResourceOperation.Role.CANCEL));
         if (!declaration.updateSourceOperationId().isEmpty())
             result.put(BulkResourceOperation.Role.UPDATE_SOURCE, declaration.updateSourceOperationId());
         return result;

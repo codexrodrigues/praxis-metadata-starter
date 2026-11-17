@@ -57,9 +57,21 @@ import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsDimension;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsMetric;
 import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
+import org.praxisplatform.uischema.action.ActionDefinition;
+import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
+import org.praxisplatform.uischema.action.ActionScope;
+import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.annotation.ResourceIdentity;
+import org.praxisplatform.uischema.annotation.ResourceState;
+import org.praxisplatform.uischema.capability.DefaultResourceAvailabilityService;
 import org.praxisplatform.uischema.capability.ResourceStructuralCapabilities;
+import org.praxisplatform.uischema.governance.AccessMode;
+import org.praxisplatform.uischema.governance.ResourceGovernanceInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -67,9 +79,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -107,9 +121,7 @@ public abstract class AbstractBaseQueryResourceService<
     @Override
     public ResourceStructuralCapabilities getStructuralCapabilities() {
         StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
-        StatsFieldRegistry registry = getStatsFieldRegistry() == null
-                ? StatsFieldRegistry.empty()
-                : getStatsFieldRegistry();
+        StatsFieldRegistry registry = resolveEffectiveStatsFieldRegistry();
         boolean statsInfrastructure = properties.enabled() && statsQueryExecutor != null && statsEligibility != null;
         boolean groupBy = statsInfrastructure
                 && getGroupByStatsSupportMode() != StatsSupportMode.DISABLED
@@ -183,6 +195,17 @@ public abstract class AbstractBaseQueryResourceService<
     @Autowired(required = false)
     private ObjectProvider<ScopedBatchReferenceHydrator> scopedBatchReferenceHydratorProvider;
 
+    @Autowired(required = false)
+    private ObjectProvider<ResourceGovernanceInterceptor> resourceGovernanceInterceptorProvider;
+
+    private volatile List<ResourceGovernanceInterceptor> manualGovernanceInterceptors = List.of();
+
+    @Autowired(required = false)
+    private ObjectProvider<ActionDefinitionRegistry> actionDefinitionRegistryProvider;
+
+    @Value("${praxis.export.include-table-hidden-by-default:true}")
+    private boolean includeTableHiddenExportFieldsByDefault = true;
+
     private static final ClassValue<Optional<java.lang.reflect.AccessibleObject>> VERSION_ACCESSORS = new ClassValue<>() {
         @Override protected Optional<java.lang.reflect.AccessibleObject> computeValue(Class<?> type) {
             for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass()) {
@@ -206,20 +229,98 @@ public abstract class AbstractBaseQueryResourceService<
     private final BaseCrudRepository<E, ID> repository;
     private final GenericSpecificationsBuilder<E> specificationsBuilder;
     private final Class<E> entityClass;
+    private final List<String> configuredIdentityPaths;
+    private final boolean defaultCursorPagination;
 
     protected AbstractBaseQueryResourceService(
             BaseCrudRepository<E, ID> repository,
             GenericSpecificationsBuilder<E> specificationsBuilder,
             Class<E> entityClass
     ) {
-        this.repository = repository;
-        this.specificationsBuilder = specificationsBuilder;
-        this.entityClass = entityClass;
-        CompositeIdSupport.registerEntityCompositeIdTypes(entityClass);
+        this(repository, specificationsBuilder, entityClass, false);
     }
 
     protected AbstractBaseQueryResourceService(BaseCrudRepository<E, ID> repository, Class<E> entityClass) {
         this(repository, new GenericSpecificationsBuilder<>(), entityClass);
+    }
+
+    protected AbstractBaseQueryResourceService(
+            BaseCrudRepository<E, ID> repository,
+            Class<E> entityClass,
+            String... identityPaths
+    ) {
+        this(repository, new GenericSpecificationsBuilder<>(), entityClass, true, identityPaths);
+    }
+
+    protected AbstractBaseQueryResourceService(
+            BaseCrudRepository<E, ID> repository,
+            GenericSpecificationsBuilder<E> specificationsBuilder,
+            Class<E> entityClass,
+            String... identityPaths
+    ) {
+        this(repository, specificationsBuilder, entityClass, true, identityPaths);
+    }
+
+    private AbstractBaseQueryResourceService(
+            BaseCrudRepository<E, ID> repository,
+            GenericSpecificationsBuilder<E> specificationsBuilder,
+            Class<E> entityClass,
+            boolean cursorPaginationEnabled,
+            String... identityPaths
+    ) {
+        this.repository = repository;
+        this.specificationsBuilder = specificationsBuilder;
+        this.entityClass = entityClass;
+        List<String> normalizedPaths = identityPaths == null
+                ? List.of()
+                : Arrays.stream(identityPaths)
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(path -> !path.isEmpty())
+                .toList();
+        this.configuredIdentityPaths = normalizedPaths.isEmpty() ? List.of() : List.copyOf(normalizedPaths);
+        this.defaultCursorPagination = cursorPaginationEnabled && !this.configuredIdentityPaths.isEmpty();
+        CompositeIdSupport.registerEntityCompositeIdTypes(entityClass);
+    }
+
+    public void setResourceGovernanceInterceptors(List<ResourceGovernanceInterceptor> interceptors) {
+        if (interceptors == null || interceptors.isEmpty()) {
+            this.manualGovernanceInterceptors = List.of();
+            return;
+        }
+        List<ResourceGovernanceInterceptor> copy = new ArrayList<>();
+        for (ResourceGovernanceInterceptor interceptor : interceptors) {
+            if (interceptor != null) {
+                copy.add(interceptor);
+            }
+        }
+        AnnotationAwareOrderComparator.sort(copy);
+        this.manualGovernanceInterceptors = List.copyOf(copy);
+    }
+
+    public void setIncludeTableHiddenExportFieldsByDefault(boolean includeTableHiddenExportFieldsByDefault) {
+        this.includeTableHiddenExportFieldsByDefault = includeTableHiddenExportFieldsByDefault;
+    }
+
+    protected final List<ResourceGovernanceInterceptor> getResourceGovernanceInterceptors() {
+        List<ResourceGovernanceInterceptor> combined = new ArrayList<>();
+        if (resourceGovernanceInterceptorProvider != null) {
+            resourceGovernanceInterceptorProvider.orderedStream().forEach(combined::add);
+        }
+        if (!manualGovernanceInterceptors.isEmpty()) {
+            for (ResourceGovernanceInterceptor manual : manualGovernanceInterceptors) {
+                if (!combined.contains(manual)) {
+                    combined.add(manual);
+                }
+            }
+            AnnotationAwareOrderComparator.sort(combined);
+        }
+        return combined.isEmpty() ? List.of() : List.copyOf(combined);
+    }
+
+    @Override
+    public boolean supportsCursorPagination() {
+        return defaultCursorPagination;
     }
 
     private org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider customFieldDefinitions =
@@ -278,26 +379,80 @@ public abstract class AbstractBaseQueryResourceService<
 
     @Override
     public Sort getDefaultSort() {
-        List<Field> sortedFields = getAllFields(getEntityClass()).stream()
-                .filter(field -> field.isAnnotationPresent(DefaultSortColumn.class))
-                .sorted(Comparator.comparingInt(field -> field.getAnnotation(DefaultSortColumn.class).priority()))
-                .toList();
+        record SortCandidate(String property, int priority, boolean ascending) {}
+        Map<String, SortCandidate> byProperty = new LinkedHashMap<>();
 
-        if (sortedFields.isEmpty()) {
+        for (Field field : getAllFields(getEntityClass())) {
+            DefaultSortColumn annotation = field.getAnnotation(DefaultSortColumn.class);
+            if (annotation != null) {
+                byProperty.putIfAbsent(field.getName(),
+                        new SortCandidate(field.getName(), annotation.priority(), annotation.ascending()));
+            }
+        }
+
+        Class<?> current = getEntityClass();
+        while (current != null && current != Object.class && current != Record.class) {
+            for (var method : current.getDeclaredMethods()) {
+                DefaultSortColumn annotation = method.getAnnotation(DefaultSortColumn.class);
+                if (annotation == null || Modifier.isStatic(method.getModifiers())
+                        || method.isSynthetic() || method.isBridge()) {
+                    continue;
+                }
+                String propName = resolveDefaultSortPropertyName(current, method);
+                if (propName != null) {
+                    byProperty.putIfAbsent(propName,
+                            new SortCandidate(propName, annotation.priority(), annotation.ascending()));
+                }
+            }
+            if (current.isRecord()) {
+                for (var component : current.getRecordComponents()) {
+                    DefaultSortColumn annotation = component.getAnnotation(DefaultSortColumn.class);
+                    if (annotation != null) {
+                        byProperty.putIfAbsent(component.getName(),
+                                new SortCandidate(component.getName(), annotation.priority(), annotation.ascending()));
+                    }
+                }
+            }
+            current = current.getSuperclass();
+        }
+
+        if (byProperty.isEmpty()) {
+            if (!configuredIdentityPaths.isEmpty()) {
+                List<Sort.Order> identityOrders = configuredIdentityPaths.stream()
+                        .map(Sort.Order::asc)
+                        .toList();
+                return JpaCriteriaPathSupport.expandCompositeSort(getEntityClass(), Sort.by(identityOrders));
+            }
             return Sort.unsorted();
         }
 
-        List<Sort.Order> orders = sortedFields.stream()
-                .map(field -> {
-                    DefaultSortColumn annotation = field.getAnnotation(DefaultSortColumn.class);
-                    return new Sort.Order(
-                            annotation.ascending() ? Sort.Direction.ASC : Sort.Direction.DESC,
-                            field.getName()
-                    );
-                })
+        List<Sort.Order> orders = byProperty.values().stream()
+                .sorted(Comparator.comparingInt(SortCandidate::priority))
+                .map(candidate -> new Sort.Order(
+                        candidate.ascending() ? Sort.Direction.ASC : Sort.Direction.DESC,
+                        candidate.property()
+                ))
                 .toList();
 
         return JpaCriteriaPathSupport.expandCompositeSort(getEntityClass(), Sort.by(orders));
+    }
+
+    private static String resolveDefaultSortPropertyName(Class<?> owner, java.lang.reflect.Method method) {
+        if (method.getParameterCount() != 0 || method.getReturnType() == void.class) {
+            return null;
+        }
+        String name = method.getName();
+        if (owner.isRecord()) {
+            return name;
+        }
+        if (name.startsWith("get") && name.length() > 3) {
+            return Character.toLowerCase(name.charAt(3)) + name.substring(4);
+        }
+        if (name.startsWith("is") && name.length() > 2
+                && (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class)) {
+            return Character.toLowerCase(name.charAt(2)) + name.substring(3);
+        }
+        return name;
     }
 
     @Override
@@ -307,30 +462,46 @@ public abstract class AbstractBaseQueryResourceService<
 
     @Override
     public StatsSupportMode getGroupByStatsSupportMode() {
-        return getStatsFieldRegistry() == null || getStatsFieldRegistry().descriptors().isEmpty()
+        StatsFieldRegistry registry = resolveEffectiveStatsFieldRegistry();
+        return registry.descriptors().isEmpty()
                 ? StatsSupportMode.DISABLED : StatsSupportMode.AUTO;
     }
 
     @Override
     public StatsSupportMode getTimeSeriesStatsSupportMode() {
-        return getStatsFieldRegistry() == null || getStatsFieldRegistry().descriptors().isEmpty()
+        StatsFieldRegistry registry = resolveEffectiveStatsFieldRegistry();
+        return registry.descriptors().isEmpty()
                 ? StatsSupportMode.DISABLED : StatsSupportMode.AUTO;
     }
 
     @Override
     public StatsSupportMode getDistributionStatsSupportMode() {
-        return getStatsFieldRegistry() == null || getStatsFieldRegistry().descriptors().isEmpty()
+        StatsFieldRegistry registry = resolveEffectiveStatsFieldRegistry();
+        return registry.descriptors().isEmpty()
                 ? StatsSupportMode.DISABLED : StatsSupportMode.AUTO;
     }
 
     public StatsSupportMode getComparisonStatsSupportMode() {
-        return getStatsFieldRegistry() == null || getStatsFieldRegistry().descriptors().isEmpty()
+        StatsFieldRegistry registry = resolveEffectiveStatsFieldRegistry();
+        return registry.descriptors().isEmpty()
                 ? StatsSupportMode.DISABLED : StatsSupportMode.AUTO;
     }
 
     @Override
     public StatsFieldRegistry getStatsFieldRegistry() {
         return StatsFieldRegistry.empty();
+    }
+
+    protected final StatsFieldRegistry resolveEffectiveStatsFieldRegistry() {
+        StatsFieldRegistry registry = getStatsFieldRegistry();
+        if (registry == null) {
+            registry = StatsFieldRegistry.empty();
+        }
+        for (ResourceGovernanceInterceptor interceptor : getResourceGovernanceInterceptors()) {
+            StatsFieldRegistry filtered = interceptor.filterStatsRegistry(this, registry);
+            registry = filtered != null ? filtered : StatsFieldRegistry.empty();
+        }
+        return registry;
     }
 
     @Override
@@ -452,14 +623,14 @@ public abstract class AbstractBaseQueryResourceService<
             return;
         }
         E entity = findEntityById(id);
-        seedStateSnapshotInActiveScope(id, toResourceStateSnapshot(entity));
+        seedStateSnapshotInActiveScope(id, resolveEffectiveStateSnapshot(entity));
     }
 
     @Override
     @Transactional(readOnly = true)
     public ResourceRepresentationResult<ResponseDTO> findById(ID id) {
         E entity = findEntityById(id);
-        seedStateSnapshotInActiveScope(id, toResourceStateSnapshot(entity));
+        seedStateSnapshotInActiveScope(id, resolveEffectiveStateSnapshot(entity));
         return toResourceRepresentation(entity);
     }
 
@@ -525,9 +696,60 @@ public abstract class AbstractBaseQueryResourceService<
     }
 
     private List<ResponseDTO> toResponses(Collection<E> entities) {
-        List<ResponseDTO> responses = entities.stream().map(this::unproxyEntity).map(getResourceMapper()::toResponse).toList();
+        return toResponses(entities, "list");
+    }
+
+    private List<ResponseDTO> toResponses(Collection<E> entities, String surfaceOrOperation) {
+        if (entities == null || entities.isEmpty()) {
+            return List.of();
+        }
+        List<E> unproxied = entities.stream().map(this::unproxyEntity).toList();
+        List<ResponseDTO> responses = unproxied.stream()
+                .map(getResourceMapper()::toResponse)
+                .collect(Collectors.toCollection(ArrayList::new));
         enrichResponses(responses);
-        return responses;
+        return applyResponsesGovernance(unproxied, responses, surfaceOrOperation);
+    }
+
+    protected final List<ResponseDTO> applyResponsesGovernance(
+            List<E> entities,
+            List<ResponseDTO> responses,
+            String surfaceOrOperation
+    ) {
+        if (responses == null || responses.isEmpty()) {
+            return responses == null ? List.of() : responses;
+        }
+        List<ResourceGovernanceInterceptor> interceptors = getResourceGovernanceInterceptors();
+        if (interceptors.isEmpty()) {
+            return responses;
+        }
+        List<ResponseDTO> current = new ArrayList<>(responses);
+        int pairCount = entities != null ? Math.min(entities.size(), current.size()) : 0;
+        for (ResourceGovernanceInterceptor interceptor : interceptors) {
+            for (int i = 0; i < pairCount; i++) {
+                current.set(i, interceptor.decorateResponse(this, entities.get(i), current.get(i), surfaceOrOperation));
+            }
+            List<ResponseDTO> batch = interceptor.decorateResponses(this, List.copyOf(current), surfaceOrOperation);
+            current = batch == null ? List.of() : new ArrayList<>(batch);
+            pairCount = entities != null ? Math.min(entities.size(), current.size()) : 0;
+        }
+        return List.copyOf(current);
+    }
+
+    protected final ResponseDTO applySingleResponseGovernance(
+            E entity,
+            ResponseDTO response,
+            String surfaceOrOperation
+    ) {
+        if (response == null) {
+            return null;
+        }
+        List<ResponseDTO> decorated = applyResponsesGovernance(
+                entity == null ? List.of() : List.of(entity),
+                List.of(response),
+                surfaceOrOperation
+        );
+        return decorated.isEmpty() ? null : decorated.getFirst();
     }
 
     protected Optional<ResourceStateSnapshot> toResourceStateSnapshot(E entity) { return Optional.empty(); }
@@ -538,9 +760,25 @@ public abstract class AbstractBaseQueryResourceService<
     public Optional<ResourceStateSnapshot> findResourceStateSnapshot(ID id) {
         return org.praxisplatform.uischema.capability.ResourceStateSnapshotScope.findSeededServiceSnapshot(this, id)
                 .orElseGet(() -> {
-                    Optional<ResourceStateSnapshot> snapshot = toResourceStateSnapshot(findEntityById(id));
-                    seedStateSnapshotInActiveScope(id, snapshot);
-                    return snapshot;
+                    try {
+                        E entity = findEntityById(id);
+                        Optional<ResourceStateSnapshot> snapshot = resolveEffectiveStateSnapshot(entity);
+                        seedStateSnapshotInActiveScope(id, snapshot);
+                        return snapshot;
+                    } catch (EntityNotFoundException ex) {
+                        return Optional.empty();
+                    } catch (ResponseStatusException ex) {
+                        int status = ex.getStatusCode().value();
+                        if (status == 403 || status == 404) {
+                            return Optional.empty();
+                        }
+                        throw ex;
+                    } catch (RuntimeException ex) {
+                        if (isAccessDeniedException(ex)) {
+                            return Optional.empty();
+                        }
+                        throw ex;
+                    }
                 });
     }
 
@@ -554,9 +792,18 @@ public abstract class AbstractBaseQueryResourceService<
      * hook and flush, so optimistic-lock failure occurs before returning a successful result.
      */
     protected final ResourceRepresentationResult<ResponseDTO> toResourceRepresentation(E entity) {
+        return toResourceRepresentation(entity, "findById");
+    }
+
+    protected final ResourceRepresentationResult<ResponseDTO> toResourceRepresentation(
+            E entity,
+            String surfaceOrOperation
+    ) {
         entity = unproxyEntity(entity);
+        ResponseDTO response = enrichSingleResponse(getResourceMapper().toResponse(entity));
+        response = applySingleResponseGovernance(entity, response, surfaceOrOperation);
         ResourceRepresentationResult<ResponseDTO> result = new ResourceRepresentationResult<>(
-                enrichSingleResponse(getResourceMapper().toResponse(entity)), getEntityResourceVersion(entity));
+                response, getEntityResourceVersion(entity));
         if (this instanceof VersionedCreateUpdateResourceService<?, ?, ?, ?, ?>) {
             result.requirePersistedVersion();
         }
@@ -566,7 +813,7 @@ public abstract class AbstractBaseQueryResourceService<
     @Override
     @Transactional(readOnly = true)
     public List<ResponseDTO> findAll() {
-        return toResponses(findAllEntities());
+        return toResponses(findAllEntities(), "findAll");
     }
 
     @Override
@@ -577,23 +824,23 @@ public abstract class AbstractBaseQueryResourceService<
         }
         Map<ID, E> byId = findEntitiesById(ids).stream()
                 .collect(Collectors.toMap(this::extractId, Function.identity(), (left, right) -> left));
-        return toResponses(ids.stream().map(byId::get).filter(Objects::nonNull).toList());
+        return toResponses(ids.stream().map(byId::get).filter(Objects::nonNull).toList(), "findAllById");
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ResponseDTO> filter(FilterDTO filter, Pageable pageable, Collection<ID> includeIds) {
         Page<E> page = filterEntitiesWithIncludeIds(filter, pageable, includeIds);
-        return new PageImpl<>(toResponses(page.getContent()), page.getPageable(), page.getTotalElements());
+        return new PageImpl<>(toResponses(page.getContent(), "filter"), page.getPageable(), page.getTotalElements());
     }
 
     @Override
     @Transactional(readOnly = true)
     public CursorPage<ResponseDTO> filterByCursor(FilterDTO filter, Sort sort, String after, String before, int size) {
         CursorPage<E> page = filterEntitiesByCursor(filter, sort, after, before, size);
-        assertEntitiesAccessAllowed(page.content());
+        enforceEntitiesAccessAllowed(page.content(), AccessMode.READ);
         return new CursorPage<>(
-                toResponses(page.content()),
+                toResponses(page.content(), "cursor"),
                 page.next(),
                 page.prev(),
                 page.size()
@@ -617,13 +864,23 @@ public abstract class AbstractBaseQueryResourceService<
 
     protected List<CollectionExportField> allExportableFields() { return ResourceExportSupport.allExportableFields(getResponseType()); }
 
-    protected List<CollectionExportField> exportFields() { return defaultExportFields(); }
+    protected List<CollectionExportField> exportFields() {
+        return includeTableHiddenExportFieldsByDefault ? allExportableFields() : defaultExportFields();
+    }
 
     /** Reapplies DTO governance even to host-authored field allowlists. */
     protected final List<CollectionExportField> governedExportFields() {
-        return exportFields().stream().filter(Objects::nonNull).filter(field -> field.exportable() != Boolean.FALSE)
+        List<CollectionExportField> fields = exportFields().stream()
+                .filter(Objects::nonNull)
+                .filter(field -> field.exportable() != Boolean.FALSE)
                 .filter(field -> ResourceExportSupport.exportable(getResponseType(),
-                        field.valuePath() == null || field.valuePath().isBlank() ? field.key() : field.valuePath())).toList();
+                        field.valuePath() == null || field.valuePath().isBlank() ? field.key() : field.valuePath()))
+                .toList();
+        for (ResourceGovernanceInterceptor interceptor : getResourceGovernanceInterceptors()) {
+            List<CollectionExportField> filtered = interceptor.filterExportFields(this, fields);
+            fields = filtered == null ? List.of() : List.copyOf(filtered);
+        }
+        return fields;
     }
 
     protected int maxExportRows(CollectionExportFormat format) { return 10_000; }
@@ -649,6 +906,9 @@ public abstract class AbstractBaseQueryResourceService<
         if (limit < 1 || limit == Integer.MAX_VALUE) throw new IllegalStateException("Invalid resource export limit");
         int maxRows = request.maxRows() == null ? limit : request.maxRows();
         if (maxRows < 1 || maxRows > limit) throw new IllegalArgumentException("maxRows exceeds the resource export limit");
+        for (ResourceGovernanceInterceptor interceptor : getResourceGovernanceInterceptors()) {
+            interceptor.authorizeExport(this, request);
+        }
         CollectionExportSelection selection = request.selection();
         boolean selected = selection != null && (!selection.selectedKeys().isEmpty() || Boolean.TRUE.equals(selection.allMatchingSelected()));
         CollectionExportScope scope = request.scope() == CollectionExportScope.AUTO
@@ -690,10 +950,10 @@ public abstract class AbstractBaseQueryResourceService<
             };
             entities = repository.findAll(spec, pageable).getContent();
         }
-        assertEntitiesAccessAllowed(entities);
+        enforceEntitiesAccessAllowed(entities, AccessMode.EXPORT);
         boolean truncated = entities.size() > windowSize && (scope != CollectionExportScope.CURRENT_PAGE
                 || request.pagination().pageSize() > windowSize);
-        List<ResponseDTO> rows = toResponses(entities.subList(0, Math.min(windowSize, entities.size())));
+        List<ResponseDTO> rows = toResponses(entities.subList(0, Math.min(windowSize, entities.size())), "export");
         List<CollectionExportField> fields = governedExportFields();
         var effectiveRequest = new CollectionExportRequest<>(request.componentType(), request.componentId(), request.resourcePath(),
                 request.format(), scope, request.selection(), request.fields(), request.filters(), request.sort(), request.pagination(),
@@ -796,7 +1056,7 @@ public abstract class AbstractBaseQueryResourceService<
         return optionSourceQueryExecutor.filterOptions(
                 entityManager,
                 entityClass,
-                Objects.requireNonNull(resolveResourceFilterAccessScope()).specification()
+                resolveEffectiveFilterAccessScope().specification()
                         .and(specification == null ? null : specification.spec()),
                 providerFilterPayload == null ? effectiveFilter : providerFilterPayload,
                 descriptor,
@@ -824,7 +1084,7 @@ public abstract class AbstractBaseQueryResourceService<
         return optionSourceQueryExecutor.byIdsOptions(
                 entityManager,
                 entityClass,
-                Objects.requireNonNull(resolveResourceFilterAccessScope()).specification()
+                resolveEffectiveFilterAccessScope().specification()
                         .and(specification == null ? null : specification.spec()),
                 effectiveFilter,
                 descriptor,
@@ -865,7 +1125,7 @@ public abstract class AbstractBaseQueryResourceService<
         return optionSourceQueryExecutor.byIdsOptions(
                 entityManager,
                 entityClass,
-                Objects.requireNonNull(resolveResourceFilterAccessScope()).specification()
+                resolveEffectiveFilterAccessScope().specification()
                         .and(specification == null ? null : specification.spec()),
                 providerFilterPayload == null ? effectiveFilter : providerFilterPayload,
                 descriptor,
@@ -885,7 +1145,7 @@ public abstract class AbstractBaseQueryResourceService<
 
         List<ResolvedStatsDimension> dimensions = statsEligibility.validateGroupByDimensions(
                 request,
-                getStatsFieldRegistry(),
+                resolveEffectiveStatsFieldRegistry(),
                 properties.maxBuckets(),
                 properties.maxDimensions(),
                 properties.maxCells(),
@@ -953,7 +1213,7 @@ public abstract class AbstractBaseQueryResourceService<
             List<ResolvedStatsDimension> dimensions
     ) {
         if (request.periodField() != null && !request.periodField().isBlank()) {
-            return getStatsFieldRegistry().resolve(request.periodField().trim())
+            return resolveEffectiveStatsFieldRegistry().resolve(request.periodField().trim())
                     .orElseThrow(() -> new IllegalArgumentException("Stats period field is not allowed: " + request.periodField()));
         }
         return dimensions.stream()
@@ -976,7 +1236,7 @@ public abstract class AbstractBaseQueryResourceService<
 
         StatsFieldDescriptor descriptor = statsEligibility.validateTimeSeries(
                 request,
-                getStatsFieldRegistry(),
+                resolveEffectiveStatsFieldRegistry(),
                 properties.maxSeriesPoints()
         );
         List<ResolvedStatsMetric> resolvedMetrics = resolveMetrics(request.effectiveMetrics(), "time-series");
@@ -1001,13 +1261,14 @@ public abstract class AbstractBaseQueryResourceService<
             throw new UnsupportedOperationException("Distribution stats not implemented");
         }
 
+        StatsFieldRegistry effectiveRegistry = resolveEffectiveStatsFieldRegistry();
         StatsFieldDescriptor descriptor = statsEligibility.validateDistribution(
                 request,
-                getStatsFieldRegistry(),
+                effectiveRegistry,
                 properties.maxBuckets()
         );
         StatsFieldDescriptor metricDescriptor = request.mode() == org.praxisplatform.uischema.stats.DistributionMode.TERMS
-                ? statsEligibility.resolveMetricField(request.metric(), getStatsFieldRegistry(), "distribution")
+                ? statsEligibility.resolveMetricField(request.metric(), effectiveRegistry, "distribution")
                 : null;
         Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged()).effectiveSpecification();
         return statsQueryExecutor.executeDistribution(
@@ -1029,8 +1290,9 @@ public abstract class AbstractBaseQueryResourceService<
                 || statsQueryExecutor == null || statsEligibility == null) {
             throw new UnsupportedOperationException("Comparison stats not implemented");
         }
-        StatsFieldDescriptor descriptor = statsEligibility.validateComparison(request, getStatsFieldRegistry(), properties.maxBuckets());
-        StatsFieldDescriptor periodDescriptor = getStatsFieldRegistry().resolve(request.periodField()).orElseThrow();
+        StatsFieldRegistry effectiveRegistry = resolveEffectiveStatsFieldRegistry();
+        StatsFieldDescriptor descriptor = statsEligibility.validateComparison(request, effectiveRegistry, properties.maxBuckets());
+        StatsFieldDescriptor periodDescriptor = effectiveRegistry.resolve(request.periodField()).orElseThrow();
         ResolvedComparisonPeriod period = new ComparisonPeriodResolver(statsClock == null ? Clock.systemUTC() : statsClock).resolve(request.period());
         long periodDays = java.time.temporal.ChronoUnit.DAYS.between(period.currentFrom(), period.currentTo()) + 1;
         if (periodDays > properties.maxComparisonPeriodDays()) {
@@ -1190,6 +1452,9 @@ public abstract class AbstractBaseQueryResourceService<
 
     /** Identity components in canonical declaration order; override for a host-defined mapping. */
     protected List<String> getIdentityPaths() {
+        if (!configuredIdentityPaths.isEmpty()) {
+            return configuredIdentityPaths;
+        }
         List<String> paths = new ArrayList<>();
         for (Field field : getAllFields(entityClass)) {
             if (field.isAnnotationPresent(EmbeddedId.class)) {
@@ -1309,6 +1574,11 @@ public abstract class AbstractBaseQueryResourceService<
             }
         }
 
+        String identityTitle = resolveIdentityTitle(entity);
+        if (identityTitle != null) {
+            return identityTitle;
+        }
+
         for (String getterName : List.of("getLabel", "getNomeCompleto", "getNome", "getDescricao", "getTitle")) {
             Method method = findMethodIgnoreCase(clazz, getterName);
             if (method == null) {
@@ -1330,12 +1600,12 @@ public abstract class AbstractBaseQueryResourceService<
 
     protected E findEntityById(ID id) {
         E entity = unproxyEntity(repository.findById(id).orElseThrow(this::getNotFoundException));
-        assertEntityAccessAllowed(entity);
+        enforceEntityAccessAllowed(entity, AccessMode.READ);
         return entity;
     }
 
     protected List<E> findAllEntities() {
-        return repository.findAll(Objects.requireNonNull(resolveResourceFilterAccessScope()).specification(), expandResourceSort(getDefaultSort()));
+        return repository.findAll(resolveEffectiveFilterAccessScope().specification(), expandResourceSort(getDefaultSort()));
     }
 
     protected List<E> findEntitiesById(Collection<ID> ids) {
@@ -1346,7 +1616,7 @@ public abstract class AbstractBaseQueryResourceService<
         List<E> entities = repository.findAllById(ids).stream().map(this::unproxyEntity).toList();
         Set<ID> found = entities.stream().map(this::extractId).collect(Collectors.toSet());
         if (ids.stream().anyMatch(id -> !found.contains(id))) throw getNotFoundException();
-        assertEntitiesAccessAllowed(entities);
+        enforceEntitiesAccessAllowed(entities, AccessMode.READ);
         return entities;
     }
 
@@ -1362,6 +1632,25 @@ public abstract class AbstractBaseQueryResourceService<
         entities.forEach(this::assertEntityAccessAllowed);
     }
 
+    protected final void enforceEntityAccessAllowed(E entity, AccessMode mode) {
+        assertEntityAccessAllowed(entity);
+        AccessMode effectiveMode = mode != null ? mode : AccessMode.READ;
+        for (ResourceGovernanceInterceptor interceptor : getResourceGovernanceInterceptors()) {
+            interceptor.verifyEntityAccess(this, entity, effectiveMode);
+        }
+    }
+
+    protected final void enforceEntitiesAccessAllowed(Collection<E> entities, AccessMode mode) {
+        if (entities == null || entities.isEmpty()) {
+            return;
+        }
+        assertEntitiesAccessAllowed(entities);
+        AccessMode effectiveMode = mode != null ? mode : AccessMode.READ;
+        for (ResourceGovernanceInterceptor interceptor : getResourceGovernanceInterceptors()) {
+            interceptor.verifyEntitiesAccess(this, entities, effectiveMode);
+        }
+    }
+
     /**
      * Resolves the mandatory server-side row scope for resource filter queries.
      *
@@ -1374,6 +1663,20 @@ public abstract class AbstractBaseQueryResourceService<
         return ResourceFilterAccessScope.unrestricted();
     }
 
+    protected final ResourceFilterAccessScope<E> resolveEffectiveFilterAccessScope() {
+        ResourceFilterAccessScope<E> scope = Objects.requireNonNull(
+                resolveResourceFilterAccessScope(),
+                "resolveResourceFilterAccessScope() must return an explicit scope"
+        );
+        for (ResourceGovernanceInterceptor interceptor : getResourceGovernanceInterceptors()) {
+            ResourceFilterAccessScope<E> customized = interceptor.customizeFilterAccessScope(this, scope);
+            if (customized != null) {
+                scope = customized;
+            }
+        }
+        return scope;
+    }
+
     protected Page<E> filterEntities(FilterDTO filterDTO, Pageable pageable) {
         ResourceFilterQuery<E> query = resolveResourceFilterQuery(filterDTO, pageable);
         return repository.findAll(query.effectiveSpecification(), query.pageable());
@@ -1382,7 +1685,7 @@ public abstract class AbstractBaseQueryResourceService<
     protected Page<E> filterEntitiesWithIncludeIds(FilterDTO filter, Pageable pageable, Collection<ID> includeIds) {
         ResourceFilterQuery<E> query = resolveResourceFilterQuery(filter, pageable);
         Page<E> page = repository.findAll(query.effectiveSpecification(), query.pageable());
-        assertEntitiesAccessAllowed(page.getContent());
+        enforceEntitiesAccessAllowed(page.getContent(), AccessMode.READ);
         if (includeIds == null || includeIds.isEmpty()) {
             return page;
         }
@@ -1408,7 +1711,7 @@ public abstract class AbstractBaseQueryResourceService<
         List<ID> missing = orderedIds.stream().filter(id -> !ensured.containsKey(id)).toList();
         if (!missing.isEmpty()) {
             List<E> included = findEntitiesByIdWithinAccessScope(missing, query.accessSpecification());
-            assertEntitiesAccessAllowed(included);
+            enforceEntitiesAccessAllowed(included, AccessMode.READ);
             included.forEach(entity -> ensured.put(extractId(entity), entity));
         }
 
@@ -1445,10 +1748,7 @@ public abstract class AbstractBaseQueryResourceService<
                         : Pageable.unpaged(expandedSort);
             }
         }
-        ResourceFilterAccessScope<E> accessScope = Objects.requireNonNull(
-                resolveResourceFilterAccessScope(),
-                "resolveResourceFilterAccessScope() must return an explicit scope"
-        );
+        ResourceFilterAccessScope<E> accessScope = resolveEffectiveFilterAccessScope();
         Specification<E> access = accessScope.specification();
         return new ResourceFilterQuery<>(access, access.and(functional.spec()), effectivePageable);
     }
@@ -1479,12 +1779,9 @@ public abstract class AbstractBaseQueryResourceService<
         if (distinctIds.isEmpty()) {
             return Map.of();
         }
-        ResourceFilterAccessScope<E> accessScope = Objects.requireNonNull(
-                resolveResourceFilterAccessScope(),
-                "resolveResourceFilterAccessScope() must return an explicit scope"
-        );
+        ResourceFilterAccessScope<E> accessScope = resolveEffectiveFilterAccessScope();
         List<E> entities = findEntitiesByIdWithinAccessScope(distinctIds, accessScope.specification());
-        assertEntitiesAccessAllowed(entities);
+        enforceEntitiesAccessAllowed(entities, AccessMode.READ);
         Map<ID, String> titles = new LinkedHashMap<>();
         for (E entity : entities) {
             E unproxied = unproxyEntity(entity);
@@ -1548,16 +1845,178 @@ public abstract class AbstractBaseQueryResourceService<
         if (optionSourceEligibility == null) {
             return descriptor;
         }
-        return optionSourceEligibility.resolveEffectiveDescriptor(descriptor, getStatsFieldRegistry());
+        return optionSourceEligibility.resolveEffectiveDescriptor(descriptor, resolveEffectiveStatsFieldRegistry());
     }
 
     protected List<ResolvedStatsMetric> resolveMetrics(List<StatsMetricRequest> metrics, String operationName) {
+        StatsFieldRegistry effectiveRegistry = resolveEffectiveStatsFieldRegistry();
         return metrics.stream()
                 .map(metric -> new ResolvedStatsMetric(
                         metric,
-                        statsEligibility.resolveMetricField(metric, getStatsFieldRegistry(), operationName)
+                        statsEligibility.resolveMetricField(metric, effectiveRegistry, operationName)
                 ))
                 .toList();
+    }
+
+    private Optional<ResourceStateSnapshot> resolveEffectiveStateSnapshot(E entity) {
+        if (entity == null) {
+            return Optional.empty();
+        }
+        Optional<ResourceStateSnapshot> custom = toResourceStateSnapshot(entity);
+        ResourceStateSnapshot base = custom.orElse(null);
+        if (base == null) {
+            String autoState = readResourceStateValue(entity);
+            if (autoState == null) {
+                return Optional.empty();
+            }
+            base = ResourceStateSnapshot.of(autoState);
+        }
+        if (actionDefinitionRegistryProvider == null) {
+            return Optional.of(base);
+        }
+        ActionDefinitionRegistry registry = actionDefinitionRegistryProvider.getIfAvailable();
+        if (registry == null) {
+            return Optional.of(base);
+        }
+        List<ActionDefinition> actions = registry.findByResourceKey(resolveResourceKey());
+        if (actions == null || actions.isEmpty()) {
+            return Optional.of(base);
+        }
+        Map<String, Object> enrichedMetadata = new LinkedHashMap<>(base.metadata());
+        String currentState = base.state() != null ? base.state().trim() : null;
+        for (ActionDefinition action : actions) {
+            if (action == null || action.id() == null || action.id().isBlank()) {
+                continue;
+            }
+            String actionId = action.id().trim();
+            if ((action.scope() == null || action.scope() == ActionScope.ITEM)
+                    && action.allowedStates() != null && !action.allowedStates().isEmpty()
+                    && currentState != null && !currentState.isEmpty()) {
+                boolean allowed = action.allowedStates().contains(currentState);
+                enrichedMetadata.putIfAbsent(
+                        DefaultResourceAvailabilityService.ACTION_PREFIX + "." + actionId + "."
+                                + DefaultResourceAvailabilityService.KEY_ALLOWED,
+                        allowed
+                );
+                if (!allowed) {
+                    String reason = action.disallowedStateReason() != null && !action.disallowedStateReason().isBlank()
+                            ? action.disallowedStateReason().trim()
+                            : "resource-state-blocked";
+                    enrichedMetadata.putIfAbsent(
+                            DefaultResourceAvailabilityService.ACTION_PREFIX + "." + actionId + "."
+                                    + DefaultResourceAvailabilityService.KEY_REASON,
+                            reason
+                    );
+                }
+            }
+            if (action.legalBasisRef() != null && !action.legalBasisRef().isBlank()) {
+                enrichedMetadata.putIfAbsent(
+                        DefaultResourceAvailabilityService.ACTION_PREFIX + "." + actionId + "."
+                                + DefaultResourceAvailabilityService.KEY_LEGAL_BASIS,
+                        action.legalBasisRef().trim()
+                );
+            }
+        }
+        return Optional.of(new ResourceStateSnapshot(base.state(), enrichedMetadata));
+    }
+
+    private String readResourceStateValue(Object target) {
+        if (target == null) {
+            return null;
+        }
+        Class<?> clazz = target.getClass();
+        for (Field field : getAllFields(clazz)) {
+            if (AnnotatedElementUtils.hasAnnotation(field, ResourceState.class)) {
+                field.setAccessible(true);
+                try {
+                    String text = extractResourceStateText(field.get(target));
+                    if (text != null) {
+                        return text;
+                    }
+                } catch (IllegalAccessException ignored) {
+                }
+            }
+        }
+        for (Method method : getAllMethods(clazz)) {
+            if (method.getParameterCount() == 0 && AnnotatedElementUtils.hasAnnotation(method, ResourceState.class)) {
+                method.setAccessible(true);
+                try {
+                    String text = extractResourceStateText(method.invoke(target));
+                    if (text != null) {
+                        return text;
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                }
+            }
+        }
+        return null;
+    }
+
+    private String extractResourceStateText(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Enum<?> enumValue) {
+            return enumValue.name();
+        }
+        String text = String.valueOf(value).trim();
+        return text.isEmpty() ? null : text;
+    }
+
+    private boolean isAccessDeniedException(Throwable ex) {
+        for (Class<?> current = ex == null ? null : ex.getClass();
+             current != null && current != Object.class;
+             current = current.getSuperclass()) {
+            String name = current.getName();
+            if ("org.springframework.security.access.AccessDeniedException".equals(name)
+                    || "org.springframework.security.authorization.AuthorizationDeniedException".equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String resolveIdentityTitle(E entity) {
+        if (entity == null) {
+            return null;
+        }
+        for (Class<?> sourceType : List.of(getEntityClass(), getClass(), getResponseType())) {
+            if (sourceType == null) {
+                continue;
+            }
+            ResourceIdentity identity = findResourceIdentityAnnotation(sourceType);
+            if (identity == null) {
+                continue;
+            }
+            String fieldPath = !identity.titleField().isBlank()
+                    ? identity.titleField().trim()
+                    : !identity.displayLabelField().isBlank() ? identity.displayLabelField().trim() : null;
+            if (fieldPath == null) {
+                continue;
+            }
+            String text = readIdentityPathSilently(entity, fieldPath);
+            if (text != null) {
+                return text;
+            }
+        }
+        return null;
+    }
+
+    private ResourceIdentity findResourceIdentityAnnotation(Class<?> type) {
+        ResourceIdentity direct = AnnotatedElementUtils.findMergedAnnotation(type, ResourceIdentity.class);
+        if (direct != null) {
+            return direct;
+        }
+        ApiResource apiResource = AnnotatedElementUtils.findMergedAnnotation(type, ApiResource.class);
+        return apiResource != null ? apiResource.identity() : null;
+    }
+
+    private String readIdentityPathSilently(E entity, String path) {
+        try {
+            return toNonBlankString(ResourceKeysetSupport.read(entity, path));
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     private boolean hasOptionLabelAnnotation(java.lang.reflect.AnnotatedElement element) {

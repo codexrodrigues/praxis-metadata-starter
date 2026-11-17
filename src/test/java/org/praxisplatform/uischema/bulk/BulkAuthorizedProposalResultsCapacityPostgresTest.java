@@ -188,7 +188,7 @@ class BulkAuthorizedProposalResultsCapacityPostgresTest {
         long totalReadNanos = 0;
         long maxPageBytes = 0;
         int measuredStart = authorization.scopeCalls;
-        // This retained harness oracle is only 10,000 bits, not a second set of 10,000 identities.
+        // This retained harness bitset is only 10,000 bits, not a second set of 10,000 identities.
         BitSet seen = new BitSet(TARGETS);
         String next = null;
         Instant issuedAt = null;
@@ -354,7 +354,7 @@ class BulkAuthorizedProposalResultsCapacityPostgresTest {
         assertThat(tables).isNotEmpty();
         for (String table : tables) {
             assertThat(table.matches("[a-z_]+")).isTrue();
-            // Compact equality oracle over every protected durable row, kept private in memory.
+            // Compact equality digest over every protected durable row, kept private in memory.
             // MD5 here is not an authorization/security fingerprint; the grant proof uses SHA-256.
             result.put(table, sql.queryForObject("select count(*)::text || ':' || "
                     + "md5(coalesce(string_agg(h, '' order by h), '')) from "

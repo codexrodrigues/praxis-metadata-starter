@@ -540,7 +540,7 @@ class SemanticMetadataReviewerTest {
             @org.praxisplatform.uischema.annotation.DomainLineage(
                     sourceClass = AuthoritativeHealthEntity.class,
                     sourcePaths = {"cidAfastamento"},
-                    attributeId = "ergon.afastamento.cid",
+                    attributeId = "workforce.absence.medicalCode",
                     transformation = org.praxisplatform.uischema.annotation.DomainLineageTransformation.DIRECT
             )
             String cidAfastamento,
@@ -569,7 +569,7 @@ class SemanticMetadataReviewerTest {
                 new org.praxisplatform.uischema.options.OptionSourceDescriptor(
                         "cpf",
                         org.praxisplatform.uischema.options.OptionSourceType.DISTINCT_DIMENSION,
-                        "/api/ergon/afastamentos",
+                        "/api/workforce/absences",
                         "cpf",
                         "cpf",
                         "cpf",
@@ -603,7 +603,7 @@ class SemanticMetadataReviewerTest {
             @org.praxisplatform.uischema.annotation.DomainLineage(
                     sourceClass = AuthoritativeHealthEntity.class,
                     sourcePaths = {"cidAfastamento"},
-                    attributeId = "ergon.afastamento.cid",
+                    attributeId = "workforce.absence.medicalCode",
                     transformation = org.praxisplatform.uischema.annotation.DomainLineageTransformation.ALIAS
             )
             String codigoCidClinico,
@@ -649,7 +649,7 @@ class SemanticMetadataReviewerTest {
                 new org.praxisplatform.uischema.options.OptionSourceDescriptor(
                         "cpfBucket",
                         org.praxisplatform.uischema.options.OptionSourceType.CATEGORICAL_BUCKET,
-                        "/api/ergon/afastamentos",
+                        "/api/workforce/absences",
                         "cpfTitular",
                         "pessoa.cpf",
                         "pessoa.cpf",
@@ -705,7 +705,7 @@ class SemanticMetadataReviewerTest {
             @org.praxisplatform.uischema.annotation.DomainLineage(
                     sourceClass = AuthoritativePersonEntity.class,
                     sourcePaths = {"nome"},
-                    attributeId = "ergon.servidor_pessoa.nome",
+                    attributeId = "workforce.employee_person.name",
                     transformation = org.praxisplatform.uischema.annotation.DomainLineageTransformation.ALIAS
             )
             String pessoaNome,
@@ -2409,7 +2409,7 @@ class SemanticMetadataReviewerTest {
             }
     )
     @org.praxisplatform.uischema.bulk.BulkResourceOperations(
-            proposalOperationId = "",
+            proposalOperationId = "   ",
             proposalResultsOperationId = "r",
             executionOperationId = "e",
             executionResultsOperationId = "er",

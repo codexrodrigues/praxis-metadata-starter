@@ -108,6 +108,86 @@ public class ApiResourceIdentityResolver {
         });
     }
 
+    public Optional<Map<String, Object>> resolveProgression(String canonicalPath, String httpMethod) {
+        return findHandlerMethod(canonicalPath, httpMethod).flatMap(handler -> {
+            Class<?> dto = resolveResponseDtoClass(ResolvableType.forMethodReturnType(
+                    handler.getMethod(), handler.getBeanType()));
+            var annotation = dto == null ? null : AnnotationUtils.findAnnotation(
+                    dto, org.praxisplatform.uischema.annotation.ResourceProgression.class);
+            if (annotation == null) {
+                annotation = AnnotationUtils.findAnnotation(
+                        handler.getBeanType(), org.praxisplatform.uischema.annotation.ResourceProgression.class);
+            }
+            if (annotation == null) {
+                return Optional.empty();
+            }
+            Map<String, Object> map = org.praxisplatform.uischema.extension.CustomOpenApiResolver.serializeResourceProgression(annotation);
+            return map.isEmpty() ? Optional.empty() : Optional.of(map);
+        });
+    }
+
+    public Optional<Map<String, Object>> resolveTimeline(String canonicalPath, String httpMethod) {
+        return findHandlerMethod(canonicalPath, httpMethod).flatMap(handler -> {
+            Class<?> dto = resolveResponseDtoClass(ResolvableType.forMethodReturnType(
+                    handler.getMethod(), handler.getBeanType()));
+            var annotation = dto == null ? null : AnnotationUtils.findAnnotation(
+                    dto, org.praxisplatform.uischema.annotation.ResourceTimeline.class);
+            if (annotation == null) {
+                annotation = AnnotationUtils.findAnnotation(
+                        handler.getBeanType(), org.praxisplatform.uischema.annotation.ResourceTimeline.class);
+            }
+            if (annotation == null) {
+                return Optional.empty();
+            }
+            Map<String, Object> map = org.praxisplatform.uischema.extension.CustomOpenApiResolver.serializeResourceTimeline(annotation);
+            return map.isEmpty() ? Optional.empty() : Optional.of(map);
+        });
+    }
+
+    public Optional<Map<String, Object>> resolveSchedule(String canonicalPath, String httpMethod) {
+        return findHandlerMethod(canonicalPath, httpMethod).flatMap(handler -> {
+            Class<?> dto = resolveResponseDtoClass(ResolvableType.forMethodReturnType(
+                    handler.getMethod(), handler.getBeanType()));
+            var annotation = dto == null ? null : AnnotationUtils.findAnnotation(
+                    dto, org.praxisplatform.uischema.annotation.ResourceSchedule.class);
+            if (annotation == null) {
+                annotation = AnnotationUtils.findAnnotation(
+                        handler.getBeanType(), org.praxisplatform.uischema.annotation.ResourceSchedule.class);
+            }
+            if (annotation == null) {
+                return Optional.empty();
+            }
+            Map<String, Object> map = org.praxisplatform.uischema.extension.CustomOpenApiResolver.serializeResourceSchedule(annotation);
+            return map.isEmpty() ? Optional.empty() : Optional.of(map);
+        });
+    }
+
+    public Optional<ResourceDtoPair> resolveResourceDtoPair(String canonicalPath, String httpMethod) {
+        return findHandlerMethod(canonicalPath, httpMethod).map(handler -> {
+            Class<?> userType = org.springframework.util.ClassUtils.getUserClass(handler.getBeanType());
+            Class<?> responseDto = resolveControllerResponseDtoClass(userType);
+            Class<?> filterDto = null;
+            if (AbstractResourceQueryController.class.isAssignableFrom(userType)) {
+                Class<?>[] args = GenericTypeResolver.resolveTypeArguments(userType, AbstractResourceQueryController.class);
+                if (args != null && args.length >= 3 && args[2] != null && args[2] != Object.class) {
+                    filterDto = args[2];
+                }
+            }
+            if (filterDto == null) {
+                for (var param : handler.getMethodParameters()) {
+                    if (org.praxisplatform.uischema.filter.dto.GenericFilterDTO.class.isAssignableFrom(param.getParameterType())) {
+                        filterDto = ResolvableType.forMethodParameter(param.withContainingClass(userType)).resolve();
+                        break;
+                    }
+                }
+            }
+            return new ResourceDtoPair(responseDto, filterDto);
+        });
+    }
+
+    public record ResourceDtoPair(Class<?> responseDtoClass, Class<?> filterDtoClass) {
+    }
+
     public static Map<String, Object> hierarchyMetadata(ResourceHierarchy hierarchy) {
         Map<String, Object> metadata = new java.util.LinkedHashMap<>();
         putHierarchyField(metadata, "parentField", hierarchy.parentField());

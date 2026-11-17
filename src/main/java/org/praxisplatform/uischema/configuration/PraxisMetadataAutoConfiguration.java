@@ -69,6 +69,26 @@ public class PraxisMetadataAutoConfiguration {
         return () -> ResourceVersionScope.GLOBAL;
     }
 
+    @Bean
+    @ConditionalOnMissingBean(name = "eagerDynamicSwaggerConfigPostProcessor")
+    public static org.springframework.beans.factory.config.BeanPostProcessor eagerDynamicSwaggerConfigPostProcessor(
+            org.springframework.beans.factory.ObjectProvider<DynamicSwaggerConfig> dynamicSwaggerConfigProvider
+    ) {
+        return new org.springframework.beans.factory.config.BeanPostProcessor() {
+            @Override
+            public Object postProcessAfterInitialization(Object bean, String beanName) {
+                if ("requestMappingHandlerMapping".equals(beanName)) {
+                    if (bean instanceof org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping mapping) {
+                        dynamicSwaggerConfigProvider.ifAvailable(config -> config.createDynamicGroups(mapping));
+                    } else {
+                        dynamicSwaggerConfigProvider.ifAvailable(ignored -> { });
+                    }
+                }
+                return bean;
+            }
+        };
+    }
+
     static {
         // Alinha o schema bruto ao JSON real dos itens de colecao antes da geracao do OpenAPI.
         SpringDocUtils.getConfig().replaceWithClass(EntityModel.class, RestApiResource.class);

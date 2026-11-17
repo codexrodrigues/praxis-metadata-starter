@@ -189,7 +189,7 @@ class BulkCapacityProvisioningInterlockPostgresTest {
             var denied = proof.await(stale, "result", "SOURCE_DENIED"); proof.join(stale);
             assertThat(denied.path("reason").asText()).isEqualTo(Denial.STALE_CAS.name());
             check(Arrays.equals(known, Files.readAllBytes(proof.dataFile)));
-            // A valid envelope with a wrong checksum is a separate corruption oracle.
+            // A valid envelope with a wrong checksum is a separate corruption check.
             var corrupt = (ObjectNode) JSON.readTree(known); corrupt.put("digest", "00".repeat(32));
             Files.write(proof.dataFile, JSON.writeValueAsBytes(corrupt));
             byte[] broken = Files.readAllBytes(proof.dataFile);

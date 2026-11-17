@@ -34,6 +34,7 @@ final class BulkAsyncPublicAdmissionNeonFixture implements AutoCloseable {
     static final ObjectMapper JSON = new ObjectMapper();
     static final String NS="async-public-neon", DEP="async-public-neon-deployment", TENANT="async-public-neon-tenant", ENV="proof";
     static final String SUBJECT="async-public-neon-operator";
+    static final String FIXTURE_BRANCH = System.getenv().getOrDefault("PRAXIS_BULK_NEON_EXPECTED_BRANCH", "neon-branch-fixture");
     final Path output;
     final HikariDataSource owner, authorityOwner;
     HikariDataSource runtimeSource, controlSource;
@@ -272,7 +273,7 @@ final class BulkAsyncPublicAdmissionNeonFixture implements AutoCloseable {
     }
     static BulkCapacityAuthorityMigrator.Identity preservedAuthorityIdentity(JsonNode value) {
         assertThat(value.path("status").asText()).isEqualTo("PENDING_UNCERTAIN");
-        assertThat(value.path("branch").asText()).isEqualTo("br-polished-mud-adr67xib");
+        assertThat(value.path("branch").asText()).isEqualTo(FIXTURE_BRANCH);
         assertThat(value.path("deployment").asText()).isEqualTo(DEP);
         assertThat(value.path("environment").asText()).isEqualTo(ENV);
         assertThat(value.path("authorityEpoch").asLong()).isEqualTo(1);
@@ -298,8 +299,8 @@ final class BulkAsyncPublicAdmissionNeonFixture implements AutoCloseable {
         var b=JSON.readTree(bindingPath.toFile());var r=JSON.readTree(receiptPath.toFile());
         assertThat(b.path("status").asText()).isEqualTo("APPROVED_BY_ROOT");
         assertThat(b.path("startMode").asText()).isEqualTo(afterDrain?"CONTINUE_PUBLISHED_AFTER_DRAIN":publishedQueue?"CONTINUE_PUBLISHED_AFTER_EXPIRED_QUEUE":fromPublication?"CONTINUE_FROM_PUBLICATION":schemaPrefix?"CONTINUE_DOMAIN_AUTHORITY_SCHEMA":"CONTINUE_DOMAIN_MIGRATED");
-        assertThat(b.path("branch").asText()).isEqualTo("br-polished-mud-adr67xib").isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_BRANCH"));
-        assertThat(b.path("endpoint").asText()).isEqualTo("ep-winter-mouse-ad836gvm.c-2.us-east-1.aws.neon.tech").isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_HOST"));
+        assertThat(b.path("branch").asText()).isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_BRANCH"));
+        assertThat(b.path("endpoint").asText()).isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_HOST"));
         assertThat(java.time.Instant.now()).isBefore(java.time.Instant.parse(b.path("expiresAt").asText()));
         assertThat(b.path("priorSnapshotSha256").asText()).isEqualTo(afterDrain?"86ece7029f9ac4ae896cb62f673075413018fc687fcf1d84d95e3f4eb68d4e95":publishedQueue?"0ddc8a1077e70c515b89a0d493f0fe1cac8c7d134a3e5440e8c2a95968115dc7":fromPublication?"dc44c098184becec126749dd69aad154dd722480df197da3a0be64291074963d":schemaPrefix?"9455c02c551bd2190817d2c7765e0e1d4d0c6f194fd00e0cb668d4b292ce2c34":"854254e9a6da0b86b10adb365f258473afe00e1c7c68795e28f7412fc1500886");
         assertThat(b.path("priorReceiptSha256").asText()).isEqualTo(afterDrain?"47471f459c98801e250662188b27fd0a8b61424b57462d32212a0ddf1c0cf2b7":publishedQueue?"0c3c2a8f288663a21d5ef041b9f20c1225bd31953c35658acf5f91594b1c1e63":fromPublication?"360e755d71b3aa780724d4b9c89881b55a825057bb4fd8555706270413253e87":schemaPrefix?"a80972f22eae966fcd27296dad90cb0bee8874e70b4b4dc232e90f9452299df3":"2e77ca1851ff6813e67dc9f37cd7bde779f35d8fa968732dee013d2c7ca623ff");

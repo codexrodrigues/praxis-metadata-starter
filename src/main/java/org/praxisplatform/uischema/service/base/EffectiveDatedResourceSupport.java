@@ -18,45 +18,83 @@ import java.util.function.Function;
 
 /**
  * Suporte canonico reutilizavel para entidades corporativas com intervalo de vigencia temporal
- * inclusivo {@code [dtini, dtfim]}, onde {@code dtfim == null} representa vigencia em aberto.
+ * inclusivo {@code [effectiveFrom, effectiveTo]}, onde {@code effectiveTo == null} representa vigencia em aberto.
  *
  * <p>Fornece tres capacidades deterministas de plataforma:
  * <ol>
  *   <li>Validacao determinista de intervalo e de nao-sobreposicao ({@link #validateNoOverlap});</li>
- *   <li>Encerramento automatico da vigencia aberta anterior ({@code dtfim = novaDtini.minusDays(1)})
+ *   <li>Encerramento automatico da vigencia aberta anterior ({@code effectiveTo = newEffectiveFrom.minusDays(1)})
  *       quando uma nova vigencia posterior e inserida ({@link #closePreviousOpenValidity},
  *       {@link #prepareAndValidateInsert});</li>
- *   <li>Especificacao JPA Criteria reutilizavel para o filtro {@code vigenteEm} / {@code asOfDate}
- *       ({@link #vigenteEm(LocalDate)}, {@link #vigenteEm(LocalDate, String, String)}).</li>
+ *   <li>Especificacao JPA Criteria reutilizavel para o filtro {@code effectiveOn} / {@code vigenteEm} / {@code asOfDate}
+ *       ({@link #effectiveOn(LocalDate)}, {@link #effectiveOn(LocalDate, String, String)}).</li>
  * </ol>
  */
 public final class EffectiveDatedResourceSupport {
 
     public static final String DEFAULT_ID_FIELD = "id";
-    public static final String DEFAULT_START_FIELD = "dtini";
-    public static final String DEFAULT_END_FIELD = "dtfim";
+    public static final String DEFAULT_START_FIELD = "effectiveFrom";
+    public static final String DEFAULT_END_FIELD = "effectiveTo";
+
+    private static final ThreadLocal<java.util.Set<Object>> LEGACY_INTERVAL_GUARD =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
 
     private EffectiveDatedResourceSupport() {
     }
 
     /**
-     * Contrato opcional de leitura para entidades ou projeções com vigencia {@code [dtini, dtfim]}.
+     * Contrato opcional de leitura para entidades ou projecoes com vigencia {@code [effectiveFrom, effectiveTo]}.
      */
     public interface EffectiveDatedInterval {
-        LocalDate getDtini();
+        /** Data inicial inclusiva da vigencia. */
+        default LocalDate getEffectiveFrom() {
+            if (LEGACY_INTERVAL_GUARD.get().contains(this)) {
+                throw new UnsupportedOperationException("Implement getEffectiveFrom() or legacy getDtini().");
+            }
+            LEGACY_INTERVAL_GUARD.get().add(this);
+            try {
+                return getDtini();
+            } finally {
+                LEGACY_INTERVAL_GUARD.get().remove(this);
+            }
+        }
 
-        LocalDate getDtfim();
+        /** Data final inclusiva da vigencia, ou {@code null} quando em aberto. */
+        default LocalDate getEffectiveTo() {
+            if (LEGACY_INTERVAL_GUARD.get().contains(this)) {
+                throw new UnsupportedOperationException("Implement getEffectiveTo() or legacy getDtfim().");
+            }
+            LEGACY_INTERVAL_GUARD.get().add(this);
+            try {
+                return getDtfim();
+            } finally {
+                LEGACY_INTERVAL_GUARD.get().remove(this);
+            }
+        }
+
+        /** @deprecated Use {@link #getEffectiveFrom()}. */
+        @Deprecated(since = "8.0.0")
+        default LocalDate getDtini() {
+            return getEffectiveFrom();
+        }
+
+        /** @deprecated Use {@link #getEffectiveTo()}. */
+        @Deprecated(since = "8.0.0")
+        default LocalDate getDtfim() {
+            return getEffectiveTo();
+        }
 
         default boolean isOpenEnded() {
-            return getDtfim() == null;
+            return getEffectiveTo() == null;
         }
 
         default boolean isEffectiveOn(LocalDate referenceDate) {
-            return EffectiveDatedResourceSupport.isEffectiveOn(getDtini(), getDtfim(), referenceDate);
+            return EffectiveDatedResourceSupport.isEffectiveOn(getEffectiveFrom(), getEffectiveTo(), referenceDate);
         }
 
-        default boolean overlaps(LocalDate otherDtini, LocalDate otherDtfim) {
-            return EffectiveDatedResourceSupport.overlaps(getDtini(), getDtfim(), otherDtini, otherDtfim);
+        default boolean overlaps(LocalDate otherEffectiveFrom, LocalDate otherEffectiveTo) {
+            return EffectiveDatedResourceSupport.overlaps(
+                    getEffectiveFrom(), getEffectiveTo(), otherEffectiveFrom, otherEffectiveTo);
         }
     }
 
@@ -64,56 +102,86 @@ public final class EffectiveDatedResourceSupport {
      * Contrato opcional de mutacao para entidades cuja vigencia aberta anterior pode ser encerrada.
      */
     public interface MutableEffectiveDatedInterval extends EffectiveDatedInterval {
-        void setDtfim(LocalDate dtfim);
+        /** Define a data final de encerramento da vigencia. */
+        default void setEffectiveTo(LocalDate effectiveTo) {
+            if (LEGACY_INTERVAL_GUARD.get().contains(this)) {
+                throw new UnsupportedOperationException("Implement setEffectiveTo(LocalDate) or legacy setDtfim(LocalDate).");
+            }
+            LEGACY_INTERVAL_GUARD.get().add(this);
+            try {
+                setDtfim(effectiveTo);
+            } finally {
+                LEGACY_INTERVAL_GUARD.get().remove(this);
+            }
+        }
+
+        /** @deprecated Use {@link #setEffectiveTo(LocalDate)}. */
+        @Deprecated(since = "8.0.0")
+        default void setDtfim(LocalDate dtfim) {
+            setEffectiveTo(dtfim);
+        }
     }
 
     /**
-     * Value object imutavel representando um intervalo de vigencia validado {@code [dtini, dtfim]}.
+     * Value object imutavel representando um intervalo de vigencia validado {@code [effectiveFrom, effectiveTo]}.
      */
-    public record ValidityInterval(LocalDate dtini, LocalDate dtfim) implements EffectiveDatedInterval {
+    public record ValidityInterval(LocalDate effectiveFrom, LocalDate effectiveTo) implements EffectiveDatedInterval {
         public ValidityInterval {
-            validateRange(dtini, dtfim);
+            validateRange(effectiveFrom, effectiveTo);
         }
 
         @Override
-        public LocalDate getDtini() {
-            return dtini;
+        public LocalDate getEffectiveFrom() {
+            return effectiveFrom;
         }
 
         @Override
-        public LocalDate getDtfim() {
-            return dtfim;
+        public LocalDate getEffectiveTo() {
+            return effectiveTo;
+        }
+
+        /** @deprecated Use {@link #effectiveFrom()}. */
+        @Deprecated(since = "8.0.0")
+        public LocalDate dtini() {
+            return effectiveFrom;
+        }
+
+        /** @deprecated Use {@link #effectiveTo()}. */
+        @Deprecated(since = "8.0.0")
+        public LocalDate dtfim() {
+            return effectiveTo;
         }
 
         public boolean overlaps(ValidityInterval other) {
             Objects.requireNonNull(other, "Intervalo de comparacao nao pode ser nulo.");
-            return EffectiveDatedResourceSupport.overlaps(dtini, dtfim, other.dtini, other.dtfim);
+            return EffectiveDatedResourceSupport.overlaps(
+                    effectiveFrom, effectiveTo, other.effectiveFrom, other.effectiveTo);
         }
     }
 
     /**
-     * Valida que {@code dtini} nao e nulo e que {@code dtfim} (quando informado) nao e anterior a {@code dtini}.
+     * Valida que {@code effectiveFrom} nao e nulo e que {@code effectiveTo} (quando informado) nao e anterior a {@code effectiveFrom}.
      */
-    public static void validateRange(LocalDate dtini, LocalDate dtfim) {
-        if (dtini == null) {
-            throw new BusinessException("Data inicial de vigência (dtini) é obrigatória.");
+    public static void validateRange(LocalDate effectiveFrom, LocalDate effectiveTo) {
+        if (effectiveFrom == null) {
+            throw new BusinessException("Data inicial de vigência é obrigatória.");
         }
-        if (dtfim != null && dtfim.isBefore(dtini)) {
+        if (effectiveTo != null && effectiveTo.isBefore(effectiveFrom)) {
             throw new BusinessException(
-                    "Data final de vigência (dtfim) não pode ser anterior à data inicial (dtini): ["
-                            + dtini + ", " + dtfim + "]."
+                    "Data final de vigência não pode ser anterior à data inicial: ["
+                            + effectiveFrom + ", " + effectiveTo + "]."
             );
         }
     }
 
     /**
-     * Verifica se o intervalo {@code [dtini, dtfim]} esta em vigor na data de referencia (limites inclusivos).
+     * Verifica se o intervalo {@code [effectiveFrom, effectiveTo]} esta em vigor na data de referencia (limites inclusivos).
      */
-    public static boolean isEffectiveOn(LocalDate dtini, LocalDate dtfim, LocalDate referenceDate) {
-        if (dtini == null || referenceDate == null) {
+    public static boolean isEffectiveOn(LocalDate effectiveFrom, LocalDate effectiveTo, LocalDate referenceDate) {
+        if (effectiveFrom == null || referenceDate == null) {
             return false;
         }
-        return !dtini.isAfter(referenceDate) && (dtfim == null || !dtfim.isBefore(referenceDate));
+        return !effectiveFrom.isAfter(referenceDate) && (effectiveTo == null || !effectiveTo.isBefore(referenceDate));
     }
 
     /**
@@ -129,16 +197,16 @@ public final class EffectiveDatedResourceSupport {
     }
 
     /**
-     * Retorna todos os registros existentes cujos intervalos de vigencia colidem com {@code [candidateDtini, candidateDtfim]}.
+     * Retorna todos os registros existentes cujos intervalos de vigencia colidem com {@code [candidateEffectiveFrom, candidateEffectiveTo]}.
      */
     public static <E> List<E> findOverlapping(
-            LocalDate candidateDtini,
-            LocalDate candidateDtfim,
+            LocalDate candidateEffectiveFrom,
+            LocalDate candidateEffectiveTo,
             Collection<E> existingEntities,
             Function<E, LocalDate> startExtractor,
             Function<E, LocalDate> endExtractor
     ) {
-        validateRange(candidateDtini, candidateDtfim);
+        validateRange(candidateEffectiveFrom, candidateEffectiveTo);
         Objects.requireNonNull(startExtractor, "startExtractor e obrigatorio.");
         Objects.requireNonNull(endExtractor, "endExtractor e obrigatorio.");
         if (existingEntities == null || existingEntities.isEmpty()) {
@@ -154,7 +222,7 @@ public final class EffectiveDatedResourceSupport {
             if (existingStart == null) {
                 continue;
             }
-            if (overlaps(candidateDtini, candidateDtfim, existingStart, existingEnd)) {
+            if (overlaps(candidateEffectiveFrom, candidateEffectiveTo, existingStart, existingEnd)) {
                 conflicts.add(existing);
             }
         }
@@ -175,9 +243,9 @@ public final class EffectiveDatedResourceSupport {
         Objects.requireNonNull(candidate, "Entidade candidata nao pode ser nula.");
         Objects.requireNonNull(startExtractor, "startExtractor e obrigatorio.");
         Objects.requireNonNull(endExtractor, "endExtractor e obrigatorio.");
-        LocalDate candidateDtini = startExtractor.apply(candidate);
-        LocalDate candidateDtfim = endExtractor.apply(candidate);
-        validateRange(candidateDtini, candidateDtfim);
+        LocalDate candidateEffectiveFrom = startExtractor.apply(candidate);
+        LocalDate candidateEffectiveTo = endExtractor.apply(candidate);
+        validateRange(candidateEffectiveFrom, candidateEffectiveTo);
         if (existingEntities == null || existingEntities.isEmpty()) {
             return List.of();
         }
@@ -186,28 +254,28 @@ public final class EffectiveDatedResourceSupport {
                 .filter(Objects::nonNull)
                 .filter(existing -> !isSameIdentity(candidate, candidateId, existing, idExtractor))
                 .toList();
-        return findOverlapping(candidateDtini, candidateDtfim, filtered, startExtractor, endExtractor);
+        return findOverlapping(candidateEffectiveFrom, candidateEffectiveTo, filtered, startExtractor, endExtractor);
     }
 
     /**
-     * Valida que o intervalo {@code [candidateDtini, candidateDtfim]} nao possui sobreposicao com
+     * Valida que o intervalo {@code [candidateEffectiveFrom, candidateEffectiveTo]} nao possui sobreposicao com
      * nenhum dos registros informados, lancando {@link BusinessException} em caso de conflito.
      */
     public static <E> void validateNoOverlap(
-            LocalDate candidateDtini,
-            LocalDate candidateDtfim,
+            LocalDate candidateEffectiveFrom,
+            LocalDate candidateEffectiveTo,
             Collection<E> existingEntities,
             Function<E, LocalDate> startExtractor,
             Function<E, LocalDate> endExtractor
     ) {
-        List<E> conflicts = findOverlapping(candidateDtini, candidateDtfim, existingEntities, startExtractor, endExtractor);
+        List<E> conflicts = findOverlapping(candidateEffectiveFrom, candidateEffectiveTo, existingEntities, startExtractor, endExtractor);
         if (!conflicts.isEmpty()) {
             E first = conflicts.get(0);
             LocalDate conflictStart = startExtractor.apply(first);
             LocalDate conflictEnd = endExtractor.apply(first);
             throw new BusinessException(
                     "Sobreposição de vigência detectada entre o período informado ["
-                            + formatInterval(candidateDtini, candidateDtfim)
+                            + formatInterval(candidateEffectiveFrom, candidateEffectiveTo)
                             + "] e a vigência existente ["
                             + formatInterval(conflictStart, conflictEnd)
                             + "]."
@@ -244,34 +312,39 @@ public final class EffectiveDatedResourceSupport {
     }
 
     /**
-     * Sobrecarga por convencao para entidades que expõem propriedades {@code id}, {@code dtini} e {@code dtfim}.
+     * Sobrecarga por convencao para entidades que implementam {@link EffectiveDatedInterval}
+     * ou possuem propriedades {@code id}, {@code effectiveFrom} e {@code effectiveTo}.
      */
     public static <E> void validateNoOverlap(E candidate, Collection<E> existingEntities) {
         validateNoOverlap(
                 candidate,
                 existingEntities,
                 entity -> readProperty(entity, DEFAULT_ID_FIELD, Object.class),
-                entity -> readProperty(entity, DEFAULT_START_FIELD, LocalDate.class),
-                entity -> readProperty(entity, DEFAULT_END_FIELD, LocalDate.class)
+                entity -> entity instanceof EffectiveDatedInterval interval
+                        ? interval.getEffectiveFrom()
+                        : readProperty(entity, DEFAULT_START_FIELD, LocalDate.class),
+                entity -> entity instanceof EffectiveDatedInterval interval
+                        ? interval.getEffectiveTo()
+                        : readProperty(entity, DEFAULT_END_FIELD, LocalDate.class)
         );
     }
 
     /**
-     * Encerra automaticamente a vigencia aberta anterior ({@code dtfim = novaDtini.minusDays(1)})
-     * quando {@code novaDtini} e estritamente posterior ao {@code dtini} da vigencia em aberto.
+     * Encerra automaticamente a vigencia aberta anterior ({@code effectiveTo = newEffectiveFrom.minusDays(1)})
+     * quando {@code newEffectiveFrom} e estritamente posterior ao inicio da vigencia em aberto.
      *
-     * @return {@link Optional} contendo a entidade anterior que teve seu {@code dtfim} encerrado,
+     * @return {@link Optional} contendo a entidade anterior que teve sua data final encerrada,
      *         ou {@link Optional#empty()} quando nao havia vigencia aberta anterior elegivel.
      */
     public static <E> Optional<E> closePreviousOpenValidity(
-            LocalDate novaDtini,
+            LocalDate newEffectiveFrom,
             Collection<E> existingEntities,
             Function<E, LocalDate> startExtractor,
             Function<E, LocalDate> endExtractor,
             BiConsumer<E, LocalDate> endMutator
     ) {
-        if (novaDtini == null) {
-            throw new BusinessException("Data inicial da nova vigência (dtini) é obrigatória.");
+        if (newEffectiveFrom == null) {
+            throw new BusinessException("Data inicial da nova vigência é obrigatória.");
         }
         Objects.requireNonNull(startExtractor, "startExtractor e obrigatorio.");
         Objects.requireNonNull(endExtractor, "endExtractor e obrigatorio.");
@@ -297,15 +370,15 @@ public final class EffectiveDatedResourceSupport {
 
         E previousOpen = openEntities.get(0);
         LocalDate previousStart = startExtractor.apply(previousOpen);
-        if (!novaDtini.isAfter(previousStart)) {
+        if (!newEffectiveFrom.isAfter(previousStart)) {
             throw new BusinessException(
-                    "A nova vigência iniciada em " + novaDtini
+                    "A nova vigência iniciada em " + newEffectiveFrom
                             + " deve ser estritamente posterior ao início da vigência aberta atual ("
                             + previousStart + ") para permitir o encerramento automático."
             );
         }
 
-        endMutator.accept(previousOpen, novaDtini.minusDays(1));
+        endMutator.accept(previousOpen, newEffectiveFrom.minusDays(1));
         return Optional.of(previousOpen);
     }
 
@@ -315,7 +388,7 @@ public final class EffectiveDatedResourceSupport {
      *
      * <p>Regras de integridade corporativa:</p>
      * <ul>
-     *   <li>Periodos historicos fechados ({@code dtfim != null}) inteiramente anteriores a vigencia
+     *   <li>Periodos historicos fechados ({@code effectiveTo != null}) inteiramente anteriores a vigencia
      *       aberta atual sao validados contra sobreposicao sem encerrar indevidamente a vigencia aberta;</li>
      *   <li>A mutacao {@code endMutator} na vigencia aberta anterior so e aplicada apos confirmar que
      *       nao ha sobreposicao com nenhum outro registro da serie, evitando efeitos colaterais parciais.</li>
@@ -390,7 +463,7 @@ public final class EffectiveDatedResourceSupport {
 
     /**
      * Sobrecarga por convencao para entidades que implementam {@link MutableEffectiveDatedInterval}
-     * ou possuem propriedades JavaBeans {@code id}, {@code dtini} e {@code dtfim}.
+     * ou possuem propriedades JavaBeans {@code id}, {@code effectiveFrom} e {@code effectiveTo}.
      */
     public static <E> Optional<E> prepareAndValidateInsert(E candidate, Collection<E> existingEntities) {
         return prepareAndValidateInsert(
@@ -398,14 +471,14 @@ public final class EffectiveDatedResourceSupport {
                 existingEntities,
                 entity -> readProperty(entity, DEFAULT_ID_FIELD, Object.class),
                 entity -> entity instanceof EffectiveDatedInterval interval
-                        ? interval.getDtini()
+                        ? interval.getEffectiveFrom()
                         : readProperty(entity, DEFAULT_START_FIELD, LocalDate.class),
                 entity -> entity instanceof EffectiveDatedInterval interval
-                        ? interval.getDtfim()
+                        ? interval.getEffectiveTo()
                         : readProperty(entity, DEFAULT_END_FIELD, LocalDate.class),
                 (entity, newEnd) -> {
                     if (entity instanceof MutableEffectiveDatedInterval mutable) {
-                        mutable.setDtfim(newEnd);
+                        mutable.setEffectiveTo(newEnd);
                     } else {
                         writeProperty(entity, DEFAULT_END_FIELD, newEnd);
                     }
@@ -415,11 +488,11 @@ public final class EffectiveDatedResourceSupport {
 
     /**
      * Cria uma {@link Specification} JPA Criteria para filtrar registros vigentes na data informada
-     * ({@code dtini <= asOfDate AND (dtfim IS NULL OR dtfim >= asOfDate)}) usando os campos padrao
-     * {@code dtini} e {@code dtfim}.
+     * ({@code effectiveFrom <= asOfDate AND (effectiveTo IS NULL OR effectiveTo >= asOfDate)}) usando os campos padrao
+     * {@code effectiveFrom} e {@code effectiveTo}.
      */
-    public static <E> Specification<E> vigenteEm(LocalDate asOfDate) {
-        return vigenteEm(asOfDate, DEFAULT_START_FIELD, DEFAULT_END_FIELD);
+    public static <E> Specification<E> effectiveOn(LocalDate asOfDate) {
+        return effectiveOn(asOfDate, DEFAULT_START_FIELD, DEFAULT_END_FIELD);
     }
 
     /**
@@ -428,7 +501,7 @@ public final class EffectiveDatedResourceSupport {
      *
      * <p>Quando {@code asOfDate} for {@code null}, retorna {@code cb.conjunction()} (sem restricao).</p>
      */
-    public static <E> Specification<E> vigenteEm(LocalDate asOfDate, String startField, String endField) {
+    public static <E> Specification<E> effectiveOn(LocalDate asOfDate, String startField, String endField) {
         String effectiveStartField = startField == null || startField.isBlank() ? DEFAULT_START_FIELD : startField.trim();
         String effectiveEndField = endField == null || endField.isBlank() ? DEFAULT_END_FIELD : endField.trim();
         return (root, query, cb) -> {
@@ -446,31 +519,41 @@ public final class EffectiveDatedResourceSupport {
         };
     }
 
-    /**
-     * Alias em ingles para {@link #vigenteEm(LocalDate)}.
-     */
-    public static <E> Specification<E> asOfDate(LocalDate asOfDate) {
-        return vigenteEm(asOfDate);
+    /** Alias em portugues para {@link #effectiveOn(LocalDate)}. */
+    public static <E> Specification<E> vigenteEm(LocalDate asOfDate) {
+        return effectiveOn(asOfDate, DEFAULT_START_FIELD, DEFAULT_END_FIELD);
+    }
+
+    /** Alias em portugues para {@link #effectiveOn(LocalDate, String, String)}. */
+    public static <E> Specification<E> vigenteEm(LocalDate asOfDate, String startField, String endField) {
+        return effectiveOn(asOfDate, startField, endField);
     }
 
     /**
-     * Alias em ingles para {@link #vigenteEm(LocalDate, String, String)}.
+     * Alias em ingles para {@link #effectiveOn(LocalDate)}.
+     */
+    public static <E> Specification<E> asOfDate(LocalDate asOfDate) {
+        return effectiveOn(asOfDate);
+    }
+
+    /**
+     * Alias em ingles para {@link #effectiveOn(LocalDate, String, String)}.
      */
     public static <E> Specification<E> asOfDate(LocalDate asOfDate, String startField, String endField) {
-        return vigenteEm(asOfDate, startField, endField);
+        return effectiveOn(asOfDate, startField, endField);
     }
 
     /**
      * Resolve o estado temporal canonico ({@code FUTURO}, {@code ENCERRADO} ou {@code VIGENTE})
      * para uso em {@code ResourceStateSnapshot}.
      */
-    public static String resolveTemporalState(LocalDate dtini, LocalDate dtfim, LocalDate referenceDate) {
-        validateRange(dtini, dtfim);
+    public static String resolveTemporalState(LocalDate effectiveFrom, LocalDate effectiveTo, LocalDate referenceDate) {
+        validateRange(effectiveFrom, effectiveTo);
         LocalDate effectiveRef = referenceDate != null ? referenceDate : LocalDate.now();
-        if (dtini.isAfter(effectiveRef)) {
+        if (effectiveFrom.isAfter(effectiveRef)) {
             return "FUTURO";
         }
-        if (dtfim != null && dtfim.isBefore(effectiveRef)) {
+        if (effectiveTo != null && effectiveTo.isBefore(effectiveRef)) {
             return "ENCERRADO";
         }
         return "VIGENTE";
@@ -478,18 +561,18 @@ public final class EffectiveDatedResourceSupport {
 
     /**
      * Verifica se dois periodos adjacentes sao estritamente contiguos em calendario
-     * ({@code previousDtfim.plusDays(1).equals(nextDtini)}).
+     * ({@code previousEffectiveTo.plusDays(1).equals(nextEffectiveFrom)}).
      */
-    public static boolean isContiguous(LocalDate previousDtfim, LocalDate nextDtini) {
-        if (previousDtfim == null || nextDtini == null) {
+    public static boolean isContiguous(LocalDate previousEffectiveTo, LocalDate nextEffectiveFrom) {
+        if (previousEffectiveTo == null || nextEffectiveFrom == null) {
             return false;
         }
-        return previousDtfim.plusDays(1).equals(nextDtini);
+        return previousEffectiveTo.plusDays(1).equals(nextEffectiveFrom);
     }
 
     /**
      * Identifica lacunas (gaps) na cadeia temporal de uma serie de entidades, retornando os
-     * intervalos descobertos {@code [dtiniLacuna, dtfimLacuna]} em ordem cronologica.
+     * intervalos descobertos {@code [gapStart, gapEnd]} em ordem cronologica.
      */
     public static <E> List<ValidityInterval> findGaps(
             Collection<E> entities,
@@ -505,7 +588,7 @@ public final class EffectiveDatedResourceSupport {
                 .filter(Objects::nonNull)
                 .filter(e -> startExtractor.apply(e) != null)
                 .map(e -> new ValidityInterval(startExtractor.apply(e), endExtractor.apply(e)))
-                .sorted(Comparator.comparing(ValidityInterval::dtini))
+                .sorted(Comparator.comparing(ValidityInterval::effectiveFrom))
                 .toList();
 
         if (sorted.size() < 2) {
@@ -513,20 +596,20 @@ public final class EffectiveDatedResourceSupport {
         }
 
         List<ValidityInterval> gaps = new ArrayList<>();
-        LocalDate coveredUntil = sorted.get(0).dtfim();
+        LocalDate coveredUntil = sorted.get(0).effectiveTo();
 
         for (int i = 1; i < sorted.size(); i++) {
             if (coveredUntil == null) {
                 break;
             }
             ValidityInterval current = sorted.get(i);
-            if (current.dtini().isAfter(coveredUntil.plusDays(1))) {
-                gaps.add(new ValidityInterval(coveredUntil.plusDays(1), current.dtini().minusDays(1)));
+            if (current.effectiveFrom().isAfter(coveredUntil.plusDays(1))) {
+                gaps.add(new ValidityInterval(coveredUntil.plusDays(1), current.effectiveFrom().minusDays(1)));
             }
-            if (current.dtfim() == null) {
+            if (current.effectiveTo() == null) {
                 coveredUntil = null;
-            } else if (current.dtfim().isAfter(coveredUntil)) {
-                coveredUntil = current.dtfim();
+            } else if (current.effectiveTo().isAfter(coveredUntil)) {
+                coveredUntil = current.effectiveTo();
             }
         }
         return List.copyOf(gaps);
@@ -534,16 +617,16 @@ public final class EffectiveDatedResourceSupport {
 
     /**
      * Sobrecarga por convencao para localizar lacunas na cadeia temporal de entidades que implementam
-     * {@link EffectiveDatedInterval} ou possuem propriedades {@code dtini} e {@code dtfim}.
+     * {@link EffectiveDatedInterval} ou possuem propriedades {@code effectiveFrom} e {@code effectiveTo}.
      */
     public static <E> List<ValidityInterval> findGaps(Collection<E> entities) {
         return findGaps(
                 entities,
                 entity -> entity instanceof EffectiveDatedInterval interval
-                        ? interval.getDtini()
+                        ? interval.getEffectiveFrom()
                         : readProperty(entity, DEFAULT_START_FIELD, LocalDate.class),
                 entity -> entity instanceof EffectiveDatedInterval interval
-                        ? interval.getDtfim()
+                        ? interval.getEffectiveTo()
                         : readProperty(entity, DEFAULT_END_FIELD, LocalDate.class)
         );
     }
@@ -564,8 +647,8 @@ public final class EffectiveDatedResourceSupport {
         return existingId != null && Objects.equals(candidateId, existingId);
     }
 
-    private static String formatInterval(LocalDate dtini, LocalDate dtfim) {
-        return dtini + " .. " + (dtfim != null ? dtfim : "em aberto");
+    private static String formatInterval(LocalDate effectiveFrom, LocalDate effectiveTo) {
+        return effectiveFrom + " .. " + (effectiveTo != null ? effectiveTo : "em aberto");
     }
 
     private static <T> T readProperty(Object target, String propertyName, Class<T> expectedType) {

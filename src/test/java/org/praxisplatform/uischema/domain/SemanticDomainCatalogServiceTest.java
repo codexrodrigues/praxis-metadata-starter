@@ -312,9 +312,9 @@ class SemanticDomainCatalogServiceTest {
     void synthesizesKnowledgeGraphEdgesUiAnalyticsProjectionsAndDataProductsAutomatically() {
         SurfaceDefinition vinculosDetail = new SurfaceDefinition(
                 "ferias-do-vinculo",
-                "ergon.vinculos",
-                "/api/ergon/vinculos",
-                "ergon",
+                "workforce.vinculos",
+                "/api/workforce/vinculos",
+                "workforce",
                 SurfaceKind.READ_PROJECTION,
                 SurfaceScope.ITEM,
                 "Períodos Aquisitivos de Férias",
@@ -322,17 +322,17 @@ class SemanticDomainCatalogServiceTest {
                 "ferias-vinculo",
                 "response",
                 SurfaceResponseCardinality.COLLECTION,
-                new CanonicalOperationRef("ergon", "getVinculoById", "/api/ergon/vinculos/{id}", "GET"),
+                new CanonicalOperationRef("workforce", "getVinculoById", "/api/workforce/vinculos/{id}", "GET"),
                 new CanonicalSchemaRef("VinculoResponse", "response", "/schemas/filtered?schemaType=response"),
                 20,
                 List.of(),
                 List.of("ATIVO"),
                 List.of("vinculo", "ferias"),
                 new RelatedResourceSurface(
-                        "ergon.vinculos",
+                        "workforce.vinculos",
                         "id",
-                        "ergon.periodos-aquisitivos-ferias",
-                        "/api/ergon/periodos-aquisitivos-ferias",
+                        "workforce.periodos-aquisitivos-ferias",
+                        "/api/workforce/periodos-aquisitivos-ferias",
                         "vinculoId",
                         false,
                         "id",
@@ -341,9 +341,9 @@ class SemanticDomainCatalogServiceTest {
         );
         SurfaceDefinition vinculosCreate = new SurfaceDefinition(
                 "create",
-                "ergon.vinculos",
-                "/api/ergon/vinculos",
-                "ergon",
+                "workforce.vinculos",
+                "/api/workforce/vinculos",
+                "workforce",
                 SurfaceKind.PARTIAL_FORM,
                 SurfaceScope.COLLECTION,
                 "Novo Vínculo",
@@ -351,7 +351,7 @@ class SemanticDomainCatalogServiceTest {
                 "create",
                 "request",
                 SurfaceResponseCardinality.OBJECT,
-                new CanonicalOperationRef("ergon", "createVinculo", "/api/ergon/vinculos", "POST"),
+                new CanonicalOperationRef("workforce", "createVinculo", "/api/workforce/vinculos", "POST"),
                 new CanonicalSchemaRef("VinculoCreateRequest", "request", "/schemas/filtered?schemaType=request"),
                 5,
                 List.of(),
@@ -360,9 +360,9 @@ class SemanticDomainCatalogServiceTest {
         );
         SurfaceDefinition vinculosBaselineDetail = new SurfaceDefinition(
                 "detail",
-                "ergon.vinculos",
-                "/api/ergon/vinculos",
-                "ergon",
+                "workforce.vinculos",
+                "/api/workforce/vinculos",
+                "workforce",
                 SurfaceKind.VIEW,
                 SurfaceScope.ITEM,
                 "Detalhe do Vínculo",
@@ -370,7 +370,7 @@ class SemanticDomainCatalogServiceTest {
                 "detail",
                 "response",
                 SurfaceResponseCardinality.OBJECT,
-                new CanonicalOperationRef("ergon", "getVinculoById", "/api/ergon/vinculos/{id}", "GET"),
+                new CanonicalOperationRef("workforce", "getVinculoById", "/api/workforce/vinculos/{id}", "GET"),
                 new CanonicalSchemaRef("VinculoResponse", "response", "/schemas/filtered?schemaType=response"),
                 10,
                 List.of(),
@@ -379,9 +379,9 @@ class SemanticDomainCatalogServiceTest {
         );
         SurfaceDefinition radarDetail = new SurfaceDefinition(
                 "detail",
-                "ergon.radar-ferias-prescricao",
-                "/api/ergon/radar-ferias-prescricao",
-                "ergon",
+                "workforce.radar-ferias-prescricao",
+                "/api/workforce/radar-ferias-prescricao",
+                "workforce",
                 SurfaceKind.READ_PROJECTION,
                 SurfaceScope.ITEM,
                 "Visão 360° do Alerta de Prescrição",
@@ -389,7 +389,7 @@ class SemanticDomainCatalogServiceTest {
                 "detail",
                 "response",
                 SurfaceResponseCardinality.OBJECT,
-                new CanonicalOperationRef("ergon", "getRadarById", "/api/ergon/radar-ferias-prescricao/{id}", "GET"),
+                new CanonicalOperationRef("workforce", "getRadarById", "/api/workforce/radar-ferias-prescricao/{id}", "GET"),
                 new CanonicalSchemaRef("RadarFeriasResponse", "response", "/schemas/filtered?schemaType=response"),
                 10,
                 List.of(),
@@ -428,20 +428,20 @@ class SemanticDomainCatalogServiceTest {
 
             @Override
             public String resolveGroupFromPath(String path) {
-                return "ergon";
+                return "workforce";
             }
 
             @Override
             public JsonNode getDocumentForGroup(String groupName) {
                 return mapper.valueToTree(Map.of(
                         "paths", Map.of(
-                                "/api/ergon/vinculos", Map.of(
+                                "/api/workforce/vinculos", Map.of(
                                         "post", Map.of("operationId", "createVinculo", "responses", Map.of("201", Map.of()))
                                 ),
-                                "/api/ergon/vinculos/{id}", Map.of(
+                                "/api/workforce/vinculos/{id}", Map.of(
                                         "get", Map.of("operationId", "getVinculoById", "responses", Map.of("200", Map.of()))
                                 ),
-                                "/api/ergon/radar-ferias-prescricao/filter", Map.of(
+                                "/api/workforce/radar-ferias-prescricao/filter", Map.of(
                                         "post", Map.of(
                                                 "operationId", "filterRadarFerias",
                                                 "x-ui", Map.of(
@@ -455,7 +455,7 @@ class SemanticDomainCatalogServiceTest {
                                                                         "source", Map.of(
                                                                                 "kind", "praxis.stats",
                                                                                 "operation", "group-by",
-                                                                                "path", "/api/ergon/radar-ferias-prescricao/stats/group-by"
+                                                                                "path", "/api/workforce/radar-ferias-prescricao/stats/group-by"
                                                                         ),
                                                                         "semantics", Map.of(
                                                                                 "primaryDimension", Map.of("field", "situacaoPrescricao", "label", "Situação"),
@@ -464,7 +464,7 @@ class SemanticDomainCatalogServiceTest {
                                                                         "interactions", Map.of(
                                                                                 "recordOpen", Map.of(
                                                                                         "target", Map.of(
-                                                                                                "resourceKey", "ergon.periodos-aquisitivos-ferias",
+                                                                                                "resourceKey", "workforce.periodos-aquisitivos-ferias",
                                                                                                 "surfaceId", "detail"
                                                                                         )
                                                                                 )
@@ -475,7 +475,7 @@ class SemanticDomainCatalogServiceTest {
                                                 "responses", Map.of("200", Map.of())
                                         )
                                 ),
-                                "/api/ergon/radar-ferias-prescricao/stats/group-by", Map.of(
+                                "/api/workforce/radar-ferias-prescricao/stats/group-by", Map.of(
                                         "post", Map.of("operationId", "radarStatsGroupBy", "responses", Map.of("200", Map.of()))
                                 )
                         ),
@@ -501,7 +501,7 @@ class SemanticDomainCatalogServiceTest {
                                                                 "description", "Unidade organizacional de lotação.",
                                                                 "x-ui", Map.of(
                                                                         "resourceReference", Map.of(
-                                                                                "resourceKey", "ergon.setores",
+                                                                                "resourceKey", "workforce.setores",
                                                                                 "valueField", "lotacaoId",
                                                                                 "surfaceId", "detail",
                                                                                 "previewSurfaceId", "detail"
@@ -515,7 +515,7 @@ class SemanticDomainCatalogServiceTest {
                                                                         "optionSource", Map.of(
                                                                                 "key", "cargo",
                                                                                 "type", "RESOURCE_ENTITY",
-                                                                                "resourcePath", "/api/ergon/cargos",
+                                                                                "resourcePath", "/api/workforce/cargos",
                                                                                 "entityKey", "cargo"
                                                                         )
                                                                 )
@@ -531,7 +531,7 @@ class SemanticDomainCatalogServiceTest {
                                                                 "type", "string",
                                                                 "x-ui", Map.of(
                                                                         "resourceReference", Map.of(
-                                                                                "resourceKey", "ergon.vinculos",
+                                                                                "resourceKey", "workforce.vinculos",
                                                                                 "valueField", "vinculoId",
                                                                                 "surfaceId", "detail",
                                                                                 "previewSurfaceId", "detail"
@@ -542,7 +542,7 @@ class SemanticDomainCatalogServiceTest {
                                                                 "type", "string",
                                                                 "x-ui", Map.of(
                                                                         "resourceReference", Map.of(
-                                                                                "resourceKey", "ergon.periodos-aquisitivos-ferias",
+                                                                                "resourceKey", "workforce.periodos-aquisitivos-ferias",
                                                                                 "valueField", "id",
                                                                                 "surfaceId", "detail",
                                                                                 "previewSurfaceId", "detail"
@@ -572,12 +572,12 @@ class SemanticDomainCatalogServiceTest {
                 OptionSourceRegistry.empty(),
                 kgOpenApi,
                 Clock.fixed(Instant.parse("2026-04-06T12:00:00Z"), ZoneOffset.UTC),
-                "ergon-host",
-                "Ergon Showcase",
+                "workforce-host",
+                "Workforce Showcase",
                 "1.0.0"
         );
 
-        DomainCatalogResponse catalog = service.findByGroup("ergon");
+        DomainCatalogResponse catalog = service.findByGroup("workforce");
 
         assertThat(catalog.edges())
                 .extracting(
@@ -588,86 +588,86 @@ class SemanticDomainCatalogServiceTest {
                 )
                 .contains(
                         org.assertj.core.groups.Tuple.tuple(
-                                "ergon.vinculos.field.lotacao-nome.references.ergon.setores",
-                                "ergon.vinculos.field.lotacao-nome",
-                                "ergon.setores",
+                                "workforce.vinculos.field.lotacao-nome.references.workforce.setores",
+                                "workforce.vinculos.field.lotacao-nome",
+                                "workforce.setores",
                                 "references"
                         ),
                         org.assertj.core.groups.Tuple.tuple(
-                                "ergon.vinculos.references.ergon.setores",
-                                "ergon.vinculos",
-                                "ergon.setores",
+                                "workforce.vinculos.references.workforce.setores",
+                                "workforce.vinculos",
+                                "workforce.setores",
                                 "references"
                         ),
                         org.assertj.core.groups.Tuple.tuple(
-                                "ergon.vinculos.references-child.ergon.periodos-aquisitivos-ferias",
-                                "ergon.vinculos",
-                                "ergon.periodos-aquisitivos-ferias",
+                                "workforce.vinculos.references-child.workforce.periodos-aquisitivos-ferias",
+                                "workforce.vinculos",
+                                "workforce.periodos-aquisitivos-ferias",
                                 "references"
                         ),
                         org.assertj.core.groups.Tuple.tuple(
-                                "ergon.radar-ferias-prescricao.has-stats.projection.saldo-por-situacao",
-                                "ergon.radar-ferias-prescricao",
-                                "ergon.radar-ferias-prescricao.stats.projection.saldo-por-situacao",
+                                "workforce.radar-ferias-prescricao.has-stats.projection.saldo-por-situacao",
+                                "workforce.radar-ferias-prescricao",
+                                "workforce.radar-ferias-prescricao.stats.projection.saldo-por-situacao",
                                 "has_stats"
                         ),
                         org.assertj.core.groups.Tuple.tuple(
-                                "ergon.radar-ferias-prescricao.stats.projection.saldo-por-situacao.references.ergon.periodos-aquisitivos-ferias",
-                                "ergon.radar-ferias-prescricao.stats.projection.saldo-por-situacao",
-                                "ergon.periodos-aquisitivos-ferias",
+                                "workforce.radar-ferias-prescricao.stats.projection.saldo-por-situacao.references.workforce.periodos-aquisitivos-ferias",
+                                "workforce.radar-ferias-prescricao.stats.projection.saldo-por-situacao",
+                                "workforce.periodos-aquisitivos-ferias",
                                 "references"
                         ),
                         org.assertj.core.groups.Tuple.tuple(
-                                "ergon.radar-ferias-prescricao.materializes.ergon.vinculos",
-                                "ergon.radar-ferias-prescricao",
-                                "ergon.vinculos",
+                                "workforce.radar-ferias-prescricao.materializes.workforce.vinculos",
+                                "workforce.radar-ferias-prescricao",
+                                "workforce.vinculos",
                                 "materializes"
                         ),
                         org.assertj.core.groups.Tuple.tuple(
-                                "ergon.radar-ferias-prescricao.materializes.ergon.periodos-aquisitivos-ferias",
-                                "ergon.radar-ferias-prescricao",
-                                "ergon.periodos-aquisitivos-ferias",
+                                "workforce.radar-ferias-prescricao.materializes.workforce.periodos-aquisitivos-ferias",
+                                "workforce.radar-ferias-prescricao",
+                                "workforce.periodos-aquisitivos-ferias",
                                 "materializes"
                         )
                 );
 
         DomainCatalogResponse.DomainNodeItem radarConcept = catalog.nodes().stream()
-                .filter(node -> "ergon.radar-ferias-prescricao".equals(node.nodeKey()))
+                .filter(node -> "workforce.radar-ferias-prescricao".equals(node.nodeKey()))
                 .findFirst()
                 .orElseThrow();
         assertThat(radarConcept.metadata())
                 .containsEntry("semanticRole", "analytical_data_product")
                 .containsEntry("dataProduct", true)
-                .containsEntry("analyzesConcepts", List.of("ergon.periodos-aquisitivos-ferias", "ergon.vinculos"));
+                .containsEntry("analyzesConcepts", List.of("workforce.periodos-aquisitivos-ferias", "workforce.vinculos"));
         assertThat(radarConcept.tags()).contains("data-product", "analytical-projection");
 
         DomainCatalogResponse.DomainNodeItem vinculosConcept = catalog.nodes().stream()
-                .filter(node -> "ergon.vinculos".equals(node.nodeKey()))
+                .filter(node -> "workforce.vinculos".equals(node.nodeKey()))
                 .findFirst()
                 .orElseThrow();
         assertThat(vinculosConcept.metadata())
                 .containsEntry("semanticRole", "operational_resource")
-                .containsEntry("childConcepts", List.of("ergon.periodos-aquisitivos-ferias"))
-                .containsEntry("referencedConcepts", List.of("ergon.cargos", "ergon.periodos-aquisitivos-ferias", "ergon.setores"))
-                .containsEntry("analyzedByDataProducts", List.of("ergon.radar-ferias-prescricao"))
+                .containsEntry("childConcepts", List.of("workforce.periodos-aquisitivos-ferias"))
+                .containsEntry("referencedConcepts", List.of("workforce.cargos", "workforce.periodos-aquisitivos-ferias", "workforce.setores"))
+                .containsEntry("analyzedByDataProducts", List.of("workforce.radar-ferias-prescricao"))
                 .doesNotContainKeys("conceptFactRootMap", "ontologicalFactRoots");
 
         DomainCatalogResponse.DomainNodeItem cargoField = catalog.nodes().stream()
-                .filter(node -> "ergon.vinculos.field.cargo-id".equals(node.nodeKey()))
+                .filter(node -> "workforce.vinculos.field.cargo-id".equals(node.nodeKey()))
                 .findFirst()
                 .orElseThrow();
         assertThat(cargoField.metadata())
-                .containsEntry("resourceKey", "ergon.vinculos")
-                .containsEntry("referencedResourceKey", "ergon.cargos")
+                .containsEntry("resourceKey", "workforce.vinculos")
+                .containsEntry("referencedResourceKey", "workforce.cargos")
                 .containsEntry("schemaIds", List.of("VinculoCreateRequest", "VinculoResponse"))
                 .containsEntry("schemaRoles", List.of("request", "response"))
                 .containsKey("optionSource");
         assertThat(cargoField.sourceEvidenceKeys()).containsExactly(
-                "evidence:ergon.vinculos.field.cargo-id:vinculo-create-request",
-                "evidence:ergon.vinculos.field.cargo-id:vinculo-response"
+                "evidence:workforce.vinculos.field.cargo-id:vinculo-create-request",
+                "evidence:workforce.vinculos.field.cargo-id:vinculo-response"
         );
         assertThat(catalog.bindings())
-                .filteredOn(binding -> "binding:ergon.vinculos.field.cargo-id:dto-field".equals(binding.bindingKey()))
+                .filteredOn(binding -> "binding:workforce.vinculos.field.cargo-id:dto-field".equals(binding.bindingKey()))
                 .singleElement()
                 .satisfies(binding -> {
                     assertThat(binding.schemaLinks())
@@ -677,12 +677,12 @@ class SemanticDomainCatalogServiceTest {
                                     org.assertj.core.groups.Tuple.tuple("VinculoResponse", "response")
                             );
                     assertThat(binding.evidenceKeys()).containsExactly(
-                            "evidence:ergon.vinculos.field.cargo-id:vinculo-create-request",
-                            "evidence:ergon.vinculos.field.cargo-id:vinculo-response"
+                            "evidence:workforce.vinculos.field.cargo-id:vinculo-create-request",
+                            "evidence:workforce.vinculos.field.cargo-id:vinculo-response"
                     );
                     assertThat(binding.target())
-                            .containsEntry("resourceKey", "ergon.vinculos")
-                            .containsEntry("referencedResourceKey", "ergon.cargos");
+                            .containsEntry("resourceKey", "workforce.vinculos")
+                            .containsEntry("referencedResourceKey", "workforce.cargos");
                     @SuppressWarnings("unchecked")
                     List<Map<String, Object>> representations =
                             (List<Map<String, Object>>) binding.target().get("representations");
@@ -703,13 +703,13 @@ class SemanticDomainCatalogServiceTest {
                 });
 
         DomainCatalogResponse.DomainNodeItem feriasConcept = catalog.nodes().stream()
-                .filter(node -> "ergon.periodos-aquisitivos-ferias".equals(node.nodeKey()))
+                .filter(node -> "workforce.periodos-aquisitivos-ferias".equals(node.nodeKey()))
                 .findFirst()
                 .orElseThrow();
         assertThat(feriasConcept.nodeType()).isEqualTo("concept");
         assertThat(feriasConcept.metadata())
                 .containsEntry("projectionRole", "REFERENCE")
-                .containsEntry("ownerServiceKey", "ergon-host")
+                .containsEntry("ownerServiceKey", "workforce-host")
                 .doesNotContainKeys("capabilities", "semanticRole", "readOnly");
     }
 
@@ -733,7 +733,7 @@ class SemanticDomainCatalogServiceTest {
                         1
                 ),
                 List.of(new DecisionSlot(
-                        "payroll.erg-folha-001",
+                        "payroll.wf-payroll-001",
                         DecisionStage.PROTECTED_GUARD,
                         SlotCardinality.SINGLE,
                         OverridePolicy.FORBIDDEN,
@@ -741,8 +741,8 @@ class SemanticDomainCatalogServiceTest {
                         null
                 , java.util.List.of())),
                 List.of(new DecisionBinding(
-                        "product.payroll.erg-folha-001",
-                        "payroll.erg-folha-001",
+                        "product.payroll.wf-payroll-001",
+                        "payroll.wf-payroll-001",
                         DecisionSource.PRODUCT,
                         null,
                         RuleExecutorRef.jsonLogic(expression),
@@ -750,7 +750,7 @@ class SemanticDomainCatalogServiceTest {
                         1,
                         true,
                         RuleDecision.DENY,
-                        "ERG-FOLHA-001",
+                        "WF-PAYROLL-001",
                         List.of(
                                 "context.tenantId",
                                 "draft.valorLiquido",
@@ -768,11 +768,11 @@ class SemanticDomainCatalogServiceTest {
                 "Regras de validação da folha",
                 "Governa a criação da folha de pagamento com raízes ontológicas SAP/SHACL.",
                 List.of(new DomainRuleSetDescriptor.RuleReasonDescriptor(
-                        "ERG-FOLHA-001",
-                        "payroll.erg-folha-001",
+                        "WF-PAYROLL-001",
+                        "payroll.wf-payroll-001",
                         "valorLiquido",
                         "Valor líquido inválido ou fornecedor inativo.",
-                        "PCK_FOLHA.VALIDA_FOLHA",
+                        "PKG_LEGACY_RULES.VALIDATE_PAYROLL",
                         "draft.valorLiquido != null && fornecedor.status == ACTIVE"
                 )),
                 Map.of("fornecedor", new ConceptRootBinding("fornecedor", "praxis-api-quickstart", "partners", "partners.fornecedores"))
@@ -818,7 +818,7 @@ class SemanticDomainCatalogServiceTest {
                         "fornecedor", List.of("fornecedor.status"),
                         "neighborhood", List.of("neighborhood.openPayrollsCount")
                 ))
-                .containsEntry("reasonCodes", List.of("ERG-FOLHA-001"))
+                .containsEntry("reasonCodes", List.of("WF-PAYROLL-001"))
                 .containsEntry("targetFields", List.of("valorLiquido"));
 
         assertThat(response.edges())
@@ -855,7 +855,7 @@ class SemanticDomainCatalogServiceTest {
         assertThat(conceptNode.metadata())
                 .containsEntry("governedRuleSets", List.of("human-resources.folhas-pagamento.validate"))
                 .containsEntry("governedOperations", List.of("CREATE"))
-                .containsEntry("governedReasonCodes", List.of("ERG-FOLHA-001"))
+                .containsEntry("governedReasonCodes", List.of("WF-PAYROLL-001"))
                 .containsEntry("ontologicalFactRoots", List.of("draft", "current", "fornecedor", "neighborhood", "context"))
                 .containsEntry("ontologicalFactPathsByRoot", Map.of(
                         "draft", List.of("draft.valorLiquido"),
@@ -883,7 +883,7 @@ class SemanticDomainCatalogServiceTest {
                 "1.0",
                 RuleExecutorRef.jsonLogic(expression),
                 RuleDecision.DENY,
-                "ERG-FOLHA-002",
+                "WF-PAYROLL-002",
                 List.of("draft.valorLiquido"),
                 List.of(new RuleParameterDefinition(
                         "maxNetAmount",
@@ -909,7 +909,7 @@ class SemanticDomainCatalogServiceTest {
                 ),
                 List.of("draft", "current", "context"),
                 List.of(new DecisionSlot(
-                        "payroll.erg-folha-002",
+                        "payroll.wf-payroll-002",
                         DecisionStage.DOMAIN_DECISION,
                         SlotCardinality.SINGLE,
                         OverridePolicy.PARAMETERIZABLE,
@@ -917,8 +917,8 @@ class SemanticDomainCatalogServiceTest {
                         template
                 , java.util.List.of())),
                 List.of(new DecisionBinding(
-                        "customer.config.payroll.erg-folha-002",
-                        "payroll.erg-folha-002",
+                        "customer.config.payroll.wf-payroll-002",
+                        "payroll.wf-payroll-002",
                         DecisionSource.CUSTOMER,
                         CompositionPolicy.PARAMETERIZE,
                         null,
@@ -937,12 +937,12 @@ class SemanticDomainCatalogServiceTest {
                 RuleRuntimeCompatibility.current(),
                 RuleFailPolicy.FAIL_CLOSED
         );
-        RuleErrorCatalog errorCatalog = code -> "ERG-FOLHA-002".equals(code)
+        RuleErrorCatalog errorCatalog = code -> "WF-PAYROLL-002".equals(code)
                 ? java.util.Optional.of(new RuleErrorDescriptor(
-                        "ERG-FOLHA-002",
+                        "WF-PAYROLL-002",
                         "valorLiquido",
                         "Valor líquido excede o teto parametrizado da folha.",
-                        "PCK_FOLHA.VALIDA_TETO:L120",
+                        "PKG_LEGACY_RULES.VALIDATE_CAP:L120",
                         "VALIDATION"
                 ))
                 : java.util.Optional.empty();
@@ -971,7 +971,7 @@ class SemanticDomainCatalogServiceTest {
                 .orElseThrow();
         assertThat(ruleSetNode.metadata())
                 .containsEntry("operationKey", "UPDATE")
-                .containsEntry("reasonCodes", List.of("ERG-FOLHA-002"))
+                .containsEntry("reasonCodes", List.of("WF-PAYROLL-002"))
                 .containsEntry("targetFields", List.of("valorLiquido"))
                 .containsEntry("referencedFactPaths", List.of("draft.valorLiquido"))
                 .containsEntry("factPathsByRoot", Map.of(
@@ -982,14 +982,14 @@ class SemanticDomainCatalogServiceTest {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> rules = (List<Map<String, Object>>) ruleSetNode.metadata().get("rules");
         assertThat(rules).singleElement().satisfies(rule -> {
-            assertThat(rule).containsEntry("bindingKey", "customer.config.payroll.erg-folha-002");
+            assertThat(rule).containsEntry("bindingKey", "customer.config.payroll.wf-payroll-002");
             assertThat(rule).containsEntry("compositionPolicy", "PARAMETERIZE");
             assertThat(rule).containsEntry("parameterized", true);
             assertThat(rule).containsEntry("falseDecision", "DENY");
-            assertThat(rule).containsEntry("reasonCode", "ERG-FOLHA-002");
+            assertThat(rule).containsEntry("reasonCode", "WF-PAYROLL-002");
             assertThat(rule).containsEntry("targetField", "valorLiquido");
             assertThat(rule).containsEntry("message", "Valor líquido excede o teto parametrizado da folha.");
-            assertThat(rule).containsEntry("lineage", "PCK_FOLHA.VALIDA_TETO:L120");
+            assertThat(rule).containsEntry("lineage", "PKG_LEGACY_RULES.VALIDATE_CAP:L120");
             assertThat(rule).containsEntry("requiredFactPaths", List.of("draft.valorLiquido"));
             assertThat(rule).containsEntry("referencedFactPaths", List.of("draft.valorLiquido"));
         });
@@ -999,8 +999,8 @@ class SemanticDomainCatalogServiceTest {
     void explicitAnnotationGovernancePrevailsOverHeuristicAndResolvesMultiFacetLatticeWithoutCrashing() {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode explicitPersonal = mapper.valueToTree(new DomainCatalogResponse.DomainGovernanceItem(
-                "governance:ergon.servidores.field.conta-salario:privacy",
-                "ergon.servidores.field.conta-salario",
+                "governance:workforce.servidores.field.conta-salario:privacy",
+                "workforce.servidores.field.conta-salario",
                 "privacy",
                 "confidential",
                 "personal",
@@ -1022,8 +1022,8 @@ class SemanticDomainCatalogServiceTest {
                 1.0d
         ));
         JsonNode heuristicFinancial = mapper.valueToTree(new DomainCatalogResponse.DomainGovernanceItem(
-                "governance:ergon.servidores.field.conta-salario:security",
-                "ergon.servidores.field.conta-salario",
+                "governance:workforce.servidores.field.conta-salario:security",
+                "workforce.servidores.field.conta-salario",
                 "security",
                 "internal",
                 "financial",
@@ -1054,7 +1054,7 @@ class SemanticDomainCatalogServiceTest {
             assertThat(merged.source()).isEqualTo("java.annotation");
             assertThat(merged.confidence()).isEqualTo(1.0d);
             assertThat(merged.annotationType()).isEqualTo("privacy");
-            assertThat(merged.governanceKey()).isEqualTo("governance:ergon.servidores.field.conta-salario:privacy");
+            assertThat(merged.governanceKey()).isEqualTo("governance:workforce.servidores.field.conta-salario:privacy");
             assertThat(merged.dataCategory()).isEqualTo("personal");
             assertThat(merged.classification()).isEqualTo("confidential");
             assertThat(merged.exportable()).isFalse();
@@ -1151,27 +1151,27 @@ class SemanticDomainCatalogServiceTest {
     @Test
     void synthesizesDomainLineageAcrossRequestResponseFilterAliasesAndDerivedFields() {
         SurfaceDefinition createSurface = new SurfaceDefinition(
-                "create", "ergon.pessoas", "/api/ergon/pessoas", "ergon",
+                "create", "workforce.pessoas", "/api/workforce/pessoas", "workforce",
                 SurfaceKind.PARTIAL_FORM, SurfaceScope.COLLECTION, "Nova Pessoa", "Inclusao cadastral",
                 "create", "request", SurfaceResponseCardinality.OBJECT,
-                new CanonicalOperationRef("ergon", "createPessoa", "/api/ergon/pessoas", "POST"),
-                new CanonicalSchemaRef("PessoaCreateRequest", "request", "/schemas/filtered?path=/api/ergon/pessoas&operation=post&schemaType=request"),
+                new CanonicalOperationRef("workforce", "createPessoa", "/api/workforce/pessoas", "POST"),
+                new CanonicalSchemaRef("PessoaCreateRequest", "request", "/schemas/filtered?path=/api/workforce/pessoas&operation=post&schemaType=request"),
                 10, List.of(), List.of(), List.of("pessoas")
         );
         SurfaceDefinition detailSurface = new SurfaceDefinition(
-                "detail", "ergon.pessoas", "/api/ergon/pessoas", "ergon",
+                "detail", "workforce.pessoas", "/api/workforce/pessoas", "workforce",
                 SurfaceKind.VIEW, SurfaceScope.ITEM, "Detalhe Pessoa", "Visualizacao cadastral",
                 "detail", "response", SurfaceResponseCardinality.OBJECT,
-                new CanonicalOperationRef("ergon", "getPessoaById", "/api/ergon/pessoas/{id}", "GET"),
-                new CanonicalSchemaRef("PessoaDetailResponse", "response", "/schemas/filtered?path=/api/ergon/pessoas/{id}&operation=get&schemaType=response"),
+                new CanonicalOperationRef("workforce", "getPessoaById", "/api/workforce/pessoas/{id}", "GET"),
+                new CanonicalSchemaRef("PessoaDetailResponse", "response", "/schemas/filtered?path=/api/workforce/pessoas/{id}&operation=get&schemaType=response"),
                 20, List.of(), List.of(), List.of("pessoas")
         );
         SurfaceDefinition filterSurface = new SurfaceDefinition(
-                "filter", "ergon.pessoas", "/api/ergon/pessoas", "ergon",
+                "filter", "workforce.pessoas", "/api/workforce/pessoas", "workforce",
                 SurfaceKind.VIEW, SurfaceScope.COLLECTION, "Filtro Pessoa", "Pesquisa cadastral",
                 "filter", "filter", SurfaceResponseCardinality.COLLECTION,
-                new CanonicalOperationRef("ergon", "filterPessoas", "/api/ergon/pessoas/filter", "POST"),
-                new CanonicalSchemaRef("PessoaFilterDTO", "filter", "/schemas/filtered?path=/api/ergon/pessoas/filter&operation=post&schemaType=request"),
+                new CanonicalOperationRef("workforce", "filterPessoas", "/api/workforce/pessoas/filter", "POST"),
+                new CanonicalSchemaRef("PessoaFilterDTO", "filter", "/schemas/filtered?path=/api/workforce/pessoas/filter&operation=post&schemaType=request"),
                 30, List.of(), List.of(), List.of("pessoas")
         );
 
@@ -1186,10 +1186,10 @@ class SemanticDomainCatalogServiceTest {
                 "source", "java.lineage",
                 "confidence", 1.0d,
                 "lineage", Map.of(
-                        "attributeId", "ergon.pessoa.cpf",
-                        "sourceClass", "br.com.praxis.ergonshowcase.domain.entity.Pessoa",
+                        "attributeId", "workforce.pessoa.cpf",
+                        "sourceClass", "com.example.workforce.domain.entity.Pessoa",
                         "sourceSimpleName", "Pessoa",
-                        "sourceResourceKey", "ergon.pessoas",
+                        "sourceResourceKey", "workforce.pessoas",
                         "sourcePaths", List.of("cpf"),
                         "transformation", "alias",
                         "provenance", "declared_lineage"
@@ -1217,10 +1217,10 @@ class SemanticDomainCatalogServiceTest {
                 "source", "java.lineage",
                 "confidence", 1.0d,
                 "lineage", Map.of(
-                        "attributeId", "ergon.pessoa.possui-restricao-clinica",
-                        "sourceClass", "br.com.praxis.ergonshowcase.domain.entity.Pessoa",
+                        "attributeId", "workforce.pessoa.possui-restricao-clinica",
+                        "sourceClass", "com.example.workforce.domain.entity.Pessoa",
                         "sourceSimpleName", "Pessoa",
-                        "sourceResourceKey", "ergon.pessoas",
+                        "sourceResourceKey", "workforce.pessoas",
                         "sourcePaths", List.of("cidAfastamento"),
                         "transformation", "derived",
                         "provenance", "declared_lineage"
@@ -1229,7 +1229,7 @@ class SemanticDomainCatalogServiceTest {
 
         OpenApiDocumentService lineageOpenApi = new OpenApiDocumentService() {
             private final ObjectMapper mapper = new ObjectMapper();
-            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public String resolveGroupFromPath(String path) { return "workforce"; }
             @Override public JsonNode getDocumentForGroup(String groupName) {
                 return mapper.valueToTree(Map.of(
                         "paths", Map.of(),
@@ -1275,28 +1275,28 @@ class SemanticDomainCatalogServiceTest {
                 OptionSourceRegistry.empty(),
                 lineageOpenApi,
                 Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
-                "praxis-ergon-showcase", "Ergon Showcase", "test"
+                "praxis-workforce-showcase", "Workforce Showcase", "test"
         );
 
-        DomainCatalogResponse catalog = service.findByResourceKeyStrict("ergon.pessoas");
+        DomainCatalogResponse catalog = service.findByResourceKeyStrict("workforce.pessoas");
         assertThat(catalog.edges()).filteredOn(e -> "same_as".equals(e.edgeType()))
                 .extracting(DomainCatalogResponse.DomainEdgeItem::sourceNodeKey)
                 .containsExactlyInAnyOrder(
-                        "ergon.pessoas.field.documento-fiscal",
-                        "ergon.pessoas.field.documento-fiscal-filtro"
+                        "workforce.pessoas.field.documento-fiscal",
+                        "workforce.pessoas.field.documento-fiscal-filtro"
                 );
         assertThat(catalog.edges()).filteredOn(e -> "materializes".equals(e.edgeType()))
                 .extracting(DomainCatalogResponse.DomainEdgeItem::sourceNodeKey)
-                .contains("ergon.pessoas.field.documento-fiscal", "ergon.pessoas.field.documento-fiscal-filtro");
+                .contains("workforce.pessoas.field.documento-fiscal", "workforce.pessoas.field.documento-fiscal-filtro");
         assertThat(catalog.edges()).filteredOn(e -> "depends_on".equals(e.edgeType())
-                        && "ergon.pessoas.field.possui-restricao-clinica".equals(e.sourceNodeKey()))
+                        && "workforce.pessoas.field.possui-restricao-clinica".equals(e.sourceNodeKey()))
                 .singleElement()
-                .satisfies(edge -> assertThat(edge.targetNodeKey()).isEqualTo("ergon.pessoas.field.cid-afastamento"));
+                .satisfies(edge -> assertThat(edge.targetNodeKey()).isEqualTo("workforce.pessoas.field.cid-afastamento"));
 
         DomainCatalogResponse.DomainNodeItem aliasNode = catalog.nodes().stream()
-                .filter(n -> "ergon.pessoas.field.documento-fiscal".equals(n.nodeKey()))
+                .filter(n -> "workforce.pessoas.field.documento-fiscal".equals(n.nodeKey()))
                 .findFirst().orElseThrow();
-        assertThat(aliasNode.metadata()).containsEntry("canonicalAttributeId", "ergon.pessoa.cpf");
+        assertThat(aliasNode.metadata()).containsEntry("canonicalAttributeId", "workforce.pessoa.cpf");
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> sharedReps = (List<Map<String, Object>>) aliasNode.metadata().get("sharedRepresentations");
         assertThat(sharedReps).hasSize(3);
@@ -1304,31 +1304,31 @@ class SemanticDomainCatalogServiceTest {
                 .containsExactlyInAnyOrder("request", "response", "filter");
         assertThat(catalog.aliases()).filteredOn(a -> "domain-lineage-attribute-id".equals(a.source()))
                 .extracting(DomainCatalogResponse.DomainAliasItem::alias)
-                .contains("ergon.pessoa.cpf", "ergon.pessoa.possui-restricao-clinica");
+                .contains("workforce.pessoa.cpf", "workforce.pessoa.possui-restricao-clinica");
     }
 
     @Test
     void rejectsHomonymLineageConflictAndCyclicDerivedLineageInDomainCatalog() {
         SurfaceDefinition reqSurface = new SurfaceDefinition(
-                "create", "ergon.conflito", "/api/ergon/conflito", "ergon",
+                "create", "workforce.conflito", "/api/workforce/conflito", "workforce",
                 SurfaceKind.PARTIAL_FORM, SurfaceScope.COLLECTION, "Criar", "Criar",
                 "create", "request", SurfaceResponseCardinality.OBJECT,
-                new CanonicalOperationRef("ergon", "createConflito", "/api/ergon/conflito", "POST"),
+                new CanonicalOperationRef("workforce", "createConflito", "/api/workforce/conflito", "POST"),
                 new CanonicalSchemaRef("ConflitoRequest", "request", "/schemas/filtered?schemaType=request"),
                 10, List.of(), List.of(), List.of()
         );
         SurfaceDefinition resSurface = new SurfaceDefinition(
-                "detail", "ergon.conflito", "/api/ergon/conflito", "ergon",
+                "detail", "workforce.conflito", "/api/workforce/conflito", "workforce",
                 SurfaceKind.VIEW, SurfaceScope.ITEM, "Detalhe", "Detalhe",
                 "detail", "response", SurfaceResponseCardinality.OBJECT,
-                new CanonicalOperationRef("ergon", "getConflito", "/api/ergon/conflito/{id}", "GET"),
+                new CanonicalOperationRef("workforce", "getConflito", "/api/workforce/conflito/{id}", "GET"),
                 new CanonicalSchemaRef("ConflitoResponse", "response", "/schemas/filtered?schemaType=response"),
                 20, List.of(), List.of(), List.of()
         );
 
         OpenApiDocumentService homonymConflictOpenApi = new OpenApiDocumentService() {
             private final ObjectMapper mapper = new ObjectMapper();
-            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public String resolveGroupFromPath(String path) { return "workforce"; }
             @Override public JsonNode getDocumentForGroup(String groupName) {
                 return mapper.valueToTree(Map.of(
                         "paths", Map.of(),
@@ -1336,13 +1336,13 @@ class SemanticDomainCatalogServiceTest {
                                 "ConflitoRequest", Map.of("type", "object", "properties", Map.of(
                                         "codigo", Map.of("type", "string", "x-domain-governance", Map.of(
                                                 "annotationType", "privacy", "classification", "internal", "dataCategory", "operational",
-                                                "lineage", Map.of("attributeId", "ergon.empresa.codigo", "transformation", "direct")
+                                                "lineage", Map.of("attributeId", "workforce.empresa.codigo", "transformation", "direct")
                                         ))
                                 )),
                                 "ConflitoResponse", Map.of("type", "object", "properties", Map.of(
                                         "codigo", Map.of("type", "string", "x-domain-governance", Map.of(
                                                 "annotationType", "privacy", "classification", "internal", "dataCategory", "operational",
-                                                "lineage", Map.of("attributeId", "ergon.setor.codigo", "transformation", "direct")
+                                                "lineage", Map.of("attributeId", "workforce.setor.codigo", "transformation", "direct")
                                         ))
                                 ))
                         ))
@@ -1365,16 +1365,16 @@ class SemanticDomainCatalogServiceTest {
                 OptionSourceRegistry.empty(),
                 homonymConflictOpenApi,
                 Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
-                "praxis-ergon-showcase", "Ergon Showcase", "test"
+                "praxis-workforce-showcase", "Workforce Showcase", "test"
         );
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> conflictService.findByResourceKeyStrict("ergon.conflito"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> conflictService.findByResourceKeyStrict("workforce.conflito"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Conflicting domain lineage for homonym field 'codigo'");
 
         OpenApiDocumentService cyclicOpenApi = new OpenApiDocumentService() {
             private final ObjectMapper mapper = new ObjectMapper();
-            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public String resolveGroupFromPath(String path) { return "workforce"; }
             @Override public JsonNode getDocumentForGroup(String groupName) {
                 return mapper.valueToTree(Map.of(
                         "paths", Map.of(),
@@ -1383,11 +1383,11 @@ class SemanticDomainCatalogServiceTest {
                                 "ConflitoResponse", Map.of("type", "object", "properties", Map.of(
                                         "saldoA", Map.of("type", "number", "x-domain-governance", Map.of(
                                                 "annotationType", "privacy", "classification", "internal", "dataCategory", "financial",
-                                                "lineage", Map.of("attributeId", "ergon.conflito.saldo-a", "sourcePaths", List.of("saldoB"), "transformation", "derived")
+                                                "lineage", Map.of("attributeId", "workforce.conflito.saldo-a", "sourcePaths", List.of("saldoB"), "transformation", "derived")
                                         )),
                                         "saldoB", Map.of("type", "number", "x-domain-governance", Map.of(
                                                 "annotationType", "privacy", "classification", "internal", "dataCategory", "financial",
-                                                "lineage", Map.of("attributeId", "ergon.conflito.saldo-b", "sourcePaths", List.of("saldoA"), "transformation", "derived")
+                                                "lineage", Map.of("attributeId", "workforce.conflito.saldo-b", "sourcePaths", List.of("saldoA"), "transformation", "derived")
                                         ))
                                 ))
                         ))
@@ -1410,10 +1410,10 @@ class SemanticDomainCatalogServiceTest {
                 OptionSourceRegistry.empty(),
                 cyclicOpenApi,
                 Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
-                "praxis-ergon-showcase", "Ergon Showcase", "test"
+                "praxis-workforce-showcase", "Workforce Showcase", "test"
         );
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> cyclicService.findByResourceKeyStrict("ergon.conflito"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> cyclicService.findByResourceKeyStrict("workforce.conflito"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Cyclic domain lineage derivation detected");
     }
@@ -1421,20 +1421,20 @@ class SemanticDomainCatalogServiceTest {
     @Test
     void publishesLegalTreatmentPurposeAndLegalBasisRefOnSurfaceAndWorkflowActionNodesAndBindings() {
         SurfaceDefinition healthSurface = new SurfaceDefinition(
-                "laudo-pericial", "ergon.afastamentos", "/api/ergon/afastamentos", "ergon",
+                "laudo-pericial", "workforce.afastamentos", "/api/workforce/afastamentos", "workforce",
                 SurfaceKind.READ_PROJECTION, SurfaceScope.ITEM, "Laudo Pericial", "Ficha clinica de pericia medica",
                 "laudo-pericial", "medical_services", "response", SurfaceResponseCardinality.OBJECT,
-                new CanonicalOperationRef("ergon", "getLaudoPericial", "/api/ergon/afastamentos/{id}/laudo", "GET"),
-                new CanonicalSchemaRef("AfastamentoResponse", "response", "/schemas/filtered?path=/api/ergon/afastamentos/{id}/laudo"),
+                new CanonicalOperationRef("workforce", "getLaudoPericial", "/api/workforce/afastamentos/{id}/laudo", "GET"),
+                new CanonicalSchemaRef("AfastamentoResponse", "response", "/schemas/filtered?path=/api/workforce/afastamentos/{id}/laudo"),
                 10, List.of("ROLE_PERITO_MEDICO"), List.of("EM_ANALISE"), List.of("saude", "pericia"),
                 null,
                 org.praxisplatform.uischema.annotation.LegalTreatmentPurpose.OFFICIAL_HEALTH_EXPERTISE.wireValue(),
                 "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202"
         );
         ActionDefinition homologarAction = new ActionDefinition(
-                "homologar-pericia", "ergon.afastamentos", "/api/ergon/afastamentos", "ergon",
+                "homologar-pericia", "workforce.afastamentos", "/api/workforce/afastamentos", "workforce",
                 ActionScope.ITEM, "Homologar Pericia", "Homologa parecer medico pericial de afastamento",
-                new CanonicalOperationRef("ergon", "homologarPericia", "/api/ergon/afastamentos/{id}/actions/homologar-pericia", "POST"),
+                new CanonicalOperationRef("workforce", "homologarPericia", "/api/workforce/afastamentos/{id}/actions/homologar-pericia", "POST"),
                 new CanonicalSchemaRef("HomologarRequest", "request", "/schemas/filtered?schemaType=request"),
                 new CanonicalSchemaRef("AfastamentoResponse", "response", "/schemas/filtered?schemaType=response"),
                 20, "Pericia homologada.", List.of("ROLE_PERITO_MEDICO"), List.of("EM_ANALISE"), List.of("pericia"),
@@ -1445,7 +1445,7 @@ class SemanticDomainCatalogServiceTest {
 
         OpenApiDocumentService simpleOpenApi = new OpenApiDocumentService() {
             private final ObjectMapper mapper = new ObjectMapper();
-            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public String resolveGroupFromPath(String path) { return "workforce"; }
             @Override public JsonNode getDocumentForGroup(String groupName) {
                 return mapper.valueToTree(Map.of(
                         "paths", Map.of(),
@@ -1472,34 +1472,34 @@ class SemanticDomainCatalogServiceTest {
                 OptionSourceRegistry.empty(),
                 simpleOpenApi,
                 Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
-                "praxis-ergon-showcase", "Ergon Showcase", "test"
+                "praxis-workforce-showcase", "Workforce Showcase", "test"
         );
 
-        DomainCatalogResponse catalog = service.findByResourceKeyStrict("ergon.afastamentos");
+        DomainCatalogResponse catalog = service.findByResourceKeyStrict("workforce.afastamentos");
 
         DomainCatalogResponse.DomainNodeItem surfaceNode = catalog.nodes().stream()
-                .filter(n -> "ergon.afastamentos.surface.laudo-pericial".equals(n.nodeKey()))
+                .filter(n -> "workforce.afastamentos.surface.laudo-pericial".equals(n.nodeKey()))
                 .findFirst().orElseThrow();
         assertThat(surfaceNode.metadata())
                 .containsEntry("legalPurpose", "official_health_expertise")
                 .containsEntry("legalBasisRef", "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202");
 
         DomainCatalogResponse.DomainBindingItem surfaceBinding = catalog.bindings().stream()
-                .filter(b -> "binding:ergon.afastamentos.surface.laudo-pericial:ui-surface".equals(b.bindingKey()))
+                .filter(b -> "binding:workforce.afastamentos.surface.laudo-pericial:ui-surface".equals(b.bindingKey()))
                 .findFirst().orElseThrow();
         assertThat(surfaceBinding.target())
                 .containsEntry("legalPurpose", "official_health_expertise")
                 .containsEntry("legalBasisRef", "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202");
 
         DomainCatalogResponse.DomainNodeItem actionNode = catalog.nodes().stream()
-                .filter(n -> "ergon.afastamentos.action.homologar-pericia".equals(n.nodeKey()))
+                .filter(n -> "workforce.afastamentos.action.homologar-pericia".equals(n.nodeKey()))
                 .findFirst().orElseThrow();
         assertThat(actionNode.metadata())
                 .containsEntry("legalPurpose", "official_health_expertise")
                 .containsEntry("legalBasisRef", "LGPD Art. 11, II, 'a'; Lei 8.112/1990 Art. 202");
 
         DomainCatalogResponse.DomainBindingItem actionBinding = catalog.bindings().stream()
-                .filter(b -> "binding:ergon.afastamentos.action.homologar-pericia:workflow-action".equals(b.bindingKey()))
+                .filter(b -> "binding:workforce.afastamentos.action.homologar-pericia:workflow-action".equals(b.bindingKey()))
                 .findFirst().orElseThrow();
         assertThat(actionBinding.target())
                 .containsEntry("legalPurpose", "official_health_expertise")
@@ -1510,9 +1510,9 @@ class SemanticDomainCatalogServiceTest {
     void doesNotProjectCrossResourceRelatedSurfaceSchemaOntoParentResource() {
         SurfaceDefinition afastamentosChildSurface = new SurfaceDefinition(
                 "afastamentos-vinculo",
-                "ergon.vinculos",
-                "/api/ergon/vinculos",
-                "ergon",
+                "workforce.vinculos",
+                "/api/workforce/vinculos",
+                "workforce",
                 SurfaceKind.READ_PROJECTION,
                 SurfaceScope.ITEM,
                 "Licenças e afastamentos",
@@ -1520,17 +1520,17 @@ class SemanticDomainCatalogServiceTest {
                 "afastamentos-vinculo",
                 "response",
                 SurfaceResponseCardinality.COLLECTION,
-                new CanonicalOperationRef("ergon", "childrenVinculoAfastamento", "/api/ergon/vinculos/{id}/afastamentos", "GET"),
-                new CanonicalSchemaRef("AfastamentoResponse", "response", "/schemas/filtered?path=/api/ergon/vinculos/{id}/afastamentos"),
+                new CanonicalOperationRef("workforce", "childrenVinculoAfastamento", "/api/workforce/vinculos/{id}/afastamentos", "GET"),
+                new CanonicalSchemaRef("AfastamentoResponse", "response", "/schemas/filtered?path=/api/workforce/vinculos/{id}/afastamentos"),
                 0,
                 List.of(),
                 List.of(),
                 List.of("vinculo", "afastamento"),
                 new RelatedResourceSurface(
-                        "ergon.vinculos",
+                        "workforce.vinculos",
                         "id",
-                        "ergon.afastamentos",
-                        "/api/ergon/afastamentos",
+                        "workforce.afastamentos",
+                        "/api/workforce/afastamentos",
                         "vinculoId",
                         false,
                         "id",
@@ -1539,9 +1539,9 @@ class SemanticDomainCatalogServiceTest {
         );
         SurfaceDefinition vinculosDetailSurface = new SurfaceDefinition(
                 "detail",
-                "ergon.vinculos",
-                "/api/ergon/vinculos",
-                "ergon",
+                "workforce.vinculos",
+                "/api/workforce/vinculos",
+                "workforce",
                 SurfaceKind.VIEW,
                 SurfaceScope.ITEM,
                 "Detalhe do Vínculo",
@@ -1549,7 +1549,7 @@ class SemanticDomainCatalogServiceTest {
                 "detail",
                 "response",
                 SurfaceResponseCardinality.OBJECT,
-                new CanonicalOperationRef("ergon", "getVinculoById", "/api/ergon/vinculos/{id}", "GET"),
+                new CanonicalOperationRef("workforce", "getVinculoById", "/api/workforce/vinculos/{id}", "GET"),
                 new CanonicalSchemaRef("VinculoResponse", "response", "/schemas/filtered?schemaType=response"),
                 10,
                 List.of(),
@@ -1559,7 +1559,7 @@ class SemanticDomainCatalogServiceTest {
 
         OpenApiDocumentService homonymRelatedOpenApi = new OpenApiDocumentService() {
             private final ObjectMapper mapper = new ObjectMapper();
-            @Override public String resolveGroupFromPath(String path) { return "ergon"; }
+            @Override public String resolveGroupFromPath(String path) { return "workforce"; }
             @Override public JsonNode getDocumentForGroup(String groupName) {
                 return mapper.valueToTree(Map.of(
                         "paths", Map.of(),
@@ -1574,7 +1574,7 @@ class SemanticDomainCatalogServiceTest {
                                                                 "annotationType", "privacy",
                                                                 "classification", "internal",
                                                                 "lineage", Map.of(
-                                                                        "attributeId", "ergon.afastamentos.situacao",
+                                                                        "attributeId", "workforce.afastamentos.situacao",
                                                                         "sourceClass", "Afastamento"
                                                                 )
                                                         )
@@ -1592,7 +1592,7 @@ class SemanticDomainCatalogServiceTest {
                                                                 "annotationType", "privacy",
                                                                 "classification", "internal",
                                                                 "lineage", Map.of(
-                                                                        "attributeId", "ergon.vinculos.situacao",
+                                                                        "attributeId", "workforce.vinculos.situacao",
                                                                         "sourceClass", "Vinculo"
                                                                 )
                                                         )
@@ -1619,30 +1619,30 @@ class SemanticDomainCatalogServiceTest {
                 OptionSourceRegistry.empty(),
                 homonymRelatedOpenApi,
                 Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
-                "praxis-ergon-showcase", "Ergon Showcase", "test"
+                "praxis-workforce-showcase", "Workforce Showcase", "test"
         );
 
-        DomainCatalogResponse catalog = service.findByResourceKeyStrict("ergon.vinculos");
+        DomainCatalogResponse catalog = service.findByResourceKeyStrict("workforce.vinculos");
 
         DomainCatalogResponse.DomainNodeItem vinculosConcept = catalog.nodes().stream()
-                .filter(node -> "ergon.vinculos".equals(node.nodeKey()))
+                .filter(node -> "workforce.vinculos".equals(node.nodeKey()))
                 .findFirst()
                 .orElseThrow();
         assertThat(vinculosConcept.description()).isEqualTo("Vínculo funcional.");
 
         DomainCatalogResponse.DomainNodeItem situacaoField = catalog.nodes().stream()
-                .filter(node -> "ergon.vinculos.field.situacao".equals(node.nodeKey()))
+                .filter(node -> "workforce.vinculos.field.situacao".equals(node.nodeKey()))
                 .findFirst()
                 .orElseThrow();
         assertThat(situacaoField.metadata())
-                .containsEntry("canonicalAttributeId", "ergon.vinculos.situacao");
+                .containsEntry("canonicalAttributeId", "workforce.vinculos.situacao");
 
         assertThat(catalog.nodes())
-                .noneMatch(node -> "ergon.vinculos.field.dias-afastados".equals(node.nodeKey()));
+                .noneMatch(node -> "workforce.vinculos.field.dias-afastados".equals(node.nodeKey()));
         assertThat(catalog.nodes())
-                .anyMatch(node -> "ergon.vinculos.surface.afastamentos-vinculo".equals(node.nodeKey()));
+                .anyMatch(node -> "workforce.vinculos.surface.afastamentos-vinculo".equals(node.nodeKey()));
         assertThat(catalog.edges())
-                .anyMatch(edge -> "ergon.vinculos.references-child.ergon.afastamentos".equals(edge.edgeKey()));
+                .anyMatch(edge -> "workforce.vinculos.references-child.workforce.afastamentos".equals(edge.edgeKey()));
     }
 
     private OptionSourceRegistry optionSources() {

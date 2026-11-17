@@ -2,6 +2,9 @@ package org.praxisplatform.uischema.exporting;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -96,11 +99,83 @@ abstract class AbstractTabularCollectionExportEngine implements CollectionExport
 
         return switch (semanticType) {
             case "currency" -> formatCurrency(value, presentation, locale);
+            case "number", "integer", "decimal" -> (presentation != null || hasText(format))
+                    ? formatNumber(value, format, semanticType, locale)
+                    : formatFallback(value, presentation);
+            case "percent", "percentage" -> formatPercent(value, format, locale);
+            case "enum" -> formatEnum(value, presentation);
             case "date" -> formatDate(value, format, locale);
             case "datetime", "date-time", "timestamp" -> formatDateTime(value, format, locale, zoneId);
             case "boolean", "bool" -> formatBoolean(value, presentation, locale);
-            default -> normalizeValue(value);
+            default -> formatFallback(value, presentation);
         };
+    }
+
+    private Object formatNumber(
+            Object value,
+            String format,
+            String semanticType,
+            Locale locale
+    ) {
+        if (!(value instanceof Number number)) {
+            return normalizeValue(value);
+        }
+        if ("integer".equals(semanticType) || "integer".equalsIgnoreCase(format)) {
+            return NumberFormat.getIntegerInstance(locale).format(number);
+        }
+        if (hasText(format) && (format.indexOf('0') >= 0 || format.indexOf('#') >= 0)) {
+            DecimalFormat decimalFormat = new DecimalFormat(format, DecimalFormatSymbols.getInstance(locale));
+            return decimalFormat.format(number);
+        }
+        return NumberFormat.getNumberInstance(locale).format(number);
+    }
+
+    private Object formatPercent(
+            Object value,
+            String format,
+            Locale locale
+    ) {
+        if (!(value instanceof Number number)) {
+            return normalizeValue(value);
+        }
+        BigDecimal numericValue = number instanceof BigDecimal bd ? bd : new BigDecimal(number.toString());
+        if (hasText(format) && (format.indexOf('0') >= 0 || format.indexOf('#') >= 0)) {
+            DecimalFormat decimalFormat = new DecimalFormat(format, DecimalFormatSymbols.getInstance(locale));
+            return decimalFormat.format(numericValue);
+        }
+        BigDecimal fraction = numericValue.divide(BigDecimal.valueOf(100), Math.max(4, numericValue.scale() + 2), RoundingMode.HALF_UP);
+        NumberFormat percentFormat = NumberFormat.getPercentInstance(locale);
+        int fractionalDigits = Math.max(0, Math.min(4, numericValue.stripTrailingZeros().scale()));
+        percentFormat.setMinimumFractionDigits(fractionalDigits);
+        percentFormat.setMaximumFractionDigits(Math.max(2, fractionalDigits));
+        return percentFormat.format(fraction);
+    }
+
+    private Object formatEnum(
+            Object value,
+            CollectionExportFieldPresentation presentation
+    ) {
+        if (presentation != null && !presentation.valueLabels().isEmpty()) {
+            String key = value instanceof Enum<?> enumValue ? enumValue.name() : String.valueOf(value);
+            String labeled = presentation.valueLabels().get(key);
+            if (labeled == null && value instanceof Enum<?> enumValue) {
+                labeled = presentation.valueLabels().get(enumValue.toString());
+            }
+            if (hasText(labeled)) {
+                return labeled;
+            }
+        }
+        return normalizeValue(value);
+    }
+
+    private Object formatFallback(
+            Object value,
+            CollectionExportFieldPresentation presentation
+    ) {
+        if (presentation != null && !presentation.valueLabels().isEmpty()) {
+            return formatEnum(value, presentation);
+        }
+        return normalizeValue(value);
     }
 
     private Object formatCurrency(

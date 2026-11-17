@@ -26,4 +26,11 @@ public abstract class PartialUpdateInput {
     public final boolean wasSupplied(String wireName) {
         return suppliedProperties.contains(wireName);
     }
+
+    /** Immutable snapshot of explicitly supplied wire property names. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @io.swagger.v3.oas.annotations.media.Schema(hidden = true)
+    public final Set<String> suppliedPropertyNames() {
+        return Set.copyOf(suppliedProperties);
+    }
 }

@@ -163,7 +163,7 @@ class CapabilityConsistencyE2ETest extends AbstractE2eH2Test {
         assertEquals("delete", deleteAvailability.path("metadata").path("blockedOperation").asText());
         assertEquals("Employees on leave cannot be deleted.", deleteAvailability.path("metadata").path("publicReason").asText());
         assertFalse(deleteAvailability.path("metadata").has("sql"));
-        assertFalse(deleteAvailability.path("metadata").has("hades"));
+        assertFalse(deleteAvailability.path("metadata").has("legacyRuleEngine"));
         assertFalse(deleteAvailability.path("metadata").has("rowId"));
         assertNull(findLinkHref(itemEnvelope, "delete"));
     }

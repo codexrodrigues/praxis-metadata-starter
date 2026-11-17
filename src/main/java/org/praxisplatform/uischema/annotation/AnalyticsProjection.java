@@ -2,10 +2,12 @@ package org.praxisplatform.uischema.annotation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Projection semantica analitica opcional anexada a uma operacao real.
  */
+@Target({})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AnalyticsProjection {
 

@@ -66,7 +66,55 @@ public enum LegalTreatmentPurpose {
      * Execution of a specific statutory or regulatory legal obligation not covered by a narrower
      * category (LGPD Art. 7, II; Art. 11, II, 'a').
      */
-    STATUTORY_LEGAL_OBLIGATION("statutory_legal_obligation");
+    STATUTORY_LEGAL_OBLIGATION("statutory_legal_obligation"),
+
+    /**
+     * Treatment authorized by explicit, informed and unambiguous consent of the data subject
+     * (LGPD Art. 7, I; Art. 11, I; GDPR Art. 6(1)(a)).
+     */
+    CONSENT("consent"),
+
+    /**
+     * Treatment necessary for the execution of a contract or preliminary procedures related to a
+     * contract to which the data subject is a party (LGPD Art. 7, V; GDPR Art. 6(1)(b)).
+     */
+    CONTRACT_EXECUTION("contract_execution"),
+
+    /**
+     * Treatment necessary to fulfill legitimate interests of the controller or third party,
+     * preserving fundamental rights and freedoms (LGPD Art. 7, IX; GDPR Art. 6(1)(f)).
+     */
+    LEGITIMATE_INTEREST("legitimate_interest"),
+
+    /**
+     * Protection of life or physical safety of the data subject or a third party
+     * (LGPD Art. 7, VII; Art. 11, II, 'e'; GDPR Art. 6(1)(d)).
+     */
+    VITAL_INTEREST("vital_interest"),
+
+    /**
+     * Credit protection and financial solvency assessment in accordance with applicable law
+     * (LGPD Art. 7, X).
+     */
+    CREDIT_PROTECTION("credit_protection"),
+
+    /**
+     * Regular exercise of rights in judicial, administrative or arbitral proceedings
+     * (LGPD Art. 7, VI; Art. 11, II, 'd').
+     */
+    JUDICIAL_DEFENSE("judicial_defense"),
+
+    /**
+     * Fraud prevention and security assurance of the data subject in identification and
+     * authentication processes (LGPD Art. 11, II, 'g').
+     */
+    FRAUD_PREVENTION("fraud_prevention"),
+
+    /**
+     * Regulatory compliance and statutory supervision obligations before sectoral authorities
+     * (LGPD Art. 7, II; GDPR Art. 6(1)(c)).
+     */
+    REGULATORY_COMPLIANCE("regulatory_compliance");
 
     private final String wireValue;
 

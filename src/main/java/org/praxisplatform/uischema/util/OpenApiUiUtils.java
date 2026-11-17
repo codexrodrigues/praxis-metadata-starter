@@ -445,6 +445,22 @@ public class OpenApiUiUtils {
             if (!(constant instanceof Enum<?> enumConstant)) {
                 continue;
             }
+            if (enumConstant instanceof org.praxisplatform.uischema.option.PraxisUiOptionEnum praxisOption) {
+                ObjectNode optionNode = objectMapper.createObjectNode();
+                optionNode.put("value", praxisOption.value());
+                optionNode.put("label", praxisOption.label());
+                if (praxisOption.icon() != null && !praxisOption.icon().trim().isEmpty()) {
+                    optionNode.put("icon", praxisOption.icon().trim());
+                }
+                if (praxisOption.tone() != null
+                        && praxisOption.tone() != org.praxisplatform.uischema.annotation.QuickFilterTone.UNSPECIFIED
+                        && praxisOption.tone().wireValue() != null
+                        && !praxisOption.tone().wireValue().isBlank()) {
+                    optionNode.put("tone", praxisOption.tone().wireValue());
+                }
+                arrayNode.add(optionNode);
+                continue;
+            }
             ObjectNode optionNode = objectMapper.createObjectNode();
             Object rawValue = resolveEnumOptionRawValue(enumConstant, jsonValueMethod);
             if (rawValue instanceof Number || rawValue instanceof Boolean) {
@@ -508,7 +524,9 @@ public class OpenApiUiUtils {
         }
         Method jsonValueMethod = findJsonValueMethod(optionEnum);
         for (Object constant : constants) {
-            if (constant instanceof Enum<?> enumConstant) {
+            if (constant instanceof org.praxisplatform.uischema.option.PraxisUiOptionEnum praxisOption) {
+                values.add(praxisOption.value());
+            } else if (constant instanceof Enum<?> enumConstant) {
                 values.add(String.valueOf(resolveEnumOptionRawValue(enumConstant, jsonValueMethod)));
             }
         }

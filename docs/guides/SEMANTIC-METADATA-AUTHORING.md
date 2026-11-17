@@ -31,6 +31,21 @@ Presets canonicos disponiveis:
 - `PHONE_CONTACT`
 - `INTEGER_COUNTER`
 - `PERCENTAGE_RATE`
+- `LOCAL_DATE` (`DATE` + `DATE_PICKER`, ícone `"calendar_today"`)
+- `LOCAL_DATE_TIME` (`DATE` + `DATE_TIME_PICKER`, ícone `"schedule"`)
+- `ENTITY_LOOKUP` (`NUMBER` + `ENTITY_LOOKUP`, `valueField = "id"`, `displayField = "label"`, ícone `"link"`)
+
+### Formatação Numérica (`NumericFormat.AUTO`) e Opções Tipadas (`PraxisUiOptionEnum`)
+
+- O default de `@UISchema(numericFormat = ...)` é `NumericFormat.AUTO`: campos numéricos que declarem explicitamente `NumericFormat.INTEGER` (ou usem `INTEGER_COUNTER`) sempre publicam `"numericFormat": "integer"` em `x-ui`, enquanto o padrão `AUTO` evita emitir `"integer"` indevidamente em campos não-inteiros.
+- Quando um `enum` passado em `@UISchema(optionEnum = MeuEnum.class)` implementa `PraxisUiOptionEnum`, o starter publica `value`, `label`, `icon` e `tone` em `x-ui.options` no formato canônico de `@UiOption`, e `EntityLookupDescriptor.directoryBuilderFromDto(...)` detecta automaticamente esse campo (ou `@ResourceState`) para preencher `status`, `statusLabels` e `selectionPolicy` (`selectableInLookup()`).
+
+### Anotações Estruturais Zero-Duplicação (`Table`, `Form`, `State`, `Workflow`, `Calculo`, `Contexto`)
+
+- **Projeção Tabular (`@TableView`):** declara `columns`, `pinnedStart` e `pinnedEnd` no `ResponseDTO`, ocultando automaticamente (`tableHidden = true`) todas as demais propriedades e atribuindo `tableOrder`/`pinned`.
+- **Layout & Visibilidade de Formulário (`@UiFormLayout`, `@UiSection`, `@UISchema`):** organiza seções/grupos (`FLAT`, `ACCORDION`, `TABS`, `STEPPER`) em `x-ui.formLayout` e permite `colSpan` (`1..12`) e `conditionalReadOnly` (JSON Logic validado estaticamente) diretamente em `@UISchema`.
+- **Ciclo de Vida, Draft, Contexto e Visões Temporais:** `@ResourceState` identifica o campo de estado e `initialStates`/`putMutableStates`; `@DraftCleared` zera campos protegidos/únicos automaticamente em `duplicate-draft` (`x-ui.draftCleared = true`); `@ContextScopeBinding` vincula campo ou recurso a `ScopeDimension` (`x-ui.contextBinding`); `@ResourceProgression`, `@ResourceTimeline` e `@ResourceSchedule` publicam `x-ui.progression`, `x-ui.timeline` e `x-ui.schedule` apenas em `schemaType=response`.
+- **Ergonomia de Ações, Analytics, Ordenação, Bulking & Cálculo:** `@UiAnalytics` aceita nível de classe (`ElementType.TYPE`, anexando a `/stats/group-by` ou `/filter`); `@BulkEditable` e `@DefaultSortColumn` aceitam getters e componentes de `record`; `@WorkflowAction` suporta `icon`, `tone`, `modifiedFields` e `disallowedStateReason`; e `@CalculationTrail#steps` aceita etapas arbitrárias `@CalculationStep` validadas por `PraxisExpressionStaticValidator`.
 
 ### Presets de Governança (`DomainGovernancePreset`) e Meta-Anotações Compostas
 

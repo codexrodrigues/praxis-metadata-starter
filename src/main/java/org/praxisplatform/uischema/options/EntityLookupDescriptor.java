@@ -141,7 +141,139 @@ public record EntityLookupDescriptor(
                 }
             }
         }
-        return new DirectoryBuilder(entityKey, code, descriptions).withDtoMetadata(responseDtoClass);
+        DirectoryBuilder builder = new DirectoryBuilder(entityKey, code, descriptions).withDtoMetadata(responseDtoClass);
+        autoConfigureStatusFromDto(responseDtoClass, builder);
+        return builder;
+    }
+
+    private static void autoConfigureStatusFromDto(Class<?> dtoClass, DirectoryBuilder builder) {
+        record DetectedStatus(String propertyName, Class<? extends Enum<?>> optionEnumClass) {}
+        DetectedStatus resourceStateCandidate = null;
+        DetectedStatus optionEnumCandidate = null;
+
+        for (Class<?> curr = dtoClass; curr != null && curr != Object.class; curr = curr.getSuperclass()) {
+            for (java.lang.reflect.Field f : curr.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.isSynthetic()) {
+                    continue;
+                }
+                boolean hasResourceState = f.isAnnotationPresent(org.praxisplatform.uischema.annotation.ResourceState.class);
+                Class<? extends Enum<?>> enumClass = resolvePraxisUiOptionEnumClass(
+                        f.getType(),
+                        f.getAnnotation(org.praxisplatform.uischema.extension.annotation.UISchema.class)
+                );
+                if (hasResourceState && resourceStateCandidate == null) {
+                    resourceStateCandidate = new DetectedStatus(f.getName(), enumClass);
+                } else if (enumClass != null && optionEnumCandidate == null) {
+                    optionEnumCandidate = new DetectedStatus(f.getName(), enumClass);
+                }
+            }
+            for (java.lang.reflect.Method m : curr.getDeclaredMethods()) {
+                if (java.lang.reflect.Modifier.isStatic(m.getModifiers()) || m.isSynthetic() || m.isBridge()
+                        || m.getParameterCount() != 0 || m.getReturnType() == void.class) {
+                    continue;
+                }
+                String propName = resolveGetterName(curr, m);
+                if (propName == null) {
+                    continue;
+                }
+                boolean hasResourceState = m.isAnnotationPresent(org.praxisplatform.uischema.annotation.ResourceState.class);
+                Class<? extends Enum<?>> enumClass = resolvePraxisUiOptionEnumClass(
+                        m.getReturnType(),
+                        m.getAnnotation(org.praxisplatform.uischema.extension.annotation.UISchema.class)
+                );
+                if (hasResourceState && resourceStateCandidate == null) {
+                    resourceStateCandidate = new DetectedStatus(propName, enumClass);
+                } else if (enumClass != null && optionEnumCandidate == null) {
+                    optionEnumCandidate = new DetectedStatus(propName, enumClass);
+                }
+            }
+            if (curr.isRecord()) {
+                for (var rc : curr.getRecordComponents()) {
+                    boolean hasResourceState = rc.isAnnotationPresent(org.praxisplatform.uischema.annotation.ResourceState.class);
+                    Class<? extends Enum<?>> enumClass = resolvePraxisUiOptionEnumClass(
+                            rc.getType(),
+                            rc.getAnnotation(org.praxisplatform.uischema.extension.annotation.UISchema.class)
+                    );
+                    if (hasResourceState && resourceStateCandidate == null) {
+                        resourceStateCandidate = new DetectedStatus(rc.getName(), enumClass);
+                    } else if (enumClass != null && optionEnumCandidate == null) {
+                        optionEnumCandidate = new DetectedStatus(rc.getName(), enumClass);
+                    }
+                }
+            }
+        }
+
+        DetectedStatus selected = resourceStateCandidate != null ? resourceStateCandidate : optionEnumCandidate;
+        if (selected == null) {
+            return;
+        }
+        builder.status(selected.propertyName());
+        if (selected.optionEnumClass() == null) {
+            return;
+        }
+        Object[] constants = selected.optionEnumClass().getEnumConstants();
+        if (constants == null || constants.length == 0) {
+            return;
+        }
+        Map<String, String> labels = new LinkedHashMap<>();
+        List<String> allowed = new ArrayList<>();
+        List<String> blocked = new ArrayList<>();
+        for (Object constant : constants) {
+            if (constant instanceof org.praxisplatform.uischema.option.PraxisUiOptionEnum optionEnum) {
+                labels.put(optionEnum.value(), optionEnum.label());
+                if (optionEnum.selectableInLookup()) {
+                    allowed.add(optionEnum.value());
+                } else {
+                    blocked.add(optionEnum.value());
+                }
+            }
+        }
+        if (!labels.isEmpty()) {
+            builder.statusLabels(labels);
+        }
+        if (!blocked.isEmpty()) {
+            builder.selectionPolicy(new LookupSelectionPolicy(
+                    null,
+                    selected.propertyName(),
+                    allowed,
+                    blocked,
+                    true,
+                    "This record is unavailable for selection",
+                    "Select an available record"
+            ));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Class<? extends Enum<?>> resolvePraxisUiOptionEnumClass(
+            Class<?> propertyType,
+            org.praxisplatform.uischema.extension.annotation.UISchema uiSchema
+    ) {
+        if (uiSchema != null && uiSchema.optionEnum() != null && uiSchema.optionEnum() != Void.class
+                && uiSchema.optionEnum().isEnum()
+                && org.praxisplatform.uischema.option.PraxisUiOptionEnum.class.isAssignableFrom(uiSchema.optionEnum())) {
+            return (Class<? extends Enum<?>>) uiSchema.optionEnum();
+        }
+        if (propertyType != null && propertyType.isEnum()
+                && org.praxisplatform.uischema.option.PraxisUiOptionEnum.class.isAssignableFrom(propertyType)) {
+            return (Class<? extends Enum<?>>) propertyType;
+        }
+        return null;
+    }
+
+    private static String resolveGetterName(Class<?> owner, java.lang.reflect.Method method) {
+        String name = method.getName();
+        if (owner.isRecord()) {
+            return name;
+        }
+        if (name.startsWith("get") && name.length() > 3) {
+            return Character.toLowerCase(name.charAt(3)) + name.substring(4);
+        }
+        if (name.startsWith("is") && name.length() > 2
+                && (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class)) {
+            return Character.toLowerCase(name.charAt(2)) + name.substring(3);
+        }
+        return null;
     }
 
     private static String resolveBusinessCodeField(

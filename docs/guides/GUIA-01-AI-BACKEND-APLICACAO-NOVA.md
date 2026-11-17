@@ -226,8 +226,8 @@ spring:
   application:
     name: hr-api
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/neondb?sslmode=require}
-    username: ${SPRING_DATASOURCE_USERNAME:neondb_owner}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/praxisdb?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:praxis_user}
     password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
   jpa:

@@ -10,20 +10,24 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marca uma operacao HTTP real como surface semantica de UI.
+ * Marca uma operação HTTP real como surface semântica de UI.
  *
  * <p>
- * A anotacao nao define schema inline nem substitui o contrato OpenAPI da operacao. Ela apenas
- * atribui metadados semanticos para discovery, sempre apontando para uma operacao canonicamente
- * documentada e para o schema resolvivel via {@code /schemas/filtered}.
+ * A anotação não define schema inline nem substitui o contrato OpenAPI da operação. Ela apenas
+ * atribui metadados semânticos para discovery, sempre apontando para uma operação canonicamente
+ * documentada e para o schema resolvível via {@code /schemas/filtered}.
  * </p>
  *
  * <p>
- * Use {@code @UiSurface} para expor experiencias de leitura ou interacao visual, como
+ * Use {@code @UiSurface} para expor experiências de leitura ou interação visual, como
  * {@code list}, {@code details}, {@code create-form}, {@code edit-form} ou dashboards
- * especializados. Nao use esta anotacao para modelar comando de negocio; nesses casos, a
- * superficie correta e {@link WorkflowAction}.
+ * especializados. Não use esta anotação para modelar comando de negócio; nesses casos, a
+ * superfície correta é {@link WorkflowAction}. Declare {@link #legalPurpose()} e
+ * {@link #legalBasisRef()} sempre que a superfície projetar ou editar dados pessoais ou sensíveis.
  * </p>
+ *
+ * @see WorkflowAction
+ * @see LegalTreatmentPurpose
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

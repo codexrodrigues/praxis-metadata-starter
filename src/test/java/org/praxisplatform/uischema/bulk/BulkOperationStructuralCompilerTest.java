@@ -160,7 +160,7 @@ class BulkOperationStructuralCompilerTest {
                     new FilteredSchemaReferenceResolver()).compileAll().getFirst();
             var first = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
             assertEquals("sha256:f3993230845dcce3c8ad40ab2a4101eb29e406151534a2d6a48d36b999e8d8ea", first.descriptorFingerprint(),
-                    "independent baseline rc146 operational/1 command oracle");
+                    "independent baseline rc146 operational/1 command reference");
             var repeated = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
 
             assertEquals(first.structuralRevision(), repeated.structuralRevision());
@@ -393,6 +393,8 @@ class BulkOperationStructuralCompilerTest {
                 org.springframework.jdbc.core.ConnectionCallback<?> callback = invocation.getArgument(0);
                 return callback.doInConnection(connection);
             });
+            org.mockito.Mockito.when(runtime.readAttestedPublication()).thenAnswer(invocation ->
+                    JdbcBulkOpenApiPublication.lockForRead(connection, "test-namespace", "deployment-a"));
             var controlEntries = new AtomicInteger();
             org.mockito.Mockito.when(control.withConnection(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
                 // Initial global suspension is admitted before preparation; only publication waits in the pool.
@@ -480,6 +482,8 @@ class BulkOperationStructuralCompilerTest {
             var connection = org.mockito.Mockito.mock(java.sql.Connection.class);
             org.mockito.Mockito.when(runtime.withLifecycleRead(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation ->
                     ((org.springframework.jdbc.core.ConnectionCallback<?>) invocation.getArgument(0)).doInConnection(connection));
+            org.mockito.Mockito.when(runtime.readAttestedPublication()).thenAnswer(invocation ->
+                    JdbcBulkOpenApiPublication.lockForRead(connection, "test-namespace", "deployment-a"));
             org.mockito.Mockito.when(control.withConnection(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation ->
                     ((org.springframework.jdbc.core.ConnectionCallback<?>) invocation.getArgument(0)).doInConnection(connection));
             var publication = new java.util.concurrent.atomic.AtomicReference<>(
@@ -1555,7 +1559,7 @@ class BulkOperationStructuralCompilerTest {
                 var reads = new java.util.ArrayList<String>();
                 var transitions = new java.util.ArrayList<String>();
                 // Both IDs have a row in this JDBC fixture. Observe the actual SQL-bound ID, not a
-                // mocked lifecycle answer, so any UPDATE read or transition fails the final oracle.
+                // mocked lifecycle answer, so any UPDATE read or transition fails the final verifier.
                 var readConnection = controlConnection(reads, false);
                 var transitionConnection = controlConnection(transitions, true);
                 org.mockito.Mockito.doAnswer(call -> {

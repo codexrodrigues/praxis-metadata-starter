@@ -1148,7 +1148,7 @@ class BulkAtomicExecutionPostgresTest {
                 .isEqualTo(1);
     }
 
-    /** Independent wire-format oracle: caller supplies the expected C/UTF-8 order, never a production sort. */
+    /** Independent wire-format verifier: caller supplies the expected C/UTF-8 order, never a production sort. */
     private static String framedEffectDigest(List<String> orderedReferences) {
         try {
             var bytes = new java.io.ByteArrayOutputStream();
@@ -1169,7 +1169,7 @@ class BulkAtomicExecutionPostgresTest {
             return "sha256:" + java.util.HexFormat.of().formatHex(
                     java.security.MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray()));
         } catch (java.io.IOException | java.security.NoSuchAlgorithmException error) {
-            throw new AssertionError("cannot calculate the independent framing oracle", error);
+            throw new AssertionError("cannot calculate the independent framing digest", error);
         }
     }
 

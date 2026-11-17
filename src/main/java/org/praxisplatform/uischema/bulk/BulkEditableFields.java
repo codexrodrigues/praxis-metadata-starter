@@ -77,7 +77,9 @@ public final class BulkEditableFields {
         if (!properties.isObject()) {
             throw invalid("resolved update schema must contain concrete properties");
         }
-        Map<Field, BulkEditable> declarations = new LinkedHashMap<>();
+        Map<Field, BulkEditable> fieldDeclarations = new LinkedHashMap<>();
+        Map<java.lang.reflect.Method, BulkEditable> methodDeclarations = new LinkedHashMap<>();
+        Map<String, BulkEditable> recordComponentDeclarations = new LinkedHashMap<>();
         for (Class<?> type = updateType.getRawClass(); type != null && type != Object.class; type = type.getSuperclass()) {
             JavaType resolvedType = updateType.findSuperType(type);
             if (resolvedType == null || type.getTypeParameters().length > resolvedType.getBindings().size()) {
@@ -89,18 +91,65 @@ public final class BulkEditableFields {
                     if (Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) {
                         throw invalid("bulk declarations require an instance DTO field");
                     }
-                    declarations.put(field, annotation);
+                    fieldDeclarations.put(field, annotation);
+                }
+            }
+            for (java.lang.reflect.Method method : type.getDeclaredMethods()) {
+                BulkEditable annotation = method.getAnnotation(BulkEditable.class);
+                if (annotation != null) {
+                    if (Modifier.isStatic(method.getModifiers()) || method.isSynthetic() || method.isBridge()) {
+                        throw invalid("bulk declarations require a non-static DTO accessor method");
+                    }
+                    methodDeclarations.put(method, annotation);
+                }
+            }
+            if (type.isRecord()) {
+                for (var component : type.getRecordComponents()) {
+                    BulkEditable annotation = component.getAnnotation(BulkEditable.class);
+                    if (annotation != null) {
+                        recordComponentDeclarations.put(component.getName(), annotation);
+                    }
                 }
             }
         }
         var dto = mapper.getDeserializationConfig().introspect(updateType);
-        Map<Field, BeanPropertyDefinition> bindings = new HashMap<>();
+        Set<java.lang.reflect.AnnotatedElement> matchedDeclarations = new HashSet<>();
+        Map<BeanPropertyDefinition, BulkEditable> propertyDeclarations = new LinkedHashMap<>();
+        Set<String> matchedRecordComponents = new HashSet<>();
         try {
             for (BeanPropertyDefinition property : dto.findProperties()) {
-                Field member = property.getField() != null
-                        && property.getField().getMember() instanceof Field field ? field : recordField(updateType, property);
-                if (member != null && declarations.containsKey(member)) {
-                    if (bindings.put(member, property) != null) {
+                Field memberField = property.getField() != null
+                        && property.getField().getMember() instanceof Field f ? f : recordField(updateType, property);
+                java.lang.reflect.Method getterMethod = property.getGetter() != null
+                        && property.getGetter().getMember() instanceof java.lang.reflect.Method gm ? gm : null;
+                java.lang.reflect.Method setterMethod = property.getSetter() != null
+                        && property.getSetter().getMember() instanceof java.lang.reflect.Method sm ? sm : null;
+
+                BulkEditable matched = null;
+                if (memberField != null && fieldDeclarations.containsKey(memberField)) {
+                    matchedDeclarations.add(memberField);
+                    matched = fieldDeclarations.get(memberField);
+                }
+                if (getterMethod != null && methodDeclarations.containsKey(getterMethod)) {
+                    matchedDeclarations.add(getterMethod);
+                    if (matched == null) {
+                        matched = methodDeclarations.get(getterMethod);
+                    }
+                }
+                if (setterMethod != null && methodDeclarations.containsKey(setterMethod)) {
+                    matchedDeclarations.add(setterMethod);
+                    if (matched == null) {
+                        matched = methodDeclarations.get(setterMethod);
+                    }
+                }
+                if (updateType.getRawClass().isRecord() && recordComponentDeclarations.containsKey(property.getInternalName())) {
+                    matchedRecordComponents.add(property.getInternalName());
+                    if (matched == null) {
+                        matched = recordComponentDeclarations.get(property.getInternalName());
+                    }
+                }
+                if (matched != null) {
+                    if (propertyDeclarations.put(property, matched) != null) {
                         throw invalid("a DTO declaration maps to multiple JSON properties");
                     }
                 }
@@ -108,13 +157,16 @@ public final class BulkEditableFields {
         } catch (IllegalArgumentException ex) {
             throw invalid("Jackson cannot resolve an unambiguous update property binding");
         }
+        if (matchedDeclarations.size() != fieldDeclarations.size() + methodDeclarations.size()
+                || matchedRecordComponents.size() != recordComponentDeclarations.size()) {
+            throw invalid("annotated field is absent or not writable in the Jackson update contract");
+        }
         Map<BulkMode, Set<String>> writable = emptyAllowlists();
         Map<BulkMode, Set<String>> clearable = emptyAllowlists();
         Set<String> names = new HashSet<>();
-        for (Map.Entry<Field, BulkEditable> entry : declarations.entrySet()) {
-            Field field = entry.getKey();
+        for (Map.Entry<BeanPropertyDefinition, BulkEditable> entry : propertyDeclarations.entrySet()) {
+            BeanPropertyDefinition property = entry.getKey();
             BulkEditable annotation = entry.getValue();
-            BeanPropertyDefinition property = bindings.get(field);
             if (property == null || !acceptsInput(mapper, dto, property)) {
                 throw invalid("annotated field is absent or not writable in the Jackson update contract");
             }
@@ -138,8 +190,11 @@ public final class BulkEditableFields {
                     members.add(member);
                 }
             }
-            if (forbidsInput(field.getAnnotation(Schema.class), field.getAnnotation(UISchema.class),
-                    field.getAnnotation(JsonProperty.class)) || members.stream().anyMatch(BulkEditableFields::forbidsInput)) {
+            Field backingField = property.getField() != null && property.getField().getMember() instanceof Field f
+                    ? f : recordField(updateType, property);
+            if ((backingField != null && forbidsInput(backingField.getAnnotation(Schema.class),
+                    backingField.getAnnotation(UISchema.class), backingField.getAnnotation(JsonProperty.class)))
+                    || members.stream().anyMatch(BulkEditableFields::forbidsInput)) {
                 throw invalid("annotated DTO property forbids writable presentation or input");
             }
             Set<BulkMode> modes = new LinkedHashSet<>();
@@ -152,9 +207,12 @@ public final class BulkEditableFields {
             if (modes.isEmpty()) {
                 throw invalid("at least one bulk update mode is required");
             }
-            if (annotation.allowClear() && (!explicitlyNullable(schema, specVersion) || field.getType().isPrimitive()
-                    || field.isAnnotationPresent(NotNull.class) || field.isAnnotationPresent(NotBlank.class)
-                    || field.isAnnotationPresent(NotEmpty.class) || members.stream().anyMatch(BulkEditableFields::forbidsNull)
+            boolean primitiveProperty = (backingField != null && backingField.getType().isPrimitive())
+                    || (property.getPrimaryMember() != null && property.getPrimaryMember().getRawType().isPrimitive());
+            boolean backingNullForbidden = backingField != null && (backingField.isAnnotationPresent(NotNull.class)
+                    || backingField.isAnnotationPresent(NotBlank.class) || backingField.isAnnotationPresent(NotEmpty.class));
+            if (annotation.allowClear() && (!explicitlyNullable(schema, specVersion) || primitiveProperty
+                    || backingNullForbidden || members.stream().anyMatch(BulkEditableFields::forbidsNull)
                     || changesOrRejectsNull(mapper, property))) {
                 throw invalid("CLEAR requires explicit schema nullability and a nullable DTO field");
             }

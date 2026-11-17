@@ -36,4 +36,21 @@ public abstract class AbstractReadOnlyResourceService<
     protected AbstractReadOnlyResourceService(BaseCrudRepository<E, ID> repository, Class<E> entityClass) {
         super(repository, entityClass);
     }
+
+    protected AbstractReadOnlyResourceService(
+            BaseCrudRepository<E, ID> repository,
+            Class<E> entityClass,
+            String... identityPaths
+    ) {
+        super(repository, entityClass, identityPaths);
+    }
+
+    protected AbstractReadOnlyResourceService(
+            BaseCrudRepository<E, ID> repository,
+            GenericSpecificationsBuilder<E> specificationsBuilder,
+            Class<E> entityClass,
+            String... identityPaths
+    ) {
+        super(repository, specificationsBuilder, entityClass, identityPaths);
+    }
 }

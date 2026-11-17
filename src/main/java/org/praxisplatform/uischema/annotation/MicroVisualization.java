@@ -7,17 +7,32 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Governanca declarativa de micro visualizacoes ultraleves para campos e metodos de DTOs.
+ * Governança declarativa de microvisualizações ultraleves para campos e métodos de DTOs.
  *
  * <p>
- * O processador OpenAPI do {@code praxis-metadata-starter} traduz esta anotacao para o contrato
- * canonico publicado em {@code x-ui.presentation = { presenter: "microVisualization", visualization: { ... } }}.
- * O {@code @praxisui/table} consome esse contrato para instanciar automaticamente o renderer de celula
- * correspondente (bullet, radial, comparison, etc.) sem exigir codigo TypeScript no cliente.
- * A anotacao fornece a base apos presets; {@code @UISchema.extraProperties} tem precedencia final.
- * O contrato efetivo com presenter {@code microVisualization} exige fallback textual nao vazio,
- * declarado aqui ou em {@code presentation.visualization.fallbackText} via extraProperties.
+ * O processador OpenAPI do {@code praxis-metadata-starter} traduz esta anotação para o contrato
+ * canônico publicado em {@code x-ui.presentation = { presenter: "microVisualization", visualization: { ... } }}.
+ * O {@code @praxisui/table} consome esse contrato para instanciar automaticamente o renderer de célula
+ * correspondente (bullet, radial, comparison, etc.) sem exigir código TypeScript no cliente.
+ * A anotação fornece a base após presets; {@code @UISchema.extraProperties} tem precedência final.
+ * O contrato efetivo com presenter {@code microVisualization} exige fallback textual não vazio,
+ * declarado aqui ou em {@code presentation.visualization.fallbackText} via {@code extraProperties}.
+ * Todas as expressões {@code *Expr} são validadas estaticamente por
+ * {@link org.praxisplatform.uischema.validation.PraxisExpressionStaticValidator}.
  * </p>
+ *
+ * <pre>{@code
+ * @MicroVisualization(
+ *     kind = MicroVisualizationKind.BULLET,
+ *     valueExpr = "row.allocatedSeats",
+ *     targetExpr = "row.plannedSeats",
+ *     fallbackText = "Ocupação de vagas planejadas"
+ * )
+ * private Double occupancyRate;
+ * }</pre>
+ *
+ * @see CalculationMemory
+ * @see Threshold
  */
 @Target({ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)

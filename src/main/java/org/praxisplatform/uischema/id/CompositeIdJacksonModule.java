@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * Jackson module that serializes any {@link jakarta.persistence.Embeddable} or
  * {@link CompositeResourceId} as a canonical wire string and deserializes it from either a
- * canonical string ({@code "1001:1"}) or a JSON object ({@code {"numfunc":1001,"numvinc":1}}).
+ * canonical string ({@code "1001:1"}) or a JSON object ({@code {"tenantId":1001,"assignmentSeq":1}}).
  */
 public final class CompositeIdJacksonModule extends SimpleModule {
 

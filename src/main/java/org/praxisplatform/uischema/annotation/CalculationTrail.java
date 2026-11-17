@@ -5,13 +5,26 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Trilha individual auditavel de uma {@link CalculationMemory} publicada em {@code x-ui.calculationMemory}
+ * Trilha individual auditável de uma {@link CalculationMemory} publicada em {@code x-ui.calculationMemory}
  * ({@code PLAT-EVO-20}).
  *
- * <p>Todas as expressoes declaradas ({@code visibleWhen}, {@code baseExpr}, {@code additionExpr},
- * {@code deductionExpr}, {@code factorExpr}, {@code capExpr}, {@code resultExpr} e variantes
- * {@code *Expr}) sao validadas estaticamente contra as propriedades reais do DTO pelo
+ * <p>Permite modelar tanto trilhas estruturadas com parcelas fixas ({@code baseExpr},
+ * {@code additionExpr}, {@code deductionExpr}, {@code factorExpr}, {@code capExpr}, {@code resultExpr})
+ * quanto trilhas extensíveis de N etapas via {@code steps = {@CalculationStep(...)}}.
+ * Todas as expressões declaradas são validadas estaticamente contra as propriedades reais do DTO pelo
  * {@code PraxisExpressionStaticValidator}.</p>
+ *
+ * <pre>{@code
+ * @CalculationTrail(
+ *     id = "net-compensation",
+ *     title = "Composição líquida",
+ *     resultExpr = "row.netAmount",
+ *     steps = {
+ *         @CalculationStep(label = "Base", expr = "row.grossAmount", kind = StepKind.BASE, format = "currency:BRL"),
+ *         @CalculationStep(label = "Descontos", expr = "row.totalDeductions", kind = StepKind.DEDUCTION, format = "currency:BRL")
+ *     }
+ * )
+ * }</pre>
  */
 @Target({})
 @Retention(RetentionPolicy.RUNTIME)
@@ -155,4 +168,9 @@ public @interface CalculationTrail {
      * Expressao opcional para finalidade juridica dinamica.
      */
     String legalPurposeExpr() default "";
+
+    /**
+     * Lista ordenada de etapas ou parcelas explicaveis arbitrarias desta trilha.
+     */
+    CalculationStep[] steps() default {};
 }

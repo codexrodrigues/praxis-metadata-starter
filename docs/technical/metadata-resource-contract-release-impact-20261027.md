@@ -622,4 +622,18 @@ Tag `v8.0.0-rc.190` run `43680554448` passed `259` `no_db` suites (`1932` testca
 - Converting that `@TestFactory` to `@ParameterizedTest` with `@CsvSource` (`UNIFORM_UPDATE`/`PER_ITEM_UPDATE` × `EVALUATION`/`CONFIRMATION`) emits four distinct Surefire testcase identities (`bothModesCarryProposalAndConfirmationWithoutWritingDuringEvaluation(BulkMode, Stage)[1..4]`) and isolates `@BeforeEach`/`@AfterEach` JPA setup per case without altering assertions.
 - Updated `tools/release/neon-test-inventory.json` SHA-256 for `src/test/java/org/praxisplatform/uischema/service/base/ResourceMutationBulkContextTest.java`.
 
+## 2026-11-17 reconciliation: v8.0.0-rc.192 (governance SPI, annotation ergonomics, export/bulk upgrades, multi-tenancy primitives, public purity, and rules-engine 0.1.0-beta.20)
+
+Between `163b0ac7a7` and `v8.0.0-rc.192`, the repository integrated Wave 1 platform upgrades alongside strict public-repository domain neutrality across all `src/main/**`, `src/test/**`, and `docs/**` assets:
+
+1. **Released dependency alignment and POM deltas (`pom.xml`):**
+   - Bumped `io.github.codexrodrigues:praxis-rules-engine` from `0.1.0-beta.19` to Maven Central release `0.1.0-beta.20`.
+   - Marked `spring-boot-starter-security` `<optional>true</optional>` for opt-in realm-scoped security primitives without adding mandatory security dependencies to web-less or custom-security consumers.
+2. **Added `no_db` test coverage (+6 classes) and neutralized legacy test fixtures:**
+   - Added `authoring/PhaseABehavioralContractsTest.java`, `bulk/PhaseBBulkDefaultsCodecAndCommandTest.java`, `extension/PhaseAErgonomicsOpenApiAndSchemaTest.java`, `governance/ResourceGovernanceInterceptorAndAvailabilityTest.java`, `multitenancy/MultitenancySupportAndAutoConfigurationTest.java`, and `service/base/PhaseBServiceLifecycleAndExportTest.java` as `no_db` suites covering the new annotations, governance SPI, composite availability evaluator, export formatting, composite bulk codec/defaults, and opt-in multi-tenancy auto-configuration.
+   - Neutralized all remaining legacy domain identifiers in `src/test/**` to canonical neutral `workforce.*` / `/api/workforce/*` / `PKG_LEGACY_RULES` fixtures (`0` purity leaks under strict full-literal auditing) and aligned physical column names (`employee_id`, `assignment_seq`) in `id/e2e/CompositeIdResourceE2ETest.java` without altering assertions.
+3. **Refreshed digests (`sha256`, `reviewedScopeDigest`, `historical_reuse`) across the release boundary:**
+   - Recomputed committed-blob `sha256` entries in `tools/release/neon-test-inventory.json` and updated `impactReview.reviewedScopeDigest` / `reuse.reviewedScopeDigest` / `reuse.dependencyDigest` for closures referencing modified `src/main/**`, `src/test/**`, or `pom.xml` paths, preserving bounded prior Neon B–H and resource-contract obligations.
+
+
 

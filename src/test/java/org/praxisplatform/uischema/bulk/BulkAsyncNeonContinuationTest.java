@@ -20,7 +20,7 @@ class BulkAsyncNeonContinuationTest {
     }
     @Test void pendingIdentityIsAdoptedExactlyWithoutRegeneration() {
         var value=BulkAsyncPublicAdmissionNeonFixture.JSON.createObjectNode().put("status","PENDING_UNCERTAIN")
-                .put("branch","br-polished-mud-adr67xib").put("deployment",BulkAsyncPublicAdmissionNeonFixture.DEP)
+                .put("branch",BulkAsyncPublicAdmissionNeonFixture.FIXTURE_BRANCH).put("deployment",BulkAsyncPublicAdmissionNeonFixture.DEP)
                 .put("environment",BulkAsyncPublicAdmissionNeonFixture.ENV).put("authorityEpoch",1)
                 .put("authorityId","396e4d41-94df-4b70-b5dc-93820ba482bf");
         var id=BulkAsyncPublicAdmissionNeonFixture.preservedAuthorityIdentity(value);

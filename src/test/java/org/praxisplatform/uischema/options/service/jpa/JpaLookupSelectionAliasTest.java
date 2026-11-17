@@ -14,7 +14,7 @@ import static org.mockito.Mockito.*;
 @SuppressWarnings({"unchecked", "rawtypes"})
 class JpaLookupSelectionAliasTest {
     @Embeddable
-    record SampleCompositeId(Long numfunc, Integer numvinc) implements CompositeResourceId {}
+    record SampleCompositeId(Long personId, Integer assignmentSeq) implements CompositeResourceId {}
 
     @Test
     void sameScalarPathGetsIndependentCodeDescriptionAndDisplaySelections() {
@@ -47,12 +47,12 @@ class JpaLookupSelectionAliasTest {
         CriteriaBuilder cb = mock(CriteriaBuilder.class);
         Root root = mock(Root.class);
         Path compositePath = mock(Path.class);
-        Path numfuncPath = mock(Path.class);
-        Path numvincPath = mock(Path.class);
+        Path personIdPath = mock(Path.class);
+        Path assignmentSeqPath = mock(Path.class);
         when(root.get("id")).thenReturn(compositePath);
         when(compositePath.getJavaType()).thenReturn(SampleCompositeId.class);
-        when(compositePath.get("numfunc")).thenReturn(numfuncPath);
-        when(compositePath.get("numvinc")).thenReturn(numvincPath);
+        when(compositePath.get("personId")).thenReturn(personIdPath);
+        when(compositePath.get("assignmentSeq")).thenReturn(assignmentSeqPath);
         when(cb.coalesce(any(Expression.class), any(Expression.class))).thenAnswer(call -> {
             Expression expression = mock(Expression.class);
             when(expression.alias(anyString())).thenReturn(expression);
@@ -68,8 +68,8 @@ class JpaLookupSelectionAliasTest {
         assertThat(selections).hasSize(2);
         assertThat(aliases).containsExactly("lookupCode__0", "lookupCode__1", "lookupCode");
         verify(cb, never()).coalesce(compositePath, compositePath);
-        verify(cb).coalesce(numfuncPath, numfuncPath);
-        verify(cb).coalesce(numvincPath, numvincPath);
+        verify(cb).coalesce(personIdPath, personIdPath);
+        verify(cb).coalesce(assignmentSeqPath, assignmentSeqPath);
 
         Tuple tuple = mock(Tuple.class);
         when(tuple.get("lookupCode")).thenThrow(new IllegalArgumentException("not present"));

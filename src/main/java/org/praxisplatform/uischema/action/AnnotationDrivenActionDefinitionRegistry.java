@@ -164,6 +164,14 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
         );
         execution.validateFor(workflowAction.scope());
 
+        List<String> modifiedFields = Arrays.stream(workflowAction.modifiedFields())
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .toList();
+        String tone = workflowAction.tone() != null && workflowAction.tone() != org.praxisplatform.uischema.annotation.QuickFilterTone.UNSPECIFIED
+                && StringUtils.hasText(workflowAction.tone().wireValue())
+                ? workflowAction.tone().wireValue()
+                : null;
         ActionDefinition definition = new ActionDefinition(
                 workflowAction.id(),
                 resource.resourceKey(),
@@ -184,7 +192,13 @@ public class AnnotationDrivenActionDefinitionRegistry implements ActionDefinitio
                 workflowAction.legalPurpose() != null && workflowAction.legalPurpose().isSpecified()
                         ? workflowAction.legalPurpose().wireValue()
                         : null,
-                StringUtils.hasText(workflowAction.legalBasisRef()) ? workflowAction.legalBasisRef().trim() : null
+                StringUtils.hasText(workflowAction.legalBasisRef()) ? workflowAction.legalBasisRef().trim() : null,
+                StringUtils.hasText(workflowAction.icon()) ? workflowAction.icon().trim() : null,
+                tone,
+                modifiedFields,
+                StringUtils.hasText(workflowAction.disallowedStateReason())
+                        ? workflowAction.disallowedStateReason().trim()
+                        : null
         );
         return List.of(definition);
     }

@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.annotation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Politica canonica de uso por IA associada a um campo anotado com {@link DomainGovernance}.
@@ -12,6 +13,7 @@ import java.lang.annotation.RetentionPolicy;
  * codigo-fonte do recurso hospedeiro, sem depender apenas de heuristicas do catalogo.
  * </p>
  */
+@Target({})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AiUsagePolicy {
 

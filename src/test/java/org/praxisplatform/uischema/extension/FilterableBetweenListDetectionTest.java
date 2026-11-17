@@ -31,7 +31,7 @@ class FilterableBetweenListDetectionTest {
     }
 
     private UISchema defaultUISchema() {
-        return defaultUISchema(org.praxisplatform.uischema.NumericFormat.INTEGER);
+        return defaultUISchema(org.praxisplatform.uischema.NumericFormat.AUTO);
     }
 
     private UISchema defaultUISchema(org.praxisplatform.uischema.NumericFormat numericFormat) {
@@ -73,6 +73,7 @@ class FilterableBetweenListDetectionTest {
             @Override public String[] editableForAuthorities() { return new String[0]; }
             @Override public String fieldAccessReason() { return ""; }
             @Override public String conditionalDisplay() { return ""; }
+            @Override public String conditionalReadOnly() { return ""; }
             @Override public String dependsOn() { return ""; }
             @Override public String dependentField() { return ""; }
             @Override public boolean resetOnDependentChange() { return false; }
@@ -107,6 +108,7 @@ class FilterableBetweenListDetectionTest {
             @Override public String filter() { return ""; }
             @Override public String filterOptions() { return ""; }
             @Override public org.praxisplatform.uischema.NumericFormat numericFormat() { return numericFormat; }
+            @Override public int colSpan() { return 0; }
             @Override public String numericStep() { return ""; }
             @Override public String numericMin() { return ""; }
             @Override public String numericMax() { return ""; }
@@ -140,7 +142,9 @@ class FilterableBetweenListDetectionTest {
             @Override
             public String relation() { return ""; }
             @Override
-            public String endRelation() { return "dtfim"; }
+            public String endRelation() { return "validTo"; }
+            @Override
+            public boolean primarySearch() { return false; }
             @Override
             public String[] relations() { return new String[0]; }
         };

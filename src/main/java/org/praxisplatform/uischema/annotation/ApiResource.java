@@ -10,48 +10,56 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Meta-anotacao canonica para declarar um recurso REST da plataforma.
+ * Meta-anotação canônica para declarar um recurso REST da plataforma.
  *
  * <p>
  * {@code @ApiResource} combina {@link RestController} e {@link RequestMapping} e passa a ser a
- * fonte de verdade do recurso em tres eixos complementares:
+ * fonte de verdade do recurso em três eixos complementares:
  * </p>
  *
  * <ul>
- *   <li>path REST do recurso, publicado no OpenAPI e usado pelos controllers canonicos;</li>
- *   <li>identidade semantica estavel via {@link #resourceKey()}, usada por discovery;</li>
- *   <li>metadados basicos para scanner OpenAPI, HATEOAS e resolucao de schemas filtrados.</li>
+ *   <li>path REST do recurso, publicado no OpenAPI e usado pelos controllers canônicos;</li>
+ *   <li>identidade semântica estável via {@link #resourceKey()}, usada por discovery e herdada por {@code @ResourceFact};</li>
+ *   <li>metadados estruturais para scanner OpenAPI, HATEOAS, {@link QuickFilter}, {@link ResourceIdentity} e schemas filtrados.</li>
  * </ul>
  *
  * <p>
- * A distincao entre path e {@code resourceKey} e intencional:
+ * A distinção entre path e {@code resourceKey} é intencional:
  * </p>
  *
  * <ul>
  *   <li>o path diz onde o recurso vive operacionalmente, por exemplo {@code /api/human-resources/employees};</li>
- *   <li>o {@code resourceKey} diz qual recurso a plataforma esta tratando semanticamente, por exemplo
+ *   <li>o {@code resourceKey} diz qual recurso a plataforma está tratando semanticamente, por exemplo
  *   {@code human-resources.employees}.</li>
  * </ul>
  *
  * <p>
- * No baseline atual, o {@code resourceKey} e a chave usada para catalogos de surfaces/actions,
- * snapshots de capabilities e availability contextual. Por isso ele nao deve variar apenas porque
- * a URL operacional do recurso mudou.
+ * No baseline atual, o {@code resourceKey} é a chave usada para catálogos de surfaces/actions,
+ * snapshots de capabilities e availability contextual. Por isso ele não deve variar apenas porque
+ * a URL operacional do recurso mudou. Quando combinada com {@link UiAnalytics} em nível de classe,
+ * a projeção analítica anexa automaticamente {@code x-ui.analytics} à operação canônica
+ * {@code /stats/group-by} (ou {@code /filter} como fallback).
  * </p>
  *
  * <p>
- * No core atual do starter, esta e a forma recomendada de expor controllers que herdam
+ * No core atual do starter, esta é a forma recomendada de expor controllers que herdam
  * {@code AbstractResourceController}, {@code AbstractResourceQueryController},
  * {@code AbstractReadOnlyResourceController} ou
  * {@code AbstractCollectionCommandResourceController}. Ela evita que path e identidade do
- * recurso fiquem espalhados por convencoes paralelas.
+ * recurso fiquem espalhados por convenções paralelas.
  * </p>
  *
  * <h3>Exemplo recomendado</h3>
  * <pre>{@code
  * @ApiResource(
  *     value = "/api/human-resources/employees",
- *     resourceKey = "human-resources.employees"
+ *     resourceKey = "human-resources.employees",
+ *     identity = @ResourceIdentity(
+ *         keyField = "id",
+ *         titleField = "fullName",
+ *         subtitleField = "roleName",
+ *         metadataFields = {"employeeCode", "departmentName"}
+ *     )
  * )
  * @ApiGroup("human-resources")
  * public class EmployeeController extends AbstractResourceController<...> {
@@ -59,13 +67,18 @@ import java.lang.annotation.Target;
  * }</pre>
  *
  * <p>
- * Nao e necessario combinar {@code @ApiResource} com {@code @RestController}; a meta-anotacao
- * ja incorpora esse papel. Quando houver necessidade de agrupamento documental explicito, combine
+ * Não é necessário combinar {@code @ApiResource} com {@code @RestController}; a meta-anotação
+ * já incorpora esse papel. Quando houver necessidade de agrupamento documental explícito, combine
  * com {@link ApiGroup}.
  * </p>
  *
  * @see org.praxisplatform.uischema.constants.ApiPaths
  * @see org.praxisplatform.uischema.annotation.ApiGroup
+ * @see org.praxisplatform.uischema.annotation.ResourceIdentity
+ * @see org.praxisplatform.uischema.annotation.QuickFilter
+ * @see org.praxisplatform.uischema.annotation.UiAnalytics
+ * @see org.praxisplatform.uischema.annotation.TableView
+ * @see org.praxisplatform.uischema.annotation.UiFormLayout
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

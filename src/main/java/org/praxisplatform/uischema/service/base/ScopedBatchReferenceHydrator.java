@@ -13,6 +13,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import org.praxisplatform.uischema.annotation.ResourceReference;
+import org.praxisplatform.uischema.id.CompositeIdSupport;
+import org.springframework.core.ResolvableType;
+import org.springframework.core.convert.ConversionException;
+import org.springframework.core.convert.support.DefaultConversionService;
 
 /**
  * Multi-tenant-safe batch hydrator for {@link ResourceReference} display fields on response DTOs.
@@ -26,7 +30,7 @@ public final class ScopedBatchReferenceHydrator {
     private record ReferenceFieldBinding(
             String resourceKey,
             Field displayField,
-            Field valueField
+            String valuePath
     ) {}
 
     private static final ClassValue<List<ReferenceFieldBinding>> BINDINGS_CACHE = new ClassValue<>() {
@@ -63,15 +67,17 @@ public final class ScopedBatchReferenceHydrator {
                 if (ref == null || ref.resourceKey().isBlank() || ref.valueField().isBlank()) {
                     continue;
                 }
-                String valueFieldName = ref.valueField().trim();
-                if (valueFieldName.equals(field.getName())) {
+                String valueFieldPath = ref.valueField().trim();
+                if (valueFieldPath.equals(field.getName())) {
                     continue;
                 }
-                Field fkField = fieldsByName.get(valueFieldName);
-                if (fkField == null) {
+                String rootSegment = valueFieldPath.contains(".")
+                        ? valueFieldPath.substring(0, valueFieldPath.indexOf('.'))
+                        : valueFieldPath;
+                if (!fieldsByName.containsKey(rootSegment)) {
                     continue;
                 }
-                bindings.add(new ReferenceFieldBinding(ref.resourceKey().trim(), field, fkField));
+                bindings.add(new ReferenceFieldBinding(ref.resourceKey().trim(), field, valueFieldPath));
             }
             return List.copyOf(bindings);
         }
@@ -117,7 +123,7 @@ public final class ScopedBatchReferenceHydrator {
                     if (currentDisplay != null && !currentDisplay.isBlank()) {
                         continue;
                     }
-                    Object fkValue = binding.valueField().get(item);
+                    Object fkValue = readPathValue(item, binding.valuePath());
                     if (fkValue != null) {
                         pendingIdsByResourceKey
                                 .computeIfAbsent(binding.resourceKey(), ignored -> new LinkedHashSet<>())
@@ -132,18 +138,31 @@ public final class ScopedBatchReferenceHydrator {
             return responses;
         }
         Map<String, Map<Object, String>> resolvedTitlesByResourceKey = new LinkedHashMap<>();
+        Map<String, Map<String, String>> resolvedStringTitlesByResourceKey = new LinkedHashMap<>();
         for (Map.Entry<String, Set<Object>> entry : pendingIdsByResourceKey.entrySet()) {
             Optional<AbstractBaseQueryResourceService<?, ?, ?, ?>> targetOpt =
                     serviceResolver.apply(entry.getKey());
             if (targetOpt.isPresent()) {
                 AbstractBaseQueryResourceService targetService = targetOpt.get();
-                Map<Object, String> titles = targetService.resolveScopedTitlesByIds(entry.getValue());
+                Collection<Object> convertedIds = coerceIdsForService(targetService, entry.getValue());
+                if (convertedIds.isEmpty()) {
+                    continue;
+                }
+                Map<Object, String> titles = targetService.resolveScopedTitlesByIds(convertedIds);
                 resolvedTitlesByResourceKey.put(entry.getKey(), titles);
+                Map<String, String> byString = new LinkedHashMap<>();
+                titles.forEach((k, v) -> {
+                    if (k != null && v != null) {
+                        byString.putIfAbsent(CompositeIdSupport.stringify(k), v);
+                    }
+                });
+                resolvedStringTitlesByResourceKey.put(entry.getKey(), byString);
             }
         }
         for (ReferenceFieldBinding binding : bindings) {
             Map<Object, String> titles = resolvedTitlesByResourceKey.get(binding.resourceKey());
-            if (titles == null || titles.isEmpty()) {
+            Map<String, String> titlesByString = resolvedStringTitlesByResourceKey.getOrDefault(binding.resourceKey(), Map.of());
+            if ((titles == null || titles.isEmpty()) && titlesByString.isEmpty()) {
                 continue;
             }
             for (R item : responses) {
@@ -153,9 +172,9 @@ public final class ScopedBatchReferenceHydrator {
                     if (currentDisplay != null && !currentDisplay.isBlank()) {
                         continue;
                     }
-                    Object fkValue = binding.valueField().get(item);
+                    Object fkValue = readPathValue(item, binding.valuePath());
                     if (fkValue != null) {
-                        String resolved = resolveTitle(titles, fkValue);
+                        String resolved = resolveTitle(titles, titlesByString, fkValue);
                         if (resolved != null && !resolved.isBlank()) {
                             binding.displayField().set(item, resolved);
                         }
@@ -168,19 +187,83 @@ public final class ScopedBatchReferenceHydrator {
         return responses;
     }
 
-    private static String resolveTitle(Map<Object, String> titles, Object fkValue) {
-        String direct = titles.get(fkValue);
-        if (direct != null) {
-            return direct;
+    private static Object readPathValue(Object root, String path) {
+        if (root == null || path == null || path.isBlank()) {
+            return null;
         }
-        if (fkValue instanceof Number num) {
-            String asLong = titles.get(num.longValue());
-            if (asLong != null) {
-                return asLong;
+        if (!path.contains(".")) {
+            return ResourceKeysetSupport.read(root, path);
+        }
+        Object current = root;
+        for (String segment : path.split("\\.")) {
+            if (current == null) {
+                return null;
             }
-            String asInt = titles.get(num.intValue());
-            if (asInt != null) {
-                return asInt;
+            current = ResourceKeysetSupport.read(current, segment);
+        }
+        return current;
+    }
+
+    private static Collection<Object> coerceIdsForService(
+            AbstractBaseQueryResourceService<?, ?, ?, ?> targetService,
+            Set<Object> rawIds
+    ) {
+        Class<?> targetIdType = ResolvableType.forClass(org.springframework.util.ClassUtils.getUserClass(targetService))
+                .as(AbstractBaseQueryResourceService.class)
+                .getGeneric(2)
+                .resolve();
+        if (targetIdType == null || targetIdType == Object.class) {
+            return rawIds;
+        }
+        List<Object> converted = new ArrayList<>(rawIds.size());
+        for (Object rawId : rawIds) {
+            if (rawId == null) {
+                continue;
+            }
+            if (targetIdType.isInstance(rawId)) {
+                converted.add(rawId);
+                continue;
+            }
+            try {
+                if (CompositeIdSupport.isCompositeIdType(targetIdType)) {
+                    String wire = CompositeIdSupport.stringify(rawId);
+                    converted.add(CompositeIdSupport.decode(wire, targetIdType));
+                } else {
+                    Object coerced = DefaultConversionService.getSharedInstance().convert(rawId, targetIdType);
+                    converted.add(coerced != null ? coerced : rawId);
+                }
+            } catch (IllegalArgumentException | ConversionException ignored) {
+                // Skip incompatible FK entries safely instead of breaking batch hydration
+            }
+        }
+        return converted;
+    }
+
+    private static String resolveTitle(
+            Map<Object, String> titles,
+            Map<String, String> titlesByString,
+            Object fkValue
+    ) {
+        if (titles != null) {
+            String direct = titles.get(fkValue);
+            if (direct != null) {
+                return direct;
+            }
+            if (fkValue instanceof Number num) {
+                String asLong = titles.get(num.longValue());
+                if (asLong != null) {
+                    return asLong;
+                }
+                String asInt = titles.get(num.intValue());
+                if (asInt != null) {
+                    return asInt;
+                }
+            }
+        }
+        if (titlesByString != null && !titlesByString.isEmpty()) {
+            String key = CompositeIdSupport.stringify(fkValue);
+            if (key != null) {
+                return titlesByString.get(key);
             }
         }
         return null;

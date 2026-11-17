@@ -244,6 +244,7 @@ public final class BulkIdentityCodecs {
 
         private CompositeCodec(Class<ID> idType) {
             this.idType = Objects.requireNonNull(idType, "idType must not be null");
+            CompositeIdSupport.registerCompositeIdType(idType);
             if (!CompositeIdSupport.isCompositeIdType(idType)) {
                 throw new IllegalArgumentException(
                         "Composite bulk identity codec requires an @Embeddable or CompositeResourceId type: " + idType.getName()

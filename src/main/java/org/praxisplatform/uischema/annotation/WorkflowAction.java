@@ -14,20 +14,39 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marca uma operacao HTTP real como action de workflow ou comando de negocio.
+ * Marca uma operação HTTP real como action de workflow ou comando de negócio.
  *
  * <p>
- * A anotacao nao define payload inline nem cria dispatcher generico. Ela apenas sinaliza que a
- * operacao deve aparecer no catalogo semantico de actions, sempre por referencia a endpoint,
- * request schema e response schema canonicos.
+ * A anotação não define payload inline nem cria dispatcher genérico. Ela sinaliza que a
+ * operação deve aparecer no catálogo semântico de actions, sempre por referência a endpoint,
+ * request schema e response schema canônicos, incluindo metadados visuais/UX
+ * ({@link #icon()}, {@link #tone()}, {@link #modifiedFields()}, {@link #disallowedStateReason()})
+ * e finalidade legal ({@link #legalPurpose()}, {@link #legalBasisRef()}).
  * </p>
  *
  * <p>
- * Use esta anotacao quando a operacao representa um comando explicito de negocio, como
+ * Use esta anotação quando a operação representa um comando explícito de negócio, como
  * {@code approve}, {@code cancel}, {@code submit} ou {@code reopen}. Se a necessidade for
- * apenas discovery de uma experiencia visual ou de uma view especializada, a anotacao correta e
+ * apenas discovery de uma experiência visual ou de uma view especializada, a anotação correta é
  * {@link UiSurface}.
  * </p>
+ *
+ * <pre>{@code
+ * @WorkflowAction(
+ *     id = "approve",
+ *     title = "Aprovar solicitação",
+ *     icon = "check_circle",
+ *     tone = QuickFilterTone.SUCCESS,
+ *     allowedStates = {"PENDING_REVIEW"},
+ *     modifiedFields = {"status", "approvedAt"},
+ *     disallowedStateReason = "Somente solicitações em revisão podem ser aprovadas.",
+ *     legalPurpose = LegalTreatmentPurpose.CONTRACT_EXECUTION
+ * )
+ * }</pre>
+ *
+ * @see UiSurface
+ * @see ResourceState
+ * @see LegalTreatmentPurpose
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -156,4 +175,25 @@ public @interface WorkflowAction {
      * (e.g., {@code "LGPD Art. 11, II, 'a'"}).
      */
     String legalBasisRef() default "";
+
+    /**
+     * Ligadura opcional Material Icons em {@code snake_case} minusculo associada a esta action
+     * (ex.: {@code "check_circle"}).
+     */
+    String icon() default "";
+
+    /**
+     * Tom semantico visual associado ao botao ou item de menu desta action.
+     */
+    QuickFilterTone tone() default QuickFilterTone.NEUTRAL;
+
+    /**
+     * Nomes canonicos de campos do recurso modificados por este comando de negocio.
+     */
+    String[] modifiedFields() default {};
+
+    /**
+     * Mensagem padrao amigavel quando o comando estiver indisponivel para o estado atual do registro.
+     */
+    String disallowedStateReason() default "";
 }

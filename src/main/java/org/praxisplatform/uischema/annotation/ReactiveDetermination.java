@@ -55,13 +55,17 @@ public @interface ReactiveDetermination {
 
     /**
      * Bindings de entrada entre campos do formulario e propriedades do payload da determinacao.
+     * Quando vazio, {@code AnnotationDrivenReactiveDeterminationDefinitionProvider} infere automaticamente
+     * todas as propriedades do DTO {@code @RequestBody} do metodo de determinacao.
      */
-    DeterminationInput[] inputs();
+    DeterminationInput[] inputs() default {};
 
     /**
      * Bindings de saida entre propriedades do response da determinacao e campos do formulario.
+     * Quando vazio, {@code AnnotationDrivenReactiveDeterminationDefinitionProvider} infere automaticamente
+     * todas as propriedades do DTO unwrapped de resposta do metodo de determinacao.
      */
-    DeterminationOutput[] outputs();
+    DeterminationOutput[] outputs() default {};
 
     /**
      * Origem estrutural do binding para rastreabilidade em {@code /schemas/filtered} e {@code /schemas/domain}.

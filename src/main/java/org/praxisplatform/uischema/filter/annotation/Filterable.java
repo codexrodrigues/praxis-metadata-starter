@@ -143,8 +143,11 @@ public @interface Filterable {
      */
     String relation() default "";
 
-    /** End of the inclusive validity interval for EFFECTIVE_ON_DATE. */
-    String endRelation() default "dtfim";
+    /** End of the inclusive validity interval for EFFECTIVE_ON_DATE. Required explicitly when operation is EFFECTIVE_ON_DATE. */
+    String endRelation() default "";
+
+    /** Marks this filter field as the primary broad search (omnibox) input in generated filter surfaces. */
+    boolean primarySearch() default false;
 
     /**
      * Múltiplos caminhos de atributos/relacionamentos na entidade combinados por disjunção ({@code OR})

@@ -379,6 +379,9 @@ public class PraxisExpressionStaticValidator {
             if (trailMap.get("steps") instanceof List<?> steps) {
                 for (int s = 0; s < steps.size(); s++) {
                     if (steps.get(s) instanceof Map<?, ?> stepMap) {
+                        if (stepMap.get("expr") instanceof String expr && !expr.isBlank()) {
+                            errors.addAll(validateExpression(expr, validProps, trailPrefix + ".steps[" + s + "].expr").errors());
+                        }
                         if (stepMap.get("valueExpr") instanceof String vExpr && !vExpr.isBlank()) {
                             errors.addAll(validateExpression(vExpr, validProps, trailPrefix + ".steps[" + s + "].valueExpr").errors());
                         }

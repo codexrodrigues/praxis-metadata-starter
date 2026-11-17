@@ -94,7 +94,7 @@ class ResourceExportSupportTest {
         assertThat(docFiscalGov.path("dataCategory").asText()).isEqualTo("personal");
         assertThat(docFiscalGov.path("exportable").asBoolean(true)).isFalse();
         assertThat(docFiscalGov.path("source").asText()).isEqualTo("java.lineage");
-        assertThat(docFiscalGov.path("lineage").path("attributeId").asText()).isEqualTo("ergon.pessoa.cpf");
+        assertThat(docFiscalGov.path("lineage").path("attributeId").asText()).isEqualTo("workforce.person.taxId");
         assertThat(docFiscalGov.path("lineage").path("transformation").asText()).isEqualTo("alias");
 
         Schema<?> restricaoProp = (Schema<?>) responseSchema.getProperties().get("possuiRestricaoClinica");
@@ -154,10 +154,10 @@ class ResourceExportSupportTest {
             @io.swagger.v3.oas.annotations.media.Schema(description = "Numero de inscricao da pessoa fisica no Cadastro de Pessoas Fisicas da Receita Federal informado na admissao.")
             @UISchema(label = "CPF", order = 1)
             @DomainLineage(
-                    attributeId = "ergon.pessoa.cpf",
+                    attributeId = "workforce.person.taxId",
                     sourceClass = PessoaOriginEntity.class,
                     sourcePaths = {"cpf"},
-                    sourceResourceKey = "ergon.pessoas",
+                    sourceResourceKey = "workforce.persons",
                     transformation = DomainLineageTransformation.DIRECT
             )
             String cpf
@@ -168,10 +168,10 @@ class ResourceExportSupportTest {
             @io.swagger.v3.oas.annotations.media.Schema(description = "Nome civil completo de exibicao cadastral do servidor ou dependente.")
             @UISchema(label = "Nome", order = 1)
             @DomainLineage(
-                    attributeId = "ergon.pessoa.nome",
+                    attributeId = "workforce.person.name",
                     sourceClass = PessoaOriginEntity.class,
                     sourcePaths = {"nome"},
-                    sourceResourceKey = "ergon.pessoas",
+                    sourceResourceKey = "workforce.persons",
                     transformation = DomainLineageTransformation.ALIAS
             )
             String nomeExibicao,
@@ -179,10 +179,10 @@ class ResourceExportSupportTest {
             @io.swagger.v3.oas.annotations.media.Schema(description = "Documento fiscal oficial da pessoa fisica retornado sob alias de contrato de leitura.")
             @UISchema(label = "Documento Fiscal", order = 2)
             @DomainLineage(
-                    attributeId = "ergon.pessoa.cpf",
+                    attributeId = "workforce.person.taxId",
                     sourceClass = PessoaOriginEntity.class,
                     sourcePaths = {"cpf"},
-                    sourceResourceKey = "ergon.pessoas",
+                    sourceResourceKey = "workforce.persons",
                     transformation = DomainLineageTransformation.ALIAS
             )
             String documentoFiscal,
@@ -190,10 +190,10 @@ class ResourceExportSupportTest {
             @io.swagger.v3.oas.annotations.media.Schema(description = "Indicador derivado da existencia de restricao clinica ativa vinculada ao prontuario de afastamento.")
             @UISchema(label = "Restricao Clinica", order = 3)
             @DomainLineage(
-                    attributeId = "ergon.pessoa.possui-restricao-clinica",
+                    attributeId = "workforce.person.has-medical-restriction",
                     sourceClass = PessoaOriginEntity.class,
                     sourcePaths = {"cidAfastamento"},
-                    sourceResourceKey = "ergon.pessoas",
+                    sourceResourceKey = "workforce.persons",
                     transformation = DomainLineageTransformation.DERIVED
             )
             Boolean possuiRestricaoClinica
@@ -204,10 +204,10 @@ class ResourceExportSupportTest {
             @io.swagger.v3.oas.annotations.media.Schema(description = "Filtro exato pelo numero do documento fiscal (CPF) da pessoa fisica na pesquisa cadastral.")
             @UISchema(label = "CPF (Filtro)", order = 1)
             @DomainLineage(
-                    attributeId = "ergon.pessoa.cpf",
+                    attributeId = "workforce.person.taxId",
                     sourceClass = PessoaOriginEntity.class,
                     sourcePaths = {"cpf"},
-                    sourceResourceKey = "ergon.pessoas",
+                    sourceResourceKey = "workforce.persons",
                     transformation = DomainLineageTransformation.FILTER_PREDICATE
             )
             String documentoFiscalFiltro
@@ -218,7 +218,7 @@ class ResourceExportSupportTest {
             @io.swagger.v3.oas.annotations.media.Schema(description = "Tentativa invalida de rebaixar classificacao confidencial de CPF para PUBLIC no DTO.")
             @UISchema(label = "CPF Publico", order = 1)
             @DomainLineage(
-                    attributeId = "ergon.pessoa.cpf",
+                    attributeId = "workforce.person.taxId",
                     sourceClass = PessoaOriginEntity.class,
                     sourcePaths = {"cpf"}
             )
@@ -227,7 +227,7 @@ class ResourceExportSupportTest {
             @io.swagger.v3.oas.annotations.media.Schema(description = "Tentativa invalida de rebaixar classificacao interna de nome exportavel para PUBLIC no DTO.")
             @UISchema(label = "Nome Publico", order = 2)
             @DomainLineage(
-                    attributeId = "ergon.pessoa.nome",
+                    attributeId = "workforce.person.name",
                     sourceClass = PessoaOriginEntity.class,
                     sourcePaths = {"nome"}
             )
@@ -240,7 +240,7 @@ class ResourceExportSupportTest {
             @io.swagger.v3.oas.annotations.media.Schema(description = "Campo com referencia de linhagem apontando para propriedade inexistente na entidade.")
             @UISchema(label = "Documento", order = 1)
             @DomainLineage(
-                    attributeId = "ergon.pessoa.inexistente",
+                    attributeId = "workforce.person.nonexistent",
                     sourceClass = PessoaOriginEntity.class,
                     sourcePaths = {"propriedadeInexistente"}
             )

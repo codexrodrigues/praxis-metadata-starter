@@ -23,6 +23,7 @@ final class DuplicateDraftEndpointSupport {
                     "duplicate-draft is not supported by this resource.");
             if (!available(controller, id)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "duplicate-draft-unavailable");
             D draft = service.duplicateDraft(id);
+            clearAnnotatedDraftFields(draft);
             var links = new ArrayList<Link>();
             links.add(controller.linkToSelf(id));
             if (createAvailable(controller)) links.add(controller.linkToCreate());
@@ -50,5 +51,59 @@ final class DuplicateDraftEndpointSupport {
         catch (RuntimeException ex) { return false; }
     }
     private static boolean allowed(AvailabilityDecision decision) { return decision != null && decision.allowed(); }
+
+    private static void clearAnnotatedDraftFields(Object draft) {
+        if (draft == null) {
+            return;
+        }
+        Class<?> current = draft.getClass();
+        while (current != null && current != Object.class) {
+            for (var field : current.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
+                        || java.lang.reflect.Modifier.isFinal(field.getModifiers())
+                        || field.getType().isPrimitive()) {
+                    continue;
+                }
+                if (hasDraftClearedAnnotation(current, field)) {
+                    field.setAccessible(true);
+                    try {
+                        field.set(draft, null);
+                    } catch (IllegalAccessException ex) {
+                        throw new IllegalStateException(
+                                "Failed to clear @DraftCleared field '" + field.getName() + "' on " + draft.getClass().getName(),
+                                ex
+                        );
+                    }
+                }
+            }
+            current = current.getSuperclass();
+        }
+    }
+
+    private static boolean hasDraftClearedAnnotation(Class<?> owner, java.lang.reflect.Field field) {
+        if (field.isAnnotationPresent(org.praxisplatform.uischema.annotation.DraftCleared.class)) {
+            return true;
+        }
+        String capitalized = Character.toUpperCase(field.getName().charAt(0)) + field.getName().substring(1);
+        for (String prefix : new String[]{"get", "is"}) {
+            try {
+                var getter = owner.getDeclaredMethod(prefix + capitalized);
+                if (getter.isAnnotationPresent(org.praxisplatform.uischema.annotation.DraftCleared.class)) {
+                    return true;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // ignore
+            }
+        }
+        if (owner.isRecord()) {
+            for (var rc : owner.getRecordComponents()) {
+                if (rc.getName().equals(field.getName())
+                        && rc.isAnnotationPresent(org.praxisplatform.uischema.annotation.DraftCleared.class)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 }
 

@@ -37,12 +37,12 @@ class DepartmentEntity {
 
     private String code;
 
-    private LocalDate dtini;
-    private LocalDate dtfim;
+    private LocalDate validFrom;
+    private LocalDate validTo;
 
     void setValidity(LocalDate start, LocalDate end) {
-        this.dtini = start;
-        this.dtfim = end;
+        this.validFrom = start;
+        this.validTo = end;
     }
 
     DepartmentEntity() {

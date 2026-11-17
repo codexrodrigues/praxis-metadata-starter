@@ -7,6 +7,7 @@ import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.filter.relativeperiod.RelativePeriodPayloadNormalizer;
 import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
 import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
@@ -34,7 +35,6 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
     private final ObjectMapper objectMapper;
     private final List<FilterPayloadNormalizer> payloadNormalizers;
 
-    @Autowired
     public FilterRequestBodyAdvice(ObjectMapper objectMapper) {
         this(
                 objectMapper,
@@ -43,6 +43,24 @@ public class FilterRequestBodyAdvice extends RequestBodyAdviceAdapter {
                         new RelativePeriodPayloadNormalizer()
                 )
         );
+    }
+
+    @Autowired
+    public FilterRequestBodyAdvice(
+            ObjectMapper objectMapper,
+            ObjectProvider<FilterPayloadNormalizer> normalizersProvider
+    ) {
+        this(objectMapper, resolveNormalizers(normalizersProvider));
+    }
+
+    private static List<FilterPayloadNormalizer> resolveNormalizers(ObjectProvider<FilterPayloadNormalizer> provider) {
+        if (provider != null) {
+            List<FilterPayloadNormalizer> beans = provider.orderedStream().toList();
+            if (!beans.isEmpty()) {
+                return beans;
+            }
+        }
+        return List.of(new RangePayloadNormalizer(), new RelativePeriodPayloadNormalizer());
     }
 
     public FilterRequestBodyAdvice(

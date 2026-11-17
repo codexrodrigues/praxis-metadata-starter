@@ -189,7 +189,7 @@ class BulkOptionalPoliciesNeonTest {
         var store = new JdbcBulkProposalStore(infrastructure);
         var runtimeSql = new JdbcTemplate(runtime);
         var kernel = new JdbcBulkDurableExecution(infrastructure);
-        captureOracles(manager, runtime, store, ownerSql);
+        captureVerifiers(manager, runtime, store, ownerSql);
         governanceNegatives(tx, store, infrastructure, ownerSql);
         var first = evaluation(1);
         tx.executeWithoutResult(status -> store.insertEvaluated(first, preview(first)));
@@ -371,8 +371,8 @@ class BulkOptionalPoliciesNeonTest {
         }
     }
 
-    /** Four bounded capture oracles on the existing ordinary runtime; no fixture reset or new authority. */
-    private static void captureOracles(DataSourceTransactionManager manager, DataSource runtime,
+    /** Four bounded capture verifiers on the existing ordinary runtime; no fixture reset or new authority. */
+    private static void captureVerifiers(DataSourceTransactionManager manager, DataSource runtime,
             JdbcBulkProposalStore store, JdbcTemplate ownerSql) {
         var repeatable = new TransactionTemplate(manager);
         repeatable.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
@@ -615,7 +615,7 @@ class BulkOptionalPoliciesNeonTest {
             assertThat(owner.queryForObject("select count(*) from praxis_bulk." + table + " where execution_id=?",
                     Integer.class, reservation.executionId())).isZero();
         // Returning ADMIT is reached only after a successful read on the same expired unit
-        // connection. Connection loss in the callback fails this oracle, rather than masquerading
+        // connection. Connection loss in the callback fails this verifier, rather than masquerading
         // as evidence of the post-admission deadline check.
         System.out.println("NEON_PROOF_UNIT_DEADLINE_AFTER_ADMISSION=ADMIT-returned,deadline-STOP,mutation-zero,domain-preserved,receipt-and-admission-zero");
     }

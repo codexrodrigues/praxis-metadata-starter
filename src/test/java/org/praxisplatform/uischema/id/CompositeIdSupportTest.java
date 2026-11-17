@@ -36,62 +36,62 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CompositeIdSupportTest {
 
     @Embeddable
-    public record VinculoId(Long numfunc, Integer numvinc) implements CompositeResourceId {
+    public record EmploymentId(Long personId, Integer assignmentSeq) implements CompositeResourceId {
     }
 
     @Embeddable
-    public record ItemTabelaId(String tab, String item, LocalDate dtini) implements CompositeResourceId {
+    public record ItemTabelaId(String tab, String item, LocalDate validFrom) implements CompositeResourceId {
     }
 
     @Embeddable
     public static class LegacyClassId {
-        private Long empCodigo;
-        private Integer filial;
+        private Long companyCode;
+        private Integer branch;
 
         public LegacyClassId() {
         }
 
-        public LegacyClassId(Long empCodigo, Integer filial) {
-            this.empCodigo = empCodigo;
-            this.filial = filial;
+        public LegacyClassId(Long companyCode, Integer branch) {
+            this.companyCode = companyCode;
+            this.branch = branch;
         }
 
-        public Long getEmpCodigo() {
-            return empCodigo;
+        public Long getCompanyCode() {
+            return companyCode;
         }
 
-        public void setEmpCodigo(Long empCodigo) {
-            this.empCodigo = empCodigo;
+        public void setCompanyCode(Long companyCode) {
+            this.companyCode = companyCode;
         }
 
-        public Integer getFilial() {
-            return filial;
+        public Integer getBranch() {
+            return branch;
         }
 
-        public void setFilial(Integer filial) {
-            this.filial = filial;
+        public void setBranch(Integer branch) {
+            this.branch = branch;
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof LegacyClassId that)) return false;
-            return Objects.equals(empCodigo, that.empCodigo) && Objects.equals(filial, that.filial);
+            return Objects.equals(companyCode, that.companyCode) && Objects.equals(branch, that.branch);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(empCodigo, filial);
+            return Objects.hash(companyCode, branch);
         }
     }
 
     @Test
     void encodesAndDecodesRecordAndClassCompositeIds() {
-        VinculoId vinculoId = new VinculoId(1001L, 2);
-        assertEquals("1001:2", vinculoId.toWireId());
-        assertEquals(vinculoId, CompositeIdSupport.decode("1001:2", VinculoId.class));
-        assertEquals(List.of("numfunc", "numvinc"), CompositeIdSupport.componentNames(VinculoId.class));
-        assertEquals(vinculoId, CompositeIdSupport.fromComponentValues(VinculoId.class, List.of(1001L, 2)));
+        EmploymentId employmentId = new EmploymentId(1001L, 2);
+        assertEquals("1001:2", employmentId.toWireId());
+        assertEquals(employmentId, CompositeIdSupport.decode("1001:2", EmploymentId.class));
+        assertEquals(List.of("personId", "assignmentSeq"), CompositeIdSupport.componentNames(EmploymentId.class));
+        assertEquals(employmentId, CompositeIdSupport.fromComponentValues(EmploymentId.class, List.of(1001L, 2)));
 
         LegacyClassId classId = new LegacyClassId(10L, 3);
         assertEquals("10:3", CompositeIdSupport.encode(classId));
@@ -111,17 +111,17 @@ class CompositeIdSupportTest {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new CompositeIdJacksonModule());
 
-        VinculoId id = new VinculoId(5001L, 1);
+        EmploymentId id = new EmploymentId(5001L, 1);
         String json = mapper.writeValueAsString(id);
         assertEquals("\"5001:1\"", json);
 
-        assertEquals(id, mapper.readValue("\"5001:1\"", VinculoId.class));
-        assertEquals(id, mapper.readValue("{\"numfunc\":5001,\"numvinc\":1}", VinculoId.class));
+        assertEquals(id, mapper.readValue("\"5001:1\"", EmploymentId.class));
+        assertEquals(id, mapper.readValue("{\"personId\":5001,\"assignmentSeq\":1}", EmploymentId.class));
 
-        OptionDTO<VinculoId> option = new OptionDTO<>(id, "Servidor 5001 / Vínculo 1", null);
+        OptionDTO<EmploymentId> option = new OptionDTO<>(id, "Employee 5001 / Assignment 1", null);
         String optionJson = mapper.writeValueAsString(option);
         assertTrue(optionJson.contains("\"id\":\"5001:1\""));
-        OptionDTO<VinculoId> decoded = mapper.readValue(optionJson, new TypeReference<>() {});
+        OptionDTO<EmploymentId> decoded = mapper.readValue(optionJson, new TypeReference<>() {});
         assertEquals(id, decoded.id());
     }
 
@@ -130,24 +130,24 @@ class CompositeIdSupportTest {
         DefaultConversionService conversionService = new DefaultConversionService();
         conversionService.addConverter(new CompositeIdConverter());
 
-        VinculoId converted = conversionService.convert("9001:3", VinculoId.class);
-        assertEquals(new VinculoId(9001L, 3), converted);
+        EmploymentId converted = conversionService.convert("9001:3", EmploymentId.class);
+        assertEquals(new EmploymentId(9001L, 3), converted);
         assertEquals("9001:3", conversionService.convert(converted, String.class));
 
         @SuppressWarnings("unchecked")
-        List<VinculoId> list = (List<VinculoId>) conversionService.convert(
+        List<EmploymentId> list = (List<EmploymentId>) conversionService.convert(
                 new String[]{"1001:1", "1001:2"},
                 TypeDescriptor.valueOf(String[].class),
-                TypeDescriptor.collection(List.class, TypeDescriptor.valueOf(VinculoId.class))
+                TypeDescriptor.collection(List.class, TypeDescriptor.valueOf(EmploymentId.class))
         );
         assertNotNull(list);
-        assertEquals(List.of(new VinculoId(1001L, 1), new VinculoId(1001L, 2)), list);
+        assertEquals(List.of(new EmploymentId(1001L, 1), new EmploymentId(1001L, 2)), list);
     }
 
     @Test
     void bulkIdentityCodecSupportsCompositeIds() {
-        BulkIdentityCodec<String, VinculoId> codec = BulkIdentityCodecs.composite(VinculoId.class);
-        VinculoId id = new VinculoId(777L, 4);
+        BulkIdentityCodec<String, EmploymentId> codec = BulkIdentityCodecs.composite(EmploymentId.class);
+        EmploymentId id = new EmploymentId(777L, 4);
         assertEquals("777:4", codec.encode(id));
         assertEquals(id, codec.decode("777:4"));
         assertEquals("composite-id", codec.wireSchema().getFormat());
@@ -160,7 +160,7 @@ class CompositeIdSupportTest {
 
     static class SampleEntityWithEmbeddedId {
         @EmbeddedId
-        private VinculoId id;
+        private EmploymentId id;
     }
 
     @Test
@@ -177,9 +177,9 @@ class CompositeIdSupportTest {
         assertEquals(endereco, mapper.readValue(json, EnderecoValueObject.class));
 
         assertThrows(IllegalArgumentException.class, () ->
-                CompositeIdSupport.fromComponentValues(VinculoId.class, Arrays.asList(1001L, null)));
+                CompositeIdSupport.fromComponentValues(EmploymentId.class, Arrays.asList(1001L, null)));
         assertThrows(JsonMappingException.class, () ->
-                mapper.readValue("{\"numfunc\":1001}", VinculoId.class));
+                mapper.readValue("{\"personId\":1001}", EmploymentId.class));
     }
 
     @Test
@@ -190,13 +190,13 @@ class CompositeIdSupportTest {
         );
         List<Sort.Order> orders = expanded.toList();
         assertEquals(2, orders.size());
-        assertEquals("id.numfunc", orders.get(0).getProperty());
+        assertEquals("id.personId", orders.get(0).getProperty());
         assertEquals(Sort.Direction.DESC, orders.get(0).getDirection());
-        assertEquals("id.numvinc", orders.get(1).getProperty());
+        assertEquals("id.assignmentSeq", orders.get(1).getProperty());
         assertEquals(Sort.Direction.DESC, orders.get(1).getDirection());
 
         CsvCollectionExportEngine csvEngine = new CsvCollectionExportEngine();
-        List<VinculoId> rows = List.of(new VinculoId(1001L, 1), new VinculoId(2002L, 3));
+        List<EmploymentId> rows = List.of(new EmploymentId(1001L, 1), new EmploymentId(2002L, 3));
         List<CollectionExportField> fields = List.of(
                 new CollectionExportField("id", "Vínculo", true, true, "string", "id", null, null)
         );

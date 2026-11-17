@@ -276,8 +276,8 @@ class FilterableIndexAdvisorTest {
 
     @Embeddable
     static class CompositeTenureId {
-        @Column(name = "numfunc")
-        private Long numfunc;
+        @Column(name = "person_id")
+        private Long personId;
 
         @Column(name = "numero")
         private Integer numero;
@@ -326,8 +326,8 @@ class FilterableIndexAdvisorTest {
     }
 
     static class TenureFilterDTO implements GenericFilterDTO {
-        @Filterable(operation = FilterOperation.EQUAL, relation = "id.numfunc")
-        private Long numfunc;
+        @Filterable(operation = FilterOperation.EQUAL, relation = "id.personId")
+        private Long personId;
 
         @Filterable(operation = FilterOperation.EQUAL, relation = "id.numero")
         private Integer numero;
@@ -350,15 +350,15 @@ class FilterableIndexAdvisorTest {
 
         @Embedded
         @jakarta.persistence.AttributeOverrides({
-                @AttributeOverride(name = "numfunc", column = @Column(name = "titular_numfunc")),
-                @AttributeOverride(name = "numero", column = @Column(name = "titular_numvinc"))
+                @AttributeOverride(name = "personId", column = @Column(name = "titular_person_id")),
+                @AttributeOverride(name = "numero", column = @Column(name = "titular_assignment_seq"))
         })
         private CompositeTenureId titularId;
 
         @ManyToOne
         @jakarta.persistence.JoinColumns({
-                @JoinColumn(name = "titular_numfunc", referencedColumnName = "numfunc", insertable = false, updatable = false),
-                @JoinColumn(name = "titular_numvinc", referencedColumnName = "numero", insertable = false, updatable = false)
+                @JoinColumn(name = "titular_person_id", referencedColumnName = "person_id", insertable = false, updatable = false),
+                @JoinColumn(name = "titular_assignment_seq", referencedColumnName = "numero", insertable = false, updatable = false)
         })
         private TenureEntity titular;
     }
@@ -407,9 +407,9 @@ class FilterableIndexAdvisorTest {
         assertTrue(
                 report.recommendations().stream().anyMatch(r ->
                         "assignments".equals(r.tableName())
-                                && "titular_numfunc".equals(r.columnName())
+                                && "titular_person_id".equals(r.columnName())
                                 && r.indexKind() == FilterableIndexKind.BTREE),
-                "Both @Embedded leaf filter and @JoinColumns association should resolve leading column titular_numfunc"
+                "Both @Embedded leaf filter and @JoinColumns association should resolve leading column titular_person_id"
         );
         assertFalse(
                 report.recommendations().stream().anyMatch(r -> "titular_id".equals(r.columnName())),
@@ -430,11 +430,11 @@ class FilterableIndexAdvisorTest {
                 tenureReport.recommendations().stream().anyMatch(r -> "tenures".equals(r.tableName()) && "setor_id".equals(r.columnName())),
                 "Foreign key column on the physical owning table (tenures.setor_id) must still be recommended"
         );
-        FilterableIndexRecommendation numfuncRec = tenureReport.recommendations().stream()
-                .filter(r -> "numfunc".equals(r.columnName()))
+        FilterableIndexRecommendation personIdRec = tenureReport.recommendations().stream()
+                .filter(r -> "person_id".equals(r.columnName()))
                 .findFirst()
                 .orElseThrow();
-        assertTrue(numfuncRec.coveredByJpaMetadata(), "Leading column of @EmbeddedId PK (numfunc) must be recognized as covered");
+        assertTrue(personIdRec.coveredByJpaMetadata(), "Leading column of @EmbeddedId PK (person_id) must be recognized as covered");
         FilterableIndexRecommendation numeroRec = tenureReport.recommendations().stream()
                 .filter(r -> "numero".equals(r.columnName()))
                 .findFirst()

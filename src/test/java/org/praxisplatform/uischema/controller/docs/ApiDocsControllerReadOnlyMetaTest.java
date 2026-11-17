@@ -116,10 +116,10 @@ class ApiDocsControllerReadOnlyMetaTest {
         payrollProfile.put("type", "string");
         ObjectNode payrollOptionSource = payrollProfile.putObject("x-ui").putObject("optionSource");
         payrollOptionSource.put("sql", "select secret from private_table");
-        payrollOptionSource.put("providerConfig", "{\"package\":\"HADES.FLAG_PACK\"}");
+        payrollOptionSource.put("providerConfig", "{\"package\":\"PKG_LEGACY_RULES.FLAG_PACK\"}");
         ObjectNode payrollDisplay = payrollOptionSource.putObject("display");
         payrollDisplay.put("showDisabledReason", true);
-        payrollDisplay.put("package", "HADES.FLAG_PACK");
+        payrollDisplay.put("package", "PKG_LEGACY_RULES.FLAG_PACK");
         payrollDisplay.putArray("fields")
                 .addObject()
                 .put("key", "profile")

@@ -103,7 +103,7 @@ public abstract class AbstractBulkGovernedResourceController<R, ID, F extends Ge
     public ResponseEntity<RestApiResponse<CursorPage<BulkProposalItemResult<Object>>>> bulkProposalResults(@PathVariable UUID proposalId,
             @RequestParam(defaultValue = "50") int size, @RequestParam(required = false) String after) {
         return resultsResponse(getBulkEngine().proposalResults(bulkProposalOperationId(proposalId), proposalId, size, after),
-                declaration().proposalResultsOperationId(), Map.of("proposalId", proposalId), after);
+                lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL_RESULTS), Map.of("proposalId", proposalId), after);
     }
 
     @GetMapping("/bulk/executions/{executionId}")
@@ -119,7 +119,7 @@ public abstract class AbstractBulkGovernedResourceController<R, ID, F extends Ge
     public ResponseEntity<RestApiResponse<CursorPage<BulkItemResult<Object>>>> bulkExecutionResults(@PathVariable UUID executionId,
             @RequestParam(defaultValue = "50") int size, @RequestParam(required = false) String after) {
         return resultsResponse(getBulkEngine().executionResults(bulkExecutionOperationId(executionId), executionId, size, after),
-                declaration().executionResultsOperationId(), Map.of("executionId", executionId), after);
+                lifecycleOperationId(BulkResourceOperation.Role.EXECUTION_RESULTS), Map.of("executionId", executionId), after);
     }
 
     @PostMapping("/bulk/executions/{executionId}/cancel")
@@ -138,19 +138,17 @@ public abstract class AbstractBulkGovernedResourceController<R, ID, F extends Ge
 
     private ResponseEntity<RestApiResponse<BulkProposal>> proposalResponse(BulkProposal proposal) {
         var variables = Map.<String, Object>of("proposalId", proposal.proposalId());
-        var declaration = declaration();
         return successEnvelope(ResponseEntity.ok(), proposal, withBulkLinkScope(() -> Links.of(
-                readLink(declaration.proposalOperationId(), variables, "self", null, null),
-                readLink(declaration.proposalResultsOperationId(), variables, "results", null, null))));
+                readLink(lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL), variables, "self", null, null),
+                readLink(lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL_RESULTS), variables, "results", null, null))));
     }
 
     private ResponseEntity<RestApiResponse<BulkExecution>> executionResponse(BulkExecution execution) {
         var variables = Map.<String, Object>of("executionId", execution.executionId());
-        var declaration = declaration();
         return successEnvelope(ResponseEntity.ok(), execution, withBulkLinkScope(() -> Links.of(
-                readLink(declaration.executionOperationId(), variables, "self", null, null),
-                readLink(declaration.executionResultsOperationId(), variables, "results", null, null),
-                readLink(declaration.proposalOperationId(), Map.of("proposalId", execution.proposalId()), "proposal", null, null))));
+                readLink(lifecycleOperationId(BulkResourceOperation.Role.EXECUTION), variables, "self", null, null),
+                readLink(lifecycleOperationId(BulkResourceOperation.Role.EXECUTION_RESULTS), variables, "results", null, null),
+                readLink(lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL), Map.of("proposalId", execution.proposalId()), "proposal", null, null))));
     }
 
     private <T> ResponseEntity<RestApiResponse<CursorPage<T>>> resultsResponse(CursorPage<T> page, String operationId,
@@ -177,6 +175,14 @@ public abstract class AbstractBulkGovernedResourceController<R, ID, F extends Ge
         if (size != null) uri.queryParam("size", size);
         if (after != null) uri.queryParam("after", after);
         return Link.of(uri.buildAndExpand(variables).encode().toUriString(), rel);
+    }
+
+    private String lifecycleOperationId(BulkResourceOperation.Role role) {
+        return BulkControllerOperationIds.lifecycleOperationId(
+                org.springframework.util.ClassUtils.getUserClass(this),
+                declaration(),
+                role
+        );
     }
 
     private BulkResourceOperations declaration() {

@@ -84,6 +84,14 @@ Use depois da geracao para validar build, endpoints, schemas e consumo.
 - [Redacao Semantica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.md)
 - [Semantic Metadata Authoring](SEMANTIC-METADATA-AUTHORING.md)
 - [Quick View 360° e Curadoria Executiva Inteligente](QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.md)
+- [Core Resource Service](CORE-RESOURCE-SERVICE.md)
+- [ApiPaths e Option Sources](API-PATHS-E-OPTION-SOURCES.md)
+- [Admissão de Mutações de Recurso](RESOURCE-MUTATION-ADMISSION.md)
+- [Adoção de Duplicate-Draft](DUPLICATE-DRAFT-ADOPTION.md)
+- [Motor Declarativo de Operações em Lote](BULK-DECLARATIVE-RESOURCE-ENGINE.md)
+- [Ponte de Regras Governadas (`decisionKind = BUSINESS`)](GOVERNED-RULE-BRIDGE.md)
+- [Ontologia e Catálogo Semântico de Domínio](DOMAIN-CATALOG-ONTOLOGY.md)
+- [Guia 03 - Adocao do Consumidor Piloto](GUIA-03-ADOCAO-CONSUMIDOR-PILOTO.md)
 - [Prova Operacional dos Guias de IA](ai-proof/README.md)
 
 ## Papel desta pasta

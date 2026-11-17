@@ -438,6 +438,9 @@ public class ApiDocsController {
         Object componentCalculationMemory = schemaMap.get(X_UI) instanceof Map<?, ?> componentXUi
                 ? componentXUi.get("calculationMemory")
                 : null;
+        Map<String, Object> componentXUiMap = schemaMap.get(X_UI) instanceof Map<?, ?> cXui
+                ? (Map<String, Object>) cXui
+                : Map.of();
 
         String basePath = deriveBasePathFrom(canonicalPath);
 
@@ -451,11 +454,31 @@ public class ApiDocsController {
         // segunda copia do contrato. Apenas o compiler canonico pode publicar determinacoes.
         xUiMap.remove(LEGACY_FORM_EFFECTS);
         xUiMap.remove(REACTIVE_DETERMINATIONS);
+        if (componentXUiMap.containsKey("formLayout")) {
+            xUiMap.putIfAbsent("formLayout", componentXUiMap.get("formLayout"));
+        }
+        if (componentXUiMap.containsKey("contextBinding")) {
+            xUiMap.putIfAbsent("contextBinding", componentXUiMap.get("contextBinding"));
+        }
         if (!"response".equalsIgnoreCase(schemaType)) {
             xUiMap.remove("hierarchy");
             xUiMap.remove("calculationMemory");
-        } else if (componentCalculationMemory != null) {
-            xUiMap.putIfAbsent("calculationMemory", componentCalculationMemory);
+            xUiMap.remove("progression");
+            xUiMap.remove("timeline");
+            xUiMap.remove("schedule");
+        } else {
+            if (componentCalculationMemory != null) {
+                xUiMap.putIfAbsent("calculationMemory", componentCalculationMemory);
+            }
+            if (componentXUiMap.containsKey("progression")) {
+                xUiMap.putIfAbsent("progression", componentXUiMap.get("progression"));
+            }
+            if (componentXUiMap.containsKey("timeline")) {
+                xUiMap.putIfAbsent("timeline", componentXUiMap.get("timeline"));
+            }
+            if (componentXUiMap.containsKey("schedule")) {
+                xUiMap.putIfAbsent("schedule", componentXUiMap.get("schedule"));
+            }
         }
 
         // Anotar x-ui.resource.idField para o frontend
@@ -508,6 +531,18 @@ public class ApiDocsController {
             var calculationMemory = apiResourceIdentityResolver.resolveCalculationMemory(canonicalPath, normalizedOperation);
             if (calculationMemory.isPresent()) {
                 xUiMap.put("calculationMemory", calculationMemory.get());
+            }
+            var progression = apiResourceIdentityResolver.resolveProgression(canonicalPath, normalizedOperation);
+            if (progression.isPresent()) {
+                xUiMap.put("progression", progression.get());
+            }
+            var timeline = apiResourceIdentityResolver.resolveTimeline(canonicalPath, normalizedOperation);
+            if (timeline.isPresent()) {
+                xUiMap.put("timeline", timeline.get());
+            }
+            var schedule = apiResourceIdentityResolver.resolveSchedule(canonicalPath, normalizedOperation);
+            if (schedule.isPresent()) {
+                xUiMap.put("schedule", schedule.get());
             }
             Optional<Map<String, Object>> resolvedIdentity = apiResourceIdentityResolver.resolve(
                     basePath,
@@ -576,6 +611,9 @@ public class ApiDocsController {
         String customFieldFingerprint = customFieldSchemaEnricher == null ? ""
                 : customFieldSchemaEnricher.enrich(schemaMap, customFieldResourceKey, tenant, schemaType, customFieldFilterRequest);
         enrichPropertyOptionSources(schemaMap, basePath);
+        if (isFilterRequestSchema && apiResourceIdentityResolver != null) {
+            inheritFilterMetadataFromResourceResponse(schemaMap, canonicalPath, normalizedOperation, pathsNode, allSchemas);
+        }
         enrichArrayItemSchemasInline(schemaMap, allSchemas);
         enrichReferencedComponentSchemas(schemaMap, allSchemas);
         propagateArrayEnumOptionsRecursive(schemaMap, allSchemas);
@@ -1679,6 +1717,96 @@ public class ApiDocsController {
             );
         }
         xUi.remove("array");
+    }
+
+    @SuppressWarnings("unchecked")
+    private void inheritFilterMetadataFromResourceResponse(
+            Map<String, Object> filterSchemaMap,
+            String canonicalPath,
+            String normalizedOperation,
+            JsonNode pathsNode,
+            JsonNode allSchemas
+    ) {
+        if (filterSchemaMap == null || apiResourceIdentityResolver == null) {
+            return;
+        }
+        var pairOpt = apiResourceIdentityResolver.resolveResourceDtoPair(canonicalPath, normalizedOperation);
+        if (pairOpt.isEmpty()) {
+            return;
+        }
+        var pair = pairOpt.get();
+        Class<?> filterClass = pair.filterDtoClass();
+        Class<?> responseClass = pair.responseDtoClass();
+        if (filterClass == null || responseClass == null) {
+            return;
+        }
+
+        Map<String, Object> allSchemasMap = allSchemas != null && allSchemas.isObject()
+                ? objectMapper.convertValue(allSchemas, new TypeReference<Map<String, Object>>() { })
+                : Map.of();
+
+        Map<String, Object> responseSchemaMap = null;
+        if (allSchemasMap.get(responseClass.getSimpleName()) instanceof Map<?, ?> rawResponseMap) {
+            responseSchemaMap = (Map<String, Object>) rawResponseMap;
+        } else {
+            JsonNode responseSchemaNode = pathsNode != null
+                    ? pathsNode.path("responses").path("200").path("content").path("application/json").path("schema")
+                    : null;
+            if (responseSchemaNode != null && !responseSchemaNode.isMissingNode()) {
+                Map<String, Object> candidate = objectMapper.convertValue(
+                        responseSchemaNode, new TypeReference<Map<String, Object>>() { });
+                responseSchemaMap = extractItemOrRootSchemaMap(candidate, allSchemasMap);
+            }
+        }
+        if (responseSchemaMap == null) {
+            io.swagger.v3.core.converter.ModelConverters converters = new io.swagger.v3.core.converter.ModelConverters();
+            converters.addConverter(new org.praxisplatform.uischema.extension.CustomOpenApiResolver(objectMapper));
+            io.swagger.v3.core.converter.ResolvedSchema resolved = converters.resolveAsResolvedSchema(
+                    new io.swagger.v3.core.converter.AnnotatedType(responseClass).resolveAsRef(false)
+            );
+            if (resolved != null && resolved.schema != null) {
+                responseSchemaMap = objectMapper.convertValue(
+                        io.swagger.v3.core.util.Json.mapper().valueToTree(resolved.schema),
+                        new TypeReference<Map<String, Object>>() { }
+                );
+            }
+        }
+        if (responseSchemaMap != null) {
+            org.praxisplatform.uischema.extension.FilterFieldMetadataInheritanceSupport.inheritToSchemaMap(
+                    filterSchemaMap,
+                    filterClass,
+                    responseSchemaMap,
+                    allSchemasMap
+            );
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractItemOrRootSchemaMap(
+            Map<String, Object> schemaMap,
+            Map<String, Object> allSchemasMap
+    ) {
+        if (schemaMap == null) {
+            return null;
+        }
+        Object refObj = schemaMap.get(REF);
+        if (refObj instanceof String ref && ref.startsWith("#/components/schemas/")) {
+            String name = ref.substring("#/components/schemas/".length());
+            if (allSchemasMap.get(name) instanceof Map<?, ?> resolved) {
+                return extractItemOrRootSchemaMap((Map<String, Object>) resolved, allSchemasMap);
+            }
+        }
+        Object propsObj = schemaMap.get(PROPERTIES);
+        if (propsObj instanceof Map<?, ?> props) {
+            if (props.get("data") instanceof Map<?, ?> dataMap) {
+                return extractItemOrRootSchemaMap((Map<String, Object>) dataMap, allSchemasMap);
+            }
+            if (props.get("content") instanceof Map<?, ?> contentMap
+                    && contentMap.get(ITEMS) instanceof Map<?, ?> itemMap) {
+                return extractItemOrRootSchemaMap((Map<String, Object>) itemMap, allSchemasMap);
+            }
+        }
+        return schemaMap;
     }
 
 }

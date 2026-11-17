@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.annotation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Referencia versionada a uma politica de dominio aplicada por uma projection analitica.
@@ -9,6 +10,7 @@ import java.lang.annotation.RetentionPolicy;
  * <p>A referencia identifica a politica e os campos que atestam sua materializacao. Ela nao
  * publica thresholds, expressoes nem concede acesso aos dados governados pela politica.</p>
  */
+@Target({})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AnalyticsPolicyReference {
 

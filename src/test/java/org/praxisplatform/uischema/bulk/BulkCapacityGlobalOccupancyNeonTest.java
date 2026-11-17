@@ -36,10 +36,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Assigned Neon storage conformance: no public admission, HTTP, worker fleet or throughput claim. */
 class BulkCapacityGlobalOccupancyNeonTest {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final String PROJECT = "dark-mountain-25788969";
-    private static final String BRANCH = "br-aged-paper-ad5ti98v";
-    private static final String HOST = "ep-divine-fire-adehuck7.c-2.us-east-1.aws.neon.tech";
+    private static final String PROJECT = envOrDefault("PRAXIS_BULK_NEON_EXPECTED_PROJECT", "neon-project-fixture");
+    private static final String BRANCH = envOrDefault("PRAXIS_BULK_NEON_EXPECTED_BRANCH", "neon-branch-fixture");
+    private static final String HOST = envOrDefault("PRAXIS_BULK_NEON_EXPECTED_HOST", "neon-host-fixture.example.test");
+    private static final String PARENT_BRANCH = envOrDefault("PRAXIS_BULK_NEON_EXPECTED_PARENT_BRANCH", "neon-parent-branch-fixture");
     private static final String OWNER = "neondb_owner";
+    private static String envOrDefault(String name, String fallback) {
+        String value = System.getenv(name);
+        return value != null && !value.isBlank() ? value : fallback;
+    }
     private static final String JAR_SHA = "994c037961cde1d747c724c94acd6f20e6b886d9d5c8c5906959c49aa9ec59eb";
     private static final Map<String, String> ROLE_NAMES = Map.of("postgres", OWNER,
             "bulk_runtime_test", "scale_runtime_20261013", "durable_runtime", "scale_control_20261013",
@@ -76,7 +81,7 @@ class BulkCapacityGlobalOccupancyNeonTest {
         org.mockito.Mockito.verify(lane.write, org.mockito.Mockito.never()).rollback();
     }
 
-    /** Mock boundary proof only: SQL privileges and remote commits remain the assigned Neon oracle. */
+    /** Mock boundary proof only: SQL privileges and remote commits remain the assigned Neon verifier. */
     private static final class InitializerLanes {
         final List<String> events = new ArrayList<>();
         final DataSource runtime = org.mockito.Mockito.mock(DataSource.class);
@@ -471,7 +476,7 @@ class BulkCapacityGlobalOccupancyNeonTest {
         assertThat(results.get("describe_project").path("pg_version").asInt()).isEqualTo(17);
         JsonNode branch = results.get("get_branch"); assertThat(branch.path("id").asText()).isEqualTo(BRANCH);
         assertThat(branch.path("project_id").asText()).isEqualTo(PROJECT);
-        assertThat(branch.path("parent_id").asText()).isEqualTo("br-solitary-thunder-ads5cf7r");
+        assertThat(branch.path("parent_id").asText()).isEqualTo(PARENT_BRANCH);
         for (String field : List.of("protected", "primary", "default")) assertThat(branch.path(field).asBoolean(true)).isFalse();
         var endpoints = new ArrayList<JsonNode>(); results.get("list_branch_computes").forEach(endpoints::add);
         var matching = endpoints.stream().filter(x -> HOST.equals(x.path("host").asText())).toList(); assertThat(matching).hasSize(1);

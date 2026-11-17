@@ -5,10 +5,12 @@ import org.praxisplatform.uischema.stats.ComparisonPeriodPreset;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * Canonical period binding and execution defaults for a comparison projection.
  */
+@Target({})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AnalyticsComparisonPeriodBinding {
 

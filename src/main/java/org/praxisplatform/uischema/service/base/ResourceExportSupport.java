@@ -2,11 +2,15 @@ package org.praxisplatform.uischema.service.base;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.annotation.DomainLineage;
+import org.praxisplatform.uischema.annotation.UiOption;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
+import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 import org.praxisplatform.uischema.exporting.CollectionExportField;
 import org.praxisplatform.uischema.exporting.CollectionExportFieldPresentation;
+import org.praxisplatform.uischema.option.PraxisUiOptionEnum;
 import org.praxisplatform.uischema.schema.DomainLineageResolver;
 import org.praxisplatform.uischema.schema.DomainSchemaGovernance;
 
@@ -262,14 +266,96 @@ final class ResourceExportSupport {
                     Property property = entry.getValue();
                     UISchema ui = property.annotation(UISchema.class);
                     String semantic = null, format = null, currency = null;
-                    if (property.type() == LocalDate.class) { semantic = "date"; format = "dd/MM/yyyy"; }
-                    else if (property.type() == LocalDateTime.class) { semantic = "datetime"; format = "dd/MM/yyyy HH:mm"; }
-                    else if (ui.controlType().name().equals("CURRENCY_INPUT") || ui.preset() == org.praxisplatform.uischema.extension.annotation.UISchemaPreset.MONETARY_AMOUNT) { semantic = "currency"; currency = "BRL"; }
-                    else if (property.type() == Boolean.class || property.type() == boolean.class) semantic = "boolean";
-                    return new CollectionExportField(entry.getKey(), ui.label().isBlank() ? entry.getKey() : ui.label(),
-                            !ui.tableHidden(), true, property.type().getSimpleName(), entry.getKey(), format,
-                            new CollectionExportFieldPresentation(semantic, format, currency, null, null,
-                                    ui.labelTrue().isBlank() ? null : ui.labelTrue(), ui.labelFalse().isBlank() ? null : ui.labelFalse(), null));
+                    if (property.type() == LocalDate.class) {
+                        semantic = "date";
+                        format = "dd/MM/yyyy";
+                    } else if (property.type() == LocalDateTime.class
+                            || property.type() == Instant.class
+                            || property.type() == OffsetDateTime.class
+                            || property.type() == ZonedDateTime.class) {
+                        semantic = "datetime";
+                        format = "dd/MM/yyyy HH:mm";
+                    } else if (ui.controlType().name().equals("CURRENCY_INPUT")
+                            || ui.preset() == UISchemaPreset.MONETARY_AMOUNT
+                            || ui.numericFormat() == NumericFormat.CURRENCY) {
+                        semantic = "currency";
+                        currency = "BRL";
+                    } else if (ui.numericFormat() == NumericFormat.PERCENT) {
+                        semantic = "percent";
+                    } else if (ui.numericFormat() == NumericFormat.INTEGER) {
+                        semantic = "number";
+                        format = "#,##0";
+                    } else if (ui.numericFormat() == NumericFormat.DECIMAL
+                            || ui.numericFormat() == NumericFormat.NUMBER
+                            || ui.numericFormat() == NumericFormat.FRACTION
+                            || ui.numericFormat() == NumericFormat.SCIENTIFIC) {
+                        semantic = "number";
+                        format = "#,##0.00";
+                    } else if (property.type() == Boolean.class || property.type() == boolean.class) {
+                        semantic = "boolean";
+                    }
+                    Map<String, String> valueLabels = resolveValueLabels(ui);
+                    if (semantic == null && !valueLabels.isEmpty()) {
+                        semantic = "enum";
+                    }
+                    String trueLabel = ui.labelTrue().isBlank() ? "Sim" : ui.labelTrue();
+                    String falseLabel = ui.labelFalse().isBlank() ? "N\u00E3o" : ui.labelFalse();
+                    return new CollectionExportField(
+                            entry.getKey(),
+                            ui.label().isBlank() ? entry.getKey() : ui.label(),
+                            !ui.tableHidden(),
+                            true,
+                            property.type().getSimpleName(),
+                            entry.getKey(),
+                            format,
+                            new CollectionExportFieldPresentation(
+                                    semantic,
+                                    format,
+                                    currency,
+                                    "pt-BR",
+                                    "America/Sao_Paulo",
+                                    trueLabel,
+                                    falseLabel,
+                                    null,
+                                    valueLabels
+                            )
+                    );
                 }).toList();
+    }
+
+    private static Map<String, String> resolveValueLabels(UISchema ui) {
+        if (ui == null) {
+            return Map.of();
+        }
+        Map<String, String> labels = new LinkedHashMap<>();
+        if (ui.optionItems().length > 0) {
+            for (UiOption option : ui.optionItems()) {
+                if (option.value() != null && !option.value().isBlank()
+                        && option.label() != null && !option.label().isBlank()) {
+                    labels.putIfAbsent(option.value().trim(), option.label().trim());
+                }
+            }
+            return labels.isEmpty() ? Map.of() : Map.copyOf(labels);
+        }
+        Class<?> enumType = ui.optionEnum();
+        if (enumType != null && enumType != Void.class && enumType.isEnum()) {
+            Object[] constants = enumType.getEnumConstants();
+            if (constants != null) {
+                for (Object constant : constants) {
+                    String enumName = ((Enum<?>) constant).name();
+                    if (constant instanceof PraxisUiOptionEnum optionEnum) {
+                        String label = optionEnum.label();
+                        if (label != null && !label.isBlank()) {
+                            String value = optionEnum.value();
+                            if (value != null && !value.isBlank()) {
+                                labels.putIfAbsent(value.trim(), label.trim());
+                            }
+                            labels.putIfAbsent(enumName, label.trim());
+                        }
+                    }
+                }
+            }
+        }
+        return labels.isEmpty() ? Map.of() : Map.copyOf(labels);
     }
 }

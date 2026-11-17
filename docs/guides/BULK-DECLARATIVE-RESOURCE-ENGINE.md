@@ -217,7 +217,6 @@ permite correlacionar operações negadas. O reader ainda revalida o grant e a
 visibilidade do conjunto completo. Chamadas diretas ao lookup devem fornecer a
 política; a assinatura antiga sem autoridade foi removida no candidato beta.
 
-Este guia descreve fonte local não publicada. Migração de consumidores, publicação
-Maven, integração Neon, ASYNC/worker e composição de operações ATOMIC não são gates
-da Onda 3. Os contratos e provas desses mecanismos existentes permanecem nos
-respectivos documentos do SDK. A adoção em hosts corporativos pertence à Onda 4.
+Este guia descreve os contratos publicados do motor declarativo de operações em lote.
+Provisionamento de infraestrutura remota, publicação de pacotes Maven, execução assíncrona
+via worker dedicado e composição transacional avançada seguem os documentos específicos do SDK.

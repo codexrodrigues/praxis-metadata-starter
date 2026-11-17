@@ -74,9 +74,8 @@ class BulkCapacityAuthorityManagedNeonTest {
             credentials=JSON.readTree(fixtureFile.toFile());var identities=JSON.readTree(identitiesFile.toFile());
             uri=URI.create(Files.readString(ownerFile).strip());
             assertThat(uri.getScheme()).isIn("postgres","postgresql");
-            assertThat(uri.getHost()).isEqualTo("ep-jolly-surf-adozrbml.c-2.us-east-1.aws.neon.tech")
-                    .isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_HOST")).doesNotContain("-pooler");
-            assertThat(credentials.path("branch").asText()).isEqualTo("br-little-glade-adwtqnv6").isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_BRANCH"));
+            assertThat(uri.getHost()).isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_HOST")).doesNotContain("-pooler");
+            assertThat(credentials.path("branch").asText()).isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_BRANCH"));
             assertThat(credentials.path("endpoint").asText()).isEqualTo(uri.getHost());
             assertThat(credentials.path("databases").toString()).isEqualTo("[\""+FRESH+"\",\""+V1+"\"]");
             assertThat(identities.path("branch").asText()).isEqualTo(credentials.path("branch").asText());
@@ -191,7 +190,7 @@ class BulkCapacityAuthorityManagedNeonTest {
         assertManagedDefiner(freshOwner);
         assertThat(sql.queryForObject("select current_user=session_user and current_user=? and not rolsuper from pg_roles where rolname=current_user",Boolean.class,owner)).isTrue();
         var grantTx=new TransactionTemplate(new DataSourceTransactionManager(freshOwner));
-        // Roll back even an unexpected success: this oracle must never leave a new membership.
+        // Roll back even an unexpected success: this test safeguard must never leave a new membership.
         assertThatThrownBy(()->grantTx.executeWithoutResult(status->{
             try{sql.execute("grant "+DEFINER+" to "+owner+" with admin true, inherit false, set false granted by current_user");}
             finally{status.setRollbackOnly();}
@@ -257,7 +256,7 @@ class BulkCapacityAuthorityManagedNeonTest {
         assertThat(hash(Files.readAllBytes(receipt))).isEqualTo(required("PRAXIS_BULK_CAPACITY_MANAGED_CONTINUATION_RECEIPT_SHA256"));
         var b=JSON.readTree(binding.toFile());var r=JSON.readTree(receipt.toFile());
         assertThat(b.path("status").asText()).isEqualTo("APPROVED_BY_ROOT");assertThat(b.path("startMode").asText()).isEqualTo("CONTINUE_MIGRATED");
-        assertThat(b.path("branch").asText()).isEqualTo("br-little-glade-adwtqnv6").isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_BRANCH"));
+        assertThat(b.path("branch").asText()).isEqualTo(required("PRAXIS_BULK_NEON_EXPECTED_BRANCH"));
         assertThat(b.path("endpoint").asText()).isEqualTo(uri.getHost());
         assertThat(Instant.now()).isBefore(Instant.parse(b.path("expiresAt").asText()));
         assertThat(b.path("priorSnapshotSha256").asText()).isEqualTo("6497bdd62e93cd39d89f9c6535c268ae1b7fc10b29099981aa6267ecc37f7ab1");

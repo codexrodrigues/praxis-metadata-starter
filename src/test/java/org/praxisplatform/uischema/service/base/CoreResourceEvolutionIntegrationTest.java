@@ -241,7 +241,9 @@ class CoreResourceEvolutionIntegrationTest {
 
     @Test void stateSnapshotAndStatsDefaultsFollowServiceDeclarations() {
         assertEquals("OPEN", service.findResourceStateSnapshot(1L).orElseThrow().state());
-        assertEquals(403, statusOf(() -> service.findResourceStateSnapshot(5L)));
+        assertEquals(403, statusOf(() -> service.assertItemAccessible(5L)));
+        assertTrue(service.findResourceStateSnapshot(5L).isEmpty());
+        assertTrue(service.findResourceStateSnapshot(99L).isEmpty());
         assertEquals(StatsSupportMode.DISABLED, service.getGroupByStatsSupportMode());
         service.stats = StatsFieldRegistry.builder().categoricalGroupByBucket("name", "name").build();
         assertEquals(StatsSupportMode.AUTO, service.getGroupByStatsSupportMode());

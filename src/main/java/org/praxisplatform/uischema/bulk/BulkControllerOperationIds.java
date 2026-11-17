@@ -44,6 +44,47 @@ public final class BulkControllerOperationIds {
         };
     }
 
+    public static String lifecycleOperationId(
+            Class<?> controller,
+            BulkResourceOperations declaration,
+            BulkResourceOperation.Role role
+    ) {
+        if (declaration == null || role == null) {
+            return "";
+        }
+        String declared = switch (role) {
+            case PROPOSAL -> declaration.proposalOperationId();
+            case PROPOSAL_RESULTS -> declaration.proposalResultsOperationId();
+            case EXECUTION -> declaration.executionOperationId();
+            case EXECUTION_RESULTS -> declaration.executionResultsOperationId();
+            case CANCEL -> declaration.cancelOperationId();
+            case UPDATE_SOURCE -> declaration.updateSourceOperationId();
+            default -> "";
+        };
+        if (declared != null && !declared.isEmpty()) {
+            return declared;
+        }
+        if (role == BulkResourceOperation.Role.UPDATE_SOURCE) {
+            return "";
+        }
+        if (controller == null) {
+            return "";
+        }
+        ApiResource resource = AnnotatedElementUtils.findMergedAnnotation(controller, ApiResource.class);
+        if (resource == null || resource.resourceKey().isBlank()) {
+            return "";
+        }
+        String key = resource.resourceKey().trim();
+        return switch (role) {
+            case PROPOSAL -> key + ".bulk.proposal";
+            case PROPOSAL_RESULTS -> key + ".bulk.proposal-results";
+            case EXECUTION -> key + ".bulk.execution";
+            case EXECUTION_RESULTS -> key + ".bulk.execution-results";
+            case CANCEL -> key + ".bulk.cancel";
+            default -> "";
+        };
+    }
+
     public static String evaluationId(HandlerMethod handler, BulkOperation operation) {
         if (!operation.evaluationOperationId().isEmpty()) return operation.evaluationOperationId();
         // Only the canonical inherited confirmation declaration can leave the ID implicit.

@@ -6,20 +6,34 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declara governanca semantica canonica para campos publicados nos schemas do starter.
+ * Declara governança semântica canônica para campos publicados nos schemas do starter.
  *
  * <p>
- * Use esta anotacao quando o recurso hospedeiro precisar tornar explicito, no proprio
- * codigo-fonte, como um campo deve ser classificado para discovery semantico, consumo por IA e
- * authoring governado de regras. O starter materializa esses dados como extensao OpenAPI
- * estruturada e o catalogo de dominio os republica em {@code /schemas/domain}.
+ * Use esta anotação quando o recurso hospedeiro precisar tornar explícito, no próprio
+ * código-fonte, como um campo deve ser classificado para discovery semântico, consumo por IA e
+ * authoring governado de regras. O starter materializa esses dados como extensão OpenAPI
+ * estruturada e o catálogo de domínio os republica em {@code /schemas/domain}.
  * </p>
  *
  * <p>
- * Quando a anotacao nao estiver presente, o catalogo ainda pode aplicar heuristicas de fallback.
- * A recomendacao, porem, e preferir esta declaracao explicita nos exemplos e nos hosts que
- * queiram ficar totalmente self-describing.
+ * Quando a anotação não estiver presente, o catálogo ainda pode aplicar heurísticas de fallback.
+ * A recomendação, porém, é preferir esta declaração explícita nos exemplos e nos hosts que
+ * queiram ficar totalmente self-describing, combinando-a com {@link LegalTreatmentPurpose} em
+ * superfícies e comandos.
  * </p>
+ *
+ * <pre>{@code
+ * @DomainGovernance(
+ *     preset = DomainGovernancePreset.LGPD_PERSONAL_ID,
+ *     exportable = false,
+ *     reason = "Documento fiscal pessoal protegido por sigilo cadastral."
+ * )
+ * private String taxId;
+ * }</pre>
+ *
+ * @see AiUsagePolicy
+ * @see DomainGovernancePreset
+ * @see LegalTreatmentPurpose
  */
 @Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.RECORD_COMPONENT, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)

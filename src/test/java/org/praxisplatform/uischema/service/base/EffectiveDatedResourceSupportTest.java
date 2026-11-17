@@ -31,13 +31,13 @@ class EffectiveDatedResourceSupportTest {
 
     static class SampleTemporalEntity implements MutableEffectiveDatedInterval {
         private Long id;
-        private LocalDate dtini;
-        private LocalDate dtfim;
+        private LocalDate effectiveFrom;
+        private LocalDate effectiveTo;
 
-        SampleTemporalEntity(Long id, LocalDate dtini, LocalDate dtfim) {
+        SampleTemporalEntity(Long id, LocalDate effectiveFrom, LocalDate effectiveTo) {
             this.id = id;
-            this.dtini = dtini;
-            this.dtfim = dtfim;
+            this.effectiveFrom = effectiveFrom;
+            this.effectiveTo = effectiveTo;
         }
 
         public Long getId() {
@@ -49,22 +49,22 @@ class EffectiveDatedResourceSupportTest {
         }
 
         @Override
-        public LocalDate getDtini() {
-            return dtini;
+        public LocalDate getEffectiveFrom() {
+            return effectiveFrom;
         }
 
-        public void setDtini(LocalDate dtini) {
-            this.dtini = dtini;
-        }
-
-        @Override
-        public LocalDate getDtfim() {
-            return dtfim;
+        public void setEffectiveFrom(LocalDate effectiveFrom) {
+            this.effectiveFrom = effectiveFrom;
         }
 
         @Override
-        public void setDtfim(LocalDate dtfim) {
-            this.dtfim = dtfim;
+        public LocalDate getEffectiveTo() {
+            return effectiveTo;
+        }
+
+        @Override
+        public void setEffectiveTo(LocalDate effectiveTo) {
+            this.effectiveTo = effectiveTo;
         }
     }
 
@@ -154,8 +154,8 @@ class EffectiveDatedResourceSupportTest {
 
         assertTrue(closed.isPresent());
         assertSame(openCurrent, closed.get());
-        assertEquals(LocalDate.of(2025, 6, 30), openCurrent.getDtfim());
-        assertNull(newPeriod.getDtfim());
+        assertEquals(LocalDate.of(2025, 6, 30), openCurrent.getEffectiveTo());
+        assertNull(newPeriod.getEffectiveTo());
     }
 
     @Test
@@ -175,7 +175,7 @@ class EffectiveDatedResourceSupportTest {
                 BusinessException.class,
                 () -> EffectiveDatedResourceSupport.prepareAndValidateInsert(retroactiveCandidate, List.of(openCurrent))
         );
-        assertNull(openCurrent.getDtfim());
+        assertNull(openCurrent.getEffectiveTo());
     }
 
     @Test
@@ -197,7 +197,7 @@ class EffectiveDatedResourceSupportTest {
         );
 
         assertTrue(closed.isEmpty());
-        assertNull(openCurrent.getDtfim(), "Vigência aberta posterior não deve ser encerrada ao inserir período pretérito fechado.");
+        assertNull(openCurrent.getEffectiveTo(), "Vigência aberta posterior não deve ser encerrada ao inserir período pretérito fechado.");
     }
 
     @Test
@@ -225,7 +225,7 @@ class EffectiveDatedResourceSupportTest {
                         List.of(openCurrent, scheduledFuture)
                 )
         );
-        assertNull(openCurrent.getDtfim(), "Mutação de encerramento não deve ocorrer quando a validação de sobreposição falha.");
+        assertNull(openCurrent.getEffectiveTo(), "Mutação de encerramento não deve ocorrer quando a validação de sobreposição falha.");
     }
 
     @Test
@@ -264,8 +264,8 @@ class EffectiveDatedResourceSupportTest {
 
         Path startPath = mock(Path.class);
         Path endPath = mock(Path.class);
-        when(root.get("dtini")).thenReturn(startPath);
-        when(root.get("dtfim")).thenReturn(endPath);
+        when(root.get("effectiveFrom")).thenReturn(startPath);
+        when(root.get("effectiveTo")).thenReturn(endPath);
 
         Predicate startLe = mock(Predicate.class);
         Predicate endNull = mock(Predicate.class);

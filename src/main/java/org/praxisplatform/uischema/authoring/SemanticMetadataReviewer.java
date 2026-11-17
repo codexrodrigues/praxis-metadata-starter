@@ -45,6 +45,8 @@ public class SemanticMetadataReviewer {
 
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON_MAPPER =
             new com.fasterxml.jackson.databind.ObjectMapper();
+    private static final org.praxisplatform.uischema.validation.JsonLogicExpressionValidator JSON_LOGIC_VALIDATOR =
+            new org.praxisplatform.uischema.validation.JsonLogicExpressionValidator();
 
     private static final Set<String> AUDIT_EXCLUDED_IDENTITY_FIELDS = Set.of(
             "id", "createdAt", "updatedAt", "createdBy", "updatedBy",
@@ -266,6 +268,9 @@ public class SemanticMetadataReviewer {
                 resourceReferencesByProperty,
                 issues
         );
+        reviewTableView(targetType, allPropertyNames, issues);
+        reviewUiFormLayout(targetType, issues);
+        reviewDomainVisualizers(targetType, allPropertyNames, issues);
         var eligibility = new OptionSourceEligibility();
         for (OptionSourceDescriptor source : sources) {
             try {
@@ -2649,6 +2654,17 @@ public class SemanticMetadataReviewer {
                         action.legalBasisRef(),
                         issues
                 );
+                String actionIcon = normalize(action.icon());
+                if (!actionIcon.isBlank() && !isValidSnakeCaseIcon(actionIcon)) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "workflow-action-icon-not-snake-case",
+                            targetType.getName(),
+                            memberName,
+                            "@WorkflowAction(icon='" + actionIcon
+                                    + "') must be a lowercase snake_case Material Icons ligature."
+                    ));
+                }
             }
         }
     }
@@ -3004,26 +3020,27 @@ public class SemanticMetadataReviewer {
             Class<?> methodResponseDto = resolveUnwrappedMethodReturnDtoType(method, controllerClass);
             Set<String> responseDtoProperties = collectDtoPropertyNames(methodResponseDto);
 
-            if (determination.inputs().length == 0) {
+            boolean inferredInputs = determination.inputs().length == 0;
+            if (inferredInputs && requestDtoProperties.isEmpty()) {
                 issues.add(new SemanticMetadataReviewIssue(
                         SemanticMetadataIssueSeverity.ERROR,
                         "reactive-determination-inputs-empty",
                         controllerClass.getName(),
                         memberName,
-                        "@ReactiveDetermination must declare at least one @DeterminationInput."
+                        "@ReactiveDetermination must declare at least one @DeterminationInput or accept a DTO @RequestBody."
                 ));
             }
-            if (determination.outputs().length == 0) {
+            if (determination.outputs().length == 0 && responseDtoProperties.isEmpty()) {
                 issues.add(new SemanticMetadataReviewIssue(
                         SemanticMetadataIssueSeverity.ERROR,
                         "reactive-determination-outputs-empty",
                         controllerClass.getName(),
                         memberName,
-                        "@ReactiveDetermination must declare at least one @DeterminationOutput."
+                        "@ReactiveDetermination must declare at least one @DeterminationOutput or return a DTO ResponseEntity."
                 ));
             }
 
-            boolean hasAutoTriggerInput = false;
+            boolean hasAutoTriggerInput = inferredInputs && !requestDtoProperties.isEmpty();
             for (org.praxisplatform.uischema.annotation.DeterminationInput input : determination.inputs()) {
                 if (input.triggerSource()) {
                     hasAutoTriggerInput = true;
@@ -3090,6 +3107,37 @@ public class SemanticMetadataReviewer {
         boolean hasUpdate = !updateOpId.isBlank();
         boolean hasScopes = determination.scopes().length > 0;
 
+        if (hasScopes && (hasCreate || hasUpdate)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "reactive-determination-scope-conflict",
+                    controllerClass.getName(),
+                    memberName,
+                    "@ReactiveDetermination cannot combine scopes() with createOperationId/updateOperationId."
+            ));
+        }
+
+        boolean inferredCreate = false;
+        boolean inferredUpdate = false;
+        if (!hasScopes) {
+            if (!hasCreate) {
+                String resolvedCreate = resolveControllerDefaultOperationId(controllerClass, true);
+                if (!resolvedCreate.isBlank()) {
+                    createOpId = resolvedCreate;
+                    hasCreate = true;
+                    inferredCreate = true;
+                }
+            }
+            if (!hasUpdate) {
+                String resolvedUpdate = resolveControllerDefaultOperationId(controllerClass, false);
+                if (!resolvedUpdate.isBlank()) {
+                    updateOpId = resolvedUpdate;
+                    hasUpdate = true;
+                    inferredUpdate = true;
+                }
+            }
+        }
+
         if (!hasCreate && !hasUpdate && !hasScopes) {
             issues.add(new SemanticMetadataReviewIssue(
                     SemanticMetadataIssueSeverity.ERROR,
@@ -3100,15 +3148,6 @@ public class SemanticMetadataReviewer {
             ));
             return;
         }
-        if (hasScopes && (hasCreate || hasUpdate)) {
-            issues.add(new SemanticMetadataReviewIssue(
-                    SemanticMetadataIssueSeverity.ERROR,
-                    "reactive-determination-scope-conflict",
-                    controllerClass.getName(),
-                    memberName,
-                    "@ReactiveDetermination cannot combine scopes() with createOperationId/updateOperationId."
-            ));
-        }
         if (hasCreate && hasUpdate && createOpId.equals(updateOpId)) {
             issues.add(new SemanticMetadataReviewIssue(
                     SemanticMetadataIssueSeverity.ERROR,
@@ -3118,7 +3157,7 @@ public class SemanticMetadataReviewer {
                     "@ReactiveDetermination createOperationId and updateOperationId must be distinct."
             ));
         }
-        if (hasCreate && !declaredOperationIds.contains(createOpId)) {
+        if (hasCreate && !inferredCreate && !declaredOperationIds.contains(createOpId)) {
             issues.add(new SemanticMetadataReviewIssue(
                     SemanticMetadataIssueSeverity.ERROR,
                     "reactive-determination-target-operation-unknown",
@@ -3127,7 +3166,7 @@ public class SemanticMetadataReviewer {
                     "@ReactiveDetermination createOperationId='" + createOpId + "' was not found among controller @Operation(operationId) declarations."
             ));
         }
-        if (hasUpdate && !declaredOperationIds.contains(updateOpId)) {
+        if (hasUpdate && !inferredUpdate && !declaredOperationIds.contains(updateOpId)) {
             issues.add(new SemanticMetadataReviewIssue(
                     SemanticMetadataIssueSeverity.ERROR,
                     "reactive-determination-target-operation-unknown",
@@ -3303,11 +3342,21 @@ public class SemanticMetadataReviewer {
         if (bulkOps == null) {
             return;
         }
-        checkRequiredBulkOperationId(controllerClass, "proposalOperationId", bulkOps.proposalOperationId(), issues);
-        checkRequiredBulkOperationId(controllerClass, "proposalResultsOperationId", bulkOps.proposalResultsOperationId(), issues);
-        checkRequiredBulkOperationId(controllerClass, "executionOperationId", bulkOps.executionOperationId(), issues);
-        checkRequiredBulkOperationId(controllerClass, "executionResultsOperationId", bulkOps.executionResultsOperationId(), issues);
-        checkRequiredBulkOperationId(controllerClass, "cancelOperationId", bulkOps.cancelOperationId(), issues);
+        checkRequiredBulkOperationId(controllerClass, "proposalOperationId",
+                org.praxisplatform.uischema.bulk.BulkControllerOperationIds.lifecycleOperationId(
+                        controllerClass, bulkOps, org.praxisplatform.uischema.bulk.BulkResourceOperation.Role.PROPOSAL), issues);
+        checkRequiredBulkOperationId(controllerClass, "proposalResultsOperationId",
+                org.praxisplatform.uischema.bulk.BulkControllerOperationIds.lifecycleOperationId(
+                        controllerClass, bulkOps, org.praxisplatform.uischema.bulk.BulkResourceOperation.Role.PROPOSAL_RESULTS), issues);
+        checkRequiredBulkOperationId(controllerClass, "executionOperationId",
+                org.praxisplatform.uischema.bulk.BulkControllerOperationIds.lifecycleOperationId(
+                        controllerClass, bulkOps, org.praxisplatform.uischema.bulk.BulkResourceOperation.Role.EXECUTION), issues);
+        checkRequiredBulkOperationId(controllerClass, "executionResultsOperationId",
+                org.praxisplatform.uischema.bulk.BulkControllerOperationIds.lifecycleOperationId(
+                        controllerClass, bulkOps, org.praxisplatform.uischema.bulk.BulkResourceOperation.Role.EXECUTION_RESULTS), issues);
+        checkRequiredBulkOperationId(controllerClass, "cancelOperationId",
+                org.praxisplatform.uischema.bulk.BulkControllerOperationIds.lifecycleOperationId(
+                        controllerClass, bulkOps, org.praxisplatform.uischema.bulk.BulkResourceOperation.Role.CANCEL), issues);
 
         Set<String> knownProperties = new java.util.LinkedHashSet<>();
         knownProperties.addAll(collectDtoPropertyNames(responseDto));
@@ -3676,6 +3725,13 @@ public class SemanticMetadataReviewer {
             ));
         }
         reviewUiSchemaOptions(targetType, field.getName(), uiSchema, issues);
+        reviewUiSchemaStructuralContracts(targetType, field.getName(), uiSchema, issues);
+        reviewFilterableProperty(
+                targetType,
+                field.getName(),
+                findMemberAnnotation(declaringType, field, org.praxisplatform.uischema.filter.annotation.Filterable.class),
+                issues
+        );
         reviewBulkEditableProperty(
                 targetType,
                 field.getName(),
@@ -3765,6 +3821,13 @@ public class SemanticMetadataReviewer {
             ));
         }
         reviewUiSchemaOptions(targetType, propertyName, uiSchema, issues);
+        reviewUiSchemaStructuralContracts(targetType, propertyName, uiSchema, issues);
+        reviewFilterableProperty(
+                targetType,
+                propertyName,
+                findGetterAnnotation(targetType, propertyName, org.praxisplatform.uischema.filter.annotation.Filterable.class),
+                issues
+        );
         reviewBulkEditableProperty(
                 targetType,
                 propertyName,
@@ -3812,6 +3875,61 @@ public class SemanticMetadataReviewer {
                     propertyName,
                     "@UISchema(optionEnum) must reference a non-empty Java enum class: " + optionEnum.getName() + "."
             ));
+        } else if (hasOptionEnum && org.praxisplatform.uischema.option.PraxisUiOptionEnum.class.isAssignableFrom(optionEnum)) {
+            Set<String> seenEnumValues = new java.util.LinkedHashSet<>();
+            for (Object constant : optionEnum.getEnumConstants()) {
+                org.praxisplatform.uischema.option.PraxisUiOptionEnum opt =
+                        (org.praxisplatform.uischema.option.PraxisUiOptionEnum) constant;
+                String optValue = normalize(opt.value());
+                String optLabel = normalize(opt.label());
+                String optIcon = normalize(opt.icon());
+                if (optValue.isBlank()) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-value-blank",
+                            targetType.getName(),
+                            propertyName,
+                            "PraxisUiOptionEnum constant in " + optionEnum.getSimpleName() + " must declare a non-blank value."
+                    ));
+                } else if (!seenEnumValues.add(optValue)) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-duplicate-value",
+                            targetType.getName(),
+                            propertyName,
+                            "Duplicate PraxisUiOptionEnum value '" + optValue + "' in " + optionEnum.getSimpleName() + "."
+                    ));
+                }
+                if (optLabel.isBlank()) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-label-blank",
+                            targetType.getName(),
+                            propertyName,
+                            "PraxisUiOptionEnum '" + optValue + "' in " + optionEnum.getSimpleName()
+                                    + " must declare a non-blank label."
+                    ));
+                } else if (optLabel.length() > 36 || optLabel.endsWith(".")) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-label-looks-like-sentence",
+                            targetType.getName(),
+                            propertyName,
+                            "PraxisUiOptionEnum '" + optValue + "' label '" + optLabel
+                                    + "' exceeds 36 chars or ends with a period."
+                    ));
+                }
+                if (!optIcon.isBlank() && !isValidSnakeCaseIcon(optIcon)) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "uischema-option-icon-invalid",
+                            targetType.getName(),
+                            propertyName,
+                            "PraxisUiOptionEnum '" + optValue + "' icon '" + optIcon
+                                    + "' must be a lowercase snake_case Material Icons ligature."
+                    ));
+                }
+            }
         }
 
         if (hasOptionItems) {
@@ -4250,5 +4368,380 @@ public class SemanticMetadataReviewer {
                 .replaceAll("([a-z0-9])([A-Z])", "$1 $2")
                 .replace('_', ' ')
                 .replace('-', ' ');
+    }
+
+    private void reviewTableView(
+            Class<?> targetType,
+            Set<String> allPropertyNames,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        org.praxisplatform.uischema.annotation.TableView tableView =
+                findTypeAnnotation(targetType, org.praxisplatform.uischema.annotation.TableView.class);
+        if (tableView == null) {
+            return;
+        }
+        String[] columns = tableView.columns();
+        if (columns == null || columns.length == 0) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "tableview-columns-empty",
+                    targetType.getName(),
+                    targetType.getSimpleName(),
+                    "@TableView(columns) must declare at least one property name."
+            ));
+            return;
+        }
+        Set<String> seenColumns = new java.util.LinkedHashSet<>();
+        for (String rawCol : columns) {
+            String col = normalize(rawCol);
+            if (col.isBlank()) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "tableview-column-blank",
+                        targetType.getName(),
+                        targetType.getSimpleName(),
+                        "@TableView(columns) must not contain blank property names."
+                ));
+                continue;
+            }
+            if (!seenColumns.add(col)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "tableview-column-duplicate",
+                        targetType.getName(),
+                        col,
+                        "@TableView(columns) declares duplicate property '" + col + "'."
+                ));
+            }
+            if (!allPropertyNames.contains(col)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "tableview-column-unknown",
+                        targetType.getName(),
+                        col,
+                        "@TableView(columns) references unknown DTO property '" + col + "'."
+                ));
+            }
+        }
+        Set<String> seenStart = validatePinnedColumns(
+                targetType, "pinnedStart", tableView.pinnedStart(), seenColumns, allPropertyNames, issues);
+        Set<String> seenEnd = validatePinnedColumns(
+                targetType, "pinnedEnd", tableView.pinnedEnd(), seenColumns, allPropertyNames, issues);
+        for (String col : seenStart) {
+            if (seenEnd.contains(col)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "tableview-pinned-conflict",
+                        targetType.getName(),
+                        col,
+                        "@TableView pins '" + col + "' in both pinnedStart and pinnedEnd."
+                ));
+            }
+        }
+    }
+
+    private Set<String> validatePinnedColumns(
+            Class<?> targetType,
+            String attributeName,
+            String[] rawCols,
+            Set<String> declaredColumns,
+            Set<String> allPropertyNames,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        Set<String> seen = new java.util.LinkedHashSet<>();
+        if (rawCols == null) {
+            return seen;
+        }
+        for (String raw : rawCols) {
+            String col = normalize(raw);
+            if (col.isBlank()) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "tableview-pinned-blank",
+                        targetType.getName(),
+                        attributeName,
+                        "@TableView(" + attributeName + ") must not contain blank entries."
+                ));
+                continue;
+            }
+            if (!seen.add(col)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "tableview-pinned-duplicate",
+                        targetType.getName(),
+                        col,
+                        "@TableView(" + attributeName + ") declares duplicate property '" + col + "'."
+                ));
+            }
+            if (!allPropertyNames.contains(col)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "tableview-pinned-unknown",
+                        targetType.getName(),
+                        col,
+                        "@TableView(" + attributeName + ") references unknown DTO property '" + col + "'."
+                ));
+            } else if (!declaredColumns.contains(col)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "tableview-pinned-not-in-columns",
+                        targetType.getName(),
+                        col,
+                        "@TableView(" + attributeName + ") references '" + col + "' which is absent from columns()."
+                ));
+            }
+        }
+        return seen;
+    }
+
+    private void reviewUiFormLayout(Class<?> targetType, List<SemanticMetadataReviewIssue> issues) {
+        org.praxisplatform.uischema.annotation.UiFormLayout layout =
+                findTypeAnnotation(targetType, org.praxisplatform.uischema.annotation.UiFormLayout.class);
+        if (layout == null) {
+            return;
+        }
+        Set<String> seenIds = new java.util.LinkedHashSet<>();
+        for (org.praxisplatform.uischema.annotation.UiSection section : layout.sections()) {
+            String sectionId = normalize(section.id());
+            String title = normalize(section.title());
+            String icon = normalize(section.icon());
+            if (sectionId.isBlank()) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "form-layout-section-id-blank",
+                        targetType.getName(),
+                        "@UiFormLayout",
+                        "@UiSection must declare a non-blank id."
+                ));
+            } else if (!seenIds.add(sectionId)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "form-layout-section-duplicate-id",
+                        targetType.getName(),
+                        sectionId,
+                        "Duplicate @UiSection id '" + sectionId + "' in @UiFormLayout."
+                ));
+            }
+            if (title.isBlank()) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "form-layout-section-title-blank",
+                        targetType.getName(),
+                        sectionId.isBlank() ? "@UiSection" : sectionId,
+                        "@UiSection must declare a non-blank title."
+                ));
+            }
+            if (!icon.isBlank() && !isValidSnakeCaseIcon(icon)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "form-layout-section-icon-invalid",
+                        targetType.getName(),
+                        sectionId.isBlank() ? "@UiSection" : sectionId,
+                        "@UiSection(icon='" + icon + "') must be a lowercase snake_case Material Icons ligature."
+                ));
+            }
+        }
+    }
+
+    private void reviewDomainVisualizers(
+            Class<?> targetType,
+            Set<String> allPropertyNames,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        var progression = findTypeAnnotation(targetType, org.praxisplatform.uischema.annotation.ResourceProgression.class);
+        if (progression != null) {
+            validateVisualizerField(targetType, "@ResourceProgression", "currentLevelField", progression.currentLevelField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceProgression", "currentStepField", progression.currentStepField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceProgression", "maxLevelField", progression.maxLevelField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceProgression", "nextStepField", progression.nextStepField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceProgression", "nextEligibleDateField", progression.nextEligibleDateField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceProgression", "remainingDaysField", progression.remainingDaysField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceProgression", "scoreField", progression.scoreField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceProgression", "statusField", progression.statusField(), allPropertyNames, issues);
+        }
+        var timeline = findTypeAnnotation(targetType, org.praxisplatform.uischema.annotation.ResourceTimeline.class);
+        if (timeline != null) {
+            validateVisualizerField(targetType, "@ResourceTimeline", "startDateField", timeline.startDateField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceTimeline", "endDateField", timeline.endDateField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceTimeline", "referenceDateField", timeline.referenceDateField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceTimeline", "statusField", timeline.statusField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceTimeline", "categoryField", timeline.categoryField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceTimeline", "labelField", timeline.labelField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceTimeline", "durationField", timeline.durationField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceTimeline", "actorField", timeline.actorField(), allPropertyNames, issues);
+        }
+        var schedule = findTypeAnnotation(targetType, org.praxisplatform.uischema.annotation.ResourceSchedule.class);
+        if (schedule != null) {
+            validateVisualizerField(targetType, "@ResourceSchedule", "startTimeField", schedule.startTimeField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceSchedule", "endTimeField", schedule.endTimeField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceSchedule", "timezoneField", schedule.timezoneField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceSchedule", "recurrenceField", schedule.recurrenceField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceSchedule", "dayOfWeekField", schedule.dayOfWeekField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceSchedule", "shiftField", schedule.shiftField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceSchedule", "capacityField", schedule.capacityField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceSchedule", "allocatedField", schedule.allocatedField(), allPropertyNames, issues);
+            validateVisualizerField(targetType, "@ResourceSchedule", "statusField", schedule.statusField(), allPropertyNames, issues);
+        }
+    }
+
+    private void validateVisualizerField(
+            Class<?> targetType,
+            String annotationName,
+            String attrName,
+            String rawFieldName,
+            Set<String> allPropertyNames,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        String fieldName = normalize(rawFieldName);
+        if (!fieldName.isBlank() && !allPropertyNames.contains(fieldName)) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "resource-visualizer-field-unknown",
+                    targetType.getName(),
+                    fieldName,
+                    annotationName + "(" + attrName + "='" + fieldName + "') references unknown DTO property."
+            ));
+        }
+    }
+
+    private void reviewUiSchemaStructuralContracts(
+            Class<?> targetType,
+            String propertyName,
+            UISchema uiSchema,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        if (uiSchema == null) {
+            return;
+        }
+        int colSpan = uiSchema.colSpan();
+        if (colSpan < 0 || colSpan > 12) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "uischema-colspan-invalid",
+                    targetType.getName(),
+                    propertyName,
+                    "@UISchema(colSpan=" + colSpan + ") must be 0 (auto) or between 1 and 12."
+            ));
+        }
+        String conditionalReadOnly = normalize(uiSchema.conditionalReadOnly());
+        if (!conditionalReadOnly.isBlank()) {
+            try {
+                Object parsed = JSON_MAPPER.readValue(conditionalReadOnly, Object.class);
+                JSON_LOGIC_VALIDATOR.validateCondition(parsed, "conditionalReadOnly", true);
+            } catch (Exception ex) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "uischema-conditional-readonly-invalid",
+                        targetType.getName(),
+                        propertyName,
+                        "@UISchema(conditionalReadOnly) must be a valid Json Logic expression: " + ex.getMessage()
+                ));
+            }
+        }
+    }
+
+    private void reviewFilterableProperty(
+            Class<?> targetType,
+            String propertyName,
+            org.praxisplatform.uischema.filter.annotation.Filterable filterable,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        if (filterable == null) {
+            return;
+        }
+        if (filterable.operation() == org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.EFFECTIVE_ON_DATE
+                && (normalize(filterable.relation()).isBlank() || normalize(filterable.endRelation()).isBlank())) {
+            issues.add(new SemanticMetadataReviewIssue(
+                    SemanticMetadataIssueSeverity.ERROR,
+                    "effective-on-date-missing-relations",
+                    targetType.getName(),
+                    propertyName,
+                    "@Filterable(operation = EFFECTIVE_ON_DATE) requires explicit non-blank relation and endRelation."
+            ));
+        }
+    }
+
+    private String resolveControllerDefaultOperationId(Class<?> controllerClass, boolean create) {
+        Method[] methods = org.springframework.util.ReflectionUtils.getUniqueDeclaredMethods(
+                controllerClass,
+                method -> !method.isBridge() && !method.isSynthetic()
+        );
+        for (Method candidate : methods) {
+            if (org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(
+                    candidate, org.praxisplatform.uischema.annotation.ReactiveDetermination.class)
+                    || org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(
+                    candidate, org.praxisplatform.uischema.annotation.WorkflowAction.class)
+                    || org.springframework.core.annotation.AnnotatedElementUtils.hasAnnotation(
+                    candidate, org.praxisplatform.uischema.annotation.UiSurface.class)) {
+                continue;
+            }
+            if (create && isCanonicalCreateHandler(candidate)) {
+                return effectiveHandlerOperationId(candidate);
+            }
+            if (!create && isCanonicalUpdateHandler(candidate)) {
+                return effectiveHandlerOperationId(candidate);
+            }
+        }
+        return "";
+    }
+
+    private static boolean isCanonicalCreateHandler(Method method) {
+        var postMapping = org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                method, org.springframework.web.bind.annotation.PostMapping.class);
+        if (postMapping != null) {
+            return hasRootPath(postMapping.value(), postMapping.path());
+        }
+        var requestMapping = org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                method, org.springframework.web.bind.annotation.RequestMapping.class);
+        if (requestMapping != null) {
+            for (var rm : requestMapping.method()) {
+                if (rm == org.springframework.web.bind.annotation.RequestMethod.POST) {
+                    return hasRootPath(requestMapping.value(), requestMapping.path());
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isCanonicalUpdateHandler(Method method) {
+        var putMapping = org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                method, org.springframework.web.bind.annotation.PutMapping.class);
+        if (putMapping != null) {
+            return hasUpdateIdPath(putMapping.value(), putMapping.path());
+        }
+        var requestMapping = org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                method, org.springframework.web.bind.annotation.RequestMapping.class);
+        if (requestMapping != null) {
+            for (var rm : requestMapping.method()) {
+                if (rm == org.springframework.web.bind.annotation.RequestMethod.PUT) {
+                    return hasUpdateIdPath(requestMapping.value(), requestMapping.path());
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasRootPath(String[] values, String[] paths) {
+        List<String> all = new ArrayList<>();
+        if (values != null) java.util.Collections.addAll(all, values);
+        if (paths != null) java.util.Collections.addAll(all, paths);
+        return all.isEmpty() || all.stream().anyMatch(p -> p == null || p.isBlank() || "/".equals(p.trim()));
+    }
+
+    private static boolean hasUpdateIdPath(String[] values, String[] paths) {
+        List<String> all = new ArrayList<>();
+        if (values != null) java.util.Collections.addAll(all, values);
+        if (paths != null) java.util.Collections.addAll(all, paths);
+        return all.stream().anyMatch(p -> p != null && ("/{id}".equals(p.trim()) || "{id}".equals(p.trim())));
+    }
+
+    private String effectiveHandlerOperationId(Method method) {
+        io.swagger.v3.oas.annotations.Operation op =
+                org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                        method, io.swagger.v3.oas.annotations.Operation.class);
+        if (op != null && !normalize(op.operationId()).isBlank()) {
+            return normalize(op.operationId());
+        }
+        return method.getName();
     }
 }

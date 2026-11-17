@@ -14,7 +14,15 @@ import java.lang.annotation.Target;
  * escolha de apresentacao no runtime consumidor.
  * </p>
  */
-@Target(ElementType.METHOD)
+/**
+ * Declara projecoes analiticas semanticas associadas a um endpoint ou controller de recurso.
+ *
+ * <p>Quando aplicada em nivel de classe ({@link ElementType#TYPE}) em um controller resource-oriented,
+ * publica automaticamente {@code x-ui.analytics} na operacao {@code /stats/group-by} do recurso
+ * (ou em {@code /filter} quando {@code /stats/group-by} nao existir), respeitando sobrescritas
+ * em nivel de metodo ({@link ElementType#METHOD}).</p>
+ */
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface UiAnalytics {
 

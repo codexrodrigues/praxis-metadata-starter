@@ -63,7 +63,8 @@ public final class BulkOperationLifecycle {
             throw new IllegalStateException("Bulk lifecycle requires fresh OpenAPI composition coherent with this node's public document cache");
         documents.installBulkLifecyclePublicationGuard((generation, digest) -> {
             var current = readPublicationForDocumentGuard();
-            if (!current.published() || current.generation() != generation || !Objects.equals(current.documentDigest(), digest))
+            if (current == null || !current.published() || current.generation() != generation
+                    || !Objects.equals(current.documentDigest(), digest))
                 throw unavailable("Local OpenAPI photograph does not match the durable publication");
         });
         documents.installBulkLifecycleInvalidationGuard(() -> {
@@ -592,6 +593,37 @@ public final class BulkOperationLifecycle {
         });
         documents.installBulkOpenApiPublication(prepared.candidate(), publication.generation());
         return prepared.descriptor().expectation(readyGeneration);
+    }
+
+    /**
+     * Startup convenience helper: publishes an {@code UNCOMPOSED}/{@code SUSPENDED} row, reconciles an
+     * already matching {@code READY} row, or suspends and re-publishes when a rolling upgrade updated the
+     * composed descriptor. Callers must still invoke this only when durable control state is ready.
+     */
+    public BulkOperationControlExpectation ensureReadyOnStartup(BulkOperationControlIdentity identity) {
+        requireOperationalIdentity(identity);
+        JdbcBulkOperationControl.Snapshot current = read(identity);
+        if (current == null) {
+            throw unavailable("Bulk operation control row is missing for " + identity.confirmationOperationId());
+        }
+        if (current.ready()) {
+            try {
+                return reconcilePublished(identity, current.generation());
+            } catch (IllegalStateException unreconcilable) {
+                long suspendedGeneration = suspend(identity, current.generation());
+                return publish(identity, suspendedGeneration);
+            }
+        }
+        return publish(identity, current.generation());
+    }
+
+    /** Returns the control identities configured for every provider registered on this lifecycle. */
+    public List<BulkOperationControlIdentity> configuredIdentities() {
+        return providers.stream()
+                .map(BulkOperationDescriptorProvider::confirmationOperationId)
+                .distinct()
+                .map(operationId -> new BulkOperationControlIdentity(runtime.namespace(), operationId))
+                .toList();
     }
 
     private JdbcBulkOpenApiPublication.Snapshot readPublicationForDocumentGuard() {

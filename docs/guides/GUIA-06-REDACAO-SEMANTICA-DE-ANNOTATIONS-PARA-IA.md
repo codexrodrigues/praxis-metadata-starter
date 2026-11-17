@@ -289,7 +289,7 @@ movimentacao funcional nos ultimos 3 meses"*, o motor de grounding (`api_metadat
 contrato publicado:
 
 1. **Vocabulario humano nos filtros relacionais de organizacao e classificacao:**
-   um usuario nunca pergunta por `setor = "03.01.01"` ou `empCodigo = 1`. O
+   um usuario nunca pergunta por `setor = "03.01.01"` ou `companyCode = 1`. O
    `FilterDTO` precisa publicar filtros relacionais sobre nomes legiveis, tipos
    de unidade e categorias de negocio (`lotacao.nome`, `lotacao.tipoSetor`,
    `vinculo.categoria`, `cargoEntidade.nome`) e descrever explicitamente no

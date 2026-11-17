@@ -98,7 +98,12 @@ import org.praxisplatform.uischema.stats.service.jpa.JpaStatsQueryExecutor;
 import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.jackson.JacksonAutoConfiguration;
+import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.util.StringUtils;
 import org.springframework.beans.factory.ListableBeanFactory;
@@ -145,7 +150,7 @@ import java.util.concurrent.Executors;
  * A narrativa arquitetural maior fica no documento tecnico da lane, nao nesta classe de bootstrap.
  * </p>
  */
-@AutoConfiguration
+@AutoConfiguration(after = JacksonAutoConfiguration.class)
 public class OpenApiUiSchemaAutoConfiguration {
     /**
      * Publica o {@link RestTemplate} usado para fetch interno de documentos OpenAPI.
@@ -161,10 +166,24 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     /**
-     * Publica o {@link ObjectMapper} padrao do starter, com suporte a Java Time e IDs compostos.
+     * Personaliza o {@link ObjectMapper} gerenciado pelo Spring Boot quando {@link JacksonAutoConfiguration}
+     * esta presente, garantindo registro de {@link CompositeIdJacksonModule} sem substituir o mapper do host.
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "praxisCompositeIdJacksonCustomizer")
+    @ConditionalOnClass(Jackson2ObjectMapperBuilderCustomizer.class)
+    public Jackson2ObjectMapperBuilderCustomizer praxisCompositeIdJacksonCustomizer(
+            CompositeIdJacksonModule compositeIdJacksonModule
+    ) {
+        return builder -> builder.postConfigurer(mapper -> mapper.registerModule(compositeIdJacksonModule));
+    }
+
+    /**
+     * Fallback minimo para {@link ObjectMapper} apenas quando nenhum bean {@link ObjectMapper}
+     * foi registrado (por exemplo, em testes leves sem {@code JacksonAutoConfiguration}).
      */
     @Bean(name = "openApiUiSchemaObjectMapper")
-    @ConditionalOnMissingBean
+    @ConditionalOnMissingBean(ObjectMapper.class)
     public ObjectMapper objectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
@@ -252,6 +271,50 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(RequestMappingHandlerMapping.class)
+    @ConditionalOnMissingBean(name = "filterSchemaInheritanceOpenApiCustomizer")
+    public GlobalOpenApiCustomizer filterSchemaInheritanceOpenApiCustomizer(
+            RequestMappingHandlerMapping requestMappingHandlerMapping
+    ) {
+        return openApi -> {
+            if (openApi == null || openApi.getComponents() == null || openApi.getComponents().getSchemas() == null) {
+                return;
+            }
+            @SuppressWarnings("rawtypes")
+            Map<String, io.swagger.v3.oas.models.media.Schema> componentSchemas = openApi.getComponents().getSchemas();
+            Map<Class<?>, Class<?>> filterToResponse = new java.util.LinkedHashMap<>();
+            for (var handler : requestMappingHandlerMapping.getHandlerMethods().values()) {
+                Class<?> beanType = org.springframework.util.ClassUtils.getUserClass(handler.getBeanType());
+                if (org.praxisplatform.uischema.controller.base.AbstractResourceQueryController.class.isAssignableFrom(beanType)) {
+                    Class<?>[] args = org.springframework.core.GenericTypeResolver.resolveTypeArguments(
+                            beanType,
+                            org.praxisplatform.uischema.controller.base.AbstractResourceQueryController.class
+                    );
+                    if (args != null && args.length >= 3
+                            && args[0] != null && args[0] != Object.class
+                            && args[2] != null && args[2] != Object.class) {
+                        filterToResponse.putIfAbsent(args[2], args[0]);
+                    }
+                }
+            }
+            for (var entry : filterToResponse.entrySet()) {
+                Class<?> filterClass = entry.getKey();
+                Class<?> responseClass = entry.getValue();
+                io.swagger.v3.oas.models.media.Schema<?> filterSchema = componentSchemas.get(filterClass.getSimpleName());
+                io.swagger.v3.oas.models.media.Schema<?> responseSchema = componentSchemas.get(responseClass.getSimpleName());
+                if (filterSchema != null && responseSchema != null) {
+                    org.praxisplatform.uischema.extension.FilterFieldMetadataInheritanceSupport.inheritToOpenApiFilterSchema(
+                            filterSchema,
+                            filterClass,
+                            responseSchema,
+                            componentSchemas
+                    );
+                }
+            }
+        };
+    }
+
+    @Bean
     @ConditionalOnMissingBean(name = "rangePayloadNormalizer")
     @Order(0)
     public FilterPayloadNormalizer rangePayloadNormalizer() {
@@ -262,7 +325,7 @@ public class OpenApiUiSchemaAutoConfiguration {
     @ConditionalOnMissingBean(name = "relativePeriodPayloadNormalizer")
     @Order(100)
     public FilterPayloadNormalizer relativePeriodPayloadNormalizer(
-            @Value("${praxis.filter.relative-period.zone-id:UTC}") String relativePeriodZoneId
+            @Value("${praxis.filter.time-zone:${praxis.filter.relative-period.zone-id:UTC}}") String relativePeriodZoneId
     ) {
         return new RelativePeriodPayloadNormalizer(Clock.system(ZoneId.of(relativePeriodZoneId)));
     }
@@ -304,6 +367,16 @@ public class OpenApiUiSchemaAutoConfiguration {
      * Publica o builder generico de specifications usado pelos fluxos canonicos de filtro.
      */
     @Bean(name = "openApiUiSchemaSpecificationsBuilder")
+    @ConditionalOnMissingBean(GenericSpecificationsBuilder.class)
+    public <E> GenericSpecificationsBuilder<E> genericSpecificationsBuilder(
+            @Value("${praxis.filter.time-zone:${praxis.filter.relative-period.zone-id:UTC}}") String filterTimeZone
+    ) {
+        java.time.ZoneId zoneId = (filterTimeZone == null || filterTimeZone.isBlank())
+                ? java.time.ZoneOffset.UTC
+                : java.time.ZoneId.of(filterTimeZone.trim());
+        return new GenericSpecificationsBuilder<>(zoneId);
+    }
+
     public <E> GenericSpecificationsBuilder<E> genericSpecificationsBuilder() {
         return new GenericSpecificationsBuilder<>();
     }
@@ -722,9 +795,26 @@ public class OpenApiUiSchemaAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    public ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider() {
-        return new NoOpResourceOperationAvailabilityProvider();
+    @ConditionalOnBean(org.praxisplatform.uischema.capability.ResourceOperationAvailabilityRule.class)
+    @ConditionalOnMissingBean(ResourceOperationAvailabilityProvider.class)
+    public org.praxisplatform.uischema.capability.CompositeResourceOperationAvailabilityEvaluator compositeResourceOperationAvailabilityEvaluator(
+            ObjectProvider<org.praxisplatform.uischema.capability.ResourceOperationAvailabilityRule> rulesProvider
+    ) {
+        return new org.praxisplatform.uischema.capability.CompositeResourceOperationAvailabilityEvaluator(
+                rulesProvider.orderedStream().toList()
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ResourceOperationAvailabilityProvider.class)
+    public ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider(
+            ObjectProvider<org.praxisplatform.uischema.capability.ResourceOperationAvailabilityRule> rulesProvider
+    ) {
+        List<org.praxisplatform.uischema.capability.ResourceOperationAvailabilityRule> rules =
+                rulesProvider.orderedStream().toList();
+        return rules.isEmpty()
+                ? new NoOpResourceOperationAvailabilityProvider()
+                : new org.praxisplatform.uischema.capability.CompositeResourceOperationAvailabilityEvaluator(rules);
     }
 
     @Bean
@@ -1078,5 +1168,81 @@ public class OpenApiUiSchemaAutoConfiguration {
             org.praxisplatform.uischema.authoring.DtoMetadataFactCatalogEnricher dtoEnricher
     ) {
         return new org.praxisplatform.uischema.capability.ResourceDecisionPointCatalogService(dtoEnricher);
+    }
+
+    @Bean
+    @ConditionalOnBean(org.praxisplatform.uischema.customfields.ResourceTenantContextResolver.class)
+    @ConditionalOnMissingBean(org.praxisplatform.uischema.multitenancy.TenantRequestValidationInterceptor.class)
+    public org.praxisplatform.uischema.multitenancy.TenantRequestValidationInterceptor tenantRequestValidationInterceptor(
+            org.praxisplatform.uischema.customfields.ResourceTenantContextResolver tenantContextResolver,
+            @Value("${praxis.multitenancy.realm-header:X-Tenant-Realm}") String realmHeader
+    ) {
+        return new org.praxisplatform.uischema.multitenancy.TenantRequestValidationInterceptor(
+                tenantContextResolver, realmHeader);
+    }
+
+    @Bean
+    @ConditionalOnBean(org.praxisplatform.uischema.customfields.ResourceTenantContextResolver.class)
+    @ConditionalOnClass(org.springframework.web.servlet.config.annotation.WebMvcConfigurer.class)
+    public org.springframework.web.servlet.config.annotation.WebMvcConfigurer praxisTenantValidationWebMvcConfigurer(
+            ObjectProvider<org.praxisplatform.uischema.multitenancy.TenantRequestValidationInterceptor> interceptorProvider
+    ) {
+        return new org.springframework.web.servlet.config.annotation.WebMvcConfigurer() {
+            @Override
+            public void addInterceptors(
+                    org.springframework.web.servlet.config.annotation.InterceptorRegistry registry
+            ) {
+                interceptorProvider.ifAvailable(registry::addInterceptor);
+            }
+        };
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass({
+            org.springframework.jdbc.core.JdbcTemplate.class,
+            org.springframework.transaction.PlatformTransactionManager.class
+    })
+    @ConditionalOnProperty(name = "praxis.command.receipts.jdbc.enabled", havingValue = "true")
+    static class JdbcCommandReceiptsConfiguration {
+
+        @Bean
+        @ConditionalOnBean({
+                org.springframework.jdbc.core.JdbcTemplate.class,
+                org.springframework.transaction.PlatformTransactionManager.class
+        })
+        @ConditionalOnMissingBean(org.praxisplatform.uischema.command.ResourceCommandIdempotencyStore.class)
+        public org.praxisplatform.uischema.command.JdbcResourceCommandReceiptStore jdbcResourceCommandReceiptStore(
+                org.springframework.jdbc.core.JdbcTemplate jdbcTemplate,
+                org.springframework.transaction.PlatformTransactionManager transactionManager,
+                ObjectMapper objectMapper,
+                @Value("${praxis.command.receipts.jdbc.table:praxis_resource_command_receipts}") String table
+        ) {
+            return new org.praxisplatform.uischema.command.JdbcResourceCommandReceiptStore(
+                    jdbcTemplate, transactionManager, objectMapper, table);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = {
+            "org.springframework.security.web.context.SecurityContextRepository",
+            "org.springframework.security.web.csrf.CsrfTokenRepository"
+    })
+    static class RealmScopedSecurityConfiguration {
+
+        @Bean
+        @ConditionalOnProperty(name = "praxis.multitenancy.realm-scoped-security.enabled", havingValue = "true")
+        @ConditionalOnMissingBean(org.praxisplatform.uischema.multitenancy.RealmScopedSecurityContextRepository.class)
+        public org.praxisplatform.uischema.multitenancy.RealmScopedSecurityContextRepository realmScopedSecurityContextRepository() {
+            return new org.praxisplatform.uischema.multitenancy.RealmScopedSecurityContextRepository();
+        }
+
+        @Bean
+        @ConditionalOnProperty(name = "praxis.multitenancy.realm-scoped-csrf.enabled", havingValue = "true")
+        @ConditionalOnMissingBean(org.praxisplatform.uischema.multitenancy.RealmScopedCsrfTokenRepository.class)
+        public org.praxisplatform.uischema.multitenancy.RealmScopedCsrfTokenRepository realmScopedCsrfTokenRepository(
+                @Value("${praxis.multitenancy.realm-scoped-csrf.cookie-based:false}") boolean cookieBased
+        ) {
+            return new org.praxisplatform.uischema.multitenancy.RealmScopedCsrfTokenRepository(cookieBased);
+        }
     }
 }

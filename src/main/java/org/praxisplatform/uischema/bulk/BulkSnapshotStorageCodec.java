@@ -57,6 +57,13 @@ final class BulkSnapshotStorageCodec {
     }
 
     static BulkIdentityCodec<?, ?> codec(String id) {
+        if (id != null && id.startsWith("composite:")) {
+            String typeName = id.substring("composite:".length());
+            Class<?> compositeType = org.praxisplatform.uischema.id.CompositeIdSupport
+                    .findRegisteredCompositeIdType(typeName)
+                    .orElseThrow(BulkSnapshotStorageCodec::invalid);
+            return BulkIdentityCodecs.composite(compositeType);
+        }
         return switch (id) {
             case "integer" -> BulkIdentityCodecs.integers();
             case "long" -> BulkIdentityCodecs.longs();

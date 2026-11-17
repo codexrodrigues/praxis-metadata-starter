@@ -113,7 +113,37 @@ public final class CalculationMemoryMetadataResolver {
         putIfHasText(map, "legalBasisExpr", trail.legalBasisExpr());
         putIfHasText(map, "legalPurpose", trail.legalPurpose());
         putIfHasText(map, "legalPurposeExpr", trail.legalPurposeExpr());
+        if (trail.steps().length > 0) {
+            List<Map<String, Object>> steps = new ArrayList<>(trail.steps().length);
+            for (org.praxisplatform.uischema.annotation.CalculationStep step : trail.steps()) {
+                steps.add(toStepMap(step));
+            }
+            map.put("steps", List.copyOf(steps));
+        }
         return Map.copyOf(map);
+    }
+
+    private static Map<String, Object> toStepMap(org.praxisplatform.uischema.annotation.CalculationStep step) {
+        if (!StringUtils.hasText(step.label())) {
+            throw new IllegalArgumentException("@CalculationStep.label must not be blank.");
+        }
+        if (!StringUtils.hasText(step.expr())) {
+            throw new IllegalArgumentException("@CalculationStep.expr must not be blank.");
+        }
+        Map<String, Object> stepMap = new LinkedHashMap<>();
+        String kindValue = step.kind() != null
+                ? step.kind().wireValue()
+                : org.praxisplatform.uischema.annotation.StepKind.BASE.wireValue();
+        stepMap.put("kind", kindValue);
+        stepMap.put("role", kindValue);
+        stepMap.put("label", step.label().trim());
+        String expr = step.expr().trim();
+        stepMap.put("expr", expr);
+        stepMap.put("valueExpr", expr);
+        putIfHasText(stepMap, "format", step.format());
+        putIfHasText(stepMap, "hintExpr", step.hintExpr());
+        putIfHasText(stepMap, "legalBasis", step.legalBasis());
+        return Map.copyOf(stepMap);
     }
 
     private static void putIfHasText(Map<String, Object> target, String key, String value) {

@@ -12,6 +12,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * @since 1.0.0
  */
 public enum NumericFormat {
+    /** Sentinela para formato numerico nao especificado explicitamente. */
+    AUTO("auto"),
     INTEGER("integer"),
     DECIMAL("decimal"),
     CURRENCY("currency"),

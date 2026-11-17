@@ -48,6 +48,7 @@ public final class TestUISchemaDefaults {
         @Override public String[] editableForAuthorities() { return new String[0]; }
         @Override public String fieldAccessReason() { return ""; }
         @Override public String conditionalDisplay() { return ""; }
+        @Override public String conditionalReadOnly() { return ""; }
         @Override public String dependsOn() { return ""; }
         @Override public String dependentField() { return ""; }
         @Override public boolean resetOnDependentChange() { return false; }
@@ -81,7 +82,8 @@ public final class TestUISchemaDefaults {
         @Override public String options() { return ""; }
         @Override public String filter() { return ""; }
         @Override public String filterOptions() { return ""; }
-        @Override public NumericFormat numericFormat() { return NumericFormat.INTEGER; }
+        @Override public NumericFormat numericFormat() { return NumericFormat.AUTO; }
+        @Override public int colSpan() { return 0; }
         @Override public String numericStep() { return ""; }
         @Override public String numericMin() { return ""; }
         @Override public String numericMax() { return ""; }

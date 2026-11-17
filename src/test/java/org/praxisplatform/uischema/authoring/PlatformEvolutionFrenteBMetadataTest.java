@@ -45,8 +45,8 @@ class PlatformEvolutionFrenteBMetadataTest {
                 preset = DomainGovernancePreset.LGPD_PERSONAL_ID,
                 complianceTags = {"LGPD_ART_5_I", "RECEITA_FEDERAL"})
         @DomainLineage(
-                attributeId = "ergon.funcionarios.cpf",
-                sourceResourceKey = "ergon.funcionarios")
+                attributeId = "workforce.employees.cpf",
+                sourceResourceKey = "workforce.employees")
         private String cpf;
 
         @Schema(description = "Valor da gratificação mensal da função de confiança.")
@@ -55,16 +55,16 @@ class PlatformEvolutionFrenteBMetadataTest {
                 preset = DomainGovernancePreset.CONFIDENTIAL_FINANCIAL,
                 complianceTags = {"LEI_8112_ART_62"})
         @DomainLineage(
-                attributeId = "ergon.funcoes.valorGratificacao",
-                sourceResourceKey = "ergon.funcoes")
+                attributeId = "workforce.roles.stipendAmount",
+                sourceResourceKey = "workforce.roles")
         private BigDecimal valorGratificacao;
 
         @Schema(description = "Remuneração bruta pública submetida à transparência ativa (LAI / STF Tema 483).")
         @UISchema(label = "Remuneração bruta")
         @DomainGovernance(preset = DomainGovernancePreset.PUBLIC_TRANSPARENCY_REMUNERATION)
         @DomainLineage(
-                attributeId = "ergon.fichas-financeiras.totalVantagensBruto",
-                sourceResourceKey = "ergon.fichas-financeiras")
+                attributeId = "workforce.pay-statements.grossEarningsTotal",
+                sourceResourceKey = "workforce.pay-statements")
         private BigDecimal totalVantagensBruto;
 
         @Schema(description = "Data de início de exercício.")
@@ -81,7 +81,7 @@ class PlatformEvolutionFrenteBMetadataTest {
         @Schema(description = "Identificador único do registro.")
         @UISchema(label = "Código")
         @DomainGovernance(preset = DomainGovernancePreset.INTERNAL_OPERATIONAL)
-        @DomainLineage(attributeId = "ergon.sample.id", sourceResourceKey = "ergon.sample")
+        @DomainLineage(attributeId = "workforce.sample.id", sourceResourceKey = "workforce.sample")
         private Long id;
 
         // Subclass getter overriding governance/label of superclass property
@@ -107,7 +107,7 @@ class PlatformEvolutionFrenteBMetadataTest {
         public void auditTrail() {}
     }
 
-    @ApiResource(value = "/api/ergon/sample", resourceKey = "ergon.sample")
+    @ApiResource(value = "/api/workforce/sample", resourceKey = "workforce.sample")
     static class SampleResourceController extends BaseAuditController {
         @UiSurface(
                 id = "detail",
@@ -166,7 +166,7 @@ class PlatformEvolutionFrenteBMetadataTest {
         assertThat(cpf.nullable()).isFalse();
         assertThat(cpf.sensitivity()).isEqualTo("PERSONAL");
         assertThat(cpf.redaction()).isEqualTo("MASK");
-        assertThat(cpf.lineageAttributeId()).isEqualTo("ergon.funcionarios.cpf");
+        assertThat(cpf.lineageAttributeId()).isEqualTo("workforce.employees.cpf");
 
         // Canonical sensitivity taxonomy (CONFIDENTIAL_FINANCIAL -> SENSITIVE + MASK + exportable=false)
         DtoFactPropertyMetadata grat = props.get("valorGratificacao");
@@ -196,7 +196,7 @@ class PlatformEvolutionFrenteBMetadataTest {
         Map<String, DtoFactPropertyMetadata> writeProps =
                 enricher.inspectWriteDto(SampleRecordCreateDTO.class, SampleResponseDTO.class);
         assertThat(writeProps.get("cpf").labelPtBr()).isEqualTo("CPF informado");
-        assertThat(writeProps.get("cpf").lineageAttributeId()).isEqualTo("ergon.funcionarios.cpf");
+        assertThat(writeProps.get("cpf").lineageAttributeId()).isEqualTo("workforce.employees.cpf");
         assertThat(writeProps.get("cpf").sensitivity()).isEqualTo("PERSONAL");
         assertThat(writeProps.get("codigosLotacao").valueType()).isEqualTo("number-array");
 
@@ -241,7 +241,7 @@ class PlatformEvolutionFrenteBMetadataTest {
                             "pt-BR": "Projeção primitiva de Servidor; somente os predicados do RuleSet decidem validade."
                           },
                           "providerRef": "SampleFactSource#v1",
-                          "evidenceRefs": ["PCK_FUNCIONARIOS.P_VALIDA_CPF"],
+                          "evidenceRefs": ["PKG_WORKFORCE.P_VALIDATE_TAX_ID"],
                           "sensitivity": "SENSITIVE",
                           "redaction": "OMIT"
                         },
@@ -250,7 +250,7 @@ class PlatformEvolutionFrenteBMetadataTest {
                           "labels": { "pt-BR": "Titulares ativos no setor" },
                           "descriptions": { "pt-BR": "Quantidade de titulares ativos na unidade organizacional." },
                           "providerRef": "SampleFactSource#v1",
-                          "evidenceRefs": ["PCK_FUNCOES.P_VALIDA_TITULAR"],
+                          "evidenceRefs": ["PKG_WORKFORCE.P_VALIDATE_HOLDER"],
                           "sensitivity": "NON_SENSITIVE",
                           "redaction": "NONE"
                         }
@@ -276,9 +276,9 @@ class PlatformEvolutionFrenteBMetadataTest {
                 enricher.buildEnrichedFactCatalog(
                         MAPPER,
                         "praxis.domain-rule-fact-catalog.v1",
-                        "ergon.sample.ruleset",
+                        "workforce.sample.ruleset",
                         "CREATE",
-                        "ErgonBootstrap",
+                        "WorkforceBootstrap",
                         requestedPaths,
                         Map.of(
                                 "draft", SampleBaseDados.class,
@@ -310,8 +310,8 @@ class PlatformEvolutionFrenteBMetadataTest {
         cpfFact.path("evidenceRefs").forEach(n -> cpfEvidence.add(n.asText()));
         assertThat(cpfEvidence)
                 .contains(
-                        "PCK_FUNCIONARIOS.P_VALIDA_CPF",
-                        "ergon.funcionarios.cpf",
+                        "PKG_WORKFORCE.P_VALIDATE_TAX_ID",
+                        "workforce.employees.cpf",
                         "LGPD_ART_5_I");
 
         // 3rd fact: DTO BigDecimal -> "number", canonical "SENSITIVE"
@@ -339,25 +339,25 @@ class PlatformEvolutionFrenteBMetadataTest {
         assertThat(points)
                 .extracting(ResourceDecisionPointDescriptor::decisionPointKey)
                 .contains(
-                        "ergon.sample:operation:query",
-                        "ergon.sample:operation:create",
-                        "ergon.sample:operation:update",
-                        "ergon.sample:operation:delete",
-                        "ergon.sample:operation:export",
-                        "ergon.sample:operation:ai-tool",
-                        "ergon.sample:action:homologar-registro",
-                        "ergon.sample:action:acao-sem-base-legal",
-                        "ergon.sample:surface:audit-trail",
-                        "ergon.sample:surface:detail",
-                        "ergon.sample:bulk:atualizar-lote",
-                        "ergon.sample:field.projection:cpf",
-                        "ergon.sample:field.projection:campoSemGovernanca",
-                        "ergon.sample:field.write:cpf",
-                        "ergon.sample:field.write:codigosLotacao");
+                        "workforce.sample:operation:query",
+                        "workforce.sample:operation:create",
+                        "workforce.sample:operation:update",
+                        "workforce.sample:operation:delete",
+                        "workforce.sample:operation:export",
+                        "workforce.sample:operation:ai-tool",
+                        "workforce.sample:action:homologar-registro",
+                        "workforce.sample:action:acao-sem-base-legal",
+                        "workforce.sample:surface:audit-trail",
+                        "workforce.sample:surface:detail",
+                        "workforce.sample:bulk:atualizar-lote",
+                        "workforce.sample:field.projection:cpf",
+                        "workforce.sample:field.projection:campoSemGovernanca",
+                        "workforce.sample:field.write:cpf",
+                        "workforce.sample:field.write:codigosLotacao");
 
         ResourceDecisionPointDescriptor homologar =
                 points.stream()
-                        .filter(p -> p.decisionPointKey().equals("ergon.sample:action:homologar-registro"))
+                        .filter(p -> p.decisionPointKey().equals("workforce.sample:action:homologar-registro"))
                         .findFirst()
                         .orElseThrow();
         assertThat(homologar.legalPurpose()).isEqualTo("human_resources_administration");
@@ -368,7 +368,7 @@ class PlatformEvolutionFrenteBMetadataTest {
         // LegalTreatmentPurpose.UNSPECIFIED normalized to null and flagged failClosedRestricted
         ResourceDecisionPointDescriptor semBase =
                 points.stream()
-                        .filter(p -> p.decisionPointKey().equals("ergon.sample:action:acao-sem-base-legal"))
+                        .filter(p -> p.decisionPointKey().equals("workforce.sample:action:acao-sem-base-legal"))
                         .findFirst()
                         .orElseThrow();
         assertThat(semBase.legalPurpose()).isNull();
@@ -379,16 +379,16 @@ class PlatformEvolutionFrenteBMetadataTest {
         // Write field on SampleRecordCreateDTO inherits lineageAttributeId from SampleResponseDTO
         ResourceDecisionPointDescriptor writeCpf =
                 points.stream()
-                        .filter(p -> p.decisionPointKey().equals("ergon.sample:field.write:cpf"))
+                        .filter(p -> p.decisionPointKey().equals("workforce.sample:field.write:cpf"))
                         .findFirst()
                         .orElseThrow();
-        assertThat(writeCpf.lineageAttributeId()).isEqualTo("ergon.funcionarios.cpf");
+        assertThat(writeCpf.lineageAttributeId()).isEqualTo("workforce.employees.cpf");
         assertThat(writeCpf.failClosedRestricted()).isFalse();
 
         // Write field without lineage in either DTO is flagged failClosedRestricted
         ResourceDecisionPointDescriptor writeSemLineage =
                 points.stream()
-                        .filter(p -> p.decisionPointKey().equals("ergon.sample:field.write:codigosLotacao"))
+                        .filter(p -> p.decisionPointKey().equals("workforce.sample:field.write:codigosLotacao"))
                         .findFirst()
                         .orElseThrow();
         assertThat(writeSemLineage.lineageAttributeId()).isNull();

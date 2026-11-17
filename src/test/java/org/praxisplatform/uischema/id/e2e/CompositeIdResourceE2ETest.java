@@ -145,16 +145,16 @@ class CompositeIdResourceE2ETest {
         assertEquals(200, getRes.getStatusCode().value(), getRes.getBody());
         JsonNode getBody = body(getRes);
         assertEquals("1001:1", getBody.path("data").path("id").asText());
-        assertEquals(1001L, getBody.path("data").path("numfunc").asLong());
-        assertEquals(1, getBody.path("data").path("numvinc").asInt());
+        assertEquals(1001L, getBody.path("data").path("employeeId").asLong());
+        assertEquals(1, getBody.path("data").path("assignmentSeq").asInt());
         assertEquals("SEFAZ", getBody.path("data").path("siglaSetor").asText());
         assertTrue(getBody.path("_links").path("self").path("href").asText().endsWith("/vinculos/1001:1"));
 
         // 2. POST /vinculos creating a new composite ID resource ("3003:1")
         ResponseEntity<String> createRes = postJson("/vinculos", """
                 {
-                  "numfunc": 3003,
-                  "numvinc": 1,
+                  "employeeId": 3003,
+                  "assignmentSeq": 1,
                   "descricao": "3003-1 - Ana Costa (Efetivo)",
                   "regime": "ESTATUTARIO",
                   "siglaSetor": "SESAU",
@@ -177,10 +177,10 @@ class CompositeIdResourceE2ETest {
         assertEquals(200, updateRes.getStatusCode().value(), updateRes.getBody());
         assertEquals("CEDIDO", body(updateRes).path("data").path("regime").asText());
 
-        // 4. POST /vinculos/filter by embedded ID component (id.numfunc) and @Embedded field (lotacao.uf)
+        // 4. POST /vinculos/filter by embedded ID component (id.employeeId) and @Embedded field (lotacao.uf)
         ResponseEntity<String> filterRes = postJson("/vinculos/filter?page=0&size=10", """
                 {
-                  "numfunc": 1001,
+                  "employeeId": 1001,
                   "uf": "SP"
                 }
                 """);
@@ -193,7 +193,7 @@ class CompositeIdResourceE2ETest {
                 "/vinculos/filter?page=0&size=10&includeIds=2002:1",
                 """
                 {
-                  "numfunc": 1001
+                  "employeeId": 1001
                 }
                 """
         );
@@ -205,7 +205,7 @@ class CompositeIdResourceE2ETest {
         // 6. POST /vinculos/options/filter & GET /vinculos/options/by-ids
         ResponseEntity<String> optionsFilterRes = postJson("/vinculos/options/filter?page=0&size=10", """
                 {
-                  "numfunc": 1001
+                  "employeeId": 1001
                 }
                 """);
         assertEquals(200, optionsFilterRes.getStatusCode().value(), optionsFilterRes.getBody());
@@ -274,8 +274,8 @@ class CompositeIdResourceE2ETest {
         JsonNode idProp = body(schemaRes).path("properties").path("id");
         assertEquals("string", idProp.path("type").asText());
         assertEquals("composite-id", idProp.path("format").asText());
-        assertEquals("numfunc", idProp.path("x-ui").path("compositeIdComponents").get(0).asText());
-        assertEquals("numvinc", idProp.path("x-ui").path("compositeIdComponents").get(1).asText());
+        assertEquals("employeeId", idProp.path("x-ui").path("compositeIdComponents").get(0).asText());
+        assertEquals("assignmentSeq", idProp.path("x-ui").path("compositeIdComponents").get(1).asText());
         assertEquals(":", idProp.path("x-ui").path("compositeIdSeparator").asText());
 
         // 11. GET /vinculos/by-ids preserves requested composite ID order
@@ -286,7 +286,7 @@ class CompositeIdResourceE2ETest {
         assertEquals("2002:1", byIdsBody.get(0).path("id").asText());
         assertEquals("1001:1", byIdsBody.get(1).path("id").asText());
 
-        // 12. POST /vinculos/filter?sort=id,desc expands composite ID sort to (id.numfunc DESC, id.numvinc DESC)
+        // 12. POST /vinculos/filter?sort=id,desc expands composite ID sort to (id.employeeId DESC, id.assignmentSeq DESC)
         ResponseEntity<String> sortedFilterRes = postJson("/vinculos/filter?page=0&size=10&sort=id,desc", "{}");
         assertEquals(200, sortedFilterRes.getStatusCode().value(), sortedFilterRes.getBody());
         JsonNode sortedContent = body(sortedFilterRes).path("data").path("content");
@@ -359,7 +359,7 @@ class CompositeIdResourceE2ETest {
                             Map.of(),
                             OptionSourcePolicy.defaults(),
                             new EntityLookupDescriptor(
-                                    "ergon.vinculos",
+                                    "workforce.assignments",
                                     "vinculo.id",
                                     List.of("vinculo.regime", "vinculo.lotacao.uf"),
                                     null,
@@ -378,8 +378,8 @@ class CompositeIdResourceE2ETest {
 
     @Embeddable
     public record VinculoId(
-            @Column(name = "numfunc", nullable = false) Long numfunc,
-            @Column(name = "numvinc", nullable = false) Integer numvinc
+            @Column(name = "employee_id", nullable = false) Long employeeId,
+            @Column(name = "assignment_seq", nullable = false) Integer assignmentSeq
     ) implements CompositeResourceId {
     }
 
@@ -417,7 +417,7 @@ class CompositeIdResourceE2ETest {
     }
 
     @Entity
-    @Table(name = "ergon_vinculos_test")
+    @Table(name = "wf_assignments_test")
     public static class VinculoEntity {
 
         @EmbeddedId
@@ -477,7 +477,7 @@ class CompositeIdResourceE2ETest {
     }
 
     @Entity
-    @Table(name = "ergon_frequencias_test")
+    @Table(name = "wf_attendance_test")
     public static class FrequenciaEntity {
 
         @Id
@@ -486,8 +486,8 @@ class CompositeIdResourceE2ETest {
 
         @ManyToOne(fetch = FetchType.LAZY, optional = false)
         @JoinColumns({
-                @JoinColumn(name = "numfunc", referencedColumnName = "numfunc", nullable = false),
-                @JoinColumn(name = "numvinc", referencedColumnName = "numvinc", nullable = false)
+                @JoinColumn(name = "employee_id", referencedColumnName = "employee_id", nullable = false),
+                @JoinColumn(name = "assignment_seq", referencedColumnName = "assignment_seq", nullable = false)
         })
         private VinculoEntity vinculo;
 
@@ -549,13 +549,13 @@ class CompositeIdResourceE2ETest {
     }
 
     public record VinculoResponseDTO(
-            @Schema(description = "Identificador funcional composto do vínculo (numfunc:numvinc)", example = "1001:1")
+            @Schema(description = "Identificador funcional composto do vínculo (employeeId:assignmentSeq)", example = "1001:1")
             @UISchema(label = "ID do Vínculo", readOnly = true)
             VinculoId id,
             @UISchema(label = "Número Funcional", type = FieldDataType.NUMBER)
-            Long numfunc,
+            Long employeeId,
             @UISchema(label = "Número do Vínculo", type = FieldDataType.NUMBER)
-            Integer numvinc,
+            Integer assignmentSeq,
             @UISchema(label = "Descrição", type = FieldDataType.TEXT)
             String descricao,
             @UISchema(label = "Regime Jurídico", type = FieldDataType.TEXT)
@@ -568,8 +568,8 @@ class CompositeIdResourceE2ETest {
     }
 
     public record CreateVinculoDTO(
-            Long numfunc,
-            Integer numvinc,
+            Long employeeId,
+            Integer assignmentSeq,
             String descricao,
             String regime,
             String siglaSetor,
@@ -586,29 +586,29 @@ class CompositeIdResourceE2ETest {
     }
 
     public static class VinculoFilterDTO implements GenericFilterDTO {
-        @Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "id.numfunc")
-        private Long numfunc;
+        @Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "id.employeeId")
+        private Long employeeId;
 
-        @Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "id.numvinc")
-        private Integer numvinc;
+        @Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "id.assignmentSeq")
+        private Integer assignmentSeq;
 
         @Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "lotacao.uf")
         private String uf;
 
-        public Long getNumfunc() {
-            return numfunc;
+        public Long getEmployeeId() {
+            return employeeId;
         }
 
-        public void setNumfunc(Long numfunc) {
-            this.numfunc = numfunc;
+        public void setEmployeeId(Long employeeId) {
+            this.employeeId = employeeId;
         }
 
-        public Integer getNumvinc() {
-            return numvinc;
+        public Integer getAssignmentSeq() {
+            return assignmentSeq;
         }
 
-        public void setNumvinc(Integer numvinc) {
-            this.numvinc = numvinc;
+        public void setAssignmentSeq(Integer assignmentSeq) {
+            this.assignmentSeq = assignmentSeq;
         }
 
         public String getUf() {
@@ -636,8 +636,8 @@ class CompositeIdResourceE2ETest {
                         LotacaoEmbeddable lot = entity.getLotacao();
                         return new VinculoResponseDTO(
                                 entity.getId(),
-                                entity.getId().numfunc(),
-                                entity.getId().numvinc(),
+                                entity.getId().employeeId(),
+                                entity.getId().assignmentSeq(),
                                 entity.getDescricao(),
                                 entity.getRegime(),
                                 lot != null ? lot.getSiglaSetor() : null,
@@ -648,7 +648,7 @@ class CompositeIdResourceE2ETest {
                     @Override
                     public VinculoEntity newEntity(CreateVinculoDTO dto) {
                         return new VinculoEntity(
-                                new VinculoId(dto.numfunc(), dto.numvinc()),
+                                new VinculoId(dto.employeeId(), dto.assignmentSeq()),
                                 dto.descricao(),
                                 dto.regime(),
                                 new LotacaoEmbeddable(dto.siglaSetor(), dto.uf())
@@ -691,7 +691,7 @@ class CompositeIdResourceE2ETest {
         }
     }
 
-    @ApiResource(value = "/vinculos", resourceKey = "ergon.vinculos")
+    @ApiResource(value = "/vinculos", resourceKey = "workforce.assignments")
     public static class VinculoController extends AbstractResourceController<
             VinculoResponseDTO,
             VinculoId,
@@ -802,7 +802,7 @@ class CompositeIdResourceE2ETest {
         }
     }
 
-    @ApiResource(value = "/frequencias", resourceKey = "ergon.frequencias")
+    @ApiResource(value = "/frequencias", resourceKey = "workforce.attendance-records")
     public static class FrequenciaController extends AbstractResourceController<
             FrequenciaResponseDTO,
             Long,

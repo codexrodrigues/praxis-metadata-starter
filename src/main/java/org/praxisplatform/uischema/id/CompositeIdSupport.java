@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>On the HTTP/JSON/OpenAPI wire, a composite identifier is represented as a colon-delimited
  * canonical string in the declaration order of its components (for example, {@code "1001:1"} for
- * {@code (numfunc=1001, numvinc=1)}), escaping literal {@code '%'} and {@code ':'} characters
+ * {@code (tenantId=1001, assignmentSeq=1)}), escaping literal {@code '%'} and {@code ':'} characters
  * inside string components as {@code "%25"} and {@code "%3A"}.</p>
  *
  * <p>Note: Ordinary {@code @Embeddable} value objects used with {@code @Embedded} (such as
@@ -45,6 +45,7 @@ public final class CompositeIdSupport {
     private static final char SEPARATOR_CHAR = ':';
     private static final Map<Class<?>, List<ComponentDescriptor>> DESCRIPTOR_CACHE = new ConcurrentHashMap<>();
     private static final Set<Class<?>> REGISTERED_COMPOSITE_ID_TYPES = ConcurrentHashMap.newKeySet();
+    private static final Map<String, Class<?>> COMPOSITE_ID_TYPES_BY_NAME = new ConcurrentHashMap<>();
 
     private CompositeIdSupport() {
     }
@@ -64,7 +65,35 @@ public final class CompositeIdSupport {
         }
         if (type.isAnnotationPresent(Embeddable.class) || CompositeResourceId.class.isAssignableFrom(type)) {
             REGISTERED_COMPOSITE_ID_TYPES.add(type);
+            COMPOSITE_ID_TYPES_BY_NAME.put(name, type);
+            COMPOSITE_ID_TYPES_BY_NAME.putIfAbsent(type.getSimpleName(), type);
         }
+    }
+
+    /**
+     * Resolves a previously registered (or loadable composite ID) class by fully-qualified or simple name.
+     */
+    public static java.util.Optional<Class<?>> findRegisteredCompositeIdType(String idOrName) {
+        if (idOrName == null || idOrName.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        String trimmed = idOrName.trim();
+        Class<?> known = COMPOSITE_ID_TYPES_BY_NAME.get(trimmed);
+        if (known != null) {
+            return java.util.Optional.of(known);
+        }
+        if (trimmed.indexOf('.') >= 0) {
+            try {
+                Class<?> loaded = Class.forName(trimmed, false, Thread.currentThread().getContextClassLoader());
+                if (isCompositeIdType(loaded)) {
+                    registerCompositeIdType(loaded);
+                    return java.util.Optional.of(loaded);
+                }
+            } catch (ClassNotFoundException | LinkageError ignored) {
+                // fallback empty
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     /**
@@ -76,11 +105,17 @@ public final class CompositeIdSupport {
         while (current != null && current != Object.class) {
             IdClass idClass = current.getAnnotation(IdClass.class);
             if (idClass != null && idClass.value() != null) {
-                REGISTERED_COMPOSITE_ID_TYPES.add(idClass.value());
+                Class<?> type = idClass.value();
+                REGISTERED_COMPOSITE_ID_TYPES.add(type);
+                COMPOSITE_ID_TYPES_BY_NAME.put(type.getName(), type);
+                COMPOSITE_ID_TYPES_BY_NAME.putIfAbsent(type.getSimpleName(), type);
             }
             for (Field field : current.getDeclaredFields()) {
                 if (field.isAnnotationPresent(EmbeddedId.class)) {
-                    REGISTERED_COMPOSITE_ID_TYPES.add(field.getType());
+                    Class<?> type = field.getType();
+                    REGISTERED_COMPOSITE_ID_TYPES.add(type);
+                    COMPOSITE_ID_TYPES_BY_NAME.put(type.getName(), type);
+                    COMPOSITE_ID_TYPES_BY_NAME.putIfAbsent(type.getSimpleName(), type);
                 }
             }
             current = current.getSuperclass();

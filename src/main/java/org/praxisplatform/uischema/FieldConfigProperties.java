@@ -236,7 +236,35 @@ public enum FieldConfigProperties {
     /** Define o valor máximo para um input numérico */
     NUMERIC_MAX("numericMax"),
     /** Define a quantidade máxima de caracteres de um input numérico */
-    NUMERIC_MAX_LENGTH("numericMaxLength");
+    NUMERIC_MAX_LENGTH("numericMaxLength"),
+
+    // ----------------------------------------------------------
+    // 12. Layout, Governanca de Superficie e Visualizadores
+    // ----------------------------------------------------------
+    /** Expressao Json Logic de somente leitura condicional ({@code x-ui.conditionalReadOnly}) */
+    CONDITIONAL_READ_ONLY("conditionalReadOnly"),
+    /** Largura em colunas (1..12) do campo no grid de formulario ({@code x-ui.colSpan}) */
+    COL_SPAN("colSpan"),
+    /** Ordem explicita da coluna na tabela declarada via @TableView ({@code x-ui.tableOrder}) */
+    TABLE_ORDER("tableOrder"),
+    /** Fixacao horizontal da coluna ("start" ou "end") declarada via @TableView ({@code x-ui.pinned}) */
+    PINNED("pinned"),
+    /** Indica campo de busca ampla primaria em filtros ({@code x-ui.primarySearch}) */
+    PRIMARY_SEARCH("primarySearch"),
+    /** Vinculo declarativo com dimensao de contexto ativo da sessao ({@code x-ui.contextBinding}) */
+    CONTEXT_BINDING("contextBinding"),
+    /** Marca campos limpos automaticamente em rascunho de duplicacao ({@code x-ui.draftCleared}) */
+    DRAFT_CLEARED("draftCleared"),
+    /** Metadados de ciclo de vida publicados por @ResourceState ({@code x-ui.resourceState}) */
+    RESOURCE_STATE("resourceState"),
+    /** Organizacao em secoes de formulario publicada em nivel de schema ({@code x-ui.formLayout}) */
+    FORM_LAYOUT("formLayout"),
+    /** Metadados de progressao por niveis publicados em nivel de schema ({@code x-ui.progression}) */
+    PROGRESSION("progression"),
+    /** Metadados de linha do tempo publicados em nivel de schema ({@code x-ui.timeline}) */
+    TIMELINE("timeline"),
+    /** Metadados de agenda/escala publicados em nivel de schema ({@code x-ui.schedule}) */
+    SCHEDULE("schedule");
 
     // --- Store the string value ---
     private final String value;

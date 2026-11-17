@@ -36,7 +36,7 @@ class OptionSourcePublicationDiagnosticsTest {
         assertEquals("/api/empresas", diagnostic.expectedResourcePath());
         assertNull(diagnostic.publishedResourcePath());
         assertFalse(diagnostic.message().contains("SELECT"));
-        assertFalse(diagnostic.message().contains("HADES"));
+        assertFalse(diagnostic.message().contains("PKG_LEGACY_RULES"));
         assertFalse(diagnostic.message().contains("tenant"));
     }
 

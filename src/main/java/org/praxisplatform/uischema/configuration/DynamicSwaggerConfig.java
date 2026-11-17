@@ -19,9 +19,11 @@ import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.support.DefaultSingletonBeanRegistry;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 
@@ -56,9 +58,11 @@ public class DynamicSwaggerConfig {
     @Autowired
     private ConfigurableListableBeanFactory beanFactory;
 
-    @Autowired
-    @Qualifier("requestMappingHandlerMapping")
     private RequestMappingHandlerMapping handlerMapping;
+
+    @Autowired(required = false)
+    @Qualifier("requestMappingHandlerMapping")
+    private ObjectProvider<RequestMappingHandlerMapping> handlerMappingProvider;
 
     /**
      * Modo de validacao para exigir {@link ApiResource} em controllers resource-oriented.
@@ -106,12 +110,39 @@ public class DynamicSwaggerConfig {
      *   <li><strong>Vs documento completo:</strong> 500KB+ (90-99% de economia)</li>
      * </ul>
      */
+    public void createDynamicGroups(RequestMappingHandlerMapping mapping) {
+        if (mapping != null && this.handlerMapping == null) {
+            this.handlerMapping = mapping;
+        }
+        createDynamicGroups();
+    }
+
+    private RequestMappingHandlerMapping resolveHandlerMapping() {
+        if (this.handlerMapping != null) {
+            return this.handlerMapping;
+        }
+        if (beanFactory instanceof DefaultSingletonBeanRegistry registry
+                && (registry.isSingletonCurrentlyInCreation("requestMappingHandlerMapping")
+                        || (!registry.containsSingleton("requestMappingHandlerMapping")
+                                && beanFactory.containsBeanDefinition("eagerDynamicSwaggerConfigPostProcessor")))) {
+            return null;
+        }
+        if (handlerMappingProvider != null) {
+            this.handlerMapping = handlerMappingProvider.getIfAvailable();
+        }
+        return this.handlerMapping;
+    }
+
     @PostConstruct
     public void createDynamicGroups() {
+        RequestMappingHandlerMapping effectiveMapping = resolveHandlerMapping();
+        if (effectiveMapping == null) {
+            return;
+        }
         logger.info("Iniciando escaneamento dinamico de grupos para controllers resource-oriented canonicamente suportados...");
 
         // 📋 PASSO 1: Obter todos os handler methods registrados no Spring MVC
-        Map<RequestMappingInfo, HandlerMethod> handlerMethods = handlerMapping.getHandlerMethods();
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = effectiveMapping.getHandlerMethods();
         Set<Class<?>> qualifyingControllers = new HashSet<>();
 
         int totalHandlers = handlerMethods.size();
@@ -225,7 +256,11 @@ public class DynamicSwaggerConfig {
 
         logger.info("Iniciando validacao de uso de @ApiResource em controllers resource-oriented...");
         
-        Map<RequestMappingInfo, HandlerMethod> handlerMethods = handlerMapping.getHandlerMethods();
+        RequestMappingHandlerMapping effectiveMapping = resolveHandlerMapping();
+        if (effectiveMapping == null) {
+            return;
+        }
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = effectiveMapping.getHandlerMethods();
         Set<Class<?>> violatingControllers = new HashSet<>();
         Set<Class<?>> compliantControllers = new HashSet<>();
         
@@ -492,6 +527,9 @@ public class DynamicSwaggerConfig {
 
         // 📝 Registra o bean no factory com nome único para evitar conflitos
         String beanName = groupName.replace("-", "_") + "_ApiGroup";
+        if (beanFactory.containsSingleton(beanName)) {
+            return;
+        }
         beanFactory.registerSingleton(beanName, groupedOpenApi);
         
         logger.info("Bean GroupedOpenApi registrado: bean={}, group={}, paths={}",
@@ -506,6 +544,9 @@ public class DynamicSwaggerConfig {
                 .build();
 
         String beanName = groupName.replace("-", "_") + "_ApiGroup";
+        if (beanFactory.containsSingleton(beanName)) {
+            return;
+        }
         beanFactory.registerSingleton(beanName, groupedOpenApi);
 
         logger.info("Bean GroupedOpenApi registrado: bean={}, group={}, paths={}",

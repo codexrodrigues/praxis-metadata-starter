@@ -61,6 +61,17 @@ ignorados. Evite ocultar critérios herdados sem intenção explícita, pois iss
 a pergunta representada pelo filtro. A herança não transforma filtros enviados
 pelo cliente em autorização; mantenha `ResourceFilterAccessScope` no serviço.
 
+### Herança de metadados de UI (`FilterDTO` -> `ResponseDTO`) e busca ampla (`primarySearch`)
+
+- **Herança de metadados em `/schemas/filtered`:** campos de um `GenericFilterDTO` associados ao
+  respectivo `ResponseDTO` (via `CustomOpenApiResolver.registerFilterResponsePair` ou
+  `filterSchemaInheritanceOpenApiCustomizer`) herdam automaticamente metadados omitidos — como
+  `icon`, `endpoint`, `valueField`, `displayField` e `options` — a partir da propriedade correspondente do
+  `ResponseDTO`, preservando qualquer declaração explícita no `FilterDTO`.
+- **Busca ampla primária (`@Filterable(primarySearch = true)`):** sinaliza o campo de busca textual
+  unificada (`relations = {...}`) com `x-ui.primarySearch = true` para hidratação imediata da caixa
+  de busca principal (*omnibox*) em `@praxisui/table`.
+
 <a id="escopo-de-acesso"></a>
 <details>
 <summary><strong>Escopo de acesso server-side</strong></summary>
@@ -191,17 +202,19 @@ protected ResourceFilterAccessScope<Funcionario> resolveResourceFilterAccessScop
 | SIZE_LT             | Tamanho de coleção menor que N                    | `@Filterable(SIZE_LT)` + `Integer`          |
 | IS_TRUE             | Campo booleano verdadeiro                         | `@Filterable(IS_TRUE)`                      |
 | IS_FALSE            | Campo booleano falso                              | `@Filterable(IS_FALSE)`                     |
+| EFFECTIVE_ON_DATE   | Vigência ativa na data (`relation <= d <= endRelation`) | `@Filterable(EFFECTIVE_ON_DATE)` + `relation`/`endRelation` obrigatórios |
 
 Notas:
 - Para `ON_DATE`, use `LocalDate` no DTO. A comparação considera o intervalo [início do dia, início do dia seguinte).
-- Para `IN_LAST_DAYS/IN_NEXT_DAYS`, o valor é relativo ao horário atual (UTC) e converte para `Instant`.
+- Para `EFFECTIVE_ON_DATE`, declare explicitamente `relation` e `endRelation` não-vazios (ex.: `"validFrom"` e `"validTo"`); o builder e o `SemanticMetadataReviewer` falham fechado quando algum deles estiver em branco.
+- Para `IN_LAST_DAYS/IN_NEXT_DAYS`, o valor é relativo ao horário na zona configurada (`praxis.filter.time-zone`, padrão `UTC`) e converte para `Instant`.
 - Para `SIZE_*`, aplique apenas em atributos de coleção (OneToMany/ManyToMany); o builder usa `CriteriaBuilder.size`.
 - Requisito de coleção em `SIZE_*`: defina `relation` para apontar explicitamente para o atributo de coleção na entidade. Se o caminho não for coleção, o builder lança erro informativo.
 - Para novos componentes compactos de superfície, prefira `controlType` canônico com a família `INLINE_*`.
 
 ### Notas de Timezone
 
-- `ON_DATE`, `IN_LAST_DAYS` e `IN_NEXT_DAYS` utilizam normalização com `Instant` e horário atual do backend. Em ambientes multi‑região, verifique a zona padrão da aplicação e do banco. Recomenda‑se padronizar em UTC.
+- `ON_DATE`, `IN_LAST_DAYS` e `IN_NEXT_DAYS` utilizam normalização com `Instant`, `Clock` e zona configurável via `praxis.filter.time-zone` (com fallback para `praxis.filter.relative-period.zone-id` e padrão `UTC`). Em ambientes multi‑região, alinhe essa propriedade à política temporal do host.
 
 Notas:
 - Operações com `ci` (case-insensitive) normalizam usando `lower()`.

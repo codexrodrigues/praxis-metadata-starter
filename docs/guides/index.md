@@ -29,6 +29,8 @@ O nome do arquivo `GUIA-02-AI-BACKEND-CRUD-METADATA` permanece estável para lin
 - [Semantic Metadata Authoring](SEMANTIC-METADATA-AUTHORING.html)
 - [Quick View 360° e Curadoria Executiva Inteligente](QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.html)
 - [Enterprise Availability Adoption](ENTERPRISE-AVAILABILITY-ADOPTION.html)
+- [Core Resource Service](CORE-RESOURCE-SERVICE.html)
+- [ApiPaths e Option Sources](API-PATHS-E-OPTION-SOURCES.html)
 - [Options e Option-Sources](OPTIONS-ENDPOINT.html)
 - [Implementando OptionSourceProvider externo](OPTION-SOURCE-PROVIDER-SPI.html)
 - [Exportação de Coleções](COLLECTION-EXPORT.html)
@@ -36,6 +38,11 @@ O nome do arquivo `GUIA-02-AI-BACKEND-CRUD-METADATA` permanece estável para lin
 - [Ordenação Padrão](ORDEM-PADRAO.html)
 - [Views Somente Leitura](READ-ONLY-VIEWS.html)
 - [Erros e Respostas](ERROS-E-RESPOSTAS.html)
+- [Admissão de Mutações de Recurso](RESOURCE-MUTATION-ADMISSION.html)
+- [Adoção de Duplicate-Draft](DUPLICATE-DRAFT-ADOPTION.html)
+- [Motor Declarativo de Operações em Lote](BULK-DECLARATIVE-RESOURCE-ENGINE.html)
+- [Ponte de Regras Governadas (`decisionKind = BUSINESS`)](GOVERNED-RULE-BRIDGE.html)
+- [Ontologia e Catálogo Semântico de Domínio](DOMAIN-CATALOG-ONTOLOGY.html)
 
 ## Registros de validação
 

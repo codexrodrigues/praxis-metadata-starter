@@ -43,19 +43,19 @@ Para curar informações inteligentes no backend Java, o autor do recurso (`Cont
 Como `metadataFields` ocupa as **primeiras linhas** do corpo do cartão Quick View, escolha seus campos com critério executivo:
 - **`metadataFields` (2 a 3 campos de enquadramento imediato):**
   - *Pessoa / Colaborador:* `{"cpf", "idadeAnos"}` (identificação fiscal governada por LGPD + idade calculada);
-  - *Vínculo Funcional:* `{"setorNome", "regimejur", "categoria"}` (lotação + regime jurídico + categoria funcional);
+  - *Vínculo Funcional:* `{"setorNome", "regimeJuridico", "categoria"}` (lotação + regime jurídico + categoria funcional);
   - *Cargo / Função:* `{"cargoFuncao", "cbo"}` (natureza cargo/função + código CBO);
   - *Órgão / Empresa:* `{"razao", "telefone", "email"}` (razão social + canais institucionais).
 - **`quickViewVisible = true` (4 a 8 campos com `quickViewOrder = 1..N` sequencial):**
   Ordene os campos pela pirâmide de decisão operacional:
   1. **`quickViewOrder = 1` — Situação / Status Operacional:** (`situacao`, `ativa`, `status` — com `UISchemaPreset.ENTERPRISE_STATUS` ou `tone` e `icon = "verified"`), permitindo ver imediatamente o badge colorido (`Ativo`, `Afastado`, `Cedido`, `Homologado`);
-  2. **`quickViewOrder = 2..3` — Papel, Cargo, Lotação ou Classificação Principal:** (`cargoNome`, `tipovinc`, `estcivil`, `escolaridade` — sempre usando o campo de nome resolvido ou `SELECT` com `@UiOption`/`optionEnum`, nunca IDs brutos);
-  3. **`quickViewOrder = 4..5` — Marcos Temporais, Vigência ou Canais de Contato Direto:** (`dtexerc`, `dtnasc`, `dtini`, `dtfim`, `eMail`, `numtelCelular`);
-  4. **`quickViewOrder = 6..8` — Indicadores Quantitativos, Contadores Derivados ou Escopo Institucional:** (`jornadaSemanal`, `orgaoNome`, `diasDesdeExercicio`, `diasReconhecidos`, `saldoVagasDisponiveis`, `dtRecadast`).
+  2. **`quickViewOrder = 2..3` — Papel, Cargo, Lotação ou Classificação Principal:** (`cargoNome`, `tipoVinculo`, `estadoCivil`, `escolaridade` — sempre usando o campo de nome resolvido ou `SELECT` com `@UiOption`/`optionEnum`, nunca IDs brutos);
+  3. **`quickViewOrder = 4..5` — Marcos Temporais, Vigência ou Canais de Contato Direto:** (`startDate`, `birthDate`, `effectiveFrom`, `effectiveTo`, `workEmail`, `mobilePhone`);
+  4. **`quickViewOrder = 6..8` — Indicadores Quantitativos, Contadores Derivados ou Escopo Institucional:** (`jornadaSemanal`, `orgaoNome`, `diasDesdeExercicio`, `diasReconhecidos`, `saldoVagasDisponiveis`, `lastReviewDate`).
 - **O que é PROIBIDO colocar em `metadataFields` ou `quickViewVisible`:**
   - Campos protocolares de baixíssimo valor decisório (ex.: `tratamento` = `"Sra."` no topo do cartão);
-  - Campos quase sempre nulos ou constantes em 99% da base (ex.: `observacao` livre, `nacionalidade = 10` quando não é recorte internacional, `ufender` solto sem município);
-  - Chaves estrangeiras numéricas brutas (`empCodigo`, `titularAtualId`, `setorId`, `cargoId`) quando o DTO possui (ou deve possuir) o campo de exibição humano (`orgaoNome`, `titularAtualNome`, `setorNome`, `cargoNome`).
+  - Campos quase sempre nulos ou constantes em 99% da base (ex.: `observacao` livre, `nacionalidade = 10` quando não é recorte internacional, `uf` solta sem município);
+  - Chaves estrangeiras numéricas brutas (`companyId`, `titularAtualId`, `setorId`, `cargoId`) quando o DTO possui (ou deve possuir) o campo de exibição humano (`orgaoNome`, `titularAtualNome`, `setorNome`, `cargoNome`).
 
 ### Regra 3 — Tradução Obrigatória de Códigos de Domínio (`@UiOption` / `optionEnum` vs. `OptionSource`)
 Nenhum campo exibido no Quick View, na tabela ou na gaveta 360° pode apresentar códigos técnicos crus do banco (`MESTRADO`, `CASADO`, `10`, `1`, `C`, `F`) sem tradução semântica:
@@ -97,7 +97,11 @@ Todo atributo listado em `metadataFields` ou com `quickViewVisible = true` deve 
   - `resource-identity-metadata-count-out-of-range`: contagem de `metadataFields` fora da faixa executiva canônica (`2..3`, ou `1..3` quando o DTO possui apenas 1 atributo escalar elegível além do cabeçalho);
   - `quick-view-repeats-identity-field` e `quick-view-field-count-out-of-range`: repetição de campos de `@ResourceIdentity` em `@UISchema(quickViewVisible = true)` ou quantidade de campos `quickViewVisible = true` fora da faixa executiva (`4..8`);
   - `resource-reference-value-field-missing`, `resource-reference-preview-surface-missing`, `title-field-self-reference-missing` e `resource-reference-surface-unresolved`: `@ResourceReference` apontando para `valueField` inexistente, sem `previewSurfaceId` preenchido, campo `titleField` do próprio recurso sem auto-referência `@ResourceReference(resourceKey = "<resourceKey do próprio recurso>", ...)` ou `surfaceId`/`previewSurfaceId` não publicado como `@UiSurface` (`VIEW`/`READ_PROJECTION`) no Controller;
-  - `quick-filter-legacy-filter-deprecated`, `quick-filter-field-not-filterable`, `select-options-legacy-string-deprecated`, `select-options-mutual-exclusivity`, `ui-option-duplicate-value`, `ui-option-label-invalid`, `ui-option-icon-not-snake-case`, `bulk-protected-field-conflicts-with-bulk-editable`, `reactive-determination-output-redundant-explicit-pair` e `calculation-trail-duplicate-parcel-expression`: validações das Ondas 1–3 para filtros rápidos tipados (`@FilterCriterion`), opções fechadas tipadas (`@UiOption` / `optionEnum`), integridade de campos em lote, shorthand `@DeterminationOutput("campo")` e `@CalculationMemory` sem parcelas duplicadas.
+  - `quick-filter-legacy-filter-deprecated`, `quick-filter-field-not-filterable`, `select-options-legacy-string-deprecated`, `select-options-mutual-exclusivity`, `ui-option-duplicate-value`, `ui-option-label-invalid`, `ui-option-icon-not-snake-case`, `bulk-protected-field-conflicts-with-bulk-editable`, `reactive-determination-output-redundant-explicit-pair` e `calculation-trail-duplicate-parcel-expression`: validações das Ondas 1–3 para filtros rápidos tipados (`@FilterCriterion`), opções fechadas tipadas (`@UiOption` / `optionEnum` / `PraxisUiOptionEnum`), integridade de campos em lote, shorthand `@DeterminationOutput("campo")` e `@CalculationMemory` (`steps = {@CalculationStep(...)}`) sem parcelas duplicadas.
+
+### Regra 9 — Projeções Tabulares, Estados e Visões Especializadas (`@TableView`, `@ResourceState`, `@ResourceProgression`, `@ResourceTimeline`, `@ResourceSchedule`)
+- Use `@TableView(columns = {...}, pinnedStart = {...}, pinnedEnd = {...})` no `ResponseDTO` para definir em um único ponto as 5 a 10 colunas visíveis por padrão (`tableOrder` + `pinned`), ocultando automaticamente as demais (`tableHidden = true`).
+- Use `@ResourceState` (ou `PraxisUiOptionEnum`) no campo de situação para alimentar `EntityLookupDescriptor.directoryBuilderFromDto(...)`, `@DraftCleared` para limpar chaves únicas em `duplicate-draft` e `@ResourceProgression` / `@ResourceTimeline` / `@ResourceSchedule` para publicar contratos estruturais exclusivamente na variante `schemaType=response` de `/schemas/filtered`.
 
 ---
 
@@ -125,21 +129,21 @@ Todo atributo listado em `metadataFields` ou com `quickViewVisible = true` deve 
     displayLabelField = "nome",
     subtitleField = "nomeSocial",
     metadataFields = {"cpf", "idadeAnos"})
-public class ServidorPessoaResponseDTO extends ServidorPessoaDados {
+public class EmployeeProfileResponseDTO extends EmployeeProfileData {
 
   @Schema(description = "Idade civil em anos completos na data atual.", accessMode = Schema.AccessMode.READ_ONLY)
   @UISchema(label = "Idade", icon = "cake", group = "Identificação civil",
       numericFormat = NumericFormat.INTEGER, tableHidden = true, readOnly = true, formHidden = true)
   private Integer idadeAnos;
 
-  // Em ServidorPessoaDados:
-  // quickViewOrder = 1: dtnasc (Nascimento, icon = "event", DATE_PICKER)
-  // quickViewOrder = 2: estcivil (Estado civil, icon = "favorite", SELECT com @UiOption / optionEnum)
+  // Em EmployeeProfileData:
+  // quickViewOrder = 1: birthDate (Nascimento, icon = "event", DATE_PICKER)
+  // quickViewOrder = 2: maritalStatus (Estado civil, icon = "favorite", SELECT com @UiOption / optionEnum)
   // quickViewOrder = 3: escolaridade (Escolaridade, icon = "school", SELECT com @UiOption / optionEnum)
-  // quickViewOrder = 4: eMail (E-mail, icon = "email", EMAIL_INPUT)
-  // quickViewOrder = 5: numtelCelular (Celular, icon = "smartphone")
-  // quickViewOrder = 6: cidadeender (Município, icon = "location_city")
-  // quickViewOrder = 7: dtRecadast (Último recadastramento, icon = "event", DATE_PICKER)
+  // quickViewOrder = 4: workEmail (E-mail, icon = "email", EMAIL_INPUT)
+  // quickViewOrder = 5: mobilePhone (Celular, icon = "smartphone")
+  // quickViewOrder = 6: city (Município, icon = "location_city")
+  // quickViewOrder = 7: lastReviewDate (Último recadastramento, icon = "event", DATE_PICKER)
 }
 ```
 

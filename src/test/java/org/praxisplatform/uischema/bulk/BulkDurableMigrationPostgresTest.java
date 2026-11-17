@@ -63,7 +63,7 @@ class BulkDurableMigrationPostgresTest {
         assertThat(accepted.codePointCount(0, accepted.length())).isEqualTo(200);
         assertThat(new BulkAtomicMutationResult.Item(0, BulkUnitOutcome.CONFIRMED, List.of(accepted))
                 .effectReferences()).containsExactly(accepted);
-        // Independent SHA-256 oracle: four big-endian length frames, prefix /1, count 1, ordinal 0, 800 UTF-8 bytes.
+        // Independent SHA-256 reference: four big-endian length frames, prefix /1, count 1, ordinal 0, 800 UTF-8 bytes.
         assertThat(BulkTargetDigest.effectsOf(List.of(new BulkTargetDigest.EffectReference(0, accepted))))
                 .isEqualTo("sha256:f9d5d63786fd61ba425fecef33770eae711c35deb793de9ad1a6e83667e3c6ae");
     }

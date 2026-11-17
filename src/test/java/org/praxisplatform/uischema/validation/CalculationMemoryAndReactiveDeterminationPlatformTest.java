@@ -229,7 +229,7 @@ class CalculationMemoryAndReactiveDeterminationPlatformTest {
                 new AnnotatedType(ValidPayslipResponseDTO.class).resolveAsRef(false)
         );
 
-        String filterPath = "/api/ergon/fichas-financeiras/filter";
+        String filterPath = "/api/workforce/payroll-records/filter";
         String group = docsSupport.resolveGroupFromPath(filterPath);
 
         ObjectNode serializedDtoSchema = (ObjectNode) Json.mapper().valueToTree(resolvedResponse.schema);

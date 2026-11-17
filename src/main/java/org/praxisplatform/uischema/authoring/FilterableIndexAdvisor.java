@@ -22,6 +22,7 @@ import org.praxisplatform.uischema.service.base.annotation.DefaultSortColumn;
 import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -30,6 +31,7 @@ import java.lang.reflect.RecordComponent;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -578,8 +580,9 @@ public class FilterableIndexAdvisor {
         if (isImmutableOrSubselectEntity(entityType)) {
             return;
         }
+        record SortTarget(String propertyName, int priority) {}
+        Map<String, SortTarget> defaultSortTargets = new LinkedHashMap<>();
         Set<String> visitedFields = new LinkedHashSet<>();
-        List<Field> defaultSortFields = new ArrayList<>();
         Class<?> current = entityType;
         while (current != null && current != Object.class && current != Record.class) {
             for (Field field : current.getDeclaredFields()) {
@@ -592,24 +595,66 @@ public class FilterableIndexAdvisor {
                     continue;
                 }
                 if (field.isAnnotationPresent(DefaultSortColumn.class)) {
-                    defaultSortFields.add(field);
+                    defaultSortTargets.putIfAbsent(
+                            field.getName(),
+                            new SortTarget(field.getName(), field.getAnnotation(DefaultSortColumn.class).priority())
+                    );
+                }
+            }
+            for (var method : current.getDeclaredMethods()) {
+                if (Modifier.isStatic(method.getModifiers()) || method.isSynthetic() || method.isBridge()
+                        || method.getParameterCount() != 0 || method.getReturnType() == void.class) {
+                    continue;
+                }
+                DefaultSortColumn annotation = method.getAnnotation(DefaultSortColumn.class);
+                if (annotation == null) {
+                    continue;
+                }
+                String propName = resolveAccessorPropertyName(current, method);
+                if (propName != null && !hasTransientAnnotation(method)) {
+                    defaultSortTargets.putIfAbsent(propName, new SortTarget(propName, annotation.priority()));
+                }
+            }
+            if (current.isRecord()) {
+                for (var component : current.getRecordComponents()) {
+                    DefaultSortColumn annotation = component.getAnnotation(DefaultSortColumn.class);
+                    if (annotation != null) {
+                        defaultSortTargets.putIfAbsent(
+                                component.getName(),
+                                new SortTarget(component.getName(), annotation.priority())
+                        );
+                    }
                 }
             }
             current = current.getSuperclass();
         }
-        defaultSortFields.sort((a, b) -> Integer.compare(
-                a.getAnnotation(DefaultSortColumn.class).priority(),
-                b.getAnnotation(DefaultSortColumn.class).priority()
-        ));
-        for (Field field : defaultSortFields) {
+        List<SortTarget> sorted = defaultSortTargets.values().stream()
+                .sorted(Comparator.comparingInt(SortTarget::priority))
+                .toList();
+        for (SortTarget target : sorted) {
             analyzePropertyPath(
                     entityType,
-                    field.getName(),
+                    target.propertyName(),
                     FilterOperation.EQUAL,
-                    "entity:@DefaultSortColumn(" + field.getName() + ")",
+                    "entity:@DefaultSortColumn(" + target.propertyName() + ")",
                     acc
             );
         }
+    }
+
+    private static String resolveAccessorPropertyName(Class<?> owner, java.lang.reflect.Method method) {
+        String name = method.getName();
+        if (owner.isRecord()) {
+            return name;
+        }
+        if (name.startsWith("get") && name.length() > 3) {
+            return Character.toLowerCase(name.charAt(3)) + name.substring(4);
+        }
+        if (name.startsWith("is") && name.length() > 2
+                && (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class)) {
+            return Character.toLowerCase(name.charAt(2)) + name.substring(3);
+        }
+        return name;
     }
 
     private void validateDeclaredTableIndexes(Class<?> entityType, Set<String> unresolvedPaths) {
@@ -755,8 +800,8 @@ public class FilterableIndexAdvisor {
                 .toLowerCase(Locale.ROOT);
     }
 
-    private boolean hasTransientAnnotation(Field field) {
-        for (var ann : field.getAnnotations()) {
+    private boolean hasTransientAnnotation(AnnotatedElement element) {
+        for (var ann : element.getAnnotations()) {
             if ("Transient".equals(ann.annotationType().getSimpleName())) {
                 return true;
             }

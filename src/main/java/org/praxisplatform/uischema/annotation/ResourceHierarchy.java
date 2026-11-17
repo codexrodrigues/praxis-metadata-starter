@@ -15,12 +15,12 @@ public @interface ResourceHierarchy {
     String levelField() default "";
     String childrenCountField() default "";
     String leafIndicatorField() default "";
-    String effectiveFromField() default "dtini";
-    String effectiveToField() default "dtfim";
+    String effectiveFromField() default "";
+    String effectiveToField() default "";
     String extinctField() default "";
-    String referenceDateFilterField() default "dataReferencia";
-    String subtreeFilterField() default "caminhoSubarvore";
-    String includeSubtreeFilterField() default "incluirSubordinados";
-    String hierarchyKindFilterField() default "tipoHierarquia";
+    String referenceDateFilterField() default "";
+    String subtreeFilterField() default "";
+    String includeSubtreeFilterField() default "";
+    String hierarchyKindFilterField() default "";
     String[] auxiliaryParentFields() default {};
 }
