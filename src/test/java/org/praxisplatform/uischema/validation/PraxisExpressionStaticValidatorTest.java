@@ -50,6 +50,9 @@ class PraxisExpressionStaticValidatorTest {
 
         String expr3 = "${row.score} > 50 ? 'info' : 'neutral'";
         assertTrue(validator.validateExpression(expr3, validProperties, "field3").valid());
+
+        String expr4 = "= row.score >= 80 ? 'positive' : (row.score >= 50 ? 'secondary' : (row.score >= 20 ? 'negative' : 'critical'))";
+        assertTrue(validator.validateExpression(expr4, validProperties, "field4").valid());
     }
 
     @Test

@@ -553,6 +553,18 @@ public class SemanticMetadataReviewer {
                         "@ResourceReference on '" + propName + "' must declare a non-blank previewSurfaceId for Quick View 360° preview."
                 ));
             }
+            String detailPresentation = normalize(ref.detailPresentation());
+            if (!detailPresentation.isBlank()
+                    && !Set.of("drawer", "modal").contains(detailPresentation.toLowerCase(Locale.ROOT))) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "resource-reference-detail-presentation-invalid",
+                        targetType.getName(),
+                        propName,
+                        "@ResourceReference.detailPresentation '" + detailPresentation + "' on '" + propName
+                                + "' must be one of [drawer, modal]."
+                ));
+            }
         }
 
         org.praxisplatform.uischema.annotation.ResourceIdentity identity = findTypeAnnotation(
@@ -1168,9 +1180,11 @@ public class SemanticMetadataReviewer {
                         "Controller declares conflicting @ResourceIdentity between @ApiResource(identity = ...) and type-level @ResourceIdentity."
                 ));
             }
-            if (controllerIdentity == null
-                    || normalize(controllerIdentity.keyField()).isBlank()
-                    || normalize(controllerIdentity.titleField()).isBlank()) {
+            if (effectiveResponseDto == null
+                    && dtoIdentity == null
+                    && (controllerIdentity == null
+                        || normalize(controllerIdentity.keyField()).isBlank()
+                        || normalize(controllerIdentity.titleField()).isBlank())) {
                 issues.add(new SemanticMetadataReviewIssue(
                         SemanticMetadataIssueSeverity.ERROR,
                         "resource-identity-missing",
@@ -2547,9 +2561,8 @@ public class SemanticMetadataReviewer {
 
     private static final String FACT_KEY_PATTERN = "^[a-zA-Z][a-zA-Z0-9_.-]*$";
     private static final String ICON_SNAKE_CASE_PATTERN = "^[a-z0-9]+(_[a-z0-9]+)*$";
-    private static final Set<String> ALLOWED_FACT_AND_THRESHOLD_TONES = Set.of(
-            "neutral", "info", "success", "warning", "danger", "primary", "secondary", "critical", "positive", "negative"
-    );
+    private static final Set<String> ALLOWED_FACT_AND_THRESHOLD_TONES =
+            org.praxisplatform.uischema.annotation.QuickFilterTone.allowedWireValues();
     private static final Set<String> PROPERTY_BACKED_FACT_SOURCE_KINDS = Set.of("field", "property", "column");
 
     private void reviewResourceFactsHierarchy(
@@ -3641,7 +3654,7 @@ public class SemanticMetadataReviewer {
     }
 
     private static boolean isAllowedTone(String tone) {
-        return tone != null && ALLOWED_FACT_AND_THRESHOLD_TONES.contains(tone.toLowerCase(Locale.ROOT));
+        return org.praxisplatform.uischema.annotation.QuickFilterTone.isValidWireValue(tone);
     }
 
     private static boolean containsWhitespace(String value) {

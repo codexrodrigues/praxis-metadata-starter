@@ -1244,6 +1244,149 @@ class SemanticMetadataReviewerTest {
         }
     }
 
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(
+            keyField = "id",
+            titleField = "nomeCompleto",
+            subtitleField = "email",
+            metadataFields = {"cargoNome", "departamentoNome"}
+    )
+    private static class InvalidDetailPresentationDTO {
+        @Schema(description = "Identificador unico imutavel do registro funcional.")
+        @UISchema(label = "ID")
+        Long id;
+
+        @Schema(description = "Nome civil completo do colaborador registrado no cadastro.")
+        @UISchema(label = "Nome")
+        @org.praxisplatform.uischema.annotation.ResourceReference(
+                resourceKey = "sample.items",
+                valueField = "id",
+                surfaceId = "detail",
+                previewSurfaceId = "detail",
+                detailPresentation = "fullscreen"
+        )
+        String nomeCompleto;
+
+        @Schema(description = "Endereco de correio eletronico corporativo do colaborador.")
+        @UISchema(label = "E-mail")
+        String email;
+
+        @Schema(description = "Cargo contratual ocupado pelo colaborador na estrutura.")
+        @UISchema(label = "Cargo")
+        String cargoNome;
+
+        @Schema(description = "Departamento de lotacao operacional do colaborador.")
+        @UISchema(label = "Departamento")
+        String departamentoNome;
+
+        @Schema(description = "Situacao cadastral vigente do vinculo funcional.")
+        @UISchema(label = "Situação", quickViewVisible = true, quickViewOrder = 1)
+        String situacao;
+
+        @Schema(description = "Modalidade de regime de trabalho do colaborador.")
+        @UISchema(label = "Regime", quickViewVisible = true, quickViewOrder = 2)
+        String regime;
+
+        @Schema(description = "Unidade fisica de alocacao principal do colaborador.")
+        @UISchema(label = "Unidade", quickViewVisible = true, quickViewOrder = 3)
+        String unidade;
+
+        @Schema(description = "Turno operacional atribuido ao colaborador.")
+        @UISchema(label = "Turno", quickViewVisible = true, quickViewOrder = 4)
+        String turno;
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(
+            keyField = "id",
+            titleField = "nomeCompleto",
+            subtitleField = "email",
+            metadataFields = {"cargoNome", "departamentoNome"}
+    )
+    private static class ValidModalDetailPresentationDTO {
+        @Schema(description = "Identificador unico imutavel do registro funcional.")
+        @UISchema(label = "ID")
+        Long id;
+
+        @Schema(description = "Nome civil completo do colaborador registrado no cadastro.")
+        @UISchema(label = "Nome")
+        @org.praxisplatform.uischema.annotation.ResourceReference(
+                resourceKey = "sample.items",
+                valueField = "id",
+                surfaceId = "detail",
+                previewSurfaceId = "detail",
+                detailPresentation = "modal"
+        )
+        String nomeCompleto;
+
+        @Schema(description = "Endereco de correio eletronico corporativo do colaborador.")
+        @UISchema(label = "E-mail")
+        String email;
+
+        @Schema(description = "Cargo contratual ocupado pelo colaborador na estrutura.")
+        @UISchema(label = "Cargo")
+        String cargoNome;
+
+        @Schema(description = "Departamento de lotacao operacional do colaborador.")
+        @UISchema(label = "Departamento")
+        String departamentoNome;
+
+        @Schema(description = "Situacao cadastral vigente do vinculo funcional.")
+        @UISchema(label = "Situação", quickViewVisible = true, quickViewOrder = 1)
+        String situacao;
+
+        @Schema(description = "Modalidade de regime de trabalho do colaborador.")
+        @UISchema(label = "Regime", quickViewVisible = true, quickViewOrder = 2)
+        String regime;
+
+        @Schema(description = "Unidade fisica de alocacao principal do colaborador.")
+        @UISchema(label = "Unidade", quickViewVisible = true, quickViewOrder = 3)
+        String unidade;
+
+        @Schema(description = "Turno operacional atribuido ao colaborador.")
+        @UISchema(label = "Turno", quickViewVisible = true, quickViewOrder = 4)
+        String turno;
+    }
+
+    @org.praxisplatform.uischema.annotation.ApiResource(
+            value = "/api/sample/items",
+            resourceKey = "sample.items",
+            quickFilters = {
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "ativos",
+                            label = "Ativos",
+                            criteria = {@org.praxisplatform.uischema.annotation.FilterCriterion(field = "status", values = {"ATIVO"})}
+                    ),
+                    @org.praxisplatform.uischema.annotation.QuickFilter(
+                            id = "prioritarios",
+                            label = "Prioritários",
+                            criteria = {@org.praxisplatform.uischema.annotation.FilterCriterion(field = "prioritario", bool = {true})}
+                    )
+            }
+    )
+    private static class DtoOnlyIdentityController
+            extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<
+                    ValidQuickView360DTO, Long, SampleControllerFilterDTO> {
+        @Override
+        protected org.praxisplatform.uischema.service.base.BaseResourceQueryService<
+                ValidQuickView360DTO, Long, SampleControllerFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(ValidQuickView360DTO dto) {
+            return dto == null ? null : dto.id;
+        }
+
+        @org.praxisplatform.uischema.annotation.UiSurface(
+                id = "detail",
+                kind = org.praxisplatform.uischema.surface.SurfaceKind.VIEW,
+                scope = org.praxisplatform.uischema.surface.SurfaceScope.ITEM,
+                title = "Detalhe",
+                description = "Ficha 360° do item."
+        )
+        public void getById() {
+        }
+    }
+
     @Test
     void enforcesQuickView360AndResourceIdentityParityAcrossDtoAndController() {
         SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
@@ -1302,6 +1445,20 @@ class SemanticMetadataReviewerTest {
         assertTrue(missingIdentityReport.hasErrors());
         assertTrue(missingIdentityReport.issues().stream()
                 .anyMatch(i -> "resource-identity-missing".equals(i.code())));
+
+        SemanticMetadataReviewReport dtoOnlyIdentityReport = reviewer.reviewResourceController(
+                DtoOnlyIdentityController.class
+        );
+        assertFalse(dtoOnlyIdentityReport.hasErrors(), dtoOnlyIdentityReport.issues().toString());
+        assertTrue(dtoOnlyIdentityReport.issues().isEmpty(), dtoOnlyIdentityReport.issues().toString());
+
+        SemanticMetadataReviewReport invalidDetailPresentationReport = reviewer.review(InvalidDetailPresentationDTO.class);
+        assertTrue(invalidDetailPresentationReport.hasErrors());
+        assertTrue(invalidDetailPresentationReport.issues().stream()
+                .anyMatch(i -> "resource-reference-detail-presentation-invalid".equals(i.code())));
+
+        SemanticMetadataReviewReport validModalReport = reviewer.review(ValidModalDetailPresentationDTO.class);
+        assertFalse(validModalReport.hasErrors(), validModalReport.issues().toString());
 
         SemanticMetadataReviewReport validJsonQfReport = reviewer.reviewResourceController(
                 ValidJsonQuickFilterController.class
@@ -2180,7 +2337,12 @@ class SemanticMetadataReviewerTest {
             sourceKind = "field",
             icon = "event_available",
             tone = "positive",
-            thresholds = {@org.praxisplatform.uischema.annotation.Threshold(equalsValue = "0", tone = "neutral")}
+            thresholds = {
+                    @org.praxisplatform.uischema.annotation.Threshold(equalsValue = "0", tone = "neutral"),
+                    @org.praxisplatform.uischema.annotation.Threshold(min = 1, max = 5, tone = "secondary"),
+                    @org.praxisplatform.uischema.annotation.Threshold(min = 6, max = 10, tone = "critical"),
+                    @org.praxisplatform.uischema.annotation.Threshold(min = 11, tone = "negative")
+            }
     )
     private static class ValidInheritedFactController
             extends org.praxisplatform.uischema.controller.base.AbstractReadOnlyResourceController<

@@ -146,6 +146,8 @@ class FilterableBetweenListDetectionTest {
             @Override
             public boolean primarySearch() { return false; }
             @Override
+            public boolean inline() { return false; }
+            @Override
             public String[] relations() { return new String[0]; }
         };
     }

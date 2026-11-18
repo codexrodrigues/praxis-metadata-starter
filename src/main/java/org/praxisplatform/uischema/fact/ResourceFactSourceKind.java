@@ -10,28 +10,37 @@ import java.util.Set;
 public enum ResourceFactSourceKind {
 
     /** Server-computed derived value or domain indicator. */
-    COMPUTED("computed"),
+    COMPUTED(ResourceFactSourceKind.WIRE_COMPUTED),
 
     /** Backed directly by a DTO/resource field whose name matches {@link ResourceFact#key()}. */
-    FIELD("field"),
+    FIELD(ResourceFactSourceKind.WIRE_FIELD),
 
     /** Backed directly by a readable bean property whose name matches {@link ResourceFact#key()}. */
-    PROPERTY("property"),
+    PROPERTY(ResourceFactSourceKind.WIRE_PROPERTY),
 
     /** Backed directly by a projected column/property whose name matches {@link ResourceFact#key()}. */
-    COLUMN("column"),
+    COLUMN(ResourceFactSourceKind.WIRE_COLUMN),
 
     /** Computed via a declarative expression. */
-    EXPRESSION("expression"),
+    EXPRESSION(ResourceFactSourceKind.WIRE_EXPRESSION),
 
     /** Aggregated metric over collection items. */
-    AGGREGATE("aggregate"),
+    AGGREGATE(ResourceFactSourceKind.WIRE_AGGREGATE),
 
     /** Derived from server request/tenant runtime context. */
-    CONTEXT("context"),
+    CONTEXT(ResourceFactSourceKind.WIRE_CONTEXT),
 
     /** Derived from a governed grant/capability evaluation. */
-    GRANT("grant");
+    GRANT(ResourceFactSourceKind.WIRE_GRANT);
+
+    public static final String WIRE_COMPUTED = "computed";
+    public static final String WIRE_FIELD = "field";
+    public static final String WIRE_PROPERTY = "property";
+    public static final String WIRE_COLUMN = "column";
+    public static final String WIRE_EXPRESSION = "expression";
+    public static final String WIRE_AGGREGATE = "aggregate";
+    public static final String WIRE_CONTEXT = "context";
+    public static final String WIRE_GRANT = "grant";
 
     private static final Set<String> ALLOWED_WIRE_VALUES =
             ResourceFactVocabulary.allowedWireValues(values(), ResourceFactSourceKind::wireValue);

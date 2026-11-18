@@ -55,7 +55,7 @@
           "icon": { "type": "string", "minLength": 1 },
           "tone": {
             "type": "string",
-            "enum": ["neutral", "primary", "info", "success", "warning", "danger"]
+            "enum": ["neutral", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
           },
           "isDefault": { "type": "boolean" },
           "description": { "type": "string", "minLength": 1 },

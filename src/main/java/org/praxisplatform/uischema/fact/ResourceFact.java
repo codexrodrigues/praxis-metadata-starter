@@ -17,16 +17,24 @@ import java.lang.annotation.*;
  * ({@link org.praxisplatform.uischema.authoring.SemanticMetadataReviewer}) and downstream policy
  * compilers can reject unverified or client-overridable inputs in fail-closed flows.</p>
  *
+ * <p>Because Java annotation members accept compile-time constants, use the canonical lowercase
+ * wire strings or the {@code WIRE_*} constants exposed on {@link ResourceFactDataType},
+ * {@link ResourceFactSourceKind}, {@link ResourceFactAuthority}, {@link ResourceFactEvaluationPhase},
+ * {@link ResourceFactMissingValuePolicy}, and {@link ResourceFactScope}:</p>
+ *
  * <pre>{@code
  * @ResourceFact(
  *     key = "activeAssignmentsCount",
  *     label = "Vínculos ativos",
  *     description = "Quantidade de vínculos funcionais ativos sob o titular.",
- *     dataType = ResourceFactDataType.INTEGER,
+ *     dataType = "integer",
+ *     sourceKind = "computed",
  *     icon = "badge",
  *     tone = "info",
- *     authority = ResourceFactAuthority.SERVER_COMPUTED,
- *     evaluationPhase = ResourceFactEvaluationPhase.POST_READ
+ *     authority = "server_computed",
+ *     evaluationPhase = "post_read",
+ *     missingValuePolicy = "fail_closed",
+ *     scope = "item"
  * )
  * }</pre>
  */
@@ -66,7 +74,11 @@ public @interface ResourceFact {
     /** Optional Material icon identifier in lowercase {@code snake_case} for executive cards and cockpit catalogs. */
     String icon() default "";
 
-    /** Optional semantic tone hint ({@code "neutral"}, {@code "info"}, {@code "success"}, {@code "warning"}, {@code "danger"}, {@code "primary"}, or {@code "secondary"}). */
+    /**
+     * Optional semantic tone hint matching {@link org.praxisplatform.uischema.annotation.QuickFilterTone#allowedWireValues()}
+     * ({@code "neutral"}, {@code "primary"}, {@code "secondary"}, {@code "info"}, {@code "success"},
+     * {@code "warning"}, {@code "danger"}, {@code "critical"}, {@code "positive"}, or {@code "negative"}).
+     */
     String tone() default "";
 
     /** Optional scalar presentation preset or format hint. */

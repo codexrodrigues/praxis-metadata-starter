@@ -434,6 +434,112 @@ class AnnotationDrivenSurfaceDefinitionRegistryTest {
         assertNull(profile.contextualReadPath());
     }
 
+    @Test
+    void relatedChildSurfaceFallsBackToResponseDtoIdentityKeyFieldBeforeControllerIdField() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        ApplicationContext applicationContext = mock(ApplicationContext.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        SchemaReferenceResolver schemaResolver = mock(SchemaReferenceResolver.class);
+
+        ParentOfDtoIdentityChildController parentController = new ParentOfDtoIdentityChildController();
+        DtoIdentityChildController childController = new DtoIdentityChildController();
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = new LinkedHashMap<>();
+        handlerMethods.put(
+                RequestMappingInfo.paths("/parent-resources/{id}/children").methods(RequestMethod.GET).build(),
+                new HandlerMethod(parentController, ParentOfDtoIdentityChildController.class.getDeclaredMethod("children", Long.class))
+        );
+        handlerMethods.put(
+                RequestMappingInfo.paths("/dto-identity-children/all").methods(RequestMethod.GET).build(),
+                new HandlerMethod(childController, AbstractResourceQueryController.class.getMethod("getAll"))
+        );
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlerMethods);
+        when(operationResolver.resolve(any(HandlerMethod.class), any(RequestMappingInfo.class)))
+                .thenAnswer(invocation -> {
+                    RequestMappingInfo mappingInfo = invocation.getArgument(1);
+                    String path = mappingInfo.getPatternValues().iterator().next();
+                    return new CanonicalOperationRef(
+                            "registry-group",
+                            path.contains("/children") ? "listParentChildren" : "listDtoIdentityChildren",
+                            path,
+                            "GET"
+                    );
+                });
+        when(schemaResolver.resolve(any(), any(), any(), any(Boolean.class), any(), any(), any(), any()))
+                .thenAnswer(invocation -> new CanonicalSchemaRef(
+                        "schema-" + invocation.getArgument(2, String.class),
+                        invocation.getArgument(2, String.class),
+                        "/schemas/filtered?path=" + invocation.getArgument(0, String.class)
+                                + "&idField=" + invocation.getArgument(6, String.class)
+                ));
+
+        AnnotationDrivenSurfaceDefinitionRegistry registry = new AnnotationDrivenSurfaceDefinitionRegistry(
+                handlerMapping,
+                applicationContext,
+                operationResolver,
+                schemaResolver,
+                AnnotationConflictMode.WARN
+        );
+
+        SurfaceDefinition childSurface = registry.findByResourceKey("registry.parent-dto-child").stream()
+                .filter(surface -> "children".equals(surface.id()))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(childSurface.schema().url().contains("idField=childDtoKey"));
+        verify(handlerMapping, times(1)).getHandlerMethods();
+    }
+
+    @ApiResource(value = "/parent-resources", resourceKey = "registry.parent-dto-child")
+    @ApiGroup("registry-group")
+    static class ParentOfDtoIdentityChildController
+            extends AbstractReadOnlyResourceController<TestDto, Long, TestFilterDTO> {
+        @Override
+        protected BaseResourceQueryService<TestDto, Long, TestFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(TestDto dto) {
+            return dto == null ? null : dto.id();
+        }
+
+        @GetMapping("/{id}/children")
+        @UiSurface(
+                id = "children",
+                kind = SurfaceKind.READ_PROJECTION,
+                scope = SurfaceScope.ITEM,
+                title = "Filhos",
+                relatedChildResourceKey = "registry.dto-identity-children",
+                relatedChildResourcePath = "/dto-identity-children",
+                relatedChildParentField = "parentId"
+        )
+        public ResponseEntity<RestApiResponse<List<DtoIdentityChildDto>>> children(@PathVariable Long id) {
+            return null;
+        }
+    }
+
+    @ApiResource(value = "/dto-identity-children", resourceKey = "registry.dto-identity-children")
+    @ApiGroup("registry-group")
+    static class DtoIdentityChildController
+            extends AbstractReadOnlyResourceController<DtoIdentityChildDto, Long, TestFilterDTO> {
+        @Override
+        protected BaseResourceQueryService<DtoIdentityChildDto, Long, TestFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(DtoIdentityChildDto dto) {
+            return dto == null ? null : dto.childDtoKey();
+        }
+
+        @Override
+        protected String getIdFieldName() {
+            return "fallbackControllerId";
+        }
+    }
+
+    @org.praxisplatform.uischema.annotation.ResourceIdentity(keyField = "childDtoKey", titleField = "name")
+    record DtoIdentityChildDto(Long childDtoKey, String name) {}
+
     @ApiResource(value = "/summary-resources", resourceKey = "summary.resources")
     @ApiGroup("registry-group")
     static class CanonicalSummaryRegistryController

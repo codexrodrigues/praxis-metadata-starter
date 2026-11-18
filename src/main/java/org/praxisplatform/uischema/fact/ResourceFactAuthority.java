@@ -11,16 +11,21 @@ import java.util.Set;
 public enum ResourceFactAuthority {
 
     /** Deterministically computed on the server from domain state and parameters. */
-    SERVER_COMPUTED("server_computed"),
+    SERVER_COMPUTED(ResourceFactAuthority.WIRE_SERVER_COMPUTED),
 
     /** Backed directly by authoritative persisted backend state. */
-    PERSISTED_STATE("persisted_state"),
+    PERSISTED_STATE(ResourceFactAuthority.WIRE_PERSISTED_STATE),
 
     /** Derived from verified authenticated principal/tenant claims on the server. */
-    AUTHENTICATED_CONTEXT("authenticated_context"),
+    AUTHENTICATED_CONTEXT(ResourceFactAuthority.WIRE_AUTHENTICATED_CONTEXT),
 
     /** Resolved from a governed entitlement or grant verified on the server. */
-    GOVERNED_GRANT("governed_grant");
+    GOVERNED_GRANT(ResourceFactAuthority.WIRE_GOVERNED_GRANT);
+
+    public static final String WIRE_SERVER_COMPUTED = "server_computed";
+    public static final String WIRE_PERSISTED_STATE = "persisted_state";
+    public static final String WIRE_AUTHENTICATED_CONTEXT = "authenticated_context";
+    public static final String WIRE_GOVERNED_GRANT = "governed_grant";
 
     private static final Set<String> ALLOWED_WIRE_VALUES =
             ResourceFactVocabulary.allowedWireValues(values(), ResourceFactAuthority::wireValue);

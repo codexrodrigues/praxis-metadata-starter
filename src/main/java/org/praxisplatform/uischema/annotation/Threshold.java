@@ -45,7 +45,9 @@ public @interface Threshold {
     String equalsValue() default "";
 
     /**
-     * Tom semantico associado: "neutral", "info", "success", "warning", "danger", "critical".
+     * Tom semantico associado, conforme {@link QuickFilterTone#allowedWireValues()}
+     * ({@code "neutral"}, {@code "primary"}, {@code "secondary"}, {@code "info"}, {@code "success"},
+     * {@code "warning"}, {@code "danger"}, {@code "critical"}, {@code "positive"} ou {@code "negative"}).
      */
     String tone() default "info";
 

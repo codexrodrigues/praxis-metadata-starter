@@ -649,6 +649,25 @@ This targeted patch resolves a JavaBean introspection defect in `BulkEditableFie
    - Refreshed the committed-blob `sha256` of `src/test/java/org/praxisplatform/uischema/bulk/BulkEditableFieldsTest.java` (`no_db`).
    - Recomputed `reviewedScopeDigest` across `excluded_outside_impact`, `superseded`, and `historical_reuse` closures whose `scopePrefixes` encompass `src/main/java/org/praxisplatform/uischema/bulk/` or `src/main/java/org/praxisplatform/uischema/`, keeping `dependencyDigest` and all prior bounded B–H and resource-contract obligations intact. The three `historical_reuse` fixtures (`BulkAsyncPublicAdmissionNeonTest`, `BulkCapacityAuthorityManagedNeonTest`, `BulkCapacityGlobalOccupancyNeonTest`) do not invoke `BulkEditableFields` and retain their original raw ZIP artifacts and bounded claims.
 
+## 2026-11-18 reconciliation: v8.0.0-rc.196 (@Filterable(inline), 10-token tone unification, overlay detailPresentation, single-source @ResourceIdentity, and Javadoc/blueprint alignment)
+
+This increment updates field/resource metadata publication, static authoring validation, Javadocs, and normative guides without altering persistence, SQL, Flyway migrations, `JsonLogicExpressionValidator` operator-arity definitions, durable bulk capacity/admission/worker execution, or authorized-reader boundaries:
+
+1. **`@Filterable(inline = true)` -> `x-ui.inlineFilter = true` (`Filterable`, `FieldConfigProperties`, `CustomOpenApiResolver`, `docs/spec/x-ui-field.schema.json`):**
+   - Added `boolean inline() default false;` on `@Filterable`, `FieldConfigProperties.INLINE_FILTER("inlineFilter")`, OpenAPI emission in `CustomOpenApiResolver.applyFilterableMetadata(...)`, and `"inlineFilter"` in `docs/spec/x-ui-field.schema.json`.
+2. **Unified 10-token `tone`, overlay `detailPresentation`, and single-source `@ResourceIdentity`:**
+   - Expanded `QuickFilterTone` (retaining existing binary return types) with `SECONDARY`, `CRITICAL`, `POSITIVE`, `NEGATIVE`, `allowedWireValues()`, and `isValidWireValue(String)`; connected `SemanticMetadataReviewer.ALLOWED_FACT_AND_THRESHOLD_TONES` and `PraxisExpressionStaticValidator.RESERVED_KEYWORDS` to `QuickFilterTone.allowedWireValues()`; and unified `docs/spec/x-ui-resource.schema.json`, `docs/spec/x-ui-field.schema.json`, `@ResourceFact.tone()`, and `@Threshold.tone()` on the 10 canonical tokens (`neutral`, `primary`, `secondary`, `info`, `success`, `warning`, `danger`, `critical`, `positive`, `negative`).
+   - Narrowed `@ResourceReference.detailPresentation` to `["drawer", "modal"]` in `CustomOpenApiResolver`, `docs/spec/x-ui-field.schema.json`, `ResourceReference` Javadoc, and `SemanticMetadataReviewer` (`resource-reference-detail-presentation-invalid`).
+   - Adopted single-source `@ResourceIdentity` on `ResponseDTO` in `SemanticMetadataReviewer` (requiring DTO `@ResourceIdentity` whenever `effectiveResponseDto != null`, enforcing parity when both Controller and DTO declare `@ResourceIdentity`, and requiring Controller `@ResourceIdentity` when no `ResponseDTO` is bound) and added `ResponseDTO` `@ResourceIdentity.keyField()` fallback in `AnnotationDrivenSurfaceDefinitionRegistry.relatedSchemaIdField(...)` prior to `resolveIdField(bean)`.
+3. **Javadoc and blueprint wire-vocabulary fixes:**
+   - Added compile-time `WIRE_*` string constants across the six `ResourceFact*` vocabulary enums (`ResourceFactDataType`, `ResourceFactAuthority`, `ResourceFactEvaluationPhase`, `ResourceFactSourceKind`, `ResourceFactMissingValuePolicy`, `ResourceFactScope`).
+   - Updated Javadocs and examples in `ResourceFact`, `WorkflowAction`, `UiAnalytics`, `AnalyticsProjection`, `CalculationTrail`, and `UISchema`, and aligned `META-INF/praxis/AI-RESOURCE-BLUEPRINT.md`, `docs/guides/GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md`, and `docs/guides/QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.md`.
+4. **Updated `no_db` regression coverage and offline checks:**
+   - Updated `FilterableBetweenListDetectionTest`, `PhaseAErgonomicsOpenApiAndSchemaTest`, `SemanticMetadataReviewerTest`, `AnnotationDrivenSurfaceDefinitionRegistryTest`, `PraxisExpressionStaticValidatorTest`, and `CustomOpenApiResolverTest` (all `no_db`).
+   - Executed 45 targeted `no_db` JUnit suites across three verification runs on JDK 21 (`193`, `192`, and `95` testcases; `0` failures, `0` errors, `0` skips), `mvn javadoc:javadoc` (`exit 0`), and `audit-public-repo-purity.py` (`0` leaks, `0` broken links).
+5. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Refreshed committed-blob `sha256` digests for the six modified `no_db` test files and recomputed `impactReview.reviewedScopeDigest` for `excluded_outside_impact` closures covering `src/main/java/org/praxisplatform/uischema/` or `PraxisExpressionStaticValidator.java`, preserving `historical_reuse` closures, raw artifacts, and bounded prior B–H and resource-contract obligations.
+
 
 
 

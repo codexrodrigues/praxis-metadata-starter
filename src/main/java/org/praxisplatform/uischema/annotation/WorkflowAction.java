@@ -40,7 +40,11 @@ import java.lang.annotation.Target;
  *     allowedStates = {"PENDING_REVIEW"},
  *     modifiedFields = {"status", "approvedAt"},
  *     disallowedStateReason = "Somente solicitações em revisão podem ser aprovadas.",
- *     legalPurpose = LegalTreatmentPurpose.CONTRACT_EXECUTION
+ *     idempotencyKey = ActionRequirement.REQUIRED,
+ *     resourceVersion = ActionRequirement.REQUIRED,
+ *     resourceVersionTransport = ActionResourceVersionTransport.IF_MATCH,
+ *     legalPurpose = LegalTreatmentPurpose.CONTRACT_EXECUTION,
+ *     legalBasisRef = "LGPD Art. 7, V"
  * )
  * }</pre>
  *

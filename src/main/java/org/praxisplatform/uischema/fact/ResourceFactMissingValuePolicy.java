@@ -11,16 +11,21 @@ import java.util.Set;
 public enum ResourceFactMissingValuePolicy {
 
     /** Treat unresolved facts as non-satisfiable in fail-closed governed decisions. */
-    FAIL_CLOSED("fail_closed"),
+    FAIL_CLOSED(ResourceFactMissingValuePolicy.WIRE_FAIL_CLOSED),
 
     /** Explicitly deny the dependent decision when the fact cannot be resolved. */
-    DENY("deny"),
+    DENY(ResourceFactMissingValuePolicy.WIRE_DENY),
 
     /** Surface an explicit null value without fabricating defaults or allowing silent fallback. */
-    EXPLICIT_NULL("explicit_null"),
+    EXPLICIT_NULL(ResourceFactMissingValuePolicy.WIRE_EXPLICIT_NULL),
 
     /** Fail execution with an explicit resolution error when the fact value is unavailable. */
-    ERROR("error");
+    ERROR(ResourceFactMissingValuePolicy.WIRE_ERROR);
+
+    public static final String WIRE_FAIL_CLOSED = "fail_closed";
+    public static final String WIRE_DENY = "deny";
+    public static final String WIRE_EXPLICIT_NULL = "explicit_null";
+    public static final String WIRE_ERROR = "error";
 
     private static final Set<String> ALLOWED_WIRE_VALUES =
             ResourceFactVocabulary.allowedWireValues(values(), ResourceFactMissingValuePolicy::wireValue);

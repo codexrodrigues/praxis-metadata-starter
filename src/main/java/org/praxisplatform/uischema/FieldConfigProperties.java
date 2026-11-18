@@ -251,6 +251,8 @@ public enum FieldConfigProperties {
     PINNED("pinned"),
     /** Indica campo de busca ampla primaria em filtros ({@code x-ui.primarySearch}) */
     PRIMARY_SEARCH("primarySearch"),
+    /** Indica campo promovido como filtro inline na barra de filtros ({@code x-ui.inlineFilter}) */
+    INLINE_FILTER("inlineFilter"),
     /** Vinculo declarativo com dimensao de contexto ativo da sessao ({@code x-ui.contextBinding}) */
     CONTEXT_BINDING("contextBinding"),
     /** Marca campos limpos automaticamente em rascunho de duplicacao ({@code x-ui.draftCleared}) */
