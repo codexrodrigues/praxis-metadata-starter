@@ -635,5 +635,20 @@ Between `163b0ac7a7` and `v8.0.0-rc.192`, the repository integrated Wave 1 platf
 3. **Refreshed digests (`sha256`, `reviewedScopeDigest`, `historical_reuse`) across the release boundary:**
    - Recomputed committed-blob `sha256` entries in `tools/release/neon-test-inventory.json` and updated `impactReview.reviewedScopeDigest` / `reuse.reviewedScopeDigest` / `reuse.dependencyDigest` for closures referencing modified `src/main/**`, `src/test/**`, or `pom.xml` paths, preserving bounded prior Neon B–H and resource-contract obligations.
 
+## 2026-11-17 reconciliation: v8.0.0-rc.194 (BulkEditableFields void-setter type resolution fix)
+
+This targeted patch resolves a JavaBean introspection defect in `BulkEditableFields.compile(...)` without altering persistence, SQL, Flyway migrations, durable bulk capacity/admission/worker execution, authorized-reader boundaries, or OpenAPI wire contracts:
+
+1. **JavaBean `void` setter type fix (`BulkEditableFields.java`):**
+   - `BulkEditableFields` previously evaluated `property.getPrimaryMember().getRawType().isPrimitive()` directly on Jackson `BeanPropertyDefinition` metadata. For standard mutable POJOs exposing `void setProperty(T)` setters, Jackson's primary deserialization member is the setter method whose return type is `void.class` (`void.class.isPrimitive() == true`), causing `@BulkEditable(allowClear = true)` compilation to reject valid nullable reference properties.
+   - `BulkEditableFields.java` now determines primitive type semantics from `backingField.getType().isPrimitive()`, `property.getRawPrimaryType()` (explicitly ignoring `void.class`), and single-argument `property.getSetter().getRawParameterType(0).isPrimitive()`.
+2. **Added `no_db` regression coverage (`BulkEditableFieldsTest.java`):**
+   - Added unit cases covering POJO `@BulkEditable(allowClear = true)` declarations on private fields, getters, setters, virtual accessor pairs, and primitive setter rejection (`setCount(int)`).
+   - Verified `BulkEditableFieldsTest` + `BulkOperationStructuralCompilerTest` (`48` tests, `0` failures/errors/skips) and caller suites `PhaseABehavioralContractsTest`, `SemanticMetadataReviewerTest`, `BulkCrudStructuralCompilerTest`, `BulkCrudOperationalCapabilityHttpTest`, and `BulkCrudStructuralOpenApiHttpTest` (`42` tests, `0` failures/errors/skips) on JDK 21.
+3. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Refreshed the committed-blob `sha256` of `src/test/java/org/praxisplatform/uischema/bulk/BulkEditableFieldsTest.java` (`no_db`).
+   - Recomputed `reviewedScopeDigest` across `excluded_outside_impact`, `superseded`, and `historical_reuse` closures whose `scopePrefixes` encompass `src/main/java/org/praxisplatform/uischema/bulk/` or `src/main/java/org/praxisplatform/uischema/`, keeping `dependencyDigest` and all prior bounded B–H and resource-contract obligations intact. The three `historical_reuse` fixtures (`BulkAsyncPublicAdmissionNeonTest`, `BulkCapacityAuthorityManagedNeonTest`, `BulkCapacityGlobalOccupancyNeonTest`) do not invoke `BulkEditableFields` and retain their original raw ZIP artifacts and bounded claims.
+
+
 
 

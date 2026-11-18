@@ -208,7 +208,10 @@ public final class BulkEditableFields {
                 throw invalid("at least one bulk update mode is required");
             }
             boolean primitiveProperty = (backingField != null && backingField.getType().isPrimitive())
-                    || (property.getPrimaryMember() != null && property.getPrimaryMember().getRawType().isPrimitive());
+                    || (property.getRawPrimaryType() != null && property.getRawPrimaryType() != void.class
+                            && property.getRawPrimaryType().isPrimitive())
+                    || (property.getSetter() != null && property.getSetter().getParameterCount() == 1
+                            && property.getSetter().getRawParameterType(0).isPrimitive());
             boolean backingNullForbidden = backingField != null && (backingField.isAnnotationPresent(NotNull.class)
                     || backingField.isAnnotationPresent(NotBlank.class) || backingField.isAnnotationPresent(NotEmpty.class));
             if (annotation.allowClear() && (!explicitlyNullable(schema, specVersion) || primitiveProperty

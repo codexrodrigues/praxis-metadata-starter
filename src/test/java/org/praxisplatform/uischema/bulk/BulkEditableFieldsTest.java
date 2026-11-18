@@ -230,6 +230,26 @@ class BulkEditableFieldsTest {
     }
 
     @Test
+    void allowsClearOnNullablePojoWithVoidSetterRegardlessOfDeclarationSite() {
+        ObjectMapper mapper = new ObjectMapper();
+        for (Class<?> dtoType : Arrays.asList(
+                PojoFieldClearableUpdate.class,
+                PojoGetterClearableUpdate.class,
+                PojoSetterClearableUpdate.class,
+                VirtualPojoClearableUpdate.class)) {
+            ObjectNode schema = resolvedSchema(mapper, dtoType);
+            property(schema, "value").put("nullable", true);
+            BulkEditableFields fields = compile(mapper, dtoType, schema, Set.of());
+            assertEquals(Set.of("value"), fields.writableFields(BulkMode.UNIFORM_UPDATE), dtoType.getSimpleName());
+            assertEquals(Set.of("value"), fields.clearableFields(BulkMode.UNIFORM_UPDATE), dtoType.getSimpleName());
+        }
+
+        ObjectNode primitiveSetterSchema = resolvedSchema(mapper, PrimitiveSetterPojoUpdate.class);
+        property(primitiveSetterSchema, "count").put("nullable", true);
+        assertInvalid(() -> compile(mapper, PrimitiveSetterPojoUpdate.class, primitiveSetterSchema, Set.of()));
+    }
+
+    @Test
     void rejectsClearWhenJacksonWouldRejectSkipOrCoerceNull() {
         ObjectMapper mapper = new ObjectMapper();
 
@@ -628,5 +648,72 @@ class BulkEditableFieldsTest {
     private static final class DuplicateModesUpdate {
         @BulkEditable(modes = {BulkMode.UNIFORM_UPDATE, BulkMode.UNIFORM_UPDATE})
         public String value;
+    }
+
+    private static final class PojoFieldClearableUpdate {
+        @BulkEditable(allowClear = true)
+        @Schema(nullable = true)
+        private String value;
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
+    }
+
+    private static final class PojoGetterClearableUpdate {
+        private String value;
+
+        @BulkEditable(allowClear = true)
+        @Schema(nullable = true)
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
+    }
+
+    private static final class PojoSetterClearableUpdate {
+        private String value;
+
+        public String getValue() {
+            return value;
+        }
+
+        @BulkEditable(allowClear = true)
+        @Schema(nullable = true)
+        public void setValue(String value) {
+            this.value = value;
+        }
+    }
+
+    private static final class VirtualPojoClearableUpdate {
+        @BulkEditable(allowClear = true)
+        @Schema(nullable = true)
+        public String getValue() {
+            return null;
+        }
+
+        public void setValue(String value) {
+        }
+    }
+
+    private static final class PrimitiveSetterPojoUpdate {
+        private Integer count;
+
+        @BulkEditable(allowClear = true)
+        @Schema(nullable = true)
+        public Integer getCount() {
+            return count;
+        }
+
+        public void setCount(int count) {
+            this.count = count;
+        }
     }
 }
