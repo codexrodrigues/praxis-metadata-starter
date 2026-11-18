@@ -47,6 +47,31 @@ public interface StatsQueryExecutor {
         );
     }
 
+    default <E> GroupByStatsResponse executeGroupBy(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            List<ResolvedStatsDimension> dimensions,
+            List<ResolvedStatsMetric> resolvedMetrics,
+            GroupByStatsRequest<?> request,
+            ComparisonPeriodWindow window,
+            int maxBuckets,
+            int maxCells,
+            int defaultMinBucketCount
+    ) {
+        return executeGroupBy(
+                entityManager,
+                entityClass,
+                specification,
+                dimensions,
+                resolvedMetrics,
+                request,
+                window,
+                maxBuckets,
+                maxCells
+        );
+    }
+
     <E> TimeSeriesStatsResponse executeTimeSeries(
             EntityManager entityManager,
             Class<E> entityClass,
@@ -66,4 +91,25 @@ public interface StatsQueryExecutor {
             DistributionStatsRequest<?> request,
             int maxBuckets
     );
+
+    default <E> DistributionStatsResponse executeDistribution(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            StatsFieldDescriptor distributionDescriptor,
+            StatsFieldDescriptor metricDescriptor,
+            DistributionStatsRequest<?> request,
+            int maxBuckets,
+            int defaultMinBucketCount
+    ) {
+        return executeDistribution(
+                entityManager,
+                entityClass,
+                specification,
+                distributionDescriptor,
+                metricDescriptor,
+                request,
+                maxBuckets
+        );
+    }
 }

@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.stats.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.praxisplatform.uischema.stats.DistributionMode;
 
 import java.util.List;
@@ -16,6 +17,20 @@ public record DistributionStatsResponse(
         String field,
         DistributionMode mode,
         StatsMetricRequest metric,
-        List<DistributionBucket> buckets
+        List<DistributionBucket> buckets,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Boolean suppressed,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Integer suppressedBucketCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Integer minBucketCount
 ) {
+    public DistributionStatsResponse(
+            String field,
+            DistributionMode mode,
+            StatsMetricRequest metric,
+            List<DistributionBucket> buckets
+    ) {
+        this(field, mode, metric, buckets, null, null, null);
+    }
 }

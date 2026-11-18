@@ -90,7 +90,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 request,
                 null,
                 maxBuckets,
-                Math.max(maxBuckets, 500)
+                Math.max(maxBuckets, 500),
+                0
         );
     }
 
@@ -106,6 +107,34 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             int maxBuckets,
             int maxCells
     ) {
+        return executeGroupBy(
+                entityManager,
+                entityClass,
+                specification,
+                dimensions,
+                resolvedMetrics,
+                request,
+                window,
+                maxBuckets,
+                maxCells,
+                0
+        );
+    }
+
+    @Override
+    public <E> GroupByStatsResponse executeGroupBy(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            List<ResolvedStatsDimension> dimensions,
+            List<ResolvedStatsMetric> resolvedMetrics,
+            GroupByStatsRequest<?> request,
+            ComparisonPeriodWindow window,
+            int maxBuckets,
+            int maxCells,
+            int defaultMinBucketCount
+    ) {
+        int effectiveMinBucketCount = resolveGroupByMinBucketCount(dimensions, resolvedMetrics, defaultMinBucketCount);
         boolean requiresAdvancedExecution = dimensions.size() > 1
                 || dimensions.stream().anyMatch(dim -> dim.extraction().isTemporal())
                 || request.hasExplicitDimensions()
@@ -128,7 +157,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                     request,
                     window,
                     maxBuckets,
-                    maxCells
+                    maxCells,
+                    effectiveMinBucketCount
             );
         }
 
@@ -167,30 +197,48 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
 
         TypedQuery<Tuple> typedQuery = entityManager.createQuery(query);
         int limit = request.limit() == null ? maxBuckets : Math.min(request.limit(), maxBuckets);
-        typedQuery.setMaxResults(limit);
+        if (effectiveMinBucketCount <= 0) {
+            typedQuery.setMaxResults(limit);
+        }
 
         boolean exposeMultiMetricShape = exposesMultiMetricShape(request.metrics());
-        List<GroupByBucket> buckets = typedQuery.getResultList().stream()
-                .map(tuple -> {
-                    Object key = tuple.get("groupKey");
-                    Object labelValue = hasDistinctLabelPath ? tuple.get("groupLabel") : key;
-                    Number value = (Number) tuple.get("groupValue");
-                    long count = ((Number) tuple.get("groupCount")).longValue();
-                    return new GroupByBucket(
-                            key,
-                            labelValue == null ? (key == null ? "null" : String.valueOf(key)) : String.valueOf(labelValue),
-                            value,
-                            count,
-                            exposeMultiMetricShape ? extractMetricValues(tuple, resolvedMetrics) : null
-                    );
-                })
-                .toList();
+        List<Tuple> rawTuples = typedQuery.getResultList();
+        int suppressedBucketCount = 0;
+        List<GroupByBucket> buckets = new ArrayList<>(Math.min(limit, rawTuples.size()));
+        for (Tuple tuple : rawTuples) {
+            long count = ((Number) tuple.get("groupCount")).longValue();
+            if (effectiveMinBucketCount > 0 && count < effectiveMinBucketCount) {
+                if (count > 0) {
+                    suppressedBucketCount++;
+                }
+                continue;
+            }
+            if (buckets.size() >= limit) {
+                continue;
+            }
+            Object key = tuple.get("groupKey");
+            Object labelValue = hasDistinctLabelPath ? tuple.get("groupLabel") : key;
+            Number value = (Number) tuple.get("groupValue");
+            buckets.add(new GroupByBucket(
+                    key,
+                    labelValue == null ? (key == null ? "null" : String.valueOf(key)) : String.valueOf(labelValue),
+                    value,
+                    count,
+                    exposeMultiMetricShape ? extractMetricValues(tuple, resolvedMetrics) : null
+            ));
+        }
 
+        boolean suppressionConfigured = effectiveMinBucketCount > 0;
         return new GroupByStatsResponse(
                 groupDescriptor.field(),
                 request.primaryMetric(),
-                buckets,
-                exposeMultiMetricShape ? request.effectiveMetrics() : null
+                List.copyOf(buckets),
+                exposeMultiMetricShape ? request.effectiveMetrics() : null,
+                null,
+                null,
+                suppressionConfigured ? suppressedBucketCount > 0 : Boolean.FALSE,
+                suppressionConfigured ? suppressedBucketCount : null,
+                suppressionConfigured ? effectiveMinBucketCount : null
         );
     }
 
@@ -203,7 +251,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             GroupByStatsRequest<?> request,
             ComparisonPeriodWindow window,
             int maxBuckets,
-            int maxCells
+            int maxCells,
+            int effectiveMinBucketCount
     ) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
@@ -342,6 +391,18 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             densifyCells(cells, dimensions, observedLabelsByDimension, window, zoneId, effectiveMax, resolvedMetrics);
         }
 
+        int suppressedBucketCount = 0;
+        List<MultiDimensionCellAggregate> eligibleCells = new ArrayList<>(cells.size());
+        for (MultiDimensionCellAggregate cell : cells.values()) {
+            if (effectiveMinBucketCount > 0 && cell.count() < effectiveMinBucketCount) {
+                if (cell.count() > 0) {
+                    suppressedBucketCount++;
+                }
+                continue;
+            }
+            eligibleCells.add(cell);
+        }
+
         Map<CellCoordinateKey, Long> cycleOccurrences = computeCycleOccurrencesIfNeeded(
                 dimensions,
                 resolvedMetrics,
@@ -364,7 +425,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 || dimensions.size() > 1
                 || dimensions.stream().anyMatch(dim -> dim.extraction().isTemporal());
 
-        List<GroupByBucket> buckets = cells.values().stream()
+        List<GroupByBucket> buckets = eligibleCells.stream()
                 .sorted(comparator)
                 .limit(limit)
                 .map(cell -> {
@@ -411,13 +472,17 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 ? dimensions.stream().map(ResolvedStatsDimension::request).toList()
                 : null;
 
+        boolean suppressionConfigured = effectiveMinBucketCount > 0;
         return new GroupByStatsResponse(
                 dimensions.get(0).field(),
                 primaryMetric,
                 buckets,
                 exposeMultiMetricShape ? request.effectiveMetrics() : null,
                 responseDimensions,
-                window
+                window,
+                suppressionConfigured ? suppressedBucketCount > 0 : Boolean.FALSE,
+                suppressionConfigured ? suppressedBucketCount : null,
+                suppressionConfigured ? effectiveMinBucketCount : null
         );
     }
 
@@ -748,6 +813,20 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             TimeSeriesStatsRequest<?> request,
             int maxPoints
     ) {
+        ZoneId zoneId = resolveTimeSeriesZone(request.timezone());
+        if (timeDescriptor.isTemporalInterval()) {
+            return executeIntervalTimeSeries(
+                    entityManager,
+                    entityClass,
+                    specification,
+                    timeDescriptor,
+                    resolvedMetrics,
+                    request,
+                    maxPoints,
+                    zoneId
+            );
+        }
+
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<E> root = query.from(entityClass);
@@ -775,7 +854,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         List<Tuple> values = entityManager.createQuery(query).getResultList();
         Map<LocalDate, TimeSeriesBucketAggregate> buckets = new LinkedHashMap<>();
         for (Tuple tuple : values) {
-            LocalDate bucketStart = toBucketStart(tuple.get("timeValue"), request.granularity());
+            LocalDate bucketStart = toBucketStart(tuple.get("timeValue"), request.granularity(), zoneId);
             if (bucketStart == null) {
                 continue;
             }
@@ -819,6 +898,130 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         );
     }
 
+    private <E> TimeSeriesStatsResponse executeIntervalTimeSeries(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            StatsFieldDescriptor timeDescriptor,
+            List<ResolvedStatsMetric> resolvedMetrics,
+            TimeSeriesStatsRequest<?> request,
+            int maxPoints,
+            ZoneId zoneId
+    ) {
+        if (request.from() == null || request.to() == null) {
+            throw new IllegalArgumentException(
+                    "Temporal interval time-series requires both from and to dates: " + timeDescriptor.field()
+            );
+        }
+        if (request.from().isAfter(request.to())) {
+            throw new IllegalArgumentException("Time-series range is invalid: from must be on or before to.");
+        }
+
+        LocalDate startCursor = normalizeStart(request.from(), request.granularity());
+        LocalDate endCursor = normalizeStart(request.to(), request.granularity());
+        List<LocalDate> bucketStarts = new ArrayList<>();
+        LocalDate cursor = startCursor;
+        while (!cursor.isAfter(endCursor)) {
+            bucketStarts.add(cursor);
+            if (bucketStarts.size() > maxPoints) {
+                throw new IllegalArgumentException("Maximum number of time-series points exceeded: " + maxPoints);
+            }
+            cursor = nextBucket(cursor, request.granularity());
+        }
+        LocalDate windowStart = startCursor;
+        LocalDate windowEnd = bucketEnd(endCursor, request.granularity());
+
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> query = cb.createTupleQuery();
+        Root<E> root = query.from(entityClass);
+        Path<?> startPath = resolvePath(root, timeDescriptor.startPropertyPath());
+        Path<?> endPath = resolvePath(root, timeDescriptor.endPropertyPath());
+
+        List<Predicate> predicates = new ArrayList<>();
+        Predicate basePredicate = specification == null ? null : specification.toPredicate(root, query, cb);
+        if (basePredicate != null) {
+            predicates.add(basePredicate);
+        }
+        Predicate sqlWindowStartBound = intervalUpperBoundPredicate(cb, startPath, windowEnd, zoneId);
+        if (sqlWindowStartBound != null) {
+            predicates.add(sqlWindowStartBound);
+        }
+        Predicate sqlWindowEndBound = intervalLowerBoundPredicate(cb, endPath, windowStart, zoneId);
+        if (sqlWindowEndBound != null) {
+            predicates.add(cb.or(cb.isNull(endPath), sqlWindowEndBound));
+        }
+        if (!predicates.isEmpty()) {
+            query.where(predicates.toArray(Predicate[]::new));
+        }
+
+        List<jakarta.persistence.criteria.Selection<?>> selections = new ArrayList<>();
+        selections.add(startPath.alias("startTimeValue"));
+        selections.add(endPath.alias("endTimeValue"));
+        for (int index = 0; index < resolvedMetrics.size(); index++) {
+            ResolvedStatsMetric resolvedMetric = resolvedMetrics.get(index);
+            if (resolvedMetric.descriptor() == null) {
+                continue;
+            }
+            Path<?> metricPath = resolvedMetric.metric().operation() != StatsMetric.COUNT
+                    && resolvedMetric.metric().operation() != StatsMetric.DISTINCT_COUNT
+                    ? resolveNumericPath(root, resolvedMetric.descriptor().keyPropertyPath())
+                    : resolvePath(root, resolvedMetric.descriptor().keyPropertyPath());
+            selections.add(metricPath.alias(metricTupleAlias(index)));
+        }
+        query.multiselect(selections);
+
+        List<Tuple> values = entityManager.createQuery(query).getResultList();
+        Map<LocalDate, TimeSeriesBucketAggregate> buckets = new LinkedHashMap<>();
+        if (Boolean.TRUE.equals(request.fillGaps())) {
+            for (LocalDate bucketStart : bucketStarts) {
+                buckets.put(bucketStart, TimeSeriesBucketAggregate.empty(resolvedMetrics));
+            }
+        }
+
+        for (Tuple tuple : values) {
+            LocalDate startDate = toLocalDate(tuple.get("startTimeValue"), zoneId);
+            if (startDate == null || startDate.isAfter(windowEnd)) {
+                continue;
+            }
+            LocalDate endDate = toLocalDate(tuple.get("endTimeValue"), zoneId);
+            if (endDate != null && (endDate.isBefore(windowStart) || endDate.isBefore(startDate))) {
+                continue;
+            }
+            for (LocalDate bucketStart : bucketStarts) {
+                LocalDate bEnd = bucketEnd(bucketStart, request.granularity());
+                if (!startDate.isAfter(bEnd) && (endDate == null || !endDate.isBefore(bucketStart))) {
+                    TimeSeriesBucketAggregate aggregate = buckets.computeIfAbsent(
+                            bucketStart,
+                            ignored -> TimeSeriesBucketAggregate.empty(resolvedMetrics)
+                    );
+                    aggregate.accumulate(tuple, resolvedMetrics);
+                }
+            }
+        }
+
+        boolean exposeMultiMetricShape = exposesMultiMetricShape(request.metrics());
+        List<TimeSeriesPoint> points = buckets.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .limit(maxPoints)
+                .map(entry -> new TimeSeriesPoint(
+                        entry.getKey(),
+                        bucketEnd(entry.getKey(), request.granularity()),
+                        entry.getKey().toString(),
+                        entry.getValue().primaryValue(request.primaryMetric()),
+                        entry.getValue().count(),
+                        exposeMultiMetricShape ? entry.getValue().values() : null
+                ))
+                .toList();
+
+        return new TimeSeriesStatsResponse(
+                timeDescriptor.field(),
+                request.granularity(),
+                request.primaryMetric(),
+                points,
+                exposeMultiMetricShape ? request.effectiveMetrics() : null
+        );
+    }
+
     @Override
     public <E> DistributionStatsResponse executeDistribution(
             EntityManager entityManager,
@@ -829,8 +1032,40 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             DistributionStatsRequest<?> request,
             int maxBuckets
     ) {
+        return executeDistribution(
+                entityManager,
+                entityClass,
+                specification,
+                distributionDescriptor,
+                metricDescriptor,
+                request,
+                maxBuckets,
+                0
+        );
+    }
+
+    @Override
+    public <E> DistributionStatsResponse executeDistribution(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification,
+            StatsFieldDescriptor distributionDescriptor,
+            StatsFieldDescriptor metricDescriptor,
+            DistributionStatsRequest<?> request,
+            int maxBuckets,
+            int defaultMinBucketCount
+    ) {
+        int effectiveMinBucketCount = resolveEffectiveMinBucketCount(distributionDescriptor, metricDescriptor, defaultMinBucketCount);
         if (request.mode() == DistributionMode.HISTOGRAM) {
-            return executeHistogramDistribution(entityManager, entityClass, specification, distributionDescriptor, request, maxBuckets);
+            return executeHistogramDistribution(
+                    entityManager,
+                    entityClass,
+                    specification,
+                    distributionDescriptor,
+                    request,
+                    maxBuckets,
+                    effectiveMinBucketCount
+            );
         }
         if (request.metric() != null && request.metric().operation() != null && request.metric().operation().isPercentile()) {
             return executePercentileTermsDistribution(
@@ -840,7 +1075,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                     distributionDescriptor,
                     metricDescriptor,
                     request,
-                    maxBuckets
+                    maxBuckets,
+                    effectiveMinBucketCount
             );
         }
 
@@ -862,18 +1098,46 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
 
         TypedQuery<Tuple> typedQuery = entityManager.createQuery(query);
         int limit = request.limit() == null ? maxBuckets : Math.min(request.limit(), maxBuckets);
-        typedQuery.setMaxResults(limit);
+        if (effectiveMinBucketCount <= 0) {
+            typedQuery.setMaxResults(limit);
+        }
 
-        List<DistributionBucket> buckets = typedQuery.getResultList().stream()
-                .map(tuple -> {
-                    Object key = tuple.get("bucketKey");
-                    Number value = (Number) tuple.get("bucketValue");
-                    long count = ((Number) tuple.get("bucketCount")).longValue();
-                    return new DistributionBucket(null, null, key, key == null ? "null" : String.valueOf(key), value, count);
-                })
-                .toList();
+        List<Tuple> rawTuples = typedQuery.getResultList();
+        int suppressedBucketCount = 0;
+        List<DistributionBucket> buckets = new ArrayList<>(Math.min(limit, rawTuples.size()));
+        for (Tuple tuple : rawTuples) {
+            long count = ((Number) tuple.get("bucketCount")).longValue();
+            if (effectiveMinBucketCount > 0 && count < effectiveMinBucketCount) {
+                if (count > 0) {
+                    suppressedBucketCount++;
+                }
+                continue;
+            }
+            if (buckets.size() >= limit) {
+                continue;
+            }
+            Object key = tuple.get("bucketKey");
+            Number value = (Number) tuple.get("bucketValue");
+            buckets.add(new DistributionBucket(
+                    null,
+                    null,
+                    key,
+                    key == null ? "null" : String.valueOf(key),
+                    value,
+                    count
+            ));
+        }
 
-        return new DistributionStatsResponse(distributionDescriptor.field(), request.mode(), request.metric(), buckets);
+        boolean suppressionConfigured = effectiveMinBucketCount > 0;
+        return new DistributionStatsResponse(
+                distributionDescriptor.field(),
+                request.mode(),
+                request.metric(),
+                List.copyOf(buckets),
+                suppressionConfigured ? suppressedBucketCount > 0 : Boolean.FALSE,
+                suppressionConfigured ? suppressedBucketCount : null,
+                suppressionConfigured ? effectiveMinBucketCount : null
+        );
     }
 
     private <E> DistributionStatsResponse executePercentileTermsDistribution(
@@ -883,7 +1147,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             StatsFieldDescriptor distributionDescriptor,
             StatsFieldDescriptor metricDescriptor,
             DistributionStatsRequest<?> request,
-            int maxBuckets
+            int maxBuckets,
+            int effectiveMinBucketCount
     ) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
@@ -931,21 +1196,42 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             comparator = valueComparator.thenComparing(keyComparator);
         }
 
+        int suppressedBucketCount = 0;
+        List<DistributionBucket> eligible = new ArrayList<>(aggregates.size());
+        for (Map.Entry<Object, CellAggregateValue> entry : aggregates.entrySet()) {
+            long count = entry.getValue().rowCount;
+            if (effectiveMinBucketCount > 0 && count < effectiveMinBucketCount) {
+                if (count > 0) {
+                    suppressedBucketCount++;
+                }
+                continue;
+            }
+            eligible.add(new DistributionBucket(
+                    null,
+                    null,
+                    entry.getKey(),
+                    entry.getKey() == null ? "null" : String.valueOf(entry.getKey()),
+                    entry.getValue().value(request.metric().operation(), null),
+                    count
+            ));
+        }
+
         int limit = request.limit() == null ? maxBuckets : Math.min(request.limit(), maxBuckets);
-        List<DistributionBucket> buckets = aggregates.entrySet().stream()
-                .map(entry -> new DistributionBucket(
-                        null,
-                        null,
-                        entry.getKey(),
-                        entry.getKey() == null ? "null" : String.valueOf(entry.getKey()),
-                        entry.getValue().value(request.metric().operation(), null),
-                        entry.getValue().rowCount
-                ))
+        List<DistributionBucket> buckets = eligible.stream()
                 .sorted(comparator)
                 .limit(limit)
                 .toList();
 
-        return new DistributionStatsResponse(distributionDescriptor.field(), request.mode(), request.metric(), buckets);
+        boolean suppressionConfigured = effectiveMinBucketCount > 0;
+        return new DistributionStatsResponse(
+                distributionDescriptor.field(),
+                request.mode(),
+                request.metric(),
+                buckets,
+                suppressionConfigured ? suppressedBucketCount > 0 : Boolean.FALSE,
+                suppressionConfigured ? suppressedBucketCount : null,
+                suppressionConfigured ? effectiveMinBucketCount : null
+        );
     }
 
     private <E> DistributionStatsResponse executeHistogramDistribution(
@@ -954,7 +1240,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             Specification<E> specification,
             StatsFieldDescriptor descriptor,
             DistributionStatsRequest<?> request,
-            int maxBuckets
+            int maxBuckets,
+            int effectiveMinBucketCount
     ) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         @SuppressWarnings({"rawtypes", "unchecked"})
@@ -986,8 +1273,21 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             buckets.merge(start, 1L, Long::sum);
         }
 
+        int suppressedBucketCount = 0;
+        Map<BigDecimal, Long> eligibleBuckets = new LinkedHashMap<>(buckets.size());
+        for (Map.Entry<BigDecimal, Long> entry : buckets.entrySet()) {
+            long count = entry.getValue();
+            if (effectiveMinBucketCount > 0 && count < effectiveMinBucketCount) {
+                if (count > 0) {
+                    suppressedBucketCount++;
+                }
+                continue;
+            }
+            eligibleBuckets.put(entry.getKey(), count);
+        }
+
         Comparator<Map.Entry<BigDecimal, Long>> comparator = resolveHistogramOrder(request.orderBy());
-        Stream<Map.Entry<BigDecimal, Long>> stream = buckets.entrySet().stream().sorted(comparator);
+        Stream<Map.Entry<BigDecimal, Long>> stream = eligibleBuckets.entrySet().stream().sorted(comparator);
 
         int effectiveLimit = request.limit() == null ? maxBuckets : Math.min(request.limit(), maxBuckets);
         if (request.bucketCount() != null) {
@@ -1004,7 +1304,16 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 })
                 .toList();
 
-        return new DistributionStatsResponse(descriptor.field(), request.mode(), request.metric(), distributionBuckets);
+        boolean suppressionConfigured = effectiveMinBucketCount > 0;
+        return new DistributionStatsResponse(
+                descriptor.field(),
+                request.mode(),
+                request.metric(),
+                distributionBuckets,
+                suppressionConfigured ? suppressedBucketCount > 0 : Boolean.FALSE,
+                suppressionConfigured ? suppressedBucketCount : null,
+                suppressionConfigured ? effectiveMinBucketCount : null
+        );
     }
 
     private Order resolveOrder(
@@ -1132,74 +1441,128 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         return values;
     }
 
-    private LocalDate toBucketStart(Object value, TimeSeriesGranularity granularity) {
-        if (value == null) {
-            return null;
+    private int resolveGroupByMinBucketCount(
+            List<ResolvedStatsDimension> dimensions,
+            List<ResolvedStatsMetric> resolvedMetrics,
+            int defaultMinBucketCount
+    ) {
+        int effective = 0;
+        for (ResolvedStatsDimension dimension : dimensions) {
+            effective = Math.max(effective, dimension.descriptor().resolveMinBucketCount(defaultMinBucketCount));
         }
-        LocalDate date = toLocalDate(value);
-        return date == null ? null : normalizeStart(date, granularity);
-    }
-
-    private LocalDate toLocalDate(Object value) {
-        if (value instanceof LocalDate localDate) {
-            return localDate;
-        }
-        if (value instanceof LocalDateTime localDateTime) {
-            return localDateTime.toLocalDate();
-        }
-        if (value instanceof OffsetDateTime offsetDateTime) {
-            return offsetDateTime.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate();
-        }
-        if (value instanceof ZonedDateTime zonedDateTime) {
-            return zonedDateTime.withZoneSameInstant(ZoneOffset.UTC).toLocalDate();
-        }
-        if (value instanceof Instant instant) {
-            return instant.atZone(ZoneOffset.UTC).toLocalDate();
-        }
-        if (value instanceof java.sql.Date sqlDate) {
-            return sqlDate.toLocalDate();
-        }
-        if (value instanceof java.util.Date date) {
-            return Instant.ofEpochMilli(date.getTime()).atZone(ZoneOffset.UTC).toLocalDate();
-        }
-        if (value instanceof TemporalAccessor temporalAccessor) {
-            try {
-                return LocalDate.from(temporalAccessor);
-            } catch (Exception ignored) {
-                return null;
+        if (resolvedMetrics != null) {
+            for (ResolvedStatsMetric metric : resolvedMetrics) {
+                if (metric.descriptor() != null && metric.descriptor().minBucketCount() != null) {
+                    effective = Math.max(effective, Math.max(0, metric.descriptor().minBucketCount()));
+                }
             }
         }
-        if (value instanceof CharSequence text) {
-            return parseLocalDate(text.toString());
+        return effective;
+    }
+
+    private int resolveEffectiveMinBucketCount(
+            StatsFieldDescriptor primaryDescriptor,
+            StatsFieldDescriptor metricDescriptor,
+            int defaultMinBucketCount
+    ) {
+        int effective = primaryDescriptor.resolveMinBucketCount(defaultMinBucketCount);
+        if (metricDescriptor != null && metricDescriptor.minBucketCount() != null) {
+            effective = Math.max(effective, Math.max(0, metricDescriptor.minBucketCount()));
+        }
+        return effective;
+    }
+
+    private ZoneId resolveTimeSeriesZone(String timezone) {
+        if (timezone == null || timezone.isBlank()) {
+            return ZoneOffset.UTC;
+        }
+        return ZoneId.of(timezone.trim());
+    }
+
+    private Predicate intervalUpperBoundPredicate(
+            CriteriaBuilder cb,
+            Path<?> path,
+            LocalDate windowEnd,
+            ZoneId zoneId
+    ) {
+        Class<?> type = path.getJavaType();
+        if (type == LocalDate.class) {
+            return cb.lessThanOrEqualTo(path.as(LocalDate.class), windowEnd);
+        }
+        ZonedDateTime upperExclusive = windowEnd.plusDays(1).atStartOfDay(zoneId);
+        if (type == LocalDateTime.class) {
+            return cb.lessThan(path.as(LocalDateTime.class), upperExclusive.toLocalDateTime());
+        }
+        if (type == Instant.class) {
+            return cb.lessThan(path.as(Instant.class), upperExclusive.toInstant());
+        }
+        if (type == OffsetDateTime.class) {
+            return cb.lessThan(path.as(OffsetDateTime.class), upperExclusive.toOffsetDateTime());
+        }
+        if (type == ZonedDateTime.class) {
+            return cb.lessThan(path.as(ZonedDateTime.class), upperExclusive);
+        }
+        if (type == java.sql.Timestamp.class) {
+            return cb.lessThan(path.as(java.sql.Timestamp.class), java.sql.Timestamp.from(upperExclusive.toInstant()));
+        }
+        if (type == java.sql.Date.class) {
+            return cb.lessThanOrEqualTo(path.as(java.sql.Date.class), java.sql.Date.valueOf(windowEnd));
+        }
+        if (java.util.Date.class.isAssignableFrom(type)) {
+            return cb.lessThan(path.as(java.util.Date.class), java.util.Date.from(upperExclusive.toInstant()));
         }
         return null;
     }
 
-    private LocalDate parseLocalDate(String value) {
-        String text = value == null ? "" : value.trim();
-        if (text.isBlank()) {
+    private Predicate intervalLowerBoundPredicate(
+            CriteriaBuilder cb,
+            Path<?> path,
+            LocalDate windowStart,
+            ZoneId zoneId
+    ) {
+        Class<?> type = path.getJavaType();
+        if (type == LocalDate.class) {
+            return cb.greaterThanOrEqualTo(path.as(LocalDate.class), windowStart);
+        }
+        ZonedDateTime lowerInclusive = windowStart.atStartOfDay(zoneId);
+        if (type == LocalDateTime.class) {
+            return cb.greaterThanOrEqualTo(path.as(LocalDateTime.class), lowerInclusive.toLocalDateTime());
+        }
+        if (type == Instant.class) {
+            return cb.greaterThanOrEqualTo(path.as(Instant.class), lowerInclusive.toInstant());
+        }
+        if (type == OffsetDateTime.class) {
+            return cb.greaterThanOrEqualTo(path.as(OffsetDateTime.class), lowerInclusive.toOffsetDateTime());
+        }
+        if (type == ZonedDateTime.class) {
+            return cb.greaterThanOrEqualTo(path.as(ZonedDateTime.class), lowerInclusive);
+        }
+        if (type == java.sql.Timestamp.class) {
+            return cb.greaterThanOrEqualTo(path.as(java.sql.Timestamp.class), java.sql.Timestamp.from(lowerInclusive.toInstant()));
+        }
+        if (type == java.sql.Date.class) {
+            return cb.greaterThanOrEqualTo(path.as(java.sql.Date.class), java.sql.Date.valueOf(windowStart));
+        }
+        if (java.util.Date.class.isAssignableFrom(type)) {
+            return cb.greaterThanOrEqualTo(path.as(java.util.Date.class), java.util.Date.from(lowerInclusive.toInstant()));
+        }
+        return null;
+    }
+
+    private LocalDate toBucketStart(Object value, TimeSeriesGranularity granularity, ZoneId zoneId) {
+        if (value == null) {
             return null;
         }
-        try {
-            return LocalDate.parse(text);
-        } catch (Exception ignored) {
-            // Try richer ISO temporal formats below.
-        }
-        try {
-            return OffsetDateTime.parse(text).withOffsetSameInstant(ZoneOffset.UTC).toLocalDate();
-        } catch (Exception ignored) {
-            // Try instant/local date-time formats below.
-        }
-        try {
-            return Instant.parse(text).atZone(ZoneOffset.UTC).toLocalDate();
-        } catch (Exception ignored) {
-            // Try local date-time format below.
-        }
-        try {
-            return LocalDateTime.parse(text).toLocalDate();
-        } catch (Exception ignored) {
+        LocalDate date = toLocalDate(value, zoneId);
+        return date == null ? null : normalizeStart(date, granularity);
+    }
+
+    private LocalDate toLocalDate(Object value, ZoneId zoneId) {
+        if (value == null) {
             return null;
         }
+        ZonedDateTime zoned = StatsDimensionExtraction.toZonedDateTime(value, zoneId);
+        return zoned == null ? null : zoned.toLocalDate();
     }
 
     private LocalDate normalizeStart(LocalDate date, TimeSeriesGranularity granularity) {
@@ -1561,6 +1924,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
 
     private static final class AggregateValue {
         private long count;
+        private long numericCount;
         private double sum;
         private Double min;
         private Double max;
@@ -1588,6 +1952,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             if (!(value instanceof Number number)) {
                 return;
             }
+            numericCount++;
             double numeric = number.doubleValue();
             sum += numeric;
             min = min == null ? numeric : Math.min(min, numeric);
@@ -1608,7 +1973,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 return sum;
             }
             if (metric == StatsMetric.AVG) {
-                return count == 0 ? 0d : sum / count;
+                return numericCount == 0 ? 0d : sum / numericCount;
             }
             if (metric == StatsMetric.MIN) {
                 return min == null ? 0d : min;

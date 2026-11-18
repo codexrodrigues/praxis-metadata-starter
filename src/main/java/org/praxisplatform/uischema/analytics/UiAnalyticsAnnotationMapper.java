@@ -12,6 +12,7 @@ import org.praxisplatform.uischema.annotation.AnalyticsRecordOpen;
 import org.praxisplatform.uischema.annotation.AnalyticsSort;
 import org.praxisplatform.uischema.annotation.AnalyticsSurfaceTarget;
 import org.praxisplatform.uischema.annotation.UiAnalytics;
+import org.praxisplatform.uischema.stats.StatsMetric;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -270,10 +271,13 @@ public class UiAnalyticsAnnotationMapper {
             Map<String, Object> next = new LinkedHashMap<>();
             next.put("field", metric.field());
             if (!metric.aggregation().isBlank()) {
-                next.put("aggregation", metric.aggregation());
+                next.put("aggregation", StatsMetric.fromWireOrName(metric.aggregation()).wireValue());
             }
             if (!metric.label().isBlank()) {
                 next.put("label", metric.label());
+            }
+            if (!metric.alias().isBlank()) {
+                next.put("alias", metric.alias().trim());
             }
             result.add(next);
         }

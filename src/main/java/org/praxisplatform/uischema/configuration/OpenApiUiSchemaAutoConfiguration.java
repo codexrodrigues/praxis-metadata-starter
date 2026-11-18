@@ -529,7 +529,9 @@ public class OpenApiUiSchemaAutoConfiguration {
             @Value("${praxis.stats.max-comparison-candidates:1000}") int maxComparisonCandidates,
             @Value("${praxis.stats.max-comparison-period-days:366}") int maxComparisonPeriodDays,
             @Value("${praxis.stats.max-dimensions:2}") int maxDimensions,
-            @Value("${praxis.stats.max-cells:500}") int maxCells
+            @Value("${praxis.stats.max-cells:500}") int maxCells,
+            @Value("${praxis.stats.max-time-series-window-days:366}") int maxTimeSeriesWindowDays,
+            @Value("${praxis.stats.default-min-bucket-count:0}") int defaultMinBucketCount
     ) {
         return new StatsProperties(
                 enabled,
@@ -539,7 +541,9 @@ public class OpenApiUiSchemaAutoConfiguration {
                 maxComparisonCandidates,
                 maxComparisonPeriodDays,
                 maxDimensions,
-                maxCells
+                maxCells,
+                maxTimeSeriesWindowDays,
+                defaultMinBucketCount
         );
     }
 

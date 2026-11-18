@@ -404,6 +404,12 @@ class EmployeeService extends AbstractBaseResourceService<
             .distinctCountField("payrollProfile", "payrollProfile")
             .numericHistogramMeasureField("salario", "salario")
             .temporalTimeSeriesField("lastCheckInAt", "lastCheckInAt")
+            .temporalIntervalTimeSeriesField("activePeriod", "admissionDate", "validityEnd")
+            .add(org.praxisplatform.uischema.stats.StatsFieldDescriptor.groupByBucket(
+                    "protectedProfile",
+                    "payrollProfile",
+                    Set.of(StatsMetric.COUNT)
+            ).withMinBucketCount(2))
             .build();
 
     private final EmployeeResourceMapper mapper;

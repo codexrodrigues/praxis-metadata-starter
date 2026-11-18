@@ -15,28 +15,60 @@ import java.util.Set;
  * @param fields campos estatisticos elegiveis no recurso
  * @param maxDimensions numero maximo de dimensoes simultaneas suportadas em group-by
  * @param maxCells numero maximo de celulas (buckets) suportadas em consultas multidimensionais/densificadas
+ * @param maxTimeSeriesWindowDays janela maxima em dias permitida para series temporais diarias ({@code DAY})
+ * @param defaultMinBucketCount limiar minimo padrao de k-anonymity (LGPD) aplicado aos campos sem override proprio ({@code 0} = desabilitado por padrao)
  */
 public record StatsCapability(
         List<StatsFieldCapability> fields,
         int maxDimensions,
-        int maxCells
+        int maxCells,
+        int maxTimeSeriesWindowDays,
+        int defaultMinBucketCount
 ) {
 
     public static final int DEFAULT_MAX_DIMENSIONS = 2;
     public static final int DEFAULT_MAX_CELLS = 500;
+    public static final int DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS = 366;
+    public static final int DEFAULT_MIN_BUCKET_COUNT = 0;
 
     public StatsCapability {
         fields = fields == null ? List.of() : List.copyOf(fields);
         maxDimensions = maxDimensions <= 0 ? DEFAULT_MAX_DIMENSIONS : maxDimensions;
         maxCells = maxCells <= 0 ? DEFAULT_MAX_CELLS : maxCells;
+        maxTimeSeriesWindowDays = maxTimeSeriesWindowDays <= 0
+                ? DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS
+                : maxTimeSeriesWindowDays;
+        defaultMinBucketCount = Math.max(0, defaultMinBucketCount);
     }
 
     public StatsCapability(List<StatsFieldCapability> fields) {
-        this(fields, DEFAULT_MAX_DIMENSIONS, DEFAULT_MAX_CELLS);
+        this(
+                fields,
+                DEFAULT_MAX_DIMENSIONS,
+                DEFAULT_MAX_CELLS,
+                DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS,
+                DEFAULT_MIN_BUCKET_COUNT
+        );
+    }
+
+    public StatsCapability(List<StatsFieldCapability> fields, int maxDimensions, int maxCells) {
+        this(
+                fields,
+                maxDimensions,
+                maxCells,
+                DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS,
+                DEFAULT_MIN_BUCKET_COUNT
+        );
     }
 
     public static StatsCapability empty() {
-        return new StatsCapability(List.of(), DEFAULT_MAX_DIMENSIONS, DEFAULT_MAX_CELLS);
+        return new StatsCapability(
+                List.of(),
+                DEFAULT_MAX_DIMENSIONS,
+                DEFAULT_MAX_CELLS,
+                DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS,
+                DEFAULT_MIN_BUCKET_COUNT
+        );
     }
 
     public static StatsCapability from(StatsFieldRegistry registry) {
@@ -48,7 +80,9 @@ public record StatsCapability(
                         .map(StatsFieldCapability::from)
                         .toList(),
                 DEFAULT_MAX_DIMENSIONS,
-                DEFAULT_MAX_CELLS
+                DEFAULT_MAX_CELLS,
+                DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS,
+                DEFAULT_MIN_BUCKET_COUNT
         );
     }
 
@@ -64,7 +98,9 @@ public record StatsCapability(
                 timeSeriesStatsSupportMode,
                 distributionStatsSupportMode,
                 DEFAULT_MAX_DIMENSIONS,
-                DEFAULT_MAX_CELLS
+                DEFAULT_MAX_CELLS,
+                DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS,
+                DEFAULT_MIN_BUCKET_COUNT
         );
     }
 
@@ -76,14 +112,36 @@ public record StatsCapability(
             int maxDimensions,
             int maxCells
     ) {
+        return from(
+                registry,
+                groupByStatsSupportMode,
+                timeSeriesStatsSupportMode,
+                distributionStatsSupportMode,
+                maxDimensions,
+                maxCells,
+                DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS,
+                DEFAULT_MIN_BUCKET_COUNT
+        );
+    }
+
+    public static StatsCapability from(
+            StatsFieldRegistry registry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode,
+            int maxDimensions,
+            int maxCells,
+            int maxTimeSeriesWindowDays,
+            int defaultMinBucketCount
+    ) {
         if (registry == null || registry.isEmpty()) {
-            return new StatsCapability(List.of(), maxDimensions, maxCells);
+            return new StatsCapability(List.of(), maxDimensions, maxCells, maxTimeSeriesWindowDays, defaultMinBucketCount);
         }
         boolean groupByEnabled = groupByStatsSupportMode != StatsSupportMode.DISABLED;
         boolean timeSeriesEnabled = timeSeriesStatsSupportMode != StatsSupportMode.DISABLED;
         boolean distributionEnabled = distributionStatsSupportMode != StatsSupportMode.DISABLED;
         if (!groupByEnabled && !timeSeriesEnabled && !distributionEnabled) {
-            return new StatsCapability(List.of(), maxDimensions, maxCells);
+            return new StatsCapability(List.of(), maxDimensions, maxCells, maxTimeSeriesWindowDays, defaultMinBucketCount);
         }
         return new StatsCapability(
                 registry.descriptors().stream()
@@ -101,7 +159,9 @@ public record StatsCapability(
                         .map(StatsFieldCapability::from)
                         .toList(),
                 maxDimensions,
-                maxCells
+                maxCells,
+                maxTimeSeriesWindowDays,
+                defaultMinBucketCount
         );
     }
 
@@ -127,7 +187,9 @@ public record StatsCapability(
                 hasTimeSeriesMode,
                 hasTermsMode,
                 hasHistogramMode,
-                hasMetricMode
+                hasMetricMode,
+                descriptor.endPropertyPath(),
+                descriptor.minBucketCount()
         );
     }
 }

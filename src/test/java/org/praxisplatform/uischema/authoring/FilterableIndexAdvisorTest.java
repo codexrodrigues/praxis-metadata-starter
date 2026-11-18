@@ -455,4 +455,23 @@ class FilterableIndexAdvisorTest {
                 "@DefaultSortColumn on entity must be recommended for B-Tree indexing in ascending priority order"
         );
     }
+
+    @Test
+    void analyzesBothEndpointsOfTemporalIntervalStatsFields() {
+        StatsFieldRegistry validInterval = StatsFieldRegistry.builder()
+                .temporalIntervalTimeSeriesField("activePeriod", "hireDate", "contact.address.zipCode")
+                .build();
+        FilterableIndexAdvisor advisor = new FilterableIndexAdvisor();
+
+        FilterableIndexAdviceReport validReport = advisor.analyze(EmployeeEntity.class, RecordEmployeeFilterDTO.class, validInterval);
+        assertTrue(validReport.unresolvedPropertyPaths().isEmpty(), () -> "Unexpected unresolved paths: " + validReport.unresolvedPropertyPaths());
+        assertTrue(validReport.recommendations().stream().anyMatch(r -> "hire_date".equals(r.columnName())));
+        assertTrue(validReport.recommendations().stream().anyMatch(r -> "postal_code".equals(r.columnName())));
+
+        StatsFieldRegistry brokenInterval = StatsFieldRegistry.builder()
+                .temporalIntervalTimeSeriesField("activePeriod", "hireDate", "missingEndColumn")
+                .build();
+        FilterableIndexAdviceReport brokenReport = advisor.analyze(EmployeeEntity.class, RecordEmployeeFilterDTO.class, brokenInterval);
+        assertEquals(List.of("missingEndColumn"), brokenReport.unresolvedPropertyPaths());
+    }
 }

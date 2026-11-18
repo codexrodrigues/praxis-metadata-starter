@@ -104,6 +104,19 @@ public class FilterableIndexAdvisor {
                         unresolvedPaths.add(keyPath.trim());
                     }
                 }
+                String endPath = descriptor.endPropertyPath();
+                if (endPath != null && !endPath.isBlank() && !endPath.trim().equals(keyPath == null ? "" : keyPath.trim())) {
+                    boolean resolvedEnd = analyzePropertyPath(
+                            entityType,
+                            endPath.trim(),
+                            FilterOperation.BETWEEN,
+                            "stats:" + descriptor.field() + " (interval end)",
+                            acc
+                    );
+                    if (!resolvedEnd) {
+                        unresolvedPaths.add(endPath.trim());
+                    }
+                }
                 String labelPath = descriptor.labelPropertyPath();
                 if (labelPath != null && !labelPath.isBlank() && !labelPath.trim().equals(keyPath == null ? "" : keyPath.trim())) {
                     boolean resolvedLabel = analyzePropertyPath(

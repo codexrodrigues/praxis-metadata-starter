@@ -24,13 +24,19 @@ public record GroupByStatsResponse(
         @JsonInclude(JsonInclude.Include.NON_NULL)
         List<StatsDimensionRequest> dimensions,
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        ComparisonPeriodWindow window
+        ComparisonPeriodWindow window,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Boolean suppressed,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Integer suppressedBucketCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Integer minBucketCount
 ) {
     /**
      * Construtor para respostas de metrica unica 1D.
      */
     public GroupByStatsResponse(String field, StatsMetricRequest metric, List<GroupByBucket> buckets) {
-        this(field, metric, buckets, null, null, null);
+        this(field, metric, buckets, null, null, null, null, null, null);
     }
 
     /**
@@ -42,7 +48,21 @@ public record GroupByStatsResponse(
             List<GroupByBucket> buckets,
             List<StatsMetricRequest> metrics
     ) {
-        this(field, metric, buckets, metrics, null, null);
+        this(field, metric, buckets, metrics, null, null, null, null, null);
+    }
+
+    /**
+     * Construtor para respostas multidimensionais ou com janela sem metadado de supressao.
+     */
+    public GroupByStatsResponse(
+            String field,
+            StatsMetricRequest metric,
+            List<GroupByBucket> buckets,
+            List<StatsMetricRequest> metrics,
+            List<StatsDimensionRequest> dimensions,
+            ComparisonPeriodWindow window
+    ) {
+        this(field, metric, buckets, metrics, dimensions, window, null, null, null);
     }
 
     /**

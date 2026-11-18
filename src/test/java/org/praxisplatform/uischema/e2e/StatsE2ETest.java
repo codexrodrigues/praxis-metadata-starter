@@ -28,8 +28,10 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertTrue(body.path("canonicalOperations").path("statsComparison").asBoolean());
         assertEquals(2, body.path("stats").path("maxDimensions").asInt());
         assertEquals(500, body.path("stats").path("maxCells").asInt());
+        assertEquals(366, body.path("stats").path("maxTimeSeriesWindowDays").asInt());
+        assertEquals(0, body.path("stats").path("defaultMinBucketCount").asInt());
         JsonNode fields = body.path("stats").path("fields");
-        assertEquals(6, fields.size());
+        assertEquals(8, fields.size());
         assertEquals("status", fields.get(0).path("field").asText());
         assertEquals("Status", fields.get(0).path("label").asText());
         assertEquals("COUNT", fields.get(0).path("metrics").get(0).asText());
@@ -55,6 +57,17 @@ class StatsE2ETest extends AbstractE2eH2Test {
 
         assertEquals("lastCheckInAt", fields.get(5).path("field").asText());
         assertTrue(fields.get(5).path("timeSeriesEligible").asBoolean());
+
+        assertEquals("activePeriod", fields.get(6).path("field").asText());
+        assertTrue(fields.get(6).path("timeSeriesEligible").asBoolean());
+        assertTrue(fields.get(6).path("temporalInterval").asBoolean());
+        assertEquals(0, fields.get(6).path("supportedExtractions").size());
+        assertEquals(1, fields.get(6).path("modes").size());
+        assertEquals("TIME_SERIES", fields.get(6).path("modes").get(0).asText());
+
+        assertEquals("protectedProfile", fields.get(7).path("field").asText());
+        assertTrue(fields.get(7).path("groupByEligible").asBoolean());
+        assertEquals(2, fields.get(7).path("minBucketCount").asInt());
     }
 
     @Test
@@ -750,6 +763,240 @@ class StatsE2ETest extends AbstractE2eH2Test {
         );
         assertEquals(200, blockedResponse.getStatusCode().value());
         assertEquals(0, body(blockedResponse).path("data").path("buckets").size());
+    }
+
+    @Test
+    void employeesSupportSingleAndTwoDimensionalBoxplotQuantilesInOneCall() throws Exception {
+        ResponseEntity<String> response1D = postJson("/employees/stats/group-by", """
+                {
+                  "filter": {},
+                  "field": "department",
+                  "metrics": [
+                    { "operation": "MIN", "field": "salario", "alias": "min" },
+                    { "operation": "PERCENTILE_25", "field": "salario", "alias": "p25" },
+                    { "operation": "MEDIAN", "field": "salario", "alias": "median" },
+                    { "operation": "PERCENTILE_75", "field": "salario", "alias": "p75" },
+                    { "operation": "MAX", "field": "salario", "alias": "max" },
+                    { "operation": "COUNT", "alias": "count" }
+                  ],
+                  "orderBy": "KEY_ASC"
+                }
+                """);
+        assertEquals(200, response1D.getStatusCode().value());
+        JsonNode buckets1D = body(response1D).path("data").path("buckets");
+        assertEquals(2, buckets1D.size());
+        assertFalse(body(response1D).path("data").path("suppressed").asBoolean());
+
+        JsonNode hrBucket = buckets1D.get(0);
+        assertEquals("Human Resources", hrBucket.path("label").asText());
+        assertEquals(5300.0, hrBucket.path("values").path("min").asDouble(), 0.01);
+        assertEquals(5675.0, hrBucket.path("values").path("p25").asDouble(), 0.01);
+        assertEquals(6050.0, hrBucket.path("values").path("median").asDouble(), 0.01);
+        assertEquals(6625.0, hrBucket.path("values").path("p75").asDouble(), 0.01);
+        assertEquals(7200.0, hrBucket.path("values").path("max").asDouble(), 0.01);
+        assertEquals(3, hrBucket.path("values").path("count").asInt());
+
+        JsonNode opsBucket = buckets1D.get(1);
+        assertEquals("Operations", opsBucket.path("label").asText());
+        assertEquals(4950.0, opsBucket.path("values").path("min").asDouble(), 0.01);
+        assertEquals(5875.0, opsBucket.path("values").path("p25").asDouble(), 0.01);
+        assertEquals(6800.0, opsBucket.path("values").path("median").asDouble(), 0.01);
+        assertEquals(7950.0, opsBucket.path("values").path("p75").asDouble(), 0.01);
+        assertEquals(9100.0, opsBucket.path("values").path("max").asDouble(), 0.01);
+        assertEquals(3, opsBucket.path("values").path("count").asInt());
+
+        ResponseEntity<String> response2D = postJson("/employees/stats/group-by", """
+                {
+                  "filter": {},
+                  "dimensions": [
+                    { "field": "department", "alias": "dept" },
+                    { "field": "status", "alias": "status" }
+                  ],
+                  "metrics": [
+                    { "operation": "MIN", "field": "salario", "alias": "min" },
+                    { "operation": "PERCENTILE_25", "field": "salario", "alias": "p25" },
+                    { "operation": "MEDIAN", "field": "salario", "alias": "median" },
+                    { "operation": "PERCENTILE_75", "field": "salario", "alias": "p75" },
+                    { "operation": "MAX", "field": "salario", "alias": "max" },
+                    { "operation": "COUNT", "alias": "count" }
+                  ],
+                  "orderBy": "KEY_ASC"
+                }
+                """);
+        assertEquals(200, response2D.getStatusCode().value());
+        JsonNode hrActive = findBucketByCoordinates(
+                body(response2D).path("data").path("buckets"),
+                "dept",
+                state.humanResourcesDepartmentId(),
+                "status",
+                "ACTIVE"
+        );
+        assertEquals(6050.0, hrActive.path("values").path("min").asDouble(), 0.01);
+        assertEquals(6337.5, hrActive.path("values").path("p25").asDouble(), 0.01);
+        assertEquals(6625.0, hrActive.path("values").path("median").asDouble(), 0.01);
+        assertEquals(6912.5, hrActive.path("values").path("p75").asDouble(), 0.01);
+        assertEquals(7200.0, hrActive.path("values").path("max").asDouble(), 0.01);
+        assertEquals(2, hrActive.path("values").path("count").asInt());
+    }
+
+    @Test
+    void employeesActiveIntervalTimeSeriesCountsOpenAndClosedIntervalsAcrossGranularities() throws Exception {
+        ResponseEntity<String> monthResponse = postJson("/employees/stats/timeseries", """
+                {
+                  "filter": {},
+                  "field": "activePeriod",
+                  "granularity": "MONTH",
+                  "metric": { "operation": "COUNT" },
+                  "from": "2023-01-01",
+                  "to": "2023-04-30",
+                  "timezone": "America/Sao_Paulo",
+                  "fillGaps": true
+                }
+                """);
+        assertEquals(200, monthResponse.getStatusCode().value());
+        JsonNode monthPoints = body(monthResponse).path("data").path("points");
+        assertEquals(4, monthPoints.size());
+        assertEquals(4, monthPoints.get(0).path("value").asInt());
+        assertEquals(5, monthPoints.get(1).path("value").asInt());
+        assertEquals(3, monthPoints.get(2).path("value").asInt());
+        assertEquals(3, monthPoints.get(3).path("value").asInt());
+
+        ResponseEntity<String> weekResponse = postJson("/employees/stats/timeseries", """
+                {
+                  "filter": {},
+                  "field": "activePeriod",
+                  "granularity": "WEEK",
+                  "metric": { "operation": "COUNT" },
+                  "from": "2023-02-06",
+                  "to": "2023-02-26",
+                  "timezone": "UTC",
+                  "fillGaps": false
+                }
+                """);
+        assertEquals(200, weekResponse.getStatusCode().value());
+        JsonNode weekPoints = body(weekResponse).path("data").path("points");
+        assertEquals(3, weekPoints.size());
+        assertEquals(4, weekPoints.get(0).path("value").asInt());
+        assertEquals(5, weekPoints.get(1).path("value").asInt());
+        assertEquals(3, weekPoints.get(2).path("value").asInt());
+
+        ResponseEntity<String> dayResponse = postJson("/employees/stats/timeseries", """
+                {
+                  "filter": {},
+                  "field": "activePeriod",
+                  "granularity": "DAY",
+                  "metric": { "operation": "COUNT" },
+                  "from": "2023-02-13",
+                  "to": "2023-02-16",
+                  "timezone": "UTC",
+                  "fillGaps": false
+                }
+                """);
+        assertEquals(200, dayResponse.getStatusCode().value());
+        JsonNode dayPoints = body(dayResponse).path("data").path("points");
+        assertEquals(4, dayPoints.size());
+        assertEquals(4, dayPoints.get(0).path("value").asInt());
+        assertEquals(4, dayPoints.get(1).path("value").asInt());
+        assertEquals(4, dayPoints.get(2).path("value").asInt());
+        assertEquals(3, dayPoints.get(3).path("value").asInt());
+
+        ResponseEntity<String> missingBounds = postJson("/employees/stats/timeseries", """
+                {
+                  "filter": {},
+                  "field": "activePeriod",
+                  "granularity": "MONTH",
+                  "metric": { "operation": "COUNT" }
+                }
+                """);
+        assertEquals(400, missingBounds.getStatusCode().value());
+        assertNoStackTrace(body(missingBounds));
+
+        ResponseEntity<String> windowExceeded = postJson("/employees/stats/timeseries", """
+                {
+                  "filter": {},
+                  "field": "activePeriod",
+                  "granularity": "MONTH",
+                  "metric": { "operation": "COUNT" },
+                  "from": "2022-01-01",
+                  "to": "2023-06-30"
+                }
+                """);
+        assertEquals(400, windowExceeded.getStatusCode().value());
+        assertContainsReason(body(windowExceeded), "window");
+        assertNoStackTrace(body(windowExceeded));
+
+        ResponseEntity<String> invalidGroupBy = postJson("/employees/stats/group-by", """
+                {
+                  "filter": {},
+                  "field": "activePeriod",
+                  "metric": { "operation": "COUNT" }
+                }
+                """);
+        assertEquals(400, invalidGroupBy.getStatusCode().value());
+        assertNoStackTrace(body(invalidGroupBy));
+    }
+
+    @Test
+    void employeesSuppressProtectedSmallBucketsInGroupBy2DAndDistribution() throws Exception {
+        ResponseEntity<String> groupBy1D = postJson("/employees/stats/group-by", """
+                {
+                  "filter": {},
+                  "field": "protectedProfile",
+                  "metric": { "operation": "COUNT" },
+                  "orderBy": "VALUE_ASC",
+                  "limit": 10
+                }
+                """);
+        assertEquals(200, groupBy1D.getStatusCode().value());
+        JsonNode data1D = body(groupBy1D).path("data");
+        assertTrue(data1D.path("suppressed").asBoolean());
+        assertEquals(2, data1D.path("suppressedBucketCount").asInt());
+        assertEquals(2, data1D.path("minBucketCount").asInt());
+        assertEquals(2, data1D.path("buckets").size());
+        assertEquals("EXEC", data1D.path("buckets").get(0).path("key").asText());
+        assertEquals("OPS", data1D.path("buckets").get(1).path("key").asText());
+
+        ResponseEntity<String> groupBy2D = postJson("/employees/stats/group-by", """
+                {
+                  "filter": {},
+                  "dimensions": [
+                    { "field": "department", "alias": "dept" },
+                    { "field": "protectedProfile", "alias": "profile" }
+                  ],
+                  "metric": { "operation": "COUNT" },
+                  "orderBy": "VALUE_ASC",
+                  "fillGaps": true,
+                  "limit": 20
+                }
+                """);
+        assertEquals(200, groupBy2D.getStatusCode().value());
+        JsonNode data2D = body(groupBy2D).path("data");
+        assertTrue(data2D.path("suppressed").asBoolean());
+        assertEquals(2, data2D.path("suppressedBucketCount").asInt());
+        assertEquals(2, data2D.path("minBucketCount").asInt());
+        assertEquals(2, data2D.path("buckets").size());
+        for (JsonNode bucket : data2D.path("buckets")) {
+            assertTrue(bucket.path("count").asLong() >= 2L);
+        }
+
+        ResponseEntity<String> distributionPercentile = postJson("/employees/stats/distribution", """
+                {
+                  "filter": {},
+                  "field": "protectedProfile",
+                  "mode": "TERMS",
+                  "metric": { "operation": "PERCENTILE_25", "field": "salario" },
+                  "orderBy": "KEY_ASC",
+                  "limit": 10
+                }
+                """);
+        assertEquals(200, distributionPercentile.getStatusCode().value());
+        JsonNode distData = body(distributionPercentile).path("data");
+        assertTrue(distData.path("suppressed").asBoolean());
+        assertEquals(2, distData.path("suppressedBucketCount").asInt());
+        assertEquals(2, distData.path("minBucketCount").asInt());
+        assertEquals(2, distData.path("buckets").size());
+        assertEquals("EXEC", distData.path("buckets").get(0).path("key").asText());
+        assertEquals("OPS", distData.path("buckets").get(1).path("key").asText());
     }
 
     private JsonNode findBucketByCoordinates(

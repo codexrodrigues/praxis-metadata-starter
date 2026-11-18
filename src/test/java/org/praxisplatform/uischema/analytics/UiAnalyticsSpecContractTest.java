@@ -174,6 +174,47 @@ class UiAnalyticsSpecContractTest {
         assertTrue(schema.validate(matrixExample).isEmpty());
     }
 
+    @Test
+    void boxplotProjectionWithPercentilesAndAliasIsSchemaValid() throws Exception {
+        JsonNode schemaDocument = objectMapper.readTree(
+                Path.of("docs/spec/x-ui-analytics.schema.json").toFile());
+        JsonSchema schema = JsonSchemaFactory
+                .getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(schemaDocument);
+
+        JsonNode boxplotExample = objectMapper.readTree("""
+                {
+                  "projections": [
+                    {
+                      "id": "salary-boxplot-by-department",
+                      "intent": "distribution",
+                      "source": {
+                        "kind": "praxis.stats",
+                        "resource": "/api/human-resources/employees",
+                        "operation": "group-by"
+                      },
+                      "bindings": {
+                        "primaryDimension": {
+                          "field": "department",
+                          "role": "category"
+                        },
+                        "primaryMetrics": [
+                          { "field": "salario", "aggregation": "min", "alias": "min" },
+                          { "field": "salario", "aggregation": "percentile-25", "alias": "p25" },
+                          { "field": "salario", "aggregation": "median", "alias": "median" },
+                          { "field": "salario", "aggregation": "percentile-75", "alias": "p75" },
+                          { "field": "salario", "aggregation": "max", "alias": "max" },
+                          { "field": "salario", "aggregation": "count", "alias": "count" }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """);
+
+        assertTrue(schema.validate(boxplotExample).isEmpty());
+    }
+
     private Set<String> requiredFields(JsonNode definition) {
         return objectMapper.convertValue(
                 definition.path("required"),

@@ -220,7 +220,19 @@ class CapabilityServiceTest {
 
         StatsFieldCapability salario = snapshot.stats().fields().get(2);
         assertEquals("salario", salario.field());
-        assertEquals(List.of("COUNT", "DISTINCT_COUNT", "SUM", "AVG", "MIN", "MAX", "MEDIAN", "PERCENTILE_90", "PERCENTILE_95"), salario.metrics());
+        assertEquals(List.of(
+                "COUNT",
+                "DISTINCT_COUNT",
+                "SUM",
+                "AVG",
+                "MIN",
+                "MAX",
+                "PERCENTILE_25",
+                "MEDIAN",
+                "PERCENTILE_75",
+                "PERCENTILE_90",
+                "PERCENTILE_95"
+        ), salario.metrics());
         assertEquals(List.of("DISTRIBUTION_HISTOGRAM", "METRIC_FIELD"), salario.modes());
     }
 
@@ -259,6 +271,43 @@ class CapabilityServiceTest {
         assertFalse(snapshot.operations().get("statsTimeSeries").supported());
         assertFalse(snapshot.operations().get("statsDistribution").supported());
         assertTrue(snapshot.stats().fields().isEmpty());
+    }
+
+    @Test
+    void collectionCapabilitiesPublishTemporalIntervalAndMinBucketCountMetadata() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of(
+                        "statsGroupBy", true,
+                        "statsTimeSeries", true,
+                        "statsDistribution", true
+                )),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot snapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                StatsFieldRegistry.builder()
+                        .categoricalGroupByBucket("protectedProfile", "profile", 5)
+                        .temporalIntervalTimeSeriesField("activePeriod", "validFrom", "validTo")
+                        .build()
+        );
+
+        StatsFieldCapability protectedField = snapshot.stats().fields().get(0);
+        assertEquals("protectedProfile", protectedField.field());
+        assertFalse(protectedField.temporalInterval());
+        assertEquals(5, protectedField.minBucketCount());
+
+        StatsFieldCapability intervalField = snapshot.stats().fields().get(1);
+        assertEquals("activePeriod", intervalField.field());
+        assertTrue(intervalField.temporalInterval());
+        assertTrue(intervalField.timeSeriesEligible());
+        assertTrue(intervalField.supportedExtractions().isEmpty());
+        assertFalse(intervalField.keyAndLabelDistinct());
     }
 
     @Test

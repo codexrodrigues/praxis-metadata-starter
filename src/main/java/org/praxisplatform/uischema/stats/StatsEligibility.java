@@ -9,8 +9,11 @@ import org.praxisplatform.uischema.stats.dto.StatsMetricRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsDimension;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -87,6 +90,11 @@ public class StatsEligibility {
             String fieldName = dim.field().trim();
             StatsFieldDescriptor descriptor = registry.resolve(fieldName)
                     .orElseThrow(() -> new IllegalArgumentException("Stats field is not allowed: " + fieldName));
+            if (descriptor.isTemporalInterval()) {
+                throw new IllegalArgumentException(
+                        "Temporal interval stats field is only eligible for time-series queries: " + fieldName
+                );
+            }
             StatsDimensionExtraction extraction = dim.effectiveExtraction();
             if (extraction == StatsDimensionExtraction.NONE) {
                 if (!descriptor.groupByEligible()) {
@@ -139,7 +147,7 @@ public class StatsEligibility {
         if (request.periodField() != null && !request.periodField().isBlank()) {
             StatsFieldDescriptor periodDescriptor = registry.resolve(request.periodField().trim())
                     .orElseThrow(() -> new IllegalArgumentException("Stats period field is not allowed: " + request.periodField()));
-            if (!periodDescriptor.timeSeriesEligible()) {
+            if (!periodDescriptor.timeSeriesEligible() || periodDescriptor.isTemporalInterval()) {
                 throw new IllegalArgumentException("Stats field is not eligible as period field: " + request.periodField());
             }
         } else if (hasTemporalWindow && !hasTimeSeriesEligibleDimension) {
@@ -196,6 +204,20 @@ public class StatsEligibility {
             StatsFieldRegistry registry,
             int maxPoints
     ) {
+        return validateTimeSeries(
+                request,
+                registry,
+                maxPoints,
+                StatsCapability.DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS
+        );
+    }
+
+    public <FD extends GenericFilterDTO> StatsFieldDescriptor validateTimeSeries(
+            TimeSeriesStatsRequest<FD> request,
+            StatsFieldRegistry registry,
+            int maxPoints,
+            int maxTimeSeriesWindowDays
+    ) {
         if (request == null) {
             throw new IllegalArgumentException("Stats request is required.");
         }
@@ -204,6 +226,9 @@ public class StatsEligibility {
         }
         if (request.granularity() == null) {
             throw new IllegalArgumentException("Time-series granularity is required.");
+        }
+        if (request.timezone() != null && !request.timezone().isBlank()) {
+            validateTimezone(request.timezone());
         }
         List<StatsMetricRequest> metrics = requireMetrics(request.effectiveMetrics());
         StatsMetricRequest primaryMetric = request.primaryMetric();
@@ -224,7 +249,21 @@ public class StatsEligibility {
         if (primaryMetric.operation() == StatsMetric.COUNT && !descriptor.supports(primaryMetric.operation())) {
             throw new IllegalArgumentException("Stats metric is not allowed for field: " + request.field());
         }
+        if (descriptor.isTemporalInterval() && (request.from() == null || request.to() == null)) {
+            throw new IllegalArgumentException(
+                    "Temporal interval time-series requires both from and to dates: " + request.field()
+            );
+        }
         if (request.from() != null && request.to() != null) {
+            if (maxTimeSeriesWindowDays > 0
+                    && (descriptor.isTemporalInterval() || request.granularity() == TimeSeriesGranularity.DAY)) {
+                long windowDays = ChronoUnit.DAYS.between(request.from(), request.to()) + 1;
+                if (windowDays > maxTimeSeriesWindowDays) {
+                    throw new IllegalArgumentException(
+                            "Maximum time-series window exceeded: " + maxTimeSeriesWindowDays + " days."
+                    );
+                }
+            }
             long points = estimatePoints(request.from(), request.to(), request.granularity());
             if (points > maxPoints) {
                 throw new IllegalArgumentException("Maximum number of time-series points exceeded: " + maxPoints);
@@ -315,7 +354,7 @@ public class StatsEligibility {
         }
         StatsFieldDescriptor periodDescriptor = registry.resolve(request.periodField())
                 .orElseThrow(() -> new IllegalArgumentException("Comparison period field is not allowed: " + request.periodField()));
-        if (!periodDescriptor.timeSeriesEligible()) {
+        if (!periodDescriptor.timeSeriesEligible() || periodDescriptor.isTemporalInterval()) {
             throw new IllegalArgumentException("Stats field is not eligible as comparison period field: " + request.periodField());
         }
         if (request.limit() != null && (request.limit() <= 0 || request.limit() > maxBuckets)) {
@@ -391,14 +430,16 @@ public class StatsEligibility {
         return metrics;
     }
 
-    private long estimatePoints(java.time.LocalDate from, java.time.LocalDate to, TimeSeriesGranularity granularity) {
+    private long estimatePoints(LocalDate from, LocalDate to, TimeSeriesGranularity granularity) {
         if (granularity == TimeSeriesGranularity.DAY) {
-            return java.time.temporal.ChronoUnit.DAYS.between(from, to) + 1;
+            return ChronoUnit.DAYS.between(from, to) + 1;
         }
         if (granularity == TimeSeriesGranularity.WEEK) {
-            return java.time.temporal.ChronoUnit.WEEKS.between(from, to) + 1;
+            LocalDate startWeek = from.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            LocalDate endWeek = to.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            return ChronoUnit.WEEKS.between(startWeek, endWeek) + 1;
         }
-        return java.time.temporal.ChronoUnit.MONTHS.between(
+        return ChronoUnit.MONTHS.between(
                 from.withDayOfMonth(1),
                 to.withDayOfMonth(1)
         ) + 1;

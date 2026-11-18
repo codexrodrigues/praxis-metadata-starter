@@ -20,6 +20,8 @@ import java.util.Set;
  * @param distributionTermsEligible indica se o campo pode ser usado em distribuicao por termos
  * @param distributionHistogramEligible indica se o campo pode ser usado em distribuicao por histograma
  * @param metricFieldEligible indica se o campo pode ser usado como {@code metric.field}
+ * @param endPropertyPath caminho opcional da extremidade final para eixos temporais em intervalo ativo {@code [keyPropertyPath, endPropertyPath]}
+ * @param minBucketCount limiar declarativo minimo de contagem para supressao LGPD em buckets/celulas (nulo herda o default global; {@code 0} desabilita no campo)
  */
 public record StatsFieldDescriptor(
         String field,
@@ -30,16 +32,50 @@ public record StatsFieldDescriptor(
         boolean timeSeriesEligible,
         boolean distributionTermsEligible,
         boolean distributionHistogramEligible,
-        boolean metricFieldEligible
+        boolean metricFieldEligible,
+        String endPropertyPath,
+        Integer minBucketCount
 ) {
     /**
-     * Normaliza a colecao de metricas para um conjunto imutavel.
+     * Normaliza a colecao de metricas e invariantes de intervalo/supressao.
      */
     public StatsFieldDescriptor {
         metrics = metrics == null ? Set.of() : Set.copyOf(metrics);
         labelPropertyPath = labelPropertyPath == null || labelPropertyPath.isBlank()
                 ? keyPropertyPath
                 : labelPropertyPath;
+        endPropertyPath = endPropertyPath == null || endPropertyPath.isBlank()
+                ? null
+                : endPropertyPath.trim();
+        if (minBucketCount != null && minBucketCount < 0) {
+            throw new IllegalArgumentException("minBucketCount must not be negative");
+        }
+    }
+
+    public StatsFieldDescriptor(
+            String field,
+            String keyPropertyPath,
+            String labelPropertyPath,
+            Set<StatsMetric> metrics,
+            boolean groupByEligible,
+            boolean timeSeriesEligible,
+            boolean distributionTermsEligible,
+            boolean distributionHistogramEligible,
+            boolean metricFieldEligible
+    ) {
+        this(
+                field,
+                keyPropertyPath,
+                labelPropertyPath,
+                metrics,
+                groupByEligible,
+                timeSeriesEligible,
+                distributionTermsEligible,
+                distributionHistogramEligible,
+                metricFieldEligible,
+                null,
+                null
+        );
     }
 
     public StatsFieldDescriptor(
@@ -47,7 +83,7 @@ public record StatsFieldDescriptor(
             String propertyPath,
             Set<StatsMetric> metrics
     ) {
-        this(field, propertyPath, propertyPath, metrics, true, true, true, true, true);
+        this(field, propertyPath, propertyPath, metrics, true, true, true, true, true, null, null);
     }
 
     public static StatsFieldDescriptor groupByBucket(
@@ -115,6 +151,14 @@ public record StatsFieldDescriptor(
         return groupByBucket(field, propertyPath, Set.of(StatsMetric.COUNT));
     }
 
+    public static StatsFieldDescriptor categoricalGroupByBucket(
+            String field,
+            String propertyPath,
+            Integer minBucketCount
+    ) {
+        return groupByBucket(field, propertyPath, Set.of(StatsMetric.COUNT)).withMinBucketCount(minBucketCount);
+    }
+
     public static StatsFieldDescriptor categoricalTermsBucket(
             String field,
             String propertyPath
@@ -122,11 +166,54 @@ public record StatsFieldDescriptor(
         return distributionTermsBucket(field, propertyPath, Set.of(StatsMetric.COUNT));
     }
 
+    public static StatsFieldDescriptor categoricalTermsBucket(
+            String field,
+            String propertyPath,
+            Integer minBucketCount
+    ) {
+        return distributionTermsBucket(field, propertyPath, Set.of(StatsMetric.COUNT)).withMinBucketCount(minBucketCount);
+    }
+
     public static StatsFieldDescriptor temporalTimeSeriesField(
             String field,
             String propertyPath
     ) {
         return timeSeriesField(field, propertyPath);
+    }
+
+    public static StatsFieldDescriptor temporalIntervalTimeSeriesField(
+            String field,
+            String startPropertyPath,
+            String endPropertyPath
+    ) {
+        return temporalIntervalTimeSeriesField(field, startPropertyPath, endPropertyPath, Set.of(StatsMetric.COUNT));
+    }
+
+    public static StatsFieldDescriptor temporalIntervalTimeSeriesField(
+            String field,
+            String startPropertyPath,
+            String endPropertyPath,
+            Set<StatsMetric> metrics
+    ) {
+        if (startPropertyPath == null || startPropertyPath.isBlank()) {
+            throw new IllegalArgumentException("startPropertyPath must not be blank");
+        }
+        if (endPropertyPath == null || endPropertyPath.isBlank()) {
+            throw new IllegalArgumentException("endPropertyPath must not be blank");
+        }
+        return new StatsFieldDescriptor(
+                field,
+                startPropertyPath.trim(),
+                startPropertyPath.trim(),
+                metrics == null || metrics.isEmpty() ? Set.of(StatsMetric.COUNT) : metrics,
+                false,
+                true,
+                false,
+                false,
+                false,
+                endPropertyPath.trim(),
+                null
+        );
     }
 
     public static StatsFieldDescriptor numericMeasureField(
@@ -139,7 +226,9 @@ public record StatsFieldDescriptor(
                 StatsMetric.AVG,
                 StatsMetric.MIN,
                 StatsMetric.MAX,
+                StatsMetric.PERCENTILE_25,
                 StatsMetric.MEDIAN,
+                StatsMetric.PERCENTILE_75,
                 StatsMetric.PERCENTILE_90,
                 StatsMetric.PERCENTILE_95
         ));
@@ -156,7 +245,9 @@ public record StatsFieldDescriptor(
                 StatsMetric.AVG,
                 StatsMetric.MIN,
                 StatsMetric.MAX,
+                StatsMetric.PERCENTILE_25,
                 StatsMetric.MEDIAN,
+                StatsMetric.PERCENTILE_75,
                 StatsMetric.PERCENTILE_90,
                 StatsMetric.PERCENTILE_95
         ));
@@ -167,6 +258,37 @@ public record StatsFieldDescriptor(
             String propertyPath
     ) {
         return metricField(field, propertyPath, Set.of(StatsMetric.DISTINCT_COUNT));
+    }
+
+    public boolean isTemporalInterval() {
+        return endPropertyPath != null && !endPropertyPath.isBlank();
+    }
+
+    public String startPropertyPath() {
+        return keyPropertyPath;
+    }
+
+    public StatsFieldDescriptor withMinBucketCount(Integer minBucketCount) {
+        return new StatsFieldDescriptor(
+                field,
+                keyPropertyPath,
+                labelPropertyPath,
+                metrics,
+                groupByEligible,
+                timeSeriesEligible,
+                distributionTermsEligible,
+                distributionHistogramEligible,
+                metricFieldEligible,
+                endPropertyPath,
+                minBucketCount
+        );
+    }
+
+    public int resolveMinBucketCount(int defaultMinBucketCount) {
+        if (minBucketCount != null) {
+            return Math.max(0, minBucketCount);
+        }
+        return Math.max(0, defaultMinBucketCount);
     }
 
     /**

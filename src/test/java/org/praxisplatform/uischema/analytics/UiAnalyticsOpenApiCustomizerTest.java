@@ -305,6 +305,30 @@ class UiAnalyticsOpenApiCustomizerTest {
         );
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void mapsBoxplotMetricsAndNormalizesPercentileWireNamesAndAliases() throws Exception {
+        UiAnalytics annotation = BoxplotAnalyticsController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+
+        Map<String, Object> analytics = new UiAnalyticsAnnotationMapper()
+                .toXUiAnalytics(annotation, "/reports/stats/group-by");
+        Map<String, Object> projection = ((java.util.List<Map<String, Object>>) analytics.get("projections")).get(0);
+        Map<String, Object> bindings = (Map<String, Object>) projection.get("bindings");
+        java.util.List<Map<String, Object>> metrics =
+                (java.util.List<Map<String, Object>>) bindings.get("primaryMetrics");
+
+        assertEquals(6, metrics.size());
+        assertEquals("min", metrics.get(0).get("aggregation"));
+        assertEquals("percentile-25", metrics.get(1).get("aggregation"));
+        assertEquals("p25", metrics.get(1).get("alias"));
+        assertEquals("median", metrics.get(2).get("aggregation"));
+        assertEquals("percentile-75", metrics.get(3).get("aggregation"));
+        assertEquals("p75", metrics.get(3).get("alias"));
+        assertEquals("max", metrics.get(4).get("aggregation"));
+        assertEquals("count", metrics.get(5).get("aggregation"));
+    }
+
     static class SampleController {
 
         @PostMapping("/reports/stats/group-by")
@@ -643,6 +667,29 @@ class UiAnalyticsOpenApiCustomizerTest {
                         ),
                         primaryMetrics = @AnalyticsMetricBinding(field = "id", aggregation = "count"),
                         crossFilter = true
+                )
+        )
+        public void groupBy() {
+        }
+    }
+
+    static class BoxplotAnalyticsController {
+
+        @PostMapping("/reports/stats/group-by")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "salary-boxplot",
+                        intent = AnalyticsIntent.DISTRIBUTION,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(field = "department", role = "category"),
+                        primaryMetrics = {
+                                @AnalyticsMetricBinding(field = "salario", aggregation = "min", alias = "min"),
+                                @AnalyticsMetricBinding(field = "salario", aggregation = "PERCENTILE_25", label = "Q1", alias = "p25"),
+                                @AnalyticsMetricBinding(field = "salario", aggregation = "median", alias = "median"),
+                                @AnalyticsMetricBinding(field = "salario", aggregation = "percentile-75", label = "Q3", alias = "p75"),
+                                @AnalyticsMetricBinding(field = "salario", aggregation = "max", alias = "max"),
+                                @AnalyticsMetricBinding(field = "salario", aggregation = "count", alias = "count")
+                        }
                 )
         )
         public void groupBy() {

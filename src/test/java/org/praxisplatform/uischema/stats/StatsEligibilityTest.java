@@ -346,6 +346,124 @@ class StatsEligibilityTest {
         );
     }
 
+    @Test
+    void supportsP25AndP75OnNumericMeasures() {
+        StatsFieldRegistry registry = StatsFieldRegistry.builder()
+                .categoricalGroupByBucket("department", "department")
+                .numericMeasureField("salary", "salary")
+                .build();
+
+        GroupByStatsRequest<TestFilterDTO> boxplotRequest = new GroupByStatsRequest<>(
+                new TestFilterDTO(),
+                "department",
+                null,
+                10,
+                StatsBucketOrder.KEY_ASC,
+                List.of(
+                        new StatsMetricRequest(StatsMetric.MIN, "salary", "min"),
+                        new StatsMetricRequest(StatsMetric.PERCENTILE_25, "salary", "p25"),
+                        new StatsMetricRequest(StatsMetric.MEDIAN, "salary", "median"),
+                        new StatsMetricRequest(StatsMetric.PERCENTILE_75, "salary", "p75"),
+                        new StatsMetricRequest(StatsMetric.MAX, "salary", "max"),
+                        new StatsMetricRequest(StatsMetric.COUNT, null, "count")
+                )
+        );
+
+        assertDoesNotThrow(() -> eligibility.validateGroupBy(boxplotRequest, registry, 50));
+    }
+
+    @Test
+    void enforcesTemporalIntervalRulesTimeSeriesWindowDaysAndWeekAlignment() {
+        StatsFieldRegistry registry = StatsFieldRegistry.builder()
+                .temporalTimeSeriesField("createdOn", "createdOn")
+                .temporalIntervalTimeSeriesField("activePeriod", "startedAt", "endedAt")
+                .build();
+
+        TimeSeriesStatsRequest<TestFilterDTO> intervalMissingBounds = new TimeSeriesStatsRequest<>(
+                new TestFilterDTO(),
+                "activePeriod",
+                TimeSeriesGranularity.MONTH,
+                new StatsMetricRequest(StatsMetric.COUNT, null, "active"),
+                LocalDate.of(2025, 1, 1),
+                null,
+                Boolean.TRUE
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> eligibility.validateTimeSeries(intervalMissingBounds, registry, 24, 366)
+        );
+
+        TimeSeriesStatsRequest<TestFilterDTO> intervalWindowTooLarge = new TimeSeriesStatsRequest<>(
+                new TestFilterDTO(),
+                "activePeriod",
+                TimeSeriesGranularity.MONTH,
+                new StatsMetricRequest(StatsMetric.COUNT, null, "active"),
+                LocalDate.of(2024, 1, 1),
+                LocalDate.of(2025, 6, 30),
+                Boolean.TRUE,
+                null,
+                "UTC"
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> eligibility.validateTimeSeries(intervalWindowTooLarge, registry, 24, 366)
+        );
+
+        TimeSeriesStatsRequest<TestFilterDTO> invalidTimezone = new TimeSeriesStatsRequest<>(
+                new TestFilterDTO(),
+                "activePeriod",
+                TimeSeriesGranularity.DAY,
+                new StatsMetricRequest(StatsMetric.COUNT, null, "active"),
+                LocalDate.of(2025, 1, 1),
+                LocalDate.of(2025, 1, 10),
+                Boolean.TRUE,
+                null,
+                "Invalid/Zone"
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> eligibility.validateTimeSeries(invalidTimezone, registry, 24, 366)
+        );
+
+        TimeSeriesStatsRequest<TestFilterDTO> pointInTimeMonthOverYearAllowed = new TimeSeriesStatsRequest<>(
+                new TestFilterDTO(),
+                "createdOn",
+                TimeSeriesGranularity.MONTH,
+                new StatsMetricRequest(StatsMetric.COUNT, null, "hires"),
+                LocalDate.of(2024, 1, 1),
+                LocalDate.of(2025, 6, 30),
+                Boolean.FALSE
+        );
+        assertDoesNotThrow(() -> eligibility.validateTimeSeries(pointInTimeMonthOverYearAllowed, registry, 24, 366));
+
+        // Sunday 2026-03-08 to Monday 2026-03-09 produces 2 Monday-aligned week buckets; maxPoints=1 must reject
+        TimeSeriesStatsRequest<TestFilterDTO> twoAlignedWeeks = new TimeSeriesStatsRequest<>(
+                new TestFilterDTO(),
+                "createdOn",
+                TimeSeriesGranularity.WEEK,
+                new StatsMetricRequest(StatsMetric.COUNT, null, "hires"),
+                LocalDate.of(2026, 3, 8),
+                LocalDate.of(2026, 3, 9),
+                Boolean.TRUE
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> eligibility.validateTimeSeries(twoAlignedWeeks, registry, 1, 366)
+        );
+
+        GroupByStatsRequest<TestFilterDTO> intervalInGroupBy = new GroupByStatsRequest<>(
+                new TestFilterDTO(),
+                "activePeriod",
+                new StatsMetricRequest(StatsMetric.COUNT, null, "count"),
+                10,
+                null
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> eligibility.validateGroupBy(intervalInGroupBy, registry, 50)
+        );
+    }
+
     static class TestFilterDTO implements GenericFilterDTO {
     }
 }

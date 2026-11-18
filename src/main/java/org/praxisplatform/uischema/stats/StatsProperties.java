@@ -11,7 +11,9 @@ public record StatsProperties(
         int maxComparisonCandidates,
         int maxComparisonPeriodDays,
         int maxDimensions,
-        int maxCells
+        int maxCells,
+        int maxTimeSeriesWindowDays,
+        int defaultMinBucketCount
 ) {
     public StatsProperties {
         if (maxBuckets <= 0) {
@@ -32,7 +34,37 @@ public record StatsProperties(
         if (maxCells <= 0) {
             maxCells = 500;
         }
+        if (maxTimeSeriesWindowDays <= 0) {
+            maxTimeSeriesWindowDays = 366;
+        }
+        if (defaultMinBucketCount < 0) {
+            defaultMinBucketCount = 0;
+        }
         defaultMode = defaultMode == null ? StatsSupportMode.DISABLED : defaultMode;
+    }
+
+    public StatsProperties(
+            boolean enabled,
+            int maxBuckets,
+            int maxSeriesPoints,
+            StatsSupportMode defaultMode,
+            int maxComparisonCandidates,
+            int maxComparisonPeriodDays,
+            int maxDimensions,
+            int maxCells
+    ) {
+        this(
+                enabled,
+                maxBuckets,
+                maxSeriesPoints,
+                defaultMode,
+                maxComparisonCandidates,
+                maxComparisonPeriodDays,
+                maxDimensions,
+                maxCells,
+                366,
+                0
+        );
     }
 
     public StatsProperties(
@@ -43,14 +75,14 @@ public record StatsProperties(
             int maxComparisonCandidates,
             int maxComparisonPeriodDays
     ) {
-        this(enabled, maxBuckets, maxSeriesPoints, defaultMode, maxComparisonCandidates, maxComparisonPeriodDays, 2, 500);
+        this(enabled, maxBuckets, maxSeriesPoints, defaultMode, maxComparisonCandidates, maxComparisonPeriodDays, 2, 500, 366, 0);
     }
 
     public StatsProperties(boolean enabled, int maxBuckets, int maxSeriesPoints, StatsSupportMode defaultMode) {
-        this(enabled, maxBuckets, maxSeriesPoints, defaultMode, 1_000, 366, 2, 500);
+        this(enabled, maxBuckets, maxSeriesPoints, defaultMode, 1_000, 366, 2, 500, 366, 0);
     }
 
     public static StatsProperties defaults() {
-        return new StatsProperties(false, 20, 100, StatsSupportMode.DISABLED, 1_000, 366, 2, 500);
+        return new StatsProperties(false, 20, 100, StatsSupportMode.DISABLED, 1_000, 366, 2, 500, 366, 0);
     }
 }

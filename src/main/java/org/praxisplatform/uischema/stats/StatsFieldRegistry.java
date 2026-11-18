@@ -117,12 +117,42 @@ public final class StatsFieldRegistry {
             return add(StatsFieldDescriptor.categoricalGroupByBucket(field, propertyPath));
         }
 
+        public Builder categoricalGroupByBucket(String field, String propertyPath, Integer minBucketCount) {
+            return add(StatsFieldDescriptor.categoricalGroupByBucket(field, propertyPath, minBucketCount));
+        }
+
         public Builder categoricalTermsBucket(String field, String propertyPath) {
             return add(StatsFieldDescriptor.categoricalTermsBucket(field, propertyPath));
         }
 
+        public Builder categoricalTermsBucket(String field, String propertyPath, Integer minBucketCount) {
+            return add(StatsFieldDescriptor.categoricalTermsBucket(field, propertyPath, minBucketCount));
+        }
+
         public Builder temporalTimeSeriesField(String field, String propertyPath) {
             return add(StatsFieldDescriptor.temporalTimeSeriesField(field, propertyPath));
+        }
+
+        public Builder temporalIntervalTimeSeriesField(
+                String field,
+                String startPropertyPath,
+                String endPropertyPath
+        ) {
+            return add(StatsFieldDescriptor.temporalIntervalTimeSeriesField(field, startPropertyPath, endPropertyPath));
+        }
+
+        public Builder temporalIntervalTimeSeriesField(
+                String field,
+                String startPropertyPath,
+                String endPropertyPath,
+                java.util.Set<StatsMetric> metrics
+        ) {
+            return add(StatsFieldDescriptor.temporalIntervalTimeSeriesField(
+                    field,
+                    startPropertyPath,
+                    endPropertyPath,
+                    metrics
+            ));
         }
 
         public Builder numericMeasureField(String field, String propertyPath) {

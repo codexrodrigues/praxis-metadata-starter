@@ -158,7 +158,9 @@ public abstract class AbstractBaseQueryResourceService<
                                 timeSeries ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
                                 distribution ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
                                 properties.maxDimensions(),
-                                properties.maxCells()
+                                properties.maxCells(),
+                                properties.maxTimeSeriesWindowDays(),
+                                properties.defaultMinBucketCount()
                         )
                         : StatsCapability.empty(),
                 getCollectionExportCapability().orElse(null)
@@ -1172,7 +1174,8 @@ public abstract class AbstractBaseQueryResourceService<
                 request,
                 window,
                 properties.maxBuckets(),
-                properties.maxCells()
+                properties.maxCells(),
+                properties.defaultMinBucketCount()
         );
     }
 
@@ -1218,7 +1221,7 @@ public abstract class AbstractBaseQueryResourceService<
         }
         return dimensions.stream()
                 .map(ResolvedStatsDimension::descriptor)
-                .filter(StatsFieldDescriptor::timeSeriesEligible)
+                .filter(descriptor -> descriptor.timeSeriesEligible() && !descriptor.isTemporalInterval())
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Stats group-by with temporal window requires a temporal dimension or explicit periodField."
@@ -1237,7 +1240,8 @@ public abstract class AbstractBaseQueryResourceService<
         StatsFieldDescriptor descriptor = statsEligibility.validateTimeSeries(
                 request,
                 resolveEffectiveStatsFieldRegistry(),
-                properties.maxSeriesPoints()
+                properties.maxSeriesPoints(),
+                properties.maxTimeSeriesWindowDays()
         );
         List<ResolvedStatsMetric> resolvedMetrics = resolveMetrics(request.effectiveMetrics(), "time-series");
         Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged()).effectiveSpecification();
@@ -1278,7 +1282,8 @@ public abstract class AbstractBaseQueryResourceService<
                 descriptor,
                 metricDescriptor,
                 request,
-                properties.maxBuckets()
+                properties.maxBuckets(),
+                properties.defaultMinBucketCount()
         );
     }
 
@@ -1305,12 +1310,23 @@ public abstract class AbstractBaseQueryResourceService<
                 request.filter(), request.field(), request.metrics().get(0), candidateLimit + 1,
                 StatsBucketOrder.KEY_ASC, request.metrics()
         );
+        List<org.praxisplatform.uischema.stats.service.ResolvedStatsDimension> dimensions = List.of(
+                new org.praxisplatform.uischema.stats.service.ResolvedStatsDimension(
+                        new org.praxisplatform.uischema.stats.dto.StatsDimensionRequest(
+                                descriptor.field(),
+                                org.praxisplatform.uischema.stats.StatsDimensionExtraction.NONE,
+                                descriptor.field()
+                        ),
+                        descriptor
+                )
+        );
+        int candidateCellLimit = Math.max(properties.maxCells(), candidateLimit + 1);
         GroupByStatsResponse current = statsQueryExecutor.executeGroupBy(entityManager, entityClass,
                 baseSpec.and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.currentFrom(), period.currentTo(), period.timezone())),
-                descriptor, metrics, groupRequest, candidateLimit + 1);
+                dimensions, metrics, groupRequest, null, candidateLimit + 1, candidateCellLimit, properties.defaultMinBucketCount());
         GroupByStatsResponse previous = statsQueryExecutor.executeGroupBy(entityManager, entityClass,
                 baseSpec.and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.previousFrom(), period.previousTo(), period.timezone())),
-                descriptor, metrics, groupRequest, candidateLimit + 1);
+                dimensions, metrics, groupRequest, null, candidateLimit + 1, candidateCellLimit, properties.defaultMinBucketCount());
         if (current.buckets().size() > candidateLimit || previous.buckets().size() > candidateLimit) {
             throw new IllegalArgumentException("Comparison candidate limit exceeded: " + candidateLimit);
         }

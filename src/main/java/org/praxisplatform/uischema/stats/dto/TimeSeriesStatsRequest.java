@@ -25,7 +25,8 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
         LocalDate from,
         LocalDate to,
         Boolean fillGaps,
-        List<StatsMetricRequest> metrics
+        List<StatsMetricRequest> metrics,
+        String timezone
 ) {
     /**
      * Construtor para o modo de metrica unica.
@@ -39,7 +40,23 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
             LocalDate to,
             Boolean fillGaps
     ) {
-        this(filter, field, granularity, metric, from, to, fillGaps, null);
+        this(filter, field, granularity, metric, from, to, fillGaps, null, null);
+    }
+
+    /**
+     * Construtor para o modo multi-metrica sem timezone explicito.
+     */
+    public TimeSeriesStatsRequest(
+            FD filter,
+            String field,
+            TimeSeriesGranularity granularity,
+            StatsMetricRequest metric,
+            LocalDate from,
+            LocalDate to,
+            Boolean fillGaps,
+            List<StatsMetricRequest> metrics
+    ) {
+        this(filter, field, granularity, metric, from, to, fillGaps, metrics, null);
     }
 
     /**
