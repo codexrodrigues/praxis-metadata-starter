@@ -162,6 +162,7 @@
     "formHidden": { "type": "boolean" },
     "colSpan": { "type": "integer", "minimum": 1, "maximum": 12 },
     "primarySearch": { "type": "boolean" },
+    "inlineFilter": { "type": "boolean" },
     "draftCleared": { "type": "boolean" },
     "contextBinding": {
       "type": "object",
@@ -412,7 +413,7 @@
         },
         "tone": {
           "type": "string",
-          "enum": ["neutral", "info", "success", "warning", "danger"]
+          "enum": ["neutral", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
         },
         "icon": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
@@ -468,7 +469,7 @@
             },
             "tone": {
               "type": "string",
-              "enum": ["neutral", "info", "success", "warning", "danger", "critical"]
+              "enum": ["neutral", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
             },
             "toneExpr": {
               "oneOf": [
@@ -583,7 +584,7 @@
                   "equals": { "type": ["string", "number", "boolean"] },
                   "tone": {
                     "type": "string",
-                    "enum": ["neutral", "info", "success", "warning", "danger", "critical"]
+                    "enum": ["neutral", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
                   },
                   "label": { "type": "string" }
                 }
@@ -764,7 +765,7 @@
         "description": { "type": "string", "minLength": 1 },
         "tone": {
           "type": "string",
-          "enum": ["neutral", "info", "success", "warning"],
+          "enum": ["neutral", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"],
           "description": "Semantic tone resolved by Praxis/host tokens, never an arbitrary color."
         },
         "effectiveFrom": { "$ref": "#/definitions/isoDateOnly" },
@@ -1079,7 +1080,7 @@
         "previewSurfaceId": { "type": "string", "minLength": 1 },
         "detailPresentation": {
           "type": "string",
-          "enum": ["drawer", "modal", "fullscreen", "route"]
+          "enum": ["drawer", "modal"]
         }
       },
       "required": ["resourceKey"]
@@ -1197,7 +1198,7 @@
         },
         "tone": {
           "type": "string",
-          "enum": ["neutral", "info", "success", "warning", "danger"]
+          "enum": ["neutral", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
         },
         "format": { "type": "string", "minLength": 1 }
       }

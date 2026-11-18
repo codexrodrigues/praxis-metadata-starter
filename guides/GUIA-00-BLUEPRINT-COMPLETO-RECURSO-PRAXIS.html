@@ -599,24 +599,24 @@ quando houver restrição declarativa por perfil (consumidos por
 <td style="text-align: center;"><strong>6</strong></td>
 <td style="text-align: left;"><strong>Identidade Rica
 (<code>@ResourceIdentity</code>)</strong></td>
-<td style="text-align: left;">Declarada de forma idêntica em
-<code>@ApiResource(identity = @ResourceIdentity(...))</code> no
-Controller e no <code>ResponseDTO</code> (ou no nível da classe do
-Controller / <code>&lt;R&gt;</code> <code>ResponseDTO</code> concreto —
-<code>ApiResourceIdentityResolver.resolve(resourcePath)</code> também
-faz fallback automático para <code>@ResourceIdentity</code> na classe do
-controller ou no <code>&lt;R&gt;</code> <code>ResponseDTO</code> quando
-<code>@ApiResource.identity()</code> for omitido), preenchendo
+<td style="text-align: left;">Obrigatória no <code>ResponseDTO</code>
+(fonte única de verdade via <code>@ResourceIdentity</code> na classe
+<code>&lt;R&gt;</code>) e opcional no Controller /
+<code>@ApiResource(identity = ...)</code> (caso declarada em ambos, deve
+ser idêntica; o <code>ApiResourceIdentityResolver</code> e
+<code>AnnotationDrivenSurfaceDefinitionRegistry</code> fazem fallback
+automático para <code>@ResourceIdentity</code> do
+<code>ResponseDTO</code> quando omitida no Controller), preenchendo
 obrigatoriamente <code>keyField</code>, <code>titleField</code>,
-<code>subtitleField</code> (e/ou
-<code>codeField</code>/<code>statusField</code>) e
-<code>metadataFields = {...}</code> (2 a 3 campos executivos de
-enquadramento imediato que <strong>aparecem nas primeiras linhas do
-corpo do Quick View</strong>; <strong>proibido</strong> repetir
-<code>keyField</code>, <code>titleField</code> ou
-<code>subtitleField</code> em <code>metadataFields</code>, ou usar
-campos de baixo sinal como <code>tratamento</code>,
-<code>observacao</code> nula ou IDs numéricos brutos de FK). Ver
+<code>subtitleField</code> (e opcionalmente <code>avatarField</code> /
+<code>displayLabelField</code>) e <code>metadataFields = {...}</code> (2
+a 3 campos executivos de enquadramento imediato que <strong>aparecem nas
+primeiras linhas do corpo do Quick View</strong>;
+<strong>proibido</strong> repetir <code>keyField</code>,
+<code>titleField</code> ou <code>subtitleField</code> em
+<code>metadataFields</code>, ou usar campos de baixo sinal como
+<code>tratamento</code>, <code>observacao</code> nula ou IDs numéricos
+brutos de FK). Ver
 <code>docs/guides/QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.md</code>.</td>
 </tr>
 <tr>
@@ -865,16 +865,17 @@ visuais executivos (<code>icon</code>, <code>tone</code>,
 <code>valuePresentation</code>,
 <code>thresholds = {@Threshold(...)}</code>) e contrato explícito de
 autoridade
-(<code>authority = "server_computed" \| "persisted_column"</code>,
+(<code>authority = "server_computed" \| "persisted_state"</code>,
 <code>evaluationPhase = "post_read" \| "pre_write" \| "query_projection"</code>,
 <code>missingValuePolicy = "fail_closed"</code>,
 <code>scope = "item" \| "collection"</code>,
-<code>clientOverridable = false</code>). <code>resourceKey</code> é
-opcional (<code>default ""</code>) e herdado automaticamente de
+<code>deterministic = true</code>). <code>resourceKey</code> é opcional
+(<code>default ""</code>) e herdado automaticamente de
 <code>@ApiResource(resourceKey = ...)</code> (tanto no controller quanto
 no <code>&lt;R&gt;</code> <code>ResponseDTO</code> de
 <code>AbstractResourceQueryController</code>); utilize os vocabulários
-canônicos de <code>ResourceFactAuthority</code>,
+canônicos (e constantes <code>WIRE_*</code>) de
+<code>ResourceFactAuthority</code>,
 <code>ResourceFactEvaluationPhase</code>,
 <code>ResourceFactMissingValuePolicy</code>,
 <code>ResourceFactScope</code>, <code>ResourceFactSourceKind</code> e

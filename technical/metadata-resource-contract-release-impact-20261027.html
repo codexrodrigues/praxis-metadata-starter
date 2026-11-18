@@ -1903,6 +1903,116 @@ resource-contract obligations intact. The three
 artifacts and bounded claims.</li>
 </ul></li>
 </ol>
+<h2
+id="reconciliation-v8.0.0-rc.196-filterableinline-10-token-tone-unification-overlay-detailpresentation-single-source-resourceidentity-and-javadocblueprint-alignment">2026-11-18
+reconciliation: v8.0.0-rc.196 (<span class="citation"
+data-cites="Filterable">@Filterable</span>(inline), 10-token tone
+unification, overlay detailPresentation, single-source <span
+class="citation" data-cites="ResourceIdentity">@ResourceIdentity</span>,
+and Javadoc/blueprint alignment)</h2>
+<p>This increment updates field/resource metadata publication, static
+authoring validation, Javadocs, and normative guides without altering
+persistence, SQL, Flyway migrations,
+<code>JsonLogicExpressionValidator</code> operator-arity definitions,
+durable bulk capacity/admission/worker execution, or authorized-reader
+boundaries:</p>
+<ol type="1">
+<li><strong><code>@Filterable(inline = true)</code> -&gt;
+<code>x-ui.inlineFilter = true</code> (<code>Filterable</code>,
+<code>FieldConfigProperties</code>, <code>CustomOpenApiResolver</code>,
+<code>docs/spec/x-ui-field.schema.json</code>):</strong>
+<ul>
+<li>Added <code>boolean inline() default false;</code> on
+<code>@Filterable</code>,
+<code>FieldConfigProperties.INLINE_FILTER("inlineFilter")</code>,
+OpenAPI emission in
+<code>CustomOpenApiResolver.applyFilterableMetadata(...)</code>, and
+<code>"inlineFilter"</code> in
+<code>docs/spec/x-ui-field.schema.json</code>.</li>
+</ul></li>
+<li><strong>Unified 10-token <code>tone</code>, overlay
+<code>detailPresentation</code>, and single-source
+<code>@ResourceIdentity</code>:</strong>
+<ul>
+<li>Expanded <code>QuickFilterTone</code> (retaining existing binary
+return types) with <code>SECONDARY</code>, <code>CRITICAL</code>,
+<code>POSITIVE</code>, <code>NEGATIVE</code>,
+<code>allowedWireValues()</code>, and
+<code>isValidWireValue(String)</code>; connected
+<code>SemanticMetadataReviewer.ALLOWED_FACT_AND_THRESHOLD_TONES</code>
+and <code>PraxisExpressionStaticValidator.RESERVED_KEYWORDS</code> to
+<code>QuickFilterTone.allowedWireValues()</code>; and unified
+<code>docs/spec/x-ui-resource.schema.json</code>,
+<code>docs/spec/x-ui-field.schema.json</code>,
+<code>@ResourceFact.tone()</code>, and <code>@Threshold.tone()</code> on
+the 10 canonical tokens (<code>neutral</code>, <code>primary</code>,
+<code>secondary</code>, <code>info</code>, <code>success</code>,
+<code>warning</code>, <code>danger</code>, <code>critical</code>,
+<code>positive</code>, <code>negative</code>).</li>
+<li>Narrowed <code>@ResourceReference.detailPresentation</code> to
+<code>["drawer", "modal"]</code> in <code>CustomOpenApiResolver</code>,
+<code>docs/spec/x-ui-field.schema.json</code>,
+<code>ResourceReference</code> Javadoc, and
+<code>SemanticMetadataReviewer</code>
+(<code>resource-reference-detail-presentation-invalid</code>).</li>
+<li>Adopted single-source <code>@ResourceIdentity</code> on
+<code>ResponseDTO</code> in <code>SemanticMetadataReviewer</code>
+(requiring DTO <code>@ResourceIdentity</code> whenever
+<code>effectiveResponseDto != null</code>, enforcing parity when both
+Controller and DTO declare <code>@ResourceIdentity</code>, and requiring
+Controller <code>@ResourceIdentity</code> when no
+<code>ResponseDTO</code> is bound) and added <code>ResponseDTO</code>
+<code>@ResourceIdentity.keyField()</code> fallback in
+<code>AnnotationDrivenSurfaceDefinitionRegistry.relatedSchemaIdField(...)</code>
+prior to <code>resolveIdField(bean)</code>.</li>
+</ul></li>
+<li><strong>Javadoc and blueprint wire-vocabulary fixes:</strong>
+<ul>
+<li>Added compile-time <code>WIRE_*</code> string constants across the
+six <code>ResourceFact*</code> vocabulary enums
+(<code>ResourceFactDataType</code>, <code>ResourceFactAuthority</code>,
+<code>ResourceFactEvaluationPhase</code>,
+<code>ResourceFactSourceKind</code>,
+<code>ResourceFactMissingValuePolicy</code>,
+<code>ResourceFactScope</code>).</li>
+<li>Updated Javadocs and examples in <code>ResourceFact</code>,
+<code>WorkflowAction</code>, <code>UiAnalytics</code>,
+<code>AnalyticsProjection</code>, <code>CalculationTrail</code>, and
+<code>UISchema</code>, and aligned
+<code>META-INF/praxis/AI-RESOURCE-BLUEPRINT.md</code>,
+<code>docs/guides/GUIA-00-BLUEPRINT-COMPLETO-RECURSO-PRAXIS.md</code>,
+and
+<code>docs/guides/QUICK-VIEW-360-E-CURADORIA-EXECUTIVA.md</code>.</li>
+</ul></li>
+<li><strong>Updated <code>no_db</code> regression coverage and offline
+checks:</strong>
+<ul>
+<li>Updated <code>FilterableBetweenListDetectionTest</code>,
+<code>PhaseAErgonomicsOpenApiAndSchemaTest</code>,
+<code>SemanticMetadataReviewerTest</code>,
+<code>AnnotationDrivenSurfaceDefinitionRegistryTest</code>,
+<code>PraxisExpressionStaticValidatorTest</code>, and
+<code>CustomOpenApiResolverTest</code> (all <code>no_db</code>).</li>
+<li>Executed 45 targeted <code>no_db</code> JUnit suites across three
+verification runs on JDK 21 (<code>193</code>, <code>192</code>, and
+<code>95</code> testcases; <code>0</code> failures, <code>0</code>
+errors, <code>0</code> skips), <code>mvn javadoc:javadoc</code>
+(<code>exit 0</code>), and <code>audit-public-repo-purity.py</code>
+(<code>0</code> leaks, <code>0</code> broken links).</li>
+</ul></li>
+<li><strong>Causal inventory reconciliation
+(<code>tools/release/neon-test-inventory.json</code>):</strong>
+<ul>
+<li>Refreshed committed-blob <code>sha256</code> digests for the six
+modified <code>no_db</code> test files and recomputed
+<code>impactReview.reviewedScopeDigest</code> for
+<code>excluded_outside_impact</code> closures covering
+<code>src/main/java/org/praxisplatform/uischema/</code> or
+<code>PraxisExpressionStaticValidator.java</code>, preserving
+<code>historical_reuse</code> closures, raw artifacts, and bounded prior
+B–H and resource-contract obligations.</li>
+</ul></li>
+</ol>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

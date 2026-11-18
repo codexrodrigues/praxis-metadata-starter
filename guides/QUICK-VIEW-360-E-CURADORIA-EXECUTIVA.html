@@ -480,10 +480,11 @@ auditoria</strong> em
 <li><strong>Nunca</strong> marque um campo listado em
 <code>metadataFields</code> com
 <code>quickViewVisible = true</code>.</li>
-<li>O <code>@ResourceIdentity</code> declarado em
-<code>@ApiResource(identity = ...)</code> no <code>Controller</code> e o
-<code>@ResourceIdentity</code> na classe <code>ResponseDTO</code> devem
-ser <strong>idênticos</strong>.</li>
+<li>Declare <code>@ResourceIdentity</code> como fonte única obrigatória
+na classe <code>ResponseDTO</code> (opcional em
+<code>@ApiResource(identity = ...)</code> ou na classe do
+<code>Controller</code>; caso declarado em ambos, os atributos devem ser
+<strong>idênticos</strong>).</li>
 </ul>
 <h3
 id="regra-2-hierarquia-executiva-metadatafields-topo-quickvieworder-1..8-corpo">Regra
@@ -660,8 +661,9 @@ emitindo erros bloqueantes
 <ul>
 <li><code>resource-identity-missing</code>: ausência de
 <code>@ResourceIdentity</code> (ou
-<code>keyField</code>/<code>titleField</code> em branco) no Controller
-ou no <code>ResponseDTO</code>;</li>
+<code>keyField</code>/<code>titleField</code> em branco) no
+<code>ResponseDTO</code> (ou no Controller quando não houver
+<code>ResponseDTO</code> tipado);</li>
 <li><code>resource-identity-controller-dto-mismatch</code>: divergência
 de atributos (<code>keyField</code>, <code>titleField</code>,
 <code>subtitleField</code>, <code>avatarField</code>,
@@ -743,43 +745,37 @@ publicar contratos estruturais exclusivamente na variante
 Canônico Completo (<code>ResponseDTO</code> +
 <code>Controller</code>)</h2>
 <div class="sourceCode" id="cb2"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No Controller:</span></span>
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No Controller (@ResourceIdentity omitido aqui; fonte única no ResponseDTO):</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="at">@ApiResource</span><span class="op">(</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    value <span class="op">=</span> ApiPaths<span class="op">.</span><span class="fu">PESSOAS</span><span class="op">,</span></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    resourceKey <span class="op">=</span> <span class="st">&quot;administracao-pessoal.funcionarios&quot;</span><span class="op">,</span></span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    title <span class="op">=</span> <span class="st">&quot;Pessoas servidoras&quot;</span><span class="op">,</span></span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    description <span class="op">=</span> <span class="st">&quot;Cadastro civil único das pessoas titulares de vínculos funcionais com órgãos públicos.&quot;</span><span class="op">,</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    icon <span class="op">=</span> <span class="st">&quot;badge&quot;</span><span class="op">,</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    identity <span class="op">=</span> <span class="at">@ResourceIdentity</span><span class="op">(</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        keyField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        titleField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        displayLabelField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        subtitleField <span class="op">=</span> <span class="st">&quot;nomeSocial&quot;</span><span class="op">,</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        metadataFields <span class="op">=</span> <span class="op">{</span><span class="st">&quot;cpf&quot;</span><span class="op">,</span> <span class="st">&quot;idadeAnos&quot;</span><span class="op">}))</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">// No ResponseDTO:</span></span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="at">@ResourceIdentity</span><span class="op">(</span></span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    keyField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    titleField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    displayLabelField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    subtitleField <span class="op">=</span> <span class="st">&quot;nomeSocial&quot;</span><span class="op">,</span></span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    metadataFields <span class="op">=</span> <span class="op">{</span><span class="st">&quot;cpf&quot;</span><span class="op">,</span> <span class="st">&quot;idadeAnos&quot;</span><span class="op">})</span></span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeProfileResponseDTO <span class="kw">extends</span> EmployeeProfileData <span class="op">{</span></span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Schema</span><span class="op">(</span>description <span class="op">=</span> <span class="st">&quot;Idade civil em anos completos na data atual.&quot;</span><span class="op">,</span> accessMode <span class="op">=</span> <span class="bu">Schema</span><span class="op">.</span><span class="fu">AccessMode</span><span class="op">.</span><span class="fu">READ_ONLY</span><span class="op">)</span></span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">@UISchema</span><span class="op">(</span>label <span class="op">=</span> <span class="st">&quot;Idade&quot;</span><span class="op">,</span> icon <span class="op">=</span> <span class="st">&quot;cake&quot;</span><span class="op">,</span> group <span class="op">=</span> <span class="st">&quot;Identificação civil&quot;</span><span class="op">,</span></span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>      numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">INTEGER</span><span class="op">,</span> tableHidden <span class="op">=</span> <span class="kw">true</span><span class="op">,</span> readOnly <span class="op">=</span> <span class="kw">true</span><span class="op">,</span> formHidden <span class="op">=</span> <span class="kw">true</span><span class="op">)</span></span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">Integer</span> idadeAnos<span class="op">;</span></span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Em EmployeeProfileData:</span></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 1: birthDate (Nascimento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 2: maritalStatus (Estado civil, icon = &quot;favorite&quot;, SELECT com @UiOption / optionEnum)</span></span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 3: escolaridade (Escolaridade, icon = &quot;school&quot;, SELECT com @UiOption / optionEnum)</span></span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 4: workEmail (E-mail, icon = &quot;email&quot;, EMAIL_INPUT)</span></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 5: mobilePhone (Celular, icon = &quot;smartphone&quot;)</span></span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 6: city (Município, icon = &quot;location_city&quot;)</span></span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 7: lastReviewDate (Último recadastramento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    icon <span class="op">=</span> <span class="st">&quot;badge&quot;</span><span class="op">)</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// No ResponseDTO (fonte única obrigatória):</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="at">@ResourceIdentity</span><span class="op">(</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    keyField <span class="op">=</span> <span class="st">&quot;id&quot;</span><span class="op">,</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    titleField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    displayLabelField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    subtitleField <span class="op">=</span> <span class="st">&quot;nomeSocial&quot;</span><span class="op">,</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    metadataFields <span class="op">=</span> <span class="op">{</span><span class="st">&quot;cpf&quot;</span><span class="op">,</span> <span class="st">&quot;idadeAnos&quot;</span><span class="op">})</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeProfileResponseDTO <span class="kw">extends</span> EmployeeProfileData <span class="op">{</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Schema</span><span class="op">(</span>description <span class="op">=</span> <span class="st">&quot;Idade civil em anos completos na data atual.&quot;</span><span class="op">,</span> accessMode <span class="op">=</span> <span class="bu">Schema</span><span class="op">.</span><span class="fu">AccessMode</span><span class="op">.</span><span class="fu">READ_ONLY</span><span class="op">)</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">@UISchema</span><span class="op">(</span>label <span class="op">=</span> <span class="st">&quot;Idade&quot;</span><span class="op">,</span> icon <span class="op">=</span> <span class="st">&quot;cake&quot;</span><span class="op">,</span> group <span class="op">=</span> <span class="st">&quot;Identificação civil&quot;</span><span class="op">,</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>      numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">INTEGER</span><span class="op">,</span> tableHidden <span class="op">=</span> <span class="kw">true</span><span class="op">,</span> readOnly <span class="op">=</span> <span class="kw">true</span><span class="op">,</span> formHidden <span class="op">=</span> <span class="kw">true</span><span class="op">)</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">Integer</span> idadeAnos<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Em EmployeeProfileData:</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 1: birthDate (Nascimento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 2: maritalStatus (Estado civil, icon = &quot;favorite&quot;, SELECT com @UiOption / optionEnum)</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 3: escolaridade (Escolaridade, icon = &quot;school&quot;, SELECT com @UiOption / optionEnum)</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 4: workEmail (E-mail, icon = &quot;email&quot;, EMAIL_INPUT)</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 5: mobilePhone (Celular, icon = &quot;smartphone&quot;)</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 6: city (Município, icon = &quot;location_city&quot;)</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 7: lastReviewDate (Último recadastramento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h2 id="leitura-contextual-compacta">Leitura contextual compacta</h2>
 <p>Superfícies de item (<code>VIEW</code> ou
 <code>READ_PROJECTION</code>, cardinalidade <code>OBJECT</code>,
