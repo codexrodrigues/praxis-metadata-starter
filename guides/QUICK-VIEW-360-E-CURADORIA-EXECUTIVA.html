@@ -495,8 +495,8 @@ critério executivo: - <strong><code>metadataFields</code> (2 a 3 campos
 de enquadramento imediato):</strong> - <em>Pessoa / Colaborador:</em>
 <code>{"cpf", "idadeAnos"}</code> (identificação fiscal governada por
 LGPD + idade calculada); - <em>Vínculo Funcional:</em>
-<code>{"setorNome", "regimejur", "categoria"}</code> (lotação + regime
-jurídico + categoria funcional); - <em>Cargo / Função:</em>
+<code>{"setorNome", "regimeJuridico", "categoria"}</code> (lotação +
+regime jurídico + categoria funcional); - <em>Cargo / Função:</em>
 <code>{"cargoFuncao", "cbo"}</code> (natureza cargo/função + código
 CBO); - <em>Órgão / Empresa:</em>
 <code>{"razao", "telefone", "email"}</code> (razão social + canais
@@ -511,49 +511,54 @@ imediatamente o badge colorido (<code>Ativo</code>,
 <code>Afastado</code>, <code>Cedido</code>, <code>Homologado</code>); 2.
 <strong><code>quickViewOrder = 2..3</code> — Papel, Cargo, Lotação ou
 Classificação Principal:</strong> (<code>cargoNome</code>,
-<code>tipovinc</code>, <code>estcivil</code>, <code>escolaridade</code>
-— sempre usando o campo de nome resolvido ou <code>SELECT</code> com
-<code>options</code>, nunca IDs brutos); 3.
-<strong><code>quickViewOrder = 4..5</code> — Marcos Temporais, Vigência
-ou Canais de Contato Direto:</strong> (<code>dtexerc</code>,
-<code>dtnasc</code>, <code>dtini</code>, <code>dtfim</code>,
-<code>eMail</code>, <code>numtelCelular</code>); 4.
+<code>tipoVinculo</code>, <code>estadoCivil</code>,
+<code>escolaridade</code> — sempre usando o campo de nome resolvido ou
+<code>SELECT</code> com <code>@UiOption</code>/<code>optionEnum</code>,
+nunca IDs brutos); 3. <strong><code>quickViewOrder = 4..5</code> —
+Marcos Temporais, Vigência ou Canais de Contato Direto:</strong>
+(<code>startDate</code>, <code>birthDate</code>,
+<code>effectiveFrom</code>, <code>effectiveTo</code>,
+<code>workEmail</code>, <code>mobilePhone</code>); 4.
 <strong><code>quickViewOrder = 6..8</code> — Indicadores Quantitativos,
 Contadores Derivados ou Escopo Institucional:</strong>
 (<code>jornadaSemanal</code>, <code>orgaoNome</code>,
 <code>diasDesdeExercicio</code>, <code>diasReconhecidos</code>,
-<code>saldoVagasDisponiveis</code>, <code>dtRecadast</code>). -
+<code>saldoVagasDisponiveis</code>, <code>lastReviewDate</code>). -
 <strong>O que é PROIBIDO colocar em <code>metadataFields</code> ou
 <code>quickViewVisible</code>:</strong> - Campos protocolares de
 baixíssimo valor decisório (ex.: <code>tratamento</code> =
 <code>"Sra."</code> no topo do cartão); - Campos quase sempre nulos ou
 constantes em 99% da base (ex.: <code>observacao</code> livre,
 <code>nacionalidade = 10</code> quando não é recorte internacional,
-<code>ufender</code> solto sem município); - Chaves estrangeiras
-numéricas brutas (<code>empCodigo</code>, <code>titularAtualId</code>,
+<code>uf</code> solta sem município); - Chaves estrangeiras numéricas
+brutas (<code>companyId</code>, <code>titularAtualId</code>,
 <code>setorId</code>, <code>cargoId</code>) quando o DTO possui (ou deve
 possuir) o campo de exibição humano (<code>orgaoNome</code>,
 <code>titularAtualNome</code>, <code>setorNome</code>,
 <code>cargoNome</code>).</p>
 <h3
-id="regra-3-tradução-obrigatória-de-códigos-de-domínio-options-vs.-optionsource">Regra
-3 — Tradução Obrigatória de Códigos de Domínio (<code>options</code>
-vs. <code>OptionSource</code>)</h3>
+id="regra-3-tradução-obrigatória-de-códigos-de-domínio-uioption-optionenum-vs.-optionsource">Regra
+3 — Tradução Obrigatória de Códigos de Domínio (<code>@UiOption</code> /
+<code>optionEnum</code> vs. <code>OptionSource</code>)</h3>
 <p>Nenhum campo exibido no Quick View, na tabela ou na gaveta 360° pode
 apresentar códigos técnicos crus do banco (<code>MESTRADO</code>,
 <code>CASADO</code>, <code>10</code>, <code>1</code>, <code>C</code>,
 <code>F</code>) sem tradução semântica: - <strong>Domínios fechados /
 tabelas de código estáveis:</strong> declare
 <code>controlType = FieldControlType.SELECT</code> e
-<code>options = "[{\"value\":\"MESTRADO\",\"label\":\"Pós-Graduação Stricto Sensu (Mestrado)\"}, ...]"</code>
-no <code>@UISchema</code>. O <code>ResourceQuickViewService</code>
-resolve automaticamente <code>rawValue -&gt; option.label</code> tanto
-na exibição do cartão quanto no texto de <code>Copiar resumo</code>. -
-<strong>Entidades relacionais ou catálogos dinâmicos por
-tenant:</strong> exponha o campo de exibição resolvido
-(<code>cargoNome</code>, <code>setorNome</code>, <code>orgaoNome</code>)
-anotado com <code>@ResourceReference(...)</code> ou vincule o campo via
-<code>OptionSourceDescriptor</code>.</p>
+<code>optionItems = {@UiOption(value = "MESTRADO", label = "Mestrado", icon = "school", tone = QuickFilterTone.INFO), ...}</code>
+ou <code>optionEnum = Escolaridade.class</code> no
+<code>@UISchema</code> (mutuamente exclusivos, <code>label</code> curto
+<code>&lt;= 36</code> caracteres sem ponto final e <code>icon</code> em
+<code>snake_case</code> minúsculo; proibido <code>options = "..."</code>
+JSON/stringificado, <code>@Deprecated(since = "2.1.0")</code>). O
+<code>ResourceQuickViewService</code> resolve automaticamente
+<code>rawValue -&gt; option.label</code> tanto na exibição do cartão
+quanto no texto de <code>Copiar resumo</code>. - <strong>Entidades
+relacionais ou catálogos dinâmicos por tenant:</strong> exponha o campo
+de exibição resolvido (<code>cargoNome</code>, <code>setorNome</code>,
+<code>orgaoNome</code>) anotado com <code>@ResourceReference(...)</code>
+ou vincule o campo via <code>OptionSourceDescriptor</code>.</p>
 <h3
 id="regra-4-formatação-numérica-estrita-numericformat.integer-para-inteiros-e-contadores">Regra
 4 — Formatação Numérica Estrita (<code>NumericFormat.INTEGER</code> para
@@ -690,8 +695,48 @@ inexistente, sem <code>previewSurfaceId</code> preenchido, campo
 <code>@ResourceReference(resourceKey = "&lt;resourceKey do próprio recurso&gt;", ...)</code>
 ou <code>surfaceId</code>/<code>previewSurfaceId</code> não publicado
 como <code>@UiSurface</code>
-(<code>VIEW</code>/<code>READ_PROJECTION</code>) no Controller.</li>
+(<code>VIEW</code>/<code>READ_PROJECTION</code>) no Controller;</li>
+<li><code>quick-filter-legacy-filter-deprecated</code>,
+<code>quick-filter-field-not-filterable</code>,
+<code>select-options-legacy-string-deprecated</code>,
+<code>select-options-mutual-exclusivity</code>,
+<code>ui-option-duplicate-value</code>,
+<code>ui-option-label-invalid</code>,
+<code>ui-option-icon-not-snake-case</code>,
+<code>bulk-protected-field-conflicts-with-bulk-editable</code>,
+<code>reactive-determination-output-redundant-explicit-pair</code> e
+<code>calculation-trail-duplicate-parcel-expression</code>: validações
+das Ondas 1–3 para filtros rápidos tipados
+(<code>@FilterCriterion</code>), opções fechadas tipadas
+(<code>@UiOption</code> / <code>optionEnum</code> /
+<code>PraxisUiOptionEnum</code>), integridade de campos em lote,
+shorthand <code>@DeterminationOutput("campo")</code> e
+<code>@CalculationMemory</code>
+(<code>steps = {@CalculationStep(...)}</code>) sem parcelas
+duplicadas.</li>
 </ul></li>
+</ul>
+<h3
+id="regra-9-projeções-tabulares-estados-e-visões-especializadas-tableview-resourcestate-resourceprogression-resourcetimeline-resourceschedule">Regra
+9 — Projeções Tabulares, Estados e Visões Especializadas
+(<code>@TableView</code>, <code>@ResourceState</code>,
+<code>@ResourceProgression</code>, <code>@ResourceTimeline</code>,
+<code>@ResourceSchedule</code>)</h3>
+<ul>
+<li>Use
+<code>@TableView(columns = {...}, pinnedStart = {...}, pinnedEnd = {...})</code>
+no <code>ResponseDTO</code> para definir em um único ponto as 5 a 10
+colunas visíveis por padrão (<code>tableOrder</code> +
+<code>pinned</code>), ocultando automaticamente as demais
+(<code>tableHidden = true</code>).</li>
+<li>Use <code>@ResourceState</code> (ou <code>PraxisUiOptionEnum</code>)
+no campo de situação para alimentar
+<code>EntityLookupDescriptor.directoryBuilderFromDto(...)</code>,
+<code>@DraftCleared</code> para limpar chaves únicas em
+<code>duplicate-draft</code> e <code>@ResourceProgression</code> /
+<code>@ResourceTimeline</code> / <code>@ResourceSchedule</code> para
+publicar contratos estruturais exclusivamente na variante
+<code>schemaType=response</code> de <code>/schemas/filtered</code>.</li>
 </ul>
 <hr />
 <h2 id="exemplo-canônico-completo-responsedto-controller">3. Exemplo
@@ -719,21 +764,21 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="
 <span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    displayLabelField <span class="op">=</span> <span class="st">&quot;nome&quot;</span><span class="op">,</span></span>
 <span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    subtitleField <span class="op">=</span> <span class="st">&quot;nomeSocial&quot;</span><span class="op">,</span></span>
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    metadataFields <span class="op">=</span> <span class="op">{</span><span class="st">&quot;cpf&quot;</span><span class="op">,</span> <span class="st">&quot;idadeAnos&quot;</span><span class="op">})</span></span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> ServidorPessoaResponseDTO <span class="kw">extends</span> ServidorPessoaDados <span class="op">{</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> EmployeeProfileResponseDTO <span class="kw">extends</span> EmployeeProfileData <span class="op">{</span></span>
 <span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">@Schema</span><span class="op">(</span>description <span class="op">=</span> <span class="st">&quot;Idade civil em anos completos na data atual.&quot;</span><span class="op">,</span> accessMode <span class="op">=</span> <span class="bu">Schema</span><span class="op">.</span><span class="fu">AccessMode</span><span class="op">.</span><span class="fu">READ_ONLY</span><span class="op">)</span></span>
 <span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">@UISchema</span><span class="op">(</span>label <span class="op">=</span> <span class="st">&quot;Idade&quot;</span><span class="op">,</span> icon <span class="op">=</span> <span class="st">&quot;cake&quot;</span><span class="op">,</span> group <span class="op">=</span> <span class="st">&quot;Identificação civil&quot;</span><span class="op">,</span></span>
 <span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>      numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">INTEGER</span><span class="op">,</span> tableHidden <span class="op">=</span> <span class="kw">true</span><span class="op">,</span> readOnly <span class="op">=</span> <span class="kw">true</span><span class="op">,</span> formHidden <span class="op">=</span> <span class="kw">true</span><span class="op">)</span></span>
 <span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="kw">private</span> <span class="bu">Integer</span> idadeAnos<span class="op">;</span></span>
 <span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Em ServidorPessoaDados:</span></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 1: dtnasc (Nascimento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 2: estcivil (Estado civil, icon = &quot;favorite&quot;, SELECT com options legíveis)</span></span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 3: escolaridade (Escolaridade, icon = &quot;school&quot;, SELECT com options legíveis)</span></span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 4: eMail (E-mail, icon = &quot;email&quot;, EMAIL_INPUT)</span></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 5: numtelCelular (Celular, icon = &quot;smartphone&quot;)</span></span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 6: cidadeender (Município, icon = &quot;location_city&quot;)</span></span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 7: dtRecadast (Último recadastramento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Em EmployeeProfileData:</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 1: birthDate (Nascimento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 2: maritalStatus (Estado civil, icon = &quot;favorite&quot;, SELECT com @UiOption / optionEnum)</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 3: escolaridade (Escolaridade, icon = &quot;school&quot;, SELECT com @UiOption / optionEnum)</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 4: workEmail (E-mail, icon = &quot;email&quot;, EMAIL_INPUT)</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 5: mobilePhone (Celular, icon = &quot;smartphone&quot;)</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 6: city (Município, icon = &quot;location_city&quot;)</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">// quickViewOrder = 7: lastReviewDate (Último recadastramento, icon = &quot;event&quot;, DATE_PICKER)</span></span>
 <span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h2 id="leitura-contextual-compacta">Leitura contextual compacta</h2>
 <p>Superfícies de item (<code>VIEW</code> ou

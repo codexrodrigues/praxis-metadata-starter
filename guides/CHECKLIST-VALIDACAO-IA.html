@@ -292,7 +292,8 @@ aplicavel</li>
 <li>grupos OpenAPI esperados existem (<code>@ApiGroup</code>)</li>
 <li>Swagger UI esta disponivel</li>
 </ul>
-<h2 id="endpoints-crud-e-discovery">3. Endpoints CRUD e Discovery</h2>
+<h2 id="operações-de-recurso-e-discovery">3. Operações de Recurso e
+Discovery</h2>
 <ul>
 <li><code>GET /{id}</code>, <code>GET /all</code>,
 <code>POST /filter</code>, <code>POST /filter/cursor</code>,
@@ -366,14 +367,18 @@ completo</li>
 muda)</li>
 <li><code>x-ui.resource.idField</code> esta resolvido corretamente
 (<code>@ResourceIdentity</code> no Controller e
-<code>ResponseDTO</code>, <code>@QuickFilter</code> no Controller)</li>
+<code>ResponseDTO</code>, <code>@QuickFilter</code> no Controller usando
+<code>criteria = @FilterCriterion(...)</code> sem <code>filter</code>
+raw legado)</li>
 <li>em request schemas com campos relacionais <code>...Id</code>, o
 <code>idField</code> nao e sequestrado pelo id da relacao</li>
 <li>todos os campos dos DTOs possuem a triade completa:
 <code>@Schema(description = ...)</code> de negocio em PT-BR,
 <code>@UISchema</code> (<code>UISchemaPreset</code>,
 <code>FieldControlType</code>, <code>group</code>, <code>order</code>,
-<code>icon</code>, <code>NumericFormat</code>) e
+<code>icon</code> em <code>snake_case</code> minusculo,
+<code>NumericFormat</code>, <code>optionItems = {@UiOption(...)}</code>
+/ <code>optionEnum</code> em opcoes fechadas) e
 <code>@DomainGovernance</code>
 (<code>preset = DomainGovernancePreset.*</code>,
 <code>exportable</code>, <code>@AiUsagePolicy</code>) +
@@ -382,13 +387,19 @@ enfraquecer a governanca da origem — validado pelo gate <code>P50</code>
 <code>lineage-governance-weakened</code>)</li>
 <li><code>@ResourceFact</code> declara contrato explicito de autoridade
 (<code>authority</code>, <code>evaluationPhase</code>,
-<code>missingValuePolicy</code>, <code>scope</code>) validado por
-<code>SemanticMetadataReviewer.reviewResourceFacts(...)</code></li>
-<li><code>SemanticMetadataReviewer</code>
-(<code>reviewStrictGovernance</code> /
-<code>reviewResourceFacts</code>),
+<code>missingValuePolicy</code>, <code>scope</code>, omitindo
+<code>resourceKey</code> redundante em <code>@ApiResource</code>
+controllers e seu <code>&lt;R&gt;</code> <code>ResponseDTO</code>)
+validado por
+<code>SemanticMetadataReviewer.reviewResourceFacts(...)</code>, e
+<code>@DeterminationOutput("campo")</code> e usado no lugar de pares
+redundantes <code>response == field</code></li>
+<li><code>SemanticMetadataReviewer</code> (<code>review</code>,
+<code>reviewResourceController</code>,
+<code>reviewOptionSourceRegistry</code>,
+<code>reviewStrictGovernance</code>, <code>reviewResourceFacts</code>),
 <code>PraxisExpressionStaticValidator</code>,
-<code>OptionSourcePublicationInventory</code> e
+<code>OptionSourcePublicationDiagnostics</code> e
 <code>FilterableIndexAdvisor</code> passam sem violacoes no teste JUnit
 do host</li>
 </ul>
@@ -412,8 +423,8 @@ necessario</li>
 </ul>
 <h2 id="frontend-angular">10. Frontend Angular</h2>
 <ul>
-<li>existe um host <code>praxis-crud</code> para CRUD completo (sem
-servicos HTTP manuais nem colunas hardcoded)</li>
+<li>existe um host <code>praxis-crud</code> para gerenciamento completo
+de recursos (sem servicos HTTP manuais nem colunas hardcoded)</li>
 <li><code>resource.path</code> (sem prefixo <code>/api</code>) e
 <code>idField</code> estao corretos</li>
 <li><code>praxis-dynamic-form</code> usa

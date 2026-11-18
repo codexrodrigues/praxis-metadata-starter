@@ -45,19 +45,19 @@ Nao liberar como baseline:
 
 ### Rodada 1
 
-- backend PostgreSQL/Neon (ou perfil de prova atribuído) com recurso simples
+- backend PostgreSQL (ou perfil de prova atribuído) com recurso simples
 
 ### Rodada 2
 
-- backend PostgreSQL/Neon com relacionamento e lookup (`@OptionLabel` / `@ResourceReference` / `OptionSourceRegistry`)
+- backend PostgreSQL com relacionamento e lookup (`@OptionLabel` / `@ResourceReference` / `OptionSourceRegistry`)
 
 ### Rodada 3
 
-- backend PostgreSQL/Neon com MapStruct, chave composta (`CompositeResourceId`) e concorrência otimista (`VersionedCreateUpdateResourceService`)
+- backend PostgreSQL com MapStruct, chave composta (`CompositeResourceId`) e concorrência otimista (`VersionedCreateUpdateResourceService`)
 
 ### Rodada 4
 
-- backend PostgreSQL/Neon com filtros ricos (`@Filterable`), extensibilidade JSONB (`@CustomFields`) e fatos de domínio (`@ResourceFact`)
+- backend PostgreSQL com filtros ricos (`@Filterable`), extensibilidade JSONB (`@CustomFields`) e fatos de domínio (`@ResourceFact`)
 
 ### Rodada 5
 

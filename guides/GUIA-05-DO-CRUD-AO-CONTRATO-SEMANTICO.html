@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Guia 05 - Do CRUD ao Contrato Semantico</title>
+  <title>Guia 05 - Do Cadastro Basico ao Contrato Semantico</title>
   <style>
     html {
       color: #1a1a1a;
@@ -272,18 +272,19 @@
   <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
 </nav>
 <header id="title-block-header">
-<h1 class="title">Guia 05 - Do CRUD ao Contrato Semantico</h1>
+<h1 class="title">Guia 05 - Do Cadastro Basico ao Contrato
+Semantico</h1>
 </header>
-<h1 id="guia-05---do-crud-ao-contrato-semantico">Guia 05 - Do CRUD ao
-Contrato Semantico</h1>
+<h1 id="guia-05---do-cadastro-basico-ao-contrato-semantico">Guia 05 - Do
+Cadastro Basico ao Contrato Semantico</h1>
 <h2 id="objetivo">Objetivo</h2>
 <p>Este guia mostra visualmente por que o
-<code>praxis-metadata-starter</code> nao deve ser lido como “CRUD com
-DTO anotado”, mas como a fundacao de contratos de uma <strong>plataforma
-semanticamente orientada para aplicacoes corporativas AI-native</strong>
-— onde nao se constroi IA ao lado da aplicacao, e sim uma aplicacao que,
-por definicao, ja nasce legivel e operavel por IA, humanos e
-integracoes.</p>
+<code>praxis-metadata-starter</code> nao deve ser lido como “apenas
+telas de cadastro com DTO anotado”, mas como a fundacao de contratos de
+uma <strong>plataforma semanticamente orientada para aplicacoes
+corporativas AI-native</strong> — onde nao se constroi IA ao lado da
+aplicacao, e sim uma aplicacao que, por definicao, ja nasce legivel e
+operavel por IA, humanos e integracoes.</p>
 <p>O ponto central e este:</p>
 <ul>
 <li><code>resource</code> descreve o contrato canonico do recurso, dados
@@ -303,8 +304,8 @@ e <strong>integracoes</strong></li>
 contrato</h2>
 <p>Uma leitura simplificada seria:</p>
 <pre class="mermaid"><code>flowchart LR
-    dto[&quot;DTO anotado&quot;] --&gt; crud[&quot;CRUD generico&quot;]
-    crud --&gt; ui[&quot;UI renderizada&quot;]</code></pre>
+    dto[&quot;DTO anotado&quot;] --&gt; basic[&quot;Cadastro generico&quot;]
+    basic --&gt; ui[&quot;UI renderizada&quot;]</code></pre>
 <p>O contrato canonico do starter e:</p>
 <pre class="mermaid"><code>flowchart LR
     resource[&quot;Resource HTTP real&quot;] --&gt; filtered[&quot;/schemas/filtered&quot;]
@@ -320,10 +321,10 @@ contrato</h2>
     capabilities --&gt; uiGen
     capabilities --&gt; agents
     capabilities --&gt; integrations[&quot;Integracoes HTTP&quot;]</code></pre>
-<p>Praxis continua tendo CRUD quando o recurso realmente e CRUD. O ganho
-estrategico da plataforma esta em descrever recursos, regras, acoes,
-dados e politicas uma vez para que multiplos canais operem sobre a mesma
-verdade.</p>
+<p>Praxis oferece operacoes cadastrais basicas quando o recurso exige
+apenas manutencao direta. O ganho estrategico da plataforma esta em
+descrever recursos, regras, acoes, dados e politicas uma vez para que
+multiplos canais operem sobre a mesma verdade.</p>
 <h2 id="camada-1---resource-continua-sendo-a-fonte-da-verdade">Camada 1
 - Resource continua sendo a fonte da verdade</h2>
 <p><code>resource</code> continua definindo:</p>
@@ -399,7 +400,7 @@ textuais de exibicao de FKs, e ao
 <h2 id="camada-4---workflowaction-publica-comando-de-negocio">Camada 4 -
 WorkflowAction publica comando de negocio</h2>
 <p><code>@WorkflowAction</code> e o eixo em que o Praxis vai claramente
-alem do CRUD.</p>
+alem de operacoes cadastrais basicas.</p>
 <p>Exemplos:</p>
 <ul>
 <li><code>approve</code></li>
@@ -518,8 +519,9 @@ agregado</li>
 <p>O ponto nao e “ter mais endpoints”. O ponto e publicar semantica de
 plataforma sobre endpoints reais.</p>
 <h2 id="regra-de-ouro">Regra de ouro</h2>
-<p>Praxis nao vai alem do CRUD porque inventa uma segunda API.</p>
-<p>Praxis vai alem do CRUD porque:</p>
+<p>Praxis nao supera um gerador cadastral porque inventa uma segunda
+API.</p>
+<p>Praxis vai alem do cadastro basico porque:</p>
 <ul>
 <li>preserva o recurso como fonte da verdade</li>
 <li>adiciona discovery semantico sobre operacoes reais</li>

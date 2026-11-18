@@ -355,8 +355,8 @@ deploy e adoção em consumidores não são autorizados.</p>
 <li>Branch: <code>feat/custom-fields-and-resource-facts</code>.</li>
 <li>Base atualizada por <code>git fetch origin</code>:
 <code>d57244ad51</code> (<code>origin/main</code> na criação).</li>
-<li>Worktree:
-<code>/Users/rodrigo/Dev/pessoal/praxis-plataform/praxis-metadata-custom-fields</code>.</li>
+<li>Worktree isolado dedicado para a entrega
+(<code>praxis-metadata-custom-fields</code>).</li>
 <li>O checkout original tinha alterações de outro trabalho e foi
 preservado.</li>
 <li>Política: <code>AGENTS.md</code> do workspace e do starter; guia
@@ -532,10 +532,6 @@ testes não substituem um ao outro.</li>
 <h2 id="branch-neon-atribuída-ao-ensaio">Branch Neon atribuída ao
 ensaio</h2>
 <table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
 <thead>
 <tr>
 <th>Identidade</th>
@@ -545,16 +541,16 @@ ensaio</h2>
 <tbody>
 <tr>
 <td>Projeto</td>
-<td><code>dark-mountain-25788969</code></td>
+<td><code>&lt;neon-project-id&gt;</code></td>
 </tr>
 <tr>
 <td>Branch</td>
-<td><code>br-young-scene-ad8dg9ip</code>
+<td><code>&lt;neon-branch-id&gt;</code>
 (<code>metadata-303-custom-fields-20261027</code>)</td>
 </tr>
 <tr>
 <td>Endpoint</td>
-<td><code>ep-proud-sunset-adp7j1dj.c-2.us-east-1.aws.neon.tech</code></td>
+<td><code>&lt;neon-endpoint-host&gt;</code></td>
 </tr>
 <tr>
 <td>Database / schema</td>
@@ -884,8 +880,8 @@ leitura.</p>
 <p>Skills: <code>atualizar-existente</code>, mantendo as duas skills do
 PR #868 e seus hashes. Preflight canônico passou <strong>41
 testes</strong>, auditoria isolada de <strong>168 skills Praxis + 19
-Ergon</strong>, sem drift/ausências/inventário inválido, e validação
-estrutural das duas skills. Logs
+skills de migração corporativa</strong>, sem drift/ausências/inventário
+inválido, e validação estrutural das duas skills. Logs
 <code>review-skills-preflight.log</code> e
 <code>review-skills-fix-manifest.log</code>. A auditoria do destino
 instalado identificou drifts preexistentes fora do escopo; não houve
@@ -1014,23 +1010,24 @@ triggers, fabricaram recibos ou ampliaram grants após o cutover.
 QuickstartMetadataMigration e OpenApiGroupResolutionIsolated não foram
 repetidos no candidato definitivo. <code>verify</code> integral
 permanece pendente.</p>
-<p>Branch Neon exclusiva <code>br-proud-cake-adwn97mh</code>, projeto
-<code>dark-mountain-25788969</code>, PostgreSQL 17.11, TLS verify-full e
-owner/runtime distintos. O journal confirma 14 databases e 14 roles
-runtime removidos por OID. Postflight confirmou zero recursos/conexões
-de teste; endpoint <code>ep-aged-sky-adkwifgy</code> suspenso
-(<code>idle</code>) em 27/10/2026 18:11:46 UTC. Branch e três
-identidades de preparação foram retidas.</p>
+<p>Branch PostgreSQL exclusiva (<code>&lt;neon-branch-id&gt;</code>),
+projeto isolado (<code>&lt;neon-project-id&gt;</code>), PostgreSQL
+17.11, TLS verify-full e owner/runtime distintos. O journal confirma 14
+databases e 14 roles runtime removidos por OID. Postflight confirmou
+zero recursos/conexões de teste; endpoint
+<code>&lt;neon-endpoint-id&gt;</code> suspenso (<code>idle</code>) em
+27/10/2026 18:11:46 UTC. Branch e três identidades de preparação foram
+retidas.</p>
 <p>Skills: <code>atualizar-existente</code>, <a
 href="https://github.com/codexrodrigues/praxis-codex-skills/pull/868">PR
 #868</a>, HEAD <code>62008cc0f2c7619c775fb14b0c57620c450e0160</code>:
 schema, domínio e operational-proof. Preflight Python 41 testes,
-estrutura e auditorias isoladas de 168 Praxis +19 Ergon aprovados;
-último incremento de grants/fixtures validado novamente. A integração
-canônica e sincronização instalada permanecem pendentes por decisão de
-não merge. O Angular segue coordenado separadamente no PR #658. Nenhum
-merge, release, deploy ou dispatch manual de Actions foi realizado nesta
-entrega de adoção.</p>
+estrutura e auditorias isoladas de 168 Praxis + 19 skills de migração
+corporativa aprovados; último incremento de grants/fixtures validado
+novamente. A integração canônica e sincronização instalada permanecem
+pendentes por decisão de não merge. O Angular segue coordenado
+separadamente no PR #658. Nenhum merge, release, deploy ou dispatch
+manual de Actions foi realizado nesta entrega de adoção.</p>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

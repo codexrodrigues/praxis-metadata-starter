@@ -31,7 +31,7 @@ public class FuncionarioFilterDTO implements GenericFilterDTO {
 ```java
 public class FuncionarioService extends AbstractBaseResourceService<
     Funcionario, FuncionarioResponseDTO, Long, FuncionarioFilterDTO, CreateFuncionarioDTO, UpdateFuncionarioDTO> {
-  public FuncionarioService(BaseCrudRepository<Funcionario, Long> repo, Class<Funcionario> entityClass) {
+  public FuncionarioService(BaseResourceRepository<Funcionario, Long> repo, Class<Funcionario> entityClass) {
     super(repo, entityClass);
   }
 }
@@ -60,6 +60,17 @@ inclusive quando não tiver `@Filterable`. Campos estáticos e sintéticos são
 ignorados. Evite ocultar critérios herdados sem intenção explícita, pois isso muda
 a pergunta representada pelo filtro. A herança não transforma filtros enviados
 pelo cliente em autorização; mantenha `ResourceFilterAccessScope` no serviço.
+
+### Herança de metadados de UI (`FilterDTO` -> `ResponseDTO`) e busca ampla (`primarySearch`)
+
+- **Herança de metadados em `/schemas/filtered`:** campos de um `GenericFilterDTO` associados ao
+  respectivo `ResponseDTO` (via `CustomOpenApiResolver.registerFilterResponsePair` ou
+  `filterSchemaInheritanceOpenApiCustomizer`) herdam automaticamente metadados omitidos — como
+  `icon`, `endpoint`, `valueField`, `displayField` e `options` — a partir da propriedade correspondente do
+  `ResponseDTO`, preservando qualquer declaração explícita no `FilterDTO`.
+- **Busca ampla primária (`@Filterable(primarySearch = true)`):** sinaliza o campo de busca textual
+  unificada (`relations = {...}`) com `x-ui.primarySearch = true` para hidratação imediata da caixa
+  de busca principal (*omnibox*) em `@praxisui/table`.
 
 <a id="escopo-de-acesso"></a>
 <details>
@@ -144,7 +155,7 @@ protected ResourceFilterAccessScope<Funcionario> resolveResourceFilterAccessScop
 
 #### Enums em SELECTs (sem endpoint)
 - Campos `enum` não precisam de `endpoint`: as opções são derivadas diretamente do schema OpenAPI (o array `enum`).
-- Quando o campo `enum` declarar `@UISchema.options`, os valores aceitos continuam vindo do `enum`; a anotação serve para enriquecer labels/metadados das opções cujo `value` corresponde ao valor canônico.
+- Quando o campo `enum` declarar `@UISchema(optionItems = {@UiOption(...)})` ou `optionEnum = MeuEnum.class` (mutuamente exclusivos; `@UISchema(options = "...")` stringificado está `@Deprecated(since = "2.1.0")`), os valores aceitos continuam vindo do `enum`; a anotação tipada enriquece rótulos, ícones (`snake_case` minúsculo) e tons (`QuickFilterTone`) das opções correspondentes ao valor canônico.
 - Para `array` de `enum`, o schema é “array de enum” e a UI renderiza multi‑select automaticamente.
 - Use `endpoint` (`/options/filter`) apenas para catálogos dinâmicos/relacionais (`id/label`), não para `enum` estático.
 - No Angular, `endpoint` é normalizado para `resourcePath`, e `displayField`/`valueField` são normalizados para `optionLabelKey`/`optionValueKey`.
@@ -191,17 +202,19 @@ protected ResourceFilterAccessScope<Funcionario> resolveResourceFilterAccessScop
 | SIZE_LT             | Tamanho de coleção menor que N                    | `@Filterable(SIZE_LT)` + `Integer`          |
 | IS_TRUE             | Campo booleano verdadeiro                         | `@Filterable(IS_TRUE)`                      |
 | IS_FALSE            | Campo booleano falso                              | `@Filterable(IS_FALSE)`                     |
+| EFFECTIVE_ON_DATE   | Vigência ativa na data (`relation <= d <= endRelation`) | `@Filterable(EFFECTIVE_ON_DATE)` + `relation`/`endRelation` obrigatórios |
 
 Notas:
 - Para `ON_DATE`, use `LocalDate` no DTO. A comparação considera o intervalo [início do dia, início do dia seguinte).
-- Para `IN_LAST_DAYS/IN_NEXT_DAYS`, o valor é relativo ao horário atual (UTC) e converte para `Instant`.
+- Para `EFFECTIVE_ON_DATE`, declare explicitamente `relation` e `endRelation` não-vazios (ex.: `"validFrom"` e `"validTo"`); o builder e o `SemanticMetadataReviewer` falham fechado quando algum deles estiver em branco.
+- Para `IN_LAST_DAYS/IN_NEXT_DAYS`, o valor é relativo ao horário na zona configurada (`praxis.filter.time-zone`, padrão `UTC`) e converte para `Instant`.
 - Para `SIZE_*`, aplique apenas em atributos de coleção (OneToMany/ManyToMany); o builder usa `CriteriaBuilder.size`.
 - Requisito de coleção em `SIZE_*`: defina `relation` para apontar explicitamente para o atributo de coleção na entidade. Se o caminho não for coleção, o builder lança erro informativo.
 - Para novos componentes compactos de superfície, prefira `controlType` canônico com a família `INLINE_*`.
 
 ### Notas de Timezone
 
-- `ON_DATE`, `IN_LAST_DAYS` e `IN_NEXT_DAYS` utilizam normalização com `Instant` e horário atual do backend. Em ambientes multi‑região, verifique a zona padrão da aplicação e do banco. Recomenda‑se padronizar em UTC.
+- `ON_DATE`, `IN_LAST_DAYS` e `IN_NEXT_DAYS` utilizam normalização com `Instant`, `Clock` e zona configurável via `praxis.filter.time-zone` (com fallback para `praxis.filter.relative-period.zone-id` e padrão `UTC`). Em ambientes multi‑região, alinhe essa propriedade à política temporal do host.
 
 Notas:
 - Operações com `ci` (case-insensitive) normalizam usando `lower()`.
@@ -274,7 +287,7 @@ O motor `GenericSpecificationsBuilder` foi projetado para suportar `FilterDTO`s 
 2. **Reuso Automático de `LEFT JOIN` (`reuseLeftJoins = true`):** Quando múltiplos filtros navegam pela mesma associação (`relation = "lotacao.nome"`, `relation = "lotacao.sigla"`), `JpaCriteriaPathSupport` reutiliza a mesma instância de `Join` na árvore Criteria, evitando `LEFT JOIN`s duplicados na mesma tabela.
 3. **Subqueries Correlacionadas `EXISTS (SELECT 1 ...)` para Coleções `@OneToMany` / `@ManyToMany`:**
    - Em buscas amplas (`@Filterable(operation = LIKE, relations = {"nomeCompleto", "cpf", "dependentes.nome", "cargo.nome"})`) ou filtros sobre coleções filhas, caminhos que atravessam atributos plurais (`@OneToMany`/`@ManyToMany`) são compilados automaticamente em **subqueries correlacionadas `EXISTS (SELECT 1 FROM ... WHERE parent_id = root.id AND ...)`**.
-   - Isso evita que um `LEFT JOIN` de coleção multiplique as linhas da entidade raiz e **elimina a necessidade de forçar `SELECT DISTINCT`** na query principal (que exigiria ordenação/hash pesado de todas as colunas da projeção no PostgreSQL/Oracle).
+   - Isso evita que um `LEFT JOIN` de coleção multiplique as linhas da entidade raiz e **elimina a necessidade de forçar `SELECT DISTINCT`** na query principal (que exigiria ordenação/hash pesado de todas as colunas da projeção no banco relacional).
    - Além disso, quando o termo de uma busca ampla (`relations = {...}`) não contém dígitos e a operação é textual (`LIKE`/`STARTS_WITH`/`ENDS_WITH`), caminhos numéricos (`Long`, `Integer`, `BigDecimal`) são ignorados automaticamente sem gerar `CAST` inútil no SQL.
 4. **Comparações Temporais 100% SARGable (Preservação de Índices B-Tree):**
    - Os builders `BETWEEN`, `BETWEEN_EXCLUSIVE`, `NOT_BETWEEN`, `OUTSIDE_RANGE`, `ON_DATE`, `IN_LAST_DAYS` e `IN_NEXT_DAYS` inspecionam `path.getJavaType()` e convertem o parâmetro de entrada para o tipo nativo da coluna (`LocalDate`, `LocalDateTime`, `OffsetDateTime` ou `Instant`).
@@ -293,7 +306,7 @@ O motor `GenericSpecificationsBuilder` foi projetado para suportar `FilterDTO`s 
 <summary><strong>Vantagem competitiva (por números)</strong></summary>
 
 - 26 operações prontas de filtro — sem escrever Specifications na mão
-- Até 18 operações públicas por recurso — CRUD, filtros, paginação por cursor, options id/label, option-sources, stats e schemas
+- Até 18 operações públicas por recurso — manutenção, filtros, paginação por cursor, options id/label, option-sources, stats e schemas
 - Redução de ~97% no payload da documentação por grupo OpenAPI — com cache inteligente
 
 > Resultado: menos boilerplate, tempo de entrega menor e APIs/UX mais consistentes — alinhadas com as melhores práticas do ecossistema Spring + OpenAPI.

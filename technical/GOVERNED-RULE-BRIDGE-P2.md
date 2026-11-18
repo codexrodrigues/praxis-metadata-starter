@@ -28,7 +28,7 @@ permanecem os existentes. A nova dependência do starter usa o runtime canônico
 não há implementação paralela de JSON Logic. O engine continua sem Spring.
 
 As alterações anteriores de P1 no starter foram preservadas. Não foram alterados
-hosts Ergon, regras de negócio, banco, infraestrutura Bulk ou dependências PG17.
+hosts consumidores corporativos, regras de negócio, banco, infraestrutura Bulk ou dependências PG17.
 O gate Entity-to-DTO de recursos não se aplica: este corte altera bibliotecas e
 adaptadores compartilhados, sem criar ou revisar um recurso corporativo de host.
 

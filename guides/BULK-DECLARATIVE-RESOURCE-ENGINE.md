@@ -45,7 +45,9 @@ necessário habilitar coerções gerais para transportar um decimal exato.
 Herde `AbstractBulkGovernedResourceController<R, ID, F, C, U>` e declare
 `@ApiResource(resourceKey=...)` e `@BulkResourceOperations`, incluindo
 `updateSourceOperationId` e `protectedUpdateFields` com as identidades, versões e
-campos exclusivos de workflow aceitos no DTO. No PUT unitário, declare `@BulkResourceOperation(UPDATE_SOURCE)` e um
+campos exclusivos de workflow aceitos no DTO (sem jamais incluir em
+`protectedUpdateFields` campos anotados com `@BulkEditable` no `UpdateDTO`,
+regra validada via `bulk-protected-field-conflicts-with-bulk-editable`). No PUT unitário, declare `@BulkResourceOperation(UPDATE_SOURCE)` e um
 `@Operation(operationId=...)` correspondente a `updateSourceOperationId`; se
 usar o PUT da base, sobrescreva o método apenas para essas declarações e delegue
 para `super.update`. Não anote uma identidade imutável com `@BulkEditable`.
@@ -215,7 +217,6 @@ permite correlacionar operações negadas. O reader ainda revalida o grant e a
 visibilidade do conjunto completo. Chamadas diretas ao lookup devem fornecer a
 política; a assinatura antiga sem autoridade foi removida no candidato beta.
 
-Este guia descreve fonte local não publicada. Migração de consumidores, publicação
-Maven, integração Neon, ASYNC/worker e composição de operações ATOMIC não são gates
-da Onda 3. Os contratos e provas desses mecanismos existentes permanecem nos
-respectivos documentos do SDK. A adoção do Ergon Showcase pertence à Onda 4.
+Este guia descreve os contratos publicados do motor declarativo de operações em lote.
+Provisionamento de infraestrutura remota, publicação de pacotes Maven, execução assíncrona
+via worker dedicado e composição transacional avançada seguem os documentos específicos do SDK.

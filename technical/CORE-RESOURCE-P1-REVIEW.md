@@ -3,8 +3,7 @@
 Escopo exclusivo: `praxis-metadata-starter`, sobre o trabalho local da P1 e HEAD
 `53ab770a46` (`8.0.0-rc.188`). Não houve edição de hosts, Angular ou showcase.
 As fontes de intenção são a Issue P1 de `plano-issues-evolucao-plataforma-3-ondas.md` e
-`auditoria-evolucao-plataforma-ergon-showcase.md`, no diretório de planejamento
-`585430d4-d36a-4c55-9c53-4a0359df92c9` informado na solicitação.
+a auditoria interna de evolução da plataforma de recursos corporativos.
 
 ## Achados corrigidos
 
@@ -65,7 +64,7 @@ recursos de domínio: este corte altera infraestrutura, com entidades de teste l
 
 ## Validação e limites
 
-JDK: `C:\Users\rodrigo.moreira\.jdks\openjdk-21.0.2`. A compilação de fechamento refez todos
+JDK: `OpenJDK 21.0.2`. A compilação de fechamento refez todos
 os arquivos Java alterados a partir de seus bytes finais. A opção do compiler abaixo controla
 recompilação, sem desativar testes ou guardas.
 

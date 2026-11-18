@@ -28,14 +28,17 @@ org.praxisplatform.uischema.filter.range
 org.praxisplatform.uischema.filter.relativeperiod
 org.praxisplatform.uischema.filter.specification
 org.praxisplatform.uischema.filter.web
+org.praxisplatform.uischema.governance
 org.praxisplatform.uischema.hash
 org.praxisplatform.uischema.http
 org.praxisplatform.uischema.id
 org.praxisplatform.uischema.mapper
 org.praxisplatform.uischema.mapper.base
 org.praxisplatform.uischema.mapper.config
+org.praxisplatform.uischema.multitenancy
 org.praxisplatform.uischema.numeric
 org.praxisplatform.uischema.openapi
+org.praxisplatform.uischema.option
 org.praxisplatform.uischema.options
 org.praxisplatform.uischema.options.diagnostics
 org.praxisplatform.uischema.options.service
@@ -48,6 +51,7 @@ org.praxisplatform.uischema.rest.exceptionhandler.exception
 org.praxisplatform.uischema.rest.failure
 org.praxisplatform.uischema.rest.response
 org.praxisplatform.uischema.schema
+org.praxisplatform.uischema.security
 org.praxisplatform.uischema.service
 org.praxisplatform.uischema.service.base
 org.praxisplatform.uischema.service.base.annotation

@@ -48,7 +48,7 @@ Entrada:
 Peca explicitamente para a LLM gerar nesta ordem:
 
 1. DTOs (`ResponseDTO`, `CreateDTO`, `UpdateDTO`, `FilterDTO`)
-2. repository (`extends BaseCrudRepository<E, ID>`)
+2. repository (`extends BaseResourceRepository<E, ID>`)
 3. mapper (`implements ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>`)
 4. service (`extends AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>`)
 5. controller (`extends AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO>`)
@@ -142,7 +142,7 @@ materializar a fronteira entre persistencia e contrato.
 ## Repository minimo
 
 ```java
-public interface EmployeeRepository extends BaseCrudRepository<Employee, Long> {
+public interface EmployeeRepository extends BaseResourceRepository<Employee, Long> {
 }
 ```
 
@@ -487,12 +487,12 @@ public ResourceRepresentationResult<EmployeeResponseDTO> update(
    - Em `ResponseDTO`, `CreateDTO`, `UpdateDTO` e `FilterDTO`, declare `@CustomFields(resourceKey = "human-resources.employees") private Map<String, Object> customFields = new LinkedHashMap<>();` (mantendo `customFields` aninhado no JSON, sem `@JsonAnyGetter`/`@JsonAnySetter`).
    - Registre um bean `@Component` implementando `CustomFieldDefinitionProvider` (consultando `custom_field_definitions`) para que `/schemas/filtered`, validação server-side, filtros JSONB em `/filter`, exportação e `/schemas/domain` projetem automaticamente os campos ativos da organização/tenant.
 2. **Catálogo de Fatos de Domínio (`@ResourceFact` + `ResourceFactCatalogProvider`):**
-   - Anote o controller/service com `@ResourceFact(key = "tempoServicoDias", resourceKey = "human-resources.employees", label = "Tempo de Serviço em Dias", description = "...", dataType = "integer", unit = "days")` ou exponha um bean `ResourceFactCatalogProvider` para publicar indicadores derivados em `/schemas/domain`.
-3. **Determinações Reativas em Tempo de Formulário (`ReactiveDeterminationDefinitionProvider`):**
+   - Anote o controller/service com `@ResourceFact(key = "tempoServicoDias", label = "Tempo de Serviço", description = "...", dataType = "integer", unit = "days")` ou exponha um bean `ResourceFactCatalogProvider` para publicar indicadores derivados em `/schemas/domain`. Em controllers `@ApiResource` e no seu `<R>` `ResponseDTO`, o `resourceKey` é herdado automaticamente e deve ser omitido (declare `resourceKey = "..."` explicitamente apenas em providers ou classes standalone sem `@ApiResource`).
+3. **Determinações Reativas em Tempo de Formulário (`@ReactiveDetermination` / `ReactiveDeterminationDefinitionProvider`):**
    - Quando o preenchimento de um ou mais campos de `CreateDTO` / `UpdateDTO` permitir projetar dados relacionados, calcular valores/datas ou simular elegibilidade antes do submit:
      1. Declare os campos de saída (inclusive prévias calculadas com `@UISchema(readOnly = true)`) em `CreateDTO` e `UpdateDTO`;
      2. No Controller do recurso, sobrescreva `create` (`@PostMapping`) com `@Operation(operationId = "createEmployee", ...)` e `update` (`@PutMapping("/{id}")`) com `@Operation(operationId = "updateEmployee", ...)`, e exponha um endpoint `@PostMapping("/determinations/compensation-preview")` (sem variáveis de caminho `{id}`) com `@Operation(operationId = "determineEmployeeCompensationPreview", ...)` que receba `@RequestBody` JSON e retorne `200 OK` JSON sem persistir estado;
-     3. Registre um `@Bean ReactiveDeterminationDefinitionProvider` vinculando os escopos (`new ReactiveDeterminationScope("createEmployee", ReactiveDeterminationFormMode.CREATE)`, `new ReactiveDeterminationScope("updateEmployee", ReactiveDeterminationFormMode.EDIT)`) ao `operationId` `"determineEmployeeCompensationPreview"`, usando `ReactiveDeterminationTriggerMode.ON_CHANGE`, `sourcePaths` iniciados por `"/"` (todos presentes em `inputs`), `ReactiveDeterminationInputBinding`, `ReactiveDeterminationOutputBinding` (sem sobrepor `inputs`) e `ReactiveDeterminationProvenance(ReactiveDeterminationProvenanceKind.HOST, "host-service", "1")`.
+     3. Prefira declarar `@ReactiveDetermination(id = "...", createOperationId = "createEmployee", updateOperationId = "updateEmployee", triggerMode = ReactiveDeterminationTriggerMode.ON_CHANGE, inputs = {@DeterminationInput("/positionId")}, outputs = {@DeterminationOutput("/baseSalaryFloor"), @DeterminationOutput(response = "/defaultWeeklyHours", field = "/weeklyHours")})` diretamente sobre o endpoint `POST` do Controller (`AnnotationDrivenReactiveDeterminationDefinitionProvider`, usando `@DeterminationOutput("campo")` sempre que `response` e `field` coincidirem). Use um `@Bean ReactiveDeterminationDefinitionProvider` programático apenas quando `provenance` depender dinamicamente de `GovernedRuleFamilyRegistry` ou exigir escopos especiais.
 
 
 ## O que nao deve ser gerado
@@ -511,17 +511,17 @@ public ResourceRepresentationResult<EmployeeResponseDTO> update(
 Adicione um novo recurso metadata-driven completo e rico em metadados de negocio ao projeto Spring Boot existente.
 
 Use obrigatoriamente:
-- @ApiResource(value = ..., resourceKey = ..., title = ..., description = ..., icon = ..., identity = @ResourceIdentity(...), quickFilters = {@QuickFilter(...)})
+- @ApiResource(value = ..., resourceKey = ..., title = ..., description = ..., icon = ..., identity = @ResourceIdentity(...), quickFilters = {@QuickFilter(id = ..., label = ..., criteria = @FilterCriterion(...), icon = ..., tone = ...)})
 - @ApiGroup
 - Entidade com @OptionLabel e @DefaultSortColumn
-- BaseCrudRepository<E, ID>
+- BaseResourceRepository<E, ID>
 - ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>
 - AbstractBaseResourceService<E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceService<E, ResponseDTO, ID, FilterDTO>
 - AbstractResourceController<ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO> ou AbstractReadOnlyResourceController<ResponseDTO, ID, FilterDTO>
 
 Gere, nesta ordem:
-1. DTOs (ResponseDTO, CreateDTO, UpdateDTO, FilterDTO com @Schema de negocio em PT-BR, @UISchema com grupos/icones/presets, @DomainGovernance e @Filterable rico)
-2. repository (extends BaseCrudRepository<E, ID>)
+1. DTOs (ResponseDTO, CreateDTO, UpdateDTO, FilterDTO com @Schema de negocio em PT-BR, @UISchema com grupos/icones em snake_case minusculo/presets/@UiOption ou optionEnum sem options JSON legado, @DomainGovernance e @Filterable rico)
+2. repository (extends BaseResourceRepository<E, ID>)
 3. mapper (implements ResourceMapper<E, ResponseDTO, CreateDTO, UpdateDTO, ID>)
 4. service (com getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e modos StatsSupportMode.AUTO)
 5. controller (com getService() e getResponseId())
@@ -546,7 +546,7 @@ Antes de concluir:
 - o recurso nao usa DTO unico
 - `FilterDTO implements GenericFilterDTO` com `@Filterable` e `@UISchema`
 - entidade declara `@OptionLabel` para alimentar `/options/filter` e `/options/by-ids`
-- repository estende `BaseCrudRepository`
+- repository estende `BaseResourceRepository`
 - service sobrescreve `getResourceMapper()`, `getDatasetVersion()` e `getStatsFieldRegistry()` (quando houver dimensoes/metricas analiticas)
 - controller sobrescreve `getService()` e `getResponseId()`
 - `/schemas/filtered` resolve request e response

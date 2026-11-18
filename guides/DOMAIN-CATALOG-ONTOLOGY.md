@@ -41,8 +41,8 @@ Chaves de RuleSet incluem a tupla serviço/recurso/RuleSet/operação por hash e
 consumidores devem usar os vínculos publicados, sem reconstruir identificadores.
 
 Uma referência pode apontar para o próprio recurso, para outro serviço ou para um
-conceito sem CRUD local. Referências têm `projectionRole=REFERENCE`, identidade
-explícita e `source=concept-reference`; não recebem capacidades CRUD presumidas.
+conceito sem operações locais de persistência. Referências têm `projectionRole=REFERENCE`, identidade
+explícita e `source=concept-reference`; não recebem capacidades operacionais presumidas.
 Definições locais têm `projectionRole=DEFINITION`. Uma referência não substitui
 uma definição; conflitos de proprietário/contexto falham. Isso descreve a identidade
 declarada pelo produtor: a verificação federada de autoridade pertence ao Config.
@@ -111,8 +111,6 @@ apontando para `praxis-domain-catalog-v0.2.schema.json`, enquanto `OntologyG2Pub
 Provas HTTP usam os controllers reais via MockMvc, compilador real e documentos
 OpenAPI locais. Compile os consumidores com o mesmo artefato candidato do Metadata.
 
-Esta entrega não migra providers/fatos, não limpa as classificações legadas
-`existing*`/`active*` do Engine e não altera snapshots/heads. Bindings explícitos
-com esses prefixos não são filtrados pelo Metadata. A migração dos providers é G3;
-Config, reparo, redaction federada e Studio são G4; ativação e rollback são G5.
-Aceite local G2 não equivale a publicação de artefato, prova Neon ou implantação.
+Esta entrega não migra providers/fatos externos nem limpa classificações auxiliares
+mantidas pelo host para compatibilidade de transição.
+Aceite local de publicação e paridade do schema não equivale a publicação de artefato, prova de banco de dados remoto ou implantação em produção.

@@ -380,19 +380,19 @@ comportamento por nome de operacao ou duplicar um catalogo local. Elas
 descrevem a operacao; nao substituem o enforcement do host.</p>
 <p>O provider deve encapsular policy privada, motor legado, autorizacao,
 agenda, tenant, sessao ou regra regulatoria. Ele nao deve publicar nomes
-internos de package, SQL, HADES, ROWID, usuario tecnico, locators ou
-detalhes de banco.</p>
+internos de package, SQL, metadados internos legados, ROWID, usuario
+tecnico, locators ou detalhes de banco.</p>
 <p>IDs estaveis recebidos pelo provider incluem <code>all</code>,
 <code>byId</code>, <code>filter</code>, <code>cursor</code>,
 <code>options</code>, <code>optionSources</code>,
 <code>statsGroupBy</code>, <code>statsTimeSeries</code>,
 <code>statsDistribution</code>, <code>statsComparison</code> e
-<code>export</code>, alem das affordances CRUD <code>create</code>,
-<code>view</code>, <code>edit</code>, <code>delete</code> e
-<code>duplicate-draft</code>. O <code>scope</code> pertence a operacao:
-mesmo em um snapshot de item, uma operacao query/stats continua
-<code>COLLECTION</code> e nao recebe <code>resourceId</code> ou
-<code>resourceState</code>.</p>
+<code>export</code>, alem das affordances básicas de recurso
+<code>create</code>, <code>view</code>, <code>edit</code>,
+<code>delete</code> e <code>duplicate-draft</code>. O <code>scope</code>
+pertence a operacao: mesmo em um snapshot de item, uma operacao
+query/stats continua <code>COLLECTION</code> e nao recebe
+<code>resourceId</code> ou <code>resourceState</code>.</p>
 <p><code>canonicalOperations</code> responde somente se a operacao faz
 parte do contrato estrutural. A decisao atual esta em
 <code>operations.{operationId}.availability</code>. Nenhum desses blocos
@@ -436,7 +436,7 @@ em <code>ResourceStateSnapshot.metadata()</code>:</p>
 <code>surface.&lt;id&gt;.legalPurpose</code>,
 <code>surface.&lt;id&gt;.customTitle</code>,
 <code>surface.&lt;id&gt;.blockedByRule</code>;</li>
-<li>Operacoes CRUD contextuais de item (<code>edit</code>,
+<li>Operacoes contextuais de ciclo de vida do item (<code>edit</code>,
 <code>delete</code>, <code>duplicate-draft</code>):
 <code>operation.&lt;id&gt;.allowed</code>,
 <code>operation.&lt;id&gt;.reason</code>,
@@ -474,8 +474,8 @@ automaticamente <code>@ApiResource</code>, handlers MVC,
 <code>SURFACE_AVAILABILITY</code>, <code>BULK_OPERATION</code>,
 <code>FIELD_PROJECTION</code>, <code>FIELD_WRITE</code>) sem exigir
 registro manual por recurso.</p>
-<p>Nao transforme action em CRUD por causa do metodo HTTP. O eixo
-canonico e a intencao de negocio, nao o verbo.</p>
+<p>Nao transforme action em operacao basica de persistencia por causa do
+metodo HTTP. O eixo canonico e a intencao de negocio, nao o verbo.</p>
 <h2 id="surfaces">Surfaces</h2>
 <p>Use <code>SurfaceAvailabilityRule</code> quando a decisao pertencer a
 uma experiencia UI publicada por <code>@UiSurface</code>.</p>
@@ -535,8 +535,8 @@ declarados na annotation</li>
 <p>Evite:</p>
 <ul>
 <li>SQL, package, stack trace ou procedure</li>
-<li>HADES, Oracle, ROWID, Archon, locators internos ou nomes de guards
-privados</li>
+<li>motores legados, bancos proprietários, ROWID, locators internos ou
+nomes de guards privados</li>
 <li>identificadores de tenant, usuario, sessao ou empresa que nao sejam
 parte do contrato publico</li>
 <li>mensagem interna de exception</li>
@@ -605,9 +605,10 @@ item</li>
 <li>testes de host devem cobrir uma colecao com varios itens para
 detectar N+1 evitavel</li>
 </ul>
-<h2 id="exemplo-non-ergon">Exemplo non-Ergon</h2>
-<p>A fixture E2E do starter demonstra o padrao sem depender de
-Ergon:</p>
+<h2 id="exemplo-neutro-host-agnostic">Exemplo neutro
+(host-agnostic)</h2>
+<p>A fixture E2E do starter demonstra o padrao sem depender de nenhum
+sistema legado externo:</p>
 <ul>
 <li><code>EmployeeSurfaceStateSnapshotProvider</code> publica estado
 publico de employee</li>
@@ -627,8 +628,8 @@ mantem a mesma disponibilidade publica nos endpoints dedicados e no
 snapshot agregado</li>
 </ul>
 <p>Esse exemplo e propositalmente host-neutral. Em um host corporativo,
-HADES, Oracle, Archon, IAM ou motor regulatorio ficam atras da SPI.
-Nenhum desses nomes deve virar semantica publica do Praxis.</p>
+motores legados, bancos externos, IAM ou motor regulatorio ficam atras
+da SPI. Nenhum desses nomes deve virar semantica publica do Praxis.</p>
 <h2 id="checklist-de-aceite-para-hosts">Checklist de aceite para
 hosts</h2>
 <p>Antes de declarar um recurso pronto para migracao assistida por

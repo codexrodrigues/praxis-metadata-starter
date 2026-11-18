@@ -364,12 +364,9 @@ de acesso contextual (ABAC), escopo relacional multi-organização/setor
 <code>praxis-authz-opa</code>, <code>praxis-authz-starter</code>),
 vinculada por <code>RuntimeEnforcementBinding</code>.</p>
 </blockquote>
-<p>Os três achados da <a
-href="../technical/GOVERNED-RULE-BRIDGE-P2-REVIEW.md">revisão de
-integridade e UX</a> receberam correções na fonte canônica. O <a
-href="../technical/GOVERNED-RULE-BRIDGE-P2-CORRECTIONS.md">registro de
-correção</a> separa a implementação e seus testes da revisão original e
-de uma futura publicação.</p>
+<p>A ponte governada de regras conecta os contratos públicos do
+<code>praxis-metadata-starter</code> ao catálogo de regras e ao snapshot
+publicado.</p>
 <p>O <code>praxis-rules-engine</code> é a fonte canônica do runtime Java
 puro. O metadata starter depende desse runtime e traduz
 <code>PraxisRuleViolationException</code> sem acoplar o engine ao
@@ -590,13 +587,11 @@ correlação técnica;</li>
 e a limpeza dos erros depois da correção, usando o runtime oficial.</li>
 </ul>
 <h2 id="desenvolvimento-local">Desenvolvimento local</h2>
-<p>Este corte P2 usa os candidatos locais
-<code>praxis-rules-engine:0.1.0-beta.17</code> e
-<code>praxis-metadata-starter:8.0.0-rc.188</code>, sem bump ou
-publicação. Instale o engine antes de compilar o starter. Esse
-<code>mvn install</code> prova composição local; release requer
-versionamento coordenado e publicação oficial antes do consumo público.
-A adoção e remoção das implementações do showcase pertencem à P4.</p>
+<p>Em aplicações consumidoras, mantenha o alinhamento entre a versão
+publicada de <code>praxis-rules-engine</code> e
+<code>praxis-metadata-starter</code> definida no <code>pom.xml</code>,
+sem introduzir código específico de produto nos pacotes canônicos da
+plataforma.</p>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

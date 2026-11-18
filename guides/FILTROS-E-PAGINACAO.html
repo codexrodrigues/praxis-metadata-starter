@@ -380,7 +380,7 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> FuncionarioService <span class="kw">extends</span> AbstractBaseResourceService<span class="op">&lt;</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    Funcionario<span class="op">,</span> FuncionarioResponseDTO<span class="op">,</span> <span class="bu">Long</span><span class="op">,</span> FuncionarioFilterDTO<span class="op">,</span> CreateFuncionarioDTO<span class="op">,</span> UpdateFuncionarioDTO<span class="op">&gt;</span> <span class="op">{</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">public</span> <span class="fu">FuncionarioService</span><span class="op">(</span>BaseCrudRepository<span class="op">&lt;</span>Funcionario<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> repo<span class="op">,</span> <span class="bu">Class</span><span class="op">&lt;</span>Funcionario<span class="op">&gt;</span> entityClass<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">public</span> <span class="fu">FuncionarioService</span><span class="op">(</span>BaseResourceRepository<span class="op">&lt;</span>Funcionario<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> repo<span class="op">,</span> <span class="bu">Class</span><span class="op">&lt;</span>Funcionario<span class="op">&gt;</span> entityClass<span class="op">)</span> <span class="op">{</span></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">super</span><span class="op">(</span>repo<span class="op">,</span> entityClass<span class="op">);</span></span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
@@ -405,6 +405,30 @@ Evite ocultar critérios herdados sem intenção explícita, pois isso muda
 a pergunta representada pelo filtro. A herança não transforma filtros
 enviados pelo cliente em autorização; mantenha
 <code>ResourceFilterAccessScope</code> no serviço.</p>
+<h3
+id="herança-de-metadados-de-ui-filterdto---responsedto-e-busca-ampla-primarysearch">Herança
+de metadados de UI (<code>FilterDTO</code> -&gt;
+<code>ResponseDTO</code>) e busca ampla
+(<code>primarySearch</code>)</h3>
+<ul>
+<li><strong>Herança de metadados em
+<code>/schemas/filtered</code>:</strong> campos de um
+<code>GenericFilterDTO</code> associados ao respectivo
+<code>ResponseDTO</code> (via
+<code>CustomOpenApiResolver.registerFilterResponsePair</code> ou
+<code>filterSchemaInheritanceOpenApiCustomizer</code>) herdam
+automaticamente metadados omitidos — como <code>icon</code>,
+<code>endpoint</code>, <code>valueField</code>,
+<code>displayField</code> e <code>options</code> — a partir da
+propriedade correspondente do <code>ResponseDTO</code>, preservando
+qualquer declaração explícita no <code>FilterDTO</code>.</li>
+<li><strong>Busca ampla primária
+(<code>@Filterable(primarySearch = true)</code>):</strong> sinaliza o
+campo de busca textual unificada (<code>relations = {...}</code>) com
+<code>x-ui.primarySearch = true</code> para hidratação imediata da caixa
+de busca principal (<em>omnibox</em>) em
+<code>@praxisui/table</code>.</li>
+</ul>
 <a id="escopo-de-acesso"></a>
 <details>
 <summary>
@@ -522,9 +546,14 @@ endpoint)</h4>
 opções são derivadas diretamente do schema OpenAPI (o array
 <code>enum</code>).</li>
 <li>Quando o campo <code>enum</code> declarar
-<code>@UISchema.options</code>, os valores aceitos continuam vindo do
-<code>enum</code>; a anotação serve para enriquecer labels/metadados das
-opções cujo <code>value</code> corresponde ao valor canônico.</li>
+<code>@UISchema(optionItems = {@UiOption(...)})</code> ou
+<code>optionEnum = MeuEnum.class</code> (mutuamente exclusivos;
+<code>@UISchema(options = "...")</code> stringificado está
+<code>@Deprecated(since = "2.1.0")</code>), os valores aceitos continuam
+vindo do <code>enum</code>; a anotação tipada enriquece rótulos, ícones
+(<code>snake_case</code> minúsculo) e tons
+(<code>QuickFilterTone</code>) das opções correspondentes ao valor
+canônico.</li>
 <li>Para <code>array</code> de <code>enum</code>, o schema é “array de
 enum” e a UI renderiza multi‑select automaticamente.</li>
 <li>Use <code>endpoint</code> (<code>/options/filter</code>) apenas para
@@ -711,26 +740,41 @@ Adicionadas</h3>
 <td>Campo booleano falso</td>
 <td><code>@Filterable(IS_FALSE)</code></td>
 </tr>
+<tr>
+<td>EFFECTIVE_ON_DATE</td>
+<td>Vigência ativa na data
+(<code>relation &lt;= d &lt;= endRelation</code>)</td>
+<td><code>@Filterable(EFFECTIVE_ON_DATE)</code> +
+<code>relation</code>/<code>endRelation</code> obrigatórios</td>
+</tr>
 </tbody>
 </table>
 <p>Notas: - Para <code>ON_DATE</code>, use <code>LocalDate</code> no
 DTO. A comparação considera o intervalo [início do dia, início do dia
-seguinte). - Para <code>IN_LAST_DAYS/IN_NEXT_DAYS</code>, o valor é
-relativo ao horário atual (UTC) e converte para <code>Instant</code>. -
-Para <code>SIZE_*</code>, aplique apenas em atributos de coleção
-(OneToMany/ManyToMany); o builder usa <code>CriteriaBuilder.size</code>.
-- Requisito de coleção em <code>SIZE_*</code>: defina
-<code>relation</code> para apontar explicitamente para o atributo de
-coleção na entidade. Se o caminho não for coleção, o builder lança erro
-informativo. - Para novos componentes compactos de superfície, prefira
-<code>controlType</code> canônico com a família
-<code>INLINE_*</code>.</p>
+seguinte). - Para <code>EFFECTIVE_ON_DATE</code>, declare explicitamente
+<code>relation</code> e <code>endRelation</code> não-vazios (ex.:
+<code>"validFrom"</code> e <code>"validTo"</code>); o builder e o
+<code>SemanticMetadataReviewer</code> falham fechado quando algum deles
+estiver em branco. - Para <code>IN_LAST_DAYS/IN_NEXT_DAYS</code>, o
+valor é relativo ao horário na zona configurada
+(<code>praxis.filter.time-zone</code>, padrão <code>UTC</code>) e
+converte para <code>Instant</code>. - Para <code>SIZE_*</code>, aplique
+apenas em atributos de coleção (OneToMany/ManyToMany); o builder usa
+<code>CriteriaBuilder.size</code>. - Requisito de coleção em
+<code>SIZE_*</code>: defina <code>relation</code> para apontar
+explicitamente para o atributo de coleção na entidade. Se o caminho não
+for coleção, o builder lança erro informativo. - Para novos componentes
+compactos de superfície, prefira <code>controlType</code> canônico com a
+família <code>INLINE_*</code>.</p>
 <h3 id="notas-de-timezone">Notas de Timezone</h3>
 <ul>
 <li><code>ON_DATE</code>, <code>IN_LAST_DAYS</code> e
-<code>IN_NEXT_DAYS</code> utilizam normalização com <code>Instant</code>
-e horário atual do backend. Em ambientes multi‑região, verifique a zona
-padrão da aplicação e do banco. Recomenda‑se padronizar em UTC.</li>
+<code>IN_NEXT_DAYS</code> utilizam normalização com
+<code>Instant</code>, <code>Clock</code> e zona configurável via
+<code>praxis.filter.time-zone</code> (com fallback para
+<code>praxis.filter.relative-period.zone-id</code> e padrão
+<code>UTC</code>). Em ambientes multi‑região, alinhe essa propriedade à
+política temporal do host.</li>
 </ul>
 <p>Notas: - Operações com <code>ci</code> (case-insensitive) normalizam
 usando <code>lower()</code>. - Para IS_NULL/IS_NOT_NULL, sugere-se
@@ -823,8 +867,8 @@ compilados automaticamente em <strong>subqueries correlacionadas
 <li>Isso evita que um <code>LEFT JOIN</code> de coleção multiplique as
 linhas da entidade raiz e <strong>elimina a necessidade de forçar
 <code>SELECT DISTINCT</code></strong> na query principal (que exigiria
-ordenação/hash pesado de todas as colunas da projeção no
-PostgreSQL/Oracle).</li>
+ordenação/hash pesado de todas as colunas da projeção no banco
+relacional).</li>
 <li>Além disso, quando o termo de uma busca ampla
 (<code>relations = {...}</code>) não contém dígitos e a operação é
 textual
@@ -894,8 +938,9 @@ B-Tree para chaves e intervalos.</li>
 <ul>
 <li>26 operações prontas de filtro — sem escrever Specifications na
 mão</li>
-<li>Até 18 operações públicas por recurso — CRUD, filtros, paginação por
-cursor, options id/label, option-sources, stats e schemas</li>
+<li>Até 18 operações públicas por recurso — manutenção, filtros,
+paginação por cursor, options id/label, option-sources, stats e
+schemas</li>
 <li>Redução de ~97% no payload da documentação por grupo OpenAPI — com
 cache inteligente</li>
 </ul>

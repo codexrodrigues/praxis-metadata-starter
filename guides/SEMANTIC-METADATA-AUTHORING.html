@@ -398,6 +398,77 @@ escreve descricao de dominio.</li>
 <li><code>PHONE_CONTACT</code></li>
 <li><code>INTEGER_COUNTER</code></li>
 <li><code>PERCENTAGE_RATE</code></li>
+<li><code>LOCAL_DATE</code> (<code>DATE</code> +
+<code>DATE_PICKER</code>, ícone <code>"calendar_today"</code>)</li>
+<li><code>LOCAL_DATE_TIME</code> (<code>DATE</code> +
+<code>DATE_TIME_PICKER</code>, ícone <code>"schedule"</code>)</li>
+<li><code>ENTITY_LOOKUP</code> (<code>NUMBER</code> +
+<code>ENTITY_LOOKUP</code>, <code>valueField = "id"</code>,
+<code>displayField = "label"</code>, ícone <code>"link"</code>)</li>
+</ul>
+<h3
+id="formatação-numérica-numericformat.auto-e-opções-tipadas-praxisuioptionenum">Formatação
+Numérica (<code>NumericFormat.AUTO</code>) e Opções Tipadas
+(<code>PraxisUiOptionEnum</code>)</h3>
+<ul>
+<li>O default de <code>@UISchema(numericFormat = ...)</code> é
+<code>NumericFormat.AUTO</code>: campos numéricos que declarem
+explicitamente <code>NumericFormat.INTEGER</code> (ou usem
+<code>INTEGER_COUNTER</code>) sempre publicam
+<code>"numericFormat": "integer"</code> em <code>x-ui</code>, enquanto o
+padrão <code>AUTO</code> evita emitir <code>"integer"</code>
+indevidamente em campos não-inteiros.</li>
+<li>Quando um <code>enum</code> passado em
+<code>@UISchema(optionEnum = MeuEnum.class)</code> implementa
+<code>PraxisUiOptionEnum</code>, o starter publica <code>value</code>,
+<code>label</code>, <code>icon</code> e <code>tone</code> em
+<code>x-ui.options</code> no formato canônico de <code>@UiOption</code>,
+e <code>EntityLookupDescriptor.directoryBuilderFromDto(...)</code>
+detecta automaticamente esse campo (ou <code>@ResourceState</code>) para
+preencher <code>status</code>, <code>statusLabels</code> e
+<code>selectionPolicy</code> (<code>selectableInLookup()</code>).</li>
+</ul>
+<h3
+id="anotações-estruturais-zero-duplicação-table-form-state-workflow-calculo-contexto">Anotações
+Estruturais Zero-Duplicação (<code>Table</code>, <code>Form</code>,
+<code>State</code>, <code>Workflow</code>, <code>Calculo</code>,
+<code>Contexto</code>)</h3>
+<ul>
+<li><strong>Projeção Tabular (<code>@TableView</code>):</strong> declara
+<code>columns</code>, <code>pinnedStart</code> e <code>pinnedEnd</code>
+no <code>ResponseDTO</code>, ocultando automaticamente
+(<code>tableHidden = true</code>) todas as demais propriedades e
+atribuindo <code>tableOrder</code>/<code>pinned</code>.</li>
+<li><strong>Layout &amp; Visibilidade de Formulário
+(<code>@UiFormLayout</code>, <code>@UiSection</code>,
+<code>@UISchema</code>):</strong> organiza seções/grupos
+(<code>FLAT</code>, <code>ACCORDION</code>, <code>TABS</code>,
+<code>STEPPER</code>) em <code>x-ui.formLayout</code> e permite
+<code>colSpan</code> (<code>1..12</code>) e
+<code>conditionalReadOnly</code> (JSON Logic validado estaticamente)
+diretamente em <code>@UISchema</code>.</li>
+<li><strong>Ciclo de Vida, Draft, Contexto e Visões Temporais:</strong>
+<code>@ResourceState</code> identifica o campo de estado e
+<code>initialStates</code>/<code>putMutableStates</code>;
+<code>@DraftCleared</code> zera campos protegidos/únicos automaticamente
+em <code>duplicate-draft</code> (<code>x-ui.draftCleared = true</code>);
+<code>@ContextScopeBinding</code> vincula campo ou recurso a
+<code>ScopeDimension</code> (<code>x-ui.contextBinding</code>);
+<code>@ResourceProgression</code>, <code>@ResourceTimeline</code> e
+<code>@ResourceSchedule</code> publicam <code>x-ui.progression</code>,
+<code>x-ui.timeline</code> e <code>x-ui.schedule</code> apenas em
+<code>schemaType=response</code>.</li>
+<li><strong>Ergonomia de Ações, Analytics, Ordenação, Bulking &amp;
+Cálculo:</strong> <code>@UiAnalytics</code> aceita nível de classe
+(<code>ElementType.TYPE</code>, anexando a <code>/stats/group-by</code>
+ou <code>/filter</code>); <code>@BulkEditable</code> e
+<code>@DefaultSortColumn</code> aceitam getters e componentes de
+<code>record</code>; <code>@WorkflowAction</code> suporta
+<code>icon</code>, <code>tone</code>, <code>modifiedFields</code> e
+<code>disallowedStateReason</code>; e
+<code>@CalculationTrail#steps</code> aceita etapas arbitrárias
+<code>@CalculationStep</code> validadas por
+<code>PraxisExpressionStaticValidator</code>.</li>
 </ul>
 <h3
 id="presets-de-governança-domaingovernancepreset-e-meta-anotações-compostas">Presets
@@ -465,8 +536,12 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Revisao estrita (exige @DomainGovernance explicito em 100% dos campos expostos)</span></span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport strictReport <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">reviewStrictGovernance</span><span class="op">(</span>MeuDTO<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
 <span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Revisao de fatos (@ResourceFact) e finalidade legal LGPD (@UiSurface / @WorkflowAction)</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport factsAndLegalReport <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">reviewResourceFacts</span><span class="op">(</span>MeuControllerOuProvider<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span></code></pre></div>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Revisao completa do Controller e dos OptionSources:</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport ctrlReport <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">reviewResourceController</span><span class="op">(</span>MeuController<span class="op">.</span><span class="fu">class</span><span class="op">,</span> MeuResponseDTO<span class="op">.</span><span class="fu">class</span><span class="op">,</span> MeuFilterDTO<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport regReport <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">reviewOptionSourceRegistry</span><span class="op">(</span>optionSourceRegistry<span class="op">);</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">// Revisao de fatos (@ResourceFact) e finalidade legal LGPD (@UiSurface / @WorkflowAction)</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>SemanticMetadataReviewReport factsAndLegalReport <span class="op">=</span> reviewer<span class="op">.</span><span class="fu">reviewResourceFacts</span><span class="op">(</span>MeuControllerOuProvider<span class="op">.</span><span class="fu">class</span><span class="op">);</span></span></code></pre></div>
 <p>O reviewer aponta:</p>
 <ul>
 <li><strong>Qualidade Editorial de <code>@Schema</code> e
@@ -476,6 +551,21 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="
 <li><code>schema-description-copies-ui-label</code></li>
 <li><code>schema-description-derived-from-field-name</code></li>
 <li><code>preset-without-domain-description</code></li>
+</ul></li>
+<li><strong>Quick Filters, Opcoes Tipadas (<code>@UiOption</code> /
+<code>optionEnum</code>), Bulking, Determinacoes &amp; Calculo (Ondas
+1-3):</strong>
+<ul>
+<li><code>quick-filter-legacy-filter-deprecated</code>,
+<code>quick-filter-field-not-filterable</code></li>
+<li><code>select-options-legacy-string-deprecated</code>,
+<code>select-options-mutual-exclusivity</code>,
+<code>ui-option-duplicate-value</code>,
+<code>ui-option-label-invalid</code>,
+<code>ui-option-icon-not-snake-case</code></li>
+<li><code>bulk-protected-field-conflicts-with-bulk-editable</code></li>
+<li><code>reactive-determination-output-redundant-explicit-pair</code></li>
+<li><code>calculation-trail-duplicate-parcel-expression</code></li>
 </ul></li>
 <li><strong>Governança, Sensibilidade, Linhagem
 (<code>@DomainLineage</code>) e Modo Estrito:</strong>

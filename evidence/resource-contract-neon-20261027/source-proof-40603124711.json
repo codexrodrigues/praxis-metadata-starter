@@ -5,8 +5,8 @@
   "workflowConclusion": "failure",
   "failureStage": "receipt packaging: after-class cleanup markers incorrectly expected in Surefire XML",
   "artifact": "neon-source-proof-40603124711-1",
-  "project": "dark-mountain-25788969",
-  "branch": "br-polished-tooth-adtrqgy7",
+  "project": "<neon-project-id>",
+  "branch": "<neon-branch-id>",
   "functionalCases": [
     {
       "class": "org.praxisplatform.uischema.bulk.BulkManagedOwnerNeonGateTest",

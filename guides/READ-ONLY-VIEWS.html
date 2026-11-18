@@ -420,7 +420,7 @@ Read-Only</h3>
 <tbody>
 <tr>
 <td><strong>Repository</strong></td>
-<td><code>BaseCrudRepository</code></td>
+<td><code>BaseResourceRepository</code></td>
 <td><code>&lt;E, ID&gt;</code> <em>(2 parametros)</em></td>
 </tr>
 <tr>
@@ -480,9 +480,9 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb1-1"><a href="
 <span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h3 id="repository">2) Repository</h3>
 <div class="sourceCode" id="cb2"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">repository</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">BaseCrudRepository</span><span class="op">;</span></span>
+class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">repository</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">BaseResourceRepository</span><span class="op">;</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> VendaResumoRepository <span class="kw">extends</span> BaseCrudRepository<span class="op">&lt;</span>VendaResumo<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> VendaResumoRepository <span class="kw">extends</span> BaseResourceRepository<span class="op">&lt;</span>VendaResumo<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h3 id="mapper-read-only-corporatemapperconfig">3) Mapper Read-Only
 (<code>CorporateMapperConfig</code>)</h3>

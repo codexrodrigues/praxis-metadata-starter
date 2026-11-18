@@ -62,11 +62,11 @@ descrevem a operacao; nao substituem o enforcement do host.
 
 O provider deve encapsular policy privada, motor legado, autorizacao, agenda,
 tenant, sessao ou regra regulatoria. Ele nao deve publicar nomes internos de
-package, SQL, HADES, ROWID, usuario tecnico, locators ou detalhes de banco.
+package, SQL, metadados internos legados, ROWID, usuario tecnico, locators ou detalhes de banco.
 
 IDs estaveis recebidos pelo provider incluem `all`, `byId`, `filter`, `cursor`,
 `options`, `optionSources`, `statsGroupBy`, `statsTimeSeries`,
-`statsDistribution`, `statsComparison` e `export`, alem das affordances CRUD
+`statsDistribution`, `statsComparison` e `export`, alem das affordances básicas de recurso
 `create`, `view`, `edit`, `delete` e `duplicate-draft`. O `scope` pertence a
 operacao: mesmo em um snapshot de item, uma operacao query/stats continua
 `COLLECTION` e nao recebe `resourceId` ou `resourceState`.
@@ -102,7 +102,7 @@ do recurso e popular as chaves declarativas nativas em `ResourceStateSnapshot.me
 - Surfaces (`@UiSurface`): `surface.<id>.allowed`, `surface.<id>.reason`,
   `surface.<id>.legalBasis`, `surface.<id>.legalPurpose`, `surface.<id>.customTitle`,
   `surface.<id>.blockedByRule`;
-- Operacoes CRUD contextuais de item (`edit`, `delete`, `duplicate-draft`):
+- Operacoes contextuais de ciclo de vida do item (`edit`, `delete`, `duplicate-draft`):
   `operation.<id>.allowed`, `operation.<id>.reason`, `operation.<id>.blockedByRule`;
 - Defaults do recurso: `resource.legalBasis` e `resource.legalPurpose` (aplicados com
   precedencia deterministica `action.<id>.legalBasis` -> `@WorkflowAction.legalBasisRef`
@@ -125,7 +125,7 @@ apoiado por `DtoMetadataFactCatalogEnricher`) introspeciona automaticamente
 `SURFACE_AVAILABILITY`, `BULK_OPERATION`, `FIELD_PROJECTION`, `FIELD_WRITE`) sem
 exigir registro manual por recurso.
 
-Nao transforme action em CRUD por causa do metodo HTTP. O eixo canonico e a
+Nao transforme action em operacao basica de persistencia por causa do metodo HTTP. O eixo canonico e a
 intencao de negocio, nao o verbo.
 
 ## Surfaces
@@ -182,7 +182,7 @@ Chaves recomendadas:
 Evite:
 
 - SQL, package, stack trace ou procedure
-- HADES, Oracle, ROWID, Archon, locators internos ou nomes de guards privados
+- motores legados, bancos proprietários, ROWID, locators internos ou nomes de guards privados
 - identificadores de tenant, usuario, sessao ou empresa que nao sejam parte do
   contrato publico
 - mensagem interna de exception
@@ -223,9 +223,9 @@ Boas praticas:
 - testes de host devem cobrir uma colecao com varios itens para detectar N+1
   evitavel
 
-## Exemplo non-Ergon
+## Exemplo neutro (host-agnostic)
 
-A fixture E2E do starter demonstra o padrao sem depender de Ergon:
+A fixture E2E do starter demonstra o padrao sem depender de nenhum sistema legado externo:
 
 - `EmployeeSurfaceStateSnapshotProvider` publica estado publico de employee
 - `EmployeeResourceOperationAvailabilityProvider` bloqueia `delete` quando o
@@ -238,8 +238,8 @@ A fixture E2E do starter demonstra o padrao sem depender de Ergon:
   `HypermediaDiscoveryE2ETest` provam que actions e surfaces mantem a mesma
   disponibilidade publica nos endpoints dedicados e no snapshot agregado
 
-Esse exemplo e propositalmente host-neutral. Em um host corporativo, HADES,
-Oracle, Archon, IAM ou motor regulatorio ficam atras da SPI. Nenhum desses nomes
+Esse exemplo e propositalmente host-neutral. Em um host corporativo, motores
+legados, bancos externos, IAM ou motor regulatorio ficam atras da SPI. Nenhum desses nomes
 deve virar semantica publica do Praxis.
 
 ## Checklist de aceite para hosts

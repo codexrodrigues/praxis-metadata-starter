@@ -14,7 +14,7 @@ canonical contract.
 | `schema` and `openapi` | Resolve a canonical operation and extract the structural request or response schema. | Working on `/schemas/filtered`, schema references or OpenAPI groups. |
 | `controller.docs` | Publishes the structural schema and documentary or semantic catalogs. | Exposing discovery HTTP endpoints; it must not redefine schema semantics. |
 | `controller.base` and `service.base` | Provide the resource-oriented HTTP and service baseline. | Creating mutable, read-only, or duplicate-draft resources. |
-| `surface`, `action`, `capability` | Publish UX surfaces, explicit business commands and contextual availability snapshots. | Modelling experiences beyond generic CRUD. |
+| `surface`, `action`, `capability` | Publish UX surfaces, explicit business commands and contextual availability snapshots. | Modelling rich domain experiences, workflows and contextual capabilities. |
 | `fact` and `customfields` | Declare server-computed `@ResourceFact`s (with pushdown/authority metadata) and tenant-scoped JSONB `@CustomFields`. | Publishing deterministic domain facts or tenant custom fields into `/schemas/filtered` and `/schemas/domain`. |
 | `filter`, `options`, `stats`, `exporting` | Provide focused operational capabilities derived from the resource contract. | Adding filtering, rich entity lookups, analytics or collection export. |
 | `configuration` | Registers the starter with Spring Boot and Springdoc. | Changing auto-configuration or bootstrap behaviour. |

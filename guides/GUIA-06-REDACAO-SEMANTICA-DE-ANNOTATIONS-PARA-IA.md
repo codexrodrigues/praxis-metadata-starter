@@ -256,7 +256,7 @@ real.
 - `capabilities` agrega disponibilidade; nao redefine contrato.
 
 Nao use uma `surface` para esconder action. Nao use `WorkflowAction` para
-rotular CRUD comum. Nao descreva `capability` como se fosse fonte de payload.
+rotular operacoes basicas de cadastro. Nao descreva `capability` como se fosse fonte de payload.
 
 ### 6. Escreva em linguagem de dominio
 
@@ -289,7 +289,7 @@ movimentacao funcional nos ultimos 3 meses"*, o motor de grounding (`api_metadat
 contrato publicado:
 
 1. **Vocabulario humano nos filtros relacionais de organizacao e classificacao:**
-   um usuario nunca pergunta por `setor = "03.01.01"` ou `empCodigo = 1`. O
+   um usuario nunca pergunta por `setor = "03.01.01"` ou `companyCode = 1`. O
    `FilterDTO` precisa publicar filtros relacionais sobre nomes legiveis, tipos
    de unidade e categorias de negocio (`lotacao.nome`, `lotacao.tipoSetor`,
    `vinculo.categoria`, `cargoEntidade.nome`) e descrever explicitamente no
@@ -882,7 +882,7 @@ Nao aprove uma revisao semantica se qualquer item abaixo for verdadeiro:
 - O texto menciona dominios fora de escopo por negacao e polui discovery.
 - `@ResourceIntent` descreve workflow em vez de escrita parcial do recurso.
 - `@UiSurface` descreve payload ou contrato paralelo.
-- `@WorkflowAction` descreve CRUD comum ou patch de manutencao.
+- `@WorkflowAction` descreve manutencao cadastral basica ou patch de manutencao.
 - `successMessage` promete resultado que o service nao garante.
 - `tags` foram usadas como lista de palavras-chave para melhorar busca.
 - `@Schema.description` foi derivado de `@UISchema(label)` ou camelCase.
@@ -969,7 +969,7 @@ financeiro.
 - Use o Guia 01 para criar uma aplicacao nova.
 - Use o Guia 02 para adicionar um recurso metadata-driven.
 - Use o Guia 04 para decidir se algo e resource, surface, action ou capability.
-- Use o Guia 05 para explicar o contrato semantico alem do CRUD.
+- Use o Guia 05 para explicar o contrato semantico completo alem de operacoes cadastrais basicas.
 - Use este Guia 06 para escrever os textos que tornam esse contrato legivel por
   humanos, LLMs e consumidores documentais, incluindo o que flui para
   `/schemas/domain` e para snapshots de `capabilities` sem substituir o

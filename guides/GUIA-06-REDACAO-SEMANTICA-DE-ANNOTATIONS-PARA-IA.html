@@ -620,8 +620,8 @@ negocio.</li>
 contrato.</li>
 </ul>
 <p>Nao use uma <code>surface</code> para esconder action. Nao use
-<code>WorkflowAction</code> para rotular CRUD comum. Nao descreva
-<code>capability</code> como se fosse fonte de payload.</p>
+<code>WorkflowAction</code> para rotular operacoes basicas de cadastro.
+Nao descreva <code>capability</code> como se fosse fonte de payload.</p>
 <h3 id="escreva-em-linguagem-de-dominio">6. Escreva em linguagem de
 dominio</h3>
 <p>Evite termos internos quando houver termo de negocio:</p>
@@ -681,7 +681,7 @@ publicado:</p>
 <ol type="1">
 <li><strong>Vocabulario humano nos filtros relacionais de organizacao e
 classificacao:</strong> um usuario nunca pergunta por
-<code>setor = "03.01.01"</code> ou <code>empCodigo = 1</code>. O
+<code>setor = "03.01.01"</code> ou <code>companyCode = 1</code>. O
 <code>FilterDTO</code> precisa publicar filtros relacionais sobre nomes
 legiveis, tipos de unidade e categorias de negocio
 (<code>lotacao.nome</code>, <code>lotacao.tipoSetor</code>,
@@ -1198,8 +1198,8 @@ discovery.</li>
 <li><code>@ResourceIntent</code> descreve workflow em vez de escrita
 parcial do recurso.</li>
 <li><code>@UiSurface</code> descreve payload ou contrato paralelo.</li>
-<li><code>@WorkflowAction</code> descreve CRUD comum ou patch de
-manutencao.</li>
+<li><code>@WorkflowAction</code> descreve manutencao cadastral basica ou
+patch de manutencao.</li>
 <li><code>successMessage</code> promete resultado que o service nao
 garante.</li>
 <li><code>tags</code> foram usadas como lista de palavras-chave para
@@ -1269,7 +1269,8 @@ financeiro.</code></pre>
 <li>Use o Guia 02 para adicionar um recurso metadata-driven.</li>
 <li>Use o Guia 04 para decidir se algo e resource, surface, action ou
 capability.</li>
-<li>Use o Guia 05 para explicar o contrato semantico alem do CRUD.</li>
+<li>Use o Guia 05 para explicar o contrato semantico completo alem de
+operacoes cadastrais basicas.</li>
 <li>Use este Guia 06 para escrever os textos que tornam esse contrato
 legivel por humanos, LLMs e consumidores documentais, incluindo o que
 flui para <code>/schemas/domain</code> e para snapshots de

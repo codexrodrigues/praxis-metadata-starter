@@ -1,4 +1,4 @@
-# Guia 03 - IA Frontend - Angular CRUD Completo
+# Guia 03 - IA Frontend - Angular Runtime de Recursos Completo
 
 ## Objetivo
 
@@ -11,9 +11,9 @@ dados e politicas tambem operados por agentes de IA e integracoes.
 O objetivo nao e montar "qualquer tela Angular que compile". O objetivo e gerar
 um host **fino (zero-boilerplate)** alinhado ao runtime oficial da plataforma,
 onde colunas, mascaras, moeda, filtros, opcoes remotas, agrupamento de formulario
-e acoes de CRUD sao materializados automaticamente a partir de `/schemas/filtered`:
+e acoes do recurso sao materializados automaticamente a partir de `/schemas/filtered`:
 
-- `@praxisui/crud` como shell canonico de CRUD (com suporte a `openMode = 'drawer'`, `'modal'` ou `'route'`)
+- `@praxisui/crud` como shell canonico de fluxo completo de recurso (com suporte a `openMode = 'drawer'`, `'modal'` ou `'route'`)
 - `@praxisui/table` como superficie canonica de listagem e filtro
 - `@praxisui/dynamic-form` como superficie canonica de formulario (`layoutPolicy.source = 'schema'`)
 - `@praxisui/list` como superficie alternativa de cards/lista
@@ -47,7 +47,7 @@ runtime oficial Angular.
 
 ## Quando usar este guia
 
-Use este guia quando a LLM precisar gerar a parte frontend de um recurso CRUD
+Use este guia quando a LLM precisar gerar a parte frontend de um fluxo completo de recurso
 ja exposto pelo backend Praxis.
 
 Este guia cobre:
@@ -64,10 +64,10 @@ Este guia nao e o lugar correto para:
 
 - page builder
 - editor visual de metadados
-- UX fora do fluxo CRUD canonico
+- UX fora do fluxo canonico de recurso
 
 Se o pedido for apenas uma lista remota simples, `praxis-table` pode bastar.
-Se o pedido for um CRUD completo, prefira `praxis-crud`.
+Se o pedido exigir fluxo completo de listagem, detalhe, criacao e edicao do recurso, prefira `praxis-crud`.
 
 ## O que a LLM deve receber como entrada
 
@@ -83,7 +83,7 @@ No minimo:
 Exemplo:
 
 ```text
-Gere o frontend Angular de CRUD completo para o recurso abaixo.
+Gere o frontend Angular completo para o recurso abaixo.
 
 Entrada:
 - Recurso: Funcionarios
@@ -97,7 +97,7 @@ Entrada:
 
 ## Dependencias frontend minimas
 
-Para um CRUD completo na linha ativa `@praxisui/*` (`9.0.0-beta.*` / `latest` correspondente ao trem Angular do host):
+Para um fluxo completo de recurso na linha ativa `@praxisui/*` (`9.0.0-beta.*` / `latest` correspondente ao trem Angular do host):
 
 ```bash
 npm i @angular/animations @angular/cdk @angular/material
@@ -181,7 +181,7 @@ Para app novo, o bootstrap tambem deve prover:
 
 ### 3. `providePraxisGlobalConfigBootstrap()`
 
-Nao faz parte do baseline minimo de um host CRUD novo.
+Nao faz parte do baseline minimo de um host Angular novo.
 
 So use esse bootstrap quando o host realmente integrar
 `praxis-config-starter` e precisar de config remota em
@@ -196,7 +196,7 @@ Regras canonicas:
   - formularios de criacao/edicao (`command`): `layoutPolicy: { source: 'schema', intent: 'command', preset: 'groupedCommand' }`
   - formularios de detalhe/leitura (`detail`): `layoutPolicy: { source: 'schema', intent: 'detail', preset: 'compactPresentation' }`
   - nao declare `FormConfig.sections` manuais ou `sections: []` vazias apenas para fazer um formulario schema-driven funcionar; deixe o runtime materializar os grupos (`group`) e a ordem (`order`) publicados em `@UISchema` no backend
-- `praxis-crud` e o shell recomendado para CRUD completo (usando `CrudLauncherService` com `openMode = 'drawer'`, `'modal'` ou `'route'` sem criar drawers/modais manuais no host)
+- `praxis-crud` e o shell recomendado para orquestrar listagem e manutencao completa do recurso (usando `CrudLauncherService` com `openMode = 'drawer'`, `'modal'` ou `'route'` sem criar drawers/modais manuais no host)
 
 ## Fluxo de schema
 
@@ -267,7 +267,7 @@ comparar e obter uma decisao explicita; nunca repetir automaticamente o `PUT`.
 Recursos nao versionados continuam usando `BaseCreateUpdateResourceService` e nao passam a
 exigir `If-Match` por efeito colateral.
 
-## Padrao canonico para CRUD completo
+## Padrao canonico para fluxo completo de recurso
 
 ```text
 lista + acoes:
@@ -297,7 +297,7 @@ Para um app Angular novo, gere no minimo:
 ## Prompt recomendado para IA
 
 ```text
-Voce esta gerando o frontend Angular canonico para um recurso CRUD Praxis.
+Voce esta gerando o frontend Angular canonico para um recurso semantico Praxis.
 
 Use apenas o contrato metadata-driven ja publicado pelo backend.
 Considere praxis-ui-angular como runtime canonico.

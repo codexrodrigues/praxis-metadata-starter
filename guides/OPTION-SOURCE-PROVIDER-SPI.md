@@ -235,7 +235,7 @@ canonico.
 
 O inventario deve conter somente identidade publica segura: sourceKey,
 resourcePath esperado e uma chave de catalogo nao sensivel. Nao inclua SQL,
-HADES, datasource, tenant, usuario, perfil, senha, headers, ROWID, locators,
+motores legados, datasource, tenant, usuario, perfil, senha, headers, ROWID, locators,
 bind parameters ou nomes internos de adapter.
 
 ## Chaves proibidas em contratos publicos

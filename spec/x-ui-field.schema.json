@@ -157,7 +157,33 @@
 
     "hidden": { "type": "boolean" },
     "tableHidden": { "type": "boolean" },
+    "tableOrder": { "type": "integer", "minimum": 0 },
+    "pinned": { "type": "string", "enum": ["start", "end"] },
     "formHidden": { "type": "boolean" },
+    "colSpan": { "type": "integer", "minimum": 1, "maximum": 12 },
+    "primarySearch": { "type": "boolean" },
+    "draftCleared": { "type": "boolean" },
+    "contextBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "enum": ["organization", "company_group", "unit", "person", "bond", "contract"]
+        },
+        "lockWhenActive": { "type": "boolean" },
+        "targetField": { "type": "string", "minLength": 1 }
+      },
+      "required": ["dimension", "lockWhenActive"]
+    },
+    "resourceState": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "initialStates": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "putMutableStates": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
     "quickViewVisible": {
       "type": "boolean",
       "description": "Marks this property as part of the executive body summary of a QuickView 360 popover."
@@ -179,6 +205,10 @@
     "conditionalDisplay": {
       "$ref": "#/definitions/jsonLogicExpression",
       "description": "Canonical Json Logic condition validated against the Praxis runtime operator matrix, including operator arity and basic literal argument shape. Textual DSLs and JSON Schema conditionals are rejected by the backend."
+    },
+    "conditionalReadOnly": {
+      "$ref": "#/definitions/jsonLogicExpression",
+      "description": "Canonical Json Logic condition making the field read-only when evaluated truthy, validated against the Praxis runtime operator matrix."
     },
     "dependentField": { "type": "string" },
     "resetOnDependentChange": { "type": "boolean" },

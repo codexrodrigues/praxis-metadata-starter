@@ -1,7 +1,7 @@
 # Onda 3 / P3 — kernel declarativo de operações em lote
 
-Este corte implementa a P3 dos documentos `plano-issues-evolucao-plataforma-3-ondas.md`
-e `auditoria-evolucao-plataforma-ergon-showcase.md`, exclusivamente no starter.
+Este corte implementa a P3 dos documentos de planejamento de evolução da plataforma
+(ondas de arquitetura de recursos corporativos), exclusivamente no starter.
 As alterações locais das Ondas 1 e 2 permanecem na árvore. Não há migração de host,
 publicação, alteração de versão ou execução de workflows remotos neste corte.
 
@@ -73,7 +73,7 @@ Resultado final em 2026-11-01, na árvore principal:
 - `mvn test`: **BUILD SUCCESS**, 13 min 28 s, encerrado às 19:55:03 (UTC−03:00).
 - `mvn install -DskipTests`: **BUILD SUCCESS**, 1 min 23 s, encerrado às 19:56:52 (UTC−03:00).
 - Instalados JAR, fontes, Javadocs e POM em
-  `C:\Users\rodrigo.moreira\.m2\repository\io\github\codexrodrigues\praxis-metadata-starter\8.0.0-rc.188`.
+  `~/.m2/repository/io/github/codexrodrigues/praxis-metadata-starter/8.0.0-rc.188`.
 - Os três JARs instalados conferem byte a byte com os gerados, por SHA-256;
   o runtime contém as cinco implementações P3 e o novo auto-configurador.
 

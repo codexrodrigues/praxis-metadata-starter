@@ -16,7 +16,7 @@ metadata-driven no baseline atual ou um frontend Angular.
 - grupos OpenAPI esperados existem (`@ApiGroup`)
 - Swagger UI esta disponivel
 
-## 3. Endpoints CRUD e Discovery
+## 3. Operações de Recurso e Discovery
 
 - `GET /{id}`, `GET /all`, `POST /filter`, `POST /filter/cursor`,
   `POST /locate`, `GET /by-ids`
@@ -51,11 +51,11 @@ metadata-driven no baseline atual ou um frontend Angular.
 
 - `GET /schemas/filtered` responde com `x-ui` completo
 - `ETag` e `X-Schema-Hash` estao presentes (`If-None-Match` retorna `304` quando o schema nao muda)
-- `x-ui.resource.idField` esta resolvido corretamente (`@ResourceIdentity` no Controller e `ResponseDTO`, `@QuickFilter` no Controller)
+- `x-ui.resource.idField` esta resolvido corretamente (`@ResourceIdentity` no Controller e `ResponseDTO`, `@QuickFilter` no Controller usando `criteria = @FilterCriterion(...)` sem `filter` raw legado)
 - em request schemas com campos relacionais `...Id`, o `idField` nao e sequestrado pelo id da relacao
-- todos os campos dos DTOs possuem a triade completa: `@Schema(description = ...)` de negocio em PT-BR, `@UISchema` (`UISchemaPreset`, `FieldControlType`, `group`, `order`, `icon`, `NumericFormat`) e `@DomainGovernance` (`preset = DomainGovernancePreset.*`, `exportable`, `@AiUsagePolicy`) + `@DomainLineage` (quando projetado de entidade, sem enfraquecer a governanca da origem — validado pelo gate `P50` `lineage-governance-weakened`)
-- `@ResourceFact` declara contrato explicito de autoridade (`authority`, `evaluationPhase`, `missingValuePolicy`, `scope`) validado por `SemanticMetadataReviewer.reviewResourceFacts(...)`
-- `SemanticMetadataReviewer` (`reviewStrictGovernance` / `reviewResourceFacts`), `PraxisExpressionStaticValidator`, `OptionSourcePublicationInventory` e `FilterableIndexAdvisor` passam sem violacoes no teste JUnit do host
+- todos os campos dos DTOs possuem a triade completa: `@Schema(description = ...)` de negocio em PT-BR, `@UISchema` (`UISchemaPreset`, `FieldControlType`, `group`, `order`, `icon` em `snake_case` minusculo, `NumericFormat`, `optionItems = {@UiOption(...)}` / `optionEnum` em opcoes fechadas) e `@DomainGovernance` (`preset = DomainGovernancePreset.*`, `exportable`, `@AiUsagePolicy`) + `@DomainLineage` (quando projetado de entidade, sem enfraquecer a governanca da origem — validado pelo gate `P50` `lineage-governance-weakened`)
+- `@ResourceFact` declara contrato explicito de autoridade (`authority`, `evaluationPhase`, `missingValuePolicy`, `scope`, omitindo `resourceKey` redundante em `@ApiResource` controllers e seu `<R>` `ResponseDTO`) validado por `SemanticMetadataReviewer.reviewResourceFacts(...)`, e `@DeterminationOutput("campo")` e usado no lugar de pares redundantes `response == field`
+- `SemanticMetadataReviewer` (`review`, `reviewResourceController`, `reviewOptionSourceRegistry`, `reviewStrictGovernance`, `reviewResourceFacts`), `PraxisExpressionStaticValidator`, `OptionSourcePublicationDiagnostics` e `FilterableIndexAdvisor` passam sem violacoes no teste JUnit do host
 
 ## 8. DTOs, mapeamentos e service
 
@@ -72,7 +72,7 @@ metadata-driven no baseline atual ou um frontend Angular.
 
 ## 10. Frontend Angular
 
-- existe um host `praxis-crud` para CRUD completo (sem servicos HTTP manuais nem colunas hardcoded)
+- existe um host `praxis-crud` para gerenciamento completo de recursos (sem servicos HTTP manuais nem colunas hardcoded)
 - `resource.path` (sem prefixo `/api`) e `idField` estao corretos
 - `praxis-dynamic-form` usa `layoutPolicy.source = 'schema'` (`groupedCommand` / `compactPresentation`) sem `FormConfig.sections` manuais redundantes
 - `API_URL` esta coerente

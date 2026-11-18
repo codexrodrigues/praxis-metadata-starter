@@ -283,7 +283,7 @@ interfaces tradicionais, interfaces generativas, agentes de IA e
 integracoes — construindo aplicacoes que, por definicao, ja sao legiveis
 e operaveis por IA.</p>
 <p>Dentro dessa arquitetura, o <code>praxis-metadata-starter</code> nao
-deve mais ser explicado como “DTO anotado gera CRUD”. Ele e o owner
+deve mais ser explicado como um gerador de telas basicas. Ele e o owner
 canonico da semantica de recursos, dados, superficies, acoes e
 governanca de campo no backend Java/Spring Boot, publicando:</p>
 <ul>
@@ -411,9 +411,9 @@ canonicamente anotadas</li>
 <li><code>@WorkflowAction</code></li>
 <li>resolvers de capability</li>
 </ul>
-<p>Aqui a arquitetura deixa claro que “CRUD com metadata” e uma leitura
-insuficiente. O contrato canonico combina recurso, experiencia e acao de
-negocio.</p>
+<p>Aqui a arquitetura deixa claro que “cadastro com metadata” e uma
+leitura insuficiente. O contrato canonico combina recurso, experiencia e
+acao de negocio.</p>
 <h2 id="fluxo-estrutural">4. Fluxo Estrutural</h2>
 <pre class="mermaid"><code>sequenceDiagram
     participant DTO as DTOs + validation
@@ -499,8 +499,8 @@ estrutural segue sendo a base do runtime.</p>
 Nao Deve Ser Repetido Na Documentacao Publica</h2>
 <p>Nao explicar o starter como se ele fosse:</p>
 <ul>
-<li>apenas um gerador de CRUD</li>
-<li>apenas DTO anotado + CRUD generico</li>
+<li>apenas um gerador de telas de cadastro</li>
+<li>apenas DTO anotado + operacoes basicas genericas</li>
 <li>um sistema em que <code>/schemas/catalog</code> substitui
 <code>/schemas/filtered</code></li>
 <li>um backend que publica schema estrutural sem semantica de

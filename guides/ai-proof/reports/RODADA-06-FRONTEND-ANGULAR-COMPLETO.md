@@ -56,7 +56,7 @@ Coberturas focais utilizadas como evidencia da rodada:
 Comando:
 
 ```bash
-cmd.exe /c "cd /d D:\Developer\praxis-plataform\praxis-ui-angular && npx ng test praxis-core --browsers=ChromeHeadless --watch=false --include=projects/praxis-core/src/lib/services/generic-crud.service.spec.ts --include=projects/praxis-core/src/lib/schema/schema-metadata-client.spec.ts"
+cmd.exe /c "cd praxis-ui-angular && npx ng test praxis-core --browsers=ChromeHeadless --watch=false --include=projects/praxis-core/src/lib/services/generic-crud.service.spec.ts --include=projects/praxis-core/src/lib/schema/schema-metadata-client.spec.ts"
 ```
 
 Resultado:
@@ -75,7 +75,7 @@ Validacao relevante para o guia:
 Comando:
 
 ```bash
-cmd.exe /c "cd /d D:\Developer\praxis-plataform\praxis-ui-angular && npx ng test praxis-table --browsers=ChromeHeadless --watch=false --include=projects/praxis-table/src/lib/components/praxis-filter/praxis-filter.component.spec.ts"
+cmd.exe /c "cd praxis-ui-angular && npx ng test praxis-table --browsers=ChromeHeadless --watch=false --include=projects/praxis-table/src/lib/components/praxis-filter/praxis-filter.component.spec.ts"
 ```
 
 Resultado:
@@ -93,7 +93,7 @@ Validacao relevante para o guia:
 Comando:
 
 ```bash
-cmd.exe /c "cd /d D:\Developer\praxis-plataform\praxis-ui-angular && npx ng test praxis-crud --browsers=ChromeHeadless --watch=false --include=projects/praxis-crud/src/lib/praxis-crud.component.spec.ts"
+cmd.exe /c "cd praxis-ui-angular && npx ng test praxis-crud --browsers=ChromeHeadless --watch=false --include=projects/praxis-crud/src/lib/praxis-crud.component.spec.ts"
 ```
 
 Resultado:

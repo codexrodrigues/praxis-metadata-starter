@@ -12,7 +12,7 @@ commit, push do branch solicitado e abrir PR para `main` com `Closes #303`.
 
 - Branch: `feat/custom-fields-and-resource-facts`.
 - Base atualizada por `git fetch origin`: `d57244ad51` (`origin/main` na criação).
-- Worktree: `/Users/rodrigo/Dev/pessoal/praxis-plataform/praxis-metadata-custom-fields`.
+- Worktree isolado dedicado para a entrega (`praxis-metadata-custom-fields`).
 - O checkout original tinha alterações de outro trabalho e foi preservado.
 - Política: `AGENTS.md` do workspace e do starter; guia `docs/engineering/agentes-e-modelos.md` do workspace.
 - Skill consultada pelo coordenador: `praxis-metadata-schema-contracts`.
@@ -69,9 +69,9 @@ alinhar schemas de request/response/filter e metadata geral de seu provider.
 
 | Identidade | Valor |
 | --- | --- |
-| Projeto | `dark-mountain-25788969` |
-| Branch | `br-young-scene-ad8dg9ip` (`metadata-303-custom-fields-20261027`) |
-| Endpoint | `ep-proud-sunset-adp7j1dj.c-2.us-east-1.aws.neon.tech` |
+| Projeto | `<neon-project-id>` |
+| Branch | `<neon-branch-id>` (`metadata-303-custom-fields-20261027`) |
+| Endpoint | `<neon-endpoint-host>` |
 | Database / schema | `metadata303` / `metadata303` |
 | Runtime | `metadata303_app`, papel ordinário |
 | PostgreSQL esperado | 17 |
@@ -297,7 +297,7 @@ Revisão independente nesta rodada:
 
 Skills: `atualizar-existente`, mantendo as duas skills do PR #868 e seus hashes.
 Preflight canônico passou **41 testes**, auditoria isolada de **168 skills Praxis
-+ 19 Ergon**, sem drift/ausências/inventário inválido, e validação estrutural das
++ 19 skills de migração corporativa**, sem drift/ausências/inventário inválido, e validação estrutural das
 duas skills. Logs `review-skills-preflight.log` e `review-skills-fix-manifest.log`.
 A auditoria do destino instalado identificou drifts preexistentes fora do escopo;
 não houve force/sync local. Integração canônica e sincronização continuam pendentes
@@ -411,15 +411,15 @@ pendente; não se desabilitaram triggers, fabricaram recibos ou ampliaram grants
 após o cutover. QuickstartMetadataMigration e OpenApiGroupResolutionIsolated não
 foram repetidos no candidato definitivo. `verify` integral permanece pendente.
 
-Branch Neon exclusiva `br-proud-cake-adwn97mh`, projeto `dark-mountain-25788969`,
+Branch PostgreSQL exclusiva (`<neon-branch-id>`), projeto isolado (`<neon-project-id>`),
 PostgreSQL 17.11, TLS verify-full e owner/runtime distintos. O journal confirma
 14 databases e 14 roles runtime removidos por OID. Postflight confirmou zero
-recursos/conexões de teste; endpoint `ep-aged-sky-adkwifgy` suspenso (`idle`) em
+recursos/conexões de teste; endpoint `<neon-endpoint-id>` suspenso (`idle`) em
 27/10/2026 18:11:46 UTC. Branch e três identidades de preparação foram retidas.
 
 Skills: `atualizar-existente`, [PR #868](https://github.com/codexrodrigues/praxis-codex-skills/pull/868),
 HEAD `62008cc0f2c7619c775fb14b0c57620c450e0160`: schema, domínio e operational-proof.
-Preflight Python 41 testes, estrutura e auditorias isoladas de 168 Praxis +19 Ergon
+Preflight Python 41 testes, estrutura e auditorias isoladas de 168 Praxis + 19 skills de migração corporativa
 aprovados; último incremento de grants/fixtures validado novamente. A integração
 canônica e sincronização instalada permanecem pendentes por decisão de não merge.
 O Angular segue coordenado separadamente no PR #658. Nenhum merge, release,

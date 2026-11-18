@@ -599,8 +599,8 @@ class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb3-1"><a href="
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">application</span><span class="kw">:</span></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">name</span><span class="kw">:</span><span class="at"> hr-api</span></span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">datasource</span><span class="kw">:</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">url</span><span class="kw">:</span><span class="at"> ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/neondb?sslmode=require}</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">username</span><span class="kw">:</span><span class="at"> ${SPRING_DATASOURCE_USERNAME:neondb_owner}</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">url</span><span class="kw">:</span><span class="at"> ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/praxisdb?sslmode=require}</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">username</span><span class="kw">:</span><span class="at"> ${SPRING_DATASOURCE_USERNAME:praxis_user}</span></span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">password</span><span class="kw">:</span><span class="at"> ${SPRING_DATASOURCE_PASSWORD:}</span></span>
 <span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">driver-class-name</span><span class="kw">:</span><span class="at"> org.postgresql.Driver</span></span>
 <span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">jpa</span><span class="kw">:</span></span>
@@ -807,9 +807,9 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="
 class="sourceCode java"><code class="sourceCode java"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">package</span><span class="im"> com</span><span class="op">.</span><span class="im">example</span><span class="op">.</span><span class="im">hr</span><span class="op">.</span><span class="im">employee</span><span class="op">.</span><span class="im">repository</span><span class="op">;</span></span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">com</span><span class="op">.</span><span class="im">example</span><span class="op">.</span><span class="im">hr</span><span class="op">.</span><span class="im">employee</span><span class="op">.</span><span class="im">entity</span><span class="op">.</span><span class="im">Employee</span><span class="op">;</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">repository</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">BaseCrudRepository</span><span class="op">;</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="im">org</span><span class="op">.</span><span class="im">praxisplatform</span><span class="op">.</span><span class="im">uischema</span><span class="op">.</span><span class="im">repository</span><span class="op">.</span><span class="im">base</span><span class="op">.</span><span class="im">BaseResourceRepository</span><span class="op">;</span></span>
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> EmployeeRepository <span class="kw">extends</span> BaseCrudRepository<span class="op">&lt;</span>Employee<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> EmployeeRepository <span class="kw">extends</span> BaseResourceRepository<span class="op">&lt;</span>Employee<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
 <span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h3
 id="dtos-com-semântica-de-domínio-ui-governança-e-filtros-ricos">DTOs
@@ -1377,8 +1377,9 @@ comuns de LLM ao criar uma aplicacao nova</h2>
 <code>@UISchema</code></li>
 <li>esquecer <code>@OptionLabel</code> na entidade (degradando
 <code>/options/filter</code> e <code>/options/by-ids</code>)</li>
-<li>esquecer <code>extends BaseCrudRepository&lt;Entidade, ID&gt;</code>
-no repository</li>
+<li>esquecer
+<code>extends BaseResourceRepository&lt;Entidade, ID&gt;</code> no
+repository</li>
 <li>gerar <code>ResourceMapper</code> sem <code>extractId</code>,
 inverter <code>applyUpdate(E entity, UpdateDTO dto)</code> ou
 sobrescrever <code>entity.setId(...)</code> no update</li>
@@ -1411,19 +1412,19 @@ loopback HTTP)</li>
 Gere uma aplicacao compilavel, completa e rica em metadados de negocio na primeira tentativa.
 
 Use obrigatoriamente:
-- @ApiResource(value=..., resourceKey=..., title=..., description=..., icon=..., identity=@ResourceIdentity(...), quickFilters={@QuickFilter(...)})
+- @ApiResource(value=..., resourceKey=..., title=..., description=..., icon=..., identity=@ResourceIdentity(...), quickFilters={@QuickFilter(id=..., label=..., criteria=@FilterCriterion(...), icon=..., tone=...)})
 - @ApiGroup
 - Entidade com @OptionLabel e @DefaultSortColumn
-- BaseCrudRepository&lt;E, ID&gt;
+- BaseResourceRepository&lt;E, ID&gt;
 - ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;
 - AbstractBaseResourceService&lt;E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt; ou AbstractReadOnlyResourceService&lt;E, ResponseDTO, ID, FilterDTO&gt;
 - AbstractResourceController&lt;ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt; ou AbstractReadOnlyResourceController&lt;ResponseDTO, ID, FilterDTO&gt;
-- DTOs separados: ResponseDTO, CreateDTO, UpdateDTO, FilterDTO (com @Schema de dominio em PT-BR, @UISchema com grupos/icones/presets, @DomainGovernance e @Filterable rico)
+- DTOs separados: ResponseDTO, CreateDTO, UpdateDTO, FilterDTO (com @Schema de dominio em PT-BR, @UISchema com grupos/icones em snake_case minusculo/presets/@UiOption ou optionEnum sem options JSON legado, @DomainGovernance e @Filterable rico)
 
 Para recurso mutavel, gere nesta ordem:
 1. ApiPaths
 2. entidade (com @OptionLabel e @DefaultSortColumn)
-3. repository (extends BaseCrudRepository&lt;E, ID&gt;)
+3. repository (extends BaseResourceRepository&lt;E, ID&gt;)
 4. DTOs (ResponseDTO, CreateDTO, UpdateDTO, FilterDTO)
 5. mapper (implements ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;)
 6. service (com getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e StatsSupportMode.AUTO)
@@ -1433,7 +1434,7 @@ Regras obrigatorias:
 - nao use @RestController quando houver @ApiResource
 - nao gere classes fora do baseline resource-oriented atual
 - FilterDTO deve implementar GenericFilterDTO e usar @Filterable (LIKE, EQUAL, IN, BETWEEN, IN_LAST_DAYS) + @UISchema
-- Repository deve estender BaseCrudRepository&lt;Entidade, ID&gt;
+- Repository deve estender BaseResourceRepository&lt;Entidade, ID&gt;
 - Service deve sobrescrever getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e modos StatsSupportMode.AUTO
 - Controller deve sobrescrever getService() e getResponseId()
 - ResourceMapper deve implementar toResponse, newEntity, applyUpdate(E entity, UpdateDTO dto) (sem sobrescrever id) e extractId
@@ -1442,7 +1443,7 @@ Entrega esperada:
 - arquivos completos
 - imports corretos (org.praxisplatform.uischema.*)
 - codigo compilavel na primeira tentativa
-- um primeiro recurso metadata-driven com CRUD, filtros ricos, options, stats e capabilities ativos</code></pre>
+- um primeiro recurso metadata-driven com operacoes tipadas, filtros ricos, options, stats e capabilities ativos</code></pre>
 <h2 id="checklist-minimo">Checklist minimo</h2>
 <p>Antes de concluir a aplicacao nova:</p>
 <ul>

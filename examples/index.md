@@ -11,7 +11,7 @@ Examples publicos complementares para reforcar o uso dos guias.
 ## Exemplos disponiveis
 
 - [README](README.html)
-- [Prompt de CRUD](EXEMPLO-PROMPT-CRUD-BULK.html)
+- [Prompt de Recurso e Lote](EXEMPLO-PROMPT-CRUD-BULK.html)
 - [Filter DTO](filter-dto.html)
 - [Spring integration](spring-integration.html)
 - [DTO filtros exemplos](DTO-FILTROS-EXEMPLOS.html)

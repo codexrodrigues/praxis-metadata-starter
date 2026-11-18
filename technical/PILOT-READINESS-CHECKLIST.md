@@ -58,7 +58,7 @@ Marque todos os itens abaixo antes de abrir a adocao do piloto.
       sem herdar query/CRUD nem criar armazenamento ficticio apenas para obter discovery
 - [ ] `/surfaces` e `capabilities.surfaces` concordam para surfaces collection e item
 - [ ] metadata de denial publica apenas `policy`, `publicReason`, `blockedOperation`, `contextual`, `resourceState`, `requiredAuthorities`, `missingAuthorities` ou `allowedStates` seguros
-- [ ] metadata de denial nao expoe SQL, HADES, Oracle, ROWID, package, procedure, usuario tecnico, tenant privado, sessao ou locator interno
+- [ ] metadata de denial nao expoe SQL, motor legado, banco proprietario, ROWID, package, procedure, usuario tecnico, tenant privado, sessao ou locator interno
 - [ ] falha do provider testada como fail-closed para operacoes protegidas
 - [ ] teste focal prova pelo menos um allow e um deny item-level
 - [ ] action de item versionada prova ETag valido, ausente e obsoleto, replay idempotente,

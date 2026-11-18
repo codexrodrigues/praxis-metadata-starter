@@ -471,7 +471,14 @@ diretamente o handler <code>POST</code> nao-persistente com
 descobre automaticamente todos os metodos anotados no boot
 (<code>OpenApiUiSchemaAutoConfiguration</code>) e expoe
 <code>fromControllerClasses(...)</code> para testes unitarios sem
-contexto Spring;</li>
+contexto Spring, inferindo automaticamente <code>inputs</code> (quando
+vazio, a partir do DTO <code>@RequestBody</code> da prévia),
+<code>outputs</code> (quando vazio, a partir do DTO unwrapped de
+resposta
+<code>ResponseEntity&lt;T&gt;</code>/<code>RestApiResponse&lt;T&gt;</code>)
+e <code>createOperationId</code> / <code>updateOperationId</code>
+(quando omitidos, pelos handlers <code>POST</code> raiz e
+<code>PUT /{id}</code> do controller);</li>
 <li><code>@DeterminationInput</code> e <code>@DeterminationOutput</code>
 aceitam tanto nomes simples de propriedade (<code>"zipCode"</code>)
 quanto JSON Pointers com barra inicial (<code>"/zipCode"</code>),

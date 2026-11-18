@@ -333,9 +333,12 @@ e declare <code>@ApiResource(resourceKey=...)</code> e
 <code>@BulkResourceOperations</code>, incluindo
 <code>updateSourceOperationId</code> e
 <code>protectedUpdateFields</code> com as identidades, versões e campos
-exclusivos de workflow aceitos no DTO. No PUT unitário, declare
-<code>@BulkResourceOperation(UPDATE_SOURCE)</code> e um
-<code>@Operation(operationId=...)</code> correspondente a
+exclusivos de workflow aceitos no DTO (sem jamais incluir em
+<code>protectedUpdateFields</code> campos anotados com
+<code>@BulkEditable</code> no <code>UpdateDTO</code>, regra validada via
+<code>bulk-protected-field-conflicts-with-bulk-editable</code>). No PUT
+unitário, declare <code>@BulkResourceOperation(UPDATE_SOURCE)</code> e
+um <code>@Operation(operationId=...)</code> correspondente a
 <code>updateSourceOperationId</code>; se usar o PUT da base, sobrescreva
 o método apenas para essas declarações e delegue para
 <code>super.update</code>. Não anote uma identidade imutável com
@@ -587,11 +590,10 @@ permite correlacionar operações negadas. O reader ainda revalida o grant
 e a visibilidade do conjunto completo. Chamadas diretas ao lookup devem
 fornecer a política; a assinatura antiga sem autoridade foi removida no
 candidato beta.</p>
-<p>Este guia descreve fonte local não publicada. Migração de
-consumidores, publicação Maven, integração Neon, ASYNC/worker e
-composição de operações ATOMIC não são gates da Onda 3. Os contratos e
-provas desses mecanismos existentes permanecem nos respectivos
-documentos do SDK. A adoção do Ergon Showcase pertence à Onda 4.</p>
+<p>Este guia descreve os contratos publicados do motor declarativo de
+operações em lote. Provisionamento de infraestrutura remota, publicação
+de pacotes Maven, execução assíncrona via worker dedicado e composição
+transacional avançada seguem os documentos específicos do SDK.</p>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

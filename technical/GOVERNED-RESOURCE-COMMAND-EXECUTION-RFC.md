@@ -15,8 +15,8 @@ Investigar uma capacidade host-neutral para execucao governada de comandos de
 recurso corporativos, reduzindo decisoes repetidas em hosts consumidores sem
 amarrar o Praxis a um backend privado especifico.
 
-O caso Ergon e evidencia de recorrencia, nao fonte de semantica publica. O
-contrato Praxis nao deve conhecer HADES, Oracle, Archon, nomes de procedures,
+Casos corporativos reais servem como evidencia de recorrencia, nao como fonte de semantica publica. O
+contrato Praxis nao deve conhecer motores legados, bancos proprietários, nomes de procedures,
 locators privados, tabelas privadas ou convencoes de erro de um host.
 
 ## Problema Observado

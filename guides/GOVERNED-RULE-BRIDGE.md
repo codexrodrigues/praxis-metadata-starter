@@ -2,9 +2,8 @@
 
 > **Fronteira na Praxis Decision Platform (`decisionKind = BUSINESS` vs `decisionKind = AUTHORIZATION`):** Este guia descreve a ponte de execução de **regras de negócio determinísticas (`decisionKind = BUSINESS`)** avaliadas pelo `praxis-rules-engine` (`RuleSet`, `DecisionBinding`, `GovernedRuleEngineTemplate`) e traduzidas em `409 Conflict` / `422 Unprocessable Entity` (`RestApiErrorResponse`). Políticas de autorização, controle de acesso contextual (ABAC), escopo relacional multi-organização/setor (`DataScopePlan`) e mascaramento pós-leitura (`FieldMaskingPlan`) pertencem à trilha **`decisionKind = AUTHORIZATION`** (`praxis-authz-contracts`, `praxis-authz-enforcement-core`, `praxis-authz-opa`, `praxis-authz-starter`), vinculada por `RuntimeEnforcementBinding`.
 
-Os três achados da [revisão de integridade e UX](../technical/GOVERNED-RULE-BRIDGE-P2-REVIEW.md)
-receberam correções na fonte canônica. O [registro de correção](../technical/GOVERNED-RULE-BRIDGE-P2-CORRECTIONS.md)
-separa a implementação e seus testes da revisão original e de uma futura publicação.
+A ponte governada de regras conecta os contratos públicos do
+`praxis-metadata-starter` ao catálogo de regras e ao snapshot publicado.
 
 O `praxis-rules-engine` é a fonte canônica do runtime Java puro. O metadata
 starter depende desse runtime e traduz `PraxisRuleViolationException` sem
@@ -181,8 +180,6 @@ integrado HTTP/browser. Para fechar o contrato de UX no host:
 
 ## Desenvolvimento local
 
-Este corte P2 usa os candidatos locais `praxis-rules-engine:0.1.0-beta.17` e
-`praxis-metadata-starter:8.0.0-rc.188`, sem bump ou publicação. Instale o engine
-antes de compilar o starter. Esse `mvn install` prova composição local; release
-requer versionamento coordenado e publicação oficial antes do consumo público.
-A adoção e remoção das implementações do showcase pertencem à P4.
+Em aplicações consumidoras, mantenha o alinhamento entre a versão publicada de
+`praxis-rules-engine` e `praxis-metadata-starter` definida no `pom.xml`, sem
+introduzir código específico de produto nos pacotes canônicos da plataforma.

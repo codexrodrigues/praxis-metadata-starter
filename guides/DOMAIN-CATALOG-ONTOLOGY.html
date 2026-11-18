@@ -389,10 +389,10 @@ significado. Chaves de RuleSet incluem a tupla
 serviço/recurso/RuleSet/operação por hash estável; consumidores devem
 usar os vínculos publicados, sem reconstruir identificadores.</p>
 <p>Uma referência pode apontar para o próprio recurso, para outro
-serviço ou para um conceito sem CRUD local. Referências têm
-<code>projectionRole=REFERENCE</code>, identidade explícita e
-<code>source=concept-reference</code>; não recebem capacidades CRUD
-presumidas. Definições locais têm
+serviço ou para um conceito sem operações locais de persistência.
+Referências têm <code>projectionRole=REFERENCE</code>, identidade
+explícita e <code>source=concept-reference</code>; não recebem
+capacidades operacionais presumidas. Definições locais têm
 <code>projectionRole=DEFINITION</code>. Uma referência não substitui uma
 definição; conflitos de proprietário/contexto falham. Isso descreve a
 identidade declarada pelo produtor: a verificação federada de autoridade
@@ -484,13 +484,11 @@ incondicionalmente offline contra a cópia congelada de teste. A cópia
 não é um novo contrato. Provas HTTP usam os controllers reais via
 MockMvc, compilador real e documentos OpenAPI locais. Compile os
 consumidores com o mesmo artefato candidato do Metadata.</p>
-<p>Esta entrega não migra providers/fatos, não limpa as classificações
-legadas <code>existing*</code>/<code>active*</code> do Engine e não
-altera snapshots/heads. Bindings explícitos com esses prefixos não são
-filtrados pelo Metadata. A migração dos providers é G3; Config, reparo,
-redaction federada e Studio são G4; ativação e rollback são G5. Aceite
-local G2 não equivale a publicação de artefato, prova Neon ou
-implantação.</p>
+<p>Esta entrega não migra providers/fatos externos nem limpa
+classificações auxiliares mantidas pelo host para compatibilidade de
+transição. Aceite local de publicação e paridade do schema não equivale
+a publicação de artefato, prova de banco de dados remoto ou implantação
+em produção.</p>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

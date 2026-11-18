@@ -31,7 +31,7 @@
   <div class="flex-content">
     <a id="expondo-controller-com-apiresource-heading"></a>
     <h1>Expondo controller com @ApiResource</h1>
-    <p class="muted">Ganhe endpoints padronizados de CRUD, filtros, options, capabilities, estatísticas e exportação ao estender as bases canônicas do starter. Recursos read-only também são de primeira classe.</p>
+    <p class="muted">Ganhe endpoints padronizados de ciclo de vida do recurso, filtros, options, capabilities, estatísticas e exportação ao estender as bases canônicas do starter. Recursos read-only também são de primeira classe.</p>
 
     <div class="card">
       <h2>Exemplo recomendado (Baseline Resource-Oriented)</h2>
@@ -99,7 +99,7 @@ public class PessoaController extends AbstractResourceController&lt;
     <div class="card">
       <h3>O que o contrato atual entrega</h3>
       <ul>
-        <li>CRUD e discovery resource-oriented com detecção automática do base path via <code>@ApiResource</code>.</li>
+        <li>Ciclo de vida e discovery resource-oriented com detecção automática do base path via <code>@ApiResource</code>.</li>
         <li>Snapshot contextual em <code>/capabilities</code> e <code>/{id}/capabilities</code> combinando suporte estrutural e disponibilidade atual.</li>
         <li>Endpoints de options padrão e <code>option-sources</code> para fontes governadas no <code>OptionSourceRegistry</code>.</li>
         <li>Endpoints estatísticos (<code>group-by</code>, <code>timeseries</code>, <code>distribution</code>, <code>comparison</code>) e exportação de coleções (<code>/export</code>).</li>

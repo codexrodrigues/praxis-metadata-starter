@@ -43,7 +43,7 @@
 - comando de build:
   - `mvn clean package`
 - comando de startup:
-  - `D:\Developer\JAVA\graalvm-jdk-21.0.2+13.1\bin\java.exe -jar target/ai-guide-proof-h2-mapstruct-1.0.0-SNAPSHOT.jar`
+  - `java -jar target/ai-guide-proof-h2-mapstruct-1.0.0-SNAPSHOT.jar`
 - `MapStruct`:
   - `CategoriaMapperImpl` e `ProdutoMapperImpl` foram gerados em `target/generated-sources/annotations`
 - endpoint `GET /v3/api-docs`:

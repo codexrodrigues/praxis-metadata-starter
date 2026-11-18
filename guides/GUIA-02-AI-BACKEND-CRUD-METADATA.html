@@ -389,7 +389,7 @@ Entrada:
 <li>DTOs (<code>ResponseDTO</code>, <code>CreateDTO</code>,
 <code>UpdateDTO</code>, <code>FilterDTO</code>)</li>
 <li>repository
-(<code>extends BaseCrudRepository&lt;E, ID&gt;</code>)</li>
+(<code>extends BaseResourceRepository&lt;E, ID&gt;</code>)</li>
 <li>mapper
 (<code>implements ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;</code>)</li>
 <li>service
@@ -546,7 +546,7 @@ orcamento N+1 e Gate JUnit Nativo
 </blockquote>
 <h2 id="repository-minimo">Repository minimo</h2>
 <div class="sourceCode" id="cb3"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> EmployeeRepository <span class="kw">extends</span> BaseCrudRepository<span class="op">&lt;</span>Employee<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
+class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">interface</span> EmployeeRepository <span class="kw">extends</span> BaseResourceRepository<span class="op">&lt;</span>Employee<span class="op">,</span> <span class="bu">Long</span><span class="op">&gt;</span> <span class="op">{</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>Sem isso, o service nao encaixa no core atual.</p>
 <h3
@@ -965,12 +965,18 @@ automaticamente os campos ativos da organização/tenant.</li>
 <code>ResourceFactCatalogProvider</code>):</strong>
 <ul>
 <li>Anote o controller/service com
-<code>@ResourceFact(key = "tempoServicoDias", resourceKey = "human-resources.employees", label = "Tempo de Serviço em Dias", description = "...", dataType = "integer", unit = "days")</code>
+<code>@ResourceFact(key = "tempoServicoDias", label = "Tempo de Serviço", description = "...", dataType = "integer", unit = "days")</code>
 ou exponha um bean <code>ResourceFactCatalogProvider</code> para
-publicar indicadores derivados em <code>/schemas/domain</code>.</li>
+publicar indicadores derivados em <code>/schemas/domain</code>. Em
+controllers <code>@ApiResource</code> e no seu <code>&lt;R&gt;</code>
+<code>ResponseDTO</code>, o <code>resourceKey</code> é herdado
+automaticamente e deve ser omitido (declare
+<code>resourceKey = "..."</code> explicitamente apenas em providers ou
+classes standalone sem <code>@ApiResource</code>).</li>
 </ul></li>
 <li><strong>Determinações Reativas em Tempo de Formulário
-(<code>ReactiveDeterminationDefinitionProvider</code>):</strong>
+(<code>@ReactiveDetermination</code> /
+<code>ReactiveDeterminationDefinitionProvider</code>):</strong>
 <ul>
 <li>Quando o preenchimento de um ou mais campos de
 <code>CreateDTO</code> / <code>UpdateDTO</code> permitir projetar dados
@@ -991,19 +997,16 @@ variáveis de caminho <code>{id}</code>) com
 <code>@Operation(operationId = "determineEmployeeCompensationPreview", ...)</code>
 que receba <code>@RequestBody</code> JSON e retorne <code>200 OK</code>
 JSON sem persistir estado;</li>
-<li>Registre um
-<code>@Bean ReactiveDeterminationDefinitionProvider</code> vinculando os
-escopos
-(<code>new ReactiveDeterminationScope("createEmployee", ReactiveDeterminationFormMode.CREATE)</code>,
-<code>new ReactiveDeterminationScope("updateEmployee", ReactiveDeterminationFormMode.EDIT)</code>)
-ao <code>operationId</code>
-<code>"determineEmployeeCompensationPreview"</code>, usando
-<code>ReactiveDeterminationTriggerMode.ON_CHANGE</code>,
-<code>sourcePaths</code> iniciados por <code>"/"</code> (todos presentes
-em <code>inputs</code>), <code>ReactiveDeterminationInputBinding</code>,
-<code>ReactiveDeterminationOutputBinding</code> (sem sobrepor
-<code>inputs</code>) e
-<code>ReactiveDeterminationProvenance(ReactiveDeterminationProvenanceKind.HOST, "host-service", "1")</code>.</li>
+<li>Prefira declarar
+<code>@ReactiveDetermination(id = "...", createOperationId = "createEmployee", updateOperationId = "updateEmployee", triggerMode = ReactiveDeterminationTriggerMode.ON_CHANGE, inputs = {@DeterminationInput("/positionId")}, outputs = {@DeterminationOutput("/baseSalaryFloor"), @DeterminationOutput(response = "/defaultWeeklyHours", field = "/weeklyHours")})</code>
+diretamente sobre o endpoint <code>POST</code> do Controller
+(<code>AnnotationDrivenReactiveDeterminationDefinitionProvider</code>,
+usando <code>@DeterminationOutput("campo")</code> sempre que
+<code>response</code> e <code>field</code> coincidirem). Use um
+<code>@Bean ReactiveDeterminationDefinitionProvider</code> programático
+apenas quando <code>provenance</code> depender dinamicamente de
+<code>GovernedRuleFamilyRegistry</code> ou exigir escopos
+especiais.</li>
 </ol></li>
 </ul></li>
 </ol>
@@ -1023,17 +1026,17 @@ recomendado para adicionar um recurso novo</h2>
 <pre class="text"><code>Adicione um novo recurso metadata-driven completo e rico em metadados de negocio ao projeto Spring Boot existente.
 
 Use obrigatoriamente:
-- @ApiResource(value = ..., resourceKey = ..., title = ..., description = ..., icon = ..., identity = @ResourceIdentity(...), quickFilters = {@QuickFilter(...)})
+- @ApiResource(value = ..., resourceKey = ..., title = ..., description = ..., icon = ..., identity = @ResourceIdentity(...), quickFilters = {@QuickFilter(id = ..., label = ..., criteria = @FilterCriterion(...), icon = ..., tone = ...)})
 - @ApiGroup
 - Entidade com @OptionLabel e @DefaultSortColumn
-- BaseCrudRepository&lt;E, ID&gt;
+- BaseResourceRepository&lt;E, ID&gt;
 - ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;
 - AbstractBaseResourceService&lt;E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt; ou AbstractReadOnlyResourceService&lt;E, ResponseDTO, ID, FilterDTO&gt;
 - AbstractResourceController&lt;ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt; ou AbstractReadOnlyResourceController&lt;ResponseDTO, ID, FilterDTO&gt;
 
 Gere, nesta ordem:
-1. DTOs (ResponseDTO, CreateDTO, UpdateDTO, FilterDTO com @Schema de negocio em PT-BR, @UISchema com grupos/icones/presets, @DomainGovernance e @Filterable rico)
-2. repository (extends BaseCrudRepository&lt;E, ID&gt;)
+1. DTOs (ResponseDTO, CreateDTO, UpdateDTO, FilterDTO com @Schema de negocio em PT-BR, @UISchema com grupos/icones em snake_case minusculo/presets/@UiOption ou optionEnum sem options JSON legado, @DomainGovernance e @Filterable rico)
+2. repository (extends BaseResourceRepository&lt;E, ID&gt;)
 3. mapper (implements ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;)
 4. service (com getResourceMapper(), getDatasetVersion(), getStatsFieldRegistry() e modos StatsSupportMode.AUTO)
 5. controller (com getService() e getResponseId())
@@ -1058,7 +1061,7 @@ Regras:
 <code>@Filterable</code> e <code>@UISchema</code></li>
 <li>entidade declara <code>@OptionLabel</code> para alimentar
 <code>/options/filter</code> e <code>/options/by-ids</code></li>
-<li>repository estende <code>BaseCrudRepository</code></li>
+<li>repository estende <code>BaseResourceRepository</code></li>
 <li>service sobrescreve <code>getResourceMapper()</code>,
 <code>getDatasetVersion()</code> e <code>getStatsFieldRegistry()</code>
 (quando houver dimensoes/metricas analiticas)</li>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Guia 03 - IA Frontend - Angular CRUD Completo</title>
+  <title>Guia 03 - IA Frontend - Angular Runtime de Recursos Completo</title>
   <style>
     html {
       color: #1a1a1a;
@@ -337,10 +337,12 @@
   <a href="https://github.com/codexrodrigues/praxis-metadata-starter" target="_blank" rel="noopener">GitHub</a>
 </nav>
 <header id="title-block-header">
-<h1 class="title">Guia 03 - IA Frontend - Angular CRUD Completo</h1>
+<h1 class="title">Guia 03 - IA Frontend - Angular Runtime de Recursos
+Completo</h1>
 </header>
-<h1 id="guia-03---ia-frontend---angular-crud-completo">Guia 03 - IA
-Frontend - Angular CRUD Completo</h1>
+<h1
+id="guia-03---ia-frontend---angular-runtime-de-recursos-completo">Guia
+03 - IA Frontend - Angular Runtime de Recursos Completo</h1>
 <h2 id="objetivo">Objetivo</h2>
 <p>Este guia orienta uma LLM a gerar o frontend Angular canonico
 (<code>@praxisui/*</code>) para um recurso que ja publica corretamente o
@@ -352,13 +354,13 @@ integracoes.</p>
 <p>O objetivo nao e montar “qualquer tela Angular que compile”. O
 objetivo e gerar um host <strong>fino (zero-boilerplate)</strong>
 alinhado ao runtime oficial da plataforma, onde colunas, mascaras,
-moeda, filtros, opcoes remotas, agrupamento de formulario e acoes de
-CRUD sao materializados automaticamente a partir de
+moeda, filtros, opcoes remotas, agrupamento de formulario e acoes do
+recurso sao materializados automaticamente a partir de
 <code>/schemas/filtered</code>:</p>
 <ul>
-<li><code>@praxisui/crud</code> como shell canonico de CRUD (com suporte
-a <code>openMode = 'drawer'</code>, <code>'modal'</code> ou
-<code>'route'</code>)</li>
+<li><code>@praxisui/crud</code> como shell canonico de fluxo completo de
+recurso (com suporte a <code>openMode = 'drawer'</code>,
+<code>'modal'</code> ou <code>'route'</code>)</li>
 <li><code>@praxisui/table</code> como superficie canonica de listagem e
 filtro</li>
 <li><code>@praxisui/dynamic-form</code> como superficie canonica de
@@ -401,7 +403,7 @@ metadata-driven</li>
 correto do runtime oficial Angular.</p>
 <h2 id="quando-usar-este-guia">Quando usar este guia</h2>
 <p>Use este guia quando a LLM precisar gerar a parte frontend de um
-recurso CRUD ja exposto pelo backend Praxis.</p>
+fluxo completo de recurso ja exposto pelo backend Praxis.</p>
 <p>Este guia cobre:</p>
 <ul>
 <li>lista com <code>praxis-table</code></li>
@@ -418,11 +420,12 @@ recurso CRUD ja exposto pelo backend Praxis.</p>
 <ul>
 <li>page builder</li>
 <li>editor visual de metadados</li>
-<li>UX fora do fluxo CRUD canonico</li>
+<li>UX fora do fluxo canonico de recurso</li>
 </ul>
 <p>Se o pedido for apenas uma lista remota simples,
-<code>praxis-table</code> pode bastar. Se o pedido for um CRUD completo,
-prefira <code>praxis-crud</code>.</p>
+<code>praxis-table</code> pode bastar. Se o pedido exigir fluxo completo
+de listagem, detalhe, criacao e edicao do recurso, prefira
+<code>praxis-crud</code>.</p>
 <h2 id="o-que-a-llm-deve-receber-como-entrada">O que a LLM deve receber
 como entrada</h2>
 <p>No minimo:</p>
@@ -438,7 +441,7 @@ como entrada</h2>
 configurada</li>
 </ol>
 <p>Exemplo:</p>
-<pre class="text"><code>Gere o frontend Angular de CRUD completo para o recurso abaixo.
+<pre class="text"><code>Gere o frontend Angular completo para o recurso abaixo.
 
 Entrada:
 - Recurso: Funcionarios
@@ -450,9 +453,9 @@ Entrada:
 - openMode padrao: drawer</code></pre>
 <h2 id="dependencias-frontend-minimas">Dependencias frontend
 minimas</h2>
-<p>Para um CRUD completo na linha ativa <code>@praxisui/*</code>
-(<code>9.0.0-beta.*</code> / <code>latest</code> correspondente ao trem
-Angular do host):</p>
+<p>Para um fluxo completo de recurso na linha ativa
+<code>@praxisui/*</code> (<code>9.0.0-beta.*</code> /
+<code>latest</code> correspondente ao trem Angular do host):</p>
 <div class="sourceCode" id="cb2"><pre
 class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @angular/animations @angular/cdk @angular/material</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> i @praxisui/core @praxisui/table @praxisui/dynamic-form @praxisui/crud @praxisui/dynamic-fields</span></code></pre></div>
@@ -529,7 +532,7 @@ desenvolvimento para <code>/api</code> e <code>/schemas</code>.</p>
 </ul>
 <h3 id="providepraxisglobalconfigbootstrap">3.
 <code>providePraxisGlobalConfigBootstrap()</code></h3>
-<p>Nao faz parte do baseline minimo de um host CRUD novo.</p>
+<p>Nao faz parte do baseline minimo de um host Angular novo.</p>
 <p>So use esse bootstrap quando o host realmente integrar
 <code>praxis-config-starter</code> e precisar de config remota em
 <code>/api/praxis/config/**</code>.</p>
@@ -554,10 +557,11 @@ schema-driven funcionar; deixe o runtime materializar os grupos
 (<code>group</code>) e a ordem (<code>order</code>) publicados em
 <code>@UISchema</code> no backend</li>
 </ul></li>
-<li><code>praxis-crud</code> e o shell recomendado para CRUD completo
-(usando <code>CrudLauncherService</code> com
-<code>openMode = 'drawer'</code>, <code>'modal'</code> ou
-<code>'route'</code> sem criar drawers/modais manuais no host)</li>
+<li><code>praxis-crud</code> e o shell recomendado para orquestrar
+listagem e manutencao completa do recurso (usando
+<code>CrudLauncherService</code> com <code>openMode = 'drawer'</code>,
+<code>'modal'</code> ou <code>'route'</code> sem criar drawers/modais
+manuais no host)</li>
 </ul>
 <h2 id="fluxo-de-schema">Fluxo de schema</h2>
 <p>O frontend oficial consome:</p>
@@ -640,8 +644,8 @@ repetir automaticamente o <code>PUT</code>.</p>
 <p>Recursos nao versionados continuam usando
 <code>BaseCreateUpdateResourceService</code> e nao passam a exigir
 <code>If-Match</code> por efeito colateral.</p>
-<h2 id="padrao-canonico-para-crud-completo">Padrao canonico para CRUD
-completo</h2>
+<h2 id="padrao-canonico-para-fluxo-completo-de-recurso">Padrao canonico
+para fluxo completo de recurso</h2>
 <pre class="text"><code>lista + acoes:
   praxis-crud
     -&gt; praxis-table
@@ -667,7 +671,7 @@ formulario:
 <code>serve.options.proxyConfig</code></li>
 </ul>
 <h2 id="prompt-recomendado-para-ia">Prompt recomendado para IA</h2>
-<pre class="text"><code>Voce esta gerando o frontend Angular canonico para um recurso CRUD Praxis.
+<pre class="text"><code>Voce esta gerando o frontend Angular canonico para um recurso semantico Praxis.
 
 Use apenas o contrato metadata-driven ja publicado pelo backend.
 Considere praxis-ui-angular como runtime canonico.

@@ -450,8 +450,8 @@ e
 <code>AbstractBaseResourceService&lt;E, ResponseDTO, ID, FilterDTO, CreateDTO, UpdateDTO&gt;</code>
 com
 <code>ResourceMapper&lt;E, ResponseDTO, CreateDTO, UpdateDTO, ID&gt;</code>
-e <code>BaseCrudRepository&lt;E, ID&gt;</code>. Recursos somente leitura
-estendem
+e <code>BaseResourceRepository&lt;E, ID&gt;</code>. Recursos somente
+leitura estendem
 <code>AbstractReadOnlyResourceController&lt;ResponseDTO, ID, FilterDTO&gt;</code>
 e
 <code>AbstractReadOnlyResourceService&lt;E, ResponseDTO, ID, FilterDTO&gt;</code>.
@@ -495,15 +495,41 @@ máx. ~35 caracteres, sem ponto final e <strong>nunca</strong> cópia de
 <code>DATE_RANGE</code>, <code>ENTITY_LOOKUP</code>,
 <code>SELECT</code>, <code>CHECKBOX</code>, <code>PERCENT_SLIDER</code>,
 <code>FILE_UPLOAD</code>, <code>CRON_BUILDER</code>); <code>icon</code>
-Material; <code>group</code> e <code>order</code>;
-<code>UISchemaPreset</code> (<code>MONETARY_AMOUNT</code>,
+Material sempre em <code>snake_case</code> minúsculo (proibido
+<code>PascalCase</code>, ex.: usar <code>"assured_workload"</code> e
+jamais <code>"Assured_Workload"</code>); <code>group</code>,
+<code>order</code>, <code>colSpan</code> (<code>1..12</code>) e
+<code>conditionalReadOnly</code> (JSON Logic validado estaticamente);
+<code>numericFormat</code> com padrão <code>NumericFormat.AUTO</code>
+(garantindo que <code>NumericFormat.INTEGER</code> explícito sempre
+publique <code>"numericFormat": "integer"</code>);
+<code>@TableView</code> para projeção tabular (<code>columns</code>,
+<code>pinnedStart</code>, <code>pinnedEnd</code>) e
+<code>@UiFormLayout</code>/<code>@UiSection</code> para seções
+(<code>FLAT</code>, <code>TABS</code>, <code>ACCORDION</code>,
+<code>STEPPER</code>); <code>UISchemaPreset</code>
+(<code>LOCAL_DATE</code>, <code>LOCAL_DATE_TIME</code>,
+<code>ENTITY_LOOKUP</code>, <code>MONETARY_AMOUNT</code>,
 <code>PERCENTAGE_RATE</code>, <code>CPF_CNPJ</code>,
 <code>EMAIL_CONTACT</code>, <code>PHONE_CONTACT</code>,
 <code>INTEGER_COUNTER</code>, <code>ENTERPRISE_ID</code>,
 <code>ENTERPRISE_CODE</code>, <code>ENTERPRISE_NAME</code>,
 <code>ENTERPRISE_STATUS</code>, <code>DATE_RANGE</code>,
 <code>BOOLEAN_FLAG</code>, <code>LEGAL_DOCUMENT_REFERENCE</code>,
-<code>TENANT_LABEL</code>, <code>AUDIT_TIMESTAMP</code>) e
+<code>TENANT_LABEL</code>, <code>AUDIT_TIMESTAMP</code>); opções
+estáticas em
+<code>SELECT</code>/<code>RADIO</code>/<code>BUTTON_TOGGLE</code> via
+<code>optionItems = {@UiOption(value = "...", label = "...", icon = "...", tone = QuickFilterTone.*)}</code>
+ou <code>optionEnum = MeuEnum.class</code> (incluindo enums que
+implementam <code>PraxisUiOptionEnum</code> com <code>label</code>,
+<code>icon</code>, <code>tone</code>, <code>selectableInLookup()</code>
+e <code>workflowInitial()</code>; mutuamente exclusivos; proibido
+<code>@UISchema(options = "...")</code> JSON/string,
+<code>@Deprecated(since = "2.1.0")</code>, auditado por
+<code>select-options-legacy-string-deprecated</code>,
+<code>select-options-mutual-exclusivity</code>,
+<code>ui-option-label-invalid</code> e
+<code>ui-option-icon-not-snake-case</code>); e
 <code>extraProperties</code> de apresentação
 (<code>labelTrue</code>/<code>labelFalse</code>,
 <code>toneTrue</code>/<code>toneFalse</code>,
@@ -521,12 +547,13 @@ Quando o <code>ResponseDTO</code> expuser cálculos financeiros,
 tributários, previdenciários, de tetos, SLAs ou interstícios
 explicáveis, anotar a classe DTO (ou superclasse <code>*Dados</code>)
 com
-<code>@CalculationMemory(title = "...", subtitleExpr = "...", icon = "...", legalBasis = "...", trails = {@CalculationTrail(...)})</code>
+<code>@CalculationMemory(title = "...", subtitleExpr = "...", icon = "...", legalBasis = "...", trails = {@CalculationTrail(..., steps = {@CalculationStep(...)})})</code>
 (<code>PLAT-EVO-20</code>, publicado em
 <code>x-ui.calculationMemory</code> para hidratação automática no
 <code>&lt;praxis-analytical-drawer&gt;</code>). Todas as expressões
 <code>row.*</code> de <code>@MicroVisualization</code> e
-<code>@CalculationMemory</code> são validadas estaticamente por
+<code>@CalculationMemory</code> (incluindo
+<code>@CalculationStep</code>) são validadas estaticamente por
 <code>PraxisExpressionStaticValidator.validateDtoClasses(dtoClasses, true)</code>.</td>
 </tr>
 <tr>
@@ -638,9 +665,14 @@ recurso <strong>e</strong> todos os campos de exibição de FKs
 <code>LookupDisplayDescriptor</code> (<code>preset = "directory"</code>,
 <code>fields</code>); (e) <code>LookupFilteringDescriptor</code>
 (<code>sortOptions</code>, <code>defaultSort</code>,
-<code>searchStrategies</code>); e (f) <code>dependsOn</code> +
-<code>dependencyFilterMap</code> para filtros em cascata (ex.:
-<code>companyId</code> / <code>organizationId</code>).</td>
+<code>searchStrategies</code> com suporte a <code>code</code>,
+<code>text</code> e <code>normalized-document</code> para busca sem
+pontuação em CPF/CNPJ/matrícula, além de <code>availableFilters</code>
+referenciando exclusivamente campos <code>@Filterable</code> reais do
+<code>FilterDTO</code> para execução <em>fail-closed</em>); e (f)
+<code>dependsOn</code> + <code>dependencyFilterMap</code> para filtros
+em cascata (ex.: <code>companyId</code> /
+<code>organizationId</code>).</td>
 </tr>
 <tr>
 <td style="text-align: center;"><strong>9</strong></td>
@@ -671,9 +703,16 @@ vocabulário humano</strong> (<code>relation = "department.name"</code>,
 <code>relation = "dependents.relationshipType"</code> — proibido expor
 apenas códigos/IDs brutos de FK) e <code>@CustomFields</code>; (d) no
 mínimo 2 a 6
-<code>@QuickFilter(id = "...", label = "...", icon = "...", tone = QuickFilterTone..., description = "...", defaultActive = ..., criteria = {@FilterCriterion(field = "...", values = {...})})</code>
+<code>@QuickFilter(id = "...", label = "...", icon = "...", tone = QuickFilterTone..., description = "...", defaultActive = ..., criteria = {@FilterCriterion(field = "...", values = {...} | bool = {...} | number = {...} | decimal = {...})})</code>
 no <code>@ApiResource</code> (ou <code>defineQuickFilters()</code>
-tipado no <code>Service</code> para predicados temporais dinâmicos); (e)
+tipado no <code>Controller</code> via <code>QuickFilterDescriptor</code>
+para predicados temporais dinâmicos), com <code>criteria.field</code>
+validado contra <code>@Filterable</code> do <code>FilterDTO</code>
+(<code>quick-filter-field-not-filterable</code>) e proibição estrita de
+<code>@QuickFilter(filter = "...")</code> /
+<code>QuickFilterDescriptor.filter(...)</code>
+(<code>@Deprecated(since = "2.1.0")</code>,
+<code>quick-filter-legacy-filter-deprecated</code>); (e)
 <code>ResourceFilterAccessScope</code> no <code>Service</code> quando
 houver isolamento multi-empresa/tenant; e (f) cobertura de índices
 <code>@Table(indexes = ...)</code> e DDL PostgreSQL
@@ -743,8 +782,16 @@ endereço/contato, parâmetros contratuais), expor endpoints
 <code>Idempotency-Key</code>) &amp; Duplicação
 (<code>duplicate-draft</code> vs. Deep Clone)</strong></td>
 <td style="text-align: left;">Modelar todas as transições reais de
-negócio da entidade como <code>@WorkflowAction</code> com DTO de comando
-próprio, <code>ResourceStateSnapshotProvider</code> para disponibilidade
+negócio da entidade como <code>@WorkflowAction</code> (com
+<code>icon</code>, <code>tone</code>, <code>modifiedFields</code>,
+<code>disallowedStateReason</code>, <code>legalPurpose</code> e DTO de
+comando próprio), marcar o campo de estado no DTO com
+<code>@ResourceState(initialStates = ..., putMutableStates = ...)</code>
+e opcionalmente declarar <code>@ResourceProgression</code>,
+<code>@ResourceTimeline</code> ou <code>@ResourceSchedule</code> no
+<code>ResponseDTO</code> (publicados apenas em
+<code>schemaType=response</code>),
+<code>ResourceStateSnapshotProvider</code> para disponibilidade
 contextual em <code>/capabilities</code>, controle de versão otimista
 via <code>VersionedCreateUpdateResourceService</code> (<code>ETag</code>
 + <code>If-Match</code> retornando
@@ -757,8 +804,9 @@ estender
 + <code>DuplicateDraftResourceService&lt;R, ID, F, C, U, D&gt;</code>
 (<code>DuplicateDraftResourceCommandService&lt;ID, D&gt;</code>),
 expondo <code>POST /{resource}/{id}/duplicate-draft</code> com
-<code>DuplicateDraftDTO</code> explícito (limpando chaves
-únicas/pessoais e declarando <code>@Schema(nullable = true)</code> nos
+<code>DuplicateDraftDTO</code> explícito (anotando com
+<code>@DraftCleared</code> os campos não-primitivos a zerar
+automaticamente e declarando <code>@Schema(nullable = true)</code> nos
 campos zerados que exigem decisão explícita no <code>CreateDTO</code>) e
 <code>ResourceOperationAvailabilityEvaluator</code> (operação
 <code>"duplicate-draft"</code>; suporte estrutural pelo componente
@@ -790,7 +838,10 @@ individualizada em lote: telefones, e-mails, endereços, contas
 bancárias, valores/limites individuais, códigos externos, datas
 específicas por item); se <code>allowClear = true</code>, declarar
 <code>@Schema(nullable = true)</code>; (2) anotar o Controller com
-<code>@BulkResourceOperations(protectedUpdateFields = {...})</code>; (3)
+<code>@BulkResourceOperations(protectedUpdateFields = {...})</code>, sem
+jamais incluir campos anotados com <code>@BulkEditable</code> em
+<code>protectedUpdateFields</code>
+(<code>bulk-protected-field-conflicts-with-bulk-editable</code>); (3)
 expor endpoints de confirmação com
 <code>@BulkOperation(mode = BulkMode.UNIFORM_UPDATE \| BulkMode.PER_ITEM_UPDATE, evaluationOperationId = "...")</code>;
 e (4) descobrir <strong>atos coletivos de negócio</strong> no ciclo de
@@ -844,7 +895,10 @@ incluindo métricas <code>COUNT</code>, <code>DISTINCT_COUNT</code>,
 <code>MEDIAN</code>, <code>PERCENTILE_90</code>,
 <code>PERCENTILE_95</code> e <code>AVG_PER_CYCLE_OCCURRENCE</code> em
 <code>numericMeasureField</code>/<code>numericHistogramMeasureField</code>)
-e anotar o Controller com
+e anotar o Controller (diretamente na classe via
+<code>@UiAnalytics</code> <code>ElementType.TYPE</code>, anexado
+automaticamente a <code>/stats/group-by</code> ou <code>/filter</code>,
+ou no método específico) com
 <code>@UiAnalytics(projections = {@AnalyticsProjection(..., recordOpen = @AnalyticsRecordOpen(..., target = @AnalyticsSurfaceTarget(...)))})</code>.</td>
 </tr>
 <tr>
@@ -912,24 +966,25 @@ para sincronizações pós-persistência (<code>MAIN_POS</code>).</td>
 Óbvio)</strong></td>
 <td style="text-align: left;">Anotar diretamente o endpoint
 <code>POST</code> não-persistente de prévia no Controller com
-<code>@ReactiveDetermination(id = "...", createOperationId = "create...", updateOperationId = "update...", triggerMode = ..., inputs = {@DeterminationInput(...)}, outputs = {@DeterminationOutput(...)})</code>
+<code>@ReactiveDetermination(id = "...", createOperationId = "...", updateOperationId = "...", triggerMode = ..., inputs = {@DeterminationInput(...)}, outputs = {@DeterminationOutput(...)})</code>
 (<code>PLAT-EVO-16</code>, descoberto automaticamente por
 <code>AnnotationDrivenReactiveDeterminationDefinitionProvider</code> sem
-classes <code>*DeterminationConfig</code> manuais — exigindo
-<code>@Operation(operationId = "create...")</code> no
-<code>@PostMapping</code>,
-<code>@Operation(operationId = "update...")</code> no
-<code>@PutMapping("/{id}")</code> e
-<code>@Operation(operationId = "determine...")</code> no
-<code>POST</code> de cálculo), ou registrar beans
+classes <code>*DeterminationConfig</code> manuais — inferindo
+automaticamente <code>inputs</code> do <code>@RequestBody</code>,
+<code>outputs</code> do DTO de resposta e
+<code>createOperationId</code>/<code>updateOperationId</code> dos
+handlers <code>POST</code>/<code>PUT /{id}</code> do controller quando
+omitidos), ou registrar beans
 <code>ReactiveDeterminationDefinitionProvider</code> quando
 <code>provenance</code> depender dinamicamente de
 <code>GovernedRuleFamilyRegistry</code> (<code>PLAT-EVO-05</code>).
 Quando <code>response</code> e <code>field</code> tiverem o mesmo nome,
-prefira o atalho canônico
-<code>@DeterminationOutput("nomeDoCampo")</code> (evitando repetir
-<code>response = "x", field = "x"</code>). Usar
-<code>ReactiveDeterminationTriggerMode.ON_CHANGE</code>,
+use obrigatoriamente o atalho canônico
+<code>@DeterminationOutput("nomeDoCampo")</code> (repetir
+<code>response = "x", field = "x"</code> é bloqueado por
+<code>SemanticMetadataReviewer</code> via
+<code>reactive-determination-output-redundant-explicit-pair</code>).
+Usar <code>ReactiveDeterminationTriggerMode.ON_CHANGE</code>,
 <code>ON_INIT</code> (<code>sourcePaths</code> opcionais para defaults
 iniciais) ou <code>ON_INIT_AND_CHANGE</code> (hidratação inicial +
 reação a mudanças), JSON Pointers iniciados por <code>"/"</code>,
@@ -951,8 +1006,11 @@ determinísticas via <code>RuleSet</code> (JSON Logic) do
 <code>praxis-config-starter</code>, consumir apenas snapshots aprovados
 de <code>/api/praxis/config/domain-rules/**</code>
 (<code>GOVERNED_DECISION</code>), sem inventar snapshots fictícios
-quando a fronteira de config não estiver ativa. Manter: (1)
-rastreabilidade <code>1:1 KEEP_SEPARATE</code> direto no código Java
+quando a fronteira de config não estiver ativa. Use
+<code>@ContextScopeBinding(dimension = ScopeDimension.*)</code> para
+vincular campos/recursos à dimensão contextual da sessão
+(<code>x-ui.contextBinding</code>). Manter: (1) rastreabilidade
+<code>1:1 KEEP_SEPARATE</code> direto no código Java
 (<code>*RuleErrorCatalog</code> -&gt; <code>DecisionBinding</code> -&gt;
 <code>*Test.java</code>, sem aglutinar códigos e sem arquivos
 intermediários de cerimônia); (2) proibição de <em>Split-Brain</em>
@@ -1049,8 +1107,8 @@ e <code>@ManyToOne(optional = false)</code> -&gt;
 <code>hardScope</code>), restrição de leitura/inferência
 (<code>FieldUseQueryGuard</code>), mutação seletiva por atributo
 (<code>DtoWriteIntentExtractor</code> +
-<code>FieldWriteAuthorizer</code> com custódia dual
-cedente/cessionário), mascaramento em projeção desanexada
+<code>FieldWriteAuthorizer</code> com custódia dual origem/destino),
+mascaramento em projeção desanexada
 (<code>DetachedDtoMaskingProcessor</code> /
 <code>GovernedCollectionExportGuard</code>) e obrigações
 (<code>ObligationBarrierCoordinator</code>) ao pipeline de 15 etapas
@@ -1068,11 +1126,15 @@ style="text-align: left;"><code>EntityLookupDescriptor.directoryBuilderFromDto</
 <code>String entityKey, Class&lt;?&gt; responseDtoClass</code>,
 introspectando <code>@ResourceIdentity</code> + <code>@UISchema</code>
 em POJOs, superclasses <code>*Dados</code>, <code>record</code>s e
-getters via <code>LookupDisplayFieldDescriptor.fromDtoField</code>, e
+getters via <code>LookupDisplayFieldDescriptor.fromDtoField</code>,
 <strong>priorizando automaticamente campos visíveis com
 <code>UISchemaPreset.ENTERPRISE_CODE</code> sobre o <code>id</code>
 substituto</strong> em <code>codePropertyPath</code> e
-<code>searchPropertyPaths</code>) ou <code>directoryBuilder</code>.
+<code>searchPropertyPaths</code> e <strong>auto-detectando campos
+anotados com <code>@ResourceState</code> ou <code>optionEnum</code>
+implementando <code>PraxisUiOptionEnum</code></strong> para preencher
+<code>status</code>, <code>statusLabels</code> e
+<code>selectionPolicy</code>) ou <code>directoryBuilder</code>.
 Personalizar status, <code>LookupSelectionPolicy</code>, dependências em
 cascata e surfaces de detalhe sem passar <code>null</code> a cada
 subcontrato. O registro da fonte
@@ -1209,15 +1271,15 @@ style="text-align: left;"><code>EffectiveDatedResourceSupport</code></td>
 (<strong><code>org.praxisplatform.uischema.service.base.EffectiveDatedResourceSupport</code></strong>,
 <code>PLAT-EVO-02</code> — jamais usar o pacote inexistente
 <code>org.praxisplatform.uischema.temporal</code>) para recursos com
-vigência temporal (<code>dtini</code>/<code>dtfim</code> ou
-<code>startDate</code>/<code>endDate</code> inclusivos, tratando
+vigência temporal (<code>effectiveFrom</code>/<code>effectiveTo</code>
+ou <code>startDate</code>/<code>endDate</code> inclusivos, tratando
 <code>null</code> como vigência em aberto):
 <code>EffectiveDatedInterval</code>,
 <code>MutableEffectiveDatedInterval</code>,
 <code>ValidityInterval</code>, <code>prepareAndValidateInsert</code>,
 <code>closePreviousOpenValidity</code>, <code>validateNoOverlap</code>,
 <code>validateRange</code>, <code>isEffectiveOn</code>,
-<code>vigenteEm</code>, <code>asOfDate</code>,
+<code>effectiveOn</code>, <code>vigenteEm</code>, <code>asOfDate</code>,
 <code>resolveTemporalState</code>, <code>isContiguous</code> e
 <code>findGaps</code>. Proibido duplicar helpers manuais de intervalo ou
 encerramento de vigência em cada service do host.</td>
@@ -1232,7 +1294,7 @@ diretamente no endpoint <code>POST</code> de prévia via
 <code>@ReactiveDetermination</code> (<code>@DeterminationInput</code>,
 <code>@DeterminationOutput</code>, <code>@DeterminationScope</code>,
 <code>PLAT-EVO-16</code>) ou via
-<code>ReactiveDeterminationDefinition.forCrudResource</code>
+<code>ReactiveDeterminationDefinition.forResource</code>
 (<code>REPEATABLE_READ</code> somente leitura, validando
 <code>404</code>/<code>403</code> de todas as FKs antes de projetar
 valores, mantendo fidelidade <code>1:1</code> de sinal/semântica nos
@@ -1437,7 +1499,7 @@ id="protocolo-de-descoberta-profunda-de-domínio-e-síntese-relacional-além-do-
 Protocolo de Descoberta Profunda de Domínio e Síntese Relacional (“Além
 do Óbvio”)</h2>
 <p>Ao construir ou evoluir um host Praxis, <strong>é proibido atuar como
-um gerador mecânico <code>1 tabela = 1 CRUD óbvio</code></strong>. O
+um gerador mecânico <code>1 tabela = 1 cadastro raso</code></strong>. O
 agente de IA deve analisar <strong>o domínio de negócio em si e o grafo
 de relacionamentos entre as entidades (<code>@ManyToOne</code>,
 <code>@OneToMany</code>, <code>@Embedded</code>)</strong> para descobrir
@@ -1585,23 +1647,24 @@ Criação de Novos Endpoints, Projeções Analíticas Cross-Entity
 (<code>Radar*</code>), Knowledge Graph e Data Products</h3>
 <p>Ao analisar os relacionamentos entre entidades
 (<code>Entidade A &lt;-&gt; Entidade B &lt;-&gt; Entidade C</code>), o
-agente deve ir além dos endpoints CRUD óbvios: 1. <strong>Novos
-Endpoints Read-Only de Visão Consolidada e Investigação Multi-Domínio
-(<code>AbstractReadOnlyResourceController</code> — Analytical Data
-Products):</strong> criar recursos analíticos/operacionais dedicados
-(<code>Radar*</code>) que cruzem entidades (via <code>@Subselect</code>
-ou <code>VIEW</code>) para responder perguntas executivas e
-investigativas de alta complexidade sem exigir joins ad-hoc no cliente
-(ex.: matriz de ocupação e vagas por cargo/unidade, radar de prescrição
-de férias e licença especial, radar de cobertura de chefias e
-substituições, radar de variação remuneratória vs. movimentação
-funcional). Todo endpoint <code>Radar*</code> <strong>deve</strong>
-publicar <code>@ResourceFact</code>s, <code>StatsFieldRegistry</code>
-(<code>StatsSupportMode.AUTO</code>) e <code>@UiAnalytics</code>
-(<code>COMPOSITION</code>, <code>RANKING</code> com
-<code>recordOpen</code>, <code>TIMESERIES</code>,
-<code>DISTRIBUTION</code>, <code>COMPARISON</code>). 2.
-<strong>Superfícies Master-Detail 360° (<code>@UiSurface</code> +
+agente deve ir além dos endpoints básicos de tabela individual: 1.
+<strong>Novos Endpoints Read-Only de Visão Consolidada e Investigação
+Multi-Domínio (<code>AbstractReadOnlyResourceController</code> —
+Analytical Data Products):</strong> criar recursos
+analíticos/operacionais dedicados (<code>Radar*</code>) que cruzem
+entidades (via <code>@Subselect</code> ou <code>VIEW</code>) para
+responder perguntas executivas e investigativas de alta complexidade sem
+exigir joins ad-hoc no cliente (ex.: matriz de ocupação e vagas por
+cargo/unidade, radar de prescrição de férias e licença especial, radar
+de cobertura de chefias e substituições, radar de variação remuneratória
+vs. movimentação funcional). Todo endpoint <code>Radar*</code>
+<strong>deve</strong> publicar <code>@ResourceFact</code>s,
+<code>StatsFieldRegistry</code> (<code>StatsSupportMode.AUTO</code>) e
+<code>@UiAnalytics</code> (<code>COMPOSITION</code>,
+<code>RANKING</code> com <code>recordOpen</code>,
+<code>TIMESERIES</code>, <code>DISTRIBUTION</code>,
+<code>COMPARISON</code>). 2. <strong>Superfícies Master-Detail 360°
+(<code>@UiSurface</code> +
 <code>relatedChildResourceKey</code>):</strong> expor todas as coleções
 filhas <code>1:N</code> relevantes como superfícies navegáveis no Quick
 View 360° e nas fichas de detalhe. 3. <strong>Intents Especializadas por
@@ -1766,11 +1829,11 @@ Restrição de Negócio (JSON Logic / SHACL Shape):</strong>
 consultas 1-hop:</strong> consultas de conceitos <code>1-hop</code>
 (<code>&lt;conceito&gt;</code>) devem usar no SQL <strong>apenas
 predicados de travessia de aresta/identidade</strong>
-(<code>emp_codigo</code>, <code>id</code>, <code>numfunc</code>,
-<code>numvinc</code>). Jamais filtre status
-(<code>situacao IN ('DESIGNADO', ...)</code>), cobertura de vigência
-(<code>dtini &lt;= :ini AND dtfim &gt;= :fim</code>) ou flags de negócio
-dentro do SQL para retornar um <code>COUNT(*)</code> ou
+(<code>organization_id</code>, <code>id</code>, <code>person_id</code>,
+<code>contract_seq</code>). Jamais filtre status
+(<code>status IN ('ASSIGNED', ...)</code>), cobertura de vigência
+(<code>effective_from &lt;= :ini AND effective_to &gt;= :fim</code>) ou
+flags de negócio dentro do SQL para retornar um <code>COUNT(*)</code> ou
 <code>boolean</code> de fachada ao motor de regras;</li>
 <li><strong>Projeção Primitiva + Avaliação JSON Logic:</strong> projete
 os atributos primitivos reais do nó relacionado (ex.:
