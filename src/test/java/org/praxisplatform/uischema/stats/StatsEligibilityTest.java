@@ -462,6 +462,49 @@ class StatsEligibilityTest {
                 IllegalArgumentException.class,
                 () -> eligibility.validateGroupBy(intervalInGroupBy, registry, 50)
         );
+
+        TimeSeriesStatsRequest<TestFilterDTO> intervalDefaultWindowAllowed = new TimeSeriesStatsRequest<>(
+                new TestFilterDTO(),
+                "activePeriod",
+                TimeSeriesGranularity.MONTH,
+                new StatsMetricRequest(StatsMetric.COUNT, null, "active"),
+                null,
+                null,
+                Boolean.TRUE
+        );
+        assertDoesNotThrow(
+                () -> eligibility.validateTimeSeries(intervalDefaultWindowAllowed, registry, 24, 366)
+        );
+
+        StatsFieldRegistry salaryRegistry = StatsFieldRegistry.builder()
+                .numericHistogramMeasureField("salary", "salary")
+                .build();
+        DistributionStatsRequest<TestFilterDTO> autoHistogramAllowed = new DistributionStatsRequest<>(
+                new TestFilterDTO(),
+                "salary",
+                DistributionMode.HISTOGRAM,
+                new StatsMetricRequest(StatsMetric.COUNT, null),
+                null,
+                5,
+                10,
+                StatsBucketOrder.KEY_ASC
+        );
+        assertDoesNotThrow(() -> eligibility.validateDistribution(autoHistogramAllowed, salaryRegistry, 50));
+
+        DistributionStatsRequest<TestFilterDTO> zeroBucketSizeRejected = new DistributionStatsRequest<>(
+                new TestFilterDTO(),
+                "salary",
+                DistributionMode.HISTOGRAM,
+                new StatsMetricRequest(StatsMetric.COUNT, null),
+                java.math.BigDecimal.ZERO,
+                5,
+                10,
+                StatsBucketOrder.KEY_ASC
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> eligibility.validateDistribution(zeroBucketSizeRejected, salaryRegistry, 50)
+        );
     }
 
     static class TestFilterDTO implements GenericFilterDTO {

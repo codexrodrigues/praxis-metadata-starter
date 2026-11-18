@@ -2,8 +2,14 @@ package org.praxisplatform.uischema.e2e;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
+
+import java.math.BigDecimal;
+import java.sql.Date;
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -17,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         "praxis.stats.default-min-bucket-count=2"
 })
 class StatsGovernanceE2ETest extends AbstractE2eH2Test {
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     void capabilitiesExposeGovernedTimeSeriesWindowAndDefaultSuppressionThreshold() throws Exception {
@@ -87,13 +96,11 @@ class StatsGovernanceE2ETest extends AbstractE2eH2Test {
         assertEquals(200, groupBy2D.getStatusCode().value());
         JsonNode data2D = body(groupBy2D).path("data");
         assertTrue(data2D.path("suppressed").asBoolean());
-        assertEquals(2, data2D.path("suppressedBucketCount").asInt());
+        // 2x2 matrix with 1 rare status cell in HR (INACTIVE=1) and 1 in OPS (LEAVE=1)
+        // forces complementary suppression on (HR,ACTIVE)=2 and (OPS,ACTIVE)=2 to block marginal inference
+        assertEquals(4, data2D.path("suppressedBucketCount").asInt());
         assertEquals(2, data2D.path("minBucketCount").asInt());
-        assertEquals(2, data2D.path("buckets").size());
-        for (JsonNode cell : data2D.path("buckets")) {
-            assertEquals("ACTIVE", cell.path("coordinates").path("status").asText());
-            assertEquals(2, cell.path("count").asInt());
-        }
+        assertEquals(0, data2D.path("buckets").size());
 
         // HISTOGRAM also enforces defaultMinBucketCount=2: only [6000,7000) has 2 records (6050, 6800)
         ResponseEntity<String> histogram = postJson("/employees/stats/distribution", """
@@ -166,5 +173,142 @@ class StatsGovernanceE2ETest extends AbstractE2eH2Test {
                 }
                 """);
         assertEquals(200, pointInTimeMonths.getStatusCode().value());
+    }
+
+    @Test
+    void timeSeriesAndComparisonEnforceMinBucketCountAndComplementarySuppression() throws Exception {
+        // Every individual admission month in 2022-11..2023-03 has count = 1 (< 2) -> all non-empty points suppressed!
+        ResponseEntity<String> tsNoGaps = postJson("/employees/stats/timeseries", """
+                {
+                  "filter": {},
+                  "field": "admissionDate",
+                  "granularity": "MONTH",
+                  "metric": { "operation": "COUNT" },
+                  "from": "2022-11-01",
+                  "to": "2023-03-31",
+                  "fillGaps": false
+                }
+                """);
+        assertEquals(200, tsNoGaps.getStatusCode().value());
+        JsonNode tsNoGapsData = body(tsNoGaps).path("data");
+        assertTrue(tsNoGapsData.path("suppressed").asBoolean());
+        assertEquals(3, tsNoGapsData.path("suppressedBucketCount").asInt()); // 2022-11, 2023-01, 2023-02
+        assertEquals(2, tsNoGapsData.path("minBucketCount").asInt());
+        assertEquals(0, tsNoGapsData.path("points").size());
+
+        ResponseEntity<String> tsWithGaps = postJson("/employees/stats/timeseries", """
+                {
+                  "filter": {},
+                  "field": "admissionDate",
+                  "granularity": "MONTH",
+                  "metric": { "operation": "COUNT" },
+                  "from": "2022-11-01",
+                  "to": "2023-03-31",
+                  "fillGaps": true
+                }
+                """);
+        assertEquals(200, tsWithGaps.getStatusCode().value());
+        JsonNode tsWithGapsData = body(tsWithGaps).path("data");
+        assertTrue(tsWithGapsData.path("suppressed").asBoolean());
+        assertEquals(3, tsWithGapsData.path("suppressedBucketCount").asInt());
+        assertEquals(5, tsWithGapsData.path("points").size());
+        // Suppressed slot 2023-01 must have null value and 0 count (no leak of count=1)
+        assertTrue(tsWithGapsData.path("points").get(2).path("value").isNull());
+        assertEquals(0, tsWithGapsData.path("points").get(2).path("count").asInt());
+
+        // In comparison over Feb 2023 vs Jan 2023: HR=(0 vs 1) and OPS=(1 vs 0); both have <2 on their active side
+        // so both comparison buckets must be suppressed instead of leaking false -100%/0 counts!
+        ResponseEntity<String> comparison = postJson("/employees/stats/comparison", """
+                {
+                  "filter": {},
+                  "field": "department",
+                  "periodField": "admissionDate",
+                  "metrics": [{ "operation": "COUNT", "alias": "employees" }],
+                  "period": { "from": "2023-02-01", "to": "2023-02-28", "timezone": "UTC" },
+                  "orderBy": "KEY_ASC"
+                }
+                """);
+        assertEquals(200, comparison.getStatusCode().value());
+        JsonNode compData = body(comparison).path("data");
+        assertTrue(compData.path("suppressed").asBoolean());
+        assertEquals(2, compData.path("suppressedBucketCount").asInt());
+        assertEquals(2, compData.path("minBucketCount").asInt());
+        assertEquals(0, compData.path("buckets").size());
+
+        // Asymmetric comparison pair: OPS=(prev=2, curr=1 < 2), HR=(prev=2, curr=2), FIN=(prev=3, curr=3).
+        // OPS must be suppressed instead of turning current=1 into 0 (-100%), and HR must be complementarily suppressed.
+        insertEmployee(state.humanResourcesDepartmentId(), "HR-J2", new BigDecimal("5000"), LocalDate.of(2023, 1, 12));
+        insertEmployee(state.humanResourcesDepartmentId(), "HR-F1", new BigDecimal("5000"), LocalDate.of(2023, 2, 10));
+        insertEmployee(state.humanResourcesDepartmentId(), "HR-F2", new BigDecimal("5000"), LocalDate.of(2023, 2, 11));
+        insertEmployee(state.operationsDepartmentId(), "OPS-J1", new BigDecimal("5000"), LocalDate.of(2023, 1, 12));
+        insertEmployee(state.operationsDepartmentId(), "OPS-J2", new BigDecimal("5000"), LocalDate.of(2023, 1, 13));
+
+        jdbcTemplate.update("INSERT INTO e2e_departments (nome, code) VALUES ('Finance', 'FIN')");
+        Long finDeptId = jdbcTemplate.queryForObject("SELECT id FROM e2e_departments WHERE code = 'FIN'", Long.class);
+        insertEmployee(finDeptId, "FIN-J1", new BigDecimal("5000"), LocalDate.of(2023, 1, 10));
+        insertEmployee(finDeptId, "FIN-J2", new BigDecimal("5000"), LocalDate.of(2023, 1, 11));
+        insertEmployee(finDeptId, "FIN-J3", new BigDecimal("5000"), LocalDate.of(2023, 1, 12));
+        insertEmployee(finDeptId, "FIN-F1", new BigDecimal("5000"), LocalDate.of(2023, 2, 10));
+        insertEmployee(finDeptId, "FIN-F2", new BigDecimal("5000"), LocalDate.of(2023, 2, 11));
+        insertEmployee(finDeptId, "FIN-F3", new BigDecimal("5000"), LocalDate.of(2023, 2, 12));
+
+        ResponseEntity<String> asymmetricComparison = postJson("/employees/stats/comparison", """
+                {
+                  "filter": {},
+                  "field": "department",
+                  "periodField": "admissionDate",
+                  "metrics": [{ "operation": "COUNT", "alias": "employees" }],
+                  "period": { "from": "2023-02-01", "to": "2023-02-28", "timezone": "UTC" },
+                  "orderBy": "KEY_ASC"
+                }
+                """);
+        assertEquals(200, asymmetricComparison.getStatusCode().value());
+        JsonNode asymData = body(asymmetricComparison).path("data");
+        assertTrue(asymData.path("suppressed").asBoolean());
+        assertEquals(2, asymData.path("suppressedBucketCount").asInt());
+        assertEquals(1, asymData.path("buckets").size());
+        assertEquals("Finance", asymData.path("buckets").get(0).path("label").asText());
+        assertEquals(3, asymData.path("buckets").get(0).path("values").path("employees").path("current").asInt());
+
+        // Numeric comparison LGPD guard: LEGAL has 3 employees in both periods, but Feb has only 1 non-null salario (< 2)
+        jdbcTemplate.update("INSERT INTO e2e_departments (nome, code) VALUES ('Legal', 'LEG')");
+        Long legDeptId = jdbcTemplate.queryForObject("SELECT id FROM e2e_departments WHERE code = 'LEG'", Long.class);
+        insertEmployee(legDeptId, "LEG-J1", new BigDecimal("7000"), LocalDate.of(2023, 1, 10));
+        insertEmployee(legDeptId, "LEG-J2", new BigDecimal("7000"), LocalDate.of(2023, 1, 11));
+        insertEmployee(legDeptId, "LEG-J3", new BigDecimal("7000"), LocalDate.of(2023, 1, 12));
+        insertEmployee(legDeptId, "LEG-F1", new BigDecimal("9999"), LocalDate.of(2023, 2, 10));
+        insertEmployee(legDeptId, "LEG-F2", null, LocalDate.of(2023, 2, 11));
+        insertEmployee(legDeptId, "LEG-F3", null, LocalDate.of(2023, 2, 12));
+
+        ResponseEntity<String> sumComparison = postJson("/employees/stats/comparison", """
+                {
+                  "filter": {},
+                  "field": "department",
+                  "periodField": "admissionDate",
+                  "metrics": [{ "operation": "SUM", "field": "salario", "alias": "payroll" }],
+                  "period": { "from": "2023-02-01", "to": "2023-02-28", "timezone": "UTC" },
+                  "orderBy": "KEY_ASC"
+                }
+                """);
+        assertEquals(200, sumComparison.getStatusCode().value());
+        JsonNode sumCompData = body(sumComparison).path("data");
+        assertTrue(sumCompData.path("suppressed").asBoolean());
+        // Primary suppressed: OPS (count 1) and LEGAL (numericCount 1 in Feb); HR (2) & FIN (3) survive!
+        assertEquals(2, sumCompData.path("suppressedBucketCount").asInt());
+        assertEquals(2, sumCompData.path("buckets").size());
+        assertEquals("Human Resources", sumCompData.path("buckets").get(0).path("label").asText());
+        assertEquals("Finance", sumCompData.path("buckets").get(1).path("label").asText());
+    }
+
+    private void insertEmployee(Long departmentId, String matricula, BigDecimal salario, LocalDate admissionDate) {
+        jdbcTemplate.update(
+                "INSERT INTO e2e_employees (nome, matricula, payroll_profile_label, payroll_profile, faixa_pct_desconto, status, salario, admission_date, department_id) "
+                        + "VALUES (?, ?, 'Operational', 'OPS', '0-10%', 'ACTIVE', ?, ?, ?)",
+                matricula,
+                matricula,
+                salario,
+                Date.valueOf(admissionDate),
+                departmentId
+        );
     }
 }

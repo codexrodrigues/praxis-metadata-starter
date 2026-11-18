@@ -160,7 +160,8 @@ public abstract class AbstractBaseQueryResourceService<
                                 properties.maxDimensions(),
                                 properties.maxCells(),
                                 properties.maxTimeSeriesWindowDays(),
-                                properties.defaultMinBucketCount()
+                                properties.defaultMinBucketCount(),
+                                properties.maxInMemorySampleRows()
                         )
                         : StatsCapability.empty(),
                 getCollectionExportCapability().orElse(null)
@@ -1175,7 +1176,8 @@ public abstract class AbstractBaseQueryResourceService<
                 window,
                 properties.maxBuckets(),
                 properties.maxCells(),
-                properties.defaultMinBucketCount()
+                properties.defaultMinBucketCount(),
+                properties.maxInMemorySampleRows()
         );
     }
 
@@ -1252,7 +1254,10 @@ public abstract class AbstractBaseQueryResourceService<
                 descriptor,
                 resolvedMetrics,
                 request,
-                properties.maxSeriesPoints()
+                properties.maxSeriesPoints(),
+                properties.maxTimeSeriesWindowDays(),
+                properties.defaultMinBucketCount(),
+                properties.maxInMemorySampleRows()
         );
     }
 
@@ -1283,7 +1288,8 @@ public abstract class AbstractBaseQueryResourceService<
                 metricDescriptor,
                 request,
                 properties.maxBuckets(),
-                properties.defaultMinBucketCount()
+                properties.defaultMinBucketCount(),
+                properties.maxInMemorySampleRows()
         );
     }
 
@@ -1304,61 +1310,188 @@ public abstract class AbstractBaseQueryResourceService<
             throw new IllegalArgumentException("Maximum comparison period exceeded: " + properties.maxComparisonPeriodDays() + " days.");
         }
         List<ResolvedStatsMetric> metrics = resolveMetrics(request.metrics(), "comparison");
+        int effectiveMinBucketCount = resolveComparisonMinBucketCount(descriptor, metrics, properties.defaultMinBucketCount());
         Specification<E> baseSpec = resolveResourceFilterQuery(request.filter(), Pageable.unpaged()).effectiveSpecification();
         int candidateLimit = properties.maxComparisonCandidates();
         GroupByStatsRequest<FilterDTO> groupRequest = new GroupByStatsRequest<>(
                 request.filter(), request.field(), request.metrics().get(0), candidateLimit + 1,
                 StatsBucketOrder.KEY_ASC, request.metrics()
         );
-        List<org.praxisplatform.uischema.stats.service.ResolvedStatsDimension> dimensions = List.of(
+
+        StatsFieldDescriptor unsuppressedDescriptor = descriptor.withMinBucketCount(0);
+        List<ResolvedStatsDimension> dimensions = List.of(
                 new org.praxisplatform.uischema.stats.service.ResolvedStatsDimension(
                         new org.praxisplatform.uischema.stats.dto.StatsDimensionRequest(
                                 descriptor.field(),
                                 org.praxisplatform.uischema.stats.StatsDimensionExtraction.NONE,
                                 descriptor.field()
                         ),
-                        descriptor
+                        unsuppressedDescriptor
                 )
         );
+        List<ResolvedStatsMetric> unsuppressedMetrics = metrics.stream()
+                .map(m -> m.descriptor() != null ? new ResolvedStatsMetric(m.metric(), m.descriptor().withMinBucketCount(0)) : m)
+                .toList();
         int candidateCellLimit = Math.max(properties.maxCells(), candidateLimit + 1);
-        GroupByStatsResponse current = statsQueryExecutor.executeGroupBy(entityManager, entityClass,
-                baseSpec.and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.currentFrom(), period.currentTo(), period.timezone())),
-                dimensions, metrics, groupRequest, null, candidateLimit + 1, candidateCellLimit, properties.defaultMinBucketCount());
-        GroupByStatsResponse previous = statsQueryExecutor.executeGroupBy(entityManager, entityClass,
-                baseSpec.and(ComparisonPeriodSpecifications.forPeriod(periodDescriptor.keyPropertyPath(), period.previousFrom(), period.previousTo(), period.timezone())),
-                dimensions, metrics, groupRequest, null, candidateLimit + 1, candidateCellLimit, properties.defaultMinBucketCount());
+        Specification<E> currentSpec = baseSpec.and(ComparisonPeriodSpecifications.forPeriod(
+                periodDescriptor.keyPropertyPath(), period.currentFrom(), period.currentTo(), period.timezone()
+        ));
+        Specification<E> previousSpec = baseSpec.and(ComparisonPeriodSpecifications.forPeriod(
+                periodDescriptor.keyPropertyPath(), period.previousFrom(), period.previousTo(), period.timezone()
+        ));
+        // Executa current e previous sem supressao individual; a supressao LGPD atua no par (current, previous).
+        GroupByStatsResponse current = statsQueryExecutor.executeGroupBy(
+                entityManager, entityClass, currentSpec, dimensions, unsuppressedMetrics, groupRequest,
+                null, candidateLimit + 1, candidateCellLimit, 0, properties.maxInMemorySampleRows()
+        );
+        GroupByStatsResponse previous = statsQueryExecutor.executeGroupBy(
+                entityManager, entityClass, previousSpec, dimensions, unsuppressedMetrics, groupRequest,
+                null, candidateLimit + 1, candidateCellLimit, 0, properties.maxInMemorySampleRows()
+        );
         if (current.buckets().size() > candidateLimit || previous.buckets().size() > candidateLimit) {
             throw new IllegalArgumentException("Comparison candidate limit exceeded: " + candidateLimit);
         }
-        return new ComparisonStatsResponse(request.field(), request.periodField(), request.metrics(),
+
+        Map<Object, Long> currentPositiveNumeric = effectiveMinBucketCount > 0
+                ? statsQueryExecutor.resolveComparisonPositiveNumericCounts(entityManager, entityClass, currentSpec, descriptor, metrics)
+                : Map.of();
+        Map<Object, Long> previousPositiveNumeric = effectiveMinBucketCount > 0
+                ? statsQueryExecutor.resolveComparisonPositiveNumericCounts(entityManager, entityClass, previousSpec, descriptor, metrics)
+                : Map.of();
+
+        ComparisonSuppressionResult result = mergeAndSuppressComparisonBuckets(
+                current.buckets(),
+                previous.buckets(),
+                currentPositiveNumeric,
+                previousPositiveNumeric,
+                request.metrics(),
+                request.orderBy(),
+                request.limit(),
+                properties.maxBuckets(),
+                effectiveMinBucketCount
+        );
+        boolean suppressionConfigured = effectiveMinBucketCount > 0;
+        return new ComparisonStatsResponse(
+                request.field(),
+                request.periodField(),
+                request.metrics(),
                 new ComparisonPeriodWindow(period.currentFrom(), period.currentTo(), period.timezone()),
                 new ComparisonPeriodWindow(period.previousFrom(), period.previousTo(), period.timezone()),
-                mergeComparisonBuckets(current.buckets(), previous.buckets(), request.metrics(), request.orderBy(), request.limit(), properties.maxBuckets()));
+                result.buckets(),
+                suppressionConfigured ? result.suppressedBucketCount() > 0 : Boolean.FALSE,
+                suppressionConfigured ? result.suppressedBucketCount() : null,
+                suppressionConfigured ? effectiveMinBucketCount : null
+        );
     }
 
-    private List<ComparisonBucket> mergeComparisonBuckets(List<GroupByBucket> current, List<GroupByBucket> previous,
-                                                            List<StatsMetricRequest> metrics, StatsBucketOrder order,
-                                                            Integer requestedLimit, int maxBuckets) {
+    private int resolveComparisonMinBucketCount(
+            StatsFieldDescriptor groupDescriptor,
+            List<ResolvedStatsMetric> metrics,
+            int defaultMinBucketCount
+    ) {
+        int effective = groupDescriptor.resolveMinBucketCount(defaultMinBucketCount);
+        for (ResolvedStatsMetric metric : metrics) {
+            if (metric.descriptor() != null && metric.descriptor().minBucketCount() != null) {
+                effective = Math.max(effective, Math.max(0, metric.descriptor().minBucketCount()));
+            }
+        }
+        return effective;
+    }
+
+    private ComparisonSuppressionResult mergeAndSuppressComparisonBuckets(
+            List<GroupByBucket> current,
+            List<GroupByBucket> previous,
+            Map<Object, Long> currentPositiveNumeric,
+            Map<Object, Long> previousPositiveNumeric,
+            List<StatsMetricRequest> metrics,
+            StatsBucketOrder order,
+            Integer requestedLimit,
+            int maxBuckets,
+            int effectiveMinBucketCount
+    ) {
         Map<Object, GroupByBucket> currentByKey = current.stream().collect(Collectors.toMap(GroupByBucket::key, Function.identity(), (a, b) -> a, LinkedHashMap::new));
         Map<Object, GroupByBucket> previousByKey = previous.stream().collect(Collectors.toMap(GroupByBucket::key, Function.identity(), (a, b) -> a, LinkedHashMap::new));
-        Set<Object> keys = new LinkedHashSet<>(); keys.addAll(currentByKey.keySet()); keys.addAll(previousByKey.keySet());
-        List<ComparisonBucket> buckets = keys.stream().map(key -> {
-            GroupByBucket now = currentByKey.get(key); GroupByBucket before = previousByKey.get(key);
-            Map<String, ComparisonMetricValue> values = new LinkedHashMap<>();
-            for (StatsMetricRequest metric : metrics) {
-                String alias = metric.effectiveAlias();
-                Number nowValue = value(now, alias); Number beforeValue = value(before, alias);
-                BigDecimal currentValue = decimal(nowValue); BigDecimal previousValue = decimal(beforeValue);
-                BigDecimal delta = currentValue.subtract(previousValue);
-                boolean baselineMissing = previousValue.signum() == 0;
-                values.put(alias, new ComparisonMetricValue(currentValue, previousValue, delta,
-                        baselineMissing ? null : delta.divide(previousValue, 8, java.math.RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).doubleValue(), baselineMissing));
+        Set<Object> keys = new LinkedHashSet<>();
+        keys.addAll(currentByKey.keySet());
+        keys.addAll(previousByKey.keySet());
+
+        Set<Object> suppressedKeys = new LinkedHashSet<>();
+        List<Object> visibleKeys = new ArrayList<>();
+        Map<Object, Long> effectiveScoreByKey = new LinkedHashMap<>();
+
+        if (effectiveMinBucketCount > 0) {
+            for (Object key : keys) {
+                GroupByBucket now = currentByKey.get(key);
+                GroupByBucket before = previousByKey.get(key);
+                long nowCount = now == null ? 0L : now.count();
+                long beforeCount = before == null ? 0L : before.count();
+                Long nowNum = currentPositiveNumeric.get(key);
+                Long beforeNum = previousPositiveNumeric.get(key);
+
+                boolean nowViolates = (nowCount > 0L && nowCount < effectiveMinBucketCount)
+                        || (nowNum != null && nowNum > 0L && nowNum < effectiveMinBucketCount);
+                boolean beforeViolates = (beforeCount > 0L && beforeCount < effectiveMinBucketCount)
+                        || (beforeNum != null && beforeNum > 0L && beforeNum < effectiveMinBucketCount);
+
+                long minPositiveCount = minPositiveLong(nowCount, nowNum, beforeCount, beforeNum);
+                effectiveScoreByKey.put(key, minPositiveCount);
+
+                if (nowViolates || beforeViolates) {
+                    suppressedKeys.add(key);
+                } else {
+                    visibleKeys.add(key);
+                }
             }
-            String label = now != null ? now.label() : before.label();
-            return new ComparisonBucket(key, label, Map.copyOf(values));
-        }).sorted(comparisonOrder(metrics.get(0).effectiveAlias(), order)).toList();
+            if (suppressedKeys.size() == 1 && !visibleKeys.isEmpty()) {
+                Object complementaryKey = visibleKeys.stream()
+                        .min(Comparator.<Object, Long>comparing(effectiveScoreByKey::get)
+                                .thenComparing((left, right) -> compareBucketKeys(left, right)))
+                        .orElse(null);
+                if (complementaryKey != null) {
+                    suppressedKeys.add(complementaryKey);
+                }
+            }
+        }
+
+        List<ComparisonBucket> buckets = keys.stream()
+                .filter(key -> !suppressedKeys.contains(key))
+                .map(key -> {
+                    GroupByBucket now = currentByKey.get(key);
+                    GroupByBucket before = previousByKey.get(key);
+                    Map<String, ComparisonMetricValue> values = new LinkedHashMap<>();
+                    for (StatsMetricRequest metric : metrics) {
+                        String alias = metric.effectiveAlias();
+                        Number nowValue = value(now, alias);
+                        Number beforeValue = value(before, alias);
+                        BigDecimal currentValue = decimal(nowValue);
+                        BigDecimal previousValue = decimal(beforeValue);
+                        BigDecimal delta = currentValue.subtract(previousValue);
+                        boolean baselineMissing = previousValue.signum() == 0;
+                        values.put(alias, new ComparisonMetricValue(currentValue, previousValue, delta,
+                                baselineMissing ? null : delta.divide(previousValue, 8, java.math.RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).doubleValue(), baselineMissing));
+                    }
+                    String label = now != null ? now.label() : before.label();
+                    return new ComparisonBucket(key, label, Map.copyOf(values));
+                })
+                .sorted(comparisonOrder(metrics.get(0).effectiveAlias(), order))
+                .toList();
         int limit = requestedLimit == null ? maxBuckets : Math.min(requestedLimit, maxBuckets);
-        return buckets.stream().limit(limit).toList();
+        return new ComparisonSuppressionResult(
+                buckets.stream().limit(limit).toList(),
+                suppressedKeys.size()
+        );
+    }
+
+    private long minPositiveLong(long c1, Long c2, long c3, Long c4) {
+        long min = Long.MAX_VALUE;
+        if (c1 > 0L) min = Math.min(min, c1);
+        if (c2 != null && c2 > 0L) min = Math.min(min, c2);
+        if (c3 > 0L) min = Math.min(min, c3);
+        if (c4 != null && c4 > 0L) min = Math.min(min, c4);
+        return min;
+    }
+
+    private record ComparisonSuppressionResult(List<ComparisonBucket> buckets, int suppressedBucketCount) {
     }
 
     private Number value(GroupByBucket bucket, String alias) {

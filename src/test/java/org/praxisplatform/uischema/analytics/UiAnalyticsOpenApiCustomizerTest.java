@@ -329,6 +329,33 @@ class UiAnalyticsOpenApiCustomizerTest {
         assertEquals("count", metrics.get(5).get("aggregation"));
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void mapsDistributionHistogramProjectionWithModeAndBucketDefaultsAndRejectsOutsideDistribution() throws Exception {
+        UiAnalytics annotation = HistogramDistributionController.class.getDeclaredMethod("distribution")
+                .getAnnotation(UiAnalytics.class);
+
+        Map<String, Object> analytics = new UiAnalyticsAnnotationMapper()
+                .toXUiAnalytics(annotation, "/reports/stats/distribution");
+        Map<String, Object> projection = ((java.util.List<Map<String, Object>>) analytics.get("projections")).get(0);
+        Map<String, Object> bindings = (Map<String, Object>) projection.get("bindings");
+        Map<String, Object> defaults = (Map<String, Object>) projection.get("defaults");
+        java.util.List<Map<String, Object>> metrics =
+                (java.util.List<Map<String, Object>>) bindings.get("primaryMetrics");
+
+        assertEquals("histogram", metrics.get(0).get("aggregation"));
+        assertEquals("histogram", defaults.get("distributionMode"));
+        assertEquals(500.0d, defaults.get("bucketSize"));
+        assertEquals(6, defaults.get("bucketCount"));
+
+        UiAnalytics invalid = InvalidHistogramOperationController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(invalid, "/reports/stats/group-by")
+        );
+    }
+
     static class SampleController {
 
         @PostMapping("/reports/stats/group-by")
@@ -689,6 +716,44 @@ class UiAnalyticsOpenApiCustomizerTest {
                                 @AnalyticsMetricBinding(field = "salario", aggregation = "percentile-75", label = "Q3", alias = "p75"),
                                 @AnalyticsMetricBinding(field = "salario", aggregation = "max", alias = "max"),
                                 @AnalyticsMetricBinding(field = "salario", aggregation = "count", alias = "count")
+                        }
+                )
+        )
+        public void groupBy() {
+        }
+    }
+
+    static class HistogramDistributionController {
+
+        @PostMapping("/reports/stats/distribution")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "salary-histogram",
+                        intent = AnalyticsIntent.DISTRIBUTION,
+                        sourceOperation = AnalyticsOperation.DISTRIBUTION,
+                        primaryDimension = @AnalyticsDimensionBinding(field = "salario"),
+                        primaryMetrics = {
+                                @AnalyticsMetricBinding(field = "salario", aggregation = "HISTOGRAM", label = "Faixas")
+                        },
+                        defaultBucketSize = 500.0d,
+                        defaultBucketCount = 6
+                )
+        )
+        public void distribution() {
+        }
+    }
+
+    static class InvalidHistogramOperationController {
+
+        @PostMapping("/reports/stats/group-by")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "invalid-histogram",
+                        intent = AnalyticsIntent.DISTRIBUTION,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(field = "department"),
+                        primaryMetrics = {
+                                @AnalyticsMetricBinding(field = "salario", aggregation = "histogram")
                         }
                 )
         )

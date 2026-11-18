@@ -12,6 +12,7 @@ import org.praxisplatform.uischema.stats.service.ResolvedStatsDimension;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -249,27 +250,84 @@ public class StatsEligibility {
         if (primaryMetric.operation() == StatsMetric.COUNT && !descriptor.supports(primaryMetric.operation())) {
             throw new IllegalArgumentException("Stats metric is not allowed for field: " + request.field());
         }
-        if (descriptor.isTemporalInterval() && (request.from() == null || request.to() == null)) {
+        if (descriptor.isTemporalInterval() && ((request.from() == null) != (request.to() == null))) {
             throw new IllegalArgumentException(
-                    "Temporal interval time-series requires both from and to dates: " + request.field()
+                    "Temporal interval time-series requires both from and to dates when bounds are provided: " + request.field()
             );
         }
-        if (request.from() != null && request.to() != null) {
+        LocalDate effectiveFrom = request.from();
+        LocalDate effectiveTo = request.to();
+        if (descriptor.isTemporalInterval() && effectiveFrom == null && effectiveTo == null) {
+            ZoneId effectiveZone = (request.timezone() == null || request.timezone().isBlank())
+                    ? ZoneOffset.UTC
+                    : ZoneId.of(request.timezone().trim());
+            LocalDate[] defaults = resolveDefaultIntervalWindow(
+                    request.granularity(),
+                    maxPoints,
+                    maxTimeSeriesWindowDays,
+                    effectiveZone
+            );
+            effectiveFrom = defaults[0];
+            effectiveTo = defaults[1];
+        }
+        if (effectiveFrom != null && effectiveTo != null) {
             if (maxTimeSeriesWindowDays > 0
                     && (descriptor.isTemporalInterval() || request.granularity() == TimeSeriesGranularity.DAY)) {
-                long windowDays = ChronoUnit.DAYS.between(request.from(), request.to()) + 1;
+                long windowDays = ChronoUnit.DAYS.between(effectiveFrom, effectiveTo) + 1;
                 if (windowDays > maxTimeSeriesWindowDays) {
                     throw new IllegalArgumentException(
                             "Maximum time-series window exceeded: " + maxTimeSeriesWindowDays + " days."
                     );
                 }
             }
-            long points = estimatePoints(request.from(), request.to(), request.granularity());
+            long points = estimatePoints(effectiveFrom, effectiveTo, request.granularity());
             if (points > maxPoints) {
                 throw new IllegalArgumentException("Maximum number of time-series points exceeded: " + maxPoints);
             }
         }
         return descriptor;
+    }
+
+    public static LocalDate[] resolveDefaultIntervalWindow(
+            TimeSeriesGranularity granularity,
+            int maxPoints,
+            int maxTimeSeriesWindowDays,
+            ZoneId zoneId
+    ) {
+        ZoneId effectiveZone = zoneId == null ? ZoneOffset.UTC : zoneId;
+        LocalDate today = LocalDate.now(effectiveZone);
+        int effectiveMaxPoints = Math.max(1, maxPoints);
+        int effectiveMaxDays = Math.max(1, maxTimeSeriesWindowDays);
+        LocalDate earliestByDays = today.minusDays(effectiveMaxDays - 1L);
+
+        LocalDate candidateFrom;
+        if (granularity == TimeSeriesGranularity.MONTH) {
+            LocalDate earliestByMonthPoints = today.withDayOfMonth(1).minusMonths(effectiveMaxPoints - 1L);
+            LocalDate candidate12m = today.minusMonths(Math.min(11, effectiveMaxPoints - 1)).withDayOfMonth(1);
+            candidateFrom = latestDate(candidate12m, earliestByMonthPoints, earliestByDays);
+        } else if (granularity == TimeSeriesGranularity.WEEK) {
+            LocalDate todayWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            LocalDate earliestByWeekPoints = todayWeekStart.minusWeeks(effectiveMaxPoints - 1L);
+            LocalDate candidate12m = today.minusMonths(11).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            candidateFrom = latestDate(candidate12m, earliestByWeekPoints, earliestByDays);
+        } else {
+            LocalDate earliestByDayPoints = today.minusDays(effectiveMaxPoints - 1L);
+            candidateFrom = latestDate(earliestByDayPoints, earliestByDays);
+        }
+        if (candidateFrom.isAfter(today)) {
+            candidateFrom = today;
+        }
+        return new LocalDate[] { candidateFrom, today };
+    }
+
+    private static LocalDate latestDate(LocalDate... candidates) {
+        LocalDate latest = candidates[0];
+        for (int i = 1; i < candidates.length; i++) {
+            if (candidates[i].isAfter(latest)) {
+                latest = candidates[i];
+            }
+        }
+        return latest;
     }
 
     public <FD extends GenericFilterDTO> StatsFieldDescriptor validateDistribution(
@@ -301,10 +359,7 @@ public class StatsEligibility {
             if (metric.field() != null && !metric.field().isBlank()) {
                 throw new IllegalArgumentException("Metric field is not supported in HISTOGRAM mode.");
             }
-            if (request.bucketSize() == null) {
-                throw new IllegalArgumentException("Histogram bucketSize is required.");
-            }
-            if (request.bucketSize().doubleValue() <= 0d) {
+            if (request.bucketSize() != null && request.bucketSize().doubleValue() <= 0d) {
                 throw new IllegalArgumentException("Histogram bucketSize must be greater than zero.");
             }
             if (request.bucketCount() != null && request.bucketCount() <= 0) {

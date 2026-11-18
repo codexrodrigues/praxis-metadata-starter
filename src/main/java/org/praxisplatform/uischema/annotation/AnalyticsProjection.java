@@ -37,6 +37,10 @@ public @interface AnalyticsProjection {
 
     int defaultLimit() default -1;
 
+    double defaultBucketSize() default -1d;
+
+    int defaultBucketCount() default -1;
+
     AnalyticsGranularity defaultGranularity() default AnalyticsGranularity.UNSPECIFIED;
 
     String defaultTimezone() default "";

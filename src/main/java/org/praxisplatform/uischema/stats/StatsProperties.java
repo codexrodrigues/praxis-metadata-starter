@@ -13,8 +13,11 @@ public record StatsProperties(
         int maxDimensions,
         int maxCells,
         int maxTimeSeriesWindowDays,
-        int defaultMinBucketCount
+        int defaultMinBucketCount,
+        int maxInMemorySampleRows
 ) {
+    public static final int DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS = 100_000;
+
     public StatsProperties {
         if (maxBuckets <= 0) {
             maxBuckets = 20;
@@ -40,7 +43,37 @@ public record StatsProperties(
         if (defaultMinBucketCount < 0) {
             defaultMinBucketCount = 0;
         }
+        if (maxInMemorySampleRows <= 0) {
+            maxInMemorySampleRows = DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS;
+        }
         defaultMode = defaultMode == null ? StatsSupportMode.DISABLED : defaultMode;
+    }
+
+    public StatsProperties(
+            boolean enabled,
+            int maxBuckets,
+            int maxSeriesPoints,
+            StatsSupportMode defaultMode,
+            int maxComparisonCandidates,
+            int maxComparisonPeriodDays,
+            int maxDimensions,
+            int maxCells,
+            int maxTimeSeriesWindowDays,
+            int defaultMinBucketCount
+    ) {
+        this(
+                enabled,
+                maxBuckets,
+                maxSeriesPoints,
+                defaultMode,
+                maxComparisonCandidates,
+                maxComparisonPeriodDays,
+                maxDimensions,
+                maxCells,
+                maxTimeSeriesWindowDays,
+                defaultMinBucketCount,
+                DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS
+        );
     }
 
     public StatsProperties(
@@ -63,7 +96,8 @@ public record StatsProperties(
                 maxDimensions,
                 maxCells,
                 366,
-                0
+                0,
+                DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS
         );
     }
 
@@ -75,14 +109,14 @@ public record StatsProperties(
             int maxComparisonCandidates,
             int maxComparisonPeriodDays
     ) {
-        this(enabled, maxBuckets, maxSeriesPoints, defaultMode, maxComparisonCandidates, maxComparisonPeriodDays, 2, 500, 366, 0);
+        this(enabled, maxBuckets, maxSeriesPoints, defaultMode, maxComparisonCandidates, maxComparisonPeriodDays, 2, 500, 366, 0, DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS);
     }
 
     public StatsProperties(boolean enabled, int maxBuckets, int maxSeriesPoints, StatsSupportMode defaultMode) {
-        this(enabled, maxBuckets, maxSeriesPoints, defaultMode, 1_000, 366, 2, 500, 366, 0);
+        this(enabled, maxBuckets, maxSeriesPoints, defaultMode, 1_000, 366, 2, 500, 366, 0, DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS);
     }
 
     public static StatsProperties defaults() {
-        return new StatsProperties(false, 20, 100, StatsSupportMode.DISABLED, 1_000, 366, 2, 500, 366, 0);
+        return new StatsProperties(false, 20, 100, StatsSupportMode.DISABLED, 1_000, 366, 2, 500, 366, 0, DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS);
     }
 }

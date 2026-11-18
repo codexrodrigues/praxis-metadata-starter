@@ -50,12 +50,8 @@ public class UiAnalyticsAnnotationMapper {
         }
 
         Map<String, Object> defaults = buildDefaults(
-                projection.defaultSort(),
-                projection.defaultLimit(),
-                projection.defaultGranularity(),
-                projection.defaultTimezone(),
-                projection.defaultPeriodPreset(),
-                projection.defaultFillGaps()
+                projection,
+                hasHistogramMetric(projection)
         );
         if (!defaults.isEmpty()) {
             result.put("defaults", defaults);
@@ -153,9 +149,9 @@ public class UiAnalyticsAnnotationMapper {
         if (!dimensions.isEmpty()) {
             bindings.put("dimensions", dimensions);
         }
-        bindings.put("primaryMetrics", buildMetrics(projection.primaryMetrics()));
+        bindings.put("primaryMetrics", buildMetrics(projection.primaryMetrics(), projection.sourceOperation()));
 
-        List<Map<String, Object>> secondaryMetrics = buildMetrics(projection.secondaryMetrics());
+        List<Map<String, Object>> secondaryMetrics = buildMetrics(projection.secondaryMetrics(), projection.sourceOperation());
         if (!secondaryMetrics.isEmpty()) {
             bindings.put("secondaryMetrics", secondaryMetrics);
         }
@@ -261,7 +257,10 @@ public class UiAnalyticsAnnotationMapper {
         }
     }
 
-    private List<Map<String, Object>> buildMetrics(AnalyticsMetricBinding[] metrics) {
+    private List<Map<String, Object>> buildMetrics(
+            AnalyticsMetricBinding[] metrics,
+            AnalyticsOperation sourceOperation
+    ) {
         List<Map<String, Object>> result = new ArrayList<>();
         if (metrics == null) {
             return result;
@@ -271,7 +270,16 @@ public class UiAnalyticsAnnotationMapper {
             Map<String, Object> next = new LinkedHashMap<>();
             next.put("field", metric.field());
             if (!metric.aggregation().isBlank()) {
-                next.put("aggregation", StatsMetric.fromWireOrName(metric.aggregation()).wireValue());
+                String rawAggregation = metric.aggregation().trim();
+                if ("histogram".equalsIgnoreCase(rawAggregation)) {
+                    if (sourceOperation != AnalyticsOperation.DISTRIBUTION) {
+                        throw new IllegalArgumentException(
+                                "Aggregation 'histogram' is only supported for DISTRIBUTION analytics projections.");
+                    }
+                    next.put("aggregation", "histogram");
+                } else {
+                    next.put("aggregation", StatsMetric.fromWireOrName(rawAggregation).wireValue());
+                }
             }
             if (!metric.label().isBlank()) {
                 next.put("label", metric.label());
@@ -284,14 +292,33 @@ public class UiAnalyticsAnnotationMapper {
         return result;
     }
 
+    private boolean hasHistogramMetric(AnalyticsProjection projection) {
+        return containsHistogramMetric(projection.primaryMetrics())
+                || containsHistogramMetric(projection.secondaryMetrics());
+    }
+
+    private boolean containsHistogramMetric(AnalyticsMetricBinding[] metrics) {
+        if (metrics == null) {
+            return false;
+        }
+        for (AnalyticsMetricBinding metric : metrics) {
+            if (metric != null && "histogram".equalsIgnoreCase(metric.aggregation().trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private Map<String, Object> buildDefaults(
-            AnalyticsSort[] defaultSort,
-            int defaultLimit,
-            AnalyticsGranularity defaultGranularity,
-            String defaultTimezone,
-            String defaultPeriodPreset,
-            boolean defaultFillGaps
+            AnalyticsProjection projection,
+            boolean hasHistogramMetric
     ) {
+        AnalyticsSort[] defaultSort = projection.defaultSort();
+        int defaultLimit = projection.defaultLimit();
+        AnalyticsGranularity defaultGranularity = projection.defaultGranularity();
+        String defaultTimezone = projection.defaultTimezone();
+        String defaultPeriodPreset = projection.defaultPeriodPreset();
+        boolean defaultFillGaps = projection.defaultFillGaps();
         Map<String, Object> defaults = new LinkedHashMap<>();
         if (defaultSort != null && defaultSort.length > 0) {
             List<Map<String, Object>> sort = new ArrayList<>();
@@ -305,6 +332,15 @@ public class UiAnalyticsAnnotationMapper {
         }
         if (defaultLimit > 0) {
             defaults.put("limit", defaultLimit);
+        }
+        if (projection.sourceOperation() == AnalyticsOperation.DISTRIBUTION && hasHistogramMetric) {
+            defaults.put("distributionMode", "histogram");
+        }
+        if (projection.defaultBucketSize() > 0d) {
+            defaults.put("bucketSize", projection.defaultBucketSize());
+        }
+        if (projection.defaultBucketCount() > 0) {
+            defaults.put("bucketCount", projection.defaultBucketCount());
         }
         if (defaultGranularity != null && !defaultGranularity.wireValue().isBlank()) {
             defaults.put("granularity", defaultGranularity.wireValue());

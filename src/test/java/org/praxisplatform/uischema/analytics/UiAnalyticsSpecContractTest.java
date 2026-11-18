@@ -215,6 +215,47 @@ class UiAnalyticsSpecContractTest {
         assertTrue(schema.validate(boxplotExample).isEmpty());
     }
 
+    @Test
+    void distributionHistogramProjectionWithDefaultsIsSchemaValid() throws Exception {
+        JsonNode schemaDocument = objectMapper.readTree(
+                Path.of("docs/spec/x-ui-analytics.schema.json").toFile());
+        JsonSchema schema = JsonSchemaFactory
+                .getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(schemaDocument);
+
+        JsonNode histogramExample = objectMapper.readTree("""
+                {
+                  "projections": [
+                    {
+                      "id": "salary-histogram",
+                      "intent": "distribution",
+                      "source": {
+                        "kind": "praxis.stats",
+                        "resource": "/api/human-resources/employees",
+                        "operation": "distribution"
+                      },
+                      "bindings": {
+                        "primaryDimension": {
+                          "field": "salario",
+                          "role": "bucket"
+                        },
+                        "primaryMetrics": [
+                          { "field": "salario", "aggregation": "histogram", "label": "Faixa salarial" }
+                        ]
+                      },
+                      "defaults": {
+                        "distributionMode": "histogram",
+                        "bucketSize": 1000.0,
+                        "bucketCount": 8
+                      }
+                    }
+                  ]
+                }
+                """);
+
+        assertTrue(schema.validate(histogramExample).isEmpty());
+    }
+
     private Set<String> requiredFields(JsonNode definition) {
         return objectMapper.convertValue(
                 definition.path("required"),

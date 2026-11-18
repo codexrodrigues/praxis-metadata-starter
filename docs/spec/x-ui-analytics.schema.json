@@ -142,7 +142,8 @@
             "percentile-75",
             "percentile-90",
             "percentile-95",
-            "avg-per-cycle-occurrence"
+            "avg-per-cycle-occurrence",
+            "histogram"
           ]
         },
         "label": { "type": "string", "minLength": 1 },
@@ -191,6 +192,18 @@
           "items": { "$ref": "#/$defs/sort" }
         },
         "limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "distributionMode": {
+          "type": "string",
+          "enum": ["terms", "histogram"]
+        },
+        "bucketSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "bucketCount": {
           "type": "integer",
           "minimum": 1
         },

@@ -900,16 +900,30 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertEquals(4, dayPoints.get(2).path("value").asInt());
         assertEquals(3, dayPoints.get(3).path("value").asInt());
 
-        ResponseEntity<String> missingBounds = postJson("/employees/stats/timeseries", """
+        ResponseEntity<String> defaultWindow = postJson("/employees/stats/timeseries", """
                 {
                   "filter": {},
                   "field": "activePeriod",
                   "granularity": "MONTH",
-                  "metric": { "operation": "COUNT" }
+                  "metric": { "operation": "COUNT" },
+                  "fillGaps": true
                 }
                 """);
-        assertEquals(400, missingBounds.getStatusCode().value());
-        assertNoStackTrace(body(missingBounds));
+        assertEquals(200, defaultWindow.getStatusCode().value());
+        JsonNode defaultPoints = body(defaultWindow).path("data").path("points");
+        assertTrue(defaultPoints.size() >= 1 && defaultPoints.size() <= 12);
+
+        ResponseEntity<String> halfOpenBounds = postJson("/employees/stats/timeseries", """
+                {
+                  "filter": {},
+                  "field": "activePeriod",
+                  "granularity": "MONTH",
+                  "metric": { "operation": "COUNT" },
+                  "from": "2023-01-01"
+                }
+                """);
+        assertEquals(400, halfOpenBounds.getStatusCode().value());
+        assertNoStackTrace(body(halfOpenBounds));
 
         ResponseEntity<String> windowExceeded = postJson("/employees/stats/timeseries", """
                 {
@@ -972,12 +986,10 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertEquals(200, groupBy2D.getStatusCode().value());
         JsonNode data2D = body(groupBy2D).path("data");
         assertTrue(data2D.path("suppressed").asBoolean());
-        assertEquals(2, data2D.path("suppressedBucketCount").asInt());
+        // 2x2 matrix with 1 singleton in HR (SPEC=1) and 1 in OPS (LEAD=1) triggers row-marginal complementary suppression on all 4 cells
+        assertEquals(4, data2D.path("suppressedBucketCount").asInt());
         assertEquals(2, data2D.path("minBucketCount").asInt());
-        assertEquals(2, data2D.path("buckets").size());
-        for (JsonNode bucket : data2D.path("buckets")) {
-            assertTrue(bucket.path("count").asLong() >= 2L);
-        }
+        assertEquals(0, data2D.path("buckets").size());
 
         ResponseEntity<String> distributionPercentile = postJson("/employees/stats/distribution", """
                 {
@@ -997,6 +1009,36 @@ class StatsE2ETest extends AbstractE2eH2Test {
         assertEquals(2, distData.path("buckets").size());
         assertEquals("EXEC", distData.path("buckets").get(0).path("key").asText());
         assertEquals("OPS", distData.path("buckets").get(1).path("key").asText());
+    }
+
+    @Test
+    void employeesHistogramComputesAutoBucketSizeAndHandlesEmptyFilterCleanly() throws Exception {
+        ResponseEntity<String> autoHistogram = postJson("/employees/stats/distribution", """
+                {
+                  "filter": {},
+                  "field": "salario",
+                  "mode": "HISTOGRAM",
+                  "metric": { "operation": "COUNT" },
+                  "bucketCount": 5,
+                  "orderBy": "KEY_ASC"
+                }
+                """);
+        assertEquals(200, autoHistogram.getStatusCode().value());
+        JsonNode autoBuckets = body(autoHistogram).path("data").path("buckets");
+        assertTrue(autoBuckets.size() > 0 && autoBuckets.size() <= 5);
+        assertEquals(1000.0, autoBuckets.get(0).path("to").asDouble() - autoBuckets.get(0).path("from").asDouble(), 0.0001);
+
+        ResponseEntity<String> emptyHistogram = postJson("/employees/stats/distribution", """
+                {
+                  "filter": { "nome": "__NO_EMPLOYEE_MATCH__" },
+                  "field": "salario",
+                  "mode": "HISTOGRAM",
+                  "metric": { "operation": "COUNT" },
+                  "bucketCount": 5
+                }
+                """);
+        assertEquals(200, emptyHistogram.getStatusCode().value());
+        assertEquals(0, body(emptyHistogram).path("data").path("buckets").size());
     }
 
     private JsonNode findBucketByCoordinates(
