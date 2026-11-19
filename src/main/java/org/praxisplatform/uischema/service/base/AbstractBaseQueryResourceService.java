@@ -500,11 +500,66 @@ public abstract class AbstractBaseQueryResourceService<
         if (registry == null) {
             registry = StatsFieldRegistry.empty();
         }
+        StatsFieldRegistry declared = registry;
         for (ResourceGovernanceInterceptor interceptor : getResourceGovernanceInterceptors()) {
             StatsFieldRegistry filtered = interceptor.filterStatsRegistry(this, registry);
-            registry = filtered != null ? filtered : StatsFieldRegistry.empty();
+            registry = filtered != null
+                    ? preserveExtendedStatsDescriptorMetadata(declared, filtered)
+                    : StatsFieldRegistry.empty();
         }
         return registry;
+    }
+
+    private static StatsFieldRegistry preserveExtendedStatsDescriptorMetadata(
+            StatsFieldRegistry declared,
+            StatsFieldRegistry filtered
+    ) {
+        if (declared == null || declared.isEmpty() || filtered == null || filtered.isEmpty()) {
+            return filtered != null ? filtered : StatsFieldRegistry.empty();
+        }
+        boolean needsRehydration = false;
+        for (StatsFieldDescriptor desc : filtered.descriptors()) {
+            Optional<StatsFieldDescriptor> originalOpt = declared.resolve(desc.field());
+            if (originalOpt.isPresent()) {
+                StatsFieldDescriptor orig = originalOpt.get();
+                if ((desc.endPropertyPath() == null && orig.endPropertyPath() != null)
+                        || (desc.minBucketCount() == null && orig.minBucketCount() != null)) {
+                    needsRehydration = true;
+                    break;
+                }
+            }
+        }
+        if (!needsRehydration) {
+            return filtered;
+        }
+        List<StatsFieldDescriptor> rehydrated = new ArrayList<>(filtered.descriptors().size());
+        for (StatsFieldDescriptor desc : filtered.descriptors()) {
+            Optional<StatsFieldDescriptor> originalOpt = declared.resolve(desc.field());
+            if (originalOpt.isPresent()) {
+                StatsFieldDescriptor orig = originalOpt.get();
+                String endPath = desc.endPropertyPath() != null ? desc.endPropertyPath() : orig.endPropertyPath();
+                Integer minCount = desc.minBucketCount() != null ? desc.minBucketCount() : orig.minBucketCount();
+                if (!Objects.equals(endPath, desc.endPropertyPath())
+                        || !Objects.equals(minCount, desc.minBucketCount())) {
+                    rehydrated.add(new StatsFieldDescriptor(
+                            desc.field(),
+                            desc.keyPropertyPath(),
+                            desc.labelPropertyPath(),
+                            desc.metrics(),
+                            desc.groupByEligible(),
+                            desc.timeSeriesEligible(),
+                            desc.distributionTermsEligible(),
+                            desc.distributionHistogramEligible(),
+                            desc.metricFieldEligible(),
+                            endPath,
+                            minCount
+                    ));
+                    continue;
+                }
+            }
+            rehydrated.add(desc);
+        }
+        return StatsFieldRegistry.of(rehydrated);
     }
 
     @Override
