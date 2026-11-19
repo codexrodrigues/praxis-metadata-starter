@@ -11,16 +11,21 @@ import java.util.Set;
 public enum ResourceFactScope {
 
     /** Fact scoped to a single resource record/item. */
-    ITEM("item"),
+    ITEM(ResourceFactScope.WIRE_ITEM),
 
     /** Fact scoped to a resource collection, dataset, or aggregate query. */
-    COLLECTION("collection"),
+    COLLECTION(ResourceFactScope.WIRE_COLLECTION),
 
     /** Fact scoped to the resolved tenant context. */
-    TENANT("tenant"),
+    TENANT(ResourceFactScope.WIRE_TENANT),
 
     /** Fact scoped to the authenticated principal context. */
-    PRINCIPAL("principal");
+    PRINCIPAL(ResourceFactScope.WIRE_PRINCIPAL);
+
+    public static final String WIRE_ITEM = "item";
+    public static final String WIRE_COLLECTION = "collection";
+    public static final String WIRE_TENANT = "tenant";
+    public static final String WIRE_PRINCIPAL = "principal";
 
     private static final Set<String> ALLOWED_WIRE_VALUES =
             ResourceFactVocabulary.allowedWireValues(values(), ResourceFactScope::wireValue);

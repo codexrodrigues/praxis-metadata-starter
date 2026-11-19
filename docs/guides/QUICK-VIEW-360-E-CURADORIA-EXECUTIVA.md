@@ -37,7 +37,7 @@ Para curar informações inteligentes no backend Java, o autor do recurso (`Cont
 ### Regra 1 — Proibição Absoluta de Overlap entre Identidade e Corpo
 - **Nunca** repita `keyField`, `titleField`, `subtitleField` ou `avatarField` dentro de `metadataFields` (ex.: `keyField = "id"` com `metadataFields = {"id", ...}` é **erro de auditoria** em `audit-java-resource-completeness.py`).
 - **Nunca** marque um campo listado em `metadataFields` com `quickViewVisible = true`.
-- O `@ResourceIdentity` declarado em `@ApiResource(identity = ...)` no `Controller` e o `@ResourceIdentity` na classe `ResponseDTO` devem ser **idênticos**.
+- Declare `@ResourceIdentity` como fonte única obrigatória na classe `ResponseDTO` (opcional em `@ApiResource(identity = ...)` ou na classe do `Controller`; caso declarado em ambos, os atributos devem ser **idênticos**).
 
 ### Regra 2 — Hierarquia Executiva (`metadataFields` = Topo; `quickViewOrder = 1..8` = Corpo)
 Como `metadataFields` ocupa as **primeiras linhas** do corpo do cartão Quick View, escolha seus campos com critério executivo:
@@ -90,7 +90,7 @@ Todo atributo listado em `metadataFields` ou com `quickViewVisible = true` deve 
 
 ### Regra 8 — Validação Nativa Determinística (`SemanticMetadataReviewer`)
 - O `SemanticMetadataReviewer` no `praxis-metadata-starter` valida programaticamente em tempo de build JUnit (`review(responseDtoClass)` e `reviewResourceController(controllerClass, responseDtoClass, filterDtoClass)`) todo o contrato Quick View 360° e `@ResourceIdentity`, emitindo erros bloqueantes (`SemanticMetadataIssueSeverity.ERROR`) para:
-  - `resource-identity-missing`: ausência de `@ResourceIdentity` (ou `keyField`/`titleField` em branco) no Controller ou no `ResponseDTO`;
+  - `resource-identity-missing`: ausência de `@ResourceIdentity` (ou `keyField`/`titleField` em branco) no `ResponseDTO` (ou no Controller quando não houver `ResponseDTO` tipado);
   - `resource-identity-controller-dto-mismatch`: divergência de atributos (`keyField`, `titleField`, `subtitleField`, `avatarField`, `displayLabelField`, `metadataFields`) entre o `@ResourceIdentity` do Controller e o do `ResponseDTO`;
   - `resource-identity-subtitle-missing`: ausência de `subtitleField` em `@ResourceIdentity`;
   - `resource-identity-metadata-duplicate` e `resource-identity-metadata-repeats-header-field`: duplicidade dentro de `metadataFields` ou repetição de campos do cabeçalho (`keyField`, `titleField`, `subtitleField`, `avatarField`);
@@ -108,21 +108,15 @@ Todo atributo listado em `metadataFields` ou com `quickViewVisible = true` deve 
 ## 3. Exemplo Canônico Completo (`ResponseDTO` + `Controller`)
 
 ```java
-// No Controller:
+// No Controller (@ResourceIdentity omitido aqui; fonte única no ResponseDTO):
 @ApiResource(
     value = ApiPaths.PESSOAS,
     resourceKey = "administracao-pessoal.funcionarios",
     title = "Pessoas servidoras",
     description = "Cadastro civil único das pessoas titulares de vínculos funcionais com órgãos públicos.",
-    icon = "badge",
-    identity = @ResourceIdentity(
-        keyField = "id",
-        titleField = "nome",
-        displayLabelField = "nome",
-        subtitleField = "nomeSocial",
-        metadataFields = {"cpf", "idadeAnos"}))
+    icon = "badge")
 
-// No ResponseDTO:
+// No ResponseDTO (fonte única obrigatória):
 @ResourceIdentity(
     keyField = "id",
     titleField = "nome",

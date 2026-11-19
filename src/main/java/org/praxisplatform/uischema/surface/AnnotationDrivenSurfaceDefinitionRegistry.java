@@ -468,10 +468,67 @@ public class AnnotationDrivenSurfaceDefinitionRegistry implements SurfaceDefinit
                     if (childIdentity != null && StringUtils.hasText(childIdentity.keyField())) {
                         return childIdentity.keyField().trim();
                     }
+                    String dtoKeyField = resolveResponseDtoIdentityKeyField(beanType, handlerMethods);
+                    if (StringUtils.hasText(dtoKeyField)) {
+                        return dtoKeyField;
+                    }
                     Object bean = resolveControllerBean(method);
                     return resolveIdField(bean);
                 }
             }
+        }
+        return null;
+    }
+
+    private String resolveResponseDtoIdentityKeyField(
+            Class<?> controllerClass,
+            Map<RequestMappingInfo, HandlerMethod> handlerMethods
+    ) {
+        Class<?> userType = org.springframework.util.ClassUtils.getUserClass(controllerClass);
+        if (AbstractResourceQueryController.class.isAssignableFrom(userType)) {
+            Class<?>[] args = org.springframework.core.GenericTypeResolver.resolveTypeArguments(
+                    userType, AbstractResourceQueryController.class);
+            if (args != null && args.length >= 1 && args[0] != null && args[0] != Object.class) {
+                ResourceIdentity dtoIdentity = AnnotationUtils.findAnnotation(args[0], ResourceIdentity.class);
+                if (dtoIdentity != null && StringUtils.hasText(dtoIdentity.keyField())) {
+                    return dtoIdentity.keyField().trim();
+                }
+            }
+        }
+        return handlerMethods.values().stream()
+                .filter(handler -> org.springframework.util.ClassUtils.getUserClass(handler.getBeanType()).equals(userType))
+                .sorted(Comparator.comparing(handler -> AnnotationUtils.findAnnotation(
+                        handler.getMethod(), UiSurface.class) != null))
+                .map(handler -> unwrapResponseDtoClass(
+                        ResolvableType.forMethodReturnType(handler.getMethod(), handler.getBeanType())))
+                .filter(java.util.Objects::nonNull)
+                .map(dto -> AnnotationUtils.findAnnotation(dto, ResourceIdentity.class))
+                .filter(identity -> identity != null && StringUtils.hasText(identity.keyField()))
+                .map(identity -> identity.keyField().trim())
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Class<?> unwrapResponseDtoClass(ResolvableType type) {
+        ResolvableType current = type;
+        while (current != null && current != ResolvableType.NONE) {
+            Class<?> rawClass = current.resolve();
+            if (rawClass == null || rawClass == Void.TYPE || rawClass == Void.class || rawClass == Object.class) {
+                return null;
+            }
+            if (ResponseEntity.class.isAssignableFrom(rawClass)
+                    || HttpEntity.class.isAssignableFrom(rawClass)
+                    || RestApiResponse.class.isAssignableFrom(rawClass)
+                    || PagedModel.class.isAssignableFrom(rawClass)
+                    || CollectionModel.class.isAssignableFrom(rawClass)
+                    || org.springframework.hateoas.EntityModel.class.isAssignableFrom(rawClass)
+                    || Collection.class.isAssignableFrom(rawClass)
+                    || rawClass.getName().startsWith("org.springframework.data.domain.Page")
+                    || rawClass.getName().startsWith("org.praxisplatform.uischema.dto.CursorPage")) {
+                current = current.getGeneric(0);
+                continue;
+            }
+            return rawClass.isArray() ? rawClass.getComponentType() : rawClass;
         }
         return null;
     }

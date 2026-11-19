@@ -59,9 +59,8 @@ public @interface ResourceReference {
     String previewSurfaceId() default "";
 
     /**
-     * Apresentacao preferencial ao abrir a surface completa ({@code drawer}, {@code modal},
-     * {@code fullscreen} ou {@code route}). No handoff de Quick View, {@code drawer} e {@code modal}
-     * definem a apresentacao preferencial de overlay.
+     * Apresentacao preferencial ao abrir a surface completa ({@code "drawer"} ou {@code "modal"}).
+     * Define a apresentacao canonica de overlay para o handoff de Quick View / Visao 360.
      */
     String detailPresentation() default "";
 }

@@ -10,18 +10,34 @@ import java.lang.annotation.Target;
  *
  * <p>Permite modelar tanto trilhas estruturadas com parcelas fixas ({@code baseExpr},
  * {@code additionExpr}, {@code deductionExpr}, {@code factorExpr}, {@code capExpr}, {@code resultExpr})
- * quanto trilhas extensíveis de N etapas via {@code steps = {@CalculationStep(...)}}.
+ * quanto trilhas extensíveis de N etapas via <code>steps = { @CalculationStep(...) }</code>.
  * Todas as expressões declaradas são validadas estaticamente contra as propriedades reais do DTO pelo
- * {@code PraxisExpressionStaticValidator}.</p>
+ * {@link org.praxisplatform.uischema.validation.PraxisExpressionStaticValidator}.</p>
+ *
+ * <p><b>Regras anti-duplicação ({@code PLAT-EVO-20}):</b></p>
+ * <ul>
+ *   <li>Não repita a mesma expressão de {@link #baseExpr()} em {@link #additionExpr()} ou
+ *       {@link #deductionExpr()} (o validador estático rejeita parcelas fantasma duplicadas);</li>
+ *   <li>Escolha <b>ou</b> os campos fixos de parcela ({@code base*}, {@code addition*},
+ *       {@code deduction*}, {@code factor*}, {@code cap*}, {@code target*}) <b>ou</b> a lista
+ *       extensível {@link #steps()}, evitando duplicar os mesmos passos em ambos.</li>
+ * </ul>
  *
  * <pre>{@code
- * @CalculationTrail(
- *     id = "net-compensation",
- *     title = "Composição líquida",
- *     resultExpr = "row.netAmount",
- *     steps = {
- *         @CalculationStep(label = "Base", expr = "row.grossAmount", kind = StepKind.BASE, format = "currency:BRL"),
- *         @CalculationStep(label = "Descontos", expr = "row.totalDeductions", kind = StepKind.DEDUCTION, format = "currency:BRL")
+ * @CalculationMemory(
+ *     title = "Composição salarial",
+ *     trails = {
+ *         @CalculationTrail(
+ *             id = "net-compensation",
+ *             title = "Composição líquida",
+ *             resultLabel = "Líquido",
+ *             resultExpr = "row.netAmount",
+ *             resultFormat = "currency:BRL",
+ *             steps = {
+ *                 @CalculationStep(label = "Base", expr = "row.grossAmount", kind = StepKind.BASE, format = "currency:BRL"),
+ *                 @CalculationStep(label = "Descontos", expr = "row.totalDeductions", kind = StepKind.DEDUCTION, format = "currency:BRL")
+ *             }
+ *         )
  *     }
  * )
  * }</pre>
@@ -85,39 +101,64 @@ public @interface CalculationTrail {
      */
     String visibleWhen() default "";
 
+    /** Rotulo humano da parcela base inicial da trilha. */
     String baseLabel() default "";
+    /** Expressao deterministica do valor base inicial sobre {@code row.*}; nao deve ser repetida em {@link #additionExpr()} ou {@link #deductionExpr()}. */
     String baseExpr() default "";
+    /** Formato de exibicao da parcela base (ex.: {@code "currency:BRL"}, {@code "integer"}, {@code "percent"}). */
     String baseFormat() default "";
+    /** Nota explicativa fixa exibida sob a parcela base. */
     String baseHint() default "";
+    /** Expressao opcional sobre {@code row.*} para nota explicativa dinamica da parcela base. */
     String baseHintExpr() default "";
 
+    /** Rotulo humano da parcela de adicao/acrescimo da trilha. */
     String additionLabel() default "";
+    /** Expressao deterministica da parcela de adicao sobre {@code row.*}; deve ser distinta de {@link #baseExpr()}. */
     String additionExpr() default "";
+    /** Formato de exibicao da parcela de adicao (ex.: {@code "currency:BRL"}, {@code "integer"}, {@code "percent"}). */
     String additionFormat() default "";
+    /** Nota explicativa fixa exibida sob a parcela de adicao. */
     String additionHint() default "";
+    /** Expressao opcional sobre {@code row.*} para nota explicativa dinamica da parcela de adicao. */
     String additionHintExpr() default "";
 
+    /** Rotulo humano da parcela de deducao/desconto da trilha. */
     String deductionLabel() default "";
+    /** Expressao deterministica da parcela de deducao sobre {@code row.*}; deve ser distinta de {@link #baseExpr()}. */
     String deductionExpr() default "";
+    /** Formato de exibicao da parcela de deducao (ex.: {@code "currency:BRL"}, {@code "integer"}, {@code "percent"}). */
     String deductionFormat() default "";
+    /** Nota explicativa fixa exibida sob a parcela de deducao. */
     String deductionHint() default "";
+    /** Expressao opcional sobre {@code row.*} para nota explicativa dinamica da parcela de deducao. */
     String deductionHintExpr() default "";
 
+    /** Rotulo humano do fator multiplicador ou percentual aplicado na trilha. */
     String factorLabel() default "";
+    /** Expressao deterministica do fator aplicado sobre {@code row.*}. */
     String factorExpr() default "";
+    /** Formato de exibicao do fator (ex.: {@code "percent"}, {@code "decimal"}, {@code "number"}). */
     String factorFormat() default "";
+    /** Nota explicativa fixa exibida sob o fator. */
     String factorHint() default "";
+    /** Expressao opcional sobre {@code row.*} para nota explicativa dinamica do fator. */
     String factorHintExpr() default "";
 
+    /** Rotulo humano da etapa de trava/teto ou limite maximo aplicado na trilha. */
     String capLabel() default "";
     /**
      * Operador semantico exibido para a etapa de trava/teto (ex.: "≤", "≥", "=").
      * Quando omitido, o runtime assume "≤" por retrocompatibilidade.
      */
     String capOperator() default "";
+    /** Expressao deterministica do valor de trava/teto sobre {@code row.*}. */
     String capExpr() default "";
+    /** Formato de exibicao da etapa de trava/teto (ex.: {@code "currency:BRL"}, {@code "integer"}). */
     String capFormat() default "";
+    /** Nota explicativa fixa exibida sob a etapa de trava/teto. */
     String capHint() default "";
+    /** Expressao opcional sobre {@code row.*} para nota explicativa dinamica da etapa de trava/teto. */
     String capHintExpr() default "";
 
     /**
@@ -142,11 +183,17 @@ public @interface CalculationTrail {
      */
     String targetHintExpr() default "";
 
+    /** Rotulo humano do resultado final consolidado da trilha. */
     String resultLabel() default "";
+    /** Expressao deterministica do resultado final sobre {@code row.*}. */
     String resultExpr() default "";
+    /** Formato de exibicao do resultado final (ex.: {@code "currency:BRL"}, {@code "integer"}, {@code "percent"}). */
     String resultFormat() default "";
+    /** Tom semantico opcional do resultado final ({@link QuickFilterTone#allowedWireValues()}). */
     String resultTone() default "";
+    /** Nota explicativa fixa exibida sob o resultado final. */
     String resultHint() default "";
+    /** Expressao opcional sobre {@code row.*} para nota explicativa dinamica do resultado final. */
     String resultHintExpr() default "";
 
     /**

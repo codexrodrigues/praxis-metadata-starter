@@ -2281,7 +2281,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         String detailPresentation = asTrimmedString(reference.detailPresentation());
         if (detailPresentation != null) {
             String normalizedPresentation = detailPresentation.toLowerCase(Locale.ROOT);
-            if (Set.of("drawer", "modal", "fullscreen", "route").contains(normalizedPresentation)) {
+            if (Set.of("drawer", "modal").contains(normalizedPresentation)) {
                 resourceRefMap.put("detailPresentation", normalizedPresentation);
             } else {
                 LOGGER.warn(
@@ -2824,8 +2824,14 @@ public class CustomOpenApiResolver extends ModelResolver {
 
     private void applyFilterableMetadata(Schema<?> property, Annotation[] annotations) {
         Filterable filterable = ResolverUtils.getAnnotation(Filterable.class, annotations);
-        if (filterable != null && filterable.primarySearch()) {
+        if (filterable == null) {
+            return;
+        }
+        if (filterable.primarySearch()) {
             getUIExtensionMap(property).put(FieldConfigProperties.PRIMARY_SEARCH.getValue(), true);
+        }
+        if (filterable.inline()) {
+            getUIExtensionMap(property).put(FieldConfigProperties.INLINE_FILTER.getValue(), true);
         }
     }
 

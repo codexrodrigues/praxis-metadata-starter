@@ -150,6 +150,12 @@ public @interface Filterable {
     boolean primarySearch() default false;
 
     /**
+     * Marks this filter field to be promoted as an inline filter in generated table toolbars
+     * and filter bars ({@code x-ui.inlineFilter = true}).
+     */
+    boolean inline() default false;
+
+    /**
      * Múltiplos caminhos de atributos/relacionamentos na entidade combinados por disjunção ({@code OR})
      * para busca ampla (omnibox) num único campo de filtro.
      *

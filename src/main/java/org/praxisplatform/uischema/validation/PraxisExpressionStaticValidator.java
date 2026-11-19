@@ -5,6 +5,7 @@ import io.swagger.v3.core.converter.AnnotatedType;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.core.converter.ResolvedSchema;
 import io.swagger.v3.oas.models.media.Schema;
+import org.praxisplatform.uischema.annotation.QuickFilterTone;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +27,7 @@ public class PraxisExpressionStaticValidator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PraxisExpressionStaticValidator.class);
 
-    private static final Set<String> RESERVED_KEYWORDS = Set.of(
+    private static final Set<String> BASE_RESERVED_KEYWORDS = Set.of(
             "true", "false", "null", "undefined", "NaN", "Infinity",
             "Math", "Number", "String", "Date", "Array", "Boolean", "Object",
             "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURIComponent", "decodeURIComponent",
@@ -36,10 +37,16 @@ public class PraxisExpressionStaticValidator {
             "now", "date", "yearsSince", "monthsSince", "daysSince",
             "coalesce", "len", "toNumber", "toString", "if",
             // Namespaces contextuais de linha e sub-recursos no drawer analitico
-            "row", "item", "data", "form", "relations",
-            // Semantic tones permitidos em expressoes
-            "neutral", "info", "success", "warning", "danger", "critical", "primary"
+            "row", "item", "data", "form", "relations"
     );
+
+    private static final Set<String> RESERVED_KEYWORDS = buildReservedKeywords();
+
+    private static Set<String> buildReservedKeywords() {
+        Set<String> keywords = new LinkedHashSet<>(BASE_RESERVED_KEYWORDS);
+        keywords.addAll(QuickFilterTone.allowedWireValues());
+        return Collections.unmodifiableSet(keywords);
+    }
 
     private static final List<String> CALCULATION_MEMORY_SECTION_EXPR_KEYS = List.of(
             "titleExpr",

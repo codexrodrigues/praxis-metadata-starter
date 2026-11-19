@@ -339,6 +339,7 @@ class PhaseAErgonomicsOpenApiAndSchemaTest {
         Map<String, Object> statusUi = xUi(filterSchema.getProperties().get("status"));
         assertEquals("verified_user", statusUi.get(FieldConfigProperties.ICON.getValue()),
                 "explicit FilterDTO icon must not be overwritten by ResponseDTO");
+        assertEquals(Boolean.TRUE, statusUi.get(FieldConfigProperties.INLINE_FILTER.getValue()));
         assertNotNull(statusUi.get("options"), "omitted enum options should be inherited from ResponseDTO");
 
         new WebApplicationContextRunner()
@@ -368,6 +369,7 @@ class PhaseAErgonomicsOpenApiAndSchemaTest {
         List<Map<String, Object>> payloadsToValidate = List.of(
                 searchUi,
                 categoryUi,
+                statusUi,
                 xUi(formTableSchema.getProperties().get("code")),
                 xUi(formTableSchema.getProperties().get("status")),
                 xUi(formTableSchema.getProperties().get("internalNotes")),
@@ -642,7 +644,7 @@ class PhaseAErgonomicsOpenApiAndSchemaTest {
         @UISchema(label = "Categoria")
         private Long categoryId;
 
-        @Filterable(operation = Filterable.FilterOperation.EQUAL)
+        @Filterable(operation = Filterable.FilterOperation.EQUAL, inline = true)
         @UISchema(label = "Status", icon = "verified_user")
         private ContractState status;
 

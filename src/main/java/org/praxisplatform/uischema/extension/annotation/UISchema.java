@@ -42,54 +42,66 @@ import static java.lang.annotation.ElementType.*;
  *
  * <h4>Padrões suportados</h4>
  * <ol>
- *   <li><strong>OptionDTO (payload leve)</strong>
+ *   <li><strong>Lookup dinâmico governado ({@link FieldControlType#ENTITY_LOOKUP} + {@code OptionSourceDescriptor})</strong>
  *   <pre>{@code
+ * // No DTO:
  * @UISchema(
- *   controlType = FieldControlType.SELECT,
- *   endpoint = ApiPaths.Catalog.CATEGORIAS_OPTIONS,
- *   valueField = "id",     // org.praxisplatform.uischema.dto.OptionDTO.id
- *   displayField = "label" // org.praxisplatform.uischema.dto.OptionDTO.label
+ *   label = "Departamento",
+ *   controlType = FieldControlType.ENTITY_LOOKUP,
+ *   icon = "apartment"
  * )
- * private Long categoriaId;
+ * private Long departmentId;
+ *
+ * // No OptionSourceRegistry do host (com cascata opcional):
+ * OptionSourceDescriptor.resourceEntity(
+ *     "departments",
+ *     ApiPaths.DEPARTMENTS,
+ *     List.of("companyId"),
+ *     Map.of("companyId", "companyId"),
+ *     EntityLookupDescriptor.directoryBuilderFromDto("departments", DepartmentResponseDTO.class)
+ *         .detailSurface("detail", "preview")
+ *         .build()
+ * );
  * }</pre>
- *   <p>O label e resolvido no backend via {@code @OptionLabel} ou heuristicas do
- *   {@code AbstractBaseQueryResourceService#computeOptionLabel}.</p>
+ *   <p>O starter materializa automaticamente {@code x-ui.optionSource} com {@code filterEndpoint},
+ *   {@code byIdsEndpoint}, {@code dependsOn}, {@code dependencyFilterMap}, política de seleção e
+ *   superfície de detalhe 360°, dispensando interpolação manual de URL ou {@code endpoint}/{@code valueField}/{@code displayField} no DTO.</p>
  *   </li>
- *   <li><strong>Lookup rico</strong> (metadados adicionais em {@code OptionDTO.extra})
+ *   <li><strong>Domínio estático fechado ({@link FieldControlType#SELECT} + {@link #optionItems()} ou {@link #optionEnum()})</strong>
  *   <pre>{@code
  * @UISchema(
+ *   label = "Modalidade",
  *   controlType = FieldControlType.SELECT,
- *   endpoint = ApiPaths.Catalog.CATEGORIAS_OPTIONS,
- *   valueField = "id",            // identidade publicada pelo OptionDTO
- *   displayField = "label"        // descrição publicada pelo OptionDTO
+ *   optionItems = {
+ *     @UiOption(value = "FULL_TIME", label = "Tempo integral", icon = "schedule", tone = QuickFilterTone.INFO),
+ *     @UiOption(value = "PART_TIME", label = "Tempo parcial", icon = "timelapse", tone = QuickFilterTone.NEUTRAL)
+ *   }
  * )
- * private Long categoriaId;
+ * private String modality;
+ *
+ * // Ou diretamente via enum implementando PraxisUiOptionEnum:
+ * @UISchema(label = "Status", controlType = FieldControlType.SELECT, optionEnum = ContractStatus.class)
+ * private ContractStatus status;
  * }</pre>
+ *   <p>{@link #optionItems()} e {@link #optionEnum()} são mutuamente exclusivos e substituem o
+ *   legado {@link #options()} em string/JSON ({@code @Deprecated(since = "2.1.0")}).</p>
  *   </li>
  * </ol>
  *
+ * <p><strong>Nota de compatibilidade legada:</strong> {@link #endpoint()}, {@link #valueField()} e
+ * {@link #displayField()} permanecem suportados para endpoints {@code OptionDTO} preexistentes, mas
+ * recursos novos devem usar {@code OptionSourceDescriptor} ({@code ENTITY_LOOKUP}) ou
+ * {@link #optionItems()}/{@link #optionEnum()}.</p>
+ *
  * <h4>Combos dependentes</h4>
- * <p>Declare dependencias de cascata em {@link #dependsOn()} ou, preferencialmente,
- * no {@code OptionSourceDescriptor.dependsOn()} junto do
- * {@code dependencyFilterMap}. O resolver publica isso como
- * {@code x-ui.optionSource.dependsOn}; a UI nao deve inferir cascata por interpolacao
- * local de URL.</p>
- * <pre>{@code
- * @UISchema(
- *   name = "cidade",
- *   controlType = FieldControlType.SELECT,
- *   endpoint = ApiPaths.Catalog.CIDADES_OPTIONS,
- *   dependsOn = "estado",
- *   resetOnDependentChange = true
- * )
- * private String cidade;
- * }
- * </pre>
+ * <p>Declare dependências em cascata preferencialmente em {@code OptionSourceDescriptor.dependsOn()}
+ * junto de {@code dependencyFilterMap} (ou em {@link #dependsOn()} quando usar endpoints legados).
+ * O resolver publica isso como {@code x-ui.optionSource.dependsOn}; a UI não deve inferir cascata
+ * por interpolação local de URL.</p>
  *
  * <h4>Reidratação inicial</h4>
- * <p>Para preencher selects com valores previamente salvos, use o endpoint canonico
- * publicado em {@code x-ui.optionSource.byIdsEndpoint}. O contrato padrao e
- * <code>{resourcePath}/option-sources/{sourceKey}/options/by-ids</code>.</p>
+ * <p>Para preencher seletores com valores previamente salvos, use o endpoint canônico publicado em
+ * {@code x-ui.optionSource.byIdsEndpoint} ({@code {resourcePath}/option-sources/{sourceKey}/options/by-ids}).</p>
  *
  * @see org.praxisplatform.uischema.FieldConfigProperties
  * @see org.praxisplatform.uischema.ValidationProperties

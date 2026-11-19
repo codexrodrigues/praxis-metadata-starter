@@ -1215,6 +1215,16 @@ class CustomOpenApiResolverTest {
                 detailPresentation = "drawer"
         )
         public String funcionarioNome;
+
+        @UISchema(label = "Legado", quickViewVisible = true, quickViewOrder = 16)
+        @org.praxisplatform.uischema.annotation.ResourceReference(
+                resourceKey = "human-resources.funcionarios",
+                valueField = "funcionarioId",
+                surfaceId = "detail",
+                previewSurfaceId = "hero-profile",
+                detailPresentation = "fullscreen"
+        )
+        public String referenciaLegada;
     }
 
     @Test
@@ -1234,6 +1244,12 @@ class CustomOpenApiResolverTest {
         assertEquals("detail", ref.get("surfaceId"));
         assertEquals("hero-profile", ref.get("previewSurfaceId"));
         assertEquals("drawer", ref.get("detailPresentation"));
+
+        Schema<?> legacyPropSchema = (Schema<?>) schema.getProperties().get("referenciaLegada");
+        assertNotNull(legacyPropSchema);
+        Map<String, Object> legacyRef = (Map<String, Object>) getXui(legacyPropSchema).get("resourceReference");
+        assertNotNull(legacyRef);
+        assertFalse(legacyRef.containsKey("detailPresentation"));
     }
 
     private static class MonetaryAndPercentPresetRangeDummy {
