@@ -794,4 +794,183 @@ class FilterableBetweenListDetectionTest {
         assertEquals(FieldControlType.MULTI_SELECT.getValue(), cargoIdsXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
         assertEquals("/api/positions/options/filter", cargoIdsXUi.get(FieldConfigProperties.ENDPOINT.getValue()));
     }
+
+    static class PredicateGuardFilterDto {
+        @UISchema(label = "Sem departamento")
+        @Filterable(operation = Filterable.FilterOperation.IS_NULL, relation = "departamentoId")
+        private Boolean semDepartamento;
+
+        @UISchema(label = "Lotado em situação ativa")
+        @Filterable(operation = Filterable.FilterOperation.IS_TRUE, relation = "situacao")
+        private Boolean apenasAtivos;
+
+        public Boolean getSemDepartamento() { return semDepartamento; }
+        public void setSemDepartamento(Boolean semDepartamento) { this.semDepartamento = semDepartamento; }
+        public Boolean getApenasAtivos() { return apenasAtivos; }
+        public void setApenasAtivos(Boolean apenasAtivos) { this.apenasAtivos = apenasAtivos; }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void booleanIsNullFilterDoesNotInheritLookupEndpointOrOptionsFromResponseField() {
+        Schema<?> responseSchema = new Schema<>();
+        Schema<?> deptoProp = new Schema<>();
+        deptoProp.setType("integer");
+        deptoProp.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.NUMBER.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.ENTITY_LOOKUP.getValue(),
+                FieldConfigProperties.ICON.getValue(), "apartment",
+                FieldConfigProperties.ENDPOINT.getValue(), "/api/departments/options/filter",
+                FieldConfigProperties.VALUE_FIELD.getValue(), "id",
+                FieldConfigProperties.DISPLAY_FIELD.getValue(), "label"
+        )));
+        Schema<?> situacaoProp = new Schema<>();
+        situacaoProp.setType("string");
+        situacaoProp.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.SELECT.getValue(),
+                FieldConfigProperties.ICON.getValue(), "verified",
+                "options", List.of(Map.of("value", "ATIVO", "label", "Ativo"))
+        )));
+        responseSchema.setProperties(Map.of("departamentoId", deptoProp, "situacao", situacaoProp));
+
+        Schema<?> filterSchema = new Schema<>();
+        Schema<?> semDepartamentoFilter = new Schema<>();
+        semDepartamentoFilter.setType("boolean");
+        semDepartamentoFilter.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.BOOLEAN.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CHECKBOX.getValue()
+        )));
+        Schema<?> apenasAtivosFilter = new Schema<>();
+        apenasAtivosFilter.setType("boolean");
+        apenasAtivosFilter.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.BOOLEAN.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CHECKBOX.getValue()
+        )));
+        filterSchema.setProperties(Map.of(
+                "semDepartamento", semDepartamentoFilter,
+                "apenasAtivos", apenasAtivosFilter
+        ));
+
+        FilterFieldMetadataInheritanceSupport.inheritToOpenApiFilterSchema(
+                filterSchema,
+                PredicateGuardFilterDto.class,
+                responseSchema,
+                Map.of()
+        );
+
+        Map<String, Object> semDepXUi = (Map<String, Object>) semDepartamentoFilter.getExtensions().get("x-ui");
+        assertEquals("apartment", semDepXUi.get(FieldConfigProperties.ICON.getValue()));
+        assertEquals(FieldControlType.CHECKBOX.getValue(), semDepXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertNull(semDepXUi.get(FieldConfigProperties.ENDPOINT.getValue()));
+        assertNull(semDepXUi.get(FieldConfigProperties.VALUE_FIELD.getValue()));
+        assertNull(semDepXUi.get(FieldConfigProperties.DISPLAY_FIELD.getValue()));
+        assertNull(semDepXUi.get("options"));
+
+        Map<String, Object> apenasAtivosXUi = (Map<String, Object>) apenasAtivosFilter.getExtensions().get("x-ui");
+        assertEquals("verified", apenasAtivosXUi.get(FieldConfigProperties.ICON.getValue()));
+        assertEquals(FieldControlType.CHECKBOX.getValue(), apenasAtivosXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertNull(apenasAtivosXUi.get("options"));
+    }
+
+    static class ExplicitChipInputFilterDto {
+        @UISchema(label = "Números", controlType = FieldControlType.CHIP_INPUT, multiple = true)
+        @Filterable(operation = Filterable.FilterOperation.IN, relation = "numero")
+        private List<String> numeros;
+
+        public List<String> getNumeros() { return numeros; }
+        public void setNumeros(List<String> numeros) { this.numeros = numeros; }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void explicitChipInputControlTypeOnCollectionInFilterIsNotOverwrittenByInheritance() {
+        Schema<?> responseSchema = new Schema<>();
+        Schema<?> numeroProp = new Schema<>();
+        numeroProp.setType("string");
+        numeroProp.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.SELECT.getValue(),
+                FieldConfigProperties.ICON.getValue(), "tag",
+                "options", List.of(Map.of("value", "10", "label", "10"))
+        )));
+        responseSchema.setProperties(Map.of("numero", numeroProp));
+
+        Schema<?> filterSchema = new Schema<>();
+        Schema<?> numerosFilter = new Schema<>();
+        numerosFilter.setType("array");
+        numerosFilter.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.ARRAY.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CHIP_INPUT.getValue(),
+                FieldConfigProperties.MULTIPLE.getValue(), true
+        )));
+        filterSchema.setProperties(Map.of("numeros", numerosFilter));
+
+        FilterFieldMetadataInheritanceSupport.inheritToOpenApiFilterSchema(
+                filterSchema,
+                ExplicitChipInputFilterDto.class,
+                responseSchema,
+                Map.of()
+        );
+
+        Map<String, Object> numerosXUi = (Map<String, Object>) numerosFilter.getExtensions().get("x-ui");
+        assertEquals(FieldControlType.CHIP_INPUT.getValue(), numerosXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("tag", numerosXUi.get(FieldConfigProperties.ICON.getValue()));
+        assertNotNull(numerosXUi.get("options"));
+    }
+
+    static class SiblingFilterDto {
+        @Filterable(operation = Filterable.FilterOperation.IN, relation = "lotacao.tipoSetor")
+        private List<String> tipoSetorLotacao;
+
+        @UISchema(label = "Tipo de setor", controlType = FieldControlType.SELECT)
+        @Filterable(operation = Filterable.FilterOperation.EQUAL, relation = "lotacao.tipoSetor")
+        private String tipoSetorLotacaoIgual;
+
+        public List<String> getTipoSetorLotacao() { return tipoSetorLotacao; }
+        public void setTipoSetorLotacao(List<String> tipoSetorLotacao) { this.tipoSetorLotacao = tipoSetorLotacao; }
+        public String getTipoSetorLotacaoIgual() { return tipoSetorLotacaoIgual; }
+        public void setTipoSetorLotacaoIgual(String tipoSetorLotacaoIgual) { this.tipoSetorLotacaoIgual = tipoSetorLotacaoIgual; }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void collectionInFilterInheritsOptionItemsFromSiblingScalarFilterWithSameRelation() {
+        Map<String, Object> responseSchemaMap = Map.of(
+                "properties", Map.of(
+                        "id", Map.of("type", "integer")
+                )
+        );
+        Map<String, Object> tipoSetorMulti = new java.util.LinkedHashMap<>();
+        tipoSetorMulti.put("type", "array");
+        tipoSetorMulti.put("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.ARRAY.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CHIP_INPUT.getValue(),
+                FieldConfigProperties.MULTIPLE.getValue(), true
+        )));
+        Map<String, Object> tipoSetorIgual = new java.util.LinkedHashMap<>();
+        tipoSetorIgual.put("type", "string");
+        tipoSetorIgual.put("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.SELECT.getValue(),
+                FieldConfigProperties.ICON.getValue(), "account_tree",
+                "options", List.of(Map.of("value", "DIRETORIA", "label", "Diretoria"))
+        )));
+        Map<String, Object> filterProps = new java.util.LinkedHashMap<>();
+        filterProps.put("tipoSetorLotacao", tipoSetorMulti);
+        filterProps.put("tipoSetorLotacaoIgual", tipoSetorIgual);
+        Map<String, Object> filterSchemaMap = new java.util.LinkedHashMap<>();
+        filterSchemaMap.put("properties", filterProps);
+
+        FilterFieldMetadataInheritanceSupport.inheritToSchemaMap(
+                filterSchemaMap,
+                SiblingFilterDto.class,
+                responseSchemaMap,
+                Map.of()
+        );
+
+        Map<String, Object> multiXUi = (Map<String, Object>) tipoSetorMulti.get("x-ui");
+        assertEquals(FieldControlType.MULTI_SELECT.getValue(), multiXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("account_tree", multiXUi.get(FieldConfigProperties.ICON.getValue()));
+        assertNotNull(multiXUi.get("options"));
+    }
 }
