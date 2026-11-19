@@ -572,4 +572,23 @@ class FilterableBetweenListDetectionTest {
 
         assertNonExclusiveRangeContract(schema, "minPrice", "maxPrice");
     }
+
+    @Test
+    void inAndNotInArrayFilterableSetsMultipleTrue() {
+        for (Filterable.FilterOperation op : List.of(Filterable.FilterOperation.IN, Filterable.FilterOperation.NOT_IN)) {
+            Schema<?> schema = new Schema<>();
+            schema.setName("statusList");
+            schema.setType("array");
+            Schema<?> item = new Schema<>();
+            item.setType("string");
+            schema.setItems(item);
+
+            Map<String, Object> xUi = applyAnnotations(schema, new Annotation[]{
+                    defaultUISchema(),
+                    filterable(op)
+            });
+            assertEquals(Boolean.TRUE, xUi.get(FieldConfigProperties.MULTIPLE.getValue()),
+                    "Expected x-ui.multiple=true for array property with " + op);
+        }
+    }
 }

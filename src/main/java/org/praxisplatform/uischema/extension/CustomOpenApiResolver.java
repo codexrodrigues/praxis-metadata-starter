@@ -2833,6 +2833,11 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (filterable.inline()) {
             getUIExtensionMap(property).put(FieldConfigProperties.INLINE_FILTER.getValue(), true);
         }
+        if ((filterable.operation() == Filterable.FilterOperation.IN
+                || filterable.operation() == Filterable.FilterOperation.NOT_IN)
+                && "array".equals(schemaType(property))) {
+            getUIExtensionMap(property).put(FieldConfigProperties.MULTIPLE.getValue(), true);
+        }
     }
 
     private void applyContextScopeBinding(Schema<?> property, Annotation[] annotations) {
