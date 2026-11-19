@@ -1,5 +1,12 @@
 # Changelog - praxis-metadata-starter
 
+## Não publicado — Evolução do Custom Field Studio (`customfields`)
+
+- `CustomFieldDescriptor` passa a publicar `tableHidden`, `placeholder` e `width` em `x-ui` nas projeções estruturais (removendo `tableHidden` dos schemas de filtro).
+- Campos `ARRAY` com `options` finitas passam a projetar `items: {type: "string", enum: ...}`, `minItems: 1` quando obrigatórios, validação de elementos/obrigatoriedade não vazia em `CustomFieldValidator` e suporte completo a `FilterOperation.IN` sobre arrays JSONB (`jsonb_extract_path` + `jsonb_exists` e `H2JsonbFunctions`).
+- `ResourceExportSupport.exportable(...)` e `AbstractBaseQueryResourceService.governedExportFields()` agora reconhecem caminhos `<container>.<safeKey>` anotados com `@CustomFields` sujeitos à governança efetiva e integram descritores ativos marcados como `exportable = true`.
+- `ApiResourceIdentityResolver.resolveDtoCustomFieldResourceKey(...)` garante que schemas de DTOs anotados com `@CustomFields(resourceKey = ...)` (inclusive visões consolidadas/radares e filtros) utilizem a chave de extensão declarada no DTO quando presente.
+
 ## Não publicado — Confirmação Bulk com leituras agrupadas
 
 - A atestação viva do runtime captura e limita `statement_timeout` no mesmo envio JDBC do catálogo. O limite anterior, inclusive quando inferior a 250 ms, é restaurado junto da verificação do vínculo de namespace antes da callback. Nenhuma decisão de autorização é armazenada em cache.

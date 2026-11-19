@@ -19,6 +19,17 @@
  *       {@link org.praxisplatform.uischema.annotation.AiControlledUseMode} fixam os tokens canonicos de governanca;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.UiSurface} publica discovery semantico de experiencias de UI;</li>
  *   <li>{@link org.praxisplatform.uischema.annotation.WorkflowAction} publica comandos explicitos de negocio;</li>
+ *   <li>{@link org.praxisplatform.uischema.annotation.FormLayout},
+ *       {@link org.praxisplatform.uischema.annotation.FormLayoutSection},
+ *       {@link org.praxisplatform.uischema.annotation.FormLayoutStep},
+ *       {@link org.praxisplatform.uischema.annotation.FormLayoutMode},
+ *       {@link org.praxisplatform.uischema.annotation.FormLayoutTabsAppearance},
+ *       {@link org.praxisplatform.uischema.annotation.FormLayoutStepperReadMode} e
+ *       {@link org.praxisplatform.uischema.annotation.UiBoolean} configuram opcionalmente a organizacao
+ *       estrutural de secoes ({@code x-ui.formLayout}) em DTOs de comando/detalhe ou endpoints;</li>
+ *   <li>{@link org.praxisplatform.uischema.annotation.CalculationMemory} e
+ *       {@link org.praxisplatform.uischema.annotation.ReactiveDetermination} descrevem memorias de calculo
+ *       auditaveis e determinacoes reativas declarativas de dominio;</li>
  * </ul>
  *
  * <p>

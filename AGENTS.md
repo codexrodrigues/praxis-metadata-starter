@@ -77,6 +77,11 @@ Fronteira Canonica Local
   - `src/main/java/org/praxisplatform/uischema/annotation/DomainGovernancePreset.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/DomainLineage.java`
   - `src/main/java/org/praxisplatform/uischema/annotation/LegalTreatmentPurpose.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/FormLayout.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/FormLayoutMode.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/FormLayoutSection.java`
+  - `src/main/java/org/praxisplatform/uischema/annotation/FormLayoutStep.java`
+  - `src/main/java/org/praxisplatform/uischema/schema/FormLayoutMetadataResolver.java`
   - `src/main/java/org/praxisplatform/uischema/capability/ResourceStructuralCapabilities.java`
   - `src/main/java/org/praxisplatform/uischema/capability/ResourceStructuralCapabilityResolver.java`
 - Contratos canonicos auditados pelo `SemanticMetadataReviewer` (Ondas 1-3):

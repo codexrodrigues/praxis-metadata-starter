@@ -216,6 +216,9 @@ public abstract class AbstractBaseResourceService<
         var customFields = prepareCustomFields(dto, "request");
         if (!customFields.requiresDraft()) customFields.validateForCreate();
         E entity = getResourceMapper().newEntity(dto);
+        if (coalesceNullCustomFieldsContainer()) {
+            org.praxisplatform.uischema.customfields.CustomFieldSupport.ensureInitializedContainer(entity);
+        }
         if (customFields.requiresDraft()) {
             requireCleanVersionedContext();
             Object draft = prepareCreateValidationDraft(dto, entity);
@@ -225,6 +228,9 @@ public abstract class AbstractBaseResourceService<
         beforeCreate(dto, entity);
         enforceCreateInitialState(dto, entity);
         validateCreate(ResourceMutationContext.create(), dto, entity);
+        if (coalesceNullCustomFieldsContainer()) {
+            org.praxisplatform.uischema.customfields.CustomFieldSupport.ensureInitializedContainer(entity);
+        }
         MutationContext governanceCtx = new MutationContext(
                 MutationKind.CREATE,
                 false,
@@ -267,6 +273,9 @@ public abstract class AbstractBaseResourceService<
         var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(existing, readOnlyKeys);
         applyResourceUpdate(id, existing, dto);
         org.praxisplatform.uischema.customfields.CustomFieldSupport.restoreReadOnlyValues(existing, readOnlyKeys, readOnlyValues);
+        if (coalesceNullCustomFieldsContainer()) {
+            org.praxisplatform.uischema.customfields.CustomFieldSupport.ensureInitializedContainer(existing);
+        }
         MutationContext governanceCtx = buildUpdateGovernanceContext(existing, ResourceMutationContext.update(), dto);
         invokeBeforeMutation(governanceCtx, existing, previousSnapshot);
         E saved = refreshManaged(getRepository().save(existing));
@@ -325,6 +334,9 @@ public abstract class AbstractBaseResourceService<
         var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(existing, readOnlyKeys);
         applyResourceUpdate(id, existing, dto);
         org.praxisplatform.uischema.customfields.CustomFieldSupport.restoreReadOnlyValues(existing, readOnlyKeys, readOnlyValues);
+        if (coalesceNullCustomFieldsContainer()) {
+            org.praxisplatform.uischema.customfields.CustomFieldSupport.ensureInitializedContainer(existing);
+        }
         MutationContext governanceCtx = buildUpdateGovernanceContext(existing, context, dto);
         invokeBeforeMutation(governanceCtx, existing, previousSnapshot);
         E saved = refreshManaged(getRepository().save(existing));
@@ -710,6 +722,9 @@ public abstract class AbstractBaseResourceService<
                 // A domain hook may hydrate request values. Validate and capture those exact decisions.
                 validateBulkCandidate(dto);
                 applyResourceUpdate(id, candidate, dto);
+                if (coalesceNullCustomFieldsContainer()) {
+                    org.praxisplatform.uischema.customfields.CustomFieldSupport.ensureInitializedContainer(candidate);
+                }
                 requireCleanVersionedContext();
                 com.fasterxml.jackson.databind.JsonNode facts = current;
                 if (admissionEvidence != null) {
@@ -776,6 +791,9 @@ public abstract class AbstractBaseResourceService<
                         var readOnlyValues = org.praxisplatform.uischema.customfields.CustomFieldSupport.snapshotReadOnlyValues(existing, readOnlyKeys);
                         applyResourceUpdate(id, existing, dto);
                         org.praxisplatform.uischema.customfields.CustomFieldSupport.restoreReadOnlyValues(existing, readOnlyKeys, readOnlyValues);
+                        if (coalesceNullCustomFieldsContainer()) {
+                            org.praxisplatform.uischema.customfields.CustomFieldSupport.ensureInitializedContainer(existing);
+                        }
                     } finally {
                         prevalidatedBulkConfirmationCandidate.remove();
                     }
@@ -940,9 +958,12 @@ public abstract class AbstractBaseResourceService<
     protected void beforeCreate(CreateDTO dto, E entity) {
     }
 
-    /**
-     * Hook transacional chamado depois do save/refresh e antes da conversao para response DTO.
-     */
+    /** Opt-in hook allowing hosts with non-null customFields JSONB columns to initialize null containers to {@code {}}. */
+    protected boolean coalesceNullCustomFieldsContainer() {
+        return false;
+    }
+
+    /** Hook transacional chamado depois do save/refresh e antes da conversao para response DTO. */
     protected void afterCreate(CreateDTO dto, E entity) {
     }
 
@@ -955,15 +976,11 @@ public abstract class AbstractBaseResourceService<
         getResourceMapper().applyUpdate(entity, dto);
     }
 
-    /**
-     * Hook transacional chamado depois da carga da entidade existente e antes do mapper aplicar o update.
-     */
+    /** Hook transacional chamado depois da carga da entidade existente e antes do mapper aplicar o update. */
     protected void beforeUpdate(ID id, E entity, UpdateDTO dto) {
     }
 
-    /**
-     * Hook transacional chamado depois do save/refresh e antes da conversao para response DTO.
-     */
+    /** Hook transacional chamado depois do save/refresh e antes da conversao para response DTO. */
     protected void afterUpdate(ID id, E entity, UpdateDTO dto) {
     }
 

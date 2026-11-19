@@ -195,7 +195,7 @@ Regras canonicas:
 - `praxis-dynamic-form` e host-driven para `GenericCrudService` e deve usar `layoutPolicy` orientada por schema:
   - formularios de criacao/edicao (`command`): `layoutPolicy: { source: 'schema', intent: 'command', preset: 'groupedCommand' }`
   - formularios de detalhe/leitura (`detail`): `layoutPolicy: { source: 'schema', intent: 'detail', preset: 'compactPresentation' }`
-  - nao declare `FormConfig.sections` manuais ou `sections: []` vazias apenas para fazer um formulario schema-driven funcionar; deixe o runtime materializar os grupos (`group`) e a ordem (`order`) publicados em `@UISchema` no backend
+  - nao declare `FormConfig.sections` manuais ou `sections: []` vazias apenas para fazer um formulario schema-driven funcionar; deixe o runtime materializar os grupos (`group`) e a ordem (`order`) publicados em `@UISchema` no backend (e o bloco opcional `x-ui.formLayout` publicado por `@FormLayout`, incluindo `mode = 'stepper' | 'tabs' | 'accordion' | 'flat'`, capítulos macro `steps[]`, etapas opcionais `optional`, revisão final `stepperReviewStep`, rascunho de sessão `draftPersistence` e política de leitura `stepperInReadMode`)
 - `praxis-crud` e o shell recomendado para orquestrar listagem e manutencao completa do recurso (usando `CrudLauncherService` com `openMode = 'drawer'`, `'modal'` ou `'route'` sem criar drawers/modais manuais no host)
 
 ## Fluxo de schema

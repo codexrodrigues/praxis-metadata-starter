@@ -63,6 +63,30 @@ public final class CustomFieldSupport {
     public static Map<String, Object> read(Object value) {
         return value == null ? Map.of() : property(value.getClass()).map(p -> p.read(value)).orElse(Map.of());
     }
+    /** Initializes a null {@code @CustomFields} container to an empty mutable map before persistence. */
+    public static void ensureInitializedContainer(Object entity) {
+        if (entity == null) return;
+        Optional<Property> property = property(entity.getClass());
+        if (property.isEmpty()) return;
+        Property target = property.get();
+        try {
+            Object raw;
+            if (target.accessor() != null) {
+                target.accessor().trySetAccessible();
+                raw = target.accessor().invoke(entity);
+            } else if (target.field() != null) {
+                target.field().trySetAccessible();
+                raw = target.field().get(entity);
+            } else {
+                return;
+            }
+            if (raw == null) {
+                writeValues(entity, target, new LinkedHashMap<>());
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Cannot initialize customFields container on entity", e);
+        }
+    }
     /**
      * Captures server-owned values, detaching nested JSON maps, collections and arrays before
      * mapping. Scalar leaves are retained; this does not clone arbitrary mutable host POJOs.

@@ -16,7 +16,8 @@ public record CustomFieldDescriptor(
         String pattern, String patternMessage, String requiredMessage, List<String> enumValues,
         List<Map<String, Object>> options, OptionSourceDescriptor optionSource,
         Filterable.FilterOperation filterOperation, Map<String, Object> governance,
-        Map<String, Object> validationRules) {
+        Map<String, Object> validationRules,
+        boolean tableHidden, String placeholder, String width) {
     private static final Set<String> RESERVED_KEYS = Set.of(
             "constructor", "prototype", "hasOwnProperty", "isPrototypeOf",
             "propertyIsEnumerable", "toLocaleString", "toString", "valueOf");
@@ -25,6 +26,8 @@ public record CustomFieldDescriptor(
         Objects.requireNonNull(dataType, "dataType");
         controlType = controlType == null ? FieldControlType.AUTO : controlType;
         filterOperation = filterOperation == null ? Filterable.FilterOperation.EQUAL : filterOperation;
+        placeholder = placeholder != null && placeholder.isBlank() ? null : placeholder;
+        width = width != null && width.isBlank() ? null : width;
         if (minimum != null && maximum != null && minimum.compareTo(maximum) > 0)
             throw new IllegalArgumentException("minimum exceeds maximum");
         if ((minLength != null && minLength < 0) || (maxLength != null && maxLength < 0)
@@ -43,6 +46,20 @@ public record CustomFieldDescriptor(
         CustomFieldValidationRules.validate(validationRules);
         defaultValue = immutableValue(defaultValue);
     }
+    /** Preserves compatibility with callers omitting presentation metadata (`tableHidden`, `placeholder`, `width`). */
+    public CustomFieldDescriptor(String key, String label, String description, CustomFieldDataType dataType,
+            FieldControlType controlType, String group, int order, boolean required, boolean readOnly,
+            boolean filterable, boolean sortable, boolean exportable, Object defaultValue,
+            BigDecimal minimum, BigDecimal maximum, Integer minLength, Integer maxLength,
+            String pattern, String patternMessage, String requiredMessage, List<String> enumValues,
+            List<Map<String, Object>> options, OptionSourceDescriptor optionSource,
+            Filterable.FilterOperation filterOperation, Map<String, Object> governance,
+            Map<String, Object> validationRules) {
+        this(key, label, description, dataType, controlType, group, order, required, readOnly, filterable,
+                sortable, exportable, defaultValue, minimum, maximum, minLength, maxLength, pattern,
+                patternMessage, requiredMessage, enumValues, options, optionSource, filterOperation, governance,
+                validationRules, false, null, null);
+    }
     /** Defines a field without additional JSON Logic constraints. */
     public CustomFieldDescriptor(String key, String label, String description, CustomFieldDataType dataType,
             FieldControlType controlType, String group, int order, boolean required, boolean readOnly,
@@ -53,7 +70,8 @@ public record CustomFieldDescriptor(
             Filterable.FilterOperation filterOperation, Map<String, Object> governance) {
         this(key, label, description, dataType, controlType, group, order, required, readOnly, filterable,
                 sortable, exportable, defaultValue, minimum, maximum, minLength, maxLength, pattern,
-                patternMessage, requiredMessage, enumValues, options, optionSource, filterOperation, governance, Map.of());
+                patternMessage, requiredMessage, enumValues, options, optionSource, filterOperation, governance,
+                Map.of(), false, null, null);
     }
     public static void requireSafeKey(String key) {
         if (key == null || !key.matches("[a-zA-Z][a-zA-Z0-9_]{0,63}") || RESERVED_KEYS.contains(key))

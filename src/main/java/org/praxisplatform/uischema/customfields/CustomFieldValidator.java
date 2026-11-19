@@ -123,15 +123,24 @@ public class CustomFieldValidator {
                 continue;
             }
             if (!matchesType(d, value)) { error(errors, d.key(), "Invalid custom field type: " + d.dataType()); continue; }
+            if (d.dataType() == CustomFieldDataType.ARRAY && d.required() && isEmptyArrayOrCollection(value)) {
+                error(errors, d.key(), message(d.requiredMessage(), "Required custom field"));
+                continue;
+            }
+            String boundMessage = d.pattern() == null ? d.patternMessage() : null;
             if (value instanceof Number number) {
                 BigDecimal decimal = new BigDecimal(number.toString());
-                if (d.minimum() != null && decimal.compareTo(d.minimum()) < 0) error(errors, d.key(), "Value is below minimum");
-                if (d.maximum() != null && decimal.compareTo(d.maximum()) > 0) error(errors, d.key(), "Value exceeds maximum");
+                if (d.minimum() != null && decimal.compareTo(d.minimum()) < 0)
+                    error(errors, d.key(), message(boundMessage, "Value is below minimum"));
+                if (d.maximum() != null && decimal.compareTo(d.maximum()) > 0)
+                    error(errors, d.key(), message(boundMessage, "Value exceeds maximum"));
             }
             if (value instanceof String text) {
                 int length = text.codePointCount(0, text.length());
-                if (d.minLength() != null && length < d.minLength()) error(errors, d.key(), "Value is shorter than minLength");
-                if (d.maxLength() != null && length > d.maxLength()) error(errors, d.key(), "Value exceeds maxLength");
+                if (d.minLength() != null && length < d.minLength())
+                    error(errors, d.key(), message(boundMessage, "Value is shorter than minLength"));
+                if (d.maxLength() != null && length > d.maxLength())
+                    error(errors, d.key(), message(boundMessage, "Value exceeds maxLength"));
                 if (d.pattern() != null && !Pattern.compile(d.pattern()).matcher(text).matches())
                     error(errors, d.key(), message(d.patternMessage(), "Value does not match pattern"));
             }
@@ -275,9 +284,49 @@ public class CustomFieldValidator {
                 case DATE_TIME -> value instanceof Instant || value instanceof OffsetDateTime || value instanceof LocalDateTime
                         || value instanceof String s && validDateTime(s);
                 case ENUM -> value instanceof String s && d.enumValues().contains(s);
-                case ARRAY -> value instanceof Collection<?> || value.getClass().isArray();
+                case ARRAY -> {
+                    if (value instanceof Collection<?> col) {
+                        for (Object item : col) {
+                            if (!matchesArrayElement(d, item)) yield false;
+                        }
+                        yield true;
+                    }
+                    if (value.getClass().isArray()) {
+                        int len = java.lang.reflect.Array.getLength(value);
+                        for (int i = 0; i < len; i++) {
+                            if (!matchesArrayElement(d, java.lang.reflect.Array.get(value, i))) yield false;
+                        }
+                        yield true;
+                    }
+                    yield false;
+                }
             };
         } catch (IllegalArgumentException | java.time.format.DateTimeParseException e) { return false; }
+    }
+
+    public static boolean matchesArrayElement(CustomFieldDescriptor d, Object elem) {
+        if (elem == null || elem instanceof Map<?, ?> || elem instanceof Collection<?> || elem.getClass().isArray()) {
+            return false;
+        }
+        boolean scalarTypeOk = elem instanceof String
+                || (elem instanceof Number n && !(elem instanceof Double dbl && !Double.isFinite(dbl)) && !(elem instanceof Float flt && !Float.isFinite(flt)))
+                || elem instanceof Boolean;
+        if (!scalarTypeOk) return false;
+        if (!d.options().isEmpty()) {
+            Set<Object> allowed = new LinkedHashSet<>();
+            for (Map<String, Object> opt : d.options()) {
+                Object optValue = opt.get("value");
+                if (optValue != null) allowed.add(optValue);
+            }
+            return allowed.isEmpty() || allowed.contains(elem);
+        }
+        return true;
+    }
+
+    private static boolean isEmptyArrayOrCollection(Object value) {
+        if (value instanceof Collection<?> col) return col.isEmpty();
+        if (value != null && value.getClass().isArray()) return java.lang.reflect.Array.getLength(value) == 0;
+        return false;
     }
     private static boolean validDateTime(String value) {
         try { OffsetDateTime.parse(value); return true; }

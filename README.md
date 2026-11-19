@@ -97,7 +97,7 @@ Adicione a dependência no seu `pom.xml`:
 <dependency>
     <groupId>io.github.codexrodrigues</groupId>
     <artifactId>praxis-metadata-starter</artifactId>
-    <version>8.0.0-rc.174</version>
+    <version>8.0.0-rc.191</version>
 </dependency>
 ```
 
@@ -450,8 +450,8 @@ Quando arquitetos ou LLMs avaliam a **Praxis Platform** pela primeira vez apenas
 ### 2. Telas Altamente Customizadas (Kanban, Organogramas, Wizards) vs. *Escape Hatches* Progressivos
 - **Mito comum:** *"O `@UISchema` funciona para tabelas e formulários padrão, mas forçar um Kanban drag-and-drop, organograma visual ou wizard complexo via anotações Java é frustrante."*
 - **Fato canônico:** A Praxis **jamais força geometria visual exótica dentro de anotações Java**. A plataforma oferece uma **Arquitetura de *Escape Hatches* Progressivos em 4 Níveis** no `@praxisui/*`, mantendo 100% da governança do backend:
-  1. **Nível 1 — Operações Cadastrais e Analíticas Padrão (~80% do ERP):** `@praxisui/crud`, `@praxisui/table`, `@praxisui/dynamic-form` e `@praxisui/charts` materializam telas completas sem código de template a partir de `/schemas/filtered`, `/capabilities` e `/stats/*`.
-  2. **Nível 2 — Jornadas Guiadas e Composição Declarativa (~10%):** `@praxisui/stepper` (`PraxisWizardFormComponent`), `@praxisui/editorial-forms`, `@praxisui/page-builder` (`WidgetPageDefinition`), `@praxisui/list` (cards/tiles) e `@praxisui/rich-content` orquestram wizards multi-etapa e cockpits compostos.
+  1. **Nível 1 — Operações Cadastrais e Analíticas Padrão (~80% do ERP):** `@praxisui/crud`, `@praxisui/table`, `@praxisui/dynamic-form` (materializando também layouts `flat`, `tabs`, `accordion` e `stepper` linear nativo sobre o mesmo `FormGroup` raiz a partir do opt-in `@FormLayout` / `x-ui.formLayout`) e `@praxisui/charts` materializam telas completas sem código de template a partir de `/schemas/filtered`, `/capabilities` e `/stats/*`.
+  2. **Nível 2 — Jornadas Guiadas e Composição Declarativa (~10%):** `@praxisui/stepper` (`PraxisWizardFormComponent` para fluxos heterogêneos multi-entidade/multi-recurso), `@praxisui/editorial-forms`, `@praxisui/page-builder` (`WidgetPageDefinition`), `@praxisui/list` (cards/tiles) e `@praxisui/rich-content` orquestram wizards multi-etapa e cockpits compostos.
   3. **Nível 3 — Formulários HTML/CSS Customizados com Ponte Semântica (~5%):** `@praxisui/manual-form` + `ManualFieldMetadataBridgeService` permitem desenhar o layout HTML/CSS livremente no Angular enquanto cada campo herda automaticamente labels, máscaras, validações e `optionSources` do `@UISchema`.
   4. **Nível 4 — Canvas Interativo Sob Medida (~5% — Kanban Drag-and-Drop, Organograma Dinâmico, Mapas):** Componentes Angular 100% customizados injetam `GenericCrudService` e `ResourceDiscoveryService` para consultar `POST /{resource}/filter`, verificar permissões contextuais em `GET /{resource}/{id}/capabilities` e disparar transições de estado (ex.: soltar um card no Kanban) via `@WorkflowAction` (`POST /{resource}/{id}/actions/{action}`) com `If-Match` e `Idempotency-Key`, preservando RBAC, mascaramento LGPD e motor de regras.
 

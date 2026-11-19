@@ -441,6 +441,7 @@ public class ApiDocsController {
         Map<String, Object> componentXUiMap = schemaMap.get(X_UI) instanceof Map<?, ?> cXui
                 ? (Map<String, Object>) cXui
                 : Map.of();
+        Object componentFormLayout = componentXUiMap.get("formLayout");
 
         String basePath = deriveBasePathFrom(canonicalPath);
 
@@ -576,6 +577,9 @@ public class ApiDocsController {
         if (apiResourceIdentityResolver != null) {
             customFieldResourceKey = apiResourceIdentityResolver.resolveResourceKey(basePath, canonicalPath, normalizedOperation)
                     .orElse(customFieldResourceKey);
+            customFieldResourceKey = apiResourceIdentityResolver
+                    .resolveDtoCustomFieldResourceKey(canonicalPath, normalizedOperation, schemaType)
+                    .orElse(customFieldResourceKey);
         }
         boolean hasFilterRequestBody = canonicalOperationResolver != null
                 && canonicalOperationResolver.resolveRequestBodyType(canonicalPath, normalizedOperation)
@@ -605,6 +609,34 @@ public class ApiDocsController {
             List<Map<String, Object>> quickFilters = apiResourceQuickFilterResolver.resolve(basePath);
             if (!quickFilters.isEmpty()) {
                 resourceMeta.put("quickFilters", quickFilters);
+            }
+        }
+        boolean isNonFormEndpoint = isFilterRequestSchema
+                || isCollectionGetResponse
+                || isCollectionFilterResponse
+                || isStatsOperationPath(canonicalPath)
+                || (canonicalPath != null && (canonicalPath.contains("/options/") || canonicalPath.endsWith("/export")));
+        if (isNonFormEndpoint) {
+            xUiMap.remove("formLayout");
+        } else {
+            Optional<Map<String, Object>> methodFormLayout = apiResourceIdentityResolver == null
+                    ? Optional.empty()
+                    : apiResourceIdentityResolver.resolveMethodFormLayout(canonicalPath, normalizedOperation, schemaType);
+            if (methodFormLayout.isPresent()) {
+                xUiMap.put("formLayout", methodFormLayout.get());
+            } else if (xUiMap.get("formLayout") == null) {
+                if (componentFormLayout != null) {
+                    xUiMap.put("formLayout", componentFormLayout);
+                } else if (apiResourceIdentityResolver != null) {
+                    Optional<Map<String, Object>> dtoFormLayout = apiResourceIdentityResolver.resolveDtoFormLayout(
+                            canonicalPath,
+                            normalizedOperation,
+                            schemaType
+                    );
+                    if (dtoFormLayout.isPresent()) {
+                        xUiMap.put("formLayout", dtoFormLayout.get());
+                    }
+                }
             }
         }
         boolean customFieldFilterRequest = customFieldSchemaEnricher != null && isFilterRequestSchema;

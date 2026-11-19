@@ -926,19 +926,91 @@ public abstract class AbstractBaseQueryResourceService<
         return includeTableHiddenExportFieldsByDefault ? allExportableFields() : defaultExportFields();
     }
 
-    /** Reapplies DTO governance even to host-authored field allowlists. */
+    /** Reapplies DTO governance even to host-authored field allowlists and integrates active exportable custom fields. */
     protected final List<CollectionExportField> governedExportFields() {
-        List<CollectionExportField> fields = exportFields().stream()
-                .filter(Objects::nonNull)
-                .filter(field -> field.exportable() != Boolean.FALSE)
-                .filter(field -> ResourceExportSupport.exportable(getResponseType(),
-                        field.valuePath() == null || field.valuePath().isBlank() ? field.key() : field.valuePath()))
-                .toList();
+        Class<?> responseType = getResponseType();
+        var cfProp = responseType != null
+                ? org.praxisplatform.uischema.customfields.CustomFieldSupport.property(responseType)
+                : Optional.<org.praxisplatform.uischema.customfields.CustomFieldSupport.Property>empty();
+
+        Map<String, org.praxisplatform.uischema.customfields.CustomFieldDescriptor> dynamicByPath = new LinkedHashMap<>();
+        if (cfProp.isPresent() && customFieldDefinitions != null) {
+            String effectiveResource = org.praxisplatform.uischema.customfields.CustomFieldSupport.resourceKey(
+                    responseType, resolveResourceKey());
+            String tenant = customFieldTenant != null ? customFieldTenant.resolveTenant().orElse(null) : null;
+            for (var descriptor : customFieldDefinitions.findDefinitions(effectiveResource, tenant, "response")) {
+                if (descriptor != null) {
+                    dynamicByPath.putIfAbsent(cfProp.get().name() + "." + descriptor.key(), descriptor);
+                }
+            }
+        }
+
+        List<CollectionExportField> combined = new ArrayList<>();
+        Set<String> seenPaths = new LinkedHashSet<>();
+        for (CollectionExportField field : exportFields()) {
+            if (field == null || field.exportable() == Boolean.FALSE) continue;
+            String path = field.valuePath() == null || field.valuePath().isBlank() ? field.key() : field.valuePath();
+            var dynamicOverride = dynamicByPath.get(path);
+            if (dynamicOverride != null && (!dynamicOverride.exportable() || !isCustomFieldGovernanceExportable(dynamicOverride))) {
+                continue;
+            }
+            if (ResourceExportSupport.exportable(responseType, path)) {
+                combined.add(field);
+                seenPaths.add(path);
+            }
+        }
+
+        for (var entry : dynamicByPath.entrySet()) {
+            String path = entry.getKey();
+            var descriptor = entry.getValue();
+            if (!seenPaths.contains(path)
+                    && descriptor.exportable()
+                    && isCustomFieldGovernanceExportable(descriptor)
+                    && ResourceExportSupport.exportable(responseType, path)) {
+                String label = descriptor.label() != null && !descriptor.label().isBlank()
+                        ? descriptor.label()
+                        : descriptor.key();
+                combined.add(new CollectionExportField(
+                        path, label, true, true, mapCustomFieldExportType(descriptor.dataType()), path));
+                seenPaths.add(path);
+            }
+        }
+        List<CollectionExportField> fields = List.copyOf(combined);
         for (ResourceGovernanceInterceptor interceptor : getResourceGovernanceInterceptors()) {
             List<CollectionExportField> filtered = interceptor.filterExportFields(this, fields);
             fields = filtered == null ? List.of() : List.copyOf(filtered);
         }
         return fields;
+    }
+
+    private static boolean isCustomFieldGovernanceExportable(
+            org.praxisplatform.uischema.customfields.CustomFieldDescriptor descriptor) {
+        Map<String, Object> gov = descriptor.governance();
+        if (gov == null || gov.isEmpty()) return true;
+        if (Boolean.FALSE.equals(gov.get("exportable"))) return false;
+        Object tags = gov.get("complianceTags");
+        if (tags instanceof Collection<?> col) {
+            for (Object tag : col) {
+                if (tag != null && "NON_EXPORTABLE".equalsIgnoreCase(tag.toString())) return false;
+            }
+        }
+        Object classification = gov.get("classification");
+        if (classification != null && "restricted".equalsIgnoreCase(classification.toString())) return false;
+        Object sensitivity = gov.get("sensitivity");
+        return sensitivity == null || !"PERSONAL_SENSITIVE".equalsIgnoreCase(sensitivity.toString()) || Boolean.TRUE.equals(gov.get("exportable"));
+    }
+
+    private static String mapCustomFieldExportType(
+            org.praxisplatform.uischema.customfields.CustomFieldDataType dataType) {
+        if (dataType == null) return "string";
+        return switch (dataType) {
+            case INTEGER -> "integer";
+            case DECIMAL -> "number";
+            case BOOLEAN -> "boolean";
+            case DATE -> "date";
+            case DATE_TIME -> "datetime";
+            default -> "string";
+        };
     }
 
     protected int maxExportRows(CollectionExportFormat format) { return 10_000; }

@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.customfields;
 
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation;
 import java.util.*;
 import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.*;
@@ -85,6 +86,32 @@ class CustomFieldValidatorTest {
                 .validate(new Payload(Map.of("items",Map.of("unexpected",1))),"people",null));
     }
 
+    @Test void arrayValidatesRequiredNonEmptyAllowedOptionsAndBoundMessages() {
+        var arrayField = new CustomFieldDescriptor("instrumentos", "Instrumentos", null, CustomFieldDataType.ARRAY,
+                null, null, 0, true, false, false, false, false, null,
+                null, null, null, null, null, null, "Selecione ao menos um instrumento.",
+                List.of(),
+                List.of(Map.of("value", "PORTARIA", "label", "Portaria"),
+                        Map.of("value", "DECRETO", "label", "Decreto")),
+                null, FilterOperation.IN, Map.of());
+        var v = validator(arrayField);
+        assertDoesNotThrow(() -> v.validate(new Payload(Map.of("instrumentos", List.of("PORTARIA"))), "people", null));
+        assertThrows(CustomFieldValidationException.class,
+                () -> v.validate(new Payload(Map.of("instrumentos", List.of())), "people", null));
+        assertThrows(CustomFieldValidationException.class,
+                () -> v.validate(new Payload(Map.of("instrumentos", List.of("INVALIDO"))), "people", null));
+        assertThrows(CustomFieldValidationException.class,
+                () -> v.validate(new Payload(Map.of("instrumentos", Arrays.asList("PORTARIA", null))), "people", null));
+
+        var bounded = new CustomFieldDescriptor("nota", "Nota", null, CustomFieldDataType.INTEGER,
+                null, null, 0, false, false, false, false, false, null,
+                BigDecimal.ONE, BigDecimal.TEN, null, null, null, "Nota deve ficar entre 1 e 10.", null,
+                List.of(), List.of(), null, FilterOperation.EQUAL, Map.of());
+        var boundEx = assertThrows(CustomFieldValidationException.class,
+                () -> validator(bounded).validate(new Payload(Map.of("nota", 99)), "people", null));
+        assertEquals("Nota deve ficar entre 1 e 10.", boundEx.getFieldErrors().getFirst().getDefaultMessage());
+    }
+
     @org.praxisplatform.uischema.annotation.ApiResource(resourceKey="   ")
     static class BlankResourceKey { }
     @org.praxisplatform.uischema.annotation.ApiResource(resourceKey="  hr.people  ")
@@ -98,5 +125,25 @@ class CustomFieldValidatorTest {
         assertEquals("hr.people",CustomFieldSupport.resourceKey(PaddedResourceKey.class,"entityFallback"));
         assertEquals("hr.customPeople",CustomFieldSupport.resourceKey(PaddedCustomKey.class,"entityFallback"));
         assertEquals("hr.people",CustomFieldSupport.resourceKey(BlankCustomKey.class,"entityFallback"));
+    }
+
+    static class MutableEntityWithNullMap {
+        @CustomFields(resourceKey = "people")
+        private Map<String, Object> customFields;
+        public Map<String, Object> getCustomFields() { return customFields; }
+        public void setCustomFields(Map<String, Object> customFields) { this.customFields = customFields; }
+    }
+
+    @Test void rejectsReservedKeysAndCoalescesNullContainer() {
+        assertThrows(IllegalArgumentException.class, () -> CustomFieldDescriptor.requireSafeKey("toString"));
+        assertThrows(IllegalArgumentException.class, () -> CustomFieldDescriptor.requireSafeKey("hasOwnProperty"));
+        assertThrows(IllegalArgumentException.class, () -> CustomFieldDescriptor.requireSafeKey("valueOf"));
+        assertDoesNotThrow(() -> CustomFieldDescriptor.requireSafeKey("Constructor"));
+
+        var entity = new MutableEntityWithNullMap();
+        assertNull(entity.getCustomFields());
+        CustomFieldSupport.ensureInitializedContainer(entity);
+        assertNotNull(entity.getCustomFields());
+        assertTrue(entity.getCustomFields().isEmpty());
     }
 }

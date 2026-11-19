@@ -6,6 +6,8 @@ import org.praxisplatform.uischema.annotation.ResourceHierarchy;
 import org.praxisplatform.uischema.annotation.UiSurface;
 import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.springframework.aop.framework.AopProxyUtils;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.ResolvableType;
@@ -17,12 +19,14 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
+import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -186,6 +190,158 @@ public class ApiResourceIdentityResolver {
     }
 
     public record ResourceDtoPair(Class<?> responseDtoClass, Class<?> filterDtoClass) {
+    }
+
+    /**
+     * Resolve {@code @FormLayout} declarado diretamente no {@link HandlerMethod} para operacoes de
+     * comando ({@code request}) ou leitura unitaria ({@code GET + response}).
+     */
+    public Optional<Map<String, Object>> resolveMethodFormLayout(
+            String canonicalPath,
+            String httpMethod,
+            String schemaType
+    ) {
+        String normalizedSchemaType = schemaType == null ? "" : schemaType.trim();
+        String normalizedMethod = httpMethod == null ? "" : httpMethod.trim();
+        boolean appliesToMethod = "request".equalsIgnoreCase(normalizedSchemaType)
+                || ("response".equalsIgnoreCase(normalizedSchemaType) && "get".equalsIgnoreCase(normalizedMethod));
+        if (!appliesToMethod) {
+            return Optional.empty();
+        }
+        return findHandlerMethod(canonicalPath, normalizedMethod).flatMap(handler -> {
+            Class<?> userType = resolveUserControllerType(handler);
+            Method specificMethod = resolveTargetMethod(handler.getMethod(), userType);
+            Map<String, Object> resolved = FormLayoutMetadataResolver.resolve(specificMethod);
+            if (resolved == null && specificMethod != handler.getMethod()) {
+                resolved = FormLayoutMetadataResolver.resolve(handler.getMethod());
+            }
+            return Optional.ofNullable(resolved);
+        });
+    }
+
+    /**
+     * Resolve {@code @FormLayout} no DTO de entrada ({@code @RequestBody}) ou de retorno concreto do
+     * {@link HandlerMethod}, ignorando payloads de filtro ({@code GenericFilterDTO}), {@code Map} e coleções.
+     */
+    public Optional<Map<String, Object>> resolveDtoFormLayout(
+            String canonicalPath,
+            String httpMethod,
+            String schemaType
+    ) {
+        return findHandlerMethod(canonicalPath, httpMethod).flatMap(handler -> {
+            Class<?> userType = resolveUserControllerType(handler);
+            Method specificMethod = resolveTargetMethod(handler.getMethod(), userType);
+            Class<?> dtoClass = null;
+            if ("request".equalsIgnoreCase(schemaType)) {
+                org.springframework.core.MethodParameter[] handlerParams = handler.getMethodParameters();
+                for (int i = 0; i < handlerParams.length; i++) {
+                    org.springframework.core.MethodParameter handlerParam = handlerParams[i];
+                    org.springframework.core.MethodParameter specificParam =
+                            new org.springframework.core.MethodParameter(specificMethod, i);
+                    boolean hasRequestBody = specificParam.hasParameterAnnotation(org.springframework.web.bind.annotation.RequestBody.class)
+                            || handlerParam.hasParameterAnnotation(org.springframework.web.bind.annotation.RequestBody.class);
+                    if (hasRequestBody) {
+                        Class<?> candidate = ResolvableType.forMethodParameter(specificMethod, i, userType).toClass();
+                        if (candidate != null
+                                && candidate != Object.class
+                                && !Map.class.isAssignableFrom(candidate)
+                                && !Collection.class.isAssignableFrom(candidate)
+                                && !org.praxisplatform.uischema.filter.dto.GenericFilterDTO.class.isAssignableFrom(candidate)) {
+                            dtoClass = candidate;
+                        }
+                        break;
+                    }
+                }
+            } else if ("response".equalsIgnoreCase(schemaType)) {
+                dtoClass = resolveResponseDtoClass(ResolvableType.forMethodReturnType(
+                        specificMethod, userType));
+            }
+            return Optional.ofNullable(FormLayoutMetadataResolver.resolve(dtoClass));
+        });
+    }
+
+    /**
+     * Resolves an explicit {@code @CustomFields(resourceKey = ...)} declared on the operation's
+     * concrete request body (including {@code GenericFilterDTO}) or response DTO.
+     */
+    public Optional<String> resolveDtoCustomFieldResourceKey(
+            String canonicalPath,
+            String httpMethod,
+            String schemaType
+    ) {
+        return findHandlerMethod(canonicalPath, httpMethod).flatMap(handler -> {
+            Class<?> userType = resolveUserControllerType(handler);
+            Method specificMethod = resolveTargetMethod(handler.getMethod(), userType);
+            Class<?> dtoClass = null;
+            if ("request".equalsIgnoreCase(schemaType)) {
+                org.springframework.core.MethodParameter[] handlerParams = handler.getMethodParameters();
+                for (int i = 0; i < handlerParams.length; i++) {
+                    org.springframework.core.MethodParameter handlerParam = handlerParams[i];
+                    org.springframework.core.MethodParameter specificParam =
+                            new org.springframework.core.MethodParameter(specificMethod, i);
+                    boolean hasRequestBody = specificParam.hasParameterAnnotation(org.springframework.web.bind.annotation.RequestBody.class)
+                            || handlerParam.hasParameterAnnotation(org.springframework.web.bind.annotation.RequestBody.class);
+                    if (hasRequestBody) {
+                        Class<?> candidate = ResolvableType.forMethodParameter(specificMethod, i, userType).toClass();
+                        if (candidate != null
+                                && candidate != Object.class
+                                && !Map.class.isAssignableFrom(candidate)
+                                && !Collection.class.isAssignableFrom(candidate)) {
+                            dtoClass = candidate;
+                        }
+                        break;
+                    }
+                }
+            } else if ("response".equalsIgnoreCase(schemaType)) {
+                dtoClass = resolveResponseDtoClass(ResolvableType.forMethodReturnType(
+                        specificMethod, userType));
+            }
+            return org.praxisplatform.uischema.customfields.CustomFieldSupport.property(dtoClass)
+                    .map(org.praxisplatform.uischema.customfields.CustomFieldSupport.Property::resourceKey)
+                    .filter(key -> key != null && !key.isBlank());
+        });
+    }
+
+    private static Method resolveTargetMethod(Method handlerMethod, Class<?> userType) {
+        if (handlerMethod == null || userType == null) {
+            return handlerMethod;
+        }
+        Method specific = AopUtils.getMostSpecificMethod(handlerMethod, userType);
+        if (specific != null && java.lang.reflect.Proxy.isProxyClass(specific.getDeclaringClass())) {
+            Method concrete = ReflectionUtils.findMethod(
+                    userType,
+                    handlerMethod.getName(),
+                    handlerMethod.getParameterTypes()
+            );
+            if (concrete != null) {
+                return concrete;
+            }
+        }
+        return specific != null ? specific : handlerMethod;
+    }
+
+    private Class<?> resolveUserControllerType(HandlerMethod handler) {
+        Object bean = handler.getBean();
+        if (bean instanceof String beanName) {
+            try {
+                var ctx = handlerMapping != null ? handlerMapping.getApplicationContext() : null;
+                if (ctx != null && ctx.containsBean(beanName)) {
+                    Object instance = ctx.getBean(beanName);
+                    Class<?> ultimate = AopProxyUtils.ultimateTargetClass(instance);
+                    if (ultimate != null) {
+                        return ClassUtils.getUserClass(ultimate);
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // fallback para getBeanType
+            }
+        } else if (bean != null) {
+            Class<?> ultimate = AopProxyUtils.ultimateTargetClass(bean);
+            if (ultimate != null) {
+                return ClassUtils.getUserClass(ultimate);
+            }
+        }
+        return ClassUtils.getUserClass(handler.getBeanType());
     }
 
     public static Map<String, Object> hierarchyMetadata(ResourceHierarchy hierarchy) {
@@ -355,7 +511,7 @@ public class ApiResourceIdentityResolver {
     }
 
     private Optional<HandlerMethod> findHandlerMethod(String canonicalPath, String httpMethod) {
-        if (!StringUtils.hasText(canonicalPath)) {
+        if (handlerMapping == null || !StringUtils.hasText(canonicalPath)) {
             return Optional.empty();
         }
         String normalizedTarget = normalizeTemplate(canonicalPath);
