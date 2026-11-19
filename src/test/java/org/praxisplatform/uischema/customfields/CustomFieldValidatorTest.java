@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.customfields;
 
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation;
 import java.util.*;
 import java.math.BigDecimal;
@@ -145,5 +146,44 @@ class CustomFieldValidatorTest {
         CustomFieldSupport.ensureInitializedContainer(entity);
         assertNotNull(entity.getCustomFields());
         assertTrue(entity.getCustomFields().isEmpty());
+    }
+
+    private static CustomFieldDescriptor semanticField(String key, FieldControlType control) {
+        return new CustomFieldDescriptor(key, key, null, CustomFieldDataType.STRING, control, null, 0,
+                false, false, true, false, false, null, null, null, null, null, null, null, null,
+                List.of(), List.of(), null, FilterOperation.EQUAL, Map.of());
+    }
+
+    @Test void validatesSemanticControlFormatsForCpfCnpjEmailUrlPhoneAndTime() {
+        var cpfField = semanticField("cpf_contato", FieldControlType.CPF_CNPJ_INPUT);
+        var emailField = semanticField("email_sec", FieldControlType.EMAIL_INPUT);
+        var urlField = semanticField("site_institucional", FieldControlType.URL_INPUT);
+        var phoneField = semanticField("ramal_celular", FieldControlType.PHONE);
+        var timeField = semanticField("hora_plantao", FieldControlType.TIME_PICKER);
+        var validator = new CustomFieldValidator(
+                (r, t, s) -> List.of(cpfField, emailField, urlField, phoneField, timeField));
+
+        assertDoesNotThrow(() -> validator.validateValues(Map.of(
+                "cpf_contato", "52998224725",
+                "email_sec", "analista@rio.rj.gov.br",
+                "site_institucional", "https://ergon.praxis.dev/portal",
+                "ramal_celular", "(21) 99999-0000",
+                "hora_plantao", "08:30"),
+                List.of(cpfField, emailField, urlField, phoneField, timeField)));
+
+        assertDoesNotThrow(() -> validator.validateValues(Map.of("cpf_contato", "11.222.333/0001-81"),
+                List.of(cpfField)));
+        assertThrows(CustomFieldValidationException.class,
+                () -> validator.validateValues(Map.of("cpf_contato", "12345678900"), List.of(cpfField)));
+        assertThrows(CustomFieldValidationException.class,
+                () -> validator.validateValues(Map.of("cpf_contato", "11111111111"), List.of(cpfField)));
+        assertThrows(CustomFieldValidationException.class,
+                () -> validator.validateValues(Map.of("email_sec", "invalido"), List.of(emailField)));
+        assertThrows(CustomFieldValidationException.class,
+                () -> validator.validateValues(Map.of("site_institucional", "ftp://invalido"), List.of(urlField)));
+        assertThrows(CustomFieldValidationException.class,
+                () -> validator.validateValues(Map.of("ramal_celular", "123"), List.of(phoneField)));
+        assertThrows(CustomFieldValidationException.class,
+                () -> validator.validateValues(Map.of("hora_plantao", "25:99"), List.of(timeField)));
     }
 }

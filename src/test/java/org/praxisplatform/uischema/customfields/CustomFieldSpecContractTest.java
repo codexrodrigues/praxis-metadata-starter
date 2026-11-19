@@ -94,6 +94,62 @@ class CustomFieldSpecContractTest {
         }
     }
 
+    @Test
+    void projectsRichUiExtensionsAndFormatsValidatedAgainstPublishedFieldSpec() throws Exception {
+        Map<String, Object> uiExtensions = Map.of(
+                "helpText", "Ajuda exibida abaixo do campo",
+                "icon", "payments",
+                "mask", "000.000.000-00",
+                "presentation", Map.of("presenter", "badge", "tone", "success", "icon", "verified", "appearance", "soft"),
+                "conditionalDisplay", Map.of("==", List.of(Map.of("var", "regime"), "ESTATUTARIO")));
+        CustomFieldDescriptor rich = new CustomFieldDescriptor("teto_auxilio", "Teto Auxílio", "Ajuda exibida",
+                CustomFieldDataType.DECIMAL, FieldControlType.CURRENCY_INPUT, "Financeiro", 10,
+                false, false, true, false, true, null,
+                BigDecimal.ZERO, BigDecimal.valueOf(5000), null, null, null, null, null,
+                List.of(), List.of(), null, Filterable.FilterOperation.GREATER_OR_EQUAL, Map.of(), Map.of(),
+                false, "0,00", "50%", uiExtensions);
+        CustomFieldDescriptor email = new CustomFieldDescriptor("email_alt", "E-mail Alternativo", null,
+                CustomFieldDataType.STRING, FieldControlType.EMAIL_INPUT, "Contato", 20,
+                false, false, true, false, true, null,
+                null, null, null, null, null, null, null,
+                List.of(), List.of(), null, Filterable.FilterOperation.LIKE, Map.of());
+
+        var enricher = new CustomFieldSchemaEnricher((resource, tenant, schemaType) -> List.of(rich, email), mapper);
+        Map<String, Object> schema = new LinkedHashMap<>();
+        enricher.enrich(schema, "hr.employees", "org-a", "response");
+        JsonNode root = mapper.valueToTree(schema);
+        JsonNode richNode = root.at("/properties/customFields/properties/teto_auxilio");
+        JsonNode richUi = richNode.path("x-ui");
+        assertEquals("currency", richUi.path("numericFormat").asText());
+        assertEquals("currency", richUi.path("valuePresentation").path("type").asText());
+        assertEquals("badge", richUi.path("presentation").path("presenter").asText());
+        assertEquals("Ajuda exibida abaixo do campo", richUi.path("helpText").asText());
+        assertTrue(richUi.path("conditionalDisplay").has("=="));
+        assertTrue(fieldSpec().validate(richUi).isEmpty(), "Rich x-ui failed field spec validation");
+
+        JsonNode emailNode = root.at("/properties/customFields/properties/email_alt");
+        assertEquals("email", emailNode.path("format").asText());
+        assertTrue(fieldSpec().validate(emailNode.path("x-ui")).isEmpty());
+
+        Map<String, Object> filterSchema = new LinkedHashMap<>();
+        enricher.enrich(filterSchema, "hr.employees", "org-a", "request", true);
+        JsonNode filterUi = mapper.valueToTree(filterSchema).at("/properties/customFields/properties/teto_auxilio/x-ui");
+        assertFalse(filterUi.has("presentation"));
+        assertFalse(filterUi.has("conditionalDisplay"));
+        assertFalse(filterUi.has("helpText"));
+
+        CustomFieldDescriptor freeTags = new CustomFieldDescriptor("habilidades", "Habilidades", null,
+                CustomFieldDataType.ARRAY, FieldControlType.CHIP_INPUT, "Perfil", 30,
+                false, false, true, false, true, null,
+                null, null, null, null, null, null, null,
+                List.of(), List.of(), null, Filterable.FilterOperation.IN, Map.of());
+        Map<String, Object> arraySchema = new LinkedHashMap<>();
+        new CustomFieldSchemaEnricher((r, t, s) -> List.of(freeTags), mapper)
+                .enrich(arraySchema, "hr.employees", "org-a", "request");
+        assertEquals("string", mapper.valueToTree(arraySchema)
+                .at("/properties/customFields/properties/habilidades/items/type").asText());
+    }
+
     private JsonSchema fieldSpec() throws Exception {
         return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
                 .getSchema(mapper.readTree(Path.of("docs/spec/x-ui-field.schema.json").toFile()));

@@ -41,4 +41,43 @@ class CustomFieldCollectionExportTest {
         assertTrue(new String(csv.content(), StandardCharsets.UTF_8).contains("redacted"));
         assertFalse(new String(csv.content(), StandardCharsets.UTF_8).contains("42"));
     }
+
+    @Test void formatsStringDatesCurrencyAndMultiEnumOptionLabelsInCustomFieldExport() {
+        var formattedFields = List.of(
+                new CollectionExportField("customFields.data_vig", "Vigência", true, true, "date", "customFields.data_vig"),
+                new CollectionExportField("customFields.auxilio", "Auxílio", true, true, "number", "customFields.auxilio", null,
+                        new CollectionExportFieldPresentation("currency", null, "BRL", "pt-BR", null, null, null, null)),
+                new CollectionExportField("customFields.mods", "Modalidades", true, true, "string", "customFields.mods", null,
+                        new CollectionExportFieldPresentation("string", null, null, "pt-BR", null, null, null, null,
+                                Map.of("PRES", "Presencial", "REM", "Remoto"))));
+        var row = new Row(Map.of(
+                "data_vig", "2026-11-19",
+                "auxilio", new java.math.BigDecimal("1250.50"),
+                "mods", List.of("PRES", "REM")));
+        var formattedReq = new CollectionExportRequest<>("table", "people", "/people",
+                CollectionExportFormat.CSV, CollectionExportScope.ALL,
+                null, List.of(), null, null, null, Map.of(), true, true, null, null, Map.of());
+        var csv = executor.export(formattedReq, List.of(row), formattedFields,
+                CollectionExportValueResolver.reflective(), Map.of());
+        String output = new String(csv.content(), StandardCharsets.UTF_8);
+        assertTrue(output.contains("19/11/2026"), output);
+        assertTrue(output.contains("1.250,50"), output);
+        assertTrue(output.contains("Presencial, Remoto"), output);
+    }
+
+    @Test void formatsFreeArrayValuesWithoutValueLabelsUsingCommaSeparatorAndRespectsDefaultVisibility() {
+        var visibleFreeArray = new CollectionExportField("customFields.tags", "Tags", true, true, "string", "customFields.tags");
+        var hiddenField = new CollectionExportField("customFields.secret", "Oculto", false, true, "string", "customFields.secret");
+        var freeArrayFields = List.of(visibleFreeArray, hiddenField);
+        var row = new Row(Map.of("tags", List.of("JAVA", "SPRING"), "secret", "TOP_SECRET"));
+        var req = new CollectionExportRequest<>("table", "people", "/people",
+                CollectionExportFormat.CSV, CollectionExportScope.ALL,
+                null, List.of(), null, null, null, Map.of(), true, true, null, null, Map.of());
+        var csv = executor.export(req, List.of(row), freeArrayFields,
+                CollectionExportValueResolver.reflective(), Map.of());
+        String output = new String(csv.content(), StandardCharsets.UTF_8);
+        assertFalse(hiddenField.visible());
+        assertTrue(output.contains("JAVA, SPRING"), output);
+        assertFalse(output.contains("TOP_SECRET"), output);
+    }
 }

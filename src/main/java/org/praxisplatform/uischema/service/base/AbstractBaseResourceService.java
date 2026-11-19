@@ -199,15 +199,31 @@ public abstract class AbstractBaseResourceService<
         return response == null ? dto : response;
     }
 
+    /** Extra custom field keys whose existing JSONB state must be preserved across entity mapping on update. */
+    protected Set<String> preservedCustomFieldKeysOnUpdate(E existing, UpdateDTO dto) {
+        return Set.of();
+    }
+
     /** Shared by ordinary, versioned and bulk writes using one captured definition/input snapshot. */
     protected final Set<String> validatePreparedCustomFieldsForUpdate(
             org.praxisplatform.uischema.customfields.CustomFieldValidator.PreparedValidation prepared,
             ID id, E existing, UpdateDTO dto) {
-        if (!prepared.requiresDraft()) return prepared.validateForUpdate(existing);
-        requireCleanVersionedContext();
-        Object draft = prepareUpdateValidationDraft(id, snapshotBeforeMutation(existing), dto);
-        requireCleanVersionedContext();
-        return prepared.validateForUpdate(existing, draft);
+        Set<String> readOnlyKeys;
+        if (!prepared.requiresDraft()) {
+            readOnlyKeys = prepared.validateForUpdate(existing);
+        } else {
+            requireCleanVersionedContext();
+            Object draft = prepareUpdateValidationDraft(id, snapshotBeforeMutation(existing), dto);
+            requireCleanVersionedContext();
+            readOnlyKeys = prepared.validateForUpdate(existing, draft);
+        }
+        Set<String> extraPreserved = preservedCustomFieldKeysOnUpdate(existing, dto);
+        if (extraPreserved == null || extraPreserved.isEmpty()) {
+            return readOnlyKeys;
+        }
+        Set<String> combined = new java.util.LinkedHashSet<>(readOnlyKeys);
+        combined.addAll(extraPreserved);
+        return Set.copyOf(combined);
     }
 
     @Override

@@ -87,13 +87,24 @@ public final class CustomFieldSchemaEnricher {
         else schema.put("required", keys);
     }
 
+    private static final Set<String> ALLOWED_UI_EXTENSION_KEYS = Set.of(
+            "helpText", "hint", "icon", "iconPosition", "iconColor", "prefixIcon", "suffixIcon",
+            "mask", "numericFormat", "valuePresentation", "presentation", "presentationPreset",
+            "conditionalDisplay", "conditionalReadOnly", "dependentField", "resetOnDependentChange",
+            "emptyOptionText");
+
+    private static final Set<String> FILTER_STRIPPED_UI_KEYS = Set.of(
+            "min", "max", "minLength", "maxLength", "pattern", "patternMessage",
+            "requiredMessage", "defaultValue", "validationMode", "tableHidden",
+            "helpText", "hint", "mask", "valuePresentation", "presentation", "presentationPreset",
+            "conditionalDisplay", "conditionalReadOnly", "dependentField", "resetOnDependentChange");
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> filterSchema(CustomFieldDescriptor d) {
         Map<String, Object> projected = fieldSchema(d);
         projected.keySet().removeAll(Set.of("minimum", "maximum", "minLength", "maxLength", "minItems", "pattern", "default", "readOnly"));
         Map<String, Object> ui = (Map<String, Object>) projected.get("x-ui");
-        ui.keySet().removeAll(Set.of("min", "max", "minLength", "maxLength", "pattern", "patternMessage",
-                "requiredMessage", "defaultValue", "validationMode", "tableHidden"));
+        ui.keySet().removeAll(FILTER_STRIPPED_UI_KEYS);
         ui.put("required", false);
         ui.put("readOnly", false);
         Map<String, Object> operand = new LinkedHashMap<>();
@@ -143,6 +154,15 @@ public final class CustomFieldSchemaEnricher {
         });
         if (d.dataType() == CustomFieldDataType.DATE) field.put("format", "date");
         if (d.dataType() == CustomFieldDataType.DATE_TIME) field.put("format", "date-time");
+        if (d.dataType() == CustomFieldDataType.STRING) {
+            switch (d.controlType()) {
+                case EMAIL_INPUT -> field.put("format", "email");
+                case URL_INPUT -> field.put("format", "uri");
+                case PHONE, INLINE_PHONE -> field.put("format", "phone");
+                case TIME_PICKER, TIME_INPUT, INLINE_TIME -> field.put("format", "time");
+                default -> {}
+            }
+        }
         if (d.dataType() == CustomFieldDataType.ARRAY) {
             field.put("items", arrayItemsSchema(d));
             if (d.required()) field.put("minItems", 1);
@@ -172,25 +192,40 @@ public final class CustomFieldSchemaEnricher {
         if (!d.validationRules().isEmpty()) ui.put("validationMode", "json-logic");
         if (!d.options().isEmpty()) ui.put("options", d.options());
         if (d.optionSource() != null) ui.put("optionSource", d.optionSource().toMetadataMap());
+        if (d.controlType() == FieldControlType.CURRENCY_INPUT || d.controlType() == FieldControlType.INLINE_CURRENCY) {
+            ui.putIfAbsent("numericFormat", "currency");
+            ui.putIfAbsent("valuePresentation", Map.of("type", "currency"));
+        } else if (d.dataType() == CustomFieldDataType.DATE) {
+            ui.putIfAbsent("valuePresentation", Map.of("type", "date"));
+        } else if (d.dataType() == CustomFieldDataType.DATE_TIME) {
+            ui.putIfAbsent("valuePresentation", Map.of("type", "datetime"));
+        }
+        if (d.uiExtensions() != null && !d.uiExtensions().isEmpty()) {
+            d.uiExtensions().forEach((extKey, extValue) -> {
+                if (extValue != null && (ALLOWED_UI_EXTENSION_KEYS.contains(extKey) || extKey.startsWith("custom."))) {
+                    ui.put(extKey, extValue);
+                }
+            });
+        }
         if (!d.governance().isEmpty()) field.put("x-domain-governance", d.governance());
         field.put("x-ui", ui);
         return field;
     }
 
     private static Map<String, Object> arrayItemsSchema(CustomFieldDescriptor d) {
-        if (d.options().isEmpty()) return Map.of();
+        if (d.options().isEmpty()) return Map.of("type", "string");
         List<String> values = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         for (Map<String, Object> opt : d.options()) {
             Object rawVal = opt.get("value");
             if (!(rawVal instanceof String str) || str.isBlank()) {
-                return Map.of();
+                return Map.of("type", "string");
             }
             if (seen.add(str)) {
                 values.add(str);
             }
         }
-        return values.isEmpty() ? Map.of() : Map.of("type", "string", "enum", List.copyOf(values));
+        return values.isEmpty() ? Map.of("type", "string") : Map.of("type", "string", "enum", List.copyOf(values));
     }
 
     private static String inferredControlType(Map<String, Object> schema) {

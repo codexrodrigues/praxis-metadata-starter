@@ -15,6 +15,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Currency;
 import java.util.List;
 import java.util.Locale;
@@ -156,6 +158,18 @@ abstract class AbstractTabularCollectionExportEngine implements CollectionExport
             CollectionExportFieldPresentation presentation
     ) {
         if (presentation != null && !presentation.valueLabels().isEmpty()) {
+            if (value instanceof Collection<?> col) {
+                List<String> mapped = new ArrayList<>();
+                for (Object item : col) {
+                    if (item == null) continue;
+                    String k = item instanceof Enum<?> enumValue ? enumValue.name() : String.valueOf(item);
+                    String labeled = presentation.valueLabels().get(k);
+                    mapped.add(hasText(labeled) ? labeled : String.valueOf(item));
+                }
+                if (!mapped.isEmpty()) {
+                    return String.join(", ", mapped);
+                }
+            }
             String key = value instanceof Enum<?> enumValue ? enumValue.name() : String.valueOf(value);
             String labeled = presentation.valueLabels().get(key);
             if (labeled == null && value instanceof Enum<?> enumValue) {
@@ -164,6 +178,9 @@ abstract class AbstractTabularCollectionExportEngine implements CollectionExport
             if (hasText(labeled)) {
                 return labeled;
             }
+        }
+        if (value instanceof Collection<?> col) {
+            return joinCollectionValues(col);
         }
         return normalizeValue(value);
     }
@@ -175,7 +192,20 @@ abstract class AbstractTabularCollectionExportEngine implements CollectionExport
         if (presentation != null && !presentation.valueLabels().isEmpty()) {
             return formatEnum(value, presentation);
         }
+        if (value instanceof Collection<?> col) {
+            return joinCollectionValues(col);
+        }
         return normalizeValue(value);
+    }
+
+    private static String joinCollectionValues(Collection<?> col) {
+        List<String> items = new ArrayList<>();
+        for (Object item : col) {
+            if (item != null) {
+                items.add(String.valueOf(item));
+            }
+        }
+        return String.join(", ", items);
     }
 
     private Object formatCurrency(
@@ -205,6 +235,14 @@ abstract class AbstractTabularCollectionExportEngine implements CollectionExport
         if (value instanceof Temporal temporal) {
             return formatter(format, locale, "dd/MM/yyyy").format(temporal);
         }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                LocalDate parsed = LocalDate.parse(text.trim());
+                return formatter(format, locale, "dd/MM/yyyy").format(parsed);
+            } catch (java.time.format.DateTimeParseException ignored) {
+                // Fall through to normalizeValue when non-ISO text is supplied.
+            }
+        }
         return normalizeValue(value);
     }
 
@@ -224,6 +262,22 @@ abstract class AbstractTabularCollectionExportEngine implements CollectionExport
         }
         if (value instanceof Temporal temporal) {
             return formatter.withZone(zoneId).format((TemporalAccessor) temporal);
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            String trimmed = text.trim();
+            try {
+                return formatter.withZone(zoneId).format(Instant.parse(trimmed));
+            } catch (java.time.format.DateTimeParseException ignoredInstant) {
+                try {
+                    return formatter.format(OffsetDateTime.parse(trimmed).atZoneSameInstant(zoneId));
+                } catch (java.time.format.DateTimeParseException ignoredOffset) {
+                    try {
+                        return formatter.format(LocalDateTime.parse(trimmed));
+                    } catch (java.time.format.DateTimeParseException ignoredLocal) {
+                        // Fall through to normalizeValue
+                    }
+                }
+            }
         }
         return normalizeValue(value);
     }

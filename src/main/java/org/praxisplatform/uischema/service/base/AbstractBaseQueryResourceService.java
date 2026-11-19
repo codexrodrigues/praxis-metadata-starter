@@ -970,8 +970,10 @@ public abstract class AbstractBaseQueryResourceService<
                 String label = descriptor.label() != null && !descriptor.label().isBlank()
                         ? descriptor.label()
                         : descriptor.key();
+                String exportType = mapCustomFieldExportType(descriptor.dataType());
+                CollectionExportFieldPresentation presentation = buildCustomFieldExportPresentation(descriptor, exportType);
                 combined.add(new CollectionExportField(
-                        path, label, true, true, mapCustomFieldExportType(descriptor.dataType()), path));
+                        path, label, !descriptor.tableHidden(), true, exportType, path, null, presentation));
                 seenPaths.add(path);
             }
         }
@@ -1011,6 +1013,39 @@ public abstract class AbstractBaseQueryResourceService<
             case DATE_TIME -> "datetime";
             default -> "string";
         };
+    }
+
+    private static CollectionExportFieldPresentation buildCustomFieldExportPresentation(
+            org.praxisplatform.uischema.customfields.CustomFieldDescriptor descriptor,
+            String exportType) {
+        var control = descriptor.controlType();
+        if (control == org.praxisplatform.uischema.FieldControlType.CURRENCY_INPUT
+                || control == org.praxisplatform.uischema.FieldControlType.INLINE_CURRENCY) {
+            return new CollectionExportFieldPresentation(
+                    "currency", null, "BRL", "pt-BR", null, null, null, null);
+        }
+        if ("percent".equalsIgnoreCase(String.valueOf(descriptor.uiExtensions().get("numericFormat")))) {
+            return new CollectionExportFieldPresentation(
+                    "percent", null, null, "pt-BR", null, null, null, null);
+        }
+        if (!descriptor.options().isEmpty()) {
+            Map<String, String> labels = new LinkedHashMap<>();
+            for (Map<String, Object> opt : descriptor.options()) {
+                Object val = opt.get("value");
+                Object lbl = opt.get("label");
+                if (val != null && lbl != null && !String.valueOf(lbl).isBlank()) {
+                    labels.put(String.valueOf(val), String.valueOf(lbl));
+                }
+            }
+            if (!labels.isEmpty()) {
+                String semanticType = descriptor.dataType() == org.praxisplatform.uischema.customfields.CustomFieldDataType.ENUM
+                        ? "enum"
+                        : exportType;
+                return new CollectionExportFieldPresentation(
+                        semanticType, null, null, "pt-BR", null, null, null, null, labels);
+            }
+        }
+        return null;
     }
 
     protected int maxExportRows(CollectionExportFormat format) { return 10_000; }

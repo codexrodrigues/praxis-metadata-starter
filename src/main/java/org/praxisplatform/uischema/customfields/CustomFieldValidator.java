@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.praxisplatform.rules.facts.PraxisFactTreeBuilder;
 import org.praxisplatform.rules.jsonlogic.PraxisJsonLogicException;
 import org.praxisplatform.rules.jsonlogic.model.JsonLogicEvaluationOptions;
+import org.praxisplatform.uischema.FieldControlType;
 
 /** Validates writes against the active operation and tenant definitions before resource hooks. */
 public class CustomFieldValidator {
@@ -143,6 +144,7 @@ public class CustomFieldValidator {
                     error(errors, d.key(), message(boundMessage, "Value exceeds maxLength"));
                 if (d.pattern() != null && !Pattern.compile(d.pattern()).matcher(text).matches())
                     error(errors, d.key(), message(d.patternMessage(), "Value does not match pattern"));
+                validateSemanticControlFormat(d, text, errors);
             }
         }
         // All primitive prerequisites must be valid before a cross-field expression can execute.
@@ -321,6 +323,99 @@ public class CustomFieldValidator {
             return allowed.isEmpty() || allowed.contains(elem);
         }
         return true;
+    }
+
+    private static final Pattern EMAIL_FORMAT = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final Pattern URL_FORMAT = Pattern.compile("^https?://[^\\s/$.?#].[^\\s]*$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PHONE_FORMAT = Pattern.compile("^[0-9\\s().+-]+$");
+
+    private static void validateSemanticControlFormat(CustomFieldDescriptor d, String text, List<FieldError> errors) {
+        if (text == null || text.isBlank() || d.dataType() != CustomFieldDataType.STRING || d.controlType() == null) {
+            return;
+        }
+        String trimmed = text.trim();
+        switch (d.controlType()) {
+            case EMAIL_INPUT -> {
+                if (!EMAIL_FORMAT.matcher(trimmed).matches()) {
+                    error(errors, d.key(), message(d.patternMessage(), "Invalid email address"));
+                }
+            }
+            case URL_INPUT -> {
+                if (!URL_FORMAT.matcher(trimmed).matches()) {
+                    error(errors, d.key(), message(d.patternMessage(), "Invalid URL"));
+                }
+            }
+            case PHONE, INLINE_PHONE -> {
+                String digits = trimmed.replaceAll("\\D", "");
+                if (!PHONE_FORMAT.matcher(trimmed).matches() || digits.length() < 8 || digits.length() > 15) {
+                    error(errors, d.key(), message(d.patternMessage(), "Invalid phone number"));
+                }
+            }
+            case TIME_PICKER, TIME_INPUT, INLINE_TIME -> {
+                try {
+                    LocalTime.parse(trimmed);
+                } catch (java.time.format.DateTimeParseException ex) {
+                    error(errors, d.key(), message(d.patternMessage(), "Invalid time value"));
+                }
+            }
+            case CPF_CNPJ_INPUT -> {
+                String digits = trimmed.replaceAll("[.\\-\\s/]", "");
+                if (!isValidCpfOrCnpj(digits)) {
+                    error(errors, d.key(), message(d.patternMessage(), "Invalid CPF or CNPJ"));
+                }
+            }
+            default -> {}
+        }
+    }
+
+    private static boolean isValidCpfOrCnpj(String digits) {
+        if (digits == null || !digits.chars().allMatch(Character::isDigit)) {
+            return false;
+        }
+        if (digits.chars().distinct().count() <= 1) {
+            return false;
+        }
+        if (digits.length() == 11) {
+            return checkCpfDigits(digits);
+        }
+        if (digits.length() == 14) {
+            return checkCnpjDigits(digits);
+        }
+        return false;
+    }
+
+    private static boolean checkCpfDigits(String digits) {
+        int d1 = cpfDigit(digits, 9, 10);
+        int d2 = cpfDigit(digits, 10, 11);
+        return d1 == Character.digit(digits.charAt(9), 10)
+                && d2 == Character.digit(digits.charAt(10), 10);
+    }
+
+    private static int cpfDigit(String digits, int length, int weightStart) {
+        int sum = 0;
+        for (int i = 0; i < length; i++) {
+            sum += Character.digit(digits.charAt(i), 10) * (weightStart - i);
+        }
+        int mod = (sum * 10) % 11;
+        return mod >= 10 ? 0 : mod;
+    }
+
+    private static boolean checkCnpjDigits(String digits) {
+        int[] w1 = {5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2};
+        int[] w2 = {6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2};
+        int d1 = cnpjDigit(digits, w1);
+        int d2 = cnpjDigit(digits, w2);
+        return d1 == Character.digit(digits.charAt(12), 10)
+                && d2 == Character.digit(digits.charAt(13), 10);
+    }
+
+    private static int cnpjDigit(String digits, int[] weights) {
+        int sum = 0;
+        for (int i = 0; i < weights.length; i++) {
+            sum += Character.digit(digits.charAt(i), 10) * weights[i];
+        }
+        int rem = sum % 11;
+        return rem < 2 ? 0 : 11 - rem;
     }
 
     private static boolean isEmptyArrayOrCollection(Object value) {
