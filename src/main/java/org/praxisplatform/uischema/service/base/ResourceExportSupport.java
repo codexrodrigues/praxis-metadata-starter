@@ -6,6 +6,8 @@ import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.annotation.DomainGovernance;
 import org.praxisplatform.uischema.annotation.DomainLineage;
 import org.praxisplatform.uischema.annotation.UiOption;
+import org.praxisplatform.uischema.customfields.CustomFieldDescriptor;
+import org.praxisplatform.uischema.customfields.CustomFieldSupport;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 import org.praxisplatform.uischema.extension.annotation.UISchemaPreset;
 import org.praxisplatform.uischema.exporting.CollectionExportField;
@@ -126,7 +128,24 @@ final class ResourceExportSupport {
         try {
             accumulatedGovernance = TYPE_GOVERNANCE.get(type);
             if (!DomainSchemaGovernance.isExportable(accumulatedGovernance)) return false;
-            for (String part : path.split("\\.")) {
+            String[] parts = path.split("\\.");
+            var cfProp = CustomFieldSupport.property(type);
+            if (parts.length == 2 && cfProp.isPresent() && cfProp.get().name().equals(parts[0])) {
+                try {
+                    CustomFieldDescriptor.requireSafeKey(parts[1]);
+                } catch (IllegalArgumentException ex) {
+                    return false;
+                }
+                Property containerProp = PROPERTIES.get(type).get(parts[0]);
+                if (containerProp != null) {
+                    accumulatedGovernance = DomainSchemaGovernance.mergeOrCopy(
+                            accumulatedGovernance,
+                            containerProp.effectiveGovernance(type));
+                    if (!DomainSchemaGovernance.isExportable(accumulatedGovernance)) return false;
+                }
+                return true;
+            }
+            for (String part : parts) {
                 Class<?> raw = resolved.resolve();
                 if (raw == null) return false;
                 accumulatedGovernance = DomainSchemaGovernance.mergeOrCopy(accumulatedGovernance, TYPE_GOVERNANCE.get(raw));

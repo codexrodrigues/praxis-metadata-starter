@@ -79,6 +79,26 @@ public class PraxisExpressionStaticValidator {
             "legalPurposeExpr"
     );
 
+    private static final Set<String> VALID_FORM_LAYOUT_MODES = Set.of(
+            "flat",
+            "vertical",
+            "tabs",
+            "accordion",
+            "stepper"
+    );
+
+    private static final Set<String> VALID_FORM_LAYOUT_TABS_APPEARANCES = Set.of(
+            "pills",
+            "underline",
+            "buttons"
+    );
+
+    private static final Set<String> VALID_FORM_LAYOUT_STEPPER_READ_MODES = Set.of(
+            "presentation",
+            "all",
+            "none"
+    );
+
     private static final List<String> VISUALIZATION_EXPR_KEYS = List.of(
             "toneExpr",
             "valueExpr",
@@ -193,14 +213,40 @@ public class PraxisExpressionStaticValidator {
     /**
      * Valida todas as expressoes presentes em um Schema OpenAPI enriquecido com x-ui.
      */
-    @SuppressWarnings("unchecked")
     public List<String> validateSchemaExpressions(String schemaName, Schema<?> schema, boolean strict) {
-        if (schema == null || schema.getProperties() == null || schema.getProperties().isEmpty()) {
+        return validateSchemaExpressions(schemaName, schema, Collections.emptyMap(), strict);
+    }
+
+    /**
+     * Valida todas as expressoes presentes em um Schema OpenAPI enriquecido com x-ui,
+     * resolvendo referencias {@code $ref} em {@code referencedSchemas} quando fornecidas.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public List<String> validateSchemaExpressions(
+            String schemaName,
+            Schema<?> schema,
+            Map<String, Schema> referencedSchemas,
+            boolean strict
+    ) {
+        if (schema == null) {
+            return Collections.emptyList();
+        }
+        Map<String, Schema> safeRefs = referencedSchemas != null ? referencedSchemas : Collections.emptyMap();
+        boolean hasProps = schema.getProperties() != null && !schema.getProperties().isEmpty();
+        boolean hasRootUi = schema.getExtensions() != null && schema.getExtensions().get("x-ui") instanceof Map<?, ?>;
+        if (!hasProps && !hasRootUi) {
             return Collections.emptyList();
         }
 
-        Map<String, Schema> properties = schema.getProperties();
+        Map<String, Schema> properties = hasProps ? schema.getProperties() : Collections.emptyMap();
         Set<String> validPropNames = properties.keySet();
+        Set<String> declaredGroupsLower = new LinkedHashSet<>();
+        collectDeclaredGroupsRecursive(
+                schema,
+                safeRefs,
+                declaredGroupsLower,
+                Collections.newSetFromMap(new IdentityHashMap<>())
+        );
         List<String> schemaErrors = new ArrayList<>();
 
         for (Map.Entry<String, Schema> entry : properties.entrySet()) {
@@ -247,9 +293,10 @@ public class PraxisExpressionStaticValidator {
             }
         }
 
-        // Inspeciona x-ui.calculationMemory no nivel raiz do DTO (PLAT-EVO-20)
-        if (schema.getExtensions() != null && schema.getExtensions().get("x-ui") instanceof Map<?, ?> rootUiMap) {
+        // Inspeciona x-ui.calculationMemory e x-ui.formLayout no nivel raiz do DTO (PLAT-EVO-20)
+        if (hasRootUi && schema.getExtensions().get("x-ui") instanceof Map<?, ?> rootUiMap) {
             validateCalculationMemoryExpressions(rootUiMap.get("calculationMemory"), validPropNames, schemaName, schemaErrors);
+            validateFormLayoutMetadata(rootUiMap.get("formLayout"), declaredGroupsLower, schemaName, schemaErrors);
         }
 
         if (!schemaErrors.isEmpty()) {
@@ -279,7 +326,12 @@ public class PraxisExpressionStaticValidator {
         if (resolved == null || resolved.schema == null) {
             return Collections.emptyList();
         }
-        return validateSchemaExpressions(dtoClass.getSimpleName(), resolved.schema, strict);
+        return validateSchemaExpressions(
+                dtoClass.getSimpleName(),
+                resolved.schema,
+                resolved.referencedSchemas,
+                strict
+        );
     }
 
     /**
@@ -298,7 +350,12 @@ public class PraxisExpressionStaticValidator {
             }
             ResolvedSchema resolved = converters.resolveAsResolvedSchema(new AnnotatedType(dtoClass).resolveAsRef(false));
             if (resolved != null && resolved.schema != null) {
-                allErrors.addAll(validateSchemaExpressions(dtoClass.getSimpleName(), resolved.schema, strict));
+                allErrors.addAll(validateSchemaExpressions(
+                        dtoClass.getSimpleName(),
+                        resolved.schema,
+                        resolved.referencedSchemas,
+                        strict
+                ));
             }
         }
         return allErrors;
@@ -395,6 +452,230 @@ public class PraxisExpressionStaticValidator {
                         if (stepMap.get("hintExpr") instanceof String hExpr && !hExpr.isBlank()) {
                             errors.addAll(validateExpression(hExpr, validProps, trailPrefix + ".steps[" + s + "].hintExpr").errors());
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void collectDeclaredGroupsRecursive(
+            Schema<?> currentSchema,
+            Map<String, Schema> referencedSchemas,
+            Set<String> outGroupsLower,
+            Set<Schema<?>> visited
+    ) {
+        if (currentSchema == null || !visited.add(currentSchema)) {
+            return;
+        }
+        if (currentSchema.getExtensions() != null
+                && currentSchema.getExtensions().get("x-ui") instanceof Map<?, ?> uiMap) {
+            Object rawGroup = uiMap.get("group");
+            if (rawGroup instanceof String groupStr && !groupStr.isBlank()) {
+                outGroupsLower.add(groupStr.trim().toLowerCase(Locale.ROOT));
+            }
+        }
+        String ref = currentSchema.get$ref();
+        if (ref != null && !ref.isBlank() && !referencedSchemas.isEmpty()) {
+            String refName = ref.startsWith("#/components/schemas/")
+                    ? ref.substring("#/components/schemas/".length())
+                    : ref;
+            Schema<?> target = referencedSchemas.get(refName);
+            if (target != null) {
+                collectDeclaredGroupsRecursive(target, referencedSchemas, outGroupsLower, visited);
+            }
+        }
+        if (currentSchema.getProperties() != null) {
+            for (Object child : currentSchema.getProperties().values()) {
+                if (child instanceof Schema<?> childSchema) {
+                    collectDeclaredGroupsRecursive(childSchema, referencedSchemas, outGroupsLower, visited);
+                }
+            }
+        }
+        if (currentSchema.getItems() != null) {
+            collectDeclaredGroupsRecursive(currentSchema.getItems(), referencedSchemas, outGroupsLower, visited);
+        }
+        if (currentSchema.getAllOf() != null) {
+            for (Schema<?> part : currentSchema.getAllOf()) {
+                collectDeclaredGroupsRecursive(part, referencedSchemas, outGroupsLower, visited);
+            }
+        }
+        if (currentSchema.getOneOf() != null) {
+            for (Schema<?> part : currentSchema.getOneOf()) {
+                collectDeclaredGroupsRecursive(part, referencedSchemas, outGroupsLower, visited);
+            }
+        }
+        if (currentSchema.getAnyOf() != null) {
+            for (Schema<?> part : currentSchema.getAnyOf()) {
+                collectDeclaredGroupsRecursive(part, referencedSchemas, outGroupsLower, visited);
+            }
+        }
+    }
+
+    private void validateFormLayoutMetadata(
+            Object rawFormLayout,
+            Set<String> declaredGroupsLower,
+            String schemaName,
+            List<String> errors
+    ) {
+        if (!(rawFormLayout instanceof Map<?, ?> layoutMap)) {
+            return;
+        }
+
+        Object rawMode = layoutMap.get("mode");
+        String mode = "";
+        if (rawMode != null) {
+            if (!(rawMode instanceof String m) || m.isBlank()) {
+                errors.add("FormLayout.mode in " + schemaName
+                        + " must be a non-blank string; supported modes: " + VALID_FORM_LAYOUT_MODES + ".");
+            } else {
+                mode = m.trim().toLowerCase(Locale.ROOT);
+                if (!VALID_FORM_LAYOUT_MODES.contains(mode)) {
+                    errors.add("FormLayout.mode '" + m.trim() + "' in " + schemaName
+                            + " is unsupported; supported modes: " + VALID_FORM_LAYOUT_MODES + ".");
+                }
+            }
+        }
+
+        Object rawTabsAppearance = layoutMap.get("tabsAppearance");
+        if (rawTabsAppearance != null) {
+            if (!(rawTabsAppearance instanceof String appearance)) {
+                errors.add("FormLayout.tabsAppearance in " + schemaName
+                        + " must be a string; supported values: " + VALID_FORM_LAYOUT_TABS_APPEARANCES + ".");
+            } else if (!appearance.isBlank()
+                    && !VALID_FORM_LAYOUT_TABS_APPEARANCES.contains(appearance.trim().toLowerCase(Locale.ROOT))) {
+                errors.add("FormLayout.tabsAppearance '" + appearance.trim() + "' in " + schemaName
+                        + " is unsupported; supported values: " + VALID_FORM_LAYOUT_TABS_APPEARANCES + ".");
+            }
+        }
+
+        Object rawStepperInReadMode = layoutMap.get("stepperInReadMode");
+        if (rawStepperInReadMode != null) {
+            if (!(rawStepperInReadMode instanceof String readMode)) {
+                errors.add("FormLayout.stepperInReadMode in " + schemaName
+                        + " must be a string; supported values: " + VALID_FORM_LAYOUT_STEPPER_READ_MODES + ".");
+            } else if (!readMode.isBlank()
+                    && !VALID_FORM_LAYOUT_STEPPER_READ_MODES.contains(readMode.trim().toLowerCase(Locale.ROOT))) {
+                errors.add("FormLayout.stepperInReadMode '" + readMode.trim() + "' in " + schemaName
+                        + " is unsupported; supported values: " + VALID_FORM_LAYOUT_STEPPER_READ_MODES + ".");
+            }
+        }
+
+        for (String boolFlag : List.of("accordionMulti", "hideSectionHeaderInTabs", "hideSectionHeaderInStepper", "stepperReviewStep", "draftPersistence")) {
+            Object rawFlag = layoutMap.get(boolFlag);
+            if (rawFlag != null && !(rawFlag instanceof Boolean)) {
+                errors.add("FormLayout." + boolFlag + " in " + schemaName + " must be a boolean.");
+            }
+        }
+
+        String defaultTabId = layoutMap.get("defaultTabId") instanceof String tabId && !tabId.isBlank()
+                ? tabId.trim()
+                : null;
+
+        Set<String> sectionIds = new LinkedHashSet<>();
+        Object rawSections = layoutMap.get("sections");
+        if (rawSections instanceof List<?> sections && !sections.isEmpty()) {
+            for (int idx = 0; idx < sections.size(); idx++) {
+                if (!(sections.get(idx) instanceof Map<?, ?> sectionMap)) {
+                    errors.add("FormLayout sections[" + idx + "] in " + schemaName + " must be an object.");
+                    continue;
+                }
+                String sectionId = sectionMap.get("id") instanceof String id && !id.isBlank()
+                        ? id.trim()
+                        : null;
+                String sectionTitle = sectionMap.get("title") instanceof String title && !title.isBlank()
+                        ? title.trim()
+                        : null;
+                if (sectionId == null || sectionTitle == null) {
+                    errors.add("FormLayout sections[" + idx + "] in " + schemaName + " must declare non-blank 'id' and 'title'.");
+                    continue;
+                }
+                if (!sectionIds.add(sectionId)) {
+                    errors.add("FormLayout section id '" + sectionId + "' is duplicated in " + schemaName + ".");
+                }
+                Object rawSecOptional = sectionMap.get("optional");
+                if (rawSecOptional != null && !(rawSecOptional instanceof Boolean)) {
+                    errors.add("FormLayout section '" + sectionId + "'.optional in " + schemaName + " must be a boolean.");
+                }
+                if (sectionMap.get("groups") instanceof List<?> groups) {
+                    for (Object rawGroup : groups) {
+                        if (!(rawGroup instanceof String groupStr) || groupStr.isBlank()) {
+                            continue;
+                        }
+                        String trimmedGroup = groupStr.trim();
+                        if (!declaredGroupsLower.contains(trimmedGroup.toLowerCase(Locale.ROOT))) {
+                            errors.add("FormLayout section '" + sectionId + "' in " + schemaName
+                                    + " references unknown group '" + trimmedGroup
+                                    + "'. Available x-ui.group values: " + declaredGroupsLower);
+                        }
+                    }
+                }
+            }
+
+            if (defaultTabId != null && !sectionIds.contains(defaultTabId)) {
+                errors.add("FormLayout.defaultTabId '" + defaultTabId + "' in " + schemaName
+                        + " does not match any declared section id: " + sectionIds);
+            }
+
+            if ("stepper".equalsIgnoreCase(mode) && sections.size() < 2) {
+                LOGGER.warn(
+                        "FormLayout mode 'stepper' in {} declares {} section(s); < 2 visible sections degrade to vertical layout at runtime.",
+                        schemaName,
+                        sections.size()
+                );
+            }
+        } else if ("stepper".equalsIgnoreCase(mode) && declaredGroupsLower.size() < 2) {
+            LOGGER.warn(
+                    "FormLayout mode 'stepper' in {} has {} distinct x-ui.group value(s); < 2 visible steps degrade to vertical layout at runtime.",
+                    schemaName,
+                    declaredGroupsLower.size()
+            );
+        }
+
+        Object rawSteps = layoutMap.get("steps");
+        if (rawSteps != null) {
+            if (!(rawSteps instanceof List<?> steps)) {
+                errors.add("FormLayout.steps in " + schemaName + " must be a list of step objects.");
+            } else {
+                Set<String> stepIds = new LinkedHashSet<>();
+                for (int idx = 0; idx < steps.size(); idx++) {
+                    if (!(steps.get(idx) instanceof Map<?, ?> stepMap)) {
+                        errors.add("FormLayout steps[" + idx + "] in " + schemaName + " must be an object.");
+                        continue;
+                    }
+                    String stepId = stepMap.get("id") instanceof String id && !id.isBlank()
+                            ? id.trim()
+                            : null;
+                    if (stepId == null) {
+                        errors.add("FormLayout steps[" + idx + "] in " + schemaName + " must declare a non-blank 'id'.");
+                        continue;
+                    }
+                    if (!stepIds.add(stepId)) {
+                        errors.add("FormLayout step id '" + stepId + "' is duplicated in " + schemaName + ".");
+                    }
+                    Object rawStepOptional = stepMap.get("optional");
+                    if (rawStepOptional != null && !(rawStepOptional instanceof Boolean)) {
+                        errors.add("FormLayout step '" + stepId + "'.optional in " + schemaName + " must be a boolean.");
+                    }
+                    Object rawSectionIds = stepMap.get("sectionIds");
+                    if (!(rawSectionIds instanceof List<?> stepSectionIds) || stepSectionIds.isEmpty()) {
+                        errors.add("FormLayout step '" + stepId + "' in " + schemaName + " must declare a non-empty 'sectionIds' list.");
+                        continue;
+                    }
+                    List<String> validStepSectionIds = new ArrayList<>();
+                    for (Object rawSecId : stepSectionIds) {
+                        if (rawSecId instanceof String secId && !secId.isBlank()) {
+                            String trimmedSecId = secId.trim();
+                            validStepSectionIds.add(trimmedSecId);
+                            if (!sectionIds.isEmpty() && !sectionIds.contains(trimmedSecId)) {
+                                errors.add("FormLayout step '" + stepId + "' in " + schemaName
+                                        + " references unknown sectionId '" + trimmedSecId
+                                        + "'. Declared section ids: " + sectionIds);
+                            }
+                        }
+                    }
+                    if (validStepSectionIds.isEmpty()) {
+                        errors.add("FormLayout step '" + stepId + "' in " + schemaName + " must declare at least one non-blank sectionId.");
                     }
                 }
             }

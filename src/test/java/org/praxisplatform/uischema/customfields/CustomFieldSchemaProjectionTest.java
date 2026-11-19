@@ -210,6 +210,45 @@ class CustomFieldSchemaProjectionTest {
                 List.of(), List.of(Map.of("value", "x", "label", "X")), null, null, Map.of()));
     }
 
+    @Test void blankPlaceholderAndWidthAndFalseTableHiddenAreOmittedFromProjection() {
+        var descriptor = new CustomFieldDescriptor("processo", "Processo", null, CustomFieldDataType.STRING,
+                org.praxisplatform.uischema.FieldControlType.INPUT, null, 0, false, false, true, false, false, null,
+                null, null, null, null, null, null, null, List.of(), List.of(), null, FilterOperation.EQUAL,
+                Map.of(), Map.of(), false, "   ", " ");
+        var ui = mapper.valueToTree(project(List.of(descriptor), "response", false))
+                .at("/properties/customFields/properties/processo/x-ui");
+        assertFalse(ui.has("tableHidden"));
+        assertFalse(ui.has("placeholder"));
+        assertFalse(ui.has("width"));
+    }
+
+    @Test void arrayWithOptionsProjectsItemEnumMinItemsAndInFilterControl() {
+        var tags = new CustomFieldDescriptor("instrumentos", "Instrumentos", null, CustomFieldDataType.ARRAY,
+                null, "Provimento", 10, true, false, true, false, true, null,
+                null, null, null, null, null, null, null, List.of(),
+                List.of(Map.of("value", "PORTARIA", "label", "Portaria"),
+                        Map.of("value", "DECRETO", "label", "Decreto")),
+                null, FilterOperation.IN, Map.of());
+        var writeSchema = project(List.of(tags), "request", false);
+        var writeTree = mapper.valueToTree(writeSchema).at("/properties/customFields/properties/instrumentos");
+        assertEquals(mapper.createArrayNode().add("PORTARIA").add("DECRETO"), writeTree.at("/items/enum"));
+        assertEquals("string", writeTree.at("/items/type").asText());
+        assertEquals(1, writeTree.path("minItems").asInt());
+        assertEquals("multiSelect", writeTree.at("/x-ui/controlType").asText());
+        assertAccepted(contract(writeSchema), Map.of("customFields", Map.of("instrumentos", List.of("PORTARIA"))));
+        assertRejected(contract(writeSchema), Map.of("customFields", Map.of("instrumentos", List.of())));
+        assertRejected(contract(writeSchema), Map.of("customFields", Map.of("instrumentos", List.of("OUTRO"))));
+
+        var filterSchema = project(List.of(tags), "request", true);
+        var filterTree = mapper.valueToTree(filterSchema).at("/properties/customFields/properties/instrumentos");
+        assertEquals(mapper.createArrayNode().add("array").add("null"), filterTree.path("type"));
+        assertEquals(mapper.createArrayNode().add("PORTARIA").add("DECRETO"), filterTree.at("/items/enum"));
+        assertFalse(filterTree.has("minItems"));
+        assertEquals("multiSelect", filterTree.at("/x-ui/controlType").asText());
+        assertAccepted(contract(filterSchema), Map.of("customFields", Map.of("instrumentos", List.of("DECRETO"))));
+        assertAccepted(contract(filterSchema), Map.of("customFields", Map.of("instrumentos", List.of())));
+    }
+
     private Map<String,Object> project(List<CustomFieldDescriptor> fields, String role, boolean filter) {
         Map<String,Object> schema = new LinkedHashMap<>(); schema.put("type", "object");
         new CustomFieldSchemaEnricher((r,t,s) -> fields, mapper).enrich(schema, "people", "a", role, filter);

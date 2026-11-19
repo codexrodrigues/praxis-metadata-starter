@@ -160,12 +160,16 @@ public class CustomOpenApiResolver extends ModelResolver {
             if (calculationMemory != null) {
                 getUIExtensionMap(schema).put("calculationMemory", calculationMemory);
             }
-            var formLayout = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.UiFormLayout.class);
-            if (formLayout != null) {
+            var uiFormLayout = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.UiFormLayout.class);
+            if (uiFormLayout != null) {
                 getUIExtensionMap(schema).put(
                         FieldConfigProperties.FORM_LAYOUT.getValue(),
-                        serializeFormLayout(formLayout)
+                        serializeFormLayout(uiFormLayout)
                 );
+            }
+            var formLayout = org.praxisplatform.uischema.schema.FormLayoutMetadataResolver.resolve(rawClass);
+            if (formLayout != null) {
+                getUIExtensionMap(schema).put("formLayout", formLayout);
             }
             var contextBinding = rawClass.getAnnotation(org.praxisplatform.uischema.annotation.ContextScopeBinding.class);
             if (contextBinding != null) {

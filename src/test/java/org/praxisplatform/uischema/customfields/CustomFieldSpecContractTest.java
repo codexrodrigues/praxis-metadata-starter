@@ -40,6 +40,30 @@ class CustomFieldSpecContractTest {
     }
 
     @Test
+    void projectsOptionalPresentationAttributesIntoXUiAndValidatesAgainstFieldSpec() throws Exception {
+        CustomFieldDescriptor descriptor = new CustomFieldDescriptor("processo_sei", "Processo SEI", "Número oficial",
+                CustomFieldDataType.STRING, FieldControlType.INPUT, "Complemento", 10,
+                false, false, true, false, false, null,
+                null, null, null, 30, null, null, null,
+                List.of(), List.of(), null, Filterable.FilterOperation.EQUAL, Map.of(), Map.of(),
+                true, "00000.000000/2026-00", "50%");
+        var enricher = new CustomFieldSchemaEnricher((resource, tenant, schemaType) -> List.of(descriptor), mapper);
+        Map<String, Object> schema = new LinkedHashMap<>();
+        enricher.enrich(schema, "hr.employees", "org-a", "response");
+        JsonNode xUi = mapper.valueToTree(schema).at("/properties/customFields/properties/processo_sei/x-ui");
+        assertTrue(xUi.path("tableHidden").asBoolean());
+        assertEquals("00000.000000/2026-00", xUi.path("placeholder").asText());
+        assertEquals("50%", xUi.path("width").asText());
+        assertTrue(fieldSpec().validate(xUi).isEmpty());
+
+        Map<String, Object> filterSchema = new LinkedHashMap<>();
+        enricher.enrich(filterSchema, "hr.employees", "org-a", "request", true);
+        JsonNode filterXUi = mapper.valueToTree(filterSchema).at("/properties/customFields/properties/processo_sei/x-ui");
+        assertFalse(filterXUi.has("tableHidden"));
+        assertEquals("00000.000000/2026-00", filterXUi.path("placeholder").asText());
+    }
+
+    @Test
     void fieldSpecRejectsUnsafeKeysAndNonTenantScope() throws Exception {
         JsonSchema spec = fieldSpec();
         ObjectNode invalid = mapper.createObjectNode().put("customField", true)

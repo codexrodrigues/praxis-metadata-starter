@@ -140,4 +140,29 @@ class CustomFieldJpaCriteriaSupportTest {
         var c = new Criteria();
         assertThrows(InvalidFilterPayloadException.class,() -> c.apply(CustomFieldDataType.STRING,FilterOperation.NOT_EQUAL,"ab"));
     }
+
+    @Test void arrayInUsesJsonbExistsOverArrayJsonAndValidatesElements() {
+        var c = new Criteria();
+        Expression<Object> arrayJson = mock(Expression.class);
+        Expression<Boolean> existsCall = mock(Expression.class);
+        Expression<String> elemExpr = mock(Expression.class);
+        when(c.cb.literal("PORTARIA")).thenReturn(elemExpr);
+        when(c.cb.literal("DECRETO")).thenReturn(elemExpr);
+        when(c.cb.function(eq("jsonb_extract_path"), eq(Object.class), eq(c.column), eq(c.key))).thenReturn(arrayJson);
+        when(c.cb.function(eq("jsonb_exists"), eq(Boolean.class), eq(arrayJson), any(Expression.class))).thenReturn(existsCall);
+        when(c.cb.isTrue(existsCall)).thenReturn(c.predicate);
+        when(c.cb.or(any(Predicate[].class))).thenReturn(c.predicate);
+
+        var arrayDescriptor = new CustomFieldDescriptor("field", "Field", null, CustomFieldDataType.ARRAY,
+                null, null, 0, false, false, true, false, false, null,
+                null, null, null, null, null, null, null, List.of(),
+                List.of(Map.of("value", "PORTARIA", "label", "Portaria"), Map.of("value", "DECRETO", "label", "Decreto")),
+                null, FilterOperation.IN, Map.of());
+        var result = CustomFieldJpaCriteriaSupport.predicates(
+                Map.of("field", List.of("PORTARIA", "DECRETO")), List.of(arrayDescriptor), c.root, c.cb);
+        assertEquals(1, result.size());
+        verify(c.cb, times(2)).function(eq("jsonb_exists"), eq(Boolean.class), eq(arrayJson), any(Expression.class));
+        assertThrows(InvalidFilterPayloadException.class, () -> CustomFieldJpaCriteriaSupport.predicates(
+                Map.of("field", List.of("INVALIDO")), List.of(arrayDescriptor), c.root, c.cb));
+    }
 }

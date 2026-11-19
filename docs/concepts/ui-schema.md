@@ -95,6 +95,36 @@ private String emailCorporativo;
 
 Esse exemplo publica objetos Json Logic em `x-ui` e falha cedo no backend se alguém trocar por DSL textual, operador desconhecido, aridade inválida ou condicional JSON Schema.
 
+## Organização Estrutural do Formulário (`@FormLayout` e `x-ui.formLayout`)
+
+Para fluxos cadastrais com múltiplas seções, o DTO de comando/detalhe (ou método específico do controller) pode declarar opcionalmente `@FormLayout` (e `@FormLayoutSection[]`), materializado por `FormLayoutMetadataResolver` em `x-ui.formLayout`:
+
+- **Opt-in estrito:** DTOs e endpoints sem `@FormLayout` não emitem `x-ui.formLayout` nem alteram `X-Schema-Hash` / `ETag`. Em endpoints de filtro (`GenericFilterDTO`, `/filter`, `/filter/cursor`, `/by-ids`), listagens de coleção (`GET /{resource}`), analíticos (`/stats/*`), opções (`/options/*`) e exportação (`/export`), o bloco `formLayout` é automaticamente suprimido em `/schemas/filtered`.
+- **Forma compacta, heurística automática (`AUTO`) vs. seções/etapas explícitas e flags das Fases 1–3:**
+  - Compacta: `@FormLayout(FormLayoutMode.STEPPER)` deriva as seções/etapas pela ordem de aparição dos valores de `@UISchema(group = ...)`.
+  - Heurística automática (`@FormLayout(FormLayoutMode.AUTO)`): `FormLayoutMetadataResolver` seleciona automaticamente `stepper` quando `steps.length >= 2`, `effectiveGroupCount >= 4` ou `effectiveGroupCount >= 3` com `>= 12` campos (ativando automaticamente `stepperReviewStep = true` e `draftPersistence = true` quando `effectiveGroupCount >= 4` ou `steps.length >= 3`), `tabs` (quando `effectiveGroupCount >= 2` com `>= 6` campos ou `sections.length >= 2`) ou `flat` (demais casos).
+  - Explícita: combina `sections = {@FormLayoutSection(id = "...", title = "...", subtitle = "...", icon = "...", order = 1, optional = UiBoolean.TRUE, groups = {"..."})}` e opcionalmente `steps = {@FormLayoutStep(id = "...", label = "...", description = "...", icon = "...", sectionIds = {"..."}, optional = UiBoolean.TRUE)}` com flags opcionais de comportamento visual e governança (`defaultTabId`, `tabsAppearance = FormLayoutTabsAppearance.UNDERLINE`, `accordionMulti = UiBoolean.TRUE`, `hideSectionHeaderInTabs = UiBoolean.TRUE`, `hideSectionHeaderInStepper = UiBoolean.FALSE`, `stepperInReadMode = FormLayoutStepperReadMode.PRESENTATION`, `stepperReviewStep = UiBoolean.TRUE`, `draftPersistence = UiBoolean.TRUE`).
+- **Precedência ponta a ponta:** no backend, `@FormLayout` no método do controller (`request` ou `GET` unitário `response`) sobrepõe o `@FormLayout` do DTO e desembrulha proxies AOP Spring (JDK dinâmicos e CGLIB). No frontend `@praxisui/dynamic-form`, `x-ui.formLayout` atua apenas como fallback transitório de 4º nível (`[layoutMode]` > `[formLayout]` > `FormConfig.layout` > `x-ui.formLayout` > `'vertical'`), preservando overrides de usuário em configurações salvas (`LOCAL_CONFIG` ou `HOST_CONFIG`).
+- **Validação estática no startup:** `FormLayoutMetadataResolver` rejeita `id`/`title` em branco, `id` duplicado de seção ou etapa, `defaultTabId` inexistente e `steps[*].sectionIds` órfãos; `PraxisExpressionStaticValidator` (e `PraxisExpressionValidationOpenApiCustomizer`) valida os valores de `mode` (`flat`, `vertical`, `tabs`, `accordion`, `stepper`), `tabsAppearance` (`pills`, `underline`, `buttons`), `stepperInReadMode` (`presentation`, `all`, `none`), referências em `sections[*].groups` contra os valores reais de `x-ui.group` (incluindo DTOs aninhados via `@Valid`/`$ref`), referências de `steps[*].sectionIds` e emite aviso quando `mode = "stepper"` possui menos de 2 seções (degradando para vertical em runtime).
+
+```java
+@FormLayout(
+    mode = FormLayoutMode.STEPPER,
+    hideSectionHeaderInStepper = UiBoolean.FALSE,
+    sections = {
+        @FormLayoutSection(id = "identificacao", title = "Identificação", icon = "badge", order = 1, groups = {"dadosPessoais"}),
+        @FormLayoutSection(id = "contato", title = "Contato", subtitle = "Canais corporativos", icon = "mail", order = 2, groups = {"contato"})
+    }
+)
+public class CreateEmployeeDTO {
+    @UISchema(label = "Nome completo", group = "dadosPessoais", order = 1)
+    private String name;
+
+    @UISchema(label = "E-mail corporativo", group = "contato", order = 1)
+    private String email;
+}
+```
+
 ## Referências cruzadas
 
 * [Visão arquitetural](../architecture-overview.md)

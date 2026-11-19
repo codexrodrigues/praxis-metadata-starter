@@ -90,21 +90,23 @@ public final class CustomFieldSchemaEnricher {
     @SuppressWarnings("unchecked")
     private Map<String, Object> filterSchema(CustomFieldDescriptor d) {
         Map<String, Object> projected = fieldSchema(d);
-        projected.keySet().removeAll(Set.of("minimum", "maximum", "minLength", "maxLength", "pattern", "default", "readOnly"));
+        projected.keySet().removeAll(Set.of("minimum", "maximum", "minLength", "maxLength", "minItems", "pattern", "default", "readOnly"));
         Map<String, Object> ui = (Map<String, Object>) projected.get("x-ui");
         ui.keySet().removeAll(Set.of("min", "max", "minLength", "maxLength", "pattern", "patternMessage",
-                "requiredMessage", "defaultValue", "validationMode"));
+                "requiredMessage", "defaultValue", "validationMode", "tableHidden"));
         ui.put("required", false);
         ui.put("readOnly", false);
         Map<String, Object> operand = new LinkedHashMap<>();
         for (String key : List.of("type", "format", "items", "enum"))
             if (projected.containsKey(key)) operand.put(key, projected.remove(key));
-        // Null omits a predicate. IN accepts an empty collection and validates each scalar item.
+        // Null omits a predicate. IN accepts an empty collection and validates each item.
         // Enum membership remains part of the runtime scalar type, including LIKE operands.
         boolean scalarSupported = d.dataType() != CustomFieldDataType.ARRAY;
         Map<String, Object> value = switch (d.filterOperation()) {
             case IS_NULL -> Map.of("type", "boolean");
-            case IN -> scalarSupported ? Map.of("type", "array", "items", operand) : null;
+            case IN -> scalarSupported
+                    ? Map.of("type", "array", "items", operand)
+                    : Map.of("type", "array", "items", operand.getOrDefault("items", Map.of()));
             case EQUAL -> scalarSupported ? operand : null;
             case LIKE -> d.dataType() == CustomFieldDataType.STRING || d.dataType() == CustomFieldDataType.ENUM ? operand : null;
             case GREATER_OR_EQUAL, LESS_OR_EQUAL -> scalarSupported && d.dataType() != CustomFieldDataType.BOOLEAN ? operand : null;
@@ -141,7 +143,10 @@ public final class CustomFieldSchemaEnricher {
         });
         if (d.dataType() == CustomFieldDataType.DATE) field.put("format", "date");
         if (d.dataType() == CustomFieldDataType.DATE_TIME) field.put("format", "date-time");
-        if (d.dataType() == CustomFieldDataType.ARRAY) field.put("items", Map.of());
+        if (d.dataType() == CustomFieldDataType.ARRAY) {
+            field.put("items", arrayItemsSchema(d));
+            if (d.required()) field.put("minItems", 1);
+        }
         put(field, "description", d.description());
         put(field, "minimum", d.minimum()); put(field, "maximum", d.maximum());
         put(field, "minLength", d.minLength()); put(field, "maxLength", d.maxLength());
@@ -156,6 +161,9 @@ public final class CustomFieldSchemaEnricher {
         put(ui, "group", d.group()); ui.put("order", d.order()); ui.put("required", d.required());
         ui.put("readOnly", d.readOnly()); ui.put("filterable", d.filterable());
         ui.put("sortable", d.sortable()); ui.put("exportable", d.exportable());
+        if (d.tableHidden()) ui.put("tableHidden", true);
+        put(ui, "placeholder", d.placeholder());
+        put(ui, "width", d.width());
         put(ui, "min", d.minimum()); put(ui, "max", d.maximum());
         put(ui, "minLength", d.minLength()); put(ui, "maxLength", d.maxLength());
         put(ui, "pattern", d.pattern()); put(ui, "patternMessage", d.patternMessage());
@@ -167,6 +175,22 @@ public final class CustomFieldSchemaEnricher {
         if (!d.governance().isEmpty()) field.put("x-domain-governance", d.governance());
         field.put("x-ui", ui);
         return field;
+    }
+
+    private static Map<String, Object> arrayItemsSchema(CustomFieldDescriptor d) {
+        if (d.options().isEmpty()) return Map.of();
+        List<String> values = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (Map<String, Object> opt : d.options()) {
+            Object rawVal = opt.get("value");
+            if (!(rawVal instanceof String str) || str.isBlank()) {
+                return Map.of();
+            }
+            if (seen.add(str)) {
+                values.add(str);
+            }
+        }
+        return values.isEmpty() ? Map.of() : Map.of("type", "string", "enum", List.copyOf(values));
     }
 
     private static String inferredControlType(Map<String, Object> schema) {

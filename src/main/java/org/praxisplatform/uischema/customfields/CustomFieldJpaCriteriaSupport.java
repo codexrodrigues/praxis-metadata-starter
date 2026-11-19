@@ -34,6 +34,25 @@ public final class CustomFieldJpaCriteriaSupport {
             }
             if (operation == FilterOperation.IN) {
                 if (!(value instanceof Collection<?> collection)) throw new InvalidFilterPayloadException("IN requires a collection");
+                if (d.dataType() == CustomFieldDataType.ARRAY) {
+                    if (collection.isEmpty()) {
+                        predicates.add(cb.disjunction());
+                        return;
+                    }
+                    Expression<Object> arrayJson = cb.function("jsonb_extract_path", Object.class, root.get(property), cb.literal(key));
+                    List<Predicate> elementPredicates = new ArrayList<>(collection.size());
+                    for (Object item : collection) {
+                        if (!CustomFieldValidator.matchesArrayElement(d, item)) {
+                            throw new InvalidFilterPayloadException("Invalid custom field filter value: " + d.key());
+                        }
+                        elementPredicates.add(
+                                cb.isTrue(cb.function("jsonb_exists", Boolean.class, arrayJson, cb.literal(item.toString()))));
+                    }
+                    predicates.add(elementPredicates.size() == 1
+                            ? elementPredicates.getFirst()
+                            : cb.or(elementPredicates.toArray(Predicate[]::new)));
+                    return;
+                }
                 List<Object> normalized = new ArrayList<>();
                 for (Object item : collection) normalized.add(normalize(d, item));
                 predicates.add(typed(text, d).in(normalized));

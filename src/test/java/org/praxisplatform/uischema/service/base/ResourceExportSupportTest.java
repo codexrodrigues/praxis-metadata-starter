@@ -343,4 +343,70 @@ class ResourceExportSupportTest {
     private List<EmployeeExportDto> keepRecordReferences() {
         return List.of();
     }
+
+    @Test
+    void allowsCustomFieldsExportPathsSubjectToSafeKeysAndGovernanceAndIntegratesDynamicExportFields() {
+        assertThat(ResourceExportSupport.exportable(CustomFieldResponseDto.class, "customFields.regime_teletrabalho")).isTrue();
+        assertThat(ResourceExportSupport.exportable(CustomFieldResponseDto.class, "customFields.constructor")).isFalse();
+        assertThat(ResourceExportSupport.exportable(RestrictedCustomFieldResponseDto.class, "customFields.seguro")).isFalse();
+
+        @SuppressWarnings("unchecked")
+        org.praxisplatform.uischema.repository.base.BaseCrudRepository<CustomFieldEntity, Long> repo =
+                org.mockito.Mockito.mock(org.praxisplatform.uischema.repository.base.BaseCrudRepository.class);
+        AbstractBaseQueryResourceService<CustomFieldEntity, CustomFieldResponseDto, Long, CustomFieldFilter> service =
+                new AbstractBaseQueryResourceService<>(repo, CustomFieldEntity.class) {
+                    @Override
+                    protected org.praxisplatform.uischema.mapper.base.ResourceMapper<CustomFieldEntity, CustomFieldResponseDto, ?, ?, Long> getResourceMapper() {
+                        return null;
+                    }
+
+                    @Override
+                    protected List<CollectionExportField> exportFields() {
+                        return List.of(
+                                new CollectionExportField("nome", "Nome", true, true, "string", "nome"),
+                                new CollectionExportField("customFields.bloqueado", "Bloqueado", true, true, "string", "customFields.bloqueado"));
+                    }
+                };
+        var provider = (org.praxisplatform.uischema.customfields.CustomFieldDefinitionProvider) (resourceKey, tenant, schemaType) -> List.of(
+                new org.praxisplatform.uischema.customfields.CustomFieldDescriptor(
+                        "regime_teletrabalho", "Regime", null, org.praxisplatform.uischema.customfields.CustomFieldDataType.STRING,
+                        null, "Contrato", 10, false, false, true, false, true, null,
+                        null, null, null, null, null, null, null, List.of(), List.of(), null,
+                        org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.EQUAL, java.util.Map.of()),
+                new org.praxisplatform.uischema.customfields.CustomFieldDescriptor(
+                        "bloqueado", "Bloqueado", null, org.praxisplatform.uischema.customfields.CustomFieldDataType.STRING,
+                        null, "Contrato", 20, false, false, false, false, false, null,
+                        null, null, null, null, null, null, null, List.of(), List.of(), null,
+                        org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.EQUAL, java.util.Map.of()),
+                new org.praxisplatform.uischema.customfields.CustomFieldDescriptor(
+                        "restrito", "Restrito", null, org.praxisplatform.uischema.customfields.CustomFieldDataType.STRING,
+                        null, "Contrato", 30, false, false, false, false, true, null,
+                        null, null, null, null, null, null, null, List.of(), List.of(), null,
+                        org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.EQUAL,
+                        java.util.Map.of("classification", "restricted", "exportable", false))
+        );
+        service.configureCustomFieldFiltering(provider, () -> java.util.Optional.of("1"));
+
+        List<CollectionExportField> exported = service.governedExportFields();
+        assertThat(exported)
+                .extracting(CollectionExportField::key)
+                .containsExactly("nome", "customFields.regime_teletrabalho");
+    }
+
+    static class CustomFieldEntity {
+        @org.praxisplatform.uischema.customfields.CustomFields(resourceKey = "hr.custom")
+        private java.util.Map<String, Object> customFields;
+    }
+
+    static class CustomFieldFilter implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {}
+
+    public record CustomFieldResponseDto(
+            String nome,
+            @org.praxisplatform.uischema.customfields.CustomFields(resourceKey = "hr.custom")
+            java.util.Map<String, Object> customFields) {}
+
+    public record RestrictedCustomFieldResponseDto(
+            @DomainGovernance(kind = DomainGovernanceKind.PRIVACY, classification = DomainClassification.RESTRICTED, exportable = false)
+            @org.praxisplatform.uischema.customfields.CustomFields(resourceKey = "hr.restricted")
+            java.util.Map<String, Object> customFields) {}
 }

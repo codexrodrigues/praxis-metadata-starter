@@ -66,7 +66,7 @@ public class PraxisExpressionValidationOpenApiCustomizer implements GlobalOpenAp
         for (Map.Entry<String, Schema> entry : schemas.entrySet()) {
             String schemaName = entry.getKey();
             Schema schema = entry.getValue();
-            validator.validateSchemaExpressions(schemaName, schema, isStrict);
+            validator.validateSchemaExpressions(schemaName, schema, schemas, isStrict);
         }
     }
 }

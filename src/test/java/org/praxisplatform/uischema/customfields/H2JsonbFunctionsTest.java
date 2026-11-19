@@ -11,6 +11,9 @@ class H2JsonbFunctionsTest {
         assertEquals("value", H2JsonbFunctions.jsonbExtractPathText(Map.of("key", "value"), "key"));
         assertNull(H2JsonbFunctions.jsonbExtractPathText("{\"size\":null}", "size"));
         assertNull(H2JsonbFunctions.jsonbExtractPathText("{}", "size"));
+        assertEquals("[\"PORTARIA\",\"DECRETO\"]", H2JsonbFunctions.jsonbExtractPath("{\"tags\":[\"PORTARIA\",\"DECRETO\"]}", "tags"));
+        assertTrue(H2JsonbFunctions.jsonbExists("[\"PORTARIA\",\"DECRETO\"]", "PORTARIA"));
+        assertFalse(H2JsonbFunctions.jsonbExists("[\"PORTARIA\",\"DECRETO\"]", "OUTRO"));
         assertThrows(IllegalArgumentException.class, () -> H2JsonbFunctions.jsonbExtractPathText("invalid", "size"));
     }
 }

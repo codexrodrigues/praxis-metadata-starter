@@ -92,7 +92,7 @@ impede reutilização de um hash de outro contexto ou de definições anteriores
 O contrato público existente de `schemaId` e `schemaUrl` é preservado; consumidores
 devem encaminhar o contexto autorizado e não usar só a URL como chave de cache.
 
-Respostas `200` e `304` publicam `Vary: Accept-Encoding, X-Tenant, X-Tenant-ID`.
+Respostas `200` e `304` publicam `Vary: Accept-Encoding, X-Tenant, X-Tenant-ID, X-Tenant-Realm, X-Organization-ID`.
 Com tenant ou definições customizadas, o cache é privado e exige revalidação.
 `If-None-Match` é comparado com o hash do payload projetado. Dois tenants com o mesmo
 payload podem ter o mesmo ETag; a separação das chaves internas permanece.
@@ -117,7 +117,12 @@ Sem definições ativas, o container é omitido para evitar um controle vazio.
 
 Cada propriedade contém o tipo/formato JSON Schema, limites e opções aplicáveis,
 `x-domain-governance` quando informado e `x-ui` com apresentação e marcadores:
-`customField: true`, `customFieldKey` e `customFieldScope: tenant`.
+`customField: true`, `customFieldKey`, `customFieldScope: tenant`, além de
+atributos opcionais de UX (`placeholder`, `width`, `tableHidden: true`). Em schemas
+de filtro (`POST .../filter`), `tableHidden` e restrições de escrita (`required`,
+`minItems`, `default`, limites) são removidos. Campos `ARRAY` com `options`
+finitas publicam `items: {"type": "string", "enum": [...]}` (sem exigir
+`enumValues` no descriptor raiz) e `minItems: 1` quando obrigatórios.
 O exemplo [custom-fields.schema.valid.json](examples/custom-fields.schema.valid.json)
 ilustra o container. As chaves `x-ui` são verificadas por
 [x-ui-field.schema.json](x-ui-field.schema.json).
@@ -219,22 +224,27 @@ membership de enum continuam sendo validados.
 | Operador | Valor no filtro | Exemplo |
 | --- | --- | --- |
 | `EQUAL`, `LIKE`, `GREATER_OR_EQUAL`, `LESS_OR_EQUAL` | Escalar compatível | `{"customFields":{"idade":42}}` |
-| `IN` | Array de escalares compatíveis, inclusive vazio | `{"customFields":{"idade":[42,43]}}` |
+| `IN` | Array de escalares compatíveis (inclusive vazio) ou elementos compatíveis para campos `ARRAY` (`jsonb_exists`) | `{"customFields":{"idade":[42,43]}}` |
 | `IS_NULL` | Booleano; `true` ativa o predicado, `false` não o aplica | `{"customFields":{"pontuacao":true}}` |
 
 Esses exemplos pressupõem o operador declarado para cada chave; o mesmo campo não
 aceita um operador escolhido livremente pelo payload. `null` omite o predicado;
-`IN` não admite itens nulos. A UI deve derivar controles do schema da operação de
+`IN` não admite itens nulos. Para campos `ARRAY`, apenas `IN` e `IS_NULL` são
+projetados no schema de filtro. A UI deve derivar controles do schema da operação de
 filtro, sem reutilizar obrigatoriedade/defaults do formulário de escrita.
 Comparações numéricas e temporais usam casts tipados. Publicar `sortable` como
 metadata não instala automaticamente um resolvedor de ordenação JSONB.
 
 O host continua responsável por escopo, seleção, limite e allowlist da exportação.
+`ResourceExportSupport.exportable(...)` admite caminhos no formato `<container>.<safeKey>`
+(ex.: `customFields.numero_calcado`) respeitando a governança da classe/container, e
+`AbstractBaseQueryResourceService.governedExportFields()` integra automaticamente
+descritores ativos marcados como `exportable = true` e permitidos pela governança.
 Para colunas já autorizadas, `CollectionExportValueResolver.reflective()` lê records,
 getters e Maps por caminho pontuado, incluindo `customFields.numero_calcado`.
 Passe esse resolver ao `CollectionExportExecutor`; resolvers próprios continuam
-válidos. CSV, JSON e XLSX compartilham essa leitura. A flag `exportable` deve alimentar
-a allowlist do host; ela não concede acesso aos dados por si só.
+válidos. CSV, JSON e XLSX compartilham essa leitura. A flag `exportable` continua
+sujeita à governança declarativa e não contorna tags `NON_EXPORTABLE` ou sigilo restrito.
 
 `H2JsonbFunctions.jsonbExtractPathText` é um adapter de compatibilidade de teste que
 pode ser registrado como alias H2. A prova de banco deste incremento usa Neon e a
