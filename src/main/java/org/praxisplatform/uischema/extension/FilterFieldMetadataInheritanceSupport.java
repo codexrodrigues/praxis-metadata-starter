@@ -2,6 +2,7 @@ package org.praxisplatform.uischema.extension;
 
 import io.swagger.v3.oas.models.media.Schema;
 import org.praxisplatform.uischema.FieldConfigProperties;
+import org.praxisplatform.uischema.FieldControlType;
 import org.praxisplatform.uischema.filter.annotation.Filterable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
@@ -151,6 +152,40 @@ public final class FilterFieldMetadataInheritanceSupport {
         for (String key : INHERITABLE_KEYS) {
             if (!hasValue(targetXUi.get(key)) && hasValue(sourceXUi.get(key))) {
                 targetXUi.put(key, copyValue(sourceXUi.get(key)));
+            }
+        }
+        reconcileInheritedControlType(sourceXUi, targetXUi);
+    }
+
+    private static void reconcileInheritedControlType(Map<String, Object> sourceXUi, Map<String, Object> targetXUi) {
+        boolean hasEndpoint = hasValue(targetXUi.get(FieldConfigProperties.ENDPOINT.getValue()));
+        boolean hasOptions = hasValue(targetXUi.get("options"));
+        if (!hasEndpoint && !hasOptions) {
+            return;
+        }
+        Object currentControlType = targetXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue());
+        boolean isMultiValued = Boolean.TRUE.equals(targetXUi.get(FieldConfigProperties.MULTIPLE.getValue()))
+                || "array".equals(targetXUi.get(FieldConfigProperties.TYPE.getValue()));
+        if (isMultiValued) {
+            if (currentControlType == null
+                    || FieldControlType.CHIP_INPUT.getValue().equals(currentControlType)
+                    || FieldControlType.INPUT.getValue().equals(currentControlType)
+                    || FieldControlType.ARRAY.getValue().equals(currentControlType)) {
+                targetXUi.put(FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.MULTI_SELECT.getValue());
+            }
+            return;
+        }
+        if (currentControlType == null || FieldControlType.INPUT.getValue().equals(currentControlType)) {
+            if (hasEndpoint) {
+                Object sourceControlType = sourceXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue());
+                if (FieldControlType.ENTITY_LOOKUP.getValue().equals(sourceControlType)
+                        || FieldControlType.SELECT.getValue().equals(sourceControlType)) {
+                    targetXUi.put(FieldConfigProperties.CONTROL_TYPE.getValue(), sourceControlType);
+                    return;
+                }
+            }
+            if (hasOptions) {
+                targetXUi.put(FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.SELECT.getValue());
             }
         }
     }

@@ -591,4 +591,207 @@ class FilterableBetweenListDetectionTest {
                     "Expected x-ui.multiple=true for array property with " + op);
         }
     }
+
+    @Test
+    void inArrayWithOptionItemsPromotesDefaultControlToMultiSelect() {
+        Schema<?> schema = new Schema<>();
+        schema.setName("situacoes");
+        schema.setType("array");
+        Schema<?> item = new Schema<>();
+        item.setType("string");
+        schema.setItems(item);
+
+        org.praxisplatform.uischema.annotation.UiOption option = new org.praxisplatform.uischema.annotation.UiOption() {
+            @Override public Class<? extends Annotation> annotationType() {
+                return org.praxisplatform.uischema.annotation.UiOption.class;
+            }
+            @Override public String value() { return "ATIVO"; }
+            @Override public String label() { return "Ativo"; }
+            @Override public String icon() { return ""; }
+            @Override public org.praxisplatform.uischema.annotation.QuickFilterTone tone() {
+                return org.praxisplatform.uischema.annotation.QuickFilterTone.UNSPECIFIED;
+            }
+            @Override public String description() { return ""; }
+            @Override public boolean disabled() { return false; }
+        };
+
+        UISchema uiWithOptions = new UISchema() {
+            private final UISchema base = defaultUISchema();
+            @Override public Class<? extends Annotation> annotationType() { return UISchema.class; }
+            @Override public UISchemaPreset preset() { return base.preset(); }
+            @Override public String description() { return base.description(); }
+            @Override public String example() { return base.example(); }
+            @Override public String name() { return base.name(); }
+            @Override public String label() { return "Situações"; }
+            @Override public FieldDataType type() { return base.type(); }
+            @Override public FieldControlType controlType() { return FieldControlType.AUTO; }
+            @Override public String placeholder() { return base.placeholder(); }
+            @Override public String defaultValue() { return base.defaultValue(); }
+            @Override public String group() { return base.group(); }
+            @Override public int order() { return base.order(); }
+            @Override public String width() { return base.width(); }
+            @Override public boolean isFlex() { return base.isFlex(); }
+            @Override public String displayOrientation() { return base.displayOrientation(); }
+            @Override public boolean disabled() { return base.disabled(); }
+            @Override public boolean readOnly() { return base.readOnly(); }
+            @Override public boolean multiple() { return base.multiple(); }
+            @Override public boolean editable() { return base.editable(); }
+            @Override public String validationMode() { return base.validationMode(); }
+            @Override public boolean unique() { return base.unique(); }
+            @Override public String mask() { return base.mask(); }
+            @Override public boolean sortable() { return base.sortable(); }
+            @Override public String conditionalRequired() { return base.conditionalRequired(); }
+            @Override public String viewOnlyStyle() { return base.viewOnlyStyle(); }
+            @Override public String validationTriggers() { return base.validationTriggers(); }
+            @Override public boolean hidden() { return base.hidden(); }
+            @Override public boolean tableHidden() { return base.tableHidden(); }
+            @Override public boolean formHidden() { return base.formHidden(); }
+            @Override public boolean quickViewVisible() { return base.quickViewVisible(); }
+            @Override public int quickViewOrder() { return base.quickViewOrder(); }
+            @Override public boolean filterable() { return base.filterable(); }
+            @Override public String[] visibleForAuthorities() { return base.visibleForAuthorities(); }
+            @Override public String[] editableForAuthorities() { return base.editableForAuthorities(); }
+            @Override public String fieldAccessReason() { return base.fieldAccessReason(); }
+            @Override public String conditionalDisplay() { return base.conditionalDisplay(); }
+            @Override public String conditionalReadOnly() { return base.conditionalReadOnly(); }
+            @Override public String dependsOn() { return base.dependsOn(); }
+            @Override public String dependentField() { return base.dependentField(); }
+            @Override public boolean resetOnDependentChange() { return base.resetOnDependentChange(); }
+            @Override public boolean inlineEditing() { return base.inlineEditing(); }
+            @Override public String transformValueFunction() { return base.transformValueFunction(); }
+            @Override public int debounceTime() { return base.debounceTime(); }
+            @Override public String helpText() { return base.helpText(); }
+            @Override public String hint() { return base.hint(); }
+            @Override public String hiddenCondition() { return base.hiddenCondition(); }
+            @Override public String tooltipOnHover() { return base.tooltipOnHover(); }
+            @Override public String icon() { return base.icon(); }
+            @Override public org.praxisplatform.uischema.IconPosition iconPosition() { return base.iconPosition(); }
+            @Override public String iconSize() { return base.iconSize(); }
+            @Override public String iconColor() { return base.iconColor(); }
+            @Override public String iconClass() { return base.iconClass(); }
+            @Override public String iconStyle() { return base.iconStyle(); }
+            @Override public String iconFontSize() { return base.iconFontSize(); }
+            @Override public String iconTrue() { return base.iconTrue(); }
+            @Override public String iconFalse() { return base.iconFalse(); }
+            @Override public String tone() { return base.tone(); }
+            @Override public String toneTrue() { return base.toneTrue(); }
+            @Override public String toneFalse() { return base.toneFalse(); }
+            @Override public String labelTrue() { return base.labelTrue(); }
+            @Override public String labelFalse() { return base.labelFalse(); }
+            @Override public String valueField() { return base.valueField(); }
+            @Override public String displayField() { return base.displayField(); }
+            @Override public String endpoint() { return base.endpoint(); }
+            @Override public String emptyOptionText() { return base.emptyOptionText(); }
+            @Override public org.praxisplatform.uischema.annotation.UiOption[] optionItems() {
+                return new org.praxisplatform.uischema.annotation.UiOption[]{ option };
+            }
+            @Override public Class<?> optionEnum() { return base.optionEnum(); }
+            @Override public String options() { return base.options(); }
+            @Override public String filter() { return base.filter(); }
+            @Override public String filterOptions() { return base.filterOptions(); }
+            @Override public org.praxisplatform.uischema.NumericFormat numericFormat() { return base.numericFormat(); }
+            @Override public int colSpan() { return base.colSpan(); }
+            @Override public String numericStep() { return base.numericStep(); }
+            @Override public String numericMin() { return base.numericMin(); }
+            @Override public String numericMax() { return base.numericMax(); }
+            @Override public String numericMaxLength() { return base.numericMaxLength(); }
+            @Override public boolean required() { return base.required(); }
+            @Override public int minLength() { return base.minLength(); }
+            @Override public int maxLength() { return base.maxLength(); }
+            @Override public String min() { return base.min(); }
+            @Override public String max() { return base.max(); }
+            @Override public org.praxisplatform.uischema.ValidationPattern pattern() { return base.pattern(); }
+            @Override public String requiredMessage() { return base.requiredMessage(); }
+            @Override public String minLengthMessage() { return base.minLengthMessage(); }
+            @Override public String maxLengthMessage() { return base.maxLengthMessage(); }
+            @Override public String patternMessage() { return base.patternMessage(); }
+            @Override public String rangeMessage() { return base.rangeMessage(); }
+            @Override public String customValidator() { return base.customValidator(); }
+            @Override public String asyncValidator() { return base.asyncValidator(); }
+            @Override public int minWords() { return base.minWords(); }
+            @Override public org.praxisplatform.uischema.AllowedFileTypes allowedFileTypes() { return base.allowedFileTypes(); }
+            @Override public String maxFileSize() { return base.maxFileSize(); }
+            @Override public ExtensionProperty[] extraProperties() { return base.extraProperties(); }
+        };
+
+        Map<String, Object> xUi = applyAnnotations(schema, new Annotation[]{
+                uiWithOptions,
+                filterable(Filterable.FilterOperation.IN)
+        });
+        assertEquals(Boolean.TRUE, xUi.get(FieldConfigProperties.MULTIPLE.getValue()));
+        assertEquals(FieldControlType.MULTI_SELECT.getValue(), xUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+    }
+
+    static class InheritanceResponseDto {
+        @UISchema(label = "Situação", controlType = FieldControlType.SELECT, icon = "verified")
+        private String situacao;
+    }
+
+    static class InheritanceFilterDto {
+        @Filterable(operation = Filterable.FilterOperation.IN, relation = "situacao")
+        private List<String> situacoes;
+
+        @Filterable(operation = Filterable.FilterOperation.IN, relation = "cargoId")
+        private List<Long> cargoIds;
+
+        public List<String> getSituacoes() { return situacoes; }
+        public void setSituacoes(List<String> situacoes) { this.situacoes = situacoes; }
+        public List<Long> getCargoIds() { return cargoIds; }
+        public void setCargoIds(List<Long> cargoIds) { this.cargoIds = cargoIds; }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void filterFieldInheritancePromotesMultiSelectWhenInheritingOptionsOrEndpoint() {
+        Schema<?> responseSchema = new Schema<>();
+        Schema<?> situacaoProp = new Schema<>();
+        situacaoProp.setType("string");
+        situacaoProp.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.SELECT.getValue(),
+                FieldConfigProperties.ICON.getValue(), "verified",
+                "options", List.of(Map.of("value", "ATIVO", "label", "Ativo"))
+        )));
+        Schema<?> cargoProp = new Schema<>();
+        cargoProp.setType("integer");
+        cargoProp.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.ENTITY_LOOKUP.getValue(),
+                FieldConfigProperties.ENDPOINT.getValue(), "/api/positions/options/filter",
+                FieldConfigProperties.VALUE_FIELD.getValue(), "id",
+                FieldConfigProperties.DISPLAY_FIELD.getValue(), "label"
+        )));
+        responseSchema.setProperties(Map.of("situacao", situacaoProp, "cargoId", cargoProp));
+
+        Schema<?> filterSchema = new Schema<>();
+        Schema<?> situacoesFilter = new Schema<>();
+        situacoesFilter.setType("array");
+        situacoesFilter.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.ARRAY.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CHIP_INPUT.getValue(),
+                FieldConfigProperties.MULTIPLE.getValue(), true
+        )));
+        Schema<?> cargoIdsFilter = new Schema<>();
+        cargoIdsFilter.setType("array");
+        cargoIdsFilter.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.ARRAY.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.CHIP_INPUT.getValue(),
+                FieldConfigProperties.MULTIPLE.getValue(), true
+        )));
+        filterSchema.setProperties(Map.of("situacoes", situacoesFilter, "cargoIds", cargoIdsFilter));
+
+        FilterFieldMetadataInheritanceSupport.inheritToOpenApiFilterSchema(
+                filterSchema,
+                InheritanceFilterDto.class,
+                responseSchema,
+                Map.of()
+        );
+
+        Map<String, Object> situacoesXUi = (Map<String, Object>) situacoesFilter.getExtensions().get("x-ui");
+        assertEquals(FieldControlType.MULTI_SELECT.getValue(), situacoesXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("verified", situacoesXUi.get(FieldConfigProperties.ICON.getValue()));
+        assertNotNull(situacoesXUi.get("options"));
+
+        Map<String, Object> cargoIdsXUi = (Map<String, Object>) cargoIdsFilter.getExtensions().get("x-ui");
+        assertEquals(FieldControlType.MULTI_SELECT.getValue(), cargoIdsXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("/api/positions/options/filter", cargoIdsXUi.get(FieldConfigProperties.ENDPOINT.getValue()));
+    }
 }

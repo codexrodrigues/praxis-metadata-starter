@@ -1680,6 +1680,9 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (!annotation.options().isEmpty()) {
             OpenApiUiUtils.populateUiOptionsFromString(uiExtension, annotation.options(), this._mapper);
         }
+        if ("array".equals(schemaType(property)) && annotation.controlType() == FieldControlType.AUTO) {
+            promoteArrayMultiSelectIfDefaulted(uiExtension, false);
+        }
         if (!annotation.filter().isEmpty()) {
             uiExtension.put(FieldConfigProperties.FILTER.getValue(), annotation.filter());
         }
@@ -2836,8 +2839,47 @@ public class CustomOpenApiResolver extends ModelResolver {
         if ((filterable.operation() == Filterable.FilterOperation.IN
                 || filterable.operation() == Filterable.FilterOperation.NOT_IN)
                 && "array".equals(schemaType(property))) {
-            getUIExtensionMap(property).put(FieldConfigProperties.MULTIPLE.getValue(), true);
+            Map<String, Object> uiExtension = getUIExtensionMap(property);
+            uiExtension.put(FieldConfigProperties.MULTIPLE.getValue(), true);
+            UISchema uiSchema = ResolverUtils.getAnnotation(UISchema.class, annotations);
+            if (uiSchema == null || uiSchema.controlType() == FieldControlType.AUTO) {
+                promoteArrayMultiSelectIfDefaulted(uiExtension, true);
+            }
         }
+    }
+
+    private void promoteArrayMultiSelectIfDefaulted(Map<String, Object> uiExtension, boolean includeOptions) {
+        boolean hasRemoteEndpoint = hasNonEmptyUiValue(uiExtension.get(FieldConfigProperties.ENDPOINT.getValue()));
+        boolean hasOptions = includeOptions && hasNonEmptyUiValue(uiExtension.get("options"));
+        if (!hasRemoteEndpoint && !hasOptions) {
+            return;
+        }
+        Object currentControlType = uiExtension.get(FieldConfigProperties.CONTROL_TYPE.getValue());
+        if (currentControlType == null
+                || FieldControlType.CHIP_INPUT.getValue().equals(currentControlType)
+                || FieldControlType.INPUT.getValue().equals(currentControlType)
+                || FieldControlType.ARRAY.getValue().equals(currentControlType)) {
+            uiExtension.put(
+                    FieldConfigProperties.CONTROL_TYPE.getValue(),
+                    FieldControlType.MULTI_SELECT.getValue()
+            );
+        }
+    }
+
+    private boolean hasNonEmptyUiValue(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof String str) {
+            return org.springframework.util.StringUtils.hasText(str);
+        }
+        if (value instanceof java.util.Collection<?> collection) {
+            return !collection.isEmpty();
+        }
+        if (value instanceof Map<?, ?> map) {
+            return !map.isEmpty();
+        }
+        return true;
     }
 
     private void applyContextScopeBinding(Schema<?> property, Annotation[] annotations) {
