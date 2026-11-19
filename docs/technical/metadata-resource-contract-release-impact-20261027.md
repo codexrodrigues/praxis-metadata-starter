@@ -668,6 +668,20 @@ This increment updates field/resource metadata publication, static authoring val
 5. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
    - Refreshed committed-blob `sha256` digests for the six modified `no_db` test files and recomputed `impactReview.reviewedScopeDigest` for `excluded_outside_impact` closures covering `src/main/java/org/praxisplatform/uischema/` or `PraxisExpressionStaticValidator.java`, preserving `historical_reuse` closures, raw artifacts, and bounded prior B–H and resource-contract obligations.
 
+## 2026-11-19 reconciliation: v8.0.0-rc.198 (Issue #320 stats capabilities: PERCENTILE_25/75, temporalIntervalTimeSeriesField, LGPD minBucketCount suppression, class-level @UiAnalytics, and legacy 9-arg governance interceptor compatibility)
+
+This increment adds statistical aggregation capabilities, LGPD small-bucket complementary suppression, temporal-interval time-series bucketing, and class-level `@UiAnalytics` OpenAPI resolution without altering Flyway migrations, durable bulk capacity/admission/worker execution, or authorized-reader boundaries:
+
+1. **Statistical metrics, temporal intervals, and LGPD suppression (`StatsMetric`, `StatsFieldDescriptor`, `StatsFieldRegistry`, `StatsEligibility`, `JpaStatsQueryExecutor`, `AbstractBaseQueryResourceService`):**
+   - Added `StatsMetric.PERCENTILE_25` and `StatsMetric.PERCENTILE_75`, bounded in-memory sampling guardrails (`maxInMemorySampleRows`), `temporalIntervalTimeSeriesField(field, startPropertyPath, endPropertyPath)` active-interval time-series bucketing, and `minBucketCount` (with 1D/2D complementary suppression and response metadata `suppressed`, `suppressedBucketCount`, `minBucketCount`).
+   - Added `preserveExtendedStatsDescriptorMetadata(...)` in `AbstractBaseQueryResourceService.resolveEffectiveStatsFieldRegistry()` so `ResourceGovernanceInterceptor` implementations compiled against the legacy 9-argument `StatsFieldDescriptor` constructor preserve `endPropertyPath` and `minBucketCount`.
+2. **Class-level `@UiAnalytics` OpenAPI publication (`UiAnalytics`, `AnalyticsProjection`, `UiAnalyticsOpenApiCustomizer`, `FilterableIndexAdvisor`, `SemanticMetadataReviewer`):**
+   - Enabled `@Target({ElementType.METHOD, ElementType.TYPE})` on `@UiAnalytics`, automatically attaching class-level projections to the canonical `/stats/group-by` or `/filter` operation when no method-level `@UiAnalytics` is present, and added `secondaryMetricField`/`secondaryMetricLabel` on `@AnalyticsProjection`.
+3. **Updated `no_db` and `metadata_h2` test coverage and inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Updated `UiAnalyticsOpenApiCustomizerTest`, `UiAnalyticsSpecContractTest`, `FilterableIndexAdvisorTest`, `CapabilityServiceTest`, and `StatsEligibilityTest` (`no_db`), plus `E2eFixtureResources` (`support`) and `StatsE2ETest` (`excluded_outside_impact` / `metadata_h2`), and added `StatsGovernanceE2ETest`, `StatsSampleLimitE2ETest`, and `JpaStatsExecutorIntegrationTest` (`excluded_outside_impact` / `metadata_h2`).
+   - Refreshed committed-blob `sha256` and `reviewedScopeDigest` entries in `tools/release/neon-test-inventory.json`, preserving `historical_reuse` closures, raw artifacts, and bounded prior B–H and resource-contract obligations.
+
+
 
 
 
