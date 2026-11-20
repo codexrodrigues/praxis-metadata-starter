@@ -37,6 +37,10 @@ public final class FilterFieldMetadataInheritanceSupport {
             "options"
     );
     private static final Set<Filterable.FilterOperation> NON_OPTION_OPERATIONS = EnumSet.of(
+            Filterable.FilterOperation.LIKE,
+            Filterable.FilterOperation.NOT_LIKE,
+            Filterable.FilterOperation.STARTS_WITH,
+            Filterable.FilterOperation.ENDS_WITH,
             Filterable.FilterOperation.IS_NULL,
             Filterable.FilterOperation.IS_NOT_NULL,
             Filterable.FilterOperation.IS_TRUE,
@@ -56,6 +60,12 @@ public final class FilterFieldMetadataInheritanceSupport {
             Filterable.FilterOperation.LESS_OR_EQUAL,
             Filterable.FilterOperation.ON_DATE,
             Filterable.FilterOperation.EFFECTIVE_ON_DATE
+    );
+    private static final Set<FieldControlType> FREE_TEXT_CONTROL_TYPES = EnumSet.of(
+            FieldControlType.INPUT,
+            FieldControlType.SEARCH_INPUT,
+            FieldControlType.CHIP_INPUT,
+            FieldControlType.TEXTAREA
     );
 
     private FilterFieldMetadataInheritanceSupport() {
@@ -263,7 +273,9 @@ public final class FilterFieldMetadataInheritanceSupport {
         if (!hasOptionsOrEndpoint) {
             return;
         }
-        if (target != null && (!isOptionCompatibleOperation(target.operation()) || target.booleanTarget())) {
+        if (target != null && (!isOptionCompatibleOperation(target.operation())
+                || target.explicitFreeTextControlType()
+                || target.booleanTarget())) {
             return;
         }
         String key = (target != null && StringUtils.hasText(target.relation())) ? target.relation() : propName;
@@ -301,6 +313,9 @@ public final class FilterFieldMetadataInheritanceSupport {
     ) {
         if (target != null) {
             if (!isOptionCompatibleOperation(target.operation())) {
+                return false;
+            }
+            if (target.explicitFreeTextControlType()) {
                 return false;
             }
             boolean isTargetBoolean = target.booleanTarget()
@@ -416,12 +431,21 @@ public final class FilterFieldMetadataInheritanceSupport {
         String relation = filterable != null ? filterable.relation().trim() : "";
         Filterable.FilterOperation operation = filterable != null ? filterable.operation() : null;
         boolean explicitControlType = uiSchema != null && uiSchema.controlType() != FieldControlType.AUTO;
+        boolean explicitFreeTextControlType = uiSchema != null
+                && FREE_TEXT_CONTROL_TYPES.contains(uiSchema.controlType());
         boolean booleanTarget = isBooleanElement(element);
-        FilterTarget incoming = new FilterTarget(relation, operation, explicitControlType, booleanTarget);
+        FilterTarget incoming = new FilterTarget(
+                relation,
+                operation,
+                explicitControlType,
+                explicitFreeTextControlType,
+                booleanTarget
+        );
         result.merge(propName, incoming, (existing, next) -> new FilterTarget(
                 StringUtils.hasText(existing.relation()) ? existing.relation() : next.relation(),
                 existing.operation() != null ? existing.operation() : next.operation(),
                 existing.explicitControlType() || next.explicitControlType(),
+                existing.explicitFreeTextControlType() || next.explicitFreeTextControlType(),
                 existing.booleanTarget() || next.booleanTarget()
         ));
     }
@@ -586,6 +610,7 @@ public final class FilterFieldMetadataInheritanceSupport {
             String relation,
             Filterable.FilterOperation operation,
             boolean explicitControlType,
+            boolean explicitFreeTextControlType,
             boolean booleanTarget
     ) {
     }

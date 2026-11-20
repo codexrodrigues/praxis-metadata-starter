@@ -915,7 +915,70 @@ class FilterableBetweenListDetectionTest {
         Map<String, Object> numerosXUi = (Map<String, Object>) numerosFilter.getExtensions().get("x-ui");
         assertEquals(FieldControlType.CHIP_INPUT.getValue(), numerosXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
         assertEquals("tag", numerosXUi.get(FieldConfigProperties.ICON.getValue()));
-        assertNotNull(numerosXUi.get("options"));
+        assertNull(numerosXUi.get("options"));
+    }
+
+    static class TextPatternFilterDto {
+        @Filterable(operation = Filterable.FilterOperation.STARTS_WITH, relation = "situacao")
+        private String situacaoPrefixo;
+
+        @Filterable(operation = Filterable.FilterOperation.LIKE, relation = "situacao")
+        private String situacaoContem;
+
+        public String getSituacaoPrefixo() { return situacaoPrefixo; }
+        public void setSituacaoPrefixo(String situacaoPrefixo) { this.situacaoPrefixo = situacaoPrefixo; }
+        public String getSituacaoContem() { return situacaoContem; }
+        public void setSituacaoContem(String situacaoContem) { this.situacaoContem = situacaoContem; }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void textPatternOperationDoesNotInheritOptionsOrEndpointFromResponseOrSibling() {
+        Schema<?> responseSchema = new Schema<>();
+        Schema<?> situacaoProp = new Schema<>();
+        situacaoProp.setType("string");
+        situacaoProp.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.SELECT.getValue(),
+                FieldConfigProperties.ICON.getValue(), "flag",
+                "options", List.of(Map.of("value", "ATIVO", "label", "Ativo"))
+        )));
+        responseSchema.setProperties(Map.of("situacao", situacaoProp));
+
+        Schema<?> filterSchema = new Schema<>();
+        Schema<?> prefixoFilter = new Schema<>();
+        prefixoFilter.setType("string");
+        prefixoFilter.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue()
+        )));
+        Schema<?> contemFilter = new Schema<>();
+        contemFilter.setType("string");
+        contemFilter.addExtension("x-ui", new java.util.LinkedHashMap<>(Map.of(
+                FieldConfigProperties.TYPE.getValue(), FieldDataType.TEXT.getValue(),
+                FieldConfigProperties.CONTROL_TYPE.getValue(), FieldControlType.INPUT.getValue()
+        )));
+        filterSchema.setProperties(Map.of(
+                "situacaoPrefixo", prefixoFilter,
+                "situacaoContem", contemFilter
+        ));
+
+        FilterFieldMetadataInheritanceSupport.inheritToOpenApiFilterSchema(
+                filterSchema,
+                TextPatternFilterDto.class,
+                responseSchema,
+                Map.of()
+        );
+
+        Map<String, Object> prefixoXUi = (Map<String, Object>) prefixoFilter.getExtensions().get("x-ui");
+        assertEquals(FieldControlType.INPUT.getValue(), prefixoXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("flag", prefixoXUi.get(FieldConfigProperties.ICON.getValue()));
+        assertNull(prefixoXUi.get("options"));
+
+        Map<String, Object> contemXUi = (Map<String, Object>) contemFilter.getExtensions().get("x-ui");
+        assertEquals(FieldControlType.INPUT.getValue(), contemXUi.get(FieldConfigProperties.CONTROL_TYPE.getValue()));
+        assertEquals("flag", contemXUi.get(FieldConfigProperties.ICON.getValue()));
+        assertNull(contemXUi.get("options"));
     }
 
     static class SiblingFilterDto {
