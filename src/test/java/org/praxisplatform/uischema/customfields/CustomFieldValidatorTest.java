@@ -166,7 +166,7 @@ class CustomFieldValidatorTest {
         assertDoesNotThrow(() -> validator.validateValues(Map.of(
                 "cpf_contato", "52998224725",
                 "email_sec", "analista@rio.rj.gov.br",
-                "site_institucional", "https://ergon.praxis.dev/portal",
+                "site_institucional", "https://workforce.praxis.dev/portal",
                 "ramal_celular", "(21) 99999-0000",
                 "hora_plantao", "08:30"),
                 List.of(cpfField, emailField, urlField, phoneField, timeField)));
