@@ -1,214 +1,49 @@
-AGENTS.md - Praxis Metadata Starter
+# AGENTS.md — Praxis Metadata Starter
 
-Escopo e Heranca
-- Escopo: aplica-se a `praxis-metadata-starter` e subpastas.
-- Herda: segue o `AGENTS.md` da raiz do monorepo. Este arquivo so adiciona regras locais.
-- Foco deste guia: fronteiras canonicas, validacao minima, arquivos que costumam mudar juntos e artefatos derivados do starter.
-- Nao editar por padrao: `target/`, `docs/apidocs/`, `.m2repo/` e `.flattened-pom.xml`, salvo quando a tarefa for explicitamente sobre artefato gerado ou release.
+## Escopo, Premissa e Inventário Antes de Novo Contrato
+- **Escopo:** `praxis-metadata-starter` e subpastas; complementa o `AGENTS.md` raiz do monorepo.
+- **Não editar por padrão:** `target/`, `docs/apidocs/`, `.m2repo/` e `.flattened-pom.xml` (salvo tarefa explícita de release/apidoc).
+- **Premissa:** publica semântica estrutural, contextual e regulatória AI-native (`x-ui`, `/schemas/**`, discovery, capabilities), sem virar rule engine nem editor de config.
+- **Inventário Obrigatório:** antes de criar semântica pública, auditar o que já existe (`x-ui`, `/schemas/filtered`, discovery, capabilities, OpenAPI, `ETag`, `X-Schema-Hash`) e classificar em `ja-suportado-so-ux`, `ja-suportado-mal-nomeado-ou-mal-materializado`, `suportado-parcialmente` ou `lacuna-real-de-contrato` (só esta última autoriza novo contrato com dado faltante, fonte canônica, consumidores, derivados e validação mínima).
+- **Classificação:** `docs-apenas` | `contrato-publico` | `arquitetural` | `transversal`.
 
-Premissa Local
-- Neste starter, tratar metadata e discovery como fundacao semantica da Praxis Platform — uma plataforma semanticamente orientada para aplicacoes corporativas AI-native, em que recursos, regras, acoes, dados e politicas sao descritos uma vez e operados por interfaces tradicionais, interfaces generativas, agentes de IA e integracoes (construindo aplicacoes que, por definicao, ja sejam legiveis e operaveis por IA).
-- O papel do modulo nao e virar rule engine nem editor de config, mas publicar a semantica estrutural, contextual e regulatoria que a IA e os runtimes precisam para authorar, validar e explicar decisoes canônicas.
+## Fronteira Canônica Local e Arquivos Acoplados
+- **Base Java:** `src/main/java/org/praxisplatform/uischema/` (salvo indicado).
+- **Controllers HTTP & Envelope:** `controller/docs/ApiDocsController.java`, `DomainCatalogController.java`, `SurfaceCatalogController.java`, `ActionCatalogController.java`, `controller/base/AbstractResourceQueryController.java`, `AbstractResourceController.java`, `AbstractReadOnlyResourceController.java`, `rest/response/RestApiResponse.java`.
+- **Resolução OpenAPI / Schema:** `openapi/OpenApiDocumentService.java`, `CanonicalOperationResolver.java`, `schema/SchemaReferenceResolver.java`, `FilteredSchemaReferenceResolver.java`, `FormLayoutMetadataResolver.java`, `QuickFilterDescriptor.java`.
+- **Services Base:** `service/base/AbstractBaseQueryResourceService.java`, `AbstractBaseResourceService.java`, `AbstractReadOnlyResourceService.java`, `BaseResourceQueryService.java`, `BaseResourceCommandService.java`, `BaseResourceService.java`.
+- **Discovery, Capabilities & AutoConfig:** `surface/**`, `action/**`, `capability/ResourceStructuralCapabilities.java`, `ResourceStructuralCapabilityResolver.java`, `configuration/OpenApiUiSchemaAutoConfiguration.java`, `PraxisMetadataAutoConfiguration.java`, `src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
+- **Anotações & Contratos Declarativos (`annotation/*.java`, `bulk/`, `fact/`):** `ApiResource`, `ApiGroup`, `UiSurface`, `WorkflowAction`, `ResourceIntent`, `ResourceReference`, `UiOption`, `QuickFilter`, `FilterCriterion`, `QuickFilterTone`, `ReactiveDetermination`, `DeterminationOutput`, `BulkEditable`, `DomainGovernance`, `DomainGovernancePreset`, `DomainLineage`, `LegalTreatmentPurpose`, `FormLayout`, `FormLayoutMode`, `FormLayoutSection`, `FormLayoutStep`, `BulkResourceOperations`, `ResourceFact`, `ResourceFacts`, `ResourceFactDescriptor`, `ResourceFactCatalogProvider`.
+- **Contratos Auditados (`SemanticMetadataReviewer` Ondas 1–3):**
+  - `@QuickFilter` / `AbstractResourceQueryController#defineQuickFilters()`: mín. 2 por `@ApiResource` (`quick-filter-count-insufficient`) usando `criteria = {@FilterCriterion(field = "...", ...)}` ou `QuickFilterDescriptor.<FD>builder(id, label).where(...)`, `criteria.field` em `@Filterable`, `label <= 36` sem ponto final, `icon` `snake_case` minúsculo (`@QuickFilter(filter = ...)` é `@Deprecated`).
+  - `@UISchema` + `@UiOption`: `optionItems = {@UiOption(...)}` (`org.praxisplatform.uischema.annotation.UiOption`) ou `optionEnum` mutuamente exclusivos (`uischema-options-source-conflict`, `uischema-option-enum-invalid`), valores únicos não vazios, `label <= 36` sem ponto, `icon` `snake_case` (`@UISchema(options = ...)` é `@Deprecated(since = "2.1.0")`).
+  - `@ResourceFact` / `@DeterminationOutput` / `@BulkResourceOperations`: `resourceKey` herdado de `@ApiResource`; atributos `String` (`dataType`, `sourceKind`, `authority`, `evaluationPhase`, `missingValuePolicy`, `scope`) validados pelos enums `ResourceFact*` (alinhando `key` ao DTO quando `dto_field`/`entity_field`); `@DeterminationOutput("campo")` quando `response`=`field` (`reactive-determination-output-redundant-explicit-pair`); `@BulkResourceOperations(protectedUpdateFields = ...)` disjunto de `@BulkEditable` (`bulk-protected-field-conflicts-with-bulk-editable`).
+- **Praxis Decision Platform:** publica metadados (`@DomainGovernance`, `@DomainLineage`, `LegalTreatmentPurpose`, `x-ui.fieldAccess`, `@ResourceFact`) para `decisionKind = BUSINESS` (`praxis-rules-engine`) e `decisionKind = AUTHORIZATION` (`praxis-authz-*`/`OPA`); proibido implementar PEP/PDP ou motor de regras aqui.
 
-Inventario Local de Aderencia Antes de Novo Contrato
-- Antes de criar ou alterar semantica publica em `x-ui`, `/schemas/filtered`, catalogos, surfaces, actions, capabilities, anotacoes, `_links`, headers ou resolucao OpenAPI/schema, auditar primeiro o que o starter ja publica.
-- A pergunta obrigatoria e: o que o `praxis-metadata-starter` ja sabe por metadata, schema, discovery, capabilities, actions, surfaces, annotations, OpenAPI, ETag ou `X-Schema-Hash`, mas consumidores ainda nao estao materializando bem?
-- Classificar cada melhoria como `ja-suportado-so-ux`, `ja-suportado-mal-nomeado-ou-mal-materializado`, `suportado-parcialmente` ou `lacuna-real-de-contrato`.
-- So `lacuna-real-de-contrato` autoriza novo contrato. Nesse caso, explicitar dado faltante, fonte canonica, consumidores impactados, artefatos derivados e validacao minima antes de implementar.
-- Nao duplicar semantica em `x-ui`, endpoints paralelos ou helpers locais quando a hierarquia resource-oriented, discovery semantico ou resolucao canonica existente ja cobre a necessidade.
+## Regras Locais e Arquivos que Mudam Juntos
+- **Baseline obrigatório:** `resource + surfaces + actions + capabilities`. Mutáveis via `AbstractResourceController` + `AbstractBaseResourceService` + `ResourceMapper` + `BaseResourceRepository`; read-only via `AbstractReadOnlyResourceController` + `AbstractReadOnlyResourceService` + `BaseResourceRepository`. Duplicação opt-in não-persistente usa `AbstractDuplicateDraftResourceController` + `DuplicateDraftResourceService`/`DuplicateDraftResourceCommandService` com `DuplicateDraftDTO` explícito (`docs/guides/DUPLICATE-DRAFT-ADOPTION.md`, sem confundir `@WorkflowAction(id="duplicate-draft")` com deep clone `1:N` nem prescrever classes `LegacyBacked*`).
+- `@UiSurface` ≠ `@WorkflowAction` (combiná-los no mesmo método exige revisar `praxis.metadata.validation.*`). `/capabilities` agrega sem redefinir `/schemas/filtered`. `RestApiResponse` publica `@JsonProperty("_links")` (nunca `links`).
+- Ao tocar `ApiDocsController`, revisar `ETag`, `X-Schema-Hash`, `If-None-Match`, `Access-Control-Expose-Headers` e cache. Ao tocar `surface/**`/`action/**`/`capability/**`, evitar N+1 compartilhando `ResourceStateSnapshot`. Novo bean → atualizar `AutoConfiguration.imports`. Mudança em `x-ui` → revisar `docs/spec/**/*.schema.json` e `docs/spec/examples/**`.
+- **Pares de alteração:** `controller/base/**` ↔ `service/base/**` + `src/test/java/org/praxisplatform/uischema/controller/base/**`; `ApiDocsController` ↔ `openapi/**`, `schema/**` + `controller/docs/**`; `surface/**` ↔ `SurfaceCatalogController.java`, `SurfaceCatalogService.java` + `SurfaceCatalogE2ETest`, `ResourceQuerySurfaceE2ETest`; `action/**` ↔ `ActionCatalog*` + `ActionCatalogE2ETest`, `WorkflowNegativePathsE2ETest`; `capability/**` ↔ `AbstractResourceQueryController`, `RestApiResponse` + `CapabilityE2ETest`, `CapabilityConsistencyE2ETest`, `HypermediaDiscoveryE2ETest`, `HateoasAndPayloadSizeE2ETest`; fixtures E2E ↔ `src/test/java/org/praxisplatform/uischema/e2e/fixture/**` + `AbstractE2eH2Test.java`.
 
-Classificacao Padrao da Mudanca
-- `docs-apenas`: mudancas restritas a `AGENTS.md`, `README.md`, `CHANGELOG.md` ou `docs/**` sem efeito em contrato ou codigo.
-- `contrato-publico`: qualquer mudanca em `x-ui`, `/schemas/filtered`, `/schemas/catalog`, `/schemas/surfaces`, `/schemas/actions`, `/capabilities`, `_links`, ETag, `X-Schema-Hash`, anotacoes exportadas ou controladores/base publicos.
-- `arquitetural`: mudanca que move semantica entre o core resource-oriented, a camada de discovery, a resolucao canonica de OpenAPI/schema ou a availability contextual.
-- `transversal`: mudanca que cruza mais de uma dessas fronteiras e exige sincronizar testes/docs/artefatos derivados.
+## Relação com Consumidores & Validação Cruzada
+- **`praxis-api-quickstart`:** consome por coordenada Maven (`mvn install` aqui quando local). Quebra em `EventosFolhaPilotIntegrationTest` ou `QuickstartMetadataMigrationIntegrationTest` é impacto real de consumidor.
+- **`praxis-ui-angular`:** contrato vivo em `praxis-ui-angular/projects/praxis-core/src/lib/{services/generic-crud.service.ts,schema/schema-metadata-client.ts,utils/fetch-with-etag.util.ts,services/config-storage.service.ts}` e `praxis-ai/src/lib/core/services/ai-backend-api.service.ts` (`GET {resource}/schemas`, `/schemas/filtered`, `schemaUrl`, `requestSchemaUrl`, `responseSchemaUrl`, `ETag`, `X-Schema-Hash`, `idField`, `_links`). Ao alterar contrato público, revisar `docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md` e `schema-metadata-client.spec.ts`, `fetch-with-etag.util.spec.ts`, `generic-crud.service.spec.ts`.
+- **`praxis-config-starter`:** dono paralelo de `/api/praxis/config/{ui,api-catalog/ingest,ai-registry/**,ai/**}`. Não corrigir aqui o que pertence ao config-starter; quando cruzar fronteira, revisar `config-storage.service.spec.ts`, `ai-backend-api.service.spec.ts`, os controllers `UserConfigController`, `ApiMetadataController`, `RegistryIngestionController`, `AiRegistryTemplateController` (+ `UserConfigServiceTest`, `ApiMetadataIngestionServiceTest`, `RegistryIngestionServiceIdentityTest`, `AiApiContractOpenApiTest`) e `ConfigOriginRestrictionFilter.java` no quickstart.
 
-Fronteira Canonica Local
-- O contrato HTTP e metadata-driven do starter mora principalmente em:
-  - `src/main/java/org/praxisplatform/uischema/controller/docs/ApiDocsController.java`
-  - `src/main/java/org/praxisplatform/uischema/controller/docs/DomainCatalogController.java`
-  - `src/main/java/org/praxisplatform/uischema/controller/docs/SurfaceCatalogController.java`
-  - `src/main/java/org/praxisplatform/uischema/controller/docs/ActionCatalogController.java`
-  - `src/main/java/org/praxisplatform/uischema/controller/base/AbstractResourceQueryController.java`
-  - `src/main/java/org/praxisplatform/uischema/controller/base/AbstractResourceController.java`
-  - `src/main/java/org/praxisplatform/uischema/controller/base/AbstractReadOnlyResourceController.java`
-  - `src/main/java/org/praxisplatform/uischema/rest/response/RestApiResponse.java`
-- A resolucao canonica de operacoes e links mora em:
-  - `src/main/java/org/praxisplatform/uischema/openapi/OpenApiDocumentService.java`
-  - `src/main/java/org/praxisplatform/uischema/openapi/CanonicalOperationResolver.java`
-  - `src/main/java/org/praxisplatform/uischema/schema/SchemaReferenceResolver.java`
-  - `src/main/java/org/praxisplatform/uischema/schema/FilteredSchemaReferenceResolver.java`
-- A semantica resource-oriented canonica mora em:
-  - `src/main/java/org/praxisplatform/uischema/service/base/AbstractBaseQueryResourceService.java`
-  - `src/main/java/org/praxisplatform/uischema/service/base/AbstractBaseResourceService.java`
-  - `src/main/java/org/praxisplatform/uischema/service/base/AbstractReadOnlyResourceService.java`
-  - `src/main/java/org/praxisplatform/uischema/service/base/BaseResourceQueryService.java`
-  - `src/main/java/org/praxisplatform/uischema/service/base/BaseResourceCommandService.java`
-  - `src/main/java/org/praxisplatform/uischema/service/base/BaseResourceService.java`
-- Discovery semantico e availability contextual moram em:
-  - `src/main/java/org/praxisplatform/uischema/surface/**`
-  - `src/main/java/org/praxisplatform/uischema/action/**`
-  - `src/main/java/org/praxisplatform/uischema/capability/**`
-- Auto-configuracao e exportacao do starter moram em:
-  - `src/main/java/org/praxisplatform/uischema/configuration/OpenApiUiSchemaAutoConfiguration.java`
-  - `src/main/java/org/praxisplatform/uischema/configuration/PraxisMetadataAutoConfiguration.java`
-  - `src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
-- Anotacoes publicas e contratos declarativos do starter moram em:
-  - `src/main/java/org/praxisplatform/uischema/annotation/ApiResource.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/ApiGroup.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/UiSurface.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/WorkflowAction.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/ResourceIntent.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/ResourceReference.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/UiOption.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/QuickFilter.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/FilterCriterion.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/QuickFilterTone.java`
-  - `src/main/java/org/praxisplatform/uischema/schema/QuickFilterDescriptor.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/ReactiveDetermination.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/DeterminationOutput.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/BulkEditable.java`
-  - `src/main/java/org/praxisplatform/uischema/bulk/BulkResourceOperations.java`
-  - `src/main/java/org/praxisplatform/uischema/fact/ResourceFact.java`
-  - `src/main/java/org/praxisplatform/uischema/fact/ResourceFacts.java`
-  - `src/main/java/org/praxisplatform/uischema/fact/ResourceFactDescriptor.java`
-  - `src/main/java/org/praxisplatform/uischema/fact/ResourceFactCatalogProvider.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/DomainGovernance.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/DomainGovernancePreset.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/DomainLineage.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/LegalTreatmentPurpose.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/FormLayout.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/FormLayoutMode.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/FormLayoutSection.java`
-  - `src/main/java/org/praxisplatform/uischema/annotation/FormLayoutStep.java`
-  - `src/main/java/org/praxisplatform/uischema/schema/FormLayoutMetadataResolver.java`
-  - `src/main/java/org/praxisplatform/uischema/capability/ResourceStructuralCapabilities.java`
-  - `src/main/java/org/praxisplatform/uischema/capability/ResourceStructuralCapabilityResolver.java`
-- Contratos canonicos auditados pelo `SemanticMetadataReviewer` (Ondas 1-3):
-  - **Quick Filters tipados (`@QuickFilter` / `defineQuickFilters()`):** `@ApiResource` deve declarar no minimo 2 filtros rapidos (`quick-filter-count-insufficient`) usando `criteria = {@FilterCriterion(field = "...", values/bool/number/decimal = ...)}` ou sobrescrevendo `AbstractResourceQueryController#defineQuickFilters()` (`QuickFilterDescriptor.<FD>builder(id, label).where(...)`), com `criteria.field` existente como `@Filterable` no `FilterDTO`, `label <= 36` caracteres sem ponto final e `icon` em `snake_case` minusculo; `@QuickFilter(filter = ...)` e `@Deprecated`.
-  - **Opcoes estaticas tipadas (`@UISchema` + `@UiOption`):** opcoes fechadas devem usar `optionItems = {@UiOption(...)}` (`org.praxisplatform.uischema.annotation.UiOption`) ou `optionEnum = MeuEnum.class`, com exclusividade mutua (`uischema-options-source-conflict`), `optionEnum` sendo um `enum` nao vazio (`uischema-option-enum-invalid`), valores unicos nao vazios, `label <= 36` chars sem ponto final e `icon` em `snake_case` minusculo; `@UISchema(options = ...)` e `@Deprecated(since = "2.1.0")`.
-  - **Fatos, determinacoes e lote (`@ResourceFact`, `@DeterminationOutput`, `@BulkResourceOperations`):** `@ResourceFact` herda `resourceKey` de `@ApiResource` quando omitido no controller ou no seu `<R>` `ResponseDTO`, valida os atributos `String` (`dataType`, `sourceKind`, `authority`, `evaluationPhase`, `missingValuePolicy`, `scope`) pelos enums `ResourceFact*` (exigindo propriedade correspondente no DTO quando `sourceKind` for `dto_field` ou `entity_field`), `label <= 36` chars sem ponto final e `icon` em `snake_case`; `@DeterminationOutput` exige shorthand `@DeterminationOutput("campo")` quando `response` e `field` sao iguais (`reactive-determination-output-redundant-explicit-pair`); e `@BulkResourceOperations(protectedUpdateFields = ...)` nao pode listar campos marcados com `@BulkEditable` (`bulk-protected-field-conflicts-with-bulk-editable`).
-- Fronteira da **Praxis Decision Platform**: o `praxis-metadata-starter` publica metadados semânticos declarativos (`@DomainGovernance`, `@DomainLineage`, `LegalTreatmentPurpose`, `x-ui.fieldAccess`, `@ResourceFact`) consumidos tanto pela trilha de regras de negócio determinísticas (`decisionKind = BUSINESS` -> `praxis-rules-engine`) quanto pela trilha de autorização/mascaramento (`decisionKind = AUTHORIZATION` -> `praxis-authz-*` / `OPA`). Não implementar PEP/PDP de segurança nem motor de regras de negócio dentro do metadata starter.
-- Mudancas semanticas devem privilegiar estruturas que melhorem o grounding de decisoes authoradas por IA, evitando empurrar logica de negocio para `x-ui` incidental ou para convenções locais do host.
+## Validação Mínima por Escopo
+- No Windows, preferir `mvn` (`mvnw.cmd` é stub; fallback wrapper: `java -classpath .mvn/wrapper/maven-wrapper.jar -Dmaven.multiModuleProjectDirectory=. org.apache.maven.wrapper.MavenWrapperMain test`). Não rodar `clean verify` por reflexo:
+  - Docs/OpenAPI: `mvn "-Dtest=ApiDocsControllerTest,ApiDocsControllerPathResolutionTest,ApiDocsControllerSchemaHashTest,DomainCatalogControllerTest,FilteredSchemaReferenceResolverTest,OpenApiCanonicalOperationResolverTest" test`
+  - Controllers/`_links`/base path: `mvn "-Dtest=AbstractResourceControllerMappedCrudTest,AbstractResourceControllerJpaWriteIntegrationTest,AbstractReadOnlyResourceControllerLinksTest,AbstractResourceControllerLinksTest,AbstractResourceQueryControllerHateoasTest,AbstractResourceQueryControllerBasePathDetectionTest" test`
+  - Surfaces: `mvn "-Dtest=AnnotationDrivenSurfaceDefinitionRegistryTest,DefaultSurfaceAvailabilityContextResolverTest,DefaultSurfaceAvailabilityEvaluatorTest,SurfaceCatalogServiceTest,SurfaceCatalogE2ETest,ResourceQuerySurfaceE2ETest" test`
+  - Actions: `mvn "-Dtest=AnnotationDrivenActionDefinitionRegistryTest,DefaultActionAvailabilityContextResolverTest,DefaultActionAvailabilityEvaluatorTest,ActionCatalogServiceTest,ActionCatalogE2ETest,WorkflowNegativePathsE2ETest" test`
+  - Capabilities: `mvn "-Dtest=OpenApiCanonicalCapabilityResolverTest,CapabilityServiceTest,CapabilityE2ETest,CapabilityConsistencyE2ETest,HypermediaDiscoveryE2ETest,HateoasAndPayloadSizeE2ETest" test`
+  - Core/cursor/custom fields/commands/bulk (H2/MockMvc): `mvn "-Dtest=CoreResourceEvolutionIntegrationTest,ResourceKeysetSupportTest,CustomFieldJsonLogicTest,CustomFieldAdoptionRegressionTest,CustomFieldResourceLifecycleTest,GovernedResourceCommandExecutorTest,RuleViolationHttpTest,JpaResourceBulkEngineTest,BulkDeclarativeProtocolTest,BulkDeclarativeJpaHttpTest,BulkOperationStatusLookupTest" test`
+  - Parcela Windows sem Postgres/Neon: `mvn test "-Dtest=!*Neon*,!*PostgresTest,!BulkCapacityLocalAdministrationMainTest,!BulkCapacityProvisioningMainTest,!BulkConsumerArtifactIntegrationTest"`
+- **Regra Estrita `*PostgresTest` & `*Neon*`:** selecionar por comportamento/dependências mesmo em mudanças só Java (ex.: `BulkAuthorizedExecutionReader` → `BulkAuthorizedExecutionReaderPostgresTest`). `*Neon*`, `BulkCapacityAuthorityRollbackPostgresTest`, `BulkCapacityLocalAdministrationMainTest`, `BulkCapacityProvisioningMainTest` e `BulkConsumerArtifactIntegrationTest` têm pré-requisitos específicos: sem ambiente admitido, registrar gate pendente (exclusão/mock não substitui integração exigida).
 
-Baseline Resource-Oriented
-- Duplicação opt-in usa `AbstractDuplicateDraftResourceController` e `DuplicateDraftResourceService`/`DuplicateDraftResourceCommandService`, com DTO explícito compatível com create. O preparo é não persistente/não mutante; só o POST de criação posterior persiste. Política de campos/estado/escopo pertence ao backend. Exigir opt-in + mapping e decisões afirmativas create/view/duplicate-draft em guardas, links e discovery. Preservar a annotation real da base para discovery sem confundir com deep clone transacional `1:N`, que é uma action distinta. Revisar `docs/guides/DUPLICATE-DRAFT-ADOPTION.md` e as notas de suporte/availability; não prescrever bases públicas `LegacyBacked*` ou helpers de cópia inexistentes.
-- O starter publica uma unica hierarquia canonica resource-oriented.
-- Nao reintroduzir hierarquias paralelas por conveniencia. Se a necessidade for canonica, implementar na hierarquia `AbstractResource*` e nos servicos resource-oriented.
-
-Regras Locais Obrigatorias
-- O baseline canonico do starter e `resource + surfaces + actions + capabilities`.
-- Recursos mutaveis novos devem subir por `AbstractResourceController` + `AbstractBaseResourceService` + `ResourceMapper` + `BaseResourceRepository`.
-- Recursos read-only novos devem subir por `AbstractReadOnlyResourceController` + `AbstractReadOnlyResourceService` + `BaseResourceRepository`.
-- `@UiSurface` e discovery semantico sobre operacao real. Nao use para modelar workflow action.
-- `@WorkflowAction` e somente para comando de negocio explicito. Nao inferir action por nome de metodo, persistencia basica de recurso ou path parecido com workflow.
-- `@UiSurface` e `@WorkflowAction` no mesmo metodo entram em zona de validacao de conflito. Nao combinar os dois sem necessidade explicita e sem revisar os modos `praxis.metadata.validation.*`.
-- `/capabilities` agrega operacoes canonicas, surfaces e actions; nao deve redefinir payload, schema ou semantica ja publicada em `/schemas/filtered`.
-- `RestApiResponse` publica `_links` via `@JsonProperty("_links")`. Nao regredir para `links`.
-- Se tocar `ApiDocsController`, revisar junto ETag, `X-Schema-Hash`, `If-None-Match`, `Access-Control-Expose-Headers` e cache headers.
-- Se tocar `surface/**`, `action/**` ou `capability/**`, revisar o fluxo contextual inteiro e evitar N+1. O contrato atual compartilha `ResourceStateSnapshot` por requisicao/recurso.
-- Se adicionar bean novo de auto-configuracao, revisar `AutoConfiguration.imports` no mesmo corte.
-- Se mudar shape de `x-ui`, revisar tambem `docs/spec/**/*.schema.json` e `docs/spec/examples/**`.
-
-Arquivos que Costumam Mudar Juntos
-- `controller/base/**` com `service/base/**` e testes em `src/test/java/org/praxisplatform/uischema/controller/base/**`.
-- `controller/docs/ApiDocsController.java` com `openapi/**`, `schema/**` e testes em `src/test/java/org/praxisplatform/uischema/controller/docs/**`.
-- `surface/**` com `SurfaceCatalogController.java`, `SurfaceCatalogService.java`, testes em `src/test/java/org/praxisplatform/uischema/surface/**` e E2E `SurfaceCatalogE2ETest` / `ResourceQuerySurfaceE2ETest`.
-- `action/**` com `ActionCatalogController.java`, testes em `src/test/java/org/praxisplatform/uischema/action/**` e E2E `ActionCatalogE2ETest` / `WorkflowNegativePathsE2ETest`.
-- `capability/**` com `AbstractResourceQueryController.java`, `RestApiResponse.java`, testes em `src/test/java/org/praxisplatform/uischema/capability/**` e E2E `CapabilityE2ETest`, `CapabilityConsistencyE2ETest`, `HypermediaDiscoveryE2ETest` e `HateoasAndPayloadSizeE2ETest`.
-- Mudancas em fixtures E2E costumam exigir revisar `src/test/java/org/praxisplatform/uischema/e2e/fixture/**` e a base `AbstractE2eH2Test.java`.
-
-Relacao com Outros Subprojetos
-- `praxis-api-quickstart` e o host operacional de referencia do starter no monorepo. Ele consome `praxis-metadata-starter` e `praxis-config-starter` como artefatos Maven, nao como modulos agregados.
-- Mudou contrato publico do starter e quer provar por HTTP real no host? O caminho focal no quickstart passa primeiro por:
-  - `praxis-api-quickstart/src/test/java/com/example/praxis/apiquickstart/config/EventosFolhaPilotIntegrationTest.java`
-  - `praxis-api-quickstart/src/test/java/com/example/praxis/apiquickstart/config/QuickstartMetadataMigrationIntegrationTest.java`
-- Esses testes provam `_links`, `/schemas/surfaces`, `/schemas/actions`, `/capabilities`, `schemaUrl` e `requestSchemaUrl/responseSchemaUrl` sobre endpoints reais do quickstart. Se eles quebrarem, trate isso como impacto real de consumidor, nao como detalhe de teste.
-- Como o quickstart depende de coordenadas Maven versionadas, cortes locais nao publicados no starter normalmente exigem `mvn install` aqui antes de rerodar os testes dele.
-- `praxis-ui-angular` e o runtime oficial consumidor do starter. O consumo mais sensivel hoje nao esta em docs, e sim em:
-  - `praxis-ui-angular/projects/praxis-core/src/lib/services/generic-crud.service.ts`
-  - `praxis-ui-angular/projects/praxis-core/src/lib/schema/schema-metadata-client.ts`
-  - `praxis-ui-angular/projects/praxis-core/src/lib/utils/fetch-with-etag.util.ts`
-  - `praxis-ui-angular/projects/praxis-core/src/lib/services/config-storage.service.ts`
-  - `praxis-ui-angular/projects/praxis-ai/src/lib/core/services/ai-backend-api.service.ts`
-- Para o Angular, `GET {resource}/schemas`, redirect ou resolucao para `/schemas/filtered`, `ETag`, `X-Schema-Hash`, `idField` e envelope `_links` sao contrato vivo do runtime. Nao trate essas semanticas como detalhe interno do backend.
-- O guia canônico de consumo Angular deste starter continua em `docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md`. Se a mudanca alterar a narrativa de consumo oficial, revise esse guia junto.
-- `praxis-config-starter` nao e superficie derivada do metadata starter. Ele e o dono canonico de `/api/praxis/config/**`, incluindo:
-  - `/api/praxis/config/ui`
-  - `/api/praxis/config/api-catalog/ingest`
-  - `/api/praxis/config/ai-registry/**`
-  - `/api/praxis/config/ai/**`
-- O metadata starter pode depender operacionalmente dessas superficies, mas nao deve redefinir a semantica delas. Persistencia de `ui_user_config`, ingestao de `api_metadata`, ingestao de `ai_registry`, headers de tenant/usuario/ambiente e ETag de config pertencem ao config-starter.
-- Quando o quickstart hospeda o config-starter, ainda existe a fronteira de seguranca extra em `praxis-api-quickstart/src/main/java/com/example/praxis/apiquickstart/security/ConfigOriginRestrictionFilter.java`. Requisicoes para `/api/praxis/config/**` podem falhar por `Origin` mesmo quando o path esta `permitAll`.
-
-Validacao Cruzada Quando o Contrato Publico Muda
-- Mudou `/schemas/filtered`, `_links`, `schemaUrl`, `requestSchemaUrl`, `responseSchemaUrl`, `ETag` ou `X-Schema-Hash`:
-  - valide o starter localmente;
-  - valide o quickstart nos testes `EventosFolhaPilotIntegrationTest` e `QuickstartMetadataMigrationIntegrationTest`;
-  - revise no Angular ao menos `schema-metadata-client.spec.ts`, `fetch-with-etag.util.spec.ts` e `generic-crud.service.spec.ts`.
-- Mudou algo que afeta o consumo de configuracao ou a fronteira entre metadata e config:
-  - nao corrija no starter o que pertence a `/api/praxis/config/**`;
-  - revise no Angular `config-storage.service.spec.ts` e `ai-backend-api.service.spec.ts`;
-  - revise no config-starter os controllers `UserConfigController`, `ApiMetadataController`, `RegistryIngestionController`, `AiRegistryTemplateController` e os services/tests correspondentes (`UserConfigServiceTest`, `ApiMetadataIngestionServiceTest`, `RegistryIngestionServiceIdentityTest`, `AiApiContractOpenApiTest`).
-- Mudou semantica do baseline `resource + surfaces + actions + capabilities`:
-  - o quickstart e a prova operacional mais proxima do uso real;
-  - o Angular e o consumidor oficial do runtime;
-  - o config-starter e uma fronteira paralela de plataforma, nao um lugar para remendo de contrato do starter.
-
-Validacao Minima por Escopo
-- No Windows, prefira `mvn`. O `mvnw.cmd` deste projeto e apenas um stub que delega para Maven instalado.
-- Se Maven nao estiver instalado, use o wrapper jar real:
-  - `java -classpath .mvn/wrapper/maven-wrapper.jar -Dmaven.multiModuleProjectDirectory=. org.apache.maven.wrapper.MavenWrapperMain test`
-- Nao rode `clean verify` por reflexo. Escolha a menor suite confiavel para o write set.
-- Docs filtrados, schema refs e grupos OpenAPI:
-  - `mvn "-Dtest=ApiDocsControllerTest,ApiDocsControllerPathResolutionTest,ApiDocsControllerSchemaHashTest,DomainCatalogControllerTest,FilteredSchemaReferenceResolverTest,OpenApiCanonicalOperationResolverTest" test`
-- Resource controllers, `_links` e base path:
-  - `mvn "-Dtest=AbstractResourceControllerMappedCrudTest,AbstractResourceControllerJpaWriteIntegrationTest,AbstractReadOnlyResourceControllerLinksTest,AbstractResourceControllerLinksTest,AbstractResourceQueryControllerHateoasTest,AbstractResourceQueryControllerBasePathDetectionTest" test`
-- Surfaces:
-  - `mvn "-Dtest=AnnotationDrivenSurfaceDefinitionRegistryTest,DefaultSurfaceAvailabilityContextResolverTest,DefaultSurfaceAvailabilityEvaluatorTest,SurfaceCatalogServiceTest,SurfaceCatalogE2ETest,ResourceQuerySurfaceE2ETest" test`
-- Actions:
-  - `mvn "-Dtest=AnnotationDrivenActionDefinitionRegistryTest,DefaultActionAvailabilityContextResolverTest,DefaultActionAvailabilityEvaluatorTest,ActionCatalogServiceTest,ActionCatalogE2ETest,WorkflowNegativePathsE2ETest" test`
-- Capabilities e hypermedia:
-  - `mvn "-Dtest=OpenApiCanonicalCapabilityResolverTest,CapabilityServiceTest,CapabilityE2ETest,CapabilityConsistencyE2ETest,HypermediaDiscoveryE2ETest,HateoasAndPayloadSizeE2ETest" test`
-- Core resource service, keyset cursor, custom fields, commands e bulk declarativo/JPA (H2/MockMvc rápido):
-  - `mvn "-Dtest=CoreResourceEvolutionIntegrationTest,ResourceKeysetSupportTest,CustomFieldJsonLogicTest,CustomFieldAdoptionRegressionTest,CustomFieldResourceLifecycleTest,GovernedResourceCommandExecutorTest,RuleViolationHttpTest,JpaResourceBulkEngineTest,BulkDeclarativeProtocolTest,BulkDeclarativeJpaHttpTest,BulkOperationStatusLookupTest" test`
-- Parcela de regressão do starter no Windows que exclui as integrações abaixo; conferir o impacto e complementar com os casos relevantes. Contagem e duração históricas não definem suficiência:
-  - `mvn test "-Dtest=!*Neon*,!*PostgresTest,!BulkCapacityLocalAdministrationMainTest,!BulkCapacityProvisioningMainTest,!BulkConsumerArtifactIntegrationTest"`
-- Regra Estrita para `*PostgresTest` (`EmbeddedPostgres`) e `*Neon*`:
-  - Selecionar por comportamento e dependências, não somente por alterações em SQL/Flyway. Mudanças apenas em Java podem exigir prova PostgreSQL de autorização, tenant, snapshots, concorrência, publicação e ciclo de vida. Por exemplo, alterações em `BulkAuthorizedExecutionReader` devem considerar `BulkAuthorizedExecutionReaderPostgresTest`, incluindo revogação de acesso e snapshot físico. Inspecionar fixtures/pré-requisitos antes de executar.
-  - Começar pelas classes afetadas com seleção explícita (ex.: `mvn "-Dtest=BulkAuthorizedExecutionReaderPostgresTest" test`, somente em ambiente admitido pelo teste e pela governança aplicável). Ampliar quando houver dependências compartilhadas, risco não coberto ou gate obrigatório; não rodar todas as classes por reflexo nem impor limite de uma classe quando várias forem necessárias.
-  - Testes `*Neon*`, `BulkCapacityAuthorityRollbackPostgresTest`, `BulkCapacityLocalAdministrationMainTest`, `BulkCapacityProvisioningMainTest` e `BulkConsumerArtifactIntegrationTest` têm pré-requisitos específicos de banco, sistema operacional, credenciais ou árvore dedicada: verificar cada fixture e seu guia. Isso determina onde executar a prova necessária, não autoriza omiti-la. Sem ambiente admitido, registrar o gate pendente; exclusões, mocks e prova local não substituem integração real/Neon exigida. Preservar gates oficiais de segurança, persistência, consumidor e release.
-
-Artefatos Derivados e Sincronizacao
-- Se a mudanca alterar contrato publico, revisar no minimo:
-  - `README.md`
-  - `CHANGELOG.md`
-  - `docs/index.md`
-  - `docs/guides/**`
-  - `docs/technical/**`
-- Governanca didatica das homes publicas (`README.md`, `docs/index.md` e `docs/README.md`):
-  - A abertura do `README.md` e do `docs/index.md` deve preservar sempre a piramide didatica de adocao: proposta de valor, Praxis Cockpit (`/praxis/cockpit`), tabela de superficies publicadas, Quickstart em 5 minutos, arquitetura `resource + surface + action + capability + HATEOAS` e fronteiras do ecossistema.
-  - E proibido inserir logs operacionais de candidatos internos, contagens brutas de testes de RCs ou checkpoints de PRs no topo do `README.md`, `docs/index.md` ou `docs/README.md`. Registros de candidatos de release e status incremental do Bulk SDK devem ser atualizados em `docs/technical/BULK-AND-RELEASE-CANDIDATES-STATUS.md` e no `CHANGELOG.md`, mantendo na Home apenas resumos executivos limpos e links para a especificacao.
-- Se a mudanca alterar semantica de `x-ui`, schemas ou exemplos publicados, revisar tambem:
-  - `docs/spec/CONFORMANCE.md`
-  - `docs/spec/*.schema.json`
-  - `docs/spec/examples/**`
-- Se a mudanca alterar a narrativa arquitetural do baseline `resource + surfaces + actions + capabilities`, revisar especialmente:
-  - `docs/technical/PILOT-READINESS-CHECKLIST.md`
-- Nao editar `docs/apidocs/**` manualmente. Se a tarefa pedir esse output, trate como artefato gerado.
-
-Referencias Uteis
-- `docs/guides/GUIA-03-ADOCAO-CONSUMIDOR-PILOTO.md`
-- `docs/guides/GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY.md`
-- `docs/guides/GUIA-03-AI-FRONTEND-CRUD-ANGULAR.md`
-- `docs/spec/CONFORMANCE.md`
-- `docs/spec/AGENT-BRIEF.md`
-
-Regra de Pronto
-- A tarefa so termina quando o contrato canonico estiver coerente no codigo, os testes focais corretos tiverem sido executados e os artefatos derivados obrigatorios tiverem sido revisados ou explicitamente descartados.
-
-## Economia de GitHub Actions
-
-O padrão durante desenvolvimento é zero execuções remotas. Valide localmente o escopo alterado; commits, PRs, documentação interna e conclusão de tarefas não são motivos para iniciar Actions. Use os workflows manuais somente no fechamento autorizado de uma versão/publicação ou na prova necessária do host já implantado. Não use `[skip ci]` como mecanismo principal nem desabilite checks/proteções para economizar.
-
-Antes de push, tag ou dispatch, confira os gatilhos reais de `.github/workflows/`. Tags de release publicam artefatos: não criá-las para testar a automação. Diagnostique localmente antes de repetir um job; conserve a evidência da revisão e dos artefatos usados. Monitores operacionais explicitamente mantidos são independentes do CI de commits. Consulte [ACTIONS-RELEASE-POLICY.md](ACTIONS-RELEASE-POLICY.md) para os pontos de entrada e recuperação.
+## Derivados, Referências e Economia de GitHub Actions
+- **Derivados:** revisar `README.md`, `CHANGELOG.md`, `docs/index.md`, `docs/guides/**`, `docs/technical/**`, `docs/spec/{CONFORMANCE.md,*.schema.json,examples/**}` e `docs/technical/PILOT-READINESS-CHECKLIST.md` (`docs/apidocs/**` é gerado).
+- **Homes públicas (`README.md`, `docs/index.md`, `docs/README.md`):** preservar pirâmide didática (proposta de valor, `/praxis/cockpit`, tabela de superfícies, Quickstart 5 min, `resource + surface + action + capability + HATEOAS`, fronteiras). Logs de RCs/status Bulk vão em `docs/technical/BULK-AND-RELEASE-CANDIDATES-STATUS.md` e `CHANGELOG.md`, nunca no topo da Home.
+- **Referências:** `docs/guides/{GUIA-03-ADOCAO-CONSUMIDOR-PILOTO,GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY,GUIA-03-AI-FRONTEND-CRUD-ANGULAR}.md`, `docs/spec/{CONFORMANCE,AGENT-BRIEF}.md`.
+- **Economia de CI:** zero execuções remotas em dev normal; consultar [ACTIONS-RELEASE-POLICY.md](ACTIONS-RELEASE-POLICY.md) antes de tag/dispatch (`v*` publica release).
