@@ -1645,6 +1645,895 @@ class SemanticDomainCatalogServiceTest {
                 .anyMatch(edge -> "workforce.vinculos.references-child.workforce.afastamentos".equals(edge.edgeKey()));
     }
 
+    @Test
+    void resolvesUiSchemaAndSchemaTitleLabelsForFieldNodesWithFallback() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode openApiDoc = mapper.valueToTree(Map.of(
+                "components", Map.of(
+                        "schemas", Map.of(
+                                "EmployeeCreateRequest", Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                "taxId", Map.of("type", "string", "title", "CPF Request"),
+                                                "hireDate", Map.of("type", "string", "format", "date"),
+                                                "departmentCode", Map.of("type", "string", "title", "Código do Departamento"),
+                                                "rawBadgeCode", Map.of("type", "string")
+                                        )
+                                ),
+                                "EmployeeResponse", Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                "taxId", Map.of(
+                                                        "type", "string",
+                                                        "title", "CPF Schema Title",
+                                                        "x-ui", Map.of("label", "CPF do Colaborador")
+                                                ),
+                                                "hireDate", Map.of(
+                                                        "type", "string",
+                                                        "format", "date",
+                                                        "x-ui", Map.of("label", "Data de Admissão")
+                                                )
+                                        )
+                                )
+                        )
+                )
+        ));
+        OpenApiDocumentService docs = new OpenApiDocumentService() {
+            @Override public String resolveGroupFromPath(String path) { return "workforce"; }
+            @Override public JsonNode getDocumentForGroup(String groupName) { return openApiDoc; }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return openApiDoc; }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "h"; }
+            @Override public void clearCaches() {}
+        };
+        ActionDefinitionRegistry actionRegistry = new ActionDefinitionRegistry() {
+            @Override
+            public List<ActionDefinition> findByResourceKey(String resourceKey) {
+                if (!"workforce.employees".equals(resourceKey)) return List.of();
+                return List.of(new ActionDefinition(
+                        "create",
+                        "workforce.employees",
+                        "/api/workforce/employees",
+                        "workforce",
+                        ActionScope.COLLECTION,
+                        "Cadastrar colaborador",
+                        "Cria um vínculo de colaborador.",
+                        new CanonicalOperationRef("workforce", "createEmployee", "/api/workforce/employees", "POST"),
+                        new CanonicalSchemaRef("EmployeeCreateRequest", "request", "/schemas/filtered?schemaType=request"),
+                        new CanonicalSchemaRef("EmployeeResponse", "response", "/schemas/filtered?schemaType=response"),
+                        10,
+                        "Criado",
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.COLLECTION)
+                ));
+            }
+            @Override public List<ActionDefinition> findByGroup(String group) { return findByResourceKey("workforce.employees"); }
+        };
+        SurfaceDefinitionRegistry emptySurfaces = new SurfaceDefinitionRegistry() {
+            @Override public List<SurfaceDefinition> findByResourceKey(String resourceKey) { return List.of(); }
+            @Override public List<SurfaceDefinition> findByGroup(String group) { return List.of(); }
+        };
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                actionRegistry, emptySurfaces, OptionSourceRegistry.empty(), docs,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-workforce", "Praxis Workforce", "test"
+        );
+
+        DomainCatalogResponse response = service.findByResourceKey("workforce.employees");
+
+        var taxIdNode = response.nodes().stream()
+                .filter(n -> "workforce.employees.field.tax-id".equals(n.nodeKey())).findFirst().orElseThrow();
+        assertThat(taxIdNode.label()).isEqualTo("CPF do Colaborador");
+        assertThat(taxIdNode.businessGlossary()).containsEntry("preferredTerm", "CPF do Colaborador");
+
+        var hireDateNode = response.nodes().stream()
+                .filter(n -> "workforce.employees.field.hire-date".equals(n.nodeKey())).findFirst().orElseThrow();
+        assertThat(hireDateNode.label()).isEqualTo("Data de Admissão");
+        assertThat(hireDateNode.businessGlossary()).containsEntry("preferredTerm", "Data de Admissão");
+
+        var deptNode = response.nodes().stream()
+                .filter(n -> "workforce.employees.field.department-code".equals(n.nodeKey())).findFirst().orElseThrow();
+        assertThat(deptNode.label()).isEqualTo("Código do Departamento");
+
+        var rawBadgeNode = response.nodes().stream()
+                .filter(n -> "workforce.employees.field.raw-badge-code".equals(n.nodeKey())).findFirst().orElseThrow();
+        assertThat(rawBadgeNode.label()).isEqualTo("Raw Badge Code");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void projectsDidacticSlotRuleAndRuleSetDocumentationAndOmitsWhenAbsent() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode exprWithDocs = mapper.readTree("{\"==\":[{\"var\":\"draft.status\"},\"ACTIVE\"]}");
+        JsonNode exprNoDocs = mapper.readTree("{\"!=\":[{\"var\":\"draft.id\"},null]}");
+
+        RuleSetDefinition defWithDocs = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", "human-resources.folhas-pagamento", "human-resources.folhas-pagamento.validate", "CREATE", 1),
+                List.of(new DecisionSlot("payroll.status-slot", DecisionStage.DOMAIN_DECISION, SlotCardinality.SINGLE,
+                        OverridePolicy.REPLACEABLE, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of())),
+                List.of(new DecisionBinding("product.payroll.status", "payroll.status-slot", DecisionSource.PRODUCT,
+                        null, RuleExecutorRef.jsonLogic(exprWithDocs), List.of(), 1, true, RuleDecision.DENY,
+                        "WF-PAYROLL-010", List.of("draft.status"), null)),
+                RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED
+        );
+        RuleSetDefinition defWithoutDocs = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", "human-resources.folhas-pagamento", "human-resources.folhas-pagamento.basic", "UPDATE", 1),
+                List.of(new DecisionSlot("payroll.basic-slot", DecisionStage.PROTECTED_GUARD, SlotCardinality.SINGLE,
+                        OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of())),
+                List.of(new DecisionBinding("product.payroll.basic", "payroll.basic-slot", DecisionSource.PRODUCT,
+                        null, RuleExecutorRef.jsonLogic(exprNoDocs), List.of(), 1, true, RuleDecision.DENY,
+                        "WF-PAYROLL-011", List.of("draft.id"), null)),
+                RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED
+        );
+
+        var legalBasis = List.of(RuleLegalBasisDescriptor.of(
+                "CLT Art. 462", "Consolidação das Leis do Trabalho", "Art. 462", "Federal",
+                "Protege integridade e regularidade da folha de pagamento.", null));
+        var slotDoc = RuleDocumentationDescriptor.of(
+                "Validação de situação da folha",
+                "Verifica se a folha está ativa antes de confirmar processamento.",
+                "Na criação de uma nova folha.",
+                "Evita lançamentos em competências encerradas.",
+                legalBasis,
+                "Substituível pelo cliente no Policy Studio."
+        );
+        var ruleDocByReason = RuleDocumentationDescriptor.of(
+                "Folha ativa obrigatória",
+                "Verifica se o status informado é ACTIVE.",
+                "Em toda inclusão.",
+                "Mantém consistência contábil.",
+                legalBasis,
+                "Pode ser ajustada por regra do cliente."
+        );
+        var ruleDocByBinding = RuleDocumentationDescriptor.of(
+                null,
+                "Verifica se o status da folha é ACTIVE antes do fechamento.",
+                null,
+                null,
+                List.of(),
+                null
+        );
+        var familyDoc = RuleDocumentationDescriptor.of(
+                "Governança de Criação da Folha",
+                "Reúne as regras de elegibilidade para abertura da folha.",
+                "Ao iniciar a operação CREATE.",
+                "Previne inconsistências financeiras.",
+                legalBasis,
+                "Consulte cada etapa para ver quais pontos aceitam parametrização."
+        );
+
+        DomainRuleSetDescriptor withDocs = DomainRuleSetDescriptor.of(
+                "human-resources.folhas-pagamento",
+                defWithDocs,
+                "Regras com documentação",
+                "Descrição com documentação",
+                List.of(new DomainRuleSetDescriptor.RuleReasonDescriptor(
+                        "WF-PAYROLL-010", "payroll.status-slot", "valorLiquido", "Status inválido.", "ORIGIN", "LINEAGE")),
+                Map.of(),
+                Map.of("payroll.status-slot", slotDoc),
+                Map.of("WF-PAYROLL-010", ruleDocByReason, "product.payroll.status", ruleDocByBinding),
+                familyDoc
+        );
+        DomainRuleSetDescriptor withoutDocs = DomainRuleSetDescriptor.of(
+                "human-resources.folhas-pagamento",
+                defWithoutDocs,
+                Map.of()
+        );
+
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(),
+                optionSources(),
+                new StubOpenApiDocumentService(),
+                null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart",
+                "Praxis API Quickstart",
+                "test",
+                null,
+                null,
+                null,
+                (resourceKey, tenantId) -> "human-resources.folhas-pagamento".equals(resourceKey)
+                        ? List.of(withDocs, withoutDocs)
+                        : List.of()
+        );
+
+        DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
+
+        var nodeWithDocs = response.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.validate".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat(nodeWithDocs.metadata().get("documentation")).isEqualTo(familyDoc);
+        var slotsWithDocs = (List<Map<String, Object>>) nodeWithDocs.metadata().get("slots");
+        assertThat(slotsWithDocs).singleElement().satisfies(slot -> {
+            assertThat(slot).containsEntry("title", "Validação de situação da folha");
+            assertThat(slot).containsEntry("summary", "Verifica se a folha está ativa antes de confirmar processamento.");
+            assertThat(slot).containsEntry("whenApplies", "Na criação de uma nova folha.");
+            assertThat(slot).containsEntry("rationale", "Evita lançamentos em competências encerradas.");
+            assertThat(slot).containsEntry("legalBasis", legalBasis);
+            assertThat(slot).containsEntry("customizationGuidance", "Substituível pelo cliente no Policy Studio.");
+        });
+        var rulesWithDocs = (List<Map<String, Object>>) nodeWithDocs.metadata().get("rules");
+        assertThat(rulesWithDocs).singleElement().satisfies(rule -> {
+            assertThat(rule).containsEntry("title", "Folha ativa obrigatória");
+            assertThat(rule).containsEntry("summary", "Verifica se o status da folha é ACTIVE antes do fechamento.");
+            assertThat(rule).containsEntry("whenApplies", "Em toda inclusão.");
+            assertThat(rule).containsEntry("rationale", "Mantém consistência contábil.");
+            assertThat(rule).containsEntry("legalBasis", legalBasis);
+            assertThat(rule).containsEntry("customizationGuidance", "Pode ser ajustada por regra do cliente.");
+        });
+
+        var nodeWithoutDocs = response.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.basic".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat(nodeWithoutDocs.metadata()).doesNotContainKey("documentation");
+        var slotsWithoutDocs = (List<Map<String, Object>>) nodeWithoutDocs.metadata().get("slots");
+        assertThat(slotsWithoutDocs).singleElement().satisfies(slot ->
+                assertThat(slot).doesNotContainKeys("title", "summary", "whenApplies", "rationale", "legalBasis", "customizationGuidance"));
+        var rulesWithoutDocs = (List<Map<String, Object>>) nodeWithoutDocs.metadata().get("rules");
+        assertThat(rulesWithoutDocs).singleElement().satisfies(rule ->
+                assertThat(rule).doesNotContainKeys("title", "summary", "whenApplies", "rationale", "legalBasis", "customizationGuidance"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void resolvesHumanLabelsForTargetFieldsAndReferencedFactPathsAcrossAllRootsAndInvalidatesCache() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expression = mapper.readTree("""
+                {"and":[
+                  {"!=":[{"var":"draft.valorLiquido"},null]},
+                  {"!=":[{"var":"draft.address.city"},null]},
+                  {"==":[{"var":"fornecedor.status"},"ACTIVE"]},
+                  {"<=":[{"var":"neighborhood.openPayrollsCount"},1]},
+                  {"!=":[{"var":"context.tenantId"},null]}
+                ]}
+                """);
+        RuleSetDefinition ruleSetDefinition = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", "human-resources.folhas-pagamento", "human-resources.folhas-pagamento.validate", "CREATE", 1),
+                List.of(new DecisionSlot("payroll.wf-payroll-001", DecisionStage.PROTECTED_GUARD, SlotCardinality.SINGLE,
+                        OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of())),
+                List.of(new DecisionBinding("product.payroll.wf-payroll-001", "payroll.wf-payroll-001", DecisionSource.PRODUCT,
+                        null, RuleExecutorRef.jsonLogic(expression), List.of(), 1, true, RuleDecision.DENY,
+                        "WF-PAYROLL-001",
+                        List.of("context.tenantId", "draft.valorLiquido", "draft.address.city", "fornecedor.status", "neighborhood.openPayrollsCount"),
+                        null)),
+                RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED
+        );
+
+        var mutableUiLabel = new java.util.concurrent.atomic.AtomicReference<>("Valor Líquido");
+        var mutableRuleSummary = new java.util.concurrent.atomic.AtomicReference<>("Resumo inicial");
+
+        JsonNode basePayrollDoc = new StubOpenApiDocumentService().getDocumentForGroup("human-resources");
+        JsonNode partnersDoc = mapper.valueToTree(Map.of(
+                "components", Map.of(
+                        "schemas", Map.of(
+                                "SupplierResponse", Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                "status", Map.of("type", "string", "x-ui", Map.of("label", "Situação do Fornecedor"))
+                                        )
+                                )
+                        )
+                )
+        ));
+        OpenApiDocumentService dynamicDocs = new OpenApiDocumentService() {
+            @Override public String resolveGroupFromPath(String path) { return path != null && path.contains("fornecedores") ? "partners" : "human-resources"; }
+            @Override
+            public JsonNode getDocumentForGroup(String groupName) {
+                if ("partners".equals(groupName)) return partnersDoc;
+                var copy = (com.fasterxml.jackson.databind.node.ObjectNode) basePayrollDoc.deepCopy();
+                var payrollProps = (com.fasterxml.jackson.databind.node.ObjectNode) copy.at("/components/schemas/WorkflowResponse/properties");
+                ((com.fasterxml.jackson.databind.node.ObjectNode) payrollProps.get("valorLiquido"))
+                        .putObject("x-ui").put("label", mutableUiLabel.get());
+                var addr = payrollProps.putObject("address");
+                addr.put("type", "object");
+                addr.putObject("properties").putObject("city").put("type", "string").putObject("x-ui").put("label", "Cidade");
+                return copy;
+            }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return getDocumentForGroup(groupName); }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "h"; }
+            @Override public void clearCaches() {}
+        };
+        ActionDefinitionRegistry actionRegistry = new ActionDefinitionRegistry() {
+            final ActionDefinitionRegistry delegate = new StubActionDefinitionRegistry();
+            @Override
+            public List<ActionDefinition> findByResourceKey(String resourceKey) {
+                if ("partners.fornecedores".equals(resourceKey)) {
+                    return List.of(new ActionDefinition(
+                            "inspect", "partners.fornecedores", "/api/partners/fornecedores", "partners",
+                            ActionScope.ITEM, "Consultar", "Consulta fornecedor",
+                            new CanonicalOperationRef("partners", "getSupplier", "/api/partners/fornecedores/{id}", "GET"),
+                            null, new CanonicalSchemaRef("SupplierResponse", "response", "/schemas/filtered?schemaType=response"),
+                            10, null, List.of(), List.of(), List.of(),
+                            org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
+                    ));
+                }
+                return delegate.findByResourceKey(resourceKey);
+            }
+            @Override public List<ActionDefinition> findByGroup(String group) { return delegate.findByGroup(group); }
+        };
+
+        DomainRuleSetCatalogProvider ruleProvider = (resourceKey, tenantId) -> {
+            if (!"human-resources.folhas-pagamento".equals(resourceKey)) return List.of();
+            return List.of(DomainRuleSetDescriptor.of(
+                    "human-resources.folhas-pagamento",
+                    ruleSetDefinition,
+                    "Regras da folha",
+                    "Descrição",
+                    List.of(new DomainRuleSetDescriptor.RuleReasonDescriptor(
+                            "WF-PAYROLL-001", "payroll.wf-payroll-001", "valorLiquido", "Valor inválido.", "ORIG", "LIN")),
+                    Map.of("fornecedor", new ConceptRootBinding("fornecedor", "praxis-api-quickstart", "partners", "partners.fornecedores")),
+                    Map.of(),
+                    Map.of("WF-PAYROLL-001", RuleDocumentationDescriptor.of(
+                            "Regra de valor", mutableRuleSummary.get(), null, null, List.of(), null)),
+                    null
+            ));
+        };
+
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                actionRegistry,
+                new StubSurfaceDefinitionRegistry(),
+                optionSources(),
+                dynamicDocs,
+                null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart",
+                "Praxis API Quickstart",
+                "test",
+                null,
+                null,
+                null,
+                ruleProvider
+        );
+
+        DomainCatalogResponse first = service.findByResourceKey("human-resources.folhas-pagamento");
+        var ruleSetNode = first.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.validate".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+
+        assertThat((Map<String, String>) ruleSetNode.metadata().get("targetFieldLabels"))
+                .containsEntry("valorLiquido", "Valor Líquido")
+                .containsEntry("address.city", "Cidade");
+        assertThat((Map<String, String>) ruleSetNode.metadata().get("referencedFactPathLabels"))
+                .containsEntry("draft.valorLiquido", "Valor Líquido")
+                .containsEntry("draft.address.city", "Cidade")
+                .containsEntry("fornecedor.status", "Situação do Fornecedor")
+                .containsEntry("neighborhood.openPayrollsCount", "Open Payrolls Count")
+                .containsEntry("context.tenantId", "Tenant Id");
+
+        var firstRules = (List<Map<String, Object>>) ruleSetNode.metadata().get("rules");
+        assertThat(firstRules).singleElement().satisfies(rule -> {
+            assertThat(rule).containsEntry("targetFieldLabel", "Valor Líquido");
+            assertThat((Map<String, String>) rule.get("referencedFactPathLabels"))
+                    .containsEntry("fornecedor.status", "Situação do Fornecedor");
+        });
+
+        String hash1 = first.release().sourceHash();
+
+        // Changing rule documentation invalidates catalogCache and updates sourceHash
+        mutableRuleSummary.set("Resumo atualizado pelo analista");
+        DomainCatalogResponse second = service.findByResourceKey("human-resources.folhas-pagamento");
+        assertThat(second.release().sourceHash()).isNotEqualTo(hash1);
+        var secondRules = (List<Map<String, Object>>) second.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.validate".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow().metadata().get("rules");
+        assertThat(secondRules).singleElement().satisfies(rule ->
+                assertThat(rule).containsEntry("summary", "Resumo atualizado pelo analista"));
+
+        // Changing @UISchema label invalidates catalogCache and updates resolved labels
+        mutableUiLabel.set("Valor Líquido Auditado");
+        DomainCatalogResponse third = service.findByResourceKey("human-resources.folhas-pagamento");
+        assertThat(third.release().sourceHash()).isNotEqualTo(second.release().sourceHash());
+        var thirdNode = third.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.validate".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat((Map<String, String>) thirdNode.metadata().get("targetFieldLabels"))
+                .containsEntry("valorLiquido", "Valor Líquido Auditado");
+    }
+
+    @Test
+    void validatesCatalogWithRuleSetDidacticMetadataAgainstClosedSchemaV02() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expr = mapper.readTree("{\"!=\":[{\"var\":\"draft.valorLiquido\"},null]}");
+        RuleSetDefinition def = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", "human-resources.folhas-pagamento", "human-resources.folhas-pagamento.validate", "CREATE", 1),
+                List.of(new DecisionSlot("payroll.slot", DecisionStage.PROTECTED_GUARD, SlotCardinality.SINGLE,
+                        OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of())),
+                List.of(new DecisionBinding("product.payroll.slot", "payroll.slot", DecisionSource.PRODUCT,
+                        null, RuleExecutorRef.jsonLogic(expr), List.of(), 1, true, RuleDecision.DENY,
+                        "WF-PAYROLL-020", List.of("draft.valorLiquido"), null)),
+                RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED
+        );
+        var legal = List.of(RuleLegalBasisDescriptor.of("CLT Art. 462", "CLT", "Art. 462", "Federal", "Garantia salarial.", null));
+        var doc = RuleDocumentationDescriptor.of("Folha válida", "Verifica valor líquido.", "Na criação.", "Integridade.", legal, "Fixa.");
+        var descriptor = DomainRuleSetDescriptor.of(
+                "human-resources.folhas-pagamento", def, "Regras", "Descrição",
+                List.of(new DomainRuleSetDescriptor.RuleReasonDescriptor(
+                        "WF-PAYROLL-020", "payroll.slot", "valorLiquido", "Valor obrigatório.", "ORIG", "LIN")),
+                Map.of(),
+                Map.of("payroll.slot", doc),
+                Map.of("WF-PAYROLL-020", doc),
+                doc
+        );
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new StubActionDefinitionRegistry(), new StubSurfaceDefinitionRegistry(), optionSources(),
+                new StubOpenApiDocumentService(), null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart", "Praxis API Quickstart", "test",
+                null, null, null, DomainRuleSetCatalogProvider.ofDescriptors(List.of(descriptor))
+        );
+
+        DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
+        JsonNode json = mapper.valueToTree(response);
+        var schema = com.networknt.schema.JsonSchemaFactory
+                .getInstance(com.networknt.schema.SpecVersion.VersionFlag.V202012)
+                .getSchema(getClass().getResourceAsStream("/contracts/domain-catalog-v0.2.schema.json"));
+        assertThat(schema.validate(json)).isEmpty();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void arrayPropertyUiSchemaLabelIsNotShadowedByItemsTitleOrItemsUiLabel() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expr = mapper.readTree("""
+                {"and":[
+                  {"!=":[{"var":"draft.dependents"},null]},
+                  {"!=":[{"var":"draft.attachments"},null]},
+                  {"!=":[{"var":"draft.auditNotes"},null]}
+                ]}
+                """);
+        RuleSetDefinition def = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", "human-resources.folhas-pagamento", "human-resources.folhas-pagamento.validate", "CREATE", 1),
+                List.of(new DecisionSlot("payroll.slot", DecisionStage.PROTECTED_GUARD, SlotCardinality.SINGLE,
+                        OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of())),
+                List.of(new DecisionBinding("product.payroll.slot", "payroll.slot", DecisionSource.PRODUCT,
+                        null, RuleExecutorRef.jsonLogic(expr), List.of(), 1, true, RuleDecision.DENY,
+                        "WF-PAYROLL-ARR", List.of("draft.dependents", "draft.attachments", "draft.auditNotes"), null)),
+                RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED
+        );
+        var descriptor = DomainRuleSetDescriptor.of(
+                "human-resources.folhas-pagamento", def, "Regras", "Descrição",
+                List.of(new DomainRuleSetDescriptor.RuleReasonDescriptor(
+                        "WF-PAYROLL-ARR", "payroll.slot", "dependents", "Dependentes inválidos.", "ORIG", "LIN")),
+                Map.of()
+        );
+        JsonNode doc = mapper.valueToTree(Map.of(
+                "components", Map.of(
+                        "schemas", Map.of(
+                                "DependentDTO", Map.of(
+                                        "type", "object",
+                                        "title", "DependentDTO",
+                                        "properties", Map.of("name", Map.of("type", "string"))
+                                ),
+                                "PayrollResponse", Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                "dependents", Map.of(
+                                                        "type", "array",
+                                                        "x-ui", Map.of("label", "Dependentes do Servidor"),
+                                                        "items", Map.of("$ref", "#/components/schemas/DependentDTO")
+                                                ),
+                                                "attachments", Map.of(
+                                                        "type", "array",
+                                                        "x-ui", Map.of("label", "Anexos Obrigatórios"),
+                                                        "items", Map.of(
+                                                                "type", "string",
+                                                                "x-ui", Map.of("label", "Anexo")
+                                                        )
+                                                ),
+                                                "auditNotes", Map.of(
+                                                        "type", "array",
+                                                        "items", Map.of(
+                                                                "type", "string",
+                                                                "title", "Nota de Auditoria"
+                                                        )
+                                                )
+                                        )
+                                )
+                        )
+                )
+        ));
+        OpenApiDocumentService openApiDocs = new OpenApiDocumentService() {
+            @Override public String resolveGroupFromPath(String path) { return "human-resources"; }
+            @Override public JsonNode getDocumentForGroup(String groupName) { return doc; }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return doc; }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "h"; }
+            @Override public void clearCaches() {}
+        };
+        ActionDefinitionRegistry actionRegistry = new ActionDefinitionRegistry() {
+            @Override
+            public List<ActionDefinition> findByResourceKey(String resourceKey) {
+                if (!"human-resources.folhas-pagamento".equals(resourceKey)) return List.of();
+                return List.of(new ActionDefinition(
+                        "inspect", resourceKey, "/api/human-resources/folhas-pagamento", "human-resources",
+                        ActionScope.ITEM, "Consultar", "Consulta",
+                        new CanonicalOperationRef("human-resources", "inspectPayroll", "/api/human-resources/folhas-pagamento/{id}", "GET"),
+                        null, new CanonicalSchemaRef("PayrollResponse", "response", "/schemas/filtered?schemaType=response"),
+                        10, null, List.of(), List.of(), List.of(),
+                        org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
+                ));
+            }
+            @Override public List<ActionDefinition> findByGroup(String group) { return findByResourceKey("human-resources.folhas-pagamento"); }
+        };
+        SurfaceDefinitionRegistry emptySurfaces = new SurfaceDefinitionRegistry() {
+            @Override public List<SurfaceDefinition> findByResourceKey(String resourceKey) { return List.of(); }
+            @Override public List<SurfaceDefinition> findByGroup(String group) { return List.of(); }
+        };
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                actionRegistry, emptySurfaces, OptionSourceRegistry.empty(), openApiDocs, null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart", "Praxis API Quickstart", "test",
+                null, null, null, DomainRuleSetCatalogProvider.ofDescriptors(List.of(descriptor))
+        );
+
+        DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
+        assertThat(response.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.field.dependents".equals(n.nodeKey()))
+                .findFirst().orElseThrow().label()).isEqualTo("Dependentes do Servidor");
+        assertThat(response.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.field.attachments".equals(n.nodeKey()))
+                .findFirst().orElseThrow().label()).isEqualTo("Anexos Obrigatórios");
+        assertThat(response.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.field.audit-notes".equals(n.nodeKey()))
+                .findFirst().orElseThrow().label()).isEqualTo("Nota de Auditoria");
+
+        var ruleSetNode = response.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.validate".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat((Map<String, String>) ruleSetNode.metadata().get("targetFieldLabels"))
+                .containsEntry("dependents", "Dependentes do Servidor")
+                .containsEntry("attachments", "Anexos Obrigatórios")
+                .containsEntry("auditNotes", "Nota de Auditoria");
+        assertThat((Map<String, String>) ruleSetNode.metadata().get("referencedFactPathLabels"))
+                .containsEntry("draft.dependents", "Dependentes do Servidor")
+                .containsEntry("draft.attachments", "Anexos Obrigatórios")
+                .containsEntry("draft.auditNotes", "Nota de Auditoria");
+        var rules = (List<Map<String, Object>>) ruleSetNode.metadata().get("rules");
+        assertThat(rules).singleElement().satisfies(rule ->
+                assertThat(rule).containsEntry("targetFieldLabel", "Dependentes do Servidor"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void resolvesHighestRankedLabelAcrossMultipleResponseSchemasInvalidatesCacheAndPreservesCrossConceptConsistency() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expr = mapper.readTree("""
+                {"and":[
+                  {"!=":[{"var":"draft.valorLiquido"},null]},
+                  {"==":[{"var":"fornecedor.status"},"ACTIVE"]}
+                ]}
+                """);
+        RuleSetDefinition def = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("human-resources", "human-resources.folhas-pagamento", "human-resources.folhas-pagamento.validate", "CREATE", 1),
+                List.of(new DecisionSlot("payroll.slot", DecisionStage.PROTECTED_GUARD, SlotCardinality.SINGLE,
+                        OverridePolicy.FORBIDDEN, DecisionAggregationPolicy.SINGLE_RESULT, null, List.of())),
+                List.of(new DecisionBinding("product.payroll.slot", "payroll.slot", DecisionSource.PRODUCT,
+                        null, RuleExecutorRef.jsonLogic(expr), List.of(), 1, true, RuleDecision.DENY,
+                        "WF-PAYROLL-001", List.of("draft.valorLiquido", "fornecedor.status"), null)),
+                RuleRuntimeCompatibility.current(), RuleFailPolicy.FAIL_CLOSED
+        );
+        var descriptor = DomainRuleSetDescriptor.of(
+                "human-resources.folhas-pagamento", def, "Regras", "Descrição",
+                List.of(new DomainRuleSetDescriptor.RuleReasonDescriptor(
+                        "WF-PAYROLL-001", "payroll.slot", "valorLiquido", "Valor obrigatório.", "ORIG", "LIN")),
+                Map.of("fornecedor", new ConceptRootBinding("fornecedor", "praxis-api-quickstart", "partners", "partners.fornecedores"))
+        );
+
+        var resp2ValorLabel = new java.util.concurrent.atomic.AtomicReference<>("Valor UI v1");
+        var supplierDetailStatusLabel = new java.util.concurrent.atomic.AtomicReference<>("Status UI v1");
+
+        OpenApiDocumentService dynamicDocs = new OpenApiDocumentService() {
+            @Override public String resolveGroupFromPath(String path) { return path != null && path.contains("fornecedores") ? "partners" : "human-resources"; }
+            @Override
+            public JsonNode getDocumentForGroup(String groupName) {
+                if ("partners".equals(groupName)) {
+                    return mapper.valueToTree(Map.of(
+                            "components", Map.of(
+                                    "schemas", Map.of(
+                                            "SupplierSummary", Map.of(
+                                                    "type", "object",
+                                                    "properties", Map.of("status", Map.of("type", "string", "title", "Status Title"))
+                                            ),
+                                            "SupplierDetail", Map.of(
+                                                    "type", "object",
+                                                    "properties", Map.of("status", Map.of("type", "string", "x-ui", Map.of("label", supplierDetailStatusLabel.get())))
+                                            )
+                                    )
+                            )
+                    ));
+                }
+                return mapper.valueToTree(Map.of(
+                        "components", Map.of(
+                                "schemas", Map.of(
+                                        "Resp1", Map.of(
+                                                "type", "object",
+                                                "properties", Map.of("valorLiquido", Map.of("type", "number", "title", "Valor Title"))
+                                        ),
+                                        "Resp2", Map.of(
+                                                "type", "object",
+                                                "properties", Map.of("valorLiquido", Map.of("type", "number", "x-ui", Map.of("label", resp2ValorLabel.get())))
+                                        )
+                                )
+                        )
+                ));
+            }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return getDocumentForGroup(groupName); }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "h"; }
+            @Override public void clearCaches() {}
+        };
+        ActionDefinitionRegistry actionRegistry = new ActionDefinitionRegistry() {
+            @Override
+            public List<ActionDefinition> findByResourceKey(String resourceKey) {
+                if ("human-resources.folhas-pagamento".equals(resourceKey)) {
+                    return List.of(
+                            new ActionDefinition(
+                                    "summary", resourceKey, "/api/human-resources/folhas-pagamento", "human-resources",
+                                    ActionScope.ITEM, "Resumo", "Resumo",
+                                    new CanonicalOperationRef("human-resources", "summaryPayroll", "/api/human-resources/folhas-pagamento/{id}/summary", "GET"),
+                                    null, new CanonicalSchemaRef("Resp1", "response", "/schemas/filtered?schemaType=response"),
+                                    1, null, List.of(), List.of(), List.of(),
+                                    org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
+                            ),
+                            new ActionDefinition(
+                                    "detail", resourceKey, "/api/human-resources/folhas-pagamento", "human-resources",
+                                    ActionScope.ITEM, "Detalhe", "Detalhe",
+                                    new CanonicalOperationRef("human-resources", "detailPayroll", "/api/human-resources/folhas-pagamento/{id}", "GET"),
+                                    null, new CanonicalSchemaRef("Resp2", "response", "/schemas/filtered?schemaType=response"),
+                                    2, null, List.of(), List.of(), List.of(),
+                                    org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
+                            )
+                    );
+                }
+                if ("partners.fornecedores".equals(resourceKey)) {
+                    return List.of(
+                            new ActionDefinition(
+                                    "supplier-summary", resourceKey, "/api/partners/fornecedores", "partners",
+                                    ActionScope.ITEM, "Resumo", "Resumo",
+                                    new CanonicalOperationRef("partners", "summarySupplier", "/api/partners/fornecedores/{id}/summary", "GET"),
+                                    null, new CanonicalSchemaRef("SupplierSummary", "response", "/schemas/filtered?schemaType=response"),
+                                    1, null, List.of(), List.of(), List.of(),
+                                    org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
+                            ),
+                            new ActionDefinition(
+                                    "supplier-detail", resourceKey, "/api/partners/fornecedores", "partners",
+                                    ActionScope.ITEM, "Detalhe", "Detalhe",
+                                    new CanonicalOperationRef("partners", "detailSupplier", "/api/partners/fornecedores/{id}", "GET"),
+                                    null, new CanonicalSchemaRef("SupplierDetail", "response", "/schemas/filtered?schemaType=response"),
+                                    2, null, List.of(), List.of(), List.of(),
+                                    org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.ITEM)
+                            )
+                    );
+                }
+                return List.of();
+            }
+            @Override public List<ActionDefinition> findByGroup(String group) { return findByResourceKey("human-resources.folhas-pagamento"); }
+        };
+        SurfaceDefinitionRegistry emptySurfaces = new SurfaceDefinitionRegistry() {
+            @Override public List<SurfaceDefinition> findByResourceKey(String resourceKey) { return List.of(); }
+            @Override public List<SurfaceDefinition> findByGroup(String group) { return List.of(); }
+        };
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                actionRegistry, emptySurfaces, OptionSourceRegistry.empty(), dynamicDocs, null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart", "Praxis API Quickstart", "test",
+                null, null, null, DomainRuleSetCatalogProvider.ofDescriptors(List.of(descriptor))
+        );
+
+        DomainCatalogResponse first = service.findByResourceKey("human-resources.folhas-pagamento");
+        assertThat(first.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.field.valor-liquido".equals(n.nodeKey()))
+                .findFirst().orElseThrow().label()).isEqualTo("Valor UI v1");
+        var firstRuleSet = first.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.validate".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat((Map<String, String>) firstRuleSet.metadata().get("targetFieldLabels"))
+                .containsEntry("valorLiquido", "Valor UI v1");
+        assertThat((Map<String, String>) firstRuleSet.metadata().get("referencedFactPathLabels"))
+                .containsEntry("draft.valorLiquido", "Valor UI v1")
+                .containsEntry("fornecedor.status", "Status UI v1");
+
+        // Mutate Resp2 x-ui.label while Resp1 still has @Schema.title -> cache MUST invalidate
+        resp2ValorLabel.set("Valor UI v2");
+        DomainCatalogResponse second = service.findByResourceKey("human-resources.folhas-pagamento");
+        assertThat(second.release().sourceHash()).isNotEqualTo(first.release().sourceHash());
+        assertThat(second.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.field.valor-liquido".equals(n.nodeKey()))
+                .findFirst().orElseThrow().label()).isEqualTo("Valor UI v2");
+        var secondRuleSet = second.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.validate".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat((Map<String, String>) secondRuleSet.metadata().get("targetFieldLabels"))
+                .containsEntry("valorLiquido", "Valor UI v2");
+        assertThat((Map<String, String>) secondRuleSet.metadata().get("referencedFactPathLabels"))
+                .containsEntry("draft.valorLiquido", "Valor UI v2");
+
+        // Mutate cross-concept Resp2 x-ui.label while Resp1 still has @Schema.title -> cache MUST invalidate
+        supplierDetailStatusLabel.set("Status UI v2");
+        DomainCatalogResponse third = service.findByResourceKey("human-resources.folhas-pagamento");
+        assertThat(third.release().sourceHash()).isNotEqualTo(second.release().sourceHash());
+        var thirdRuleSet = third.nodes().stream()
+                .filter(n -> "human-resources.folhas-pagamento.validate".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+        assertThat((Map<String, String>) thirdRuleSet.metadata().get("referencedFactPathLabels"))
+                .containsEntry("fornecedor.status", "Status UI v2");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void isolatesPerBindingErrorDescriptorsAndPreventsCrossBindingSlotKeyHijacking() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode tenantExpr = mapper.readTree("{\"!=\":[{\"var\":\"context.tenantId\"},null]}");
+        JsonNode reasonExpr = mapper.readTree("{\"!=\":[{\"var\":\"draft.reason\"},\"BLOCKED\"]}");
+        JsonNode daysExpr = mapper.readTree("{\">\":[{\"var\":\"draft.days\"},0]}");
+        JsonNode daysMaxExpr = mapper.readTree("{\"<=\":[{\"var\":\"draft.daysLimit\"},30]}");
+
+        String custOtherKey = "customer.t_acme.augment.leaves.augment-slot.CUST-OTHER";
+        String custMyAugSlot1Key = "customer.t_acme.augment.leaves.augment-slot.CUST-MY-AUG";
+        String custMyAugSlot2Key = "customer.t_acme.augment.leaves.augment-slot-2.CUST-MY-AUG";
+
+        RuleSetDefinition def = RuleSetDefinition.withInferredRoots(
+                new RuleSetRef("corp", "corp.leaves", "corp.leaves", "CREATE", 1),
+                List.of(
+                        new DecisionSlot("leaves.augment-slot", DecisionStage.DOMAIN_DECISION, SlotCardinality.MULTIPLE,
+                                OverridePolicy.RESTRICT_ONLY, DecisionAggregationPolicy.DENY_OVERRIDES, null, List.of()),
+                        new DecisionSlot("leaves.augment-slot-2", DecisionStage.DOMAIN_DECISION, SlotCardinality.MULTIPLE,
+                                OverridePolicy.RESTRICT_ONLY, DecisionAggregationPolicy.DENY_OVERRIDES, null, List.of())
+                ),
+                List.of(
+                        new DecisionBinding("product.leaves.augment", "leaves.augment-slot", DecisionSource.PRODUCT,
+                                null, RuleExecutorRef.jsonLogic(tenantExpr), List.of(), 1, true, RuleDecision.DENY,
+                                "LEAVE-AUG-001", List.of("context.tenantId"), null),
+                        new DecisionBinding(custOtherKey, "leaves.augment-slot", DecisionSource.CUSTOMER,
+                                CompositionPolicy.AUGMENT, RuleExecutorRef.jsonLogic(reasonExpr), List.of(), 2, true,
+                                RuleDecision.DENY, "CUST-OTHER", List.of("draft.reason"), null),
+                        new DecisionBinding(custMyAugSlot1Key, "leaves.augment-slot", DecisionSource.CUSTOMER,
+                                CompositionPolicy.AUGMENT, RuleExecutorRef.jsonLogic(daysExpr), List.of(), 3, true,
+                                RuleDecision.DENY, "CUST-MY-AUG", List.of("draft.days"), null),
+                        new DecisionBinding(custMyAugSlot2Key, "leaves.augment-slot-2", DecisionSource.CUSTOMER,
+                                CompositionPolicy.AUGMENT, RuleExecutorRef.jsonLogic(daysMaxExpr), List.of(), 2, true,
+                                RuleDecision.DENY, "CUST-MY-AUG", List.of("draft.daysLimit"), null)
+                ),
+                RuleRuntimeCompatibility.current(),
+                RuleFailPolicy.FAIL_CLOSED,
+                Map.of(
+                        custOtherKey, new RuleErrorDescriptor(
+                                "CUST-OTHER", "reason", "Outro motivo bloqueado.", "PRAXIS_POLICY_STUDIO", "CUSTOMER"),
+                        custMyAugSlot1Key, new RuleErrorDescriptor(
+                                "CUST-MY-AUG", "days", "Dias devem ser positivos.", "PRAXIS_POLICY_STUDIO", "CUSTOMER"),
+                        custMyAugSlot2Key, new RuleErrorDescriptor(
+                                "CUST-MY-AUG", "daysLimit", "Regra do slot 2 com mesmo código.", "PRAXIS_POLICY_STUDIO", "CUSTOMER")
+                )
+        );
+
+        DomainRuleSetDescriptor descriptor = DomainRuleSetDescriptor.of(
+                "corp.leaves",
+                def,
+                "Regras de Afastamento",
+                "Governança de afastamentos corporativos.",
+                (RuleErrorCatalog) null,
+                Map.of(),
+                Map.of(),
+                Map.of(
+                        "product.leaves.augment", RuleDocumentationDescriptor.of(
+                                "Augment Produto", "Regra base do produto.", null, null, List.of(), null),
+                        custMyAugSlot1Key, RuleDocumentationDescriptor.of(
+                                "Regra MY_AUG", "Exige dias positivos.", null, null, List.of(), null),
+                        custMyAugSlot2Key, RuleDocumentationDescriptor.of(
+                                "Regra Slot 2 CUST-MY-AUG", "Doc exclusiva do slot 2.", null, null, List.of(), null)
+                ),
+                null
+        );
+
+        JsonNode openApiDoc = mapper.valueToTree(Map.of(
+                "components", Map.of(
+                        "schemas", Map.of(
+                                "LeaveCreateRequest", Map.of(
+                                        "type", "object",
+                                        "properties", Map.of(
+                                                "reason", Map.of("type", "string", "x-ui", Map.of("label", "Motivo do Afastamento")),
+                                                "days", Map.of("type", "integer", "x-ui", Map.of("label", "Dias de Afastamento")),
+                                                "daysLimit", Map.of("type", "integer", "x-ui", Map.of("label", "Limite de Dias"))
+                                        )
+                                )
+                        )
+                )
+        ));
+        OpenApiDocumentService openApiDocs = new OpenApiDocumentService() {
+            @Override public String resolveGroupFromPath(String path) { return "corp"; }
+            @Override public JsonNode getDocumentForGroup(String groupName) { return openApiDoc; }
+            @Override public JsonNode getDocumentForGroupStrict(String groupName) { return openApiDoc; }
+            @Override public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) { return "h"; }
+            @Override public void clearCaches() {}
+        };
+        ActionDefinitionRegistry actionRegistry = new ActionDefinitionRegistry() {
+            @Override
+            public List<ActionDefinition> findByResourceKey(String resourceKey) {
+                if (!"corp.leaves".equals(resourceKey)) return List.of();
+                return List.of(new ActionDefinition(
+                        "create", resourceKey, "/api/corp/leaves", "corp",
+                        ActionScope.COLLECTION, "Criar", "Criar afastamento",
+                        new CanonicalOperationRef("corp", "createLeave", "/api/corp/leaves", "POST"),
+                        new CanonicalSchemaRef("LeaveCreateRequest", "request", "/schemas/filtered?schemaType=request"),
+                        null, 10, null, List.of(), List.of(), List.of(),
+                        org.praxisplatform.uischema.action.ActionExecutionContract.defaults(ActionScope.COLLECTION)
+                ));
+            }
+            @Override public List<ActionDefinition> findByGroup(String group) { return findByResourceKey("corp.leaves"); }
+        };
+        SurfaceDefinitionRegistry emptySurfaces = new SurfaceDefinitionRegistry() {
+            @Override public List<SurfaceDefinition> findByResourceKey(String resourceKey) { return List.of(); }
+            @Override public List<SurfaceDefinition> findByGroup(String group) { return List.of(); }
+        };
+
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                actionRegistry, emptySurfaces, OptionSourceRegistry.empty(), openApiDocs, null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart", "Praxis API Quickstart", "test",
+                null, null, null, DomainRuleSetCatalogProvider.ofDescriptors(List.of(descriptor))
+        );
+
+        DomainCatalogResponse response = service.findByResourceKey("corp.leaves");
+        var ruleSetNode = response.nodes().stream()
+                .filter(n -> "corp.leaves".equals(n.metadata().get("ruleSetKey")))
+                .findFirst().orElseThrow();
+
+        assertThat((List<String>) ruleSetNode.metadata().get("targetFields"))
+                .contains("reason", "days", "daysLimit");
+        assertThat((Map<String, String>) ruleSetNode.metadata().get("targetFieldLabels"))
+                .containsEntry("reason", "Motivo do Afastamento")
+                .containsEntry("days", "Dias de Afastamento")
+                .containsEntry("daysLimit", "Limite de Dias");
+
+        var rules = (List<Map<String, Object>>) ruleSetNode.metadata().get("rules");
+        assertThat(rules).hasSize(4);
+
+        Map<String, Object> productRule = rules.stream()
+                .filter(r -> "product.leaves.augment".equals(r.get("bindingKey")))
+                .findFirst().orElseThrow();
+        assertThat(productRule)
+                .containsEntry("reasonCode", "LEAVE-AUG-001")
+                .containsEntry("title", "Augment Produto")
+                .doesNotContainKeys("message", "targetField", "targetFieldLabel", "origin", "lineage");
+
+        Map<String, Object> otherRule = rules.stream()
+                .filter(r -> custOtherKey.equals(r.get("bindingKey")))
+                .findFirst().orElseThrow();
+        assertThat(otherRule)
+                .containsEntry("reasonCode", "CUST-OTHER")
+                .containsEntry("targetField", "reason")
+                .containsEntry("targetFieldLabel", "Motivo do Afastamento")
+                .containsEntry("message", "Outro motivo bloqueado.")
+                .containsEntry("origin", "CUSTOMER")
+                .containsEntry("lineage", "PRAXIS_POLICY_STUDIO");
+
+        Map<String, Object> slot1MyAugRule = rules.stream()
+                .filter(r -> custMyAugSlot1Key.equals(r.get("bindingKey")))
+                .findFirst().orElseThrow();
+        assertThat(slot1MyAugRule)
+                .containsEntry("reasonCode", "CUST-MY-AUG")
+                .containsEntry("targetField", "days")
+                .containsEntry("targetFieldLabel", "Dias de Afastamento")
+                .containsEntry("message", "Dias devem ser positivos.")
+                .containsEntry("origin", "CUSTOMER")
+                .containsEntry("lineage", "PRAXIS_POLICY_STUDIO")
+                .containsEntry("title", "Regra MY_AUG")
+                .containsEntry("summary", "Exige dias positivos.");
+
+        Map<String, Object> slot2MyAugRule = rules.stream()
+                .filter(r -> custMyAugSlot2Key.equals(r.get("bindingKey")))
+                .findFirst().orElseThrow();
+        assertThat(slot2MyAugRule)
+                .containsEntry("reasonCode", "CUST-MY-AUG")
+                .containsEntry("targetField", "daysLimit")
+                .containsEntry("targetFieldLabel", "Limite de Dias")
+                .containsEntry("message", "Regra do slot 2 com mesmo código.")
+                .containsEntry("origin", "CUSTOMER")
+                .containsEntry("lineage", "PRAXIS_POLICY_STUDIO")
+                .containsEntry("title", "Regra Slot 2 CUST-MY-AUG")
+                .containsEntry("summary", "Doc exclusiva do slot 2.");
+    }
+
     private OptionSourceRegistry optionSources() {
         return OptionSourceRegistry.builder()
                 .add(TestResource.class, new OptionSourceDescriptor(

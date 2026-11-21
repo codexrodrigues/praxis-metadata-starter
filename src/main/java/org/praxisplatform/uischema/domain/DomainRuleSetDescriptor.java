@@ -24,6 +24,9 @@ import java.util.Objects;
  * @param description descrição funcional do conjunto de regras
  * @param conceptRootBindings explicit root-to-role/owner identity for this RuleSet operation
  * @param reasonDescriptors mapa opcional indexado pelo {@code reasonCode} (ex.: {@code WF-01151}) com campo-alvo e linhagem
+ * @param slotDocumentation documentação didática indexada por {@code slotKey}
+ * @param ruleDocumentation documentação didática indexada por {@code bindingKey} ou {@code reasonCode}
+ * @param ruleSetDocumentation documentação didática de nível de conjunto de regras (família/operação)
  */
 public record DomainRuleSetDescriptor(
         String resourceKey,
@@ -31,8 +34,23 @@ public record DomainRuleSetDescriptor(
         String label,
         String description,
         Map<String, RuleReasonDescriptor> reasonDescriptors,
-        Map<String, ConceptRootBinding> conceptRootBindings
+        Map<String, ConceptRootBinding> conceptRootBindings,
+        Map<String, RuleDocumentationDescriptor> slotDocumentation,
+        Map<String, RuleDocumentationDescriptor> ruleDocumentation,
+        RuleDocumentationDescriptor ruleSetDocumentation
 ) {
+
+    public DomainRuleSetDescriptor(
+            String resourceKey,
+            RuleSetDefinition definition,
+            String label,
+            String description,
+            Map<String, RuleReasonDescriptor> reasonDescriptors,
+            Map<String, ConceptRootBinding> conceptRootBindings
+    ) {
+        this(resourceKey, definition, label, description, reasonDescriptors, conceptRootBindings,
+                Map.of(), Map.of(), null);
+    }
 
     public DomainRuleSetDescriptor {
         definition = Objects.requireNonNull(definition, "definition is required");
@@ -52,6 +70,36 @@ public record DomainRuleSetDescriptor(
         description = normalizeNullable(description) != null ? normalizeNullable(description) : defaultDescription;
         reasonDescriptors = immutableReasons(reasonDescriptors);
         conceptRootBindings = validateConceptBindings(definition, conceptRootBindings);
+        slotDocumentation = immutableDocumentation(slotDocumentation);
+        ruleDocumentation = immutableDocumentation(ruleDocumentation);
+        ruleSetDocumentation = (ruleSetDocumentation != null && !ruleSetDocumentation.isEmpty())
+                ? ruleSetDocumentation
+                : null;
+    }
+
+    public DomainRuleSetDescriptor withDocumentation(
+            Map<String, RuleDocumentationDescriptor> slotDocumentation,
+            Map<String, RuleDocumentationDescriptor> ruleDocumentation
+    ) {
+        return withDocumentation(slotDocumentation, ruleDocumentation, this.ruleSetDocumentation);
+    }
+
+    public DomainRuleSetDescriptor withDocumentation(
+            Map<String, RuleDocumentationDescriptor> slotDocumentation,
+            Map<String, RuleDocumentationDescriptor> ruleDocumentation,
+            RuleDocumentationDescriptor ruleSetDocumentation
+    ) {
+        return new DomainRuleSetDescriptor(
+                resourceKey,
+                definition,
+                label,
+                description,
+                reasonDescriptors,
+                conceptRootBindings,
+                slotDocumentation,
+                ruleDocumentation,
+                ruleSetDocumentation
+        );
     }
 
     public static DomainRuleSetDescriptor of(RuleSetDefinition definition, Map<String, ConceptRootBinding> conceptRootBindings) {
@@ -101,6 +149,21 @@ public record DomainRuleSetDescriptor(
             Collection<RuleReasonDescriptor> reasons,
             Map<String, ConceptRootBinding> conceptRootBindings
     ) {
+        return of(resourceKey, definition, label, description, reasons, conceptRootBindings,
+                Map.of(), Map.of(), null);
+    }
+
+    public static DomainRuleSetDescriptor of(
+            String resourceKey,
+            RuleSetDefinition definition,
+            String label,
+            String description,
+            Collection<RuleReasonDescriptor> reasons,
+            Map<String, ConceptRootBinding> conceptRootBindings,
+            Map<String, RuleDocumentationDescriptor> slotDocumentation,
+            Map<String, RuleDocumentationDescriptor> ruleDocumentation,
+            RuleDocumentationDescriptor ruleSetDocumentation
+    ) {
         Map<String, RuleReasonDescriptor> byCode = new LinkedHashMap<>();
         if (reasons != null) {
             for (RuleReasonDescriptor reason : reasons) {
@@ -109,7 +172,17 @@ public record DomainRuleSetDescriptor(
                 }
             }
         }
-        return new DomainRuleSetDescriptor(resourceKey, definition, label, description, byCode, conceptRootBindings);
+        return new DomainRuleSetDescriptor(
+                resourceKey,
+                definition,
+                label,
+                description,
+                byCode,
+                conceptRootBindings,
+                slotDocumentation,
+                ruleDocumentation,
+                ruleSetDocumentation
+        );
     }
 
     public static DomainRuleSetDescriptor of(
@@ -137,40 +210,116 @@ public record DomainRuleSetDescriptor(
             RuleErrorCatalog errorCatalog,
             Map<String, ConceptRootBinding> conceptRootBindings
     ) {
+        return of(resourceKey, definition, label, description, errorCatalog, conceptRootBindings,
+                Map.of(), Map.of(), null);
+    }
+
+    public static DomainRuleSetDescriptor of(
+            String resourceKey,
+            RuleSetDefinition definition,
+            String label,
+            String description,
+            RuleErrorCatalog errorCatalog,
+            Map<String, ConceptRootBinding> conceptRootBindings,
+            Map<String, RuleDocumentationDescriptor> slotDocumentation,
+            Map<String, RuleDocumentationDescriptor> ruleDocumentation,
+            RuleDocumentationDescriptor ruleSetDocumentation
+    ) {
         Objects.requireNonNull(definition, "definition is required");
-        if (errorCatalog == null) {
-            return new DomainRuleSetDescriptor(resourceKey, definition, label, description, Map.of(), conceptRootBindings);
+        Map<String, RuleErrorDescriptor> embeddedErrors = definition.errorDescriptors();
+        if (errorCatalog == null && (embeddedErrors == null || embeddedErrors.isEmpty())) {
+            return new DomainRuleSetDescriptor(
+                    resourceKey,
+                    definition,
+                    label,
+                    description,
+                    Map.of(),
+                    conceptRootBindings,
+                    slotDocumentation,
+                    ruleDocumentation,
+                    ruleSetDocumentation
+            );
         }
         Map<String, RuleReasonDescriptor> byCode = new LinkedHashMap<>();
-        if (definition.slots() != null) {
-            for (DecisionSlot slot : definition.slots()) {
-                if (slot != null && slot.parameterTemplate() != null) {
-                    String templateCode = normalizeNullable(slot.parameterTemplate().falseReasonCode());
-                    if (templateCode != null) {
-                        errorCatalog.find(templateCode).ifPresent(desc ->
-                                byCode.putIfAbsent(templateCode, toReasonDescriptor(desc, slot.slotKey())));
+        if (errorCatalog != null) {
+            if (definition.slots() != null) {
+                for (DecisionSlot slot : definition.slots()) {
+                    if (slot != null && slot.parameterTemplate() != null) {
+                        String templateCode = normalizeNullable(slot.parameterTemplate().falseReasonCode());
+                        if (templateCode != null) {
+                            errorCatalog.find(templateCode).ifPresent(desc ->
+                                    byCode.putIfAbsent(templateCode, toReasonDescriptor(desc, slot.slotKey())));
+                        }
+                    }
+                }
+            }
+            if (definition.bindings() != null) {
+                for (DecisionBinding binding : definition.bindings()) {
+                    if (binding == null || !binding.enabled()) {
+                        continue;
+                    }
+                    String reasonCode = normalizeNullable(binding.falseReasonCode());
+                    if (reasonCode != null) {
+                        errorCatalog.find(reasonCode).ifPresent(desc ->
+                                byCode.put(reasonCode, toReasonDescriptor(desc, binding.slotKey())));
+                    }
+                    String bindingKey = normalizeNullable(binding.bindingKey());
+                    if (bindingKey != null && !byCode.containsKey(bindingKey)) {
+                        errorCatalog.find(bindingKey).ifPresent(desc ->
+                                byCode.put(bindingKey, toReasonDescriptor(desc, binding.slotKey())));
                     }
                 }
             }
         }
-        if (definition.bindings() != null) {
-            for (DecisionBinding binding : definition.bindings()) {
-                if (binding == null || !binding.enabled()) {
-                    continue;
+        if (embeddedErrors != null && !embeddedErrors.isEmpty()) {
+            if (definition.slots() != null) {
+                for (DecisionSlot slot : definition.slots()) {
+                    if (slot != null && slot.parameterTemplate() != null) {
+                        String templateCode = normalizeNullable(slot.parameterTemplate().falseReasonCode());
+                        if (templateCode != null) {
+                            RuleErrorDescriptor embedded = embeddedErrors.get(templateCode);
+                            if (embedded != null) {
+                                byCode.put(templateCode, toReasonDescriptor(embedded, slot.slotKey()));
+                            }
+                        }
+                    }
                 }
-                String reasonCode = normalizeNullable(binding.falseReasonCode());
-                if (reasonCode != null) {
-                    errorCatalog.find(reasonCode).ifPresent(desc ->
-                            byCode.put(reasonCode, toReasonDescriptor(desc, binding.slotKey())));
-                }
-                String bindingKey = normalizeNullable(binding.bindingKey());
-                if (bindingKey != null && !byCode.containsKey(bindingKey)) {
-                    errorCatalog.find(bindingKey).ifPresent(desc ->
-                            byCode.put(bindingKey, toReasonDescriptor(desc, binding.slotKey())));
+            }
+            if (definition.bindings() != null) {
+                for (DecisionBinding binding : definition.bindings()) {
+                    if (binding == null || !binding.enabled()) {
+                        continue;
+                    }
+                    String bindingKey = normalizeNullable(binding.bindingKey());
+                    String reasonCode = normalizeNullable(binding.falseReasonCode());
+                    RuleErrorDescriptor embedded = bindingKey != null ? embeddedErrors.get(bindingKey) : null;
+                    if (embedded == null && reasonCode != null) {
+                        embedded = embeddedErrors.get(reasonCode);
+                    }
+                    if (embedded != null) {
+                        String effectiveCode = firstNonBlank(
+                                normalizeNullable(embedded.code()),
+                                reasonCode,
+                                bindingKey
+                        );
+                        if (effectiveCode != null) {
+                            byCode.put(effectiveCode, toReasonDescriptor(embedded, binding.slotKey()));
+                        }
+                    }
                 }
             }
         }
-        return new DomainRuleSetDescriptor(resourceKey, definition, label, description, byCode, conceptRootBindings);
+        return new DomainRuleSetDescriptor(
+                resourceKey,
+                definition,
+                label,
+                description,
+                byCode,
+                conceptRootBindings,
+                slotDocumentation,
+                ruleDocumentation,
+                ruleSetDocumentation
+        );
     }
 
     private static Map<String, ConceptRootBinding> validateConceptBindings(
@@ -292,6 +441,33 @@ public record DomainRuleSetDescriptor(
             }
         });
         return Collections.unmodifiableMap(copy);
+    }
+
+    private static Map<String, RuleDocumentationDescriptor> immutableDocumentation(
+            Map<String, RuleDocumentationDescriptor> input
+    ) {
+        if (input == null || input.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, RuleDocumentationDescriptor> copy = new LinkedHashMap<>();
+        input.forEach((key, value) -> {
+            if (key != null && !key.isBlank() && value != null && !value.isEmpty()) {
+                copy.put(key.trim(), value);
+            }
+        });
+        return copy.isEmpty() ? Map.of() : Collections.unmodifiableMap(copy);
+    }
+
+    private static String firstNonBlank(String... candidates) {
+        if (candidates == null) {
+            return null;
+        }
+        for (String candidate : candidates) {
+            if (candidate != null && !candidate.isBlank()) {
+                return candidate.trim();
+            }
+        }
+        return null;
     }
 
     private static String normalizeNullable(String value) {
