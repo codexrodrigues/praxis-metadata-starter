@@ -19,10 +19,13 @@ final class BulkDurableWorker implements SmartLifecycle {
     private static final Logger LOG = LoggerFactory.getLogger(BulkDurableWorker.class);
     private static final int SCAN_QUANTUM = 8;
     private static final int WRAP_ROUNDS = 8;
-    private static final Duration IDLE = Duration.ofMillis(250);
+    static final Duration MIN_IDLE = Duration.ofMillis(250);
+    static final Duration MAX_IDLE = Duration.ofSeconds(30);
     private static final Duration ERROR_BACKOFF = Duration.ofSeconds(1);
     private static final Duration STOP_WAIT = Duration.ofSeconds(10);
     static final int PHASE = Integer.MAX_VALUE - 1024;
+    private static final java.util.Set<BulkDurableWorker> RUNNING =
+            Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
 
     record Handler(String resourceKey, CanonicalOperationRef operation,
             java.util.function.Supplier<BulkDurableWorkerComposition.UnitCallbacks> callbacks) {
@@ -59,6 +62,7 @@ final class BulkDurableWorker implements SmartLifecycle {
         JdbcBulkDurableExecution.WorkerQueueHint cursor;
         int rounds;
         long retryAfter;
+        boolean observedQueued;
         BulkFingerprintContext scope;
         Handler handler;
         BulkExecutionReservation owned;
@@ -72,6 +76,8 @@ final class BulkDurableWorker implements SmartLifecycle {
     private Thread thread;
     private boolean stopping;
     private boolean joining;
+    private boolean wakeRequested;
+    private int idleStreak;
     private String owner;
 
     BulkDurableWorker(List<Binding> bindings) {
@@ -96,9 +102,50 @@ final class BulkDurableWorker implements SmartLifecycle {
         synchronized (monitor) {
             if (bindings.isEmpty() || stopping || thread != null && thread.isAlive()) return;
             owner = "bulk-worker-" + UUID.randomUUID();
+            wakeRequested = false;
+            idleStreak = 0;
             String startedOwner = owner;
-            thread = new Thread(() -> run(startedOwner), "praxis-bulk-worker");
-            thread.start();
+            boolean started = false;
+            RUNNING.add(this);
+            try {
+                thread = new Thread(() -> run(startedOwner), "praxis-bulk-worker");
+                thread.start();
+                started = true;
+            } finally {
+                if (!started) RUNNING.remove(this);
+            }
+        }
+    }
+
+    static long idleDelayMillis(int idleStreak) {
+        int shift = Math.min(Math.max(idleStreak - 1, 0), 7);
+        return Math.min(MIN_IDLE.toMillis() << shift, MAX_IDLE.toMillis());
+    }
+
+    void wakeUp() {
+        synchronized (monitor) {
+            wakeRequested = true;
+            idleStreak = 0;
+            monitor.notifyAll();
+        }
+    }
+
+    boolean matchesBinding(String namespaceId, String deploymentId) {
+        for (Binding binding : bindings) {
+            if (Objects.equals(namespaceId, binding.kernel().workerNamespaceId())
+                    && Objects.equals(deploymentId, binding.kernel().workerDeploymentId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void notifyQueued(String namespaceId, String deploymentId) {
+        if (namespaceId == null || deploymentId == null) return;
+        for (BulkDurableWorker worker : RUNNING) {
+            if (worker.matchesBinding(namespaceId, deploymentId)) {
+                worker.wakeUp();
+            }
         }
     }
     private boolean authorizeNext() {
@@ -162,12 +209,14 @@ final class BulkDurableWorker implements SmartLifecycle {
         try {
             while (authorizeNext()) {
                 boolean progressed = false;
+                boolean activeOrQueued = false;
                 for (State state : states) {
                     if (!authorizeNext()) break;
                     if (state.retryAfter == 0 || System.nanoTime() - state.retryAfter >= 0) {
                         try {
                             // Maintenance failure cannot terminalize an unrelated owned job.
                             progressed |= scan(state, startedOwner);
+                            activeOrQueued |= state.observedQueued;
                             state.retryAfter = 0;
                         } catch (RuntimeException error) {
                             state.retryAfter = System.nanoTime() + ERROR_BACKOFF.toNanos();
@@ -181,21 +230,43 @@ final class BulkDurableWorker implements SmartLifecycle {
                             LOG.warn("Bulk worker owned execution stopped after protected failure");
                         }
                     }
+                    activeOrQueued |= state.owned != null || state.retryAfter != 0;
                 }
-                if (!progressed) {
+                if (progressed || activeOrQueued) {
                     synchronized (monitor) {
-                        if (!stopping) monitor.wait(IDLE.toMillis());
+                        idleStreak = 0;
+                        if (!progressed) {
+                            if (wakeRequested) {
+                                wakeRequested = false;
+                            } else if (!stopping) {
+                                monitor.wait(MIN_IDLE.toMillis());
+                            }
+                        } else {
+                            wakeRequested = false;
+                        }
+                    }
+                } else {
+                    synchronized (monitor) {
+                        if (wakeRequested) {
+                            wakeRequested = false;
+                            idleStreak = 0;
+                        } else if (!stopping) {
+                            idleStreak = Math.min(idleStreak + 1, 32);
+                            monitor.wait(idleDelayMillis(idleStreak));
+                        }
                     }
                 }
             }
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
         } finally {
+            RUNNING.remove(this);
             for (State state : states) reconcile(state, startedOwner);
         }
     }
 
     private boolean scan(State state, String startedOwner) {
+        state.observedQueued = false;
         boolean progressed = false;
         boolean wrapped = false;
         if (++state.rounds > WRAP_ROUNDS) { state.cursor = null; state.rounds = 1; }
@@ -209,6 +280,7 @@ final class BulkDurableWorker implements SmartLifecycle {
                 if (hadCursor && !wrapped) { wrapped = true; continue; }
                 break;
             }
+            state.observedQueued = true;
             var hint = next.orElseThrow();
             state.cursor = hint; // Advance before decoding a corrupt/suspended head.
             try {

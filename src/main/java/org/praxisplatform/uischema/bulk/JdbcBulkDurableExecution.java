@@ -63,11 +63,21 @@ public final class JdbcBulkDurableExecution {
         return Objects.requireNonNull(capacityBinding, "Explicit capacity binding is required");
     }
 
+    String workerNamespaceId() {
+        return infrastructure.namespace();
+    }
+
+    String workerDeploymentId() {
+        return infrastructure.deploymentId();
+    }
+
     Optional<WorkerQueueHint> workerNextQueued(WorkerQueueHint after) {
         requireNoAmbientTransaction();
+        if (capacityBinding == null || !capacityBinding.deploymentId().equals(infrastructure.deploymentId()))
+            throw new BulkDurableExecutionException(BulkDurableExecutionException.Reason.NOT_EXECUTABLE);
         return workerTransaction(connection -> {
-            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
             String position = after == null ? "" : " and (created_at,execution_id) > (?,?)";
+            WorkerQueueHint hint;
             try (var statement = connection.prepareStatement("""
                     select execution_id,created_at from praxis_bulk.praxis_bulk_execution
                     where namespace_id=? and execution_mode='ASYNC' and status='QUEUED'
@@ -79,10 +89,12 @@ public final class JdbcBulkDurableExecution {
                 }
                 try (var rows = statement.executeQuery()) {
                     if (!rows.next()) return Optional.empty();
-                    return Optional.of(new WorkerQueueHint(rows.getObject(1, UUID.class),
-                            rows.getObject(2, OffsetDateTime.class).toInstant()));
+                    hint = new WorkerQueueHint(rows.getObject(1, UUID.class),
+                            rows.getObject(2, OffsetDateTime.class).toInstant());
                 }
             }
+            JdbcBulkCapacityOccupancy.requireBinding(connection, infrastructure, capacityBinding, false);
+            return Optional.of(hint);
         });
     }
 
@@ -347,6 +359,9 @@ public final class JdbcBulkDurableExecution {
             }
             return new ReservationWrite(snapshot(row(connection, executionId, false)), true);
         });
+        if (write.created()) {
+            BulkDurableWorker.notifyQueued(infrastructure.namespace(), infrastructure.deploymentId());
+        }
         return new BulkExecutionReservation(write.snapshot(), !write.created());
         } catch (BulkDurableExecutionException safe) { throw safe; }
         catch (RuntimeException unsafe) {
