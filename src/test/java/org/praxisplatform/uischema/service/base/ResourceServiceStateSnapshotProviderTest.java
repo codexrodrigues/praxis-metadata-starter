@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.service.base;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.capability.*;
 import org.praxisplatform.uischema.configuration.OpenApiUiSchemaAutoConfiguration;
+import org.praxisplatform.uischema.governance.ResourceGovernanceInterceptor;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import java.util.Optional;
@@ -10,6 +11,36 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ResourceServiceStateSnapshotProviderTest {
+    @Test void itemReadRefreshesAnExistingSnapshotBeforeProjectingTheSameEntityForItsSurface() {
+        var repository = mock(CoreResourceEvolutionIntegrationTest.ItemRepository.class);
+        var item = new CoreResourceEvolutionIntegrationTest.Item(1, 1, "Allowed");
+        item.revision = 7L;
+        when(repository.findById(1L)).thenReturn(Optional.of(item));
+        var service = new CoreResourceEvolutionIntegrationTest.ItemService(repository);
+        service.setResourceGovernanceInterceptors(java.util.List.of(new ResourceGovernanceInterceptor() {
+            @Override
+            public <E, R> R decorateResponse(BaseResourceQueryService<?, ?, ?> owner, E entity, R dto, String surface) {
+                assertSame(item, entity);
+                assertEquals("hero-profile", surface);
+                assertEquals("OPEN", ResourceStateSnapshotScope.findSeededServiceSnapshot(owner, 1L)
+                        .orElseThrow().orElseThrow().state());
+                return dto;
+            }
+        }));
+
+        try (var ignored = ResourceStateSnapshotScope.open()) {
+            ResourceStateSnapshotScope.seedServiceSnapshot(service, 1L, Optional.of(ResourceStateSnapshot.of("STALE")));
+            ResourceStateSnapshotScope.seedReusableResourceSnapshot("items", 1L, Optional.of(ResourceStateSnapshot.of("STALE")));
+            var result = service.findByIdForSurface(1L, "hero-profile");
+            assertEquals("Allowed", result.body().name);
+            assertTrue(result.body().enriched);
+            assertEquals(7L, result.requirePersistedVersion());
+            assertEquals("OPEN", ResourceStateSnapshotScope.findReusableResourceSnapshot("items", 1L)
+                    .orElseThrow().orElseThrow().state());
+            verify(repository).findById(1L);
+        }
+    }
+
     @Test void itemAccessPreservesTenantChecksAndReusesSnapshotsOnlyWithinTheScope() {
         var repository = mock(CoreResourceEvolutionIntegrationTest.ItemRepository.class);
         when(repository.findById(1L)).thenReturn(Optional.of(new CoreResourceEvolutionIntegrationTest.Item(1, 1, "Allowed")));

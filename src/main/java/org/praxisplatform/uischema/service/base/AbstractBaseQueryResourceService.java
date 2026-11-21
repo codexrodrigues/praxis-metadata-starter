@@ -7,6 +7,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Version;
 import org.praxisplatform.uischema.capability.ResourceStateSnapshot;
+import org.praxisplatform.uischema.capability.ResourceStateSnapshotScope;
 import org.praxisplatform.uischema.exporting.*;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.convert.support.DefaultConversionService;
@@ -687,9 +688,18 @@ public abstract class AbstractBaseQueryResourceService<
     @Override
     @Transactional(readOnly = true)
     public ResourceRepresentationResult<ResponseDTO> findById(ID id) {
+        return findByIdForSurface(id, "findById");
+    }
+
+    /**
+     * Loads and authorizes the item once, refreshes its snapshot in any active
+     * {@link ResourceStateSnapshotScope}, and projects the same entity for the
+     * given surface. Call from a transactional read entry point.
+     */
+    protected final ResourceRepresentationResult<ResponseDTO> findByIdForSurface(ID id, String surfaceOrOperation) {
         E entity = findEntityById(id);
         seedStateSnapshotInActiveScope(id, resolveEffectiveStateSnapshot(entity));
-        return toResourceRepresentation(entity);
+        return toResourceRepresentation(entity, surfaceOrOperation);
     }
 
     @Override

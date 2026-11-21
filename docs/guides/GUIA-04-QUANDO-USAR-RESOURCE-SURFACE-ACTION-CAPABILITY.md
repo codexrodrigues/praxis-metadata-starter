@@ -104,6 +104,11 @@ Essa distincao evita que runtimes precisem inferir se devem renderizar um form d
 uma tabela, uma lista ou uma pagina a partir apenas de `kind` e `scope`.
 Para conectar celulas de tabela, titulos e lookups ao QuickView / Visao 360° de uma `@UiSurface` (`READ_PROJECTION` ou `VIEW`), declare `@ResourceIdentity(keyField, titleField, subtitleField, metadataFields)`, marque de 4 a 8 campos executivos inéditos com `@UISchema(quickViewVisible = true, quickViewOrder = ...)` (sem repetir `titleField`/`subtitleField`/`metadataFields`), e aponte `@ResourceReference(resourceKey, valueField, surfaceId, previewSurfaceId)` e `LookupDetailDescriptor.forSurface(resourceKey, surfaceId, previewSurfaceId)` para a surface publicada.
 
+Quando uma projeção de item aplica governança por superfície, o serviço pode chamar
+`findByIdForSurface(id, surfaceId)` dentro de uma entrada transacional de leitura.
+O caminho canônico verifica o acesso e usa a mesma entidade para atualizar o
+snapshot no escopo ativo, projetar a resposta e obter a versão persistida.
+
 ## WorkflowAction
 
 Use `@WorkflowAction` quando a operacao e um comando de negocio explicito.
