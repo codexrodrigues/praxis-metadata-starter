@@ -442,11 +442,11 @@ existente de <code>schemaId</code> e <code>schemaUrl</code> é
 preservado; consumidores devem encaminhar o contexto autorizado e não
 usar só a URL como chave de cache.</p>
 <p>Respostas <code>200</code> e <code>304</code> publicam
-<code>Vary: Accept-Encoding, X-Tenant, X-Tenant-ID</code>. Com tenant ou
-definições customizadas, o cache é privado e exige revalidação.
-<code>If-None-Match</code> é comparado com o hash do payload projetado.
-Dois tenants com o mesmo payload podem ter o mesmo ETag; a separação das
-chaves internas permanece.</p>
+<code>Vary: Accept-Encoding, X-Tenant, X-Tenant-ID, X-Tenant-Realm, X-Organization-ID</code>.
+Com tenant ou definições customizadas, o cache é privado e exige
+revalidação. <code>If-None-Match</code> é comparado com o hash do
+payload projetado. Dois tenants com o mesmo payload podem ter o mesmo
+ETag; a separação das chaves internas permanece.</p>
 <p>O catálogo de domínio também separa suas chaves pelo tenant e pelo
 fingerprint das definições de campos e fatos. Isso não introduz ETag ou
 resposta <code>304</code> no catálogo: seu contrato HTTP continua
@@ -469,8 +469,17 @@ container é omitido para evitar um controle vazio.</p>
 <p>Cada propriedade contém o tipo/formato JSON Schema, limites e opções
 aplicáveis, <code>x-domain-governance</code> quando informado e
 <code>x-ui</code> com apresentação e marcadores:
-<code>customField: true</code>, <code>customFieldKey</code> e
-<code>customFieldScope: tenant</code>. O exemplo <a
+<code>customField: true</code>, <code>customFieldKey</code>,
+<code>customFieldScope: tenant</code>, além de atributos opcionais de UX
+(<code>placeholder</code>, <code>width</code>,
+<code>tableHidden: true</code>). Em schemas de filtro
+(<code>POST .../filter</code>), <code>tableHidden</code> e restrições de
+escrita (<code>required</code>, <code>minItems</code>,
+<code>default</code>, limites) são removidos. Campos <code>ARRAY</code>
+com <code>options</code> finitas publicam
+<code>items: {"type": "string", "enum": [...]}</code> (sem exigir
+<code>enumValues</code> no descriptor raiz) e <code>minItems: 1</code>
+quando obrigatórios. O exemplo <a
 href="examples/custom-fields.schema.valid.json">custom-fields.schema.valid.json</a>
 ilustra o container. As chaves <code>x-ui</code> são verificadas por <a
 href="x-ui-field.schema.json">x-ui-field.schema.json</a>.</p>
@@ -605,7 +614,9 @@ busca. Tipos e membership de enum continuam sendo validados.</p>
 </tr>
 <tr>
 <td><code>IN</code></td>
-<td>Array de escalares compatíveis, inclusive vazio</td>
+<td>Array de escalares compatíveis (inclusive vazio) ou elementos
+compatíveis para campos <code>ARRAY</code>
+(<code>jsonb_exists</code>)</td>
 <td><code>{"customFields":{"idade":[42,43]}}</code></td>
 </tr>
 <tr>
@@ -619,20 +630,29 @@ não o aplica</td>
 <p>Esses exemplos pressupõem o operador declarado para cada chave; o
 mesmo campo não aceita um operador escolhido livremente pelo payload.
 <code>null</code> omite o predicado; <code>IN</code> não admite itens
-nulos. A UI deve derivar controles do schema da operação de filtro, sem
-reutilizar obrigatoriedade/defaults do formulário de escrita.
-Comparações numéricas e temporais usam casts tipados. Publicar
-<code>sortable</code> como metadata não instala automaticamente um
-resolvedor de ordenação JSONB.</p>
+nulos. Para campos <code>ARRAY</code>, apenas <code>IN</code> e
+<code>IS_NULL</code> são projetados no schema de filtro. A UI deve
+derivar controles do schema da operação de filtro, sem reutilizar
+obrigatoriedade/defaults do formulário de escrita. Comparações numéricas
+e temporais usam casts tipados. Publicar <code>sortable</code> como
+metadata não instala automaticamente um resolvedor de ordenação
+JSONB.</p>
 <p>O host continua responsável por escopo, seleção, limite e allowlist
-da exportação. Para colunas já autorizadas,
+da exportação. <code>ResourceExportSupport.exportable(...)</code> admite
+caminhos no formato <code>&lt;container&gt;.&lt;safeKey&gt;</code> (ex.:
+<code>customFields.numero_calcado</code>) respeitando a governança da
+classe/container, e
+<code>AbstractBaseQueryResourceService.governedExportFields()</code>
+integra automaticamente descritores ativos marcados como
+<code>exportable = true</code> e permitidos pela governança. Para
+colunas já autorizadas,
 <code>CollectionExportValueResolver.reflective()</code> lê records,
 getters e Maps por caminho pontuado, incluindo
 <code>customFields.numero_calcado</code>. Passe esse resolver ao
 <code>CollectionExportExecutor</code>; resolvers próprios continuam
 válidos. CSV, JSON e XLSX compartilham essa leitura. A flag
-<code>exportable</code> deve alimentar a allowlist do host; ela não
-concede acesso aos dados por si só.</p>
+<code>exportable</code> continua sujeita à governança declarativa e não
+contorna tags <code>NON_EXPORTABLE</code> ou sigilo restrito.</p>
 <p><code>H2JsonbFunctions.jsonbExtractPathText</code> é um adapter de
 compatibilidade de teste que pode ser registrado como alias H2. A prova
 de banco deste incremento usa Neon e a função PostgreSQL real; teste

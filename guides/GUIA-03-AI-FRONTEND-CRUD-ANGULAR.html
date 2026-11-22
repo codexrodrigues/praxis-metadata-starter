@@ -555,7 +555,13 @@ orientada por schema:
 <code>sections: []</code> vazias apenas para fazer um formulario
 schema-driven funcionar; deixe o runtime materializar os grupos
 (<code>group</code>) e a ordem (<code>order</code>) publicados em
-<code>@UISchema</code> no backend</li>
+<code>@UISchema</code> no backend (e o bloco opcional
+<code>x-ui.formLayout</code> publicado por <code>@FormLayout</code>,
+incluindo <code>mode = 'stepper' | 'tabs' | 'accordion' | 'flat'</code>,
+capítulos macro <code>steps[]</code>, etapas opcionais
+<code>optional</code>, revisão final <code>stepperReviewStep</code>,
+rascunho de sessão <code>draftPersistence</code> e política de leitura
+<code>stepperInReadMode</code>)</li>
 </ul></li>
 <li><code>praxis-crud</code> e o shell recomendado para orquestrar
 listagem e manutencao completa do recurso (usando

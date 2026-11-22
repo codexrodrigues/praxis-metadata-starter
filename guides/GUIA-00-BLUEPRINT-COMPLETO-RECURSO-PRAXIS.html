@@ -893,13 +893,16 @@ canônicos (e constantes <code>WIRE_*</code>) de
 <code>/stats/distribution</code> e <code>/stats/comparison</code>,
 incluindo métricas <code>COUNT</code>, <code>DISTINCT_COUNT</code>,
 <code>SUM</code>, <code>AVG</code>, <code>MIN</code>, <code>MAX</code>,
-<code>MEDIAN</code>, <code>PERCENTILE_90</code>,
+<code>PERCENTILE_25</code>, <code>MEDIAN</code>,
+<code>PERCENTILE_75</code>, <code>PERCENTILE_90</code>,
 <code>PERCENTILE_95</code> e <code>AVG_PER_CYCLE_OCCURRENCE</code> em
-<code>numericMeasureField</code>/<code>numericHistogramMeasureField</code>)
-e anotar o Controller (diretamente na classe via
-<code>@UiAnalytics</code> <code>ElementType.TYPE</code>, anexado
-automaticamente a <code>/stats/group-by</code> ou <code>/filter</code>,
-ou no método específico) com
+<code>numericMeasureField</code>/<code>numericHistogramMeasureField</code>,
+intervalos ativos via <code>temporalIntervalTimeSeriesField</code>, e
+supressão LGPD via <code>minBucketCount</code>) e anotar o Controller
+(diretamente na classe via <code>@UiAnalytics</code>
+<code>ElementType.TYPE</code>, anexado automaticamente a
+<code>/stats/group-by</code> ou <code>/filter</code>, ou no método
+específico) com
 <code>@UiAnalytics(projections = {@AnalyticsProjection(..., recordOpen = @AnalyticsRecordOpen(..., target = @AnalyticsSurfaceTarget(...)))})</code>.</td>
 </tr>
 <tr>
@@ -1080,6 +1083,51 @@ guarda também a locate, itens fixados por <code>includeIds</code> e
 exportação. A carga por ID distingue inexistência (<code>404</code>) de
 acesso negado (<code>403</code>); mutações validam acesso antes do lock
 e novamente após o refresh sob <code>PESSIMISTIC_WRITE</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>3, 11, 12</strong></td>
+<td style="text-align: left;"><code>@FormLayout</code>,
+<code>@FormLayoutSection</code>, <code>@FormLayoutStep</code> &amp;
+<code>FormLayoutMetadataResolver</code></td>
+<td style="text-align: left;">Opt-in opcional em DTOs de comando
+(<code>CreateDTO</code>/<code>UpdateDTO</code>/payloads de
+<code>@WorkflowAction</code> com 2+ grupos semânticos),
+<code>ResponseDTO</code> unitário ou método de controller para emitir
+<code>x-ui.formLayout</code> (<code>FLAT</code>/<code>VERTICAL</code>
+-&gt; <code>"flat"</code>, <code>TABS</code>, <code>ACCORDION</code>,
+<code>STEPPER</code>, <code>AUTO</code> -&gt; heurística que resolve
+<code>"stepper"</code> quando <code>steps.length &gt;= 2</code>,
+<code>effectiveGroupCount &gt;= 4</code> ou
+<code>effectiveGroupCount &gt;= 3</code> com <code>&gt;= 12</code>
+campos — ativando automaticamente <code>stepperReviewStep=true</code> e
+<code>draftPersistence=true</code> quando
+<code>effectiveGroupCount &gt;= 4</code> ou
+<code>steps.length &gt;= 3</code> —, <code>"tabs"</code> quando
+<code>effectiveGroupCount &gt;= 2</code> e <code>&gt;= 6</code> campos
+ou <code>sections.length &gt;= 2</code>, ou <code>"flat"</code>,
+<code>sections[]</code> com <code>optional</code>, <code>steps[]</code>
+agrupando <code>sectionIds</code> com <code>optional</code> e flags
+opcionais <code>defaultTabId</code>, <code>tabsAppearance</code>,
+<code>accordionMulti</code>, <code>hideSectionHeaderInTabs</code>,
+<code>hideSectionHeaderInStepper</code>, <code>stepperInReadMode</code>,
+<code>stepperReviewStep</code>, <code>draftPersistence</code>).
+<code>@FormLayout</code> no método (<code>request</code> ou
+<code>GET</code> unitário <code>response</code>) sobrepõe o DTO mesmo
+sob proxies Spring AOP (JDK/CGLIB); endpoints de filtro
+(<code>GenericFilterDTO</code>, <code>/filter*</code>,
+<code>/by-ids</code>), coleções <code>GET</code>, <code>/stats/*</code>,
+<code>/options/*</code> e <code>/export</code> suprimem
+<code>formLayout</code>. <code>PraxisExpressionStaticValidator</code>
+valida <code>sections[*].groups</code> (incluindo DTOs aninhados
+<code>$ref</code>), IDs únicos de seções/etapas,
+<code>steps[*].sectionIds</code>, <code>defaultTabId</code>,
+<code>mode</code>, <code>tabsAppearance</code>,
+<code>stepperInReadMode</code> e flags booleanas
+(<code>stepperReviewStep</code>, <code>draftPersistence</code>,
+<code>optional</code>); no <code>@praxisui/dynamic-form</code> opera
+como fallback transitório de 4º nível (<code>[layoutMode]</code> &gt;
+<code>[formLayout]</code> &gt; <code>FormConfig.layout</code> &gt;
+<code>x-ui.formLayout</code>).</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>5, 9, 16</strong></td>
@@ -1899,7 +1947,8 @@ Material Icons, ex.: <code>"assured_workload"</code>, nunca
 <code>"Assured_Workload"</code>), alinhamento exato <code>1:1</code>
 entre colunas adjacentes da <code>@Entity</code> e propriedades de
 classes <code>*Dados</code>, e <code>@MicroVisualization</code> +
-<code>@Threshold</code> / <code>@CalculationMemory</code> validados por
+<code>@Threshold</code> / <code>@CalculationMemory</code> /
+<code>@FormLayout</code> validados por
 <code>PraxisExpressionStaticValidator.validateDtoClasses(dtoClasses, true)</code>.
 2. <strong>Checks 4 a 7 (<code>Quick View 360°</code>,
 <code>@ResourceReference</code>, <code>EntityLookupDescriptor</code>,

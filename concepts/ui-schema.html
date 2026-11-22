@@ -534,6 +534,104 @@ class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="
 <p>Esse exemplo publica objetos Json Logic em <code>x-ui</code> e falha
 cedo no backend se alguém trocar por DSL textual, operador desconhecido,
 aridade inválida ou condicional JSON Schema.</p>
+<h2
+id="organização-estrutural-do-formulário-formlayout-e-x-ui.formlayout">Organização
+Estrutural do Formulário (<code>@FormLayout</code> e
+<code>x-ui.formLayout</code>)</h2>
+<p>Para fluxos cadastrais com múltiplas seções, o DTO de comando/detalhe
+(ou método específico do controller) pode declarar opcionalmente
+<code>@FormLayout</code> (e <code>@FormLayoutSection[]</code>),
+materializado por <code>FormLayoutMetadataResolver</code> em
+<code>x-ui.formLayout</code>:</p>
+<ul>
+<li><strong>Opt-in estrito:</strong> DTOs e endpoints sem
+<code>@FormLayout</code> não emitem <code>x-ui.formLayout</code> nem
+alteram <code>X-Schema-Hash</code> / <code>ETag</code>. Em endpoints de
+filtro (<code>GenericFilterDTO</code>, <code>/filter</code>,
+<code>/filter/cursor</code>, <code>/by-ids</code>), listagens de coleção
+(<code>GET /{resource}</code>), analíticos (<code>/stats/*</code>),
+opções (<code>/options/*</code>) e exportação (<code>/export</code>), o
+bloco <code>formLayout</code> é automaticamente suprimido em
+<code>/schemas/filtered</code>.</li>
+<li><strong>Forma compacta, heurística automática (<code>AUTO</code>)
+vs. seções/etapas explícitas e flags das Fases 1–3:</strong>
+<ul>
+<li>Compacta: <code>@FormLayout(FormLayoutMode.STEPPER)</code> deriva as
+seções/etapas pela ordem de aparição dos valores de
+<code>@UISchema(group = ...)</code>.</li>
+<li>Heurística automática
+(<code>@FormLayout(FormLayoutMode.AUTO)</code>):
+<code>FormLayoutMetadataResolver</code> seleciona automaticamente
+<code>stepper</code> quando <code>steps.length &gt;= 2</code>,
+<code>effectiveGroupCount &gt;= 4</code> ou
+<code>effectiveGroupCount &gt;= 3</code> com <code>&gt;= 12</code>
+campos (ativando automaticamente <code>stepperReviewStep = true</code> e
+<code>draftPersistence = true</code> quando
+<code>effectiveGroupCount &gt;= 4</code> ou
+<code>steps.length &gt;= 3</code>), <code>tabs</code> (quando
+<code>effectiveGroupCount &gt;= 2</code> com <code>&gt;= 6</code> campos
+ou <code>sections.length &gt;= 2</code>) ou <code>flat</code> (demais
+casos).</li>
+<li>Explícita: combina
+<code>sections = {@FormLayoutSection(id = "...", title = "...", subtitle = "...", icon = "...", order = 1, optional = UiBoolean.TRUE, groups = {"..."})}</code>
+e opcionalmente
+<code>steps = {@FormLayoutStep(id = "...", label = "...", description = "...", icon = "...", sectionIds = {"..."}, optional = UiBoolean.TRUE)}</code>
+com flags opcionais de comportamento visual e governança
+(<code>defaultTabId</code>,
+<code>tabsAppearance = FormLayoutTabsAppearance.UNDERLINE</code>,
+<code>accordionMulti = UiBoolean.TRUE</code>,
+<code>hideSectionHeaderInTabs = UiBoolean.TRUE</code>,
+<code>hideSectionHeaderInStepper = UiBoolean.FALSE</code>,
+<code>stepperInReadMode = FormLayoutStepperReadMode.PRESENTATION</code>,
+<code>stepperReviewStep = UiBoolean.TRUE</code>,
+<code>draftPersistence = UiBoolean.TRUE</code>).</li>
+</ul></li>
+<li><strong>Precedência ponta a ponta:</strong> no backend,
+<code>@FormLayout</code> no método do controller (<code>request</code>
+ou <code>GET</code> unitário <code>response</code>) sobrepõe o
+<code>@FormLayout</code> do DTO e desembrulha proxies AOP Spring (JDK
+dinâmicos e CGLIB). No frontend <code>@praxisui/dynamic-form</code>,
+<code>x-ui.formLayout</code> atua apenas como fallback transitório de 4º
+nível (<code>[layoutMode]</code> &gt; <code>[formLayout]</code> &gt;
+<code>FormConfig.layout</code> &gt; <code>x-ui.formLayout</code> &gt;
+<code>'vertical'</code>), preservando overrides de usuário em
+configurações salvas (<code>LOCAL_CONFIG</code> ou
+<code>HOST_CONFIG</code>).</li>
+<li><strong>Validação estática no startup:</strong>
+<code>FormLayoutMetadataResolver</code> rejeita
+<code>id</code>/<code>title</code> em branco, <code>id</code> duplicado
+de seção ou etapa, <code>defaultTabId</code> inexistente e
+<code>steps[*].sectionIds</code> órfãos;
+<code>PraxisExpressionStaticValidator</code> (e
+<code>PraxisExpressionValidationOpenApiCustomizer</code>) valida os
+valores de <code>mode</code> (<code>flat</code>, <code>vertical</code>,
+<code>tabs</code>, <code>accordion</code>, <code>stepper</code>),
+<code>tabsAppearance</code> (<code>pills</code>, <code>underline</code>,
+<code>buttons</code>), <code>stepperInReadMode</code>
+(<code>presentation</code>, <code>all</code>, <code>none</code>),
+referências em <code>sections[*].groups</code> contra os valores reais
+de <code>x-ui.group</code> (incluindo DTOs aninhados via
+<code>@Valid</code>/<code>$ref</code>), referências de
+<code>steps[*].sectionIds</code> e emite aviso quando
+<code>mode = "stepper"</code> possui menos de 2 seções (degradando para
+vertical em runtime).</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@FormLayout</span><span class="op">(</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    mode <span class="op">=</span> FormLayoutMode<span class="op">.</span><span class="fu">STEPPER</span><span class="op">,</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    hideSectionHeaderInStepper <span class="op">=</span> UiBoolean<span class="op">.</span><span class="fu">FALSE</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    sections <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">@FormLayoutSection</span><span class="op">(</span>id <span class="op">=</span> <span class="st">&quot;identificacao&quot;</span><span class="op">,</span> title <span class="op">=</span> <span class="st">&quot;Identificação&quot;</span><span class="op">,</span> icon <span class="op">=</span> <span class="st">&quot;badge&quot;</span><span class="op">,</span> order <span class="op">=</span> <span class="dv">1</span><span class="op">,</span> groups <span class="op">=</span> <span class="op">{</span><span class="st">&quot;dadosPessoais&quot;</span><span class="op">}),</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">@FormLayoutSection</span><span class="op">(</span>id <span class="op">=</span> <span class="st">&quot;contato&quot;</span><span class="op">,</span> title <span class="op">=</span> <span class="st">&quot;Contato&quot;</span><span class="op">,</span> subtitle <span class="op">=</span> <span class="st">&quot;Canais corporativos&quot;</span><span class="op">,</span> icon <span class="op">=</span> <span class="st">&quot;mail&quot;</span><span class="op">,</span> order <span class="op">=</span> <span class="dv">2</span><span class="op">,</span> groups <span class="op">=</span> <span class="op">{</span><span class="st">&quot;contato&quot;</span><span class="op">})</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> <span class="kw">class</span> CreateEmployeeDTO <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span><span class="op">(</span>label <span class="op">=</span> <span class="st">&quot;Nome completo&quot;</span><span class="op">,</span> group <span class="op">=</span> <span class="st">&quot;dadosPessoais&quot;</span><span class="op">,</span> order <span class="op">=</span> <span class="dv">1</span><span class="op">)</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">String</span> name<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">@UISchema</span><span class="op">(</span>label <span class="op">=</span> <span class="st">&quot;E-mail corporativo&quot;</span><span class="op">,</span> group <span class="op">=</span> <span class="st">&quot;contato&quot;</span><span class="op">,</span> order <span class="op">=</span> <span class="dv">1</span><span class="op">)</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">private</span> <span class="bu">String</span> email<span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h2 id="referências-cruzadas">Referências cruzadas</h2>
 <ul>
 <li><a href="../architecture-overview.md">Visão arquitetural</a></li>

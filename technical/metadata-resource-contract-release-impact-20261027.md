@@ -668,6 +668,37 @@ This increment updates field/resource metadata publication, static authoring val
 5. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
    - Refreshed committed-blob `sha256` digests for the six modified `no_db` test files and recomputed `impactReview.reviewedScopeDigest` for `excluded_outside_impact` closures covering `src/main/java/org/praxisplatform/uischema/` or `PraxisExpressionStaticValidator.java`, preserving `historical_reuse` closures, raw artifacts, and bounded prior B–H and resource-contract obligations.
 
+## 2026-11-19 reconciliation: v8.0.0-rc.198 (Issue #320 stats capabilities: PERCENTILE_25/75, temporalIntervalTimeSeriesField, LGPD minBucketCount suppression, class-level @UiAnalytics, and legacy 9-arg governance interceptor compatibility)
+
+This increment adds statistical aggregation capabilities, LGPD small-bucket complementary suppression, temporal-interval time-series bucketing, and class-level `@UiAnalytics` OpenAPI resolution without altering Flyway migrations, durable bulk capacity/admission/worker execution, or authorized-reader boundaries:
+
+1. **Statistical metrics, temporal intervals, and LGPD suppression (`StatsMetric`, `StatsFieldDescriptor`, `StatsFieldRegistry`, `StatsEligibility`, `JpaStatsQueryExecutor`, `AbstractBaseQueryResourceService`):**
+   - Added `StatsMetric.PERCENTILE_25` and `StatsMetric.PERCENTILE_75`, bounded in-memory sampling guardrails (`maxInMemorySampleRows`), `temporalIntervalTimeSeriesField(field, startPropertyPath, endPropertyPath)` active-interval time-series bucketing, and `minBucketCount` (with 1D/2D complementary suppression and response metadata `suppressed`, `suppressedBucketCount`, `minBucketCount`).
+   - Added `preserveExtendedStatsDescriptorMetadata(...)` in `AbstractBaseQueryResourceService.resolveEffectiveStatsFieldRegistry()` so `ResourceGovernanceInterceptor` implementations compiled against the legacy 9-argument `StatsFieldDescriptor` constructor preserve `endPropertyPath` and `minBucketCount`.
+2. **Class-level `@UiAnalytics` OpenAPI publication (`UiAnalytics`, `AnalyticsProjection`, `UiAnalyticsOpenApiCustomizer`, `FilterableIndexAdvisor`, `SemanticMetadataReviewer`):**
+   - Enabled `@Target({ElementType.METHOD, ElementType.TYPE})` on `@UiAnalytics`, automatically attaching class-level projections to the canonical `/stats/group-by` or `/filter` operation when no method-level `@UiAnalytics` is present, and added `secondaryMetricField`/`secondaryMetricLabel` on `@AnalyticsProjection`.
+3. **Updated `no_db` and `metadata_h2` test coverage and inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Updated `UiAnalyticsOpenApiCustomizerTest`, `UiAnalyticsSpecContractTest`, `FilterableIndexAdvisorTest`, `CapabilityServiceTest`, and `StatsEligibilityTest` (`no_db`), plus `E2eFixtureResources` (`support`) and `StatsE2ETest` (`excluded_outside_impact` / `metadata_h2`), and added `StatsGovernanceE2ETest`, `StatsSampleLimitE2ETest`, and `JpaStatsExecutorIntegrationTest` (`excluded_outside_impact` / `metadata_h2`).
+   - Refreshed committed-blob `sha256` and `reviewedScopeDigest` entries in `tools/release/neon-test-inventory.json`, preserving `historical_reuse` closures, raw artifacts, and bounded prior B–H and resource-contract obligations.
+
+## 2026-11-21 reconciliation: v8.0.0-rc.198 (`BulkDurableWorker` idle backoff, `@FormLayout`, Wave 2/3 custom fields, filter inheritance, and didactic rule documentation)
+
+Between `f2c9e8b417` and `5e80ed380b`, the repository integrated five increments on `main` without altering Flyway migrations, durable capacity/admission limits, authorized-reader boundaries, or Neon B–H and resource-contract capture profiles:
+
+1. **OpenAPI `@Filterable` inference, filter metadata inheritance, and `@FormLayout` (`cf9c27ce19`, `3cb04e1224`, `aa519889f9`, `a075fce3c0`, `fbadcbad55`):**
+   - Added automatic `x-ui.multiple=true` / `multiSelect` inference and sibling-metadata inheritance guards in `CustomOpenApiResolver` and `FilterFieldMetadataInheritanceSupport`, plus `@FormLayout` annotations, `FormLayoutMetadataResolver`, `ApiResourceIdentityResolver`, and `PraxisExpressionStaticValidator` extensions.
+   - Added `FormLayoutMetadataPlatformTest` (`no_db`) and expanded `FilterableBetweenListDetectionTest` (`no_db`).
+2. **Wave 2/3 custom-field controls and tabular export projections (`e098e80b43`, `b1d12a8eb3`):**
+   - Extended `CustomFieldDescriptor`, `CustomFieldSchemaEnricher`, `CustomFieldValidator`, `AbstractTabularCollectionExportEngine`, `AbstractBaseQueryResourceService`, and `AbstractBaseResourceService`.
+   - Covered by updated `CustomFieldJpaCriteriaSupportTest`, `CustomFieldSchemaProjectionTest`, `CustomFieldSpecContractTest`, `CustomFieldValidatorTest`, `H2JsonbFunctionsTest`, `ResourceExportSupportTest`, and `CustomFieldCollectionExportTest` (`no_db`).
+3. **Didactic rule documentation descriptors in `/schemas/domain` (`5177968c51`):**
+   - Added `RuleDocumentationDescriptor`, `RuleLegalBasisDescriptor`, and documentation/label resolution in `DomainRuleSetDescriptor` and `SemanticDomainCatalogService`, covered by updated `DomainRuleSetDescriptorTest` and `SemanticDomainCatalogServiceTest` (`no_db`).
+4. **Idle backoff and deferred binding check in `BulkDurableWorker` (`48c00c1f27`):**
+   - Added exponential idle backoff (`250 ms` up to `30 s`), wake-up signaling on `enqueue`, and deferred `requireBinding` evaluation when the queue is empty in `BulkDurableWorker` and `JdbcBulkDurableExecution`, leaving enqueue/claim/completion SQL semantics, migrations, capacity limits, and synchronous ordered capture unchanged; covered by new `BulkDurableWorkerIdleBackoffTest` (`no_db`, `8/8` passing).
+5. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Inventoried `BulkDurableWorkerIdleBackoffTest` and `FormLayoutMetadataPlatformTest` (`no_db`), refreshed committed-blob `sha256` digests on modified test files, and recomputed `reviewedScopeDigest` (plus bounded 2026-11-21 causal notes on `impactReview` and `historical_reuse` closures whose prefixes encompass `src/main/java/org/praxisplatform/uischema/bulk/` or `src/main/java/org/praxisplatform/uischema/`), preserving all raw reuse artifacts and prior B–H / resource-contract obligations.
+
+
 
 
 
