@@ -2646,4 +2646,163 @@ class SemanticMetadataReviewerTest {
             return null;
         }
     }
+
+    private record ResourceEntityP50ExposureDTO(
+            @Schema(description = "Identificador unico do colaborador.")
+            @UISchema(label = "Codigo")
+            @DomainGovernance(preset = DomainGovernancePreset.INTERNAL_OPERATIONAL)
+            String code,
+
+            @Schema(description = "Nome completo civil do colaborador.")
+            @UISchema(label = "Nome")
+            @DomainGovernance(preset = DomainGovernancePreset.LGPD_PERSONAL_DATA)
+            String fullName,
+
+            @Schema(description = "Numero de documento fiscal restrito do titular.")
+            @UISchema(label = "Documento")
+            @DomainGovernance(preset = DomainGovernancePreset.LGPD_PERSONAL_ID)
+            String taxId,
+
+            @Schema(description = "Token tecnico secreto de integracao.")
+            @UISchema(label = "Token")
+            @DomainGovernance(preset = DomainGovernancePreset.SECURITY_CREDENTIAL)
+            String secretToken,
+
+            @Schema(description = "Nome do departamento de lotacao.")
+            @UISchema(label = "Departamento")
+            @DomainGovernance(preset = DomainGovernancePreset.INTERNAL_OPERATIONAL)
+            String departmentName
+    ) {}
+
+    private static class ResourceEntityBoundFilterDTO implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
+        @org.praxisplatform.uischema.filter.annotation.Filterable(operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.EQUAL, relation = "department.id")
+        @UISchema(label = "Departamento", controlType = org.praxisplatform.uischema.FieldControlType.ENTITY_LOOKUP, endpoint = "/api/departments/option-sources/department/options/filter")
+        private Long departmentId;
+
+        @org.praxisplatform.uischema.filter.annotation.Filterable(operation = org.praxisplatform.uischema.filter.annotation.Filterable.FilterOperation.LIKE, relation = "fullName")
+        @UISchema(label = "Nome")
+        private String fullNameFilter;
+
+        private String nonFilterableField;
+    }
+
+    @Test
+    void extendsP50RestrictedFieldChecksToResourceEntityAndValidatesFiltersAgainstFilterDto() {
+        SemanticMetadataReviewer reviewer = new SemanticMetadataReviewer();
+
+        var leakyLookup = new org.praxisplatform.uischema.options.EntityLookupDescriptor(
+                "employees",
+                "code",
+                List.of("fullName", "taxId"),
+                "status",
+                null,
+                null,
+                List.of("code", "fullName", "taxId"),
+                java.util.Map.of(),
+                new org.praxisplatform.uischema.options.LookupSelectionPolicy(null, "status", List.of("ACTIVE"), List.of(), true, null, null),
+                org.praxisplatform.uischema.options.LookupCapabilities.standardDirectory(),
+                org.praxisplatform.uischema.options.LookupDetailDescriptor.forSurface("workforce.employees", "detail", "detail"),
+                new org.praxisplatform.uischema.options.LookupDisplayDescriptor(
+                        "directory", "form", "comfortable", "inline", "list", "fullName",
+                        List.of(new org.praxisplatform.uischema.options.LookupDisplayFieldDescriptor(
+                                "secretToken", "secretToken", "Token", "lock", "text", "neutral", null)),
+                        List.of("fullName"), List.of(), null, false, true, true, false, false, true, java.util.Map.of(), 0),
+                new org.praxisplatform.uischema.options.LookupFilteringDescriptor(
+                        List.of(new org.praxisplatform.uischema.options.LookupFilterDefinition(
+                                "taxId", "Documento", "text", List.of("equals"), "equals", null, false, false)),
+                        java.util.Map.of(), List.of(), null, List.of(), null, List.of()),
+                new org.praxisplatform.uischema.options.LookupDialogDescriptor(
+                        true, "Employees", "lg", true,
+                        List.of(new org.praxisplatform.uischema.options.LookupResultColumnDescriptor("taxId", "Documento", "custom")))
+        );
+        var leakySource = new org.praxisplatform.uischema.options.OptionSourceDescriptor(
+                "employees",
+                org.praxisplatform.uischema.options.OptionSourceType.RESOURCE_ENTITY,
+                "/api/employees",
+                "employeeId",
+                "id",
+                "fullName",
+                "id",
+                List.of(),
+                java.util.Map.of(),
+                org.praxisplatform.uischema.options.OptionSourcePolicy.defaults(),
+                leakyLookup
+        );
+
+        SemanticMetadataReviewReport p50Report = reviewer.review(ResourceEntityP50ExposureDTO.class, List.of(leakySource), null);
+        assertTrue(p50Report.hasErrors());
+        assertTrue(p50Report.issues().stream().anyMatch(i ->
+                "restricted-field-in-analytics-or-option-source".equals(i.code()) && "taxId".equals(i.fieldName())));
+        assertTrue(p50Report.issues().stream().anyMatch(i ->
+                "restricted-field-in-analytics-or-option-source".equals(i.code()) && "secretToken".equals(i.fieldName())));
+        assertTrue(p50Report.issues().stream().noneMatch(i ->
+                "restricted-field-in-analytics-or-option-source".equals(i.code()) && "fullName".equals(i.fieldName())),
+                "Exportable LGPD_PERSONAL_DATA directory label/display must pass P50");
+
+        var validDerivedFiltering = org.praxisplatform.uischema.options.LookupFilteringDescriptor
+                .builderFromFilterDto(ResourceEntityBoundFilterDTO.class)
+                .sortOptions(List.of(new org.praxisplatform.uischema.options.LookupSortOption("code", "code", "asc", "Code")))
+                .defaultSort("code")
+                .searchStrategies(List.of(new org.praxisplatform.uischema.options.LookupSearchStrategyDefinition("text", "descriptive-text", 2)))
+                .build();
+        var validLookup = org.praxisplatform.uischema.options.EntityLookupDescriptor.directoryBuilder("employees", "code", "fullName")
+                .filtering(validDerivedFiltering)
+                .detailSurface("workforce.employees", "detail", "detail")
+                .build();
+        var validSource = new org.praxisplatform.uischema.options.OptionSourceDescriptor(
+                "employees",
+                org.praxisplatform.uischema.options.OptionSourceType.RESOURCE_ENTITY,
+                "/api/employees",
+                "employeeId",
+                "id",
+                "fullName",
+                "id",
+                List.of(),
+                java.util.Map.of(),
+                org.praxisplatform.uischema.options.OptionSourcePolicy.defaults(),
+                validLookup
+        );
+        SemanticMetadataReviewReport validFilterReport = reviewer.reviewOptionSourceDescriptor(validSource, ResourceEntityBoundFilterDTO.class);
+        assertFalse(validFilterReport.hasErrors(), validFilterReport.issues().toString());
+
+        var badFiltering = new org.praxisplatform.uischema.options.LookupFilteringDescriptor(
+                List.of(
+                        new org.praxisplatform.uischema.options.LookupFilterDefinition(
+                                "unknownField", "Unknown", "text", List.of("equals"), "equals", null, false, false),
+                        new org.praxisplatform.uischema.options.LookupFilterDefinition(
+                                "nonFilterableField", "NonFilterable", "text", List.of("equals"), "equals", null, false, false),
+                        new org.praxisplatform.uischema.options.LookupFilterDefinition(
+                                "departmentId", "Dept", "reference", List.of("equals"), "equals", "department",
+                                List.of(), java.util.Map.of(), List.of("missingDep"), java.util.Map.of("missingDep", "x"),
+                                false, false, "wrong.relation")
+                ),
+                java.util.Map.of(), List.of(), null, List.of(), null, List.of());
+        var badLookup = org.praxisplatform.uischema.options.EntityLookupDescriptor.directoryBuilder("employees", "code", "fullName")
+                .filtering(badFiltering)
+                .detailSurface("workforce.employees", "detail", "detail")
+                .build();
+        var badSource = new org.praxisplatform.uischema.options.OptionSourceDescriptor(
+                "employees",
+                org.praxisplatform.uischema.options.OptionSourceType.RESOURCE_ENTITY,
+                "/api/employees",
+                "employeeId",
+                "id",
+                "fullName",
+                "id",
+                List.of(),
+                java.util.Map.of(),
+                org.praxisplatform.uischema.options.OptionSourcePolicy.defaults(),
+                badLookup
+        );
+        var registry = org.praxisplatform.uischema.options.OptionSourceRegistry.builder()
+                .add(ResourceEntityP50ExposureDTO.class, badSource)
+                .build();
+        SemanticMetadataReviewReport badFilterReport = reviewer.reviewOptionSourceRegistry(
+                registry, java.util.Map.of("employees", ResourceEntityBoundFilterDTO.class));
+        Set<String> codes = badFilterReport.issues().stream().map(SemanticMetadataReviewIssue::code).collect(Collectors.toSet());
+        assertTrue(codes.contains("option-source-filter-field-unknown"));
+        assertTrue(codes.contains("option-source-filter-field-not-filterable"));
+        assertTrue(codes.contains("option-source-filter-relation-mismatch"));
+        assertTrue(codes.contains("option-source-filter-dependency-unknown"));
+    }
 }

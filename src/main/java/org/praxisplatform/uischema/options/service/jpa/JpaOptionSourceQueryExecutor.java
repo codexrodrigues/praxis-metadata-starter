@@ -17,11 +17,11 @@ import org.praxisplatform.uischema.dto.OptionDTO;
 import org.praxisplatform.uischema.id.CompositeIdSupport;
 import org.praxisplatform.uischema.id.JpaCriteriaPathSupport;
 import org.praxisplatform.uischema.options.EntityLookupDescriptor;
+import org.praxisplatform.uischema.options.EntityLookupOptionMapper;
 import org.praxisplatform.uischema.options.LookupFilterDefinition;
 import org.praxisplatform.uischema.options.LookupFilterRequest;
 import org.praxisplatform.uischema.options.LookupFilteringDescriptor;
 import org.praxisplatform.uischema.options.LookupSearchStrategyDefinition;
-import org.praxisplatform.uischema.options.LookupDetailDescriptor;
 import org.praxisplatform.uischema.options.LookupDisplayDescriptor;
 import org.praxisplatform.uischema.options.LookupDisplayFieldDescriptor;
 import org.praxisplatform.uischema.options.LookupSelectionPolicy;
@@ -39,22 +39,16 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.util.Collection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZonedDateTime;
 
 /**
  * JPA executor for metadata-driven option sources.
@@ -62,7 +56,11 @@ import java.time.ZonedDateTime;
 public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
 
     private static final Logger log = LoggerFactory.getLogger(JpaOptionSourceQueryExecutor.class);
+    private static final int MAX_SEARCH_TOKENS = 8;
     private final Set<String> loggedUnmappedPaths = ConcurrentHashMap.newKeySet();
+
+    private record ResolvedLabel(Path<?> path, String entityPropertyPath) {
+    }
 
     @Override
     public <E> Page<OptionDTO<Object>> filterOptions(
@@ -116,7 +114,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<E> root = query.from(entityClass);
         Path<?> valuePath = resolveValuePath(root, descriptor);
-        Path<?> labelPath = resolveLabelPath(root, descriptor);
+        ResolvedLabel resolvedLabel = resolveLabel(root, descriptor);
+        Path<?> labelPath = resolvedLabel.path();
         boolean richResourceEntity = isRichResourceEntity(descriptor);
         LookupSortOption explicitSortOption = resolveSortOptionOrNull(descriptor, sortKey);
         LookupSortOption defaultSortOption = resolveDefaultSortOption(descriptor);
@@ -151,8 +150,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         Class<?> valueType = valuePath.getJavaType();
         List<OptionDTO<Object>> pageContent = typedQuery.getResultList().stream()
                 .map(tuple -> richResourceEntity
-                        ? toEntityLookupOption(tuple, descriptor, valueType)
-                        : toOption(tuple, valueType))
+                        ? toEntityLookupOption(tuple, descriptor, valueType, entityClass, resolvedLabel.entityPropertyPath())
+                        : toOption(tuple, valueType, descriptor, entityClass, resolvedLabel.entityPropertyPath()))
                 .filter(option -> option.id() != null)
                 .toList();
         pageContent = dedupeOptions(pageContent);
@@ -203,7 +202,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<E> root = query.from(entityClass);
         Path<?> valuePath = resolveValuePath(root, descriptor);
-        Path<?> labelPath = resolveLabelPath(root, descriptor);
+        ResolvedLabel resolvedLabel = resolveLabel(root, descriptor);
+        Path<?> labelPath = resolvedLabel.path();
         boolean richResourceEntity = isRichResourceEntity(descriptor);
         Class<?> valueType = valuePath.getJavaType();
 
@@ -228,8 +228,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                 .getResultList()
                 .stream()
                 .map(tuple -> richResourceEntity
-                        ? toEntityLookupOption(tuple, descriptor, valueType)
-                        : toOption(tuple, valueType))
+                        ? toEntityLookupOption(tuple, descriptor, valueType, entityClass, resolvedLabel.entityPropertyPath())
+                        : toOption(tuple, valueType, descriptor, entityClass, resolvedLabel.entityPropertyPath()))
                 .collect(Collectors.toMap(option -> stringify(option.id()), option -> option, (left, right) -> left, LinkedHashMap::new));
 
         return ids.stream()
@@ -334,7 +334,8 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             LookupSearchStrategyDefinition searchStrategy,
             String search
     ) {
-        if (search == null || search.isBlank() || !descriptor.policy().allowSearch()) {
+        if (search == null || search.isBlank() || !descriptor.policy().allowSearch()
+                || "none".equals(descriptor.policy().searchMode())) {
             return null;
         }
         String normalized = search.trim();
@@ -343,15 +344,48 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             return null;
         }
         List<Path<?>> searchPaths = resolveSearchPaths(root, labelPath, descriptor);
+        String searchMode = descriptor.policy().searchMode();
+        boolean isDocumentStrategy = searchStrategy != null && "normalized-document".equals(searchStrategy.kind());
+        boolean isDigitsFormat = searchStrategy != null && "digits".equals(searchStrategy.inputFormat());
+        boolean isBusinessCode = searchStrategy != null && "business-code".equals(searchStrategy.kind());
+        boolean tokenize = !"exact".equals(searchMode)
+                && !"none".equals(searchMode)
+                && !isDocumentStrategy
+                && !isDigitsFormat
+                && !isBusinessCode;
+
         String lowered = normalized.toLowerCase(Locale.ROOT);
-        List<Predicate> predicates = searchPaths.stream()
-                .map(path -> buildSearchPredicateForPath(cb, path, descriptor, searchStrategy, lowered))
-                .filter(Objects::nonNull)
-                .toList();
-        if (predicates.isEmpty()) {
+        List<String> tokens = tokenize
+                ? Arrays.stream(lowered.split("\\s+"))
+                        .filter(token -> !token.isBlank())
+                        .collect(Collectors.toCollection(LinkedHashSet::new))
+                        .stream()
+                        .limit(MAX_SEARCH_TOKENS)
+                        .toList()
+                : List.of(lowered);
+        if (tokens.isEmpty()) {
             return null;
         }
-        return cb.or(predicates.toArray(Predicate[]::new));
+
+        List<Predicate> perTokenPredicates = new ArrayList<>(tokens.size());
+        for (String token : tokens) {
+            List<Predicate> pathPredicates = searchPaths.stream()
+                    .map(path -> buildSearchPredicateForPath(cb, path, descriptor, searchStrategy, token))
+                    .filter(Objects::nonNull)
+                    .toList();
+            if (pathPredicates.isEmpty()) {
+                if (tokens.size() == 1) {
+                    return null;
+                }
+                return cb.disjunction();
+            }
+            perTokenPredicates.add(pathPredicates.size() == 1
+                    ? pathPredicates.getFirst()
+                    : cb.or(pathPredicates.toArray(Predicate[]::new)));
+        }
+        return perTokenPredicates.size() == 1
+                ? perTokenPredicates.getFirst()
+                : cb.and(perTokenPredicates.toArray(Predicate[]::new));
     }
 
     private Predicate buildSearchPredicateForPath(
@@ -374,17 +408,17 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                         yield null;
                     }
                 }
-                case "starts-with" -> cb.like(text, lowered + "%");
+                case "starts-with" -> cb.like(text, escapeLike(lowered) + "%", '\\');
                 default -> {
                     try {
                         Object coerced = coerceValue(lowered, javaType);
                         if (coerced != null) {
-                            yield cb.or(cb.equal(path, coerced), cb.like(text, "%" + lowered + "%"));
+                            yield cb.or(cb.equal(path, coerced), cb.like(text, "%" + escapeLike(lowered) + "%", '\\'));
                         }
                     } catch (RuntimeException ignored) {
                         // Fall through to string concat comparison when the search token is not a full literal of javaType.
                     }
-                    yield cb.like(text, "%" + lowered + "%");
+                    yield cb.like(text, "%" + escapeLike(lowered) + "%", '\\');
                 }
             };
         }
@@ -419,9 +453,15 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         return switch (searchMode) {
             case "none" -> null;
             case "exact" -> cb.equal(text, lowered);
-            case "starts-with" -> cb.like(text, lowered + "%");
-            default -> cb.like(text, "%" + lowered + "%");
+            case "starts-with" -> cb.like(text, escapeLike(lowered) + "%", '\\');
+            default -> cb.like(text, "%" + escapeLike(lowered) + "%", '\\');
         };
+    }
+
+    private static String escapeLike(String value) {
+        return value.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     private List<Path<?>> resolveSearchPaths(Root<?> root, Path<?> labelPath, OptionSourceDescriptor descriptor) {
@@ -431,7 +471,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         }
         List<Path<?>> paths = new ArrayList<>();
         for (String searchPath : lookup.searchPropertyPaths()) {
-            Path<?> resolvedPath = tryResolvePath(root, searchPath, "searchPropertyPaths");
+            Path<?> resolvedPath = tryResolveDescriptorPath(root, descriptor, searchPath, "searchPropertyPaths");
             if (resolvedPath != null) {
                 paths.add(resolvedPath);
             }
@@ -453,7 +493,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     ) {
         LookupSortOption sortOption = resolveSortOptionOrNull(descriptor, sortKey);
         if (sortOption != null) {
-            Path<?> sortPath = tryResolvePath(root, sortOption.field(), "sortOption:" + sortOption.key());
+            Path<?> sortPath = tryResolveDescriptorPath(root, descriptor, sortOption.field(), "sortOption:" + sortOption.key());
             Path<?> effectiveSortPath = sortPath != null ? sortPath : labelPath;
             return JpaCriteriaPathSupport.buildOrders(cb, effectiveSortPath, !"desc".equals(sortOption.direction()))
                     .toArray(Order[]::new);
@@ -472,7 +512,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         }
         LookupSortOption defaultSortOption = resolveDefaultSortOption(descriptor);
         if (defaultSortOption != null) {
-            Path<?> sortPath = tryResolvePath(root, defaultSortOption.field(), "defaultSortOption:" + defaultSortOption.key());
+            Path<?> sortPath = tryResolveDescriptorPath(root, descriptor, defaultSortOption.field(), "defaultSortOption:" + defaultSortOption.key());
             Path<?> effectiveSortPath = sortPath != null ? sortPath : labelPath;
             return JpaCriteriaPathSupport.buildOrders(cb, effectiveSortPath, !"desc".equals(defaultSortOption.direction()))
                     .toArray(Order[]::new);
@@ -512,7 +552,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
     ) {
         LookupSortOption effectiveSortOption = explicitSortOption != null ? explicitSortOption : defaultSortOption;
         if (effectiveSortOption != null) {
-            return tryResolvePath(root, effectiveSortOption.field(), "metadataSort:" + effectiveSortOption.key());
+            return tryResolveDescriptorPath(root, descriptor, effectiveSortOption.field(), "metadataSort:" + effectiveSortOption.key());
         }
         if (sort != null && sort.isSorted()) {
             return null;
@@ -549,7 +589,7 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
                         )
                 );
             }
-            Path<?> resolvedPath = resolvePath(root, definition.field());
+            Path<?> resolvedPath = resolvePath(root, definition.effectiveEntityPropertyPath());
             predicates.add(buildPredicateForStructuredFilter(cb, resolvedPath, definition, filter));
         }
         return predicates.isEmpty() ? null : cb.and(predicates.toArray(Predicate[]::new));
@@ -563,8 +603,10 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             LookupFilterRequest filter
     ) {
         return switch (filter.operator()) {
-            case "contains" -> cb.like(cb.lower(path.as(String.class)), "%" + requiredTextValue(filter).toLowerCase(Locale.ROOT) + "%");
-            case "startsWith" -> cb.like(cb.lower(path.as(String.class)), requiredTextValue(filter).toLowerCase(Locale.ROOT) + "%");
+            case "contains" -> cb.like(cb.lower(path.as(String.class)),
+                    "%" + escapeLike(requiredTextValue(filter).toLowerCase(Locale.ROOT)) + "%", '\\');
+            case "startsWith" -> cb.like(cb.lower(path.as(String.class)),
+                    escapeLike(requiredTextValue(filter).toLowerCase(Locale.ROOT)) + "%", '\\');
             case "equals" -> {
                 Object coerced = coerceValue(requiredSingleValue(filter), path.getJavaType());
                 if ("text".equals(definition.type())) {
@@ -651,11 +693,13 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         return specification == null ? null : specification.toPredicate(root, query, cb);
     }
 
-    private OptionDTO<Object> toOption(Object value, Object label) {
-        return new OptionDTO<>(value, stringify(label != null ? label : value), null);
-    }
-
-    private OptionDTO<Object> toOption(Tuple tuple, Class<?> valueType) {
+    private OptionDTO<Object> toOption(
+            Tuple tuple,
+            Class<?> valueType,
+            OptionSourceDescriptor descriptor,
+            Class<?> entityClass,
+            String labelGovernancePath
+    ) {
         Object value = extractOptionValue(tuple, valueType);
         Object label = null;
         try {
@@ -663,36 +707,73 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         } catch (IllegalArgumentException ignored) {
             // Same-path option sources select only the value column and reuse it as label.
         }
-        return toOption(value, label);
+        return EntityLookupOptionMapper.mapFromResolved(
+                descriptor,
+                value,
+                label,
+                labelGovernancePath,
+                null,
+                entityClass,
+                EntityLookupOptionMapper.GovernanceMaskingMode.AUTO
+        );
     }
 
-    private OptionDTO<Object> toEntityLookupOption(Tuple tuple, OptionSourceDescriptor descriptor, Class<?> valueType) {
+    private OptionDTO<Object> toEntityLookupOption(
+            Tuple tuple,
+            OptionSourceDescriptor descriptor,
+            Class<?> valueType,
+            Class<?> entityClass,
+            String labelGovernancePath
+    ) {
         Object value = extractOptionValue(tuple, valueType);
         Object label = tupleValue(tuple, "optionLabel");
         EntityLookupDescriptor lookup = descriptor.entityLookup();
-        Map<String, Object> extra = new LinkedHashMap<>();
 
-        putIfNotNull(extra, "code", tupleValue(tuple, "lookupCode"));
-        putIfNotBlank(extra, "description", buildDescription(tuple, lookup.descriptionPropertyPaths().size()));
+        Object code = tupleValue(tuple, "lookupCode");
+        List<Object> descriptions = new ArrayList<>(lookup.descriptionPropertyPaths().size());
+        for (int index = 0; index < lookup.descriptionPropertyPaths().size(); index++) {
+            descriptions.add(tupleValue(tuple, "lookupDescription" + index));
+        }
         Object status = tupleValue(tuple, "lookupStatus");
-        putIfNotNull(extra, "status", status);
-        boolean selectable = resolveSelectable(tuple, status, lookup);
-        extra.put("selectable", selectable);
-        putIfNotNull(extra, "disabledReason", tupleValue(tuple, "lookupDisabledReason"));
-        putIfNotBlank(extra, "detailHref", resolveTemplate(lookup.detail(), value, true));
-        putIfNotBlank(extra, "detailRoute", resolveTemplate(lookup.detail(), value, false));
-        putIfNotBlank(extra, "resourcePath", descriptor.resourcePath());
-        putIfNotBlank(extra, "entityKey", lookup.entityKey());
-        List<String> badges = buildDisplayBadges(tuple, lookup.display());
-        if (!badges.isEmpty()) {
-            extra.put("badges", badges);
-        }
-        List<Map<String, Object>> richFields = buildDisplayFields(tuple, lookup.display());
-        if (!richFields.isEmpty()) {
-            extra.put("richFields", richFields);
+        Object disabledObj = tupleValue(tuple, "lookupDisabled");
+        Boolean disabled = disabledObj instanceof Boolean b ? b : null;
+        String disabledReason = stringifyNullable(tupleValue(tuple, "lookupDisabledReason"));
+        Object selectableObj = tupleValue(tuple, "lookupSelectable");
+        Boolean selectable = selectableObj instanceof Boolean b ? b : null;
+
+        LookupDisplayDescriptor display = lookup.display();
+        List<Object> badgeValues = List.of();
+        List<Object> richFieldValues = List.of();
+        if (display != null) {
+            if (!display.badgePropertyPaths().isEmpty()) {
+                List<Object> badges = new ArrayList<>(display.badgePropertyPaths().size());
+                for (int index = 0; index < display.badgePropertyPaths().size(); index++) {
+                    badges.add(tupleValue(tuple, "lookupBadge" + index));
+                }
+                badgeValues = badges;
+            }
+            if (!display.fields().isEmpty()) {
+                List<Object> richValues = new ArrayList<>(display.fields().size());
+                for (int index = 0; index < display.fields().size(); index++) {
+                    richValues.add(tupleValue(tuple, "lookupRichField" + index));
+                }
+                richFieldValues = richValues;
+            }
         }
 
-        return new OptionDTO<>(value, stringify(label != null ? label : value), extra);
+        EntityLookupOptionMapper.ResolvedLookupValues resolvedValues =
+                new EntityLookupOptionMapper.ResolvedLookupValues(
+                        code, descriptions, status, disabled, disabledReason, selectable, badgeValues, richFieldValues);
+
+        return EntityLookupOptionMapper.mapFromResolved(
+                descriptor,
+                value,
+                label,
+                labelGovernancePath,
+                resolvedValues,
+                entityClass,
+                EntityLookupOptionMapper.GovernanceMaskingMode.AUTO
+        );
     }
 
     private Object extractOptionValue(Tuple tuple, Class<?> valueType) {
@@ -733,87 +814,6 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         return parts.isEmpty() ? null : String.join(CompositeIdSupport.SEPARATOR, parts);
     }
 
-    private String buildDescription(Tuple tuple, int descriptionCount) {
-        if (descriptionCount <= 0) {
-            return null;
-        }
-        return java.util.stream.IntStream.range(0, descriptionCount)
-                .mapToObj(index -> tupleValue(tuple, "lookupDescription" + index))
-                .map(this::stringifyNullable)
-                .filter(value -> value != null && !value.isBlank())
-                .collect(Collectors.joining(" - "));
-    }
-
-    private List<String> buildDisplayBadges(Tuple tuple, LookupDisplayDescriptor display) {
-        if (display == null || display.badgePropertyPaths().isEmpty()) {
-            return List.of();
-        }
-        return java.util.stream.IntStream.range(0, display.badgePropertyPaths().size())
-                .mapToObj(index -> tupleValue(tuple, "lookupBadge" + index))
-                .map(this::stringifyNullable)
-                .filter(value -> value != null && !value.isBlank())
-                .distinct()
-                .toList();
-    }
-
-    private List<Map<String, Object>> buildDisplayFields(Tuple tuple, LookupDisplayDescriptor display) {
-        if (display == null || display.fields().isEmpty()) {
-            return List.of();
-        }
-        List<Map<String, Object>> fields = new ArrayList<>();
-        for (int index = 0; index < display.fields().size(); index++) {
-            LookupDisplayFieldDescriptor descriptor = display.fields().get(index);
-            String value = stringifyNullable(tupleValue(tuple, "lookupRichField" + index));
-            if (value == null || value.isBlank()) {
-                continue;
-            }
-            Map<String, Object> field = new LinkedHashMap<>();
-            putIfNotBlank(field, "key", descriptor.key());
-            putIfNotBlank(field, "label", descriptor.label());
-            putIfNotBlank(field, "icon", descriptor.icon());
-            putIfNotBlank(field, "presentation", descriptor.presentation());
-            putIfNotBlank(field, "tone", descriptor.tone());
-            putIfNotBlank(field, "format", descriptor.format());
-            field.put("value", value);
-            fields.add(field);
-        }
-        return fields;
-    }
-
-    private boolean resolveSelectable(Tuple tuple, Object status, EntityLookupDescriptor lookup) {
-        Object selectableValue = tupleValue(tuple, "lookupSelectable");
-        if (selectableValue instanceof Boolean booleanValue) {
-            return booleanValue;
-        }
-        Object disabledValue = tupleValue(tuple, "lookupDisabled");
-        if (disabledValue instanceof Boolean booleanValue && booleanValue) {
-            return false;
-        }
-        LookupSelectionPolicy policy = lookup.selectionPolicy();
-        if (policy == null) {
-            return true;
-        }
-        String statusText = stringifyNullable(status);
-        if (statusText != null && policy.blockedStatuses().contains(statusText)) {
-            return false;
-        }
-        if (statusText != null && !policy.allowedStatuses().isEmpty()) {
-            return policy.allowedStatuses().contains(statusText);
-        }
-        return true;
-    }
-
-    private String resolveTemplate(LookupDetailDescriptor detail, Object id, boolean href) {
-        if (detail == null) {
-            return null;
-        }
-        String template = href ? detail.hrefTemplate() : detail.routeTemplate();
-        if (template == null || template.isBlank()) {
-            return null;
-        }
-        return template.replace("{id}", stringify(id));
-    }
-
     private List<OptionDTO<Object>> mergeIncludedOptions(
             List<OptionDTO<Object>> pageContent,
             List<OptionDTO<Object>> included
@@ -844,37 +844,90 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         return CompositeIdSupport.stringifyNullable(value);
     }
 
-    private void putIfNotNull(Map<String, Object> target, String key, Object value) {
-        if (value != null) {
-            target.put(key, value);
-        }
-    }
-
-    private void putIfNotBlank(Map<String, Object> target, String key, String value) {
-        if (value != null && !value.isBlank()) {
-            target.put(key, value);
-        }
-    }
-
     private Path<?> resolveValuePath(Root<?> root, OptionSourceDescriptor descriptor) {
         return resolvePath(root, descriptor.valuePropertyPath() != null ? descriptor.valuePropertyPath() : descriptor.propertyPath());
     }
 
-    private Path<?> resolveLabelPath(Root<?> root, OptionSourceDescriptor descriptor) {
+    private ResolvedLabel resolveLabel(Root<?> root, OptionSourceDescriptor descriptor) {
         String preferredLabel = descriptor.labelPropertyPath() != null ? descriptor.labelPropertyPath() : descriptor.propertyPath();
-        Path<?> resolved = tryResolvePath(root, preferredLabel, "labelPropertyPath");
+        ResolvedPathWithName resolved = tryResolveDescriptorPathWithName(root, descriptor, preferredLabel, "labelPropertyPath");
         if (resolved != null) {
-            return resolved;
+            return new ResolvedLabel(resolved.path(), resolved.entityPropertyPath());
         }
         if (descriptor.labelPropertyPath() != null
                 && descriptor.propertyPath() != null
                 && !descriptor.propertyPath().equals(descriptor.labelPropertyPath())) {
-            Path<?> fallback = tryResolvePath(root, descriptor.propertyPath(), "propertyPath");
+            ResolvedPathWithName fallback = tryResolveDescriptorPathWithName(root, descriptor, descriptor.propertyPath(), "propertyPath");
             if (fallback != null) {
-                return fallback;
+                return new ResolvedLabel(fallback.path(), fallback.entityPropertyPath());
             }
         }
-        return resolveValuePath(root, descriptor);
+        EntityLookupDescriptor lookup = descriptor.entityLookup();
+        if (lookup != null) {
+            if (lookup.display() != null && lookup.display().primaryPropertyPath() != null) {
+                ResolvedPathWithName primaryFallback = tryResolveDescriptorPathWithName(
+                        root, descriptor, lookup.display().primaryPropertyPath(), "display.primaryPropertyPath");
+                if (primaryFallback != null) {
+                    return new ResolvedLabel(primaryFallback.path(), primaryFallback.entityPropertyPath());
+                }
+            }
+            for (String descPath : lookup.descriptionPropertyPaths()) {
+                ResolvedPathWithName descFallback = tryResolveDescriptorPathWithName(
+                        root, descriptor, descPath, "descriptionPropertyPaths");
+                if (descFallback != null) {
+                    return new ResolvedLabel(descFallback.path(), descFallback.entityPropertyPath());
+                }
+            }
+        }
+        String valueProp = descriptor.valuePropertyPath() != null ? descriptor.valuePropertyPath() : descriptor.propertyPath();
+        return new ResolvedLabel(resolveValuePath(root, descriptor), valueProp);
+    }
+
+    private Path<?> resolveLabelPath(Root<?> root, OptionSourceDescriptor descriptor) {
+        return resolveLabel(root, descriptor).path();
+    }
+
+    private record ResolvedPathWithName(Path<?> path, String entityPropertyPath) {
+    }
+
+    private Path<?> tryResolveDescriptorPath(
+            Root<?> root,
+            OptionSourceDescriptor descriptor,
+            String propertyPath,
+            String usageContext
+    ) {
+        ResolvedPathWithName resolved = tryResolveDescriptorPathWithName(root, descriptor, propertyPath, usageContext);
+        return resolved == null ? null : resolved.path();
+    }
+
+    private ResolvedPathWithName tryResolveDescriptorPathWithName(
+            Root<?> root,
+            OptionSourceDescriptor descriptor,
+            String propertyPath,
+            String usageContext
+    ) {
+        if (propertyPath == null || propertyPath.isBlank()) {
+            return null;
+        }
+        Path<?> direct = JpaCriteriaPathSupport.tryResolvePath(root, propertyPath, true);
+        if (direct != null) {
+            return new ResolvedPathWithName(direct, propertyPath);
+        }
+        EntityLookupDescriptor lookup = descriptor == null ? null : descriptor.entityLookup();
+        if (lookup != null && lookup.display() != null) {
+            for (LookupDisplayFieldDescriptor field : lookup.display().fields()) {
+                if (propertyPath.equals(field.key())
+                        && field.propertyPath() != null
+                        && !propertyPath.equals(field.propertyPath())) {
+                    Path<?> mapped = JpaCriteriaPathSupport.tryResolvePath(root, field.propertyPath(), true);
+                    if (mapped != null) {
+                        return new ResolvedPathWithName(mapped, field.propertyPath());
+                    }
+                }
+            }
+        }
+        logUnmappedPathOnce(root, propertyPath, usageContext);
+        return null;
     }
 
     private void applyOptionSelections(CriteriaQuery<Tuple> query, Path<?> valuePath, Path<?> labelPath) {
@@ -905,27 +958,27 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         selections.add(labelPath.alias("optionLabel"));
         selectedPaths.add(labelPath);
         selectedAliases.add("optionLabel");
-        addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.codePropertyPath(), "lookupCode");
-        addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.statusPropertyPath(), "lookupStatus");
-        addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.disabledPropertyPath(), "lookupDisabled");
-        addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.disabledReasonPropertyPath(), "lookupDisabledReason");
+        addSelection(cb, selections, selectedPaths, selectedAliases, root, descriptor, lookup.codePropertyPath(), "lookupCode");
+        addSelection(cb, selections, selectedPaths, selectedAliases, root, descriptor, lookup.statusPropertyPath(), "lookupStatus");
+        addSelection(cb, selections, selectedPaths, selectedAliases, root, descriptor, lookup.disabledPropertyPath(), "lookupDisabled");
+        addSelection(cb, selections, selectedPaths, selectedAliases, root, descriptor, lookup.disabledReasonPropertyPath(), "lookupDisabledReason");
         LookupSelectionPolicy policy = lookup.selectionPolicy();
         if (policy != null) {
-            addSelection(cb, selections, selectedPaths, selectedAliases, root, policy.selectablePropertyPath(), "lookupSelectable");
+            addSelection(cb, selections, selectedPaths, selectedAliases, root, descriptor, policy.selectablePropertyPath(), "lookupSelectable");
             if (!selectedAliases.contains("lookupStatus")) {
-                addSelection(cb, selections, selectedPaths, selectedAliases, root, policy.statusPropertyPath(), "lookupStatus");
+                addSelection(cb, selections, selectedPaths, selectedAliases, root, descriptor, policy.statusPropertyPath(), "lookupStatus");
             }
         }
         for (int index = 0; index < lookup.descriptionPropertyPaths().size(); index++) {
-            addSelection(cb, selections, selectedPaths, selectedAliases, root, lookup.descriptionPropertyPaths().get(index), "lookupDescription" + index);
+            addSelection(cb, selections, selectedPaths, selectedAliases, root, descriptor, lookup.descriptionPropertyPaths().get(index), "lookupDescription" + index);
         }
         LookupDisplayDescriptor display = lookup.display();
         if (display != null) {
             for (int index = 0; index < display.fields().size(); index++) {
-                addSelection(cb, selections, selectedPaths, selectedAliases, root, display.fields().get(index).propertyPath(), "lookupRichField" + index);
+                addSelection(cb, selections, selectedPaths, selectedAliases, root, descriptor, display.fields().get(index).propertyPath(), "lookupRichField" + index);
             }
             for (int index = 0; index < display.badgePropertyPaths().size(); index++) {
-                addSelection(cb, selections, selectedPaths, selectedAliases, root, display.badgePropertyPaths().get(index), "lookupBadge" + index);
+                addSelection(cb, selections, selectedPaths, selectedAliases, root, descriptor, display.badgePropertyPaths().get(index), "lookupBadge" + index);
             }
         }
         if (metadataSortPath != null && selectedPaths.stream().noneMatch(path -> samePath(path, metadataSortPath))) {
@@ -968,11 +1021,24 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
             String propertyPath,
             String alias
     ) {
+        addSelection(cb, selections, selectedPaths, selectedAliases, root, null, propertyPath, alias);
+    }
+
+    private void addSelection(
+            CriteriaBuilder cb,
+            List<Selection<?>> selections,
+            List<Path<?>> selectedPaths,
+            List<String> selectedAliases,
+            Root<?> root,
+            OptionSourceDescriptor descriptor,
+            String propertyPath,
+            String alias
+    ) {
         if (propertyPath != null && !propertyPath.isBlank()) {
             if (selectedAliases.contains(alias)) {
                 return;
             }
-            Path<?> resolvedPath = tryResolvePath(root, propertyPath, "selection:" + alias);
+            Path<?> resolvedPath = tryResolveDescriptorPath(root, descriptor, propertyPath, "selection:" + alias);
             if (resolvedPath == null) {
                 return;
             }
@@ -1015,18 +1081,22 @@ public class JpaOptionSourceQueryExecutor implements OptionSourceQueryExecutor {
         }
         Path<?> resolved = JpaCriteriaPathSupport.tryResolvePath(root, propertyPath, true);
         if (resolved == null) {
-            String entityName = resolveEntityName(root);
-            String dedupeKey = entityName + "|" + usageContext + "|" + propertyPath;
-            if (loggedUnmappedPaths.add(dedupeKey)) {
-                log.debug(
-                        "Ignoring non-JPA option-source property path '{}' for entity {} in {}",
-                        propertyPath,
-                        entityName,
-                        usageContext
-                );
-            }
+            logUnmappedPathOnce(root, propertyPath, usageContext);
         }
         return resolved;
+    }
+
+    private void logUnmappedPathOnce(Root<?> root, String propertyPath, String usageContext) {
+        String entityName = resolveEntityName(root);
+        String dedupeKey = entityName + "|" + usageContext + "|" + propertyPath;
+        if (loggedUnmappedPaths.add(dedupeKey)) {
+            log.debug(
+                    "Ignoring non-JPA option-source property path '{}' for entity {} in {}",
+                    propertyPath,
+                    entityName,
+                    usageContext
+            );
+        }
     }
 
     private static String resolveEntityName(Root<?> root) {

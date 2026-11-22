@@ -1,6 +1,5 @@
 package org.praxisplatform.uischema.options;
 
-import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -21,8 +20,8 @@ public record LookupDisplayFieldDescriptor(
 
     /**
      * Resolves a {@link LookupDisplayFieldDescriptor} by introspecting {@link UISchema} on {@code dtoClass}
-     * (walking fields, record components, superclasses, and getters), failing closed if {@code propertyPath}
-     * does not exist on {@code dtoClass}.
+     * (walking fields, record components, superclasses, interfaces, getters, and dotted sub-DTO paths),
+     * failing closed if {@code propertyPath} does not exist on {@code dtoClass}.
      */
     public static LookupDisplayFieldDescriptor fromDtoField(Class<?> dtoClass, String propertyPath) {
         Objects.requireNonNull(dtoClass, "dtoClass");
@@ -30,69 +29,45 @@ public record LookupDisplayFieldDescriptor(
         if (normalizedPath == null) {
             throw new IllegalArgumentException("propertyPath is required");
         }
-        Field field = findField(dtoClass, normalizedPath);
-        java.lang.reflect.Method getter = findGetter(dtoClass, normalizedPath);
-        if (field == null && getter == null) {
-            throw new IllegalArgumentException(
-                    "Property '" + normalizedPath + "' not found on DTO class " + dtoClass.getName());
+        return resolveFromDtoField(dtoClass, normalizedPath, normalizedPath);
+    }
+
+    /**
+     * Resolves a {@link LookupDisplayFieldDescriptor} by introspecting {@link UISchema} on {@code dtoClass}
+     * for {@code dtoField} (preserving {@code key = dtoField} as the DTO wire field name) while binding
+     * {@code propertyPath = entityPropertyPath} to the resolved JPA entity path.
+     */
+    public static LookupDisplayFieldDescriptor fromDtoField(
+            Class<?> dtoClass,
+            String dtoField,
+            String entityPropertyPath
+    ) {
+        Objects.requireNonNull(dtoClass, "dtoClass");
+        String normalizedDtoField = normalize(dtoField);
+        if (normalizedDtoField == null) {
+            throw new IllegalArgumentException("dtoField is required");
         }
-        Class<?> propertyType = field != null ? field.getType() : getter.getReturnType();
-        UISchema ui = findUiSchema(dtoClass, field, getter, normalizedPath);
-        String label = ui != null && !ui.label().isBlank() ? ui.label().trim() : normalizedPath;
+        String normalizedEntityPath = normalize(entityPropertyPath);
+        if (normalizedEntityPath == null) {
+            throw new IllegalArgumentException("entityPropertyPath is required");
+        }
+        return resolveFromDtoField(dtoClass, normalizedDtoField, normalizedEntityPath);
+    }
+
+    private static LookupDisplayFieldDescriptor resolveFromDtoField(
+            Class<?> dtoClass,
+            String dtoField,
+            String entityPropertyPath
+    ) {
+        DtoEntityPathResolver.DtoPropertyMatch match = DtoEntityPathResolver.resolveDtoProperty(dtoClass, dtoField);
+        Class<?> propertyType = match.propertyType();
+        UISchema ui = match.findUiSchema();
+        String label = ui != null && !ui.label().isBlank() ? ui.label().trim() : dtoField;
         String icon = ui != null && !ui.icon().isBlank() ? ui.icon().trim() : "label";
         String presentation = inferPresentation(propertyType, ui);
         String format = inferFormat(propertyType, ui, presentation);
         return new LookupDisplayFieldDescriptor(
-                normalizedPath, normalizedPath, label, icon, presentation, "neutral", format);
-    }
-
-    private static UISchema findUiSchema(
-            Class<?> dtoClass,
-            Field field,
-            java.lang.reflect.Method getter,
-            String propertyName
-    ) {
-        if (field != null) {
-            UISchema onField = field.getAnnotation(UISchema.class);
-            if (onField != null) {
-                return onField;
-            }
-        }
-        if (dtoClass.isRecord() && dtoClass.getRecordComponents() != null) {
-            for (java.lang.reflect.RecordComponent rc : dtoClass.getRecordComponents()) {
-                if (propertyName.equals(rc.getName())) {
-                    UISchema onRc = rc.getAnnotation(UISchema.class);
-                    if (onRc != null) {
-                        return onRc;
-                    }
-                }
-            }
-        }
-        if (getter != null) {
-            UISchema onGetter = getter.getAnnotation(UISchema.class);
-            if (onGetter != null) {
-                return onGetter;
-            }
-        }
-        return null;
-    }
-
-    private static java.lang.reflect.Method findGetter(Class<?> dtoClass, String propertyName) {
-        String cap = Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
-        java.util.List<String> candidates = java.util.List.of("get" + cap, "is" + cap, propertyName);
-        for (Class<?> current = dtoClass; current != null && current != Object.class; current = current.getSuperclass()) {
-            for (String candidate : candidates) {
-                try {
-                    java.lang.reflect.Method m = current.getDeclaredMethod(candidate);
-                    if (m.getParameterCount() == 0 && m.getReturnType() != void.class) {
-                        return m;
-                    }
-                } catch (NoSuchMethodException ignored) {
-                    // continue walking hierarchy
-                }
-            }
-        }
-        return null;
+                dtoField, entityPropertyPath, label, icon, presentation, "neutral", format);
     }
 
     private static String inferPresentation(Class<?> fieldType, UISchema ui) {
@@ -137,17 +112,6 @@ public record LookupDisplayFieldDescriptor(
         }
         if ("datetime".equals(presentation)) {
             return "dd/MM/yyyy HH:mm";
-        }
-        return null;
-    }
-
-    private static Field findField(Class<?> type, String name) {
-        for (Class<?> current = type; current != null && current != Object.class; current = current.getSuperclass()) {
-            try {
-                return current.getDeclaredField(name);
-            } catch (NoSuchFieldException ignored) {
-                // continue walking hierarchy
-            }
         }
         return null;
     }

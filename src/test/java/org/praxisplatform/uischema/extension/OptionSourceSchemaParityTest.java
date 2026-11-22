@@ -128,6 +128,43 @@ class OptionSourceSchemaParityTest {
         }
     }
 
+    @Test
+    void optionSourceSchemaAndExamplePublishDialogDefaultStrategyAndRichFilterContracts() throws Exception {
+        JsonNode schema = readProjectJson("docs/spec/x-ui-field.schema.json");
+        JsonNode example = readProjectJson("docs/spec/examples/x-ui-field-option-source-resource.valid.json");
+        JsonNode optionSourceProps = schema.path("definitions").path("optionSource").path("properties");
+        JsonNode dialogDef = schema.path("definitions").path("lookupDialog");
+        JsonNode columnDef = schema.path("definitions").path("lookupResultColumn");
+        JsonNode filteringProps = schema.path("definitions").path("lookupFiltering").path("properties");
+        JsonNode filterDefProps = schema.path("definitions").path("lookupFilterDefinition").path("properties");
+
+        assertTrue(optionSourceProps.has("dialog"), "optionSource schema should expose dialog");
+        assertEquals("#/definitions/lookupDialog", optionSourceProps.path("dialog").path("$ref").asText());
+        assertEquals(false, dialogDef.path("additionalProperties").asBoolean(true));
+        assertEquals("#/definitions/lookupResultColumn",
+                dialogDef.path("properties").path("resultColumns").path("items").path("$ref").asText());
+        assertEquals(false, columnDef.path("additionalProperties").asBoolean(true));
+        assertTrue(columnDef.path("properties").path("kind").path("enum").toString().contains("disabledReason"));
+
+        assertTrue(filteringProps.has("defaultSearchStrategy"));
+        assertTrue(filterDefProps.has("options"));
+        assertTrue(filterDefProps.has("optionSource"));
+        assertTrue(filterDefProps.has("dependsOn"));
+        assertTrue(filterDefProps.has("dependencyFilterMap"));
+
+        JsonNode optionSource = example.path("optionSource");
+        assertTrue(optionSource.path("dialog").path("enabled").asBoolean());
+        assertEquals("lg", optionSource.path("dialog").path("size").asText());
+        assertEquals(3, optionSource.path("dialog").path("resultColumns").size());
+        assertEquals("name", optionSource.path("filtering").path("defaultSearchStrategy").asText());
+        assertEquals(2, optionSource.path("filtering").path("availableFilters").get(0).path("options").size());
+        JsonNode refFilter = optionSource.path("filtering").path("availableFilters").get(2);
+        assertEquals("reference", refFilter.path("type").asText());
+        assertEquals("holding-companies", refFilter.path("optionSource").path("key").asText());
+        assertEquals("tenantId", refFilter.path("dependsOn").get(0).asText());
+        assertEquals("tenant.id", refFilter.path("dependencyFilterMap").path("tenantId").asText());
+    }
+
     private JsonNode readProjectJson(String relativePath) throws Exception {
         Path path = resolveProjectFile(relativePath);
         assertTrue(Files.exists(path), relativePath + " should exist");

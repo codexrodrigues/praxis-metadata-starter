@@ -315,7 +315,6 @@
         { "type": "string" }
       ]
     },
-
     "showAnchors": {
       "oneOf": [
         { "type": "boolean" },
@@ -1088,6 +1087,9 @@
         "filtering": {
           "$ref": "#/definitions/lookupFiltering"
         },
+        "dialog": {
+          "$ref": "#/definitions/lookupDialog"
+        },
         "excludeSelfField": { "type": "boolean" },
         "searchMode": {
           "type": "string",
@@ -1346,8 +1348,49 @@
           "description": "Declared lookup search intents. Each item key must be unique; the runtime rejects duplicate keys.",
           "items": { "$ref": "#/definitions/lookupSearchStrategy" },
           "uniqueItems": true
+        },
+        "defaultSearchStrategy": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Default search strategy key used when multiple search strategies are declared and the request omits searchStrategy."
         }
       }
+    },
+    "lookupDialog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "title": { "type": "string" },
+        "size": {
+          "type": "string",
+          "enum": ["sm", "md", "lg", "xl", "full"]
+        },
+        "previewPanel": { "type": "boolean" },
+        "allowColumnChooser": { "type": "boolean" },
+        "allowSavedViews": { "type": "boolean" },
+        "resultColumns": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/lookupResultColumn" }
+        },
+        "openActionLabel": { "type": "string" },
+        "applyActionLabel": { "type": "string" },
+        "cancelActionLabel": { "type": "string" }
+      }
+    },
+    "lookupResultColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["code", "label", "description", "status", "disabledReason", "custom"]
+        },
+        "width": { "type": "string", "minLength": 1 }
+      },
+      "required": ["field"]
     },
     "lookupSearchStrategy": {
       "type": "object",
@@ -1388,6 +1431,26 @@
           "enum": ["contains", "startsWith", "equals", "in", "before", "after", "between", "gt", "gte", "lt", "lte"]
         },
         "optionsSource": { "type": "string", "minLength": 1 },
+        "options": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/optionItem" }
+        },
+        "optionSource": {
+          "$ref": "#/definitions/optionSource"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "uniqueItems": true
+        },
+        "dependencyFilterMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
         "required": { "type": "boolean" },
         "hidden": { "type": "boolean" }
       },

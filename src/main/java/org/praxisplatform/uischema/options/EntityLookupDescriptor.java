@@ -2,9 +2,11 @@ package org.praxisplatform.uischema.options;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.praxisplatform.uischema.annotation.ResourceIdentity;
 
 /**
@@ -23,7 +25,9 @@ public record EntityLookupDescriptor(
         LookupCapabilities capabilities,
         LookupDetailDescriptor detail,
         LookupDisplayDescriptor display,
-        LookupFilteringDescriptor filtering
+        LookupFilteringDescriptor filtering,
+        LookupDialogDescriptor dialog,
+        Class<?> sourceDtoClass
 ) {
 
     public EntityLookupDescriptor(
@@ -51,6 +55,8 @@ public record EntityLookupDescriptor(
                 selectionPolicy,
                 capabilities,
                 detail,
+                null,
+                null,
                 null,
                 null
         );
@@ -83,7 +89,78 @@ public record EntityLookupDescriptor(
                 capabilities,
                 detail,
                 null,
-                filtering
+                filtering,
+                null,
+                null
+        );
+    }
+
+    public EntityLookupDescriptor(
+            String entityKey,
+            String codePropertyPath,
+            List<String> descriptionPropertyPaths,
+            String statusPropertyPath,
+            String disabledPropertyPath,
+            String disabledReasonPropertyPath,
+            List<String> searchPropertyPaths,
+            Map<String, String> dependencyFilterMap,
+            LookupSelectionPolicy selectionPolicy,
+            LookupCapabilities capabilities,
+            LookupDetailDescriptor detail,
+            LookupDisplayDescriptor display,
+            LookupFilteringDescriptor filtering
+    ) {
+        this(
+                entityKey,
+                codePropertyPath,
+                descriptionPropertyPaths,
+                statusPropertyPath,
+                disabledPropertyPath,
+                disabledReasonPropertyPath,
+                searchPropertyPaths,
+                dependencyFilterMap,
+                selectionPolicy,
+                capabilities,
+                detail,
+                display,
+                filtering,
+                null,
+                null
+        );
+    }
+
+    public EntityLookupDescriptor(
+            String entityKey,
+            String codePropertyPath,
+            List<String> descriptionPropertyPaths,
+            String statusPropertyPath,
+            String disabledPropertyPath,
+            String disabledReasonPropertyPath,
+            List<String> searchPropertyPaths,
+            Map<String, String> dependencyFilterMap,
+            LookupSelectionPolicy selectionPolicy,
+            LookupCapabilities capabilities,
+            LookupDetailDescriptor detail,
+            LookupDisplayDescriptor display,
+            LookupFilteringDescriptor filtering,
+            LookupDialogDescriptor dialog
+    ) {
+        this(
+                entityKey,
+                codePropertyPath,
+                descriptionPropertyPaths,
+                statusPropertyPath,
+                disabledPropertyPath,
+                disabledReasonPropertyPath,
+                searchPropertyPaths,
+                dependencyFilterMap,
+                selectionPolicy,
+                capabilities,
+                detail,
+                display,
+                filtering,
+                dialog,
+                null
         );
     }
 
@@ -141,9 +218,25 @@ public record EntityLookupDescriptor(
                 }
             }
         }
-        DirectoryBuilder builder = new DirectoryBuilder(entityKey, code, descriptions).withDtoMetadata(responseDtoClass);
+        DirectoryBuilder builder = new DirectoryBuilder(entityKey, code, descriptions)
+                .withDtoMetadata(responseDtoClass, code, descriptions, normalize(identity.keyField()));
         autoConfigureStatusFromDto(responseDtoClass, builder);
         return builder;
+    }
+
+    /**
+     * Entity-aware variant of {@link #directoryBuilderFromDto(String, Class)} that resolves
+     * flattened or aliased {@code ResponseDTO} fields to persistent JPA entity paths on
+     * {@code entityClass} via {@link DtoEntityPathResolver} while keeping DTO field names in
+     * {@link LookupDisplayFieldDescriptor#key()}.
+     */
+    public static DirectoryBuilder directoryBuilderFromDto(
+            String entityKey,
+            Class<?> responseDtoClass,
+            Class<?> entityClass
+    ) {
+        Objects.requireNonNull(entityClass, "entityClass is required");
+        return directoryBuilderFromDto(entityKey, responseDtoClass).withEntityClass(entityClass);
     }
 
     private static void autoConfigureStatusFromDto(Class<?> dtoClass, DirectoryBuilder builder) {
@@ -207,7 +300,7 @@ public record EntityLookupDescriptor(
         if (selected == null) {
             return;
         }
-        builder.status(selected.propertyName());
+        builder.autoStatus(selected.propertyName());
         if (selected.optionEnumClass() == null) {
             return;
         }
@@ -232,7 +325,7 @@ public record EntityLookupDescriptor(
             builder.statusLabels(labels);
         }
         if (!blocked.isEmpty()) {
-            builder.selectionPolicy(new LookupSelectionPolicy(
+            builder.autoSelectionPolicy(new LookupSelectionPolicy(
                     null,
                     selected.propertyName(),
                     allowed,
@@ -343,18 +436,30 @@ public record EntityLookupDescriptor(
     }
 
     public static final class DirectoryBuilder {
-        private final String entityKey, code;
-        private final List<String> descriptions;
+        private final String entityKey;
+        private String code;
+        private List<String> descriptions;
         private String status, disabled, disabledReason;
         private List<String> search;
         private Map<String, String> dependencies = Map.of();
         private Map<String, String> statusLabels = Map.of();
         private Class<?> responseDtoClass;
+        private Class<?> entityClass;
+        private String dtoIdentityKeyField;
+        private String dtoCodeField;
+        private List<String> dtoDescriptions = List.of();
+        private String dtoAutoStatusField;
+        private String dtoStatusField;
+        private final Map<String, String> resolvedDtoToEntityPaths = new LinkedHashMap<>();
+        private boolean statusOverridden;
+        private boolean selectionOverridden;
+        private boolean searchOverridden;
         private LookupSelectionPolicy selection;
         private LookupCapabilities capabilities = LookupCapabilities.standardDirectory();
         private LookupDetailDescriptor detail;
         private LookupDisplayDescriptor display;
         private LookupFilteringDescriptor filtering;
+        private LookupDialogDescriptor dialog;
 
         private DirectoryBuilder(String entityKey, String code, List<String> descriptions) {
             if (normalize(entityKey) == null || normalize(code) == null || normalizeList(descriptions).isEmpty()) {
@@ -366,7 +471,57 @@ public record EntityLookupDescriptor(
             this.search = java.util.stream.Stream.concat(java.util.stream.Stream.of(code), this.descriptions.stream()).distinct().toList();
         }
 
-        public DirectoryBuilder status(String path) { status = normalize(path); return this; }
+        private DirectoryBuilder withDtoMetadata(
+                Class<?> dtoClass,
+                String codeField,
+                List<String> descriptionFields,
+                String identityKeyField
+        ) {
+            this.responseDtoClass = Objects.requireNonNull(dtoClass, "dtoClass");
+            this.dtoCodeField = normalize(codeField);
+            this.dtoDescriptions = normalizeList(descriptionFields);
+            this.dtoIdentityKeyField = normalize(identityKeyField);
+            return this;
+        }
+
+        private void autoStatus(String path) {
+            this.dtoAutoStatusField = normalize(path);
+            this.status = this.dtoAutoStatusField;
+        }
+
+        private void autoSelectionPolicy(LookupSelectionPolicy value) {
+            this.selection = Objects.requireNonNull(value);
+        }
+
+        public DirectoryBuilder status(String path) {
+            String normalized = normalize(path);
+            this.statusOverridden = true;
+            this.dtoStatusField = null;
+            if (normalized == null) {
+                this.status = null;
+                return this;
+            }
+            if (this.entityClass != null) {
+                if (DtoEntityPathResolver.isValidSingularEntityPath(this.entityClass, normalized)) {
+                    this.status = normalized;
+                    if (this.responseDtoClass != null && DtoEntityPathResolver.hasDtoProperty(this.responseDtoClass, normalized)) {
+                        this.dtoStatusField = normalized;
+                        this.resolvedDtoToEntityPaths.put(normalized, normalized);
+                    }
+                } else if (this.responseDtoClass != null && DtoEntityPathResolver.hasDtoProperty(this.responseDtoClass, normalized)) {
+                    String resolved = DtoEntityPathResolver.resolveEntityPropertyPath(
+                            this.responseDtoClass, this.entityClass, normalized, this.entityKey, this.dtoIdentityKeyField);
+                    this.dtoStatusField = normalized;
+                    this.status = resolved;
+                    this.resolvedDtoToEntityPaths.put(normalized, resolved);
+                } else {
+                    DtoEntityPathResolver.assertValidSingularEntityPath(this.entityClass, normalized, normalized);
+                }
+            } else {
+                this.status = normalized;
+            }
+            return this;
+        }
 
         public DirectoryBuilder statusLabels(Map<String, String> values) {
             statusLabels = values == null ? Map.of() : normalizeMap(values);
@@ -375,13 +530,110 @@ public record EntityLookupDescriptor(
 
         public DirectoryBuilder withDtoMetadata(Class<?> dtoClass) {
             responseDtoClass = Objects.requireNonNull(dtoClass, "dtoClass");
+            if (dtoCodeField == null) {
+                dtoCodeField = code;
+            }
+            if (dtoDescriptions.isEmpty()) {
+                dtoDescriptions = descriptions;
+            }
             return this;
         }
 
+        /**
+         * Binds a JPA entity class and deterministically resolves DTO-derived paths via
+         * {@link DtoEntityPathResolver}, failing closed on derived/ambiguous/non-persistent paths.
+         */
+        public DirectoryBuilder withEntityClass(Class<?> entityClass) {
+            this.entityClass = Objects.requireNonNull(entityClass, "entityClass is required");
+            this.resolvedDtoToEntityPaths.clear();
+            if (this.responseDtoClass != null) {
+                String sourceCode = this.dtoCodeField != null ? this.dtoCodeField : this.code;
+                String resolvedCode = DtoEntityPathResolver.resolveEntityPropertyPath(
+                        this.responseDtoClass, this.entityClass, sourceCode, this.entityKey, this.dtoIdentityKeyField);
+                this.code = resolvedCode;
+                this.resolvedDtoToEntityPaths.put(sourceCode, resolvedCode);
+
+                List<String> sourceDescs = !this.dtoDescriptions.isEmpty() ? this.dtoDescriptions : this.descriptions;
+                List<String> resolvedDescs = new ArrayList<>(sourceDescs.size());
+                for (String desc : sourceDescs) {
+                    String resolvedDesc = DtoEntityPathResolver.resolveEntityPropertyPath(
+                            this.responseDtoClass, this.entityClass, desc, this.entityKey, this.dtoIdentityKeyField);
+                    resolvedDescs.add(resolvedDesc);
+                    this.resolvedDtoToEntityPaths.put(desc, resolvedDesc);
+                }
+                this.descriptions = normalizeList(resolvedDescs);
+
+                if (!this.statusOverridden && this.dtoAutoStatusField != null) {
+                    String resolvedStatus = DtoEntityPathResolver.resolveEntityPropertyPath(
+                            this.responseDtoClass, this.entityClass, this.dtoAutoStatusField, this.entityKey, this.dtoIdentityKeyField);
+                    this.status = resolvedStatus;
+                    this.resolvedDtoToEntityPaths.put(this.dtoAutoStatusField, resolvedStatus);
+                    if (!this.selectionOverridden && this.selection != null) {
+                        this.selection = new LookupSelectionPolicy(
+                                this.selection.selectablePropertyPath(),
+                                resolvedStatus,
+                                this.selection.allowedStatuses(),
+                                this.selection.blockedStatuses(),
+                                this.selection.allowRetainInvalidExistingValue(),
+                                this.selection.disabledReasonTemplate(),
+                                this.selection.validationMessageTemplate()
+                        );
+                    }
+                } else if (this.statusOverridden && this.status != null) {
+                    status(this.status);
+                }
+
+                if (!this.searchOverridden) {
+                    this.search = java.util.stream.Stream.concat(
+                            java.util.stream.Stream.of(this.code),
+                            this.descriptions.stream()
+                    ).distinct().toList();
+                } else if (this.search != null) {
+                    this.search = resolveSearchPathsAgainstEntity(this.search);
+                }
+            } else {
+                DtoEntityPathResolver.assertValidSingularEntityPath(this.entityClass, this.code, this.code);
+                for (String desc : this.descriptions) {
+                    DtoEntityPathResolver.assertValidSingularEntityPath(this.entityClass, desc, desc);
+                }
+                if (this.status != null) {
+                    DtoEntityPathResolver.assertValidSingularEntityPath(this.entityClass, this.status, this.status);
+                }
+                for (String searchPath : this.search) {
+                    DtoEntityPathResolver.assertValidSingularEntityPath(this.entityClass, searchPath, searchPath);
+                }
+            }
+            return this;
+        }
+
+        private List<String> resolveSearchPathsAgainstEntity(List<String> rawSearchPaths) {
+            List<String> resolved = new ArrayList<>(rawSearchPaths.size());
+            for (String path : rawSearchPaths) {
+                String clean = normalize(path);
+                if (clean == null) {
+                    continue;
+                }
+                if (DtoEntityPathResolver.isValidSingularEntityPath(this.entityClass, clean)) {
+                    resolved.add(clean);
+                } else if (this.responseDtoClass != null && DtoEntityPathResolver.hasDtoProperty(this.responseDtoClass, clean)) {
+                    resolved.add(DtoEntityPathResolver.resolveEntityPropertyPath(
+                            this.responseDtoClass, this.entityClass, clean, this.entityKey, this.dtoIdentityKeyField));
+                } else {
+                    DtoEntityPathResolver.assertValidSingularEntityPath(this.entityClass, clean, clean);
+                }
+            }
+            return List.copyOf(new LinkedHashSet<>(resolved));
+        }
+
         public DirectoryBuilder disabled(String path, String reasonPath) { disabled = path; disabledReason = reasonPath; return this; }
-        public DirectoryBuilder searchPaths(String... paths) { search = List.of(paths); return this; }
+        public DirectoryBuilder searchPaths(String... paths) {
+            searchOverridden = true;
+            List<String> candidate = normalizeList(List.of(paths));
+            search = entityClass != null ? resolveSearchPathsAgainstEntity(candidate) : candidate;
+            return this;
+        }
         public DirectoryBuilder dependencies(Map<String, String> values) { dependencies = Map.copyOf(values); return this; }
-        public DirectoryBuilder selectionPolicy(LookupSelectionPolicy value) { selection = Objects.requireNonNull(value); return this; }
+        public DirectoryBuilder selectionPolicy(LookupSelectionPolicy value) { selectionOverridden = true; selection = Objects.requireNonNull(value); return this; }
         public DirectoryBuilder capabilities(LookupCapabilities value) { capabilities = Objects.requireNonNull(value); return this; }
         public DirectoryBuilder detail(LookupDetailDescriptor value) { detail = Objects.requireNonNull(value); return this; }
 
@@ -399,6 +651,7 @@ public record EntityLookupDescriptor(
 
         public DirectoryBuilder display(LookupDisplayDescriptor value) { display = Objects.requireNonNull(value); return this; }
         public DirectoryBuilder filtering(LookupFilteringDescriptor value) { filtering = Objects.requireNonNull(value); return this; }
+        public DirectoryBuilder dialog(LookupDialogDescriptor value) { dialog = Objects.requireNonNull(value); return this; }
 
         public EntityLookupDescriptor build() {
             LookupSelectionPolicy effectiveSelection = selection != null ? selection : new LookupSelectionPolicy(null, status,
@@ -409,17 +662,44 @@ public record EntityLookupDescriptor(
             if (display != null) {
                 effectiveDisplay = display;
             } else if (responseDtoClass != null) {
-                List<String> curatedPaths = new ArrayList<>();
-                curatedPaths.add(code);
-                for (String desc : descriptions) {
-                    if (!curatedPaths.contains(desc)) {
-                        curatedPaths.add(desc);
+                List<LookupDisplayFieldDescriptor> dtoFields;
+                if (entityClass != null) {
+                    dtoFields = new ArrayList<>();
+                    Set<String> seenKeys = new LinkedHashSet<>();
+                    String sourceCode = dtoCodeField != null ? dtoCodeField : code;
+                    if (seenKeys.add(sourceCode)) {
+                        dtoFields.add(LookupDisplayFieldDescriptor.fromDtoField(
+                                responseDtoClass, sourceCode, resolvedDtoToEntityPaths.getOrDefault(sourceCode, code)));
                     }
+                    List<String> sourceDescs = !dtoDescriptions.isEmpty() ? dtoDescriptions : descriptions;
+                    for (String dtoDesc : sourceDescs) {
+                        if (seenKeys.add(dtoDesc)) {
+                            dtoFields.add(LookupDisplayFieldDescriptor.fromDtoField(
+                                    responseDtoClass, dtoDesc, resolvedDtoToEntityPaths.getOrDefault(dtoDesc, dtoDesc)));
+                        }
+                    }
+                    if (status != null) {
+                        String effectiveDtoStatus = statusOverridden ? dtoStatusField : dtoAutoStatusField;
+                        if (effectiveDtoStatus != null && seenKeys.add(effectiveDtoStatus)) {
+                            dtoFields.add(LookupDisplayFieldDescriptor.fromDtoField(
+                                    responseDtoClass, effectiveDtoStatus, resolvedDtoToEntityPaths.getOrDefault(effectiveDtoStatus, status)));
+                        } else if (effectiveDtoStatus == null && seenKeys.add(status)) {
+                            dtoFields.add(new LookupDisplayFieldDescriptor(status, status, null, null, "badge", null, null));
+                        }
+                    }
+                } else {
+                    List<String> curatedPaths = new ArrayList<>();
+                    curatedPaths.add(code);
+                    for (String desc : descriptions) {
+                        if (!curatedPaths.contains(desc)) {
+                            curatedPaths.add(desc);
+                        }
+                    }
+                    if (status != null && !curatedPaths.contains(status)) {
+                        curatedPaths.add(status);
+                    }
+                    dtoFields = LookupDisplayDescriptor.fieldsFromDto(responseDtoClass, curatedPaths);
                 }
-                if (status != null && !curatedPaths.contains(status)) {
-                    curatedPaths.add(status);
-                }
-                List<LookupDisplayFieldDescriptor> dtoFields = LookupDisplayDescriptor.fieldsFromDto(responseDtoClass, curatedPaths);
                 effectiveDisplay = new LookupDisplayDescriptor("directory", "form", "comfortable", "inline", "list",
                         descriptions.getFirst(), dtoFields, descriptions, List.of(), null,
                         false, true, true, status != null, false, true, statusLabels, 0);
@@ -437,7 +717,7 @@ public record EntityLookupDescriptor(
                             new LookupSortOption("description", descriptions.getFirst(), "asc", null)), "description",
                     List.of(), null, List.of(new LookupSearchStrategyDefinition("text", "descriptive-text", 1)));
             return new EntityLookupDescriptor(entityKey, code, descriptions, status, disabled, disabledReason, search,
-                    dependencies, effectiveSelection, capabilities, effectiveDetail, effectiveDisplay, effectiveFiltering);
+                    dependencies, effectiveSelection, capabilities, effectiveDetail, effectiveDisplay, effectiveFiltering, dialog, responseDtoClass);
         }
     }
 
@@ -481,6 +761,9 @@ public record EntityLookupDescriptor(
         }
         if (filtering != null && !filtering.isEmpty()) {
             metadata.put("filtering", filtering.toMetadataMap());
+        }
+        if (dialog != null && !dialog.isEmpty()) {
+            metadata.put("dialog", dialog.toMetadataMap());
         }
         return metadata;
     }

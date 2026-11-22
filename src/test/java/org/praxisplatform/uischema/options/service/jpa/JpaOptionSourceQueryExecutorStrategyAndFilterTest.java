@@ -128,7 +128,7 @@ class JpaOptionSourceQueryExecutorStrategyAndFilterTest {
         when(cb.literal(anyString())).thenAnswer(inv -> mock(Expression.class));
         when(cb.function(eq("replace"), eq(String.class), any(), any(), any())).thenReturn(replacedExpr);
         when(cb.isNotNull(any())).thenReturn(predicate);
-        when(cb.like(any(Expression.class), anyString())).thenReturn(predicate);
+        when(cb.like(any(Expression.class), anyString(), eq('\\'))).thenReturn(predicate);
         when(cb.or(any(Predicate.class), any(Predicate.class))).thenReturn(predicate);
         when(cb.or(any(Predicate[].class))).thenReturn(predicate);
         when(cb.and(any(Predicate.class), any(Predicate.class))).thenReturn(predicate);
@@ -171,7 +171,7 @@ class JpaOptionSourceQueryExecutorStrategyAndFilterTest {
         verify(cb, atLeastOnce()).literal("-");
         verify(cb, atLeastOnce()).literal("/");
         verify(cb, atLeastOnce()).literal(" ");
-        verify(cb, atLeastOnce()).like(any(Expression.class), eq("%12345678000190%"));
+        verify(cb, atLeastOnce()).like(any(Expression.class), eq("%12345678000190%"), eq('\\'));
     }
 
     @Test

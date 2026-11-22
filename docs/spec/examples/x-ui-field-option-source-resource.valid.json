@@ -46,6 +46,30 @@
       "routeTemplate": "/companies/{id}",
       "openDetailMode": "drawer"
     },
+    "dialog": {
+      "enabled": true,
+      "title": "Selecionar empresa",
+      "size": "lg",
+      "previewPanel": true,
+      "resultColumns": [
+        {
+          "field": "code",
+          "label": "Codigo",
+          "kind": "code",
+          "width": "120px"
+        },
+        {
+          "field": "legalName",
+          "label": "Razao social",
+          "kind": "label"
+        },
+        {
+          "field": "status",
+          "label": "Status",
+          "kind": "status"
+        }
+      ]
+    },
     "filtering": {
       "availableFilters": [
         {
@@ -55,6 +79,18 @@
           "operators": ["equals", "in"],
           "defaultOperator": "in",
           "optionsSource": "company-status",
+          "options": [
+            {
+              "value": "ACTIVE",
+              "label": "Ativa",
+              "tone": "success"
+            },
+            {
+              "value": "BLOCKED",
+              "label": "Bloqueada",
+              "tone": "danger"
+            }
+          ],
           "required": false,
           "hidden": false
         },
@@ -64,6 +100,27 @@
           "type": "text",
           "operators": ["contains", "equals"],
           "defaultOperator": "contains",
+          "required": false,
+          "hidden": false
+        },
+        {
+          "field": "holdingCompanyId",
+          "label": "Matriz",
+          "type": "reference",
+          "operators": ["equals", "in"],
+          "defaultOperator": "equals",
+          "optionsSource": "holding-companies",
+          "optionSource": {
+            "key": "holding-companies",
+            "type": "RESOURCE_ENTITY",
+            "resourcePath": "/api/holding-companies",
+            "valuePropertyPath": "id",
+            "labelPropertyPath": "legalName"
+          },
+          "dependsOn": ["tenantId"],
+          "dependencyFilterMap": {
+            "tenantId": "tenant.id"
+          },
           "required": false,
           "hidden": false
         }
@@ -88,6 +145,7 @@
       "defaultSort": "legalNameAsc",
       "quickFilterFields": ["code", "legalName"],
       "searchPlaceholder": "Buscar empresa por codigo, nome ou documento",
+      "defaultSearchStrategy": "name",
       "searchStrategies": [
         {
           "key": "businessCode",

@@ -371,19 +371,113 @@ public class SemanticMetadataReviewer {
 
         if (sources != null) {
             for (OptionSourceDescriptor source : sources) {
-                if (source == null || (source.type() != org.praxisplatform.uischema.options.OptionSourceType.DISTINCT_DIMENSION
-                        && source.type() != org.praxisplatform.uischema.options.OptionSourceType.CATEGORICAL_BUCKET)) {
+                if (source == null) {
                     continue;
                 }
-                String matchedProp = matchRestrictedProperty(
-                        aliasToRestrictedProperty,
+                org.praxisplatform.uischema.options.OptionSourceType type = source.type();
+                if (type != org.praxisplatform.uischema.options.OptionSourceType.DISTINCT_DIMENSION
+                        && type != org.praxisplatform.uischema.options.OptionSourceType.CATEGORICAL_BUCKET
+                        && type != org.praxisplatform.uischema.options.OptionSourceType.RESOURCE_ENTITY
+                        && type != org.praxisplatform.uischema.options.OptionSourceType.LIGHT_LOOKUP) {
+                    continue;
+                }
+                java.util.Map<String, java.util.Set<String>> matchedSectionsByProp = new java.util.LinkedHashMap<>();
+                collectRestrictedOptionSourceMatches(
+                        aliasToRestrictedProperty, "descriptor", matchedSectionsByProp,
                         source.key(),
                         source.filterField(),
                         source.propertyPath(),
                         source.labelPropertyPath(),
                         source.valuePropertyPath()
                 );
-                if (matchedProp != null) {
+
+                org.praxisplatform.uischema.options.EntityLookupDescriptor lookup = source.entityLookup();
+                if (lookup != null) {
+                    collectRestrictedOptionSourceMatches(
+                            aliasToRestrictedProperty, "codePropertyPath", matchedSectionsByProp,
+                            lookup.codePropertyPath());
+                    collectRestrictedOptionSourceMatches(
+                            aliasToRestrictedProperty, "statusPropertyPath", matchedSectionsByProp,
+                            lookup.statusPropertyPath());
+                    if (lookup.descriptionPropertyPaths() != null) {
+                        collectRestrictedOptionSourceMatches(
+                                aliasToRestrictedProperty, "descriptionPropertyPaths", matchedSectionsByProp,
+                                lookup.descriptionPropertyPaths().toArray(String[]::new));
+                    }
+                    if (lookup.searchPropertyPaths() != null) {
+                        collectRestrictedOptionSourceMatches(
+                                aliasToRestrictedProperty, "searchPropertyPaths", matchedSectionsByProp,
+                                lookup.searchPropertyPaths().toArray(String[]::new));
+                    }
+                    org.praxisplatform.uischema.options.LookupDisplayDescriptor display = lookup.display();
+                    if (display != null) {
+                        collectRestrictedOptionSourceMatches(
+                                aliasToRestrictedProperty, "display.primaryPropertyPath", matchedSectionsByProp,
+                                display.primaryPropertyPath());
+                        collectRestrictedOptionSourceMatches(
+                                aliasToRestrictedProperty, "display.avatarPropertyPath", matchedSectionsByProp,
+                                display.avatarPropertyPath());
+                        if (display.secondaryPropertyPaths() != null) {
+                            collectRestrictedOptionSourceMatches(
+                                    aliasToRestrictedProperty, "display.secondaryPropertyPaths", matchedSectionsByProp,
+                                    display.secondaryPropertyPaths().toArray(String[]::new));
+                        }
+                        if (display.badgePropertyPaths() != null) {
+                            collectRestrictedOptionSourceMatches(
+                                    aliasToRestrictedProperty, "display.badgePropertyPaths", matchedSectionsByProp,
+                                    display.badgePropertyPaths().toArray(String[]::new));
+                        }
+                        if (display.fields() != null) {
+                            for (org.praxisplatform.uischema.options.LookupDisplayFieldDescriptor field : display.fields()) {
+                                if (field != null) {
+                                    collectRestrictedOptionSourceMatches(
+                                            aliasToRestrictedProperty, "display.fields", matchedSectionsByProp,
+                                            field.key(), field.propertyPath());
+                                }
+                            }
+                        }
+                    }
+                    org.praxisplatform.uischema.options.LookupDialogDescriptor dialog = lookup.dialog();
+                    if (dialog != null && dialog.resultColumns() != null) {
+                        for (org.praxisplatform.uischema.options.LookupResultColumnDescriptor col : dialog.resultColumns()) {
+                            if (col != null) {
+                                collectRestrictedOptionSourceMatches(
+                                        aliasToRestrictedProperty, "dialog.resultColumns", matchedSectionsByProp,
+                                        col.field());
+                            }
+                        }
+                    }
+                }
+
+                org.praxisplatform.uischema.options.LookupFilteringDescriptor filtering = source.effectiveFiltering();
+                if (filtering != null) {
+                    if (filtering.availableFilters() != null) {
+                        for (org.praxisplatform.uischema.options.LookupFilterDefinition filterDef : filtering.availableFilters()) {
+                            if (filterDef != null) {
+                                collectRestrictedOptionSourceMatches(
+                                        aliasToRestrictedProperty, "filtering.availableFilters", matchedSectionsByProp,
+                                        filterDef.field(), filterDef.effectiveEntityPropertyPath());
+                            }
+                        }
+                    }
+                    if (filtering.quickFilterFields() != null) {
+                        collectRestrictedOptionSourceMatches(
+                                aliasToRestrictedProperty, "filtering.quickFilterFields", matchedSectionsByProp,
+                                filtering.quickFilterFields().toArray(String[]::new));
+                    }
+                    if (filtering.sortOptions() != null) {
+                        for (org.praxisplatform.uischema.options.LookupSortOption sortOption : filtering.sortOptions()) {
+                            if (sortOption != null) {
+                                collectRestrictedOptionSourceMatches(
+                                        aliasToRestrictedProperty, "filtering.sortOptions", matchedSectionsByProp,
+                                        sortOption.field());
+                            }
+                        }
+                    }
+                }
+
+                for (var matchEntry : matchedSectionsByProp.entrySet()) {
+                    String matchedProp = matchEntry.getKey();
                     com.fasterxml.jackson.databind.node.ObjectNode gov = restrictedProperties.get(matchedProp);
                     issues.add(new SemanticMetadataReviewIssue(
                             SemanticMetadataIssueSeverity.ERROR,
@@ -393,10 +487,30 @@ public class SemanticMetadataReviewer {
                             "Property '" + matchedProp + "' is governed as restricted/sensitive (classification="
                                     + gov.path("classification").asText()
                                     + ", dataCategory=" + gov.path("dataCategory").asText()
-                                    + ") and cannot be exposed as a " + source.type()
-                                    + " option source ('" + source.key() + "')."
+                                    + ") and cannot be exposed in " + type
+                                    + " option source '" + source.key() + "' ("
+                                    + String.join(", ", matchEntry.getValue()) + ")."
                     ));
                 }
+            }
+        }
+    }
+
+    private void collectRestrictedOptionSourceMatches(
+            java.util.Map<String, String> aliasToRestrictedProperty,
+            String section,
+            java.util.Map<String, java.util.Set<String>> matchedSectionsByProp,
+            String... candidates
+    ) {
+        if (candidates == null) {
+            return;
+        }
+        for (String candidate : candidates) {
+            String matchedProp = matchRestrictedProperty(aliasToRestrictedProperty, candidate);
+            if (matchedProp != null) {
+                matchedSectionsByProp
+                        .computeIfAbsent(matchedProp, ignored -> new java.util.LinkedHashSet<>())
+                        .add(section);
             }
         }
     }
@@ -1321,18 +1435,248 @@ public class SemanticMetadataReviewer {
     }
 
     /**
+     * Reviews all {@link org.praxisplatform.uischema.options.OptionSourceDescriptor} entries in an
+     * {@link org.praxisplatform.uischema.options.OptionSourceRegistry}, validating each source's
+     * {@code filtering.availableFilters} against the corresponding {@code FilterDTO} in
+     * {@code filterDtosBySourceKey} when provided.
+     */
+    public SemanticMetadataReviewReport reviewOptionSourceRegistry(
+            org.praxisplatform.uischema.options.OptionSourceRegistry registry,
+            java.util.Map<String, Class<?>> filterDtosBySourceKey
+    ) {
+        if (registry == null || registry.isEmpty()) {
+            return new SemanticMetadataReviewReport(org.praxisplatform.uischema.options.OptionSourceRegistry.class, List.of());
+        }
+        List<SemanticMetadataReviewIssue> issues = new ArrayList<>();
+        for (org.praxisplatform.uischema.options.OptionSourceDescriptor descriptor : registry.descriptors()) {
+            reviewOptionSourceDescriptorInto(descriptor, issues);
+            if (descriptor != null && filterDtosBySourceKey != null) {
+                Class<?> filterDto = filterDtosBySourceKey.get(descriptor.key());
+                if (filterDto != null) {
+                    reviewOptionSourceFilteringAgainstFilterDto(descriptor, filterDto, issues);
+                }
+            }
+        }
+        return new SemanticMetadataReviewReport(org.praxisplatform.uischema.options.OptionSourceRegistry.class, issues);
+    }
+
+    /**
+     * Reviews all {@link org.praxisplatform.uischema.options.OptionSourceDescriptor} entries in an
+     * {@link org.praxisplatform.uischema.options.OptionSourceRegistry} against a shared {@code filterDtoClass}.
+     */
+    public SemanticMetadataReviewReport reviewOptionSourceRegistry(
+            org.praxisplatform.uischema.options.OptionSourceRegistry registry,
+            Class<?> filterDtoClass
+    ) {
+        if (registry == null || registry.isEmpty()) {
+            return new SemanticMetadataReviewReport(org.praxisplatform.uischema.options.OptionSourceRegistry.class, List.of());
+        }
+        List<SemanticMetadataReviewIssue> issues = new ArrayList<>();
+        for (org.praxisplatform.uischema.options.OptionSourceDescriptor descriptor : registry.descriptors()) {
+            reviewOptionSourceDescriptorInto(descriptor, issues);
+            if (descriptor != null && filterDtoClass != null) {
+                reviewOptionSourceFilteringAgainstFilterDto(descriptor, filterDtoClass, issues);
+            }
+        }
+        return new SemanticMetadataReviewReport(org.praxisplatform.uischema.options.OptionSourceRegistry.class, issues);
+    }
+
+    /**
      * Reviews a single {@link org.praxisplatform.uischema.options.OptionSourceDescriptor} for
      * canonical {@code RESOURCE_ENTITY} lookup completeness and surface detail navigation.
      */
     public SemanticMetadataReviewReport reviewOptionSourceDescriptor(
             org.praxisplatform.uischema.options.OptionSourceDescriptor descriptor
     ) {
+        return reviewOptionSourceDescriptor(descriptor, null);
+    }
+
+    /**
+     * Reviews a single {@link org.praxisplatform.uischema.options.OptionSourceDescriptor} and
+     * validates its {@code filtering.availableFilters} against {@code filterDtoClass} when provided.
+     */
+    public SemanticMetadataReviewReport reviewOptionSourceDescriptor(
+            org.praxisplatform.uischema.options.OptionSourceDescriptor descriptor,
+            Class<?> filterDtoClass
+    ) {
         if (descriptor == null) {
             return new SemanticMetadataReviewReport(org.praxisplatform.uischema.options.OptionSourceDescriptor.class, List.of());
         }
         List<SemanticMetadataReviewIssue> issues = new ArrayList<>();
         reviewOptionSourceDescriptorInto(descriptor, issues);
+        if (filterDtoClass != null) {
+            reviewOptionSourceFilteringAgainstFilterDto(descriptor, filterDtoClass, issues);
+        }
         return new SemanticMetadataReviewReport(org.praxisplatform.uischema.options.OptionSourceDescriptor.class, issues);
+    }
+
+    private void reviewOptionSourceFilteringAgainstFilterDto(
+            org.praxisplatform.uischema.options.OptionSourceDescriptor descriptor,
+            Class<?> filterDtoClass,
+            List<SemanticMetadataReviewIssue> issues
+    ) {
+        if (descriptor == null || filterDtoClass == null) {
+            return;
+        }
+        org.praxisplatform.uischema.options.LookupFilteringDescriptor filtering = descriptor.effectiveFiltering();
+        if (filtering == null || filtering.availableFilters() == null || filtering.availableFilters().isEmpty()) {
+            return;
+        }
+        String memberPrefix = normalize(descriptor.key()).isBlank() ? "<unnamed>" : normalize(descriptor.key());
+        String typeName = normalize(descriptor.resourcePath()).isBlank()
+                ? filterDtoClass.getName()
+                : normalize(descriptor.resourcePath());
+
+        java.util.Set<String> allFilterProps = collectDtoPropertyNames(filterDtoClass);
+        java.util.Map<String, org.praxisplatform.uischema.filter.annotation.Filterable> filterables =
+                collectFilterableAnnotations(filterDtoClass);
+        java.util.Set<String> declaredFilterFields = new java.util.LinkedHashSet<>();
+        for (org.praxisplatform.uischema.options.LookupFilterDefinition def : filtering.availableFilters()) {
+            if (def != null && def.field() != null) {
+                declaredFilterFields.add(def.field());
+            }
+        }
+
+        for (org.praxisplatform.uischema.options.LookupFilterDefinition def : filtering.availableFilters()) {
+            if (def == null) {
+                continue;
+            }
+            String fieldName = def.field();
+            if (!allFilterProps.contains(fieldName)) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "option-source-filter-field-unknown",
+                        typeName,
+                        memberPrefix + ".filtering.availableFilters." + fieldName,
+                        "Option source '" + memberPrefix + "' declares availableFilter '" + fieldName
+                                + "' which does not exist on FilterDTO " + filterDtoClass.getSimpleName() + "."
+                ));
+                continue;
+            }
+            org.praxisplatform.uischema.filter.annotation.Filterable filterable = filterables.get(fieldName);
+            if (filterable == null) {
+                issues.add(new SemanticMetadataReviewIssue(
+                        SemanticMetadataIssueSeverity.ERROR,
+                        "option-source-filter-field-not-filterable",
+                        typeName,
+                        memberPrefix + ".filtering.availableFilters." + fieldName,
+                        "Option source '" + memberPrefix + "' declares availableFilter '" + fieldName
+                                + "' which lacks @Filterable on FilterDTO " + filterDtoClass.getSimpleName() + "."
+                ));
+            } else {
+                String relation = normalize(filterable.relation());
+                if (!relation.isBlank()
+                        && def.targetPropertyPath() != null
+                        && !relation.equals(def.targetPropertyPath())) {
+                    issues.add(new SemanticMetadataReviewIssue(
+                            SemanticMetadataIssueSeverity.ERROR,
+                            "option-source-filter-relation-mismatch",
+                            typeName,
+                            memberPrefix + ".filtering.availableFilters." + fieldName,
+                            "Option source '" + memberPrefix + "' filter '" + fieldName
+                                    + "' targets '" + def.targetPropertyPath()
+                                    + "' which does not match @Filterable(relation = \"" + relation + "\") on "
+                                    + filterDtoClass.getSimpleName() + "."
+                    ));
+                }
+            }
+            if (def.dependencyFilterMap() != null) {
+                for (String depKey : def.dependencyFilterMap().keySet()) {
+                    if (def.dependsOn() == null || !def.dependsOn().contains(depKey)) {
+                        issues.add(new SemanticMetadataReviewIssue(
+                                SemanticMetadataIssueSeverity.ERROR,
+                                "option-source-filter-dependency-undeclared",
+                                typeName,
+                                memberPrefix + ".filtering.availableFilters." + fieldName,
+                                "Option source '" + memberPrefix + "' filter '" + fieldName
+                                        + "' maps dependency '" + depKey + "' not declared in dependsOn."
+                        ));
+                    }
+                }
+            }
+            if (def.dependsOn() != null) {
+                for (String dep : def.dependsOn()) {
+                    if (!allFilterProps.contains(dep) && !declaredFilterFields.contains(dep)) {
+                        issues.add(new SemanticMetadataReviewIssue(
+                                SemanticMetadataIssueSeverity.ERROR,
+                                "option-source-filter-dependency-unknown",
+                                typeName,
+                                memberPrefix + ".filtering.availableFilters." + fieldName,
+                                "Option source '" + memberPrefix + "' filter '" + fieldName
+                                        + "' declares dependsOn '" + dep + "' which does not exist on "
+                                        + filterDtoClass.getSimpleName() + "."
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    private java.util.Map<String, org.praxisplatform.uischema.filter.annotation.Filterable> collectFilterableAnnotations(
+            Class<?> dtoClass
+    ) {
+        java.util.Map<String, org.praxisplatform.uischema.filter.annotation.Filterable> result =
+                new java.util.LinkedHashMap<>();
+        if (dtoClass == null) {
+            return result;
+        }
+        for (Class<?> curr = dtoClass; curr != null && curr != Object.class && curr != Record.class; curr = curr.getSuperclass()) {
+            if (curr.isRecord() && curr.getRecordComponents() != null) {
+                for (RecordComponent rc : curr.getRecordComponents()) {
+                    org.praxisplatform.uischema.filter.annotation.Filterable ann =
+                            rc.getAnnotation(org.praxisplatform.uischema.filter.annotation.Filterable.class);
+                    if (ann != null) {
+                        result.putIfAbsent(rc.getName(), ann);
+                    }
+                }
+            }
+            for (Field field : curr.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers()) || field.isSynthetic()) {
+                    continue;
+                }
+                org.praxisplatform.uischema.filter.annotation.Filterable ann =
+                        field.getAnnotation(org.praxisplatform.uischema.filter.annotation.Filterable.class);
+                if (ann != null) {
+                    result.putIfAbsent(field.getName(), ann);
+                }
+            }
+            for (Method method : curr.getDeclaredMethods()) {
+                if (Modifier.isStatic(method.getModifiers())
+                        || method.isSynthetic()
+                        || method.isBridge()
+                        || method.getParameterCount() != 0
+                        || method.getReturnType() == void.class) {
+                    continue;
+                }
+                String propName = resolveGetterPropertyNameForFilter(curr, method);
+                if (propName != null) {
+                    org.praxisplatform.uischema.filter.annotation.Filterable ann =
+                            method.getAnnotation(org.praxisplatform.uischema.filter.annotation.Filterable.class);
+                    if (ann != null) {
+                        result.putIfAbsent(propName, ann);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    private static String resolveGetterPropertyNameForFilter(Class<?> owner, Method method) {
+        String name = method.getName();
+        if ("getClass".equals(name)) {
+            return null;
+        }
+        if (owner.isRecord()) {
+            return name;
+        }
+        if (name.startsWith("get") && name.length() > 3) {
+            return Character.toLowerCase(name.charAt(3)) + name.substring(4);
+        }
+        if (name.startsWith("is") && name.length() > 2
+                && (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class)) {
+            return Character.toLowerCase(name.charAt(2)) + name.substring(3);
+        }
+        return null;
     }
 
     private void reviewOptionSourceDescriptorInto(

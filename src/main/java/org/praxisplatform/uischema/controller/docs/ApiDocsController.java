@@ -105,6 +105,7 @@ public class ApiDocsController {
             "create",
             "display",
             "filtering",
+            "dialog",
             "excludeSelfField",
             "searchMode",
             "pageSize",
@@ -191,7 +192,20 @@ public class ApiDocsController {
                     "defaultSort",
                     "quickFilterFields",
                     "searchPlaceholder",
-                    "searchStrategies"
+                    "searchStrategies",
+                    "defaultSearchStrategy"
+            ),
+            "dialog", Set.of(
+                    "enabled",
+                    "title",
+                    "size",
+                    "previewPanel",
+                    "allowColumnChooser",
+                    "allowSavedViews",
+                    "resultColumns",
+                    "openActionLabel",
+                    "applyActionLabel",
+                    "cancelActionLabel"
             )
     );
 
@@ -231,8 +245,32 @@ public class ApiDocsController {
                     "operators",
                     "defaultOperator",
                     "optionsSource",
+                    "options",
+                    "optionSource",
+                    "dependsOn",
+                    "dependencyFilterMap",
                     "required",
                     "hidden"
+            ),
+            "filtering.availableFilters.options", Set.of(
+                    "value",
+                    "label",
+                    "disabled",
+                    "group",
+                    "icon",
+                    "color",
+                    "tone",
+                    "description",
+                    "subtitle",
+                    "badge",
+                    "emoji",
+                    "weight"
+            ),
+            "dialog.resultColumns", Set.of(
+                    "field",
+                    "label",
+                    "kind",
+                    "width"
             ),
             "filtering.sortOptions", Set.of(
                     "key",
@@ -929,7 +967,7 @@ public class ApiDocsController {
             }
             Set<String> nestedAllowedKeys = OPTION_SOURCE_PUBLIC_NESTED_KEYS.get(key);
             if (nestedAllowedKeys != null && value instanceof Map<?, ?> nestedCandidate) {
-                Map<String, Object> sanitizedNested = sanitizeNestedOptionSourceMetadata(nestedCandidate, nestedAllowedKeys);
+                Map<String, Object> sanitizedNested = sanitizeNestedOptionSourceMetadata(key, nestedCandidate, nestedAllowedKeys);
                 Object existing = target.get(key);
                 if (existing instanceof Map<?, ?> existingMap) {
                     Map<String, Object> mergedNested = new LinkedHashMap<>((Map<String, Object>) existingMap);
@@ -944,14 +982,24 @@ public class ApiDocsController {
         });
     }
 
-    private Map<String, Object> sanitizeOptionSourceMetadata(Map<String, Object> candidate) {
+    private Map<String, Object> sanitizeOptionSourceMetadata(Map<?, ?> candidate) {
+        return sanitizeOptionSourceMetadata(candidate, 0);
+    }
+
+    private Map<String, Object> sanitizeOptionSourceMetadata(Map<?, ?> candidate, int nestedOptionSourceDepth) {
         Map<String, Object> sanitized = new LinkedHashMap<>();
         if (candidate == null || candidate.isEmpty()) {
             return sanitized;
         }
-        candidate.forEach((key, value) -> {
-            if (OPTION_SOURCE_PUBLIC_KEYS.contains(key) && !OPTION_SOURCE_PRIVATE_KEYS.contains(key)) {
-                sanitized.put(key, sanitizeOptionSourceValue(key, value, OPTION_SOURCE_PUBLIC_NESTED_KEYS.get(key)));
+        candidate.forEach((rawKey, value) -> {
+            if (rawKey instanceof String key
+                    && OPTION_SOURCE_PUBLIC_KEYS.contains(key)
+                    && !OPTION_SOURCE_PRIVATE_KEYS.contains(key)) {
+                if (nestedOptionSourceDepth > 0 && "filtering".equals(key)) {
+                    return;
+                }
+                sanitized.put(key, sanitizeOptionSourceValue(
+                        key, value, OPTION_SOURCE_PUBLIC_NESTED_KEYS.get(key), nestedOptionSourceDepth));
             }
         });
         sanitized.values().removeIf(Objects::isNull);
@@ -959,27 +1007,43 @@ public class ApiDocsController {
     }
 
     private Map<String, Object> sanitizeNestedOptionSourceMetadata(
+            String parentKey,
             Map<?, ?> candidate,
             Set<String> allowedKeys
     ) {
         Map<String, Object> sanitized = new LinkedHashMap<>();
         candidate.forEach((rawKey, value) -> {
-            if (rawKey instanceof String key && allowedKeys.contains(key)) {
-                sanitized.put(key, sanitizeOptionSourceValue(key, value, null));
+            if (rawKey instanceof String key
+                    && allowedKeys.contains(key)
+                    && !OPTION_SOURCE_PRIVATE_KEYS.contains(key)) {
+                sanitized.put(key, sanitizeOptionSourceValue(parentKey + "." + key, value, null, 0));
             }
         });
         sanitized.values().removeIf(Objects::isNull);
         return sanitized;
     }
 
-    private Object sanitizeOptionSourceValue(String path, Object value, Set<String> allowedMapKeys) {
+    private Object sanitizeOptionSourceValue(
+            String path,
+            Object value,
+            Set<String> allowedMapKeys,
+            int nestedOptionSourceDepth
+    ) {
+        if ("filtering.availableFilters.optionSource".equals(path) && value instanceof Map<?, ?> nestedOptionSource) {
+            if (nestedOptionSourceDepth >= 1) {
+                return null;
+            }
+            Map<String, Object> sanitizedNested = sanitizeOptionSourceMetadata(nestedOptionSource, nestedOptionSourceDepth + 1);
+            return sanitizedNested.isEmpty() ? null : sanitizedNested;
+        }
         if (value instanceof Map<?, ?> mapValue) {
             Set<String> effectiveAllowedKeys = allowedMapKeys != null ? allowedMapKeys : OPTION_SOURCE_PUBLIC_DEEP_KEYS.get(path);
             if (effectiveAllowedKeys == null) {
                 Map<String, Object> sanitized = new LinkedHashMap<>();
                 mapValue.forEach((rawKey, nestedValue) -> {
                     if (rawKey instanceof String key && !OPTION_SOURCE_PRIVATE_KEYS.contains(key)) {
-                        sanitized.put(key, sanitizeOptionSourceValue(path + "." + key, nestedValue, null));
+                        sanitized.put(key, sanitizeOptionSourceValue(
+                                path + "." + key, nestedValue, null, nestedOptionSourceDepth));
                     }
                 });
                 sanitized.values().removeIf(Objects::isNull);
@@ -990,7 +1054,8 @@ public class ApiDocsController {
                 if (rawKey instanceof String key
                         && effectiveAllowedKeys.contains(key)
                         && !OPTION_SOURCE_PRIVATE_KEYS.contains(key)) {
-                    sanitized.put(key, sanitizeOptionSourceValue(path + "." + key, nestedValue, null));
+                    sanitized.put(key, sanitizeOptionSourceValue(
+                            path + "." + key, nestedValue, null, nestedOptionSourceDepth));
                 }
             });
             sanitized.values().removeIf(Objects::isNull);
@@ -998,7 +1063,8 @@ public class ApiDocsController {
         }
         if (value instanceof List<?> listValue) {
             List<Object> sanitized = listValue.stream()
-                    .map(item -> sanitizeOptionSourceValue(path, item, OPTION_SOURCE_PUBLIC_DEEP_KEYS.get(path)))
+                    .map(item -> sanitizeOptionSourceValue(
+                            path, item, OPTION_SOURCE_PUBLIC_DEEP_KEYS.get(path), nestedOptionSourceDepth))
                     .filter(Objects::nonNull)
                     .toList();
             return sanitized;

@@ -127,11 +127,44 @@ class ApiDocsControllerReadOnlyMetaTest {
                 .put("sql", "select private_field from private_table")
                 .put("providerConfig", "internal");
         ObjectNode payrollFiltering = payrollOptionSource.putObject("filtering");
-        payrollFiltering.putArray("availableFilters")
+        payrollFiltering.put("defaultSearchStrategy", "document");
+        var availableFiltersArr = payrollFiltering.putArray("availableFilters");
+        ObjectNode statusFilter = availableFiltersArr.addObject();
+        statusFilter.put("field", "status");
+        statusFilter.put("type", "enum");
+        statusFilter.put("providerConfig", "internal");
+        statusFilter.putArray("options")
                 .addObject()
-                .put("field", "status")
-                .put("type", "text")
-                .put("providerConfig", "internal");
+                .put("value", "ACTIVE")
+                .put("label", "Active")
+                .put("tone", "success")
+                .put("sql", "select leaked");
+        ObjectNode refFilter = availableFiltersArr.addObject();
+        refFilter.put("field", "companyId");
+        refFilter.put("type", "reference");
+        refFilter.putArray("dependsOn").add("tenantId");
+        refFilter.putObject("dependencyFilterMap")
+                .put("tenantId", "tenant.id")
+                .put("sql", "select leaked");
+        ObjectNode nestedFilterOptionSource = refFilter.putObject("optionSource");
+        nestedFilterOptionSource.put("key", "company");
+        nestedFilterOptionSource.put("type", "RESOURCE_ENTITY");
+        nestedFilterOptionSource.put("resourcePath", "/api/companies");
+        nestedFilterOptionSource.put("sql", "select nested_secret");
+        nestedFilterOptionSource.put("providerConfig", "nested_internal");
+        nestedFilterOptionSource.putObject("filtering").put("defaultSort", "shouldBeOmittedAtDepth");
+        ObjectNode payrollDialog = payrollOptionSource.putObject("dialog");
+        payrollDialog.put("enabled", true);
+        payrollDialog.put("title", "Selecionar perfil");
+        payrollDialog.put("size", "lg");
+        payrollDialog.put("previewPanel", true);
+        payrollDialog.put("package", "PKG_LEAKED");
+        payrollDialog.putArray("resultColumns")
+                .addObject()
+                .put("field", "payrollProfileLabel")
+                .put("label", "Perfil")
+                .put("kind", "label")
+                .put("sql", "select leaked_col");
         payrollFiltering.putArray("sortOptions")
                 .addObject()
                 .put("key", "labelAsc")
@@ -248,9 +281,38 @@ class ApiDocsControllerReadOnlyMetaTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> filtering = (Map<String, Object>) optionSource.get("filtering");
         assertNotNull(filtering);
+        assertEquals("document", filtering.get("defaultSearchStrategy"));
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> availableFilters = (List<Map<String, Object>>) filtering.get("availableFilters");
         assertFalse(availableFilters.get(0).containsKey("providerConfig"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> filterOptions = (List<Map<String, Object>>) availableFilters.get(0).get("options");
+        assertEquals("ACTIVE", filterOptions.get(0).get("value"));
+        assertFalse(filterOptions.get(0).containsKey("sql"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> refFilterOut = availableFilters.get(1);
+        assertEquals(List.of("tenantId"), refFilterOut.get("dependsOn"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> refDepMap = (Map<String, Object>) refFilterOut.get("dependencyFilterMap");
+        assertEquals("tenant.id", refDepMap.get("tenantId"));
+        assertFalse(refDepMap.containsKey("sql"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> nestedOs = (Map<String, Object>) refFilterOut.get("optionSource");
+        assertEquals("company", nestedOs.get("key"));
+        assertFalse(nestedOs.containsKey("sql"));
+        assertFalse(nestedOs.containsKey("providerConfig"));
+        assertFalse(nestedOs.containsKey("filtering"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> dialog = (Map<String, Object>) optionSource.get("dialog");
+        assertNotNull(dialog);
+        assertEquals(Boolean.TRUE, dialog.get("enabled"));
+        assertEquals("lg", dialog.get("size"));
+        assertFalse(dialog.containsKey("package"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> resultColumns = (List<Map<String, Object>>) dialog.get("resultColumns");
+        assertEquals("payrollProfileLabel", resultColumns.get(0).get("field"));
+        assertFalse(resultColumns.get(0).containsKey("sql"));
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> sortOptions = (List<Map<String, Object>>) filtering.get("sortOptions");
         assertFalse(sortOptions.get(0).containsKey("sql"));

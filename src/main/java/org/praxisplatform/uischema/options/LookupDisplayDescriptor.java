@@ -102,6 +102,21 @@ public record LookupDisplayDescriptor(
     }
 
     /**
+     * Resolves a list of {@link LookupDisplayFieldDescriptor}s by introspecting {@code @UISchema}
+     * on {@code dtoClass} for each DTO field key in {@code dtoToEntityPropertyPaths}, binding
+     * {@code key} to the DTO field name and {@code propertyPath} to the mapped JPA entity path.
+     */
+    public static List<LookupDisplayFieldDescriptor> fieldsFromDto(
+            Class<?> dtoClass, Map<String, String> dtoToEntityPropertyPaths) {
+        if (dtoToEntityPropertyPaths == null || dtoToEntityPropertyPaths.isEmpty()) {
+            return List.of();
+        }
+        return dtoToEntityPropertyPaths.entrySet().stream()
+                .map(entry -> LookupDisplayFieldDescriptor.fromDtoField(dtoClass, entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
+    /**
      * Builds a standard directory {@link LookupDisplayDescriptor} whose display fields are
      * automatically curated from {@code @UISchema(label, icon)} on {@code dtoClass}.
      */
