@@ -316,6 +316,88 @@
       ]
     },
 
+    "showAnchors": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "string", "enum": ["auto"] }
+      ],
+      "description": "Controls clickable click-to-snap value anchors beneath inline range sliders."
+    },
+    "inlinePanelTitle": { "type": "string" },
+    "inlinePanelIcon": { "type": "string" },
+    "inlinePanelIconColor": { "type": "string" },
+    "showInlineInputs": { "type": "boolean" },
+    "sliderStep": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "shiftStep": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "minDistance": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "maxDistance": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "requireTwoBounds": { "type": "boolean" },
+    "operatorModes": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/inlineCurrencyRangeOperatorMode" },
+          "uniqueItems": true
+        },
+        { "type": "string" }
+      ]
+    },
+    "defaultOperatorMode": { "$ref": "#/definitions/inlineCurrencyRangeOperatorMode" },
+    "marks": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/rangeSliderMark" }
+        },
+        { "type": "string" }
+      ]
+    },
+    "semanticBands": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/rangeSliderSemanticBand" }
+        },
+        { "type": "string" }
+      ]
+    },
+    "currency": { "type": "string", "minLength": 1 },
+    "currencyPosition": { "type": "string", "enum": ["before", "after"] },
+    "showCurrencySymbol": { "type": "boolean" },
+    "decimalPlaces": { "type": "integer", "minimum": 0 },
+    "locale": { "type": "string", "minLength": 1 },
+    "thousandsSeparator": { "type": "string" },
+    "thousandSeparator": { "type": "string" },
+    "decimalSeparator": { "type": "string" },
+    "allowNegative": { "type": "boolean" },
+    "inputMinLabel": { "type": "string" },
+    "inputMaxLabel": { "type": "string" },
+    "inputExactLabel": { "type": "string" },
+    "startMin": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "startMax": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "endMin": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "endMax": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "startPlaceholder": { "type": "string" },
+    "endPlaceholder": { "type": "string" },
+    "startLabel": { "type": "string" },
+    "endLabel": { "type": "string" },
+    "hideSubLabels": { "type": "boolean" },
+    "inlineChipDisplay": {
+      "type": "string",
+      "enum": ["badge", "value", "label-value"]
+    },
+    "layout": {
+      "type": "string",
+      "enum": ["row", "column"]
+    },
+    "gap": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "clearButtonPlacement": {
+      "type": "string",
+      "enum": ["group", "subinputs"]
+    },
+
     "endpoint": {
       "type": "string",
       "description": "Backend path for remote options. The Angular runtime normalizes this field to resourcePath."
@@ -821,6 +903,39 @@
           "type": "string",
           "enum": ["primary", "neutral", "warning", "danger"]
         }
+      }
+    },
+    "inlineCurrencyRangeOperatorMode": {
+      "type": "string",
+      "enum": ["between", "gte", "lte", "eq"]
+    },
+    "rangeSliderMark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "number" },
+        "label": { "type": "string" },
+        "tone": {
+          "type": "string",
+          "enum": ["neutral", "info", "success", "warning", "danger"]
+        },
+        "disabled": { "type": "boolean" }
+      }
+    },
+    "rangeSliderSemanticBand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "number" },
+        "end": { "type": "number" },
+        "label": { "type": "string" },
+        "tone": {
+          "type": "string",
+          "enum": ["neutral", "info", "success", "warning", "danger"]
+        },
+        "color": { "type": "string" }
       }
     },
     "isoDateOnly": {

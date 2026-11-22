@@ -266,7 +266,47 @@ public enum FieldConfigProperties {
     /** Metadados de linha do tempo publicados em nivel de schema ({@code x-ui.timeline}) */
     TIMELINE("timeline"),
     /** Metadados de agenda/escala publicados em nivel de schema ({@code x-ui.schedule}) */
-    SCHEDULE("schedule");
+    SCHEDULE("schedule"),
+
+    // ----------------------------------------------------------
+    // 13. Faixas Monetárias e Sliders Inline (range / currency / time / distance / rating / score)
+    // ----------------------------------------------------------
+    /** Controla a exibição das âncoras clicáveis click-to-snap abaixo do slider inline ({@code x-ui.showAnchors}) */
+    SHOW_ANCHORS("showAnchors"),
+    /** Histograma/distribuição exibido sobre a trilha do slider inline ({@code x-ui.inlineDistribution}) */
+    INLINE_DISTRIBUTION("inlineDistribution"),
+    /** Título exibido no cabeçalho do popover inline ({@code x-ui.inlinePanelTitle}) */
+    INLINE_PANEL_TITLE("inlinePanelTitle"),
+    /** Ligadura Material Icons exibida ao lado do título do painel inline ({@code x-ui.inlinePanelIcon}) */
+    INLINE_PANEL_ICON("inlinePanelIcon"),
+    /** Cor CSS ou de tema aplicada ao ícone do cabeçalho do painel inline ({@code x-ui.inlinePanelIconColor}) */
+    INLINE_PANEL_ICON_COLOR("inlinePanelIconColor"),
+    /** Controla a exibição de campos monetários editáveis dentro do popover inline ({@code x-ui.showInlineInputs}) */
+    SHOW_INLINE_INPUTS("showInlineInputs"),
+    /** Incremento específico aplicado à trilha do slider preservando o step dos inputs ({@code x-ui.sliderStep}) */
+    SLIDER_STEP("sliderStep"),
+    /** Incremento amplo usado com Shift+Setas e PageUp/PageDown no range ({@code x-ui.shiftStep}) */
+    SHIFT_STEP("shiftStep"),
+    /** Distância mínima exigida entre os limites inferior e superior da faixa ({@code x-ui.minDistance}) */
+    MIN_DISTANCE("minDistance"),
+    /** Distância máxima permitida entre os limites inferior e superior da faixa ({@code x-ui.maxDistance}) */
+    MAX_DISTANCE("maxDistance"),
+    /** Exige preenchimento simultâneo de mínimo e máximo na faixa monetária ({@code x-ui.requireTwoBounds}) */
+    REQUIRE_TWO_BOUNDS("requireTwoBounds"),
+    /** Operadores habilitados no seletor inline de faixa monetária ({@code x-ui.operatorModes}) */
+    OPERATOR_MODES("operatorModes"),
+    /** Operador inicial selecionado quando o campo de faixa monetária ainda não tem valor ({@code x-ui.defaultOperatorMode}) */
+    DEFAULT_OPERATOR_MODE("defaultOperatorMode"),
+    /** Marcos visuais declarativos exibidos sobre a trilha do slider inline ({@code x-ui.marks}) */
+    MARKS("marks"),
+    /** Bandas semânticas de referência exibidas ao longo da trilha do slider inline ({@code x-ui.semanticBands}) */
+    SEMANTIC_BANDS("semanticBands"),
+    /** Rótulo exibido no campo numérico de limite mínimo do popover inline ({@code x-ui.inputMinLabel}) */
+    INPUT_MIN_LABEL("inputMinLabel"),
+    /** Rótulo exibido no campo numérico de limite máximo do popover inline ({@code x-ui.inputMaxLabel}) */
+    INPUT_MAX_LABEL("inputMaxLabel"),
+    /** Rótulo exibido no campo numérico quando o operador ativo é valor exato ({@code x-ui.inputExactLabel}) */
+    INPUT_EXACT_LABEL("inputExactLabel");
 
     // --- Store the string value ---
     private final String value;
