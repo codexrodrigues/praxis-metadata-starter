@@ -184,6 +184,66 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         return matches.stream().findFirst().map(entry -> resolve(entry.getValue(), entry.getKey()));
     }
 
+    /**
+     * Resolves a batch of {@code operationIds} from MVC handler mappings first, applies
+     * {@code scopeFilter} before inspecting OpenAPI documents, and verifies any in-scope declared
+     * bulk operations using at most one call-scoped {@link OperationIndex} under
+     * {@link OpenApiDocumentService#withSchemaCacheReadLock(Supplier)}. Unpublished OpenAPI sources
+     * are never memoized across separate calls.
+     */
+    public Map<String, CanonicalOperationRef> resolveByOperationIdsForScope(
+            java.util.Collection<String> operationIds,
+            java.util.function.Predicate<CanonicalOperationRef> scopeFilter
+    ) {
+        if (operationIds == null || operationIds.isEmpty()) {
+            return Map.of();
+        }
+        for (String operationId : operationIds) {
+            if (bulkOperationBindings.declares(operationId)
+                    && bulkOperationBindings.handlerFor(operationId).isEmpty()) {
+                throw invalidBinding(operationId, "declared bulk resource operation is incomplete or ambiguous");
+            }
+        }
+        if (handlerMapping == null) {
+            return Map.of();
+        }
+        Map<String, List<Map.Entry<RequestMappingInfo, HandlerMethod>>> byOperationId = new HashMap<>();
+        for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMapping.getHandlerMethods().entrySet()) {
+            String effectiveId = effectiveOperationId(entry.getValue());
+            byOperationId.computeIfAbsent(effectiveId, ignored -> new java.util.ArrayList<>()).add(entry);
+        }
+
+        Map<String, CanonicalOperationRef> selected = new LinkedHashMap<>();
+        List<Map.Entry<String, Map.Entry<RequestMappingInfo, HandlerMethod>>> bulkToVerify = new java.util.ArrayList<>();
+        for (String operationId : operationIds) {
+            if (!StringUtils.hasText(operationId)) {
+                continue;
+            }
+            List<Map.Entry<RequestMappingInfo, HandlerMethod>> matches =
+                    byOperationId.getOrDefault(operationId, List.of());
+            rejectDuplicateMappings(operationId, matches);
+            if (matches.isEmpty()) {
+                continue;
+            }
+            Map.Entry<RequestMappingInfo, HandlerMethod> entry = matches.getFirst();
+            CanonicalOperationRef candidate = resolve(entry.getValue(), entry.getKey());
+            if (scopeFilter == null || scopeFilter.test(candidate)) {
+                selected.put(operationId, candidate);
+                if (bulkOperationBindings.declares(operationId)) {
+                    bulkToVerify.add(Map.entry(operationId, entry));
+                }
+            }
+        }
+
+        if (!bulkToVerify.isEmpty()) {
+            openApiDocumentService.withSchemaCacheReadLock(() -> {
+                verifyPublishedBulkOperationsWithinFence(bulkToVerify);
+                return Boolean.TRUE;
+            });
+        }
+        return java.util.Collections.unmodifiableMap(selected);
+    }
+
     @Override
     public CanonicalOperationRef requireResourceOperation(String resourceKey, String operationId, String method) {
         return requireMapping(resourceKey, operationId, method).operation();
@@ -487,6 +547,58 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
             throw invalidBinding(operationId, "document fence did not complete identity verification");
     }
 
+    private void verifyPublishedBulkOperationsWithinFence(
+            List<Map.Entry<String, Map.Entry<RequestMappingInfo, HandlerMethod>>> bulkEntries) {
+        List<String> currentPublishedGroups = publishedOpenApiGroups.get();
+        Set<String> groups = new LinkedHashSet<>();
+        if (currentPublishedGroups != null) {
+            currentPublishedGroups.stream().filter(StringUtils::hasText).forEach(groups::add);
+        }
+        List<String[]> targets = new java.util.ArrayList<>(bulkEntries.size());
+        for (var bulkEntry : bulkEntries) {
+            String operationId = bulkEntry.getKey();
+            RequestMappingInfo mapping = bulkEntry.getValue().getKey();
+            String path = mapping.getPatternValues().stream().findFirst().orElse("");
+            String method = mapping.getMethodsCondition().getMethods().stream()
+                    .findFirst().map(Enum::name).orElse("GET");
+            String group = resolveGroup(path);
+            groups.add(group);
+            targets.add(new String[] { operationId, path, method, group });
+        }
+        String firstOperationId = targets.getFirst()[0];
+        OperationIndex index = publishedOperationIndexWithinFence(groups, firstOperationId);
+        if (index == null) {
+            // Unpublished sources must never be memoized across calls, but can share one
+            // call-scoped index built within this single cache-read fence.
+            index = buildEphemeralOperationIndexWithinFence(groups, firstOperationId);
+        }
+        for (String[] target : targets) {
+            verifyPublishedBulkOperationFromIndex(target[0], target[1], target[2], target[3], groups, index);
+        }
+    }
+
+    private OperationIndex buildEphemeralOperationIndexWithinFence(Set<String> groups, String firstOperationId) {
+        Map<String, JsonNode> documents = new LinkedHashMap<>();
+        for (String publishedGroup : groups) {
+            JsonNode publishedDocument = openApiDocumentService.getDocumentForGroupStrict(publishedGroup);
+            if (publishedDocument == null || !publishedDocument.path("paths").isObject()) {
+                throw invalidBinding(firstOperationId, "published OpenAPI group '" + publishedGroup
+                        + "' cannot be inspected for global identity collisions");
+            }
+            documents.put(publishedGroup, publishedDocument);
+        }
+        Map<String, Set<String>> locationsByOperationId = new HashMap<>();
+        documents.forEach((publishedGroup, publishedDocument) -> {
+            Map<String, Set<String>> groupLocations = new HashMap<>();
+            collectDocumentOperationIds(publishedDocument, groupLocations);
+            groupLocations.forEach((id, locations) -> locationsByOperationId
+                    .computeIfAbsent(id, ignored -> new HashSet<>())
+                    .addAll(locations.stream().map(location -> publishedGroup + "\u001f" + location).toList()));
+        });
+        locationsByOperationId.replaceAll((id, locations) -> Set.copyOf(locations));
+        return new OperationIndex(Map.copyOf(documents), Map.copyOf(locationsByOperationId));
+    }
+
     private void verifyPublishedBulkOperationWithinFence(String operationId, String path, String method) {
         String group = resolveGroup(path);
         List<String> currentPublishedGroups = publishedOpenApiGroups.get();
@@ -568,25 +680,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
                     && tokens.equals(cachedGroupTokens)) {
                 return cachedOperationIndex;
             }
-            Map<String, JsonNode> documents = new LinkedHashMap<>();
-            for (String publishedGroup : groups) {
-                JsonNode publishedDocument = openApiDocumentService.getDocumentForGroupStrict(publishedGroup);
-                if (publishedDocument == null || !publishedDocument.path("paths").isObject()) {
-                    throw invalidBinding(operationId, "published OpenAPI group '" + publishedGroup
-                            + "' cannot be inspected for global identity collisions");
-                }
-                documents.put(publishedGroup, publishedDocument);
-            }
-            Map<String, Set<String>> locationsByOperationId = new HashMap<>();
-            documents.forEach((publishedGroup, publishedDocument) -> {
-                Map<String, Set<String>> groupLocations = new HashMap<>();
-                collectDocumentOperationIds(publishedDocument, groupLocations);
-                groupLocations.forEach((id, locations) -> locationsByOperationId
-                        .computeIfAbsent(id, ignored -> new HashSet<>())
-                        .addAll(locations.stream().map(location -> publishedGroup + "\u001f" + location).toList()));
-            });
-            locationsByOperationId.replaceAll((id, locations) -> Set.copyOf(locations));
-            OperationIndex built = new OperationIndex(Map.copyOf(documents), Map.copyOf(locationsByOperationId));
+            OperationIndex built = buildEphemeralOperationIndexWithinFence(groups, operationId);
             if (publication != openApiDocumentService.localPublishedBulkOpenApiPublicationToken()
                     || !tokens.equals(groupTokensWithinFence(groups))) {
                 throw invalidBinding(operationId, "published OpenAPI photograph changed during identity indexing");
