@@ -116,6 +116,9 @@ public final class CanonicalOpenApiGroupSnapshot {
     /** Internal reader access; public consumers receive only validated schema contracts. */
     JsonNode document() { return document.deepCopy(); }
 
+    /** Internal read-only tree for trusted in-package structural summary extraction. */
+    JsonNode readOnlyDocument() { return document; }
+
     /**
      * Reuse structural identity evidence only inside this bounded snapshot and its exact
      * immutable publication. This is not READY authority: callers still own live guards,

@@ -49,11 +49,8 @@ declarada pelo produtor: a verificação federada de autoridade pertence ao Conf
 
 ## Determinações por formulário
 
-`ReactiveDeterminationCatalogSource` enumera os escopos registrados e resolve cada
-operação pelo `CanonicalOperationResolver`, sem inferência por prefixo de URL.
-O recurso é resolvido pelo `ApiResourceIdentityResolver`. Schema e identidade
-estrutural usam `FilteredSchemaProjection` e `SchemaReferenceResolver`; a saída
-de `ReactiveDeterminationMetadataCompiler` é preservada integralmente.
+`ReactiveDeterminationCatalogSource` enumera os escopos registrados e resolve os `operationId`s em lote pelo `BatchCanonicalOperationResolver#resolveMvcOperationsByIds` (ou `CanonicalOperationResolver#resolveByOperationId` em implementações customizadas), sem inferência por prefixo de URL e sem acionar varreduras OpenAPI cross-group para formulários fora do escopo ou operações `@BulkResourceOperation(UPDATE_SOURCE)` de destino.
+O recurso é resolvido pelo `ApiResourceIdentityResolver` diretamente a partir do `HandlerMethod` localizado (suportando proxies Spring AOP). Cada formulário escopado continua validando a preservação do `operationId` publicado no documento OpenAPI do seu próprio grupo. Schema e identidade estrutural usam `FilteredSchemaProjection` e `SchemaReferenceResolver`; a saída de `ReactiveDeterminationMetadataCompiler` (que também agrupa resoluções de operações e documentos por grupo dentro da mesma compilação) é preservada integralmente.
 
 Cada tupla serviço/recurso/schemaOperationId/formMode/id produz um nó `operation`
 com `metadata.operationKind=reactive_determination` e
@@ -77,7 +74,7 @@ entre inputs e outputs nem `edge.metadata`.
 
 ## Integridade de publicação
 
-A materialização inteira usa o lock canônico de leitura do cache de schemas.
+A materialização inteira de formulários em `ReactiveDeterminationCatalogSource` (inclusive no modo estrito `findByResourceKeyStrict` / `findByGroupStrict`) executa sob um único lock canônico de leitura do cache de schemas (`withSchemaCacheReadLock`), reutilizando uma captura coerente por grupo durante a chamada sem `deepCopy()` por formulário e mantendo dois slots de hash por grupo para evitar que preparações concorrentes (`preparedCandidateScope`) expulsem a fotografia em produção (`publishedScope`). `SemanticDomainCatalogService` mantém cache LRU limitado em memória para o catálogo derivado por recurso/grupo/tenant.
 O fingerprint considera o formulário, as determinações compiladas e o documento
 OpenAPI do grupo, incluindo componentes referenciados que não são inputs/outputs. Operação
 inexistente/divergente, ponteiro inválido, escritores sobrepostos e ciclos impedem

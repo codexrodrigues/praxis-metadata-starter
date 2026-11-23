@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.determination;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.praxisplatform.uischema.openapi.BatchCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
@@ -67,6 +68,26 @@ public class ReactiveDeterminationMetadataCompiler {
             JsonNode schemaDocument,
             JsonNode formSchema
     ) {
+        return compile(schemaOperation, schemaType, schemaDocument, formSchema, false);
+    }
+
+    /**
+     * Compila os bindings aplicaveis a uma variante exata de schema filtrado, reutilizando
+     * resolucoes em lote e documentos por grupo dentro da mesma chamada.
+     *
+     * @param schemaOperation operacao cujo request schema esta sendo materializado
+     * @param schemaType      variante request/response solicitada
+     * @param schemaDocument  documento OpenAPI que contem o form schema
+     * @param formSchema      schema raiz do formulario antes dos enriquecimentos finais
+     * @param strict          quando {@code true}, exige documento estrito do grupo sem fallback
+     */
+    public List<Map<String, Object>> compile(
+            CanonicalOperationRef schemaOperation,
+            String schemaType,
+            JsonNode schemaDocument,
+            JsonNode formSchema,
+            boolean strict
+    ) {
         if (!"request".equalsIgnoreCase(schemaType)
                 || schemaOperation == null
                 || !StringUtils.hasText(schemaOperation.operationId())) {
@@ -80,6 +101,7 @@ public class ReactiveDeterminationMetadataCompiler {
             return List.of();
         }
 
+        CompileResolutionContext context = new CompileResolutionContext(strict, definitions);
         Map<String, Map<String, Object>> metadataById = new LinkedHashMap<>();
         for (ReactiveDeterminationDefinition definition : definitions) {
             ReactiveDeterminationScope scope = definition.scopes().stream()
@@ -91,7 +113,8 @@ public class ReactiveDeterminationMetadataCompiler {
                     scope,
                     schemaOperation,
                     schemaDocument,
-                    formSchema
+                    formSchema,
+                    context
             );
             metadataById.put(definition.id(), toMetadata(definition, scope, determinationOperation.operation()));
         }
@@ -105,7 +128,8 @@ public class ReactiveDeterminationMetadataCompiler {
             ReactiveDeterminationScope scope,
             CanonicalOperationRef schemaOperation,
             JsonNode schemaDocument,
-            JsonNode formSchema
+            JsonNode formSchema,
+            CompileResolutionContext context
     ) {
         String id = requireStableId(definition.id(), "determination id");
         validateFormMode(id, scope.formMode(), schemaOperation.method());
@@ -147,7 +171,7 @@ public class ReactiveDeterminationMetadataCompiler {
             }
         }
 
-        ResolvedOperation determinationOperation = resolveDeterminationOperation(id, definition.operationId());
+        ResolvedOperation determinationOperation = resolveDeterminationOperation(id, definition.operationId(), context);
         JsonNode requestSchema = requestSchema(determinationOperation.operationNode(), determinationOperation.document());
         JsonNode responseSchema = responseSchema(determinationOperation.operationNode(), determinationOperation.document());
         if (requestSchema == null) {
@@ -237,8 +261,12 @@ public class ReactiveDeterminationMetadataCompiler {
         return metadata;
     }
 
-    private ResolvedOperation resolveDeterminationOperation(String id, String operationId) {
-        Optional<CanonicalOperationRef> resolved = operationResolver.resolveByOperationId(operationId);
+    private ResolvedOperation resolveDeterminationOperation(
+            String id,
+            String operationId,
+            CompileResolutionContext context
+    ) {
+        Optional<CanonicalOperationRef> resolved = context.resolveOperation(operationId);
         if (resolved.isEmpty()) {
             fail(id, "operationId '" + operationId + "' cannot be resolved canonically");
         }
@@ -249,9 +277,15 @@ public class ReactiveDeterminationMetadataCompiler {
         if (!isSafeResolvedPath(operation.path())) {
             fail(id, "resolved operation path is not a safe same-origin relative path");
         }
-        JsonNode document = openApiDocumentService.getDocumentForGroup(operation.group());
-        if (document == null || document.isMissingNode()) {
-            fail(id, "OpenAPI document for operation group is unavailable");
+        JsonNode document = context.documentsByGroup().get(operation.group());
+        if (document == null) {
+            document = context.strict()
+                    ? openApiDocumentService.getDocumentForGroupStrict(operation.group())
+                    : openApiDocumentService.getDocumentForGroup(operation.group());
+            if (document == null || document.isMissingNode()) {
+                fail(id, "OpenAPI document for operation group is unavailable");
+            }
+            context.documentsByGroup().put(operation.group(), document);
         }
         String documentPath = openApiDocumentService.resolveDocumentPath(
                 document.path("paths"),
@@ -266,6 +300,49 @@ public class ReactiveDeterminationMetadataCompiler {
             fail(id, "resolved operation is not present in the canonical OpenAPI document");
         }
         return new ResolvedOperation(operation, document, operationNode);
+    }
+
+    private final class CompileResolutionContext {
+        private final boolean strict;
+        private final List<ReactiveDeterminationDefinition> definitions;
+        private final Map<String, JsonNode> documentsByGroup = new HashMap<>();
+        private Map<String, CanonicalOperationRef> batchOperations;
+
+        private CompileResolutionContext(boolean strict, List<ReactiveDeterminationDefinition> definitions) {
+            this.strict = strict;
+            this.definitions = definitions;
+        }
+
+        boolean strict() {
+            return strict;
+        }
+
+        Map<String, JsonNode> documentsByGroup() {
+            return documentsByGroup;
+        }
+
+        Optional<CanonicalOperationRef> resolveOperation(String operationId) {
+            if (batchOperations == null
+                    && definitions.size() > 1
+                    && operationResolver instanceof BatchCanonicalOperationResolver batchResolver) {
+                Set<String> distinctOpIds = new LinkedHashSet<>();
+                for (ReactiveDeterminationDefinition definition : definitions) {
+                    String candidateOpId = definition.operationId();
+                    if (StringUtils.hasText(candidateOpId) && STABLE_ID.matcher(candidateOpId).matches()) {
+                        distinctOpIds.add(candidateOpId);
+                    }
+                }
+                if (!distinctOpIds.isEmpty()) {
+                    batchOperations = batchResolver.resolveByOperationIdsForScope(distinctOpIds, null);
+                } else {
+                    batchOperations = Map.of();
+                }
+            }
+            if (batchOperations != null) {
+                return Optional.ofNullable(batchOperations.get(operationId));
+            }
+            return operationResolver.resolveByOperationId(operationId);
+        }
     }
 
     private JsonNode requestSchema(JsonNode operation, JsonNode document) {

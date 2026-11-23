@@ -15,6 +15,9 @@ import org.springframework.web.util.UriUtils;
  * the owner must validate its epoch/transport and commit the durable generation before serving it.
  */
 public final class OpenApiPublicationCandidate {
+    private static final java.util.concurrent.atomic.AtomicLong IDENTITY_SEQUENCE =
+            new java.util.concurrent.atomic.AtomicLong();
+
     private final Object owner;
     private final long epoch;
     private final long transportRevision;
@@ -23,6 +26,8 @@ public final class OpenApiPublicationCandidate {
     private final Set<String> groups;
     private final Map<String, OpenApiDocumentCapture> responses;
     private final String digest;
+    private final long identityId = IDENTITY_SEQUENCE.incrementAndGet();
+    private final Object publicationToken = new Object();
 
     OpenApiPublicationCandidate(Object owner, long epoch, long transportRevision, String basePath, String contextPath,
             Set<String> groups, Map<String, OpenApiDocumentCapture> responses) {
@@ -64,6 +69,12 @@ public final class OpenApiPublicationCandidate {
     public com.fasterxml.jackson.databind.JsonNode groupDocument(String group) {
         if (!groups.contains(group)) throw new IllegalArgumentException("Group is outside the prepared publication");
         return response(groupPath(basePath, group)).document();
+    }
+    long identityId() { return identityId; }
+    Object publicationToken() { return publicationToken; }
+    OpenApiDocumentCapture groupCapture(String group) {
+        if (!groups.contains(group)) throw new IllegalArgumentException("Group is outside the prepared publication");
+        return response(groupPath(basePath, group));
     }
     public Set<String> responsePaths() { return responses.keySet(); }
 

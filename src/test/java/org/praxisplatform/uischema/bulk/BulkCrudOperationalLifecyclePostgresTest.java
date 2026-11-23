@@ -124,8 +124,12 @@ class BulkCrudOperationalLifecyclePostgresTest {
             var unrelatedSource = new DriverManagerDataSource(fixture.store.postgres.getJdbcUrl("bulk_runtime_test", "postgres"),
                     "bulk_runtime_test", "");
             var unrelated = new org.springframework.transaction.support.TransactionTemplate(new DataSourceTransactionManager(unrelatedSource));
-            assertThrows(org.springframework.transaction.IllegalTransactionStateException.class, () -> unrelated.execute(status ->
-                    fixture.documents.getOrComputeSchemaHash("unrelated-denied", payload)));
+            var unrelatedFailure = assertThrows(
+                    org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationUnavailableException.class,
+                    () -> unrelated.execute(status ->
+                            fixture.documents.getOrComputeSchemaHash("unrelated-denied", payload)));
+            assertInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class,
+                    unrelatedFailure.getCause());
             assertEquals(0, payloadCalls.get(), "transaction attestation denies before schema payload construction");
             assertEquals(producerReads, fixture.fresh.get());
             assertNoCacheLocks(fixture.documents);
@@ -426,21 +430,26 @@ class BulkCrudOperationalLifecyclePostgresTest {
             fixture.lifecycle.publish(identity("crud.uniform"), 0);
             fixture.lifecycle.publish(identity("crud.items"), 0);
             var calls = new AtomicInteger();
-            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.projectReadyCapabilities("crud.items", contracts -> {
-                calls.incrementAndGet();
-                assertUnlocked(fixture.documents);
-                fixture.lifecycle.suspend(identity("crud.uniform"), 1);
-                fixture.lifecycle.publish(identity("crud.uniform"), 2);
-                return contracts;
-            }));
+            var suspensionFailure = assertThrows(BulkDiscoveryUnavailableException.class,
+                    () -> fixture.lifecycle.projectReadyCapabilities("crud.items", contracts -> {
+                        calls.incrementAndGet();
+                        assertUnlocked(fixture.documents);
+                        fixture.lifecycle.suspend(identity("crud.uniform"), 1);
+                        fixture.lifecycle.publish(identity("crud.uniform"), 2);
+                        return contracts;
+                    }));
+            assertNull(suspensionFailure.getCause());
             assertEquals(1, calls.get());
             var provider = fixture.providers.getFirst();
-            assertThrows(IllegalStateException.class, () -> fixture.lifecycle.projectReadyCapabilities("crud.items", contracts -> {
-                provider.revision = "r2";
-                assertThrows(IllegalStateException.class, () -> fixture.lifecycle.requireReady(identity("crud.uniform")));
-                provider.revision = "r1";
-                return false; // host swallowed its denial; the final fence must still fail.
-            }));
+            var driftFailure = assertThrows(BulkDiscoveryUnavailableException.class,
+                    () -> fixture.lifecycle.projectReadyCapabilities("crud.items", contracts -> {
+                        provider.revision = "r2";
+                        assertThrows(BulkDiscoveryUnavailableException.class,
+                                () -> fixture.lifecycle.requireReady(identity("crud.uniform")));
+                        provider.revision = "r1";
+                        return false; // host swallowed its denial; the final fence must still fail.
+                    }));
+            assertNull(driftFailure.getCause());
             assertFalse(fixture.lifecycle.<Boolean>projectReadyCapabilities("crud.items", Map::isEmpty).booleanValue());
             var failure = new IllegalArgumentException("consumer failure");
             assertSame(failure, assertThrows(IllegalArgumentException.class,

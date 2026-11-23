@@ -49,6 +49,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     private final OpenApiDocsSupport openApiDocsSupport;
     private final boolean springdocCacheDisabled;
     private final SchemaCanonicalizer schemaCanonicalizer = new SchemaCanonicalizer();
+    private final java.util.concurrent.atomic.AtomicLong documentEntrySequence = new java.util.concurrent.atomic.AtomicLong();
     private final Map<String, CachedDocument> documentCache = new ConcurrentHashMap<>();
     private final Map<String, String> schemaHashCache = new ConcurrentHashMap<>();
     private final ReentrantReadWriteLock cacheLifecycleLock = new ReentrantReadWriteLock(true);
@@ -127,7 +128,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                     if (groupDoc != null) {
                         long sizeKB = estimateJsonSize(groupDoc) / 1024;
                         LOGGER.info("Documento OpenAPI especifico cacheado para grupo '{}' (~{}KB)", group, sizeKB);
-                        return new CachedDocument(groupDoc, false);
+                        return new CachedDocument(documentEntrySequence.incrementAndGet(), groupDoc, false);
                     }
                     throw new IllegalStateException("OpenAPI document helper returned null for group: " + group);
                 } catch (Exception e) {
@@ -149,30 +150,62 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                 if (document == null) throw new IllegalStateException("Group is outside the fresh lifecycle snapshot: " + groupName);
                 return document.deepCopy();
             }
-            return documentCache.compute(groupName, (group, cached) -> {
-                if (cached != null && cached.exactGroupDocument()) {
-                    return cached;
+            return getOrLoadStrictCachedDocument(groupName).document();
+        });
+    }
+
+    private CachedDocument getOrLoadStrictCachedDocument(String groupName) {
+        return documentCache.compute(groupName, (group, cached) -> {
+            if (cached != null && cached.exactGroupDocument()) {
+                return cached;
+            }
+            try {
+                JsonNode groupDoc = openApiDocsSupport.fetchOpenApiGroupDocument(
+                        restTemplate, openApiBasePath, group, LOGGER);
+                if (groupDoc == null) {
+                    throw new IllegalStateException("OpenAPI strict group helper returned null for: " + group);
                 }
-                try {
-                    JsonNode groupDoc = openApiDocsSupport.fetchOpenApiGroupDocument(
-                            restTemplate, openApiBasePath, group, LOGGER);
-                    if (groupDoc == null) {
-                        throw new IllegalStateException("OpenAPI strict group helper returned null for: " + group);
-                    }
-                    // A strict read may prove an existing public entry exact, but cannot replace
-                    // its content under the read lock. Changes require the guarded refresh path.
-                    if (cached != null && !groupDoc.equals(cached.document())) {
-                        throw new IllegalStateException("Strict OpenAPI group differs from the public cache; "
-                                + "a guarded refresh is required: " + group);
-                    }
-                    long sizeKB = estimateJsonSize(groupDoc) / 1024;
-                    LOGGER.info("Documento OpenAPI exato cacheado para grupo '{}' (~{}KB)", group, sizeKB);
-                    return new CachedDocument(groupDoc, true);
-                } catch (Exception e) {
-                    LOGGER.error("Falha ao buscar documento OpenAPI estrito para grupo '{}': {}", group, e.getMessage());
-                    throw new IllegalStateException("Failed to retrieve the exact OpenAPI document for group: " + group, e);
+                // A strict read may prove an existing public entry exact, but cannot replace
+                // its content under the read lock. Changes require the guarded refresh path.
+                if (cached != null && !groupDoc.equals(cached.readOnlyDocument())) {
+                    throw new IllegalStateException("Strict OpenAPI group differs from the public cache; "
+                            + "a guarded refresh is required: " + group);
                 }
-            }).document();
+                long sizeKB = estimateJsonSize(groupDoc) / 1024;
+                LOGGER.info("Documento OpenAPI exato cacheado para grupo '{}' (~{}KB)", group, sizeKB);
+                return new CachedDocument(documentEntrySequence.incrementAndGet(), groupDoc, true);
+            } catch (Exception e) {
+                LOGGER.error("Falha ao buscar documento OpenAPI estrito para grupo '{}': {}", group, e.getMessage());
+                throw new IllegalStateException("Failed to retrieve the exact OpenAPI document for group: " + group, e);
+            }
+        });
+    }
+
+    OpenApiCanonicalOperationResolver.GroupOperationSummary inspectGroupOperationSummaryStrict(String groupName) {
+        return withCacheReadLock(() -> {
+            PublishedSnapshot publication = publishedScope.get();
+            if (publication != null) {
+                if (!publication.candidate().groups().contains(groupName)) {
+                    throw new IllegalStateException("Group is outside the published lifecycle snapshot: " + groupName);
+                }
+                return publication.candidate().groupCapture(groupName).operationSummary();
+            }
+            OpenApiPublicationCandidate prepared = preparedCandidateScope.get();
+            if (prepared != null) {
+                if (!prepared.groups().contains(groupName)) {
+                    throw new IllegalStateException("Group is outside the fresh lifecycle snapshot: " + groupName);
+                }
+                return prepared.groupCapture(groupName).operationSummary();
+            }
+            Map<String, JsonNode> snapshot = lifecycleSnapshot.get();
+            if (snapshot != null) {
+                JsonNode document = snapshot.get(groupName);
+                if (document == null) {
+                    throw new IllegalStateException("Group is outside the fresh lifecycle snapshot: " + groupName);
+                }
+                return OpenApiCanonicalOperationResolver.extractGroupOperationSummary(document);
+            }
+            return getOrLoadStrictCachedDocument(groupName).operationSummary();
         });
     }
 
@@ -203,7 +236,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                         throw new IllegalStateException("OpenAPI strict group helper returned no object for: " + group);
                     long sizeKB = estimateJsonSize(groupDoc) / 1024;
                     LOGGER.info("Documento OpenAPI exato atualizado para grupo '{}' (~{}KB)", group, sizeKB);
-                    return new CachedDocument(groupDoc, true);
+                    return new CachedDocument(documentEntrySequence.incrementAndGet(), groupDoc, true);
                 } catch (Exception e) {
                     LOGGER.error("Falha ao atualizar documento OpenAPI estrito para grupo '{}': {}", group, e.getMessage());
                     throw new IllegalStateException("Failed to refresh the exact OpenAPI document for group: " + group, e);
@@ -314,7 +347,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             long capturedEpoch = withTimedLock(cacheLifecycleLock.readLock(), () -> {
                 for (String group : groups) {
                     CachedDocument cached = documentCache.get(group);
-                    if (cached != null) publicDocuments.put(group, cached.document());
+                    if (cached != null) publicDocuments.put(group, cached.readOnlyDocument());
                 }
                 return cacheInvalidationEpoch;
             });
@@ -340,7 +373,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                 for (var entry : fresh.entrySet()) {
                     CachedDocument cached = documentCache.get(entry.getKey());
                     if (!entry.getValue().equals(publicDocuments.get(entry.getKey()))
-                            || (cached != null && !entry.getValue().equals(cached.document()))) {
+                            || (cached != null && !entry.getValue().equals(cached.readOnlyDocument()))) {
                         // The durable guard observes the old cache before either cache is cleared.
                         clearCaches();
                         throw new IllegalStateException("Public OpenAPI cache differs from the fresh lifecycle document: " + entry.getKey());
@@ -350,7 +383,8 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                 compositionDeadline.get().remainingNanos();
                 // Only publish cold entries after every independent public/fresh comparison passed.
                 for (var entry : fresh.entrySet())
-                    documentCache.putIfAbsent(entry.getKey(), new CachedDocument(entry.getValue(), true));
+                    documentCache.putIfAbsent(entry.getKey(),
+                            new CachedDocument(documentEntrySequence.incrementAndGet(), entry.getValue(), true));
                 lifecycleSnapshot.set(Map.copyOf(fresh));
                 try {
                     return action.get();
@@ -467,7 +501,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             if (!candidate.contextPath().equals(bulkOpenApiServingContext))
                 throw new IllegalStateException("Prepared publication differs from the registered Servlet context");
             Map<String, JsonNode> nodes = new LinkedHashMap<>();
-            for (String group : candidate.groups()) nodes.put(group, candidate.groupDocument(group));
+            for (String group : candidate.groups()) nodes.put(group, candidate.groupCapture(group).readOnlyDocument());
             lifecycleSnapshot.set(Map.copyOf(nodes));
             preparedCandidateScope.set(candidate);
             preparedSchemaHashes.set(new ConcurrentHashMap<>());
@@ -493,11 +527,11 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     @Override
     public Object localPublishedBulkOpenApiPublicationToken() {
         OpenApiPublicationCandidate prepared = preparedCandidateScope.get();
-        if (prepared != null) return prepared;
+        if (prepared != null) return prepared.publicationToken();
         PublishedSnapshot published = publishedScope.get();
-        if (published != null) return published.candidate();
+        if (published != null) return published.candidate().publicationToken();
         PublishedSnapshot current = publishedSnapshot;
-        return current == null ? null : current.candidate();
+        return current == null ? null : current.candidate().publicationToken();
     }
 
     @Override
@@ -510,7 +544,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             if (!prepared.groups().contains(groupName)) {
                 return null;
             }
-            return new GroupDocumentCacheToken(cacheInvalidationEpoch, prepared, groupName, null);
+            return new GroupDocumentCacheToken(cacheInvalidationEpoch, prepared.identityId(), groupName, 0L);
         }
         if (lifecycleSnapshot.get() != null) {
             return null;
@@ -520,7 +554,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             if (!publication.candidate().groups().contains(groupName)) {
                 return null;
             }
-            return new GroupDocumentCacheToken(cacheInvalidationEpoch, publication.candidate(), groupName, null);
+            return new GroupDocumentCacheToken(cacheInvalidationEpoch, publication.candidate().identityId(), groupName, 0L);
         }
         if (publicationGuard != null) {
             return null;
@@ -529,7 +563,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         if (cached == null) {
             return null;
         }
-        return new GroupDocumentCacheToken(cacheInvalidationEpoch, null, groupName, cached);
+        return new GroupDocumentCacheToken(cacheInvalidationEpoch, 0L, groupName, cached.entryId());
     }
 
     @Override
@@ -612,7 +646,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         return withCompositionDeadline(() -> withTimedLock(cacheLifecycleLock.readLock(), () -> {
             requirePreparedCandidate(candidate);
             Map<String, JsonNode> snapshot = new LinkedHashMap<>();
-            for (String group : candidate.groups()) snapshot.put(group, candidate.groupDocument(group));
+            for (String group : candidate.groups()) snapshot.put(group, candidate.groupCapture(group).readOnlyDocument());
             lifecycleSnapshot.set(Map.copyOf(snapshot));
             preparedCandidateScope.set(candidate);
             preparedSchemaHashes.set(new ConcurrentHashMap<>());
@@ -789,20 +823,55 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         }
     }
 
-    private record CachedDocument(JsonNode document, boolean exactGroupDocument) {
-        private CachedDocument {
+    private static final class CachedDocument {
+        private final long entryId;
+        private final JsonNode document;
+        private final boolean exactGroupDocument;
+        private volatile OpenApiCanonicalOperationResolver.GroupOperationSummary operationSummary;
+
+        private CachedDocument(long entryId, JsonNode document, boolean exactGroupDocument) {
             if (document == null) throw new IllegalArgumentException("document is required");
-            document = document.deepCopy();
+            this.entryId = entryId;
+            this.document = document.deepCopy();
+            this.exactGroupDocument = exactGroupDocument;
         }
 
-        @Override
-        public JsonNode document() { return document.deepCopy(); }
+        long entryId() {
+            return entryId;
+        }
+
+        boolean exactGroupDocument() {
+            return exactGroupDocument;
+        }
+
+        JsonNode document() {
+            return document.deepCopy();
+        }
+
+        JsonNode readOnlyDocument() {
+            return document;
+        }
+
+        OpenApiCanonicalOperationResolver.GroupOperationSummary operationSummary() {
+            OpenApiCanonicalOperationResolver.GroupOperationSummary summary = operationSummary;
+            if (summary != null) {
+                return summary;
+            }
+            synchronized (this) {
+                summary = operationSummary;
+                if (summary == null) {
+                    summary = OpenApiCanonicalOperationResolver.extractGroupOperationSummary(document);
+                    operationSummary = summary;
+                }
+                return summary;
+            }
+        }
     }
 
     private record GroupDocumentCacheToken(
             long invalidationEpoch,
-            Object publication,
+            long publicationId,
             String groupName,
-            CachedDocument cachedDocument
+            long entryId
     ) {}
 }

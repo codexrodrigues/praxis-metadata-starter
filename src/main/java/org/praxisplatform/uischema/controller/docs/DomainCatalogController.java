@@ -69,6 +69,9 @@ public class DomainCatalogController {
     @Value("${praxis.catalog.exclude-paths:/api/praxis/config/ui}")
     private String excludedPathsRaw;
 
+    @Value("${praxis.openapi.application-group.enabled:true}")
+    private boolean applicationGroupEnabled = true;
+
     private Set<String> excludedPaths = Set.of();
 
     @Autowired
@@ -252,13 +255,24 @@ public class DomainCatalogController {
     }
 
     private String resolveGroup(String group, String pathFilter) {
+        String resolvedGroup;
         if (StringUtils.hasText(group)) {
-            return group;
+            resolvedGroup = group.trim();
+        } else if (StringUtils.hasText(pathFilter)) {
+            resolvedGroup = openApiDocumentService.resolveGroupFromPath(pathFilter);
+        } else {
+            resolvedGroup = "application";
         }
-        if (StringUtils.hasText(pathFilter)) {
-            return openApiDocumentService.resolveGroupFromPath(pathFilter);
+        boolean applicationAvailable = openApiDocsSupport != null
+                ? openApiDocsSupport.isApplicationGroupAvailable()
+                : applicationGroupEnabled;
+        if ("application".equals(resolvedGroup) && !applicationAvailable) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "OpenAPI group 'application' is disabled (praxis.openapi.application-group.enabled=false); "
+                            + "specify an explicit published 'group' or a 'path' mapped to a published group.");
         }
-        return "application";
+        return resolvedGroup;
     }
 
     private JsonNode fetchOpenApiDocument(String group) {

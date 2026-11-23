@@ -138,26 +138,38 @@ public abstract class AbstractBulkGovernedResourceController<R, ID, F extends Ge
 
     private ResponseEntity<RestApiResponse<BulkProposal>> proposalResponse(BulkProposal proposal) {
         var variables = Map.<String, Object>of("proposalId", proposal.proposalId());
-        return successEnvelope(ResponseEntity.ok(), proposal, withBulkLinkScope(() -> Links.of(
-                readLink(lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL), variables, "self", null, null),
-                readLink(lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL_RESULTS), variables, "results", null, null))));
+        return successEnvelope(ResponseEntity.ok(), proposal, withBulkLinkScope(() -> {
+            String proposalOpId = lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL);
+            String resultsOpId = lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL_RESULTS);
+            var operations = resolveBulkReadOperations(java.util.List.of(proposalOpId, resultsOpId));
+            return Links.of(
+                    readLink(operations.get(proposalOpId), variables, "self", null, null),
+                    readLink(operations.get(resultsOpId), variables, "results", null, null));
+        }));
     }
 
     private ResponseEntity<RestApiResponse<BulkExecution>> executionResponse(BulkExecution execution) {
         var variables = Map.<String, Object>of("executionId", execution.executionId());
-        return successEnvelope(ResponseEntity.ok(), execution, withBulkLinkScope(() -> Links.of(
-                readLink(lifecycleOperationId(BulkResourceOperation.Role.EXECUTION), variables, "self", null, null),
-                readLink(lifecycleOperationId(BulkResourceOperation.Role.EXECUTION_RESULTS), variables, "results", null, null),
-                readLink(lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL), Map.of("proposalId", execution.proposalId()), "proposal", null, null))));
+        return successEnvelope(ResponseEntity.ok(), execution, withBulkLinkScope(() -> {
+            String executionOpId = lifecycleOperationId(BulkResourceOperation.Role.EXECUTION);
+            String resultsOpId = lifecycleOperationId(BulkResourceOperation.Role.EXECUTION_RESULTS);
+            String proposalOpId = lifecycleOperationId(BulkResourceOperation.Role.PROPOSAL);
+            var operations = resolveBulkReadOperations(java.util.List.of(executionOpId, resultsOpId, proposalOpId));
+            return Links.of(
+                    readLink(operations.get(executionOpId), variables, "self", null, null),
+                    readLink(operations.get(resultsOpId), variables, "results", null, null),
+                    readLink(operations.get(proposalOpId), Map.of("proposalId", execution.proposalId()), "proposal", null, null));
+        }));
     }
 
     private <T> ResponseEntity<RestApiResponse<CursorPage<T>>> resultsResponse(CursorPage<T> page, String operationId,
             Map<String, ?> variables, String after) {
         return successEnvelope(ResponseEntity.ok(), page, withBulkLinkScope(() -> {
+            var operation = resolveBulkReadOperations(java.util.List.of(operationId)).get(operationId);
             var links = new ArrayList<Link>();
-            links.add(readLink(operationId, variables, "self", page.size(), after));
-            if (page.next() != null) links.add(readLink(operationId, variables, "next", page.size(), page.next()));
-            if (page.prev() != null) links.add(readLink(operationId, variables, "prev", page.size(), page.prev()));
+            links.add(readLink(operation, variables, "self", page.size(), after));
+            if (page.next() != null) links.add(readLink(operation, variables, "next", page.size(), page.next()));
+            if (page.prev() != null) links.add(readLink(operation, variables, "prev", page.size(), page.prev()));
             return Links.of(links);
         }));
     }
@@ -166,11 +178,38 @@ public abstract class AbstractBulkGovernedResourceController<R, ID, F extends Ge
         return bulkOpenApiDocuments != null ? bulkOpenApiDocuments.withSchemaCacheReadLock(links) : links.get();
     }
 
+    private Map<String, org.praxisplatform.uischema.openapi.CanonicalOperationRef> resolveBulkReadOperations(
+            java.util.List<String> operationIds) {
+        java.util.Set<String> uniqueIds = new java.util.LinkedHashSet<>(operationIds);
+        Map<String, org.praxisplatform.uischema.openapi.CanonicalOperationRef> resolved;
+        if (bulkOperations instanceof org.praxisplatform.uischema.openapi.BatchCanonicalOperationResolver batchResolver) {
+            resolved = batchResolver.resolveByOperationIdsForScope(uniqueIds, null);
+        } else {
+            resolved = new java.util.LinkedHashMap<>();
+            for (String operationId : uniqueIds) {
+                bulkOperations.resolveByOperationId(operationId).ifPresent(ref -> resolved.put(operationId, ref));
+            }
+        }
+        for (String operationId : uniqueIds) {
+            var operation = resolved.get(operationId);
+            if (operation == null) {
+                throw new IllegalStateException("Bulk read operation is not mapped");
+            }
+            if (!"GET".equals(operation.method())) {
+                throw new IllegalStateException("Bulk read link requires a GET operation");
+            }
+        }
+        return resolved;
+    }
+
     /** Links identify authorized reads only; executable command affordances remain governed by capabilities. */
-    private Link readLink(String operationId, Map<String, ?> variables, String rel, Integer size, String after) {
-        var operation = bulkOperations.resolveByOperationId(operationId).orElseThrow(() ->
-                new IllegalStateException("Bulk read operation is not mapped"));
-        if (!"GET".equals(operation.method())) throw new IllegalStateException("Bulk read link requires a GET operation");
+    private Link readLink(
+            org.praxisplatform.uischema.openapi.CanonicalOperationRef operation,
+            Map<String, ?> variables,
+            String rel,
+            Integer size,
+            String after
+    ) {
         var uri = ServletUriComponentsBuilder.fromCurrentContextPath().path(operation.path());
         if (size != null) uri.queryParam("size", size);
         if (after != null) uri.queryParam("after", after);

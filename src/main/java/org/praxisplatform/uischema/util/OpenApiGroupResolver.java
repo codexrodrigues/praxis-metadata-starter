@@ -92,6 +92,36 @@ public class OpenApiGroupResolver {
         return null;
     }
 
+    /**
+     * Indica se um grupo OpenAPI com o nome exato informado esta registrado nos {@link GroupedOpenApi}s ativos.
+     *
+     * @param groupName nome do grupo (ex.: {@code "application"})
+     * @return {@code true} quando o grupo existe na configuracao atual
+     */
+    public boolean hasRegisteredGroup(String groupName) {
+        if (groupName == null || groupName.isBlank()) {
+            return false;
+        }
+        List<GroupedOpenApi> groupedOpenApis = groupedOpenApisSupplier.get();
+        if (groupedOpenApis == null || groupedOpenApis.isEmpty()) {
+            return false;
+        }
+        for (GroupedOpenApi groupedOpenApi : groupedOpenApis) {
+            if (groupedOpenApi != null && groupName.equals(groupedOpenApi.getGroup())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Indica se ha ao menos um {@link GroupedOpenApi} registrado neste resolvedor.
+     */
+    public boolean hasRegisteredGroups() {
+        List<GroupedOpenApi> groupedOpenApis = groupedOpenApisSupplier.get();
+        return groupedOpenApis != null && !groupedOpenApis.isEmpty();
+    }
+
     private String findBestMatch(List<GroupedOpenApi> groupedOpenApis, String candidatePath) {
         String bestMatch = null;
         int bestMatchLength = 0;

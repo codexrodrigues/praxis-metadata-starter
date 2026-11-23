@@ -47,8 +47,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 /**
  * Gera o vocabulario semantico inicial a partir das superficies metadata-driven ja existentes.
@@ -59,6 +59,7 @@ import java.util.concurrent.ConcurrentMap;
  * </p>
  */
 public class SemanticDomainCatalogService {
+    private static final int DEFAULT_MAX_CATALOG_CACHE_ENTRIES = 512;
     private static final String DOMAIN_GOVERNANCE_EXTENSION = "x-domain-governance";
     private static final ObjectMapper HASH_OBJECT_MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule())
@@ -82,8 +83,9 @@ public class SemanticDomainCatalogService {
     private final String serviceKey;
     private final String serviceName;
     private final String serviceVersion;
-    private final ConcurrentMap<String, DomainCatalogResponse> catalogCache = new ConcurrentHashMap<>();
+    private final BoundedCatalogCache catalogCache = new BoundedCatalogCache(DEFAULT_MAX_CATALOG_CACHE_ENTRIES);
     private final ThreadLocal<Boolean> strictSchemaResolution = ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private volatile BooleanSupplier applicationGroupAvailableSupplier = () -> true;
 
     public SemanticDomainCatalogService(
             ActionDefinitionRegistry actionDefinitionRegistry,
@@ -211,6 +213,26 @@ public class SemanticDomainCatalogService {
         this.serviceVersion = serviceVersion;
     }
 
+    /**
+     * Configura o fornecedor que indica se o grupo fallback {@code "application"} existe no runtime.
+     * Quando falso, consultas sem grupo explicito evitam leituras OpenAPI desnecessarias no grupo
+     * {@code "application"} (que falhariam em 404 ou recairiam sobre {@code /v3/api-docs}).
+     */
+    public void setApplicationGroupAvailableSupplier(BooleanSupplier applicationGroupAvailableSupplier) {
+        this.applicationGroupAvailableSupplier = applicationGroupAvailableSupplier == null
+                ? () -> true
+                : applicationGroupAvailableSupplier;
+    }
+
+    /** Limita o numero maximo de entradas retidas no cache em memoria de catalogos por chave/tenant. */
+    public void setMaxCatalogCacheEntries(int maxEntries) {
+        catalogCache.setMaxEntries(maxEntries);
+    }
+
+    int catalogCacheSize() {
+        return catalogCache.size();
+    }
+
     public DomainCatalogResponse findByResourceKey(String resourceKey) {
         return findCatalog(resourceKey, null);
     }
@@ -276,7 +298,7 @@ public class SemanticDomainCatalogService {
                 && domainRuleSetCatalogProvider == null
                 && determinationCatalogSource == null
                 && apiResourceQuickFilterResolver == null) {
-            return catalogCache.computeIfAbsent(baseKey, ignored -> {
+            return catalogCache.getOrCompute(baseKey, () -> {
                 List<ActionDefinition> actions = resourceKey != null
                         ? safe(actionDefinitionRegistry.findByResourceKey(resourceKey))
                         : safe(actionDefinitionRegistry.findByGroup(group));
@@ -349,7 +371,7 @@ public class SemanticDomainCatalogService {
                             "quickFilters", quickFilters
                     ))));
         }
-        return catalogCache.computeIfAbsent(cacheKey, ignored -> build(
+        return catalogCache.getOrCompute(cacheKey, () -> build(
                 resourceKey, group, actions, surfaces, fields, facts, ruleSets, forms, quickFilters, labelIndex));
     }
 
@@ -360,7 +382,7 @@ public class SemanticDomainCatalogService {
         }
         String tenant = tenantContextResolver == null ? null : tenantContextResolver.resolveTenant().orElse(null);
         List<ReactiveDeterminationCatalogSource.CompiledForm> forms = determinationCatalogSource == null
-                ? List.of() : determinationCatalogSource.find(resourceKey, group);
+                ? List.of() : determinationCatalogSource.find(resourceKey, group, strict);
         List<ActionDefinition> actions = resourceKey != null
                 ? safe(actionDefinitionRegistry.findByResourceKey(resourceKey))
                 : safe(actionDefinitionRegistry.findByGroup(group));
@@ -3485,10 +3507,18 @@ public class SemanticDomainCatalogService {
             }
             return document;
         }
+        if (!StringUtils.hasText(group)) {
+            if (!applicationGroupAvailableSupplier.getAsBoolean()) {
+                return null;
+            }
+            try {
+                return openApiDocumentService.getDocumentForGroup("application");
+            } catch (RuntimeException ex) {
+                return null;
+            }
+        }
         try {
-            return openApiDocumentService.getDocumentForGroup(
-                    StringUtils.hasText(group) ? group : "application"
-            );
+            return openApiDocumentService.getDocumentForGroup(group);
         } catch (RuntimeException ex) {
             return null;
         }
@@ -3504,6 +3534,9 @@ public class SemanticDomainCatalogService {
         if (Boolean.TRUE.equals(strictSchemaResolution.get())) {
             JsonNode document = resolveOpenApiDocument(resolvedGroup);
             return document.path("paths");
+        }
+        if ("application".equals(resolvedGroup) && !applicationGroupAvailableSupplier.getAsBoolean()) {
+            return null;
         }
         try {
             JsonNode document = openApiDocumentService.getDocumentForGroup(resolvedGroup);
@@ -4343,6 +4376,9 @@ public class SemanticDomainCatalogService {
             if (openApiDocumentService == null) {
                 return null;
             }
+            if (!StringUtils.hasText(group) && !applicationGroupAvailableSupplier.getAsBoolean()) {
+                return null;
+            }
             String effectiveGroup = StringUtils.hasText(group) ? group.trim() : "application";
             if (openApiDocByGroup.containsKey(effectiveGroup)) {
                 return openApiDocByGroup.get(effectiveGroup);
@@ -4427,6 +4463,64 @@ public class SemanticDomainCatalogService {
                         labelStrength,
                         propertyNames
                 );
+            }
+        }
+    }
+
+    private static final class BoundedCatalogCache {
+        private volatile int maxEntries;
+        private final LinkedHashMap<String, DomainCatalogResponse> entries;
+
+        private BoundedCatalogCache(int initialMaxEntries) {
+            this.maxEntries = Math.max(1, initialMaxEntries);
+            this.entries = new LinkedHashMap<>(64, 0.75f, true);
+        }
+
+        void setMaxEntries(int maxEntries) {
+            if (maxEntries <= 0) {
+                throw new IllegalArgumentException("maxEntries must be positive");
+            }
+            synchronized (entries) {
+                this.maxEntries = maxEntries;
+                evictOverflow();
+            }
+        }
+
+        int size() {
+            synchronized (entries) {
+                return entries.size();
+            }
+        }
+
+        DomainCatalogResponse getOrCompute(String key, Supplier<DomainCatalogResponse> supplier) {
+            synchronized (entries) {
+                DomainCatalogResponse existing = entries.get(key);
+                if (existing != null) {
+                    return existing;
+                }
+            }
+            // Compute outside the cache monitor so concurrent tenant builds never serialize or invert lock order.
+            DomainCatalogResponse computed = supplier.get();
+            if (computed == null) {
+                return null;
+            }
+            synchronized (entries) {
+                DomainCatalogResponse existing = entries.get(key);
+                if (existing != null) {
+                    return existing;
+                }
+                entries.put(key, computed);
+                evictOverflow();
+                return computed;
+            }
+        }
+
+        private void evictOverflow() {
+            int limit = this.maxEntries;
+            Iterator<Map.Entry<String, DomainCatalogResponse>> it = entries.entrySet().iterator();
+            while (entries.size() > limit && it.hasNext()) {
+                it.next();
+                it.remove();
             }
         }
     }

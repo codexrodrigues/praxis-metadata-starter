@@ -57,6 +57,9 @@ class ReactiveDeterminationCatalogSourceScopeTest {
         @Operation(operationId = "createOrder")
         public void createOrder() { }
 
+        @Operation(operationId = "updateOrder")
+        public void updateOrder() { }
+
         @Operation(operationId = "determineOrder")
         public void determineOrder() { }
     }
@@ -248,10 +251,27 @@ class ReactiveDeterminationCatalogSourceScopeTest {
         ordersToken.set(new Object());
         assertThat(source.find("crm.orders", null).getFirst().sourceDocumentHash()).isNotEqualTo(firstOrderHash);
 
-        // In-scope bulk operation runs one strict verification pass across published groups,
-        // and a batch of 2 in-scope bulk operations shares ONE ephemeral OperationIndex per call
-        // without memoizing unpublished sources across calls.
+        // Even an in-scope form whose MVC endpoint also carries @BulkResourceOperation(UPDATE_SOURCE)
+        // must NOT trigger cross-group strict OpenAPI scans; it verifies only its own group document.
         assertThat(source.find("crm.customers", null)).hasSize(1);
+        verify(documents, times(0)).getDocumentForGroupStrict("orders");
+        verify(documents, times(0)).getDocumentForGroupStrict("customers");
+
+        // Rewriting the published operationId inside the form's own group still fails closed.
+        ObjectNode customerPut = (ObjectNode) customersDoc.path("paths").path("/api/customers/{id}").path("put");
+        String originalCustomerOpId = customerPut.path("operationId").asText();
+        customerPut.put("operationId", "tamperedCustomer");
+        assertThatThrownBy(() -> source.find("crm.customers", null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("differs from published operation");
+        customerPut.put("operationId", originalCustomerOpId);
+
+        // Batch bulk verification via resolveByOperationIdsForScope still runs one strict verification pass
+        // across published groups and shares ONE ephemeral OperationIndex per call without cross-call memoization.
+        assertThat(operations.resolveByOperationIdsForScope(
+                        List.of("createOrder", "updateCustomer", "cancelCustomer"),
+                        ref -> !"createOrder".equals(ref.operationId())))
+                .containsOnlyKeys("updateCustomer", "cancelCustomer");
         verify(documents, times(1)).getDocumentForGroupStrict("orders");
         verify(documents, times(1)).getDocumentForGroupStrict("customers");
 
@@ -261,6 +281,17 @@ class ReactiveDeterminationCatalogSourceScopeTest {
                 .containsOnlyKeys("updateCustomer", "cancelCustomer");
         verify(documents, times(2)).getDocumentForGroupStrict("orders");
         verify(documents, times(2)).getDocumentForGroupStrict("customers");
+
+        // Fail-closed fence check: if withSchemaCacheReadLock fails to complete (returns null), bulk batch rejects.
+        OpenApiDocumentService noopFenceDocuments = mock(OpenApiDocumentService.class);
+        when(noopFenceDocuments.resolveGroupFromPath(anyString())).thenReturn("customers");
+        when(noopFenceDocuments.withSchemaCacheReadLock(org.mockito.ArgumentMatchers.any())).thenReturn(null);
+        OpenApiCanonicalOperationResolver noopFenceResolver = new OpenApiCanonicalOperationResolver(
+                noopFenceDocuments, handlerMapping, bulkBindings, () -> List.of("orders", "customers"));
+        assertThatThrownBy(() -> noopFenceResolver.resolveByOperationIdsForScope(
+                        List.of("updateCustomer"), ref -> true))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("document fence did not complete identity verification");
     }
 
     @Test
@@ -300,5 +331,168 @@ class ReactiveDeterminationCatalogSourceScopeTest {
         assertThatThrownBy(() -> missingIdentitySource.find("crm.other", null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Determination form has no explicit resource identity: createOrder");
+
+        // Incomplete bulk declaration must also fail closed in resolveMvcOperationsByIds.
+        RequestMappingHandlerMapping incompleteMvc = mock(RequestMappingHandlerMapping.class);
+        when(incompleteMvc.getHandlerMethods()).thenReturn(Map.of(
+                RequestMappingInfo.paths("/api/incomplete/bulk").methods(RequestMethod.POST).build(),
+                new HandlerMethod(new IncompleteBulkController(),
+                        IncompleteBulkController.class.getMethod("confirmBulk", Payload.class))));
+        BulkResourceOperationBindings incompleteBindings = BulkResourceOperationBindings.from(incompleteMvc);
+        OpenApiCanonicalOperationResolver incompleteResolver = new OpenApiCanonicalOperationResolver(
+                documents, incompleteMvc, incompleteBindings, List::of);
+        assertThatThrownBy(() -> incompleteResolver.resolveMvcOperationsByIds(List.of("incomplete.confirm")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("declared bulk resource operation is incomplete or ambiguous");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void findCompilesMultipleFormsInOneGroupUnderSingleReadLockAndFailsClosedOnNullFence() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        when(handlerMapping.getHandlerMethods()).thenReturn(Map.of(
+                RequestMappingInfo.paths("/api/orders").methods(RequestMethod.POST).build(),
+                new HandlerMethod(new OrdersController(), OrdersController.class.getMethod("createOrder")),
+                RequestMappingInfo.paths("/api/orders/{id}").methods(RequestMethod.PUT).build(),
+                new HandlerMethod(new OrdersController(), OrdersController.class.getMethod("updateOrder")),
+                RequestMappingInfo.paths("/api/determinations/order").methods(RequestMethod.POST).build(),
+                new HandlerMethod(new OrdersController(), OrdersController.class.getMethod("determineOrder"))));
+
+        ObjectNode ordersDoc = MAPPER.readTree("""
+                {
+                  "openapi": "3.1.0",
+                  "paths": {
+                    "/api/orders": {
+                      "post": {
+                        "operationId": "createOrder",
+                        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrderForm"}}}}
+                      }
+                    },
+                    "/api/orders/{id}": {
+                      "put": {
+                        "operationId": "updateOrder",
+                        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrderForm"}}}}
+                      }
+                    }
+                  },
+                  "components": {"schemas": {"OrderForm": {"type": "object", "properties": {
+                    "code": {"type": "string"},
+                    "label": {"type": "string"}
+                  }}}}
+                }
+                """).deepCopy();
+        ObjectNode detDoc = MAPPER.readTree("""
+                {
+                  "openapi": "3.1.0",
+                  "paths": {
+                    "/api/determinations/order": {
+                      "post": {
+                        "operationId": "determineOrder",
+                        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrderForm"}}}},
+                        "responses": {"200": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/OrderForm"}}}}}
+                      }
+                    }
+                  },
+                  "components": {"schemas": {"OrderForm": {"type": "object", "properties": {
+                    "code": {"type": "string"},
+                    "label": {"type": "string"}
+                  }}}}
+                }
+                """).deepCopy();
+
+        OpenApiDocumentService documents = mock(OpenApiDocumentService.class, CALLS_REAL_METHODS);
+        when(documents.resolveGroupFromPath(anyString())).thenAnswer(call ->
+                call.getArgument(0).toString().contains("/determinations/") ? "determinations" : "orders");
+        doReturn(ordersDoc).when(documents).getDocumentForGroup("orders");
+        doReturn(detDoc).when(documents).getDocumentForGroup("determinations");
+        doReturn(new Object()).when(documents).groupDocumentCacheToken("orders");
+
+        OpenApiCanonicalOperationResolver operations = new OpenApiCanonicalOperationResolver(
+                documents, handlerMapping, BulkResourceOperationBindings.empty(), () -> List.of("orders"));
+        ApiResourceIdentityResolver identities = new ApiResourceIdentityResolver(handlerMapping);
+        FilteredSchemaReferenceResolver schemas = new FilteredSchemaReferenceResolver();
+        OpenApiCanonicalCapabilityResolver capabilities = new OpenApiCanonicalCapabilityResolver(documents);
+        var registry = new DefaultReactiveDeterminationDefinitionRegistry(List.of(() -> List.of(
+                determination("orderDet", "determineOrder", List.of(
+                        new ReactiveDeterminationScope("createOrder", ReactiveDeterminationFormMode.CREATE),
+                        new ReactiveDeterminationScope("updateOrder", ReactiveDeterminationFormMode.EDIT))))));
+        ReactiveDeterminationMetadataCompiler compiler =
+                new ReactiveDeterminationMetadataCompiler(registry, operations, schemas, documents);
+        ReactiveDeterminationCatalogSource source = new ReactiveDeterminationCatalogSource(
+                registry, compiler, operations, documents, identities, schemas, capabilities, MAPPER);
+
+        List<ReactiveDeterminationCatalogSource.CompiledForm> forms = source.find("crm.orders", null);
+        assertThat(forms).hasSize(2);
+        // Single read-lock acquisition and single group document read across both forms in the same group.
+        verify(documents, times(1)).withSchemaCacheReadLock(org.mockito.ArgumentMatchers.any());
+        verify(documents, times(1)).getDocumentForGroup("orders");
+
+        // Broken lock that returns null must fail closed rather than silently emitting empty forms.
+        OpenApiDocumentService brokenLockDocs = mock(OpenApiDocumentService.class, CALLS_REAL_METHODS);
+        doReturn("orders").when(brokenLockDocs).resolveGroupFromPath(anyString());
+        doReturn(null).when(brokenLockDocs).withSchemaCacheReadLock(org.mockito.ArgumentMatchers.any());
+        OpenApiCanonicalOperationResolver brokenOps = new OpenApiCanonicalOperationResolver(
+                brokenLockDocs, handlerMapping, BulkResourceOperationBindings.empty(), () -> List.of("orders"));
+        ReactiveDeterminationCatalogSource brokenSource = new ReactiveDeterminationCatalogSource(
+                registry,
+                new ReactiveDeterminationMetadataCompiler(registry, brokenOps, schemas, brokenLockDocs),
+                brokenOps, brokenLockDocs, identities, schemas, capabilities, MAPPER);
+        assertThatThrownBy(() -> brokenSource.find("crm.orders", null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("OpenAPI document fence did not complete form determination compilation");
+    }
+
+    @Test
+    void semanticDomainCatalogServiceBoundsCatalogCacheCapacity() {
+        var actionRegistry = mock(org.praxisplatform.uischema.action.ActionDefinitionRegistry.class);
+        var surfaceRegistry = mock(org.praxisplatform.uischema.surface.SurfaceDefinitionRegistry.class);
+        when(actionRegistry.findByResourceKey(anyString())).thenReturn(List.of());
+        when(surfaceRegistry.findByResourceKey(anyString())).thenReturn(List.of());
+        SemanticDomainCatalogService catalogService = new SemanticDomainCatalogService(
+                actionRegistry,
+                surfaceRegistry,
+                org.praxisplatform.uischema.options.OptionSourceRegistry.empty(),
+                null,
+                null,
+                java.time.Clock.systemUTC(),
+                "crm",
+                "CRM",
+                "1.0",
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+        catalogService.setMaxCatalogCacheEntries(2);
+
+        catalogService.findByResourceKey("crm.orders");
+        catalogService.findByResourceKey("crm.customers");
+        assertThat(catalogService.catalogCacheSize()).isEqualTo(2);
+        verify(actionRegistry, times(1)).findByResourceKey("crm.orders");
+        verify(actionRegistry, times(1)).findByResourceKey("crm.customers");
+
+        // Touching "crm.orders" promotes it in the LRU cache so "crm.customers" becomes oldest.
+        catalogService.findByResourceKey("crm.orders");
+        verify(actionRegistry, times(1)).findByResourceKey("crm.orders");
+
+        catalogService.findByResourceKey("crm.invoices");
+        assertThat(catalogService.catalogCacheSize()).isEqualTo(2);
+
+        catalogService.findByResourceKey("crm.orders");
+        verify(actionRegistry, times(1)).findByResourceKey("crm.orders");
+
+        catalogService.findByResourceKey("crm.customers");
+        verify(actionRegistry, times(2)).findByResourceKey("crm.customers");
+    }
+
+    @ApiResource(value = "/api/incomplete", resourceKey = "crm.incomplete")
+    static class IncompleteBulkController {
+        @BulkOperation(
+                mode = BulkMode.UNIFORM_UPDATE,
+                evaluationOperationId = "incomplete.evaluate",
+                atomicity = ActionCollectionAtomicity.PER_ITEM)
+        @Operation(operationId = "incomplete.confirm")
+        public void confirmBulk(@RequestBody Payload body) { }
     }
 }

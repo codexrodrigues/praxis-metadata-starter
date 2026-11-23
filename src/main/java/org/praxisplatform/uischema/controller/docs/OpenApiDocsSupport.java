@@ -39,8 +39,28 @@ public class OpenApiDocsSupport {
     @Value("${app.openapi.internal-base-url:}")
     private String openApiInternalBaseUrl;
 
+    @Value("${praxis.openapi.application-group.enabled:true}")
+    private boolean applicationGroupEnabled = true;
+
     @Autowired(required = false)
     private OpenApiGroupResolver openApiGroupResolver;
+
+    /**
+     * Indica se o grupo {@code "application"} esta disponivel para leitura fallback, seja pela
+     * habilitacao padrao do starter ({@code praxis.openapi.application-group.enabled=true}) ou por
+     * um bean {@code GroupedOpenApi} explicitamente registrado com nome {@code "application"}.
+     */
+    public boolean isApplicationGroupAvailable() {
+        if (openApiGroupResolver != null) {
+            if (openApiGroupResolver.hasRegisteredGroup("application")) {
+                return true;
+            }
+            if (openApiGroupResolver.hasRegisteredGroups()) {
+                return false;
+            }
+        }
+        return applicationGroupEnabled;
+    }
 
     /**
      * Resolve o grupo OpenAPI mais adequado a partir do path do recurso.
@@ -104,6 +124,11 @@ public class OpenApiDocsSupport {
      * @return documento OpenAPI carregado como {@link JsonNode}
      */
     public JsonNode fetchOpenApiDocument(RestTemplate restTemplate, String openApiBasePath, String group, Logger logger) {
+        if ("application".equals(group) && !isApplicationGroupAvailable()) {
+            throw new IllegalStateException(
+                    "OpenAPI group 'application' is disabled (praxis.openapi.application-group.enabled=false); "
+                            + "specify an explicit published group or register a custom 'application' GroupedOpenApi bean.");
+        }
         String baseUrl = resolveOpenApiBaseUrl();
         String baseDocUrl = baseUrl + openApiBasePath;
         String groupDocUrl = StringUtils.hasText(group)

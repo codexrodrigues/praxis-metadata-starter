@@ -1067,9 +1067,12 @@ public class OpenApiUiSchemaAutoConfiguration {
             ResourceTenantContextResolver tenantResolver,
             DomainRuleSetCatalogProvider domainRuleSetCatalogProvider,
             org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource determinationCatalogSource,
-            ObjectProvider<org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver> quickFilterResolverProvider
+            ObjectProvider<org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver> quickFilterResolverProvider,
+            ObjectProvider<org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport> openApiDocsSupportProvider,
+            @Value("${praxis.openapi.application-group.enabled:true}") boolean applicationGroupEnabled,
+            @Value("${praxis.domain-catalog.cache.max-entries:512}") int maxCatalogCacheEntries
     ) {
-        return new SemanticDomainCatalogService(
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
                 actionDefinitionRegistry,
                 surfaceDefinitionRegistry,
                 optionSourceRegistry,
@@ -1086,6 +1089,13 @@ public class OpenApiUiSchemaAutoConfiguration {
                 determinationCatalogSource,
                 quickFilterResolverProvider.getIfAvailable()
         );
+        service.setMaxCatalogCacheEntries(maxCatalogCacheEntries);
+        org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport docsSupport =
+                openApiDocsSupportProvider.getIfAvailable();
+        service.setApplicationGroupAvailableSupplier(docsSupport != null
+                ? docsSupport::isApplicationGroupAvailable
+                : () -> applicationGroupEnabled);
+        return service;
     }
 
     @Bean

@@ -43,14 +43,21 @@ Sem boilerplate manual para os beans principais.
 |-------------|--------|-----------|
 | `praxis.query.by-ids.max` | `200` | Limite de IDs aceitos por `GET /{resource}/by-ids`. |
 | `praxis.pagination.max-size` | `200` | Tamanho maximo de pagina nos endpoints paginados. |
-| `app.openapi.internal-base-url` | vazio | Origem interna explicita para consultas server-side ao SpringDoc. |
+| `praxis.openapi.application-group.enabled` | `true` | Habilita o grupo OpenAPI catch-all `application`. Defina `false` em hosts multi-grupo para evitar documento agregado redundante (nesse modo, `GET /schemas/catalog` exige `group` ou `path` explicitos). |
+| `praxis.openapi.prewarm.enabled` | `false` | Aquece grupos OpenAPI em thread background apos `ApplicationReadyEvent` (requer `app.openapi.internal-base-url` definido). |
+| `praxis.openapi.http.connect-timeout` | `1s` | Timeout de conexao para chamadas HTTP internas ao SpringDoc. |
+| `praxis.openapi.http.read-timeout` | `10s` | Timeout de leitura para chamadas HTTP internas ao SpringDoc. |
+| `praxis.openapi.bulk-composition-timeout` | `60s` | Orcamento maximo de admissao/lock na composicao OpenAPI de lifecycle bulk. |
+| `praxis.openapi.validation.api-resource-required` | `WARN` | Politica de validacao no startup para controllers sem `@ApiResource` (`WARN`, `FAIL`, `IGNORE`). |
+| `praxis.domain-catalog.cache.max-entries` | `512` | Limite maximo de entradas LRU retidas em memoria no cache de `SemanticDomainCatalogService`. |
+| `app.openapi.internal-base-url` | vazio | Origem interna explicita para consultas server-side ao SpringDoc e prewarm em background. |
 
 ## O que cada auto-configuracao faz
 
 ### `PraxisMetadataAutoConfiguration`
 
 - registra infraestrutura base
-- publica grupos `praxis-metadata-infra` e `application`
+- publica grupo `praxis-metadata-infra` e, condicionalmente, o grupo `application` (controlado por `praxis.openapi.application-group.enabled` e `@ConditionalOnMissingBean(name = "praxisMetadataApplicationOpenApi")`)
 - participa do bootstrap do scanning e do agrupamento OpenAPI
 
 ### `OpenApiUiSchemaAutoConfiguration`

@@ -14,6 +14,7 @@ import java.util.Objects;
 public final class OpenApiDocumentCapture {
     private final byte[] bytes;
     private final JsonNode document;
+    private volatile OpenApiCanonicalOperationResolver.GroupOperationSummary operationSummary;
 
     private OpenApiDocumentCapture(byte[] bytes, JsonNode document) {
         this.bytes = bytes;
@@ -50,4 +51,20 @@ public final class OpenApiDocumentCapture {
 
     public byte[] bytes() { return bytes.clone(); }
     public JsonNode document() { return document.deepCopy(); }
+    JsonNode readOnlyDocument() { return document; }
+
+    OpenApiCanonicalOperationResolver.GroupOperationSummary operationSummary() {
+        OpenApiCanonicalOperationResolver.GroupOperationSummary summary = operationSummary;
+        if (summary != null) {
+            return summary;
+        }
+        synchronized (this) {
+            summary = operationSummary;
+            if (summary == null) {
+                summary = OpenApiCanonicalOperationResolver.extractGroupOperationSummary(document);
+                operationSummary = summary;
+            }
+            return summary;
+        }
+    }
 }

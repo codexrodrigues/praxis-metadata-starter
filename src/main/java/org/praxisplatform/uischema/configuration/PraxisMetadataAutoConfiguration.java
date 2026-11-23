@@ -168,95 +168,63 @@ public class PraxisMetadataAutoConfiguration {
     }
 
     /**
-     * <h3>🌐 Bean GroupedOpenApi para Aplicação Geral</h3>
+     * <h3>🌐 Bean GroupedOpenApi para Aplicação Geral ({@code application})</h3>
      *
-     * <p>Cria um grupo OpenAPI "fallback" que captura todos os endpoints da aplicação
-     * que não são específicos de infraestrutura nem foram capturados por grupos dinâmicos
-     * mais específicos.</p>
+     * <p>Cria um grupo OpenAPI "catch-all" que captura todos os endpoints da aplicação,
+     * exceto a infraestrutura do framework ({@code /schemas/**} e {@code /praxis/cockpit/**}).</p>
      *
      * <h4>🎯 Objetivo:</h4>
-     * <p>Fornecer um grupo de documentação "catch-all" para endpoints que não se encaixam
-     * em grupos mais específicos, garantindo que nenhuma API fique sem documentação.</p>
+     * <p>Fornecer um grupo de documentação completo e fallback para endpoints que não possuem
+     * grupo dedicado no {@code DynamicSwaggerConfig}, bem como um alvo padrão para
+     * {@code GET /schemas/catalog} quando nenhum {@code group} ou {@code path} é informado.</p>
      *
      * <h4>📡 Endpoints Incluídos:</h4>
      * <pre>
-     * pathsToMatch("/**")           // Inclui TODOS os paths
-     * pathsToExclude("/schemas/**") // EXCETO infraestrutura
+     * pathsToMatch("/**")
+     * pathsToExclude("/schemas/**", "/praxis/cockpit/**")
      *
-     * ✅ Resultado - Incluídos:
-     * /api/funcionarios/**     (se não tiver grupo dinâmico mais específico)
-     * /api/departamentos/**    (se não tiver grupo dinâmico mais específico)
-     * /health                  (endpoints de sistema)
-     * /actuator/**             (se habilitado)
-     * /api/custom/**           (endpoints customizados)
+     * ✅ Incluídos no documento "application":
+     * /api/funcionarios/**     (controllers @ApiResource também são correspondidos pelo padrão "/**")
+     * /health, /actuator/**    (endpoints de sistema)
+     * /api/custom/**           (controllers REST convencionais)
      *
      * ❌ Excluídos:
      * /schemas/**              (grupo praxis-metadata-infra)
+     * /praxis/cockpit/**       (ativos/cockpit embutido)
      * </pre>
      *
-     * <h4>🔄 Hierarquia de Grupos (Ordem de Prioridade):</h4>
+     * <h4>🔄 Hierarquia de Resolução no {@code OpenApiGroupResolver}:</h4>
      * <ol>
-     *   <li><strong>Grupos Dinâmicos:</strong> Criados pelo DynamicSwaggerConfig (mais específicos)</li>
-     *   <li><strong>Infraestrutura:</strong> praxis-metadata-infra (/schemas/**)</li>
-     *   <li><strong>Application:</strong> Este grupo (fallback geral)</li>
+     *   <li><strong>Grupos Dinâmicos:</strong> Criados pelo {@code DynamicSwaggerConfig} (mais específicos, maior comprimento de prefixo)</li>
+     *   <li><strong>Infraestrutura:</strong> {@code praxis-metadata-infra} ({@code /schemas/**}, {@code /praxis/cockpit/**})</li>
+     *   <li><strong>Application:</strong> Este grupo (menor especificidade; escolhido apenas quando não há grupo mais específico)</li>
      * </ol>
      *
-     * <h4>📋 Cenários de Uso:</h4>
-     * <pre>
-     * Cenário 1 - Controller com {@code @ApiResource}:
-     * {@code @ApiResource("/api/funcionarios")}
-     * → DynamicSwaggerConfig cria grupo específico
-     * → NÃO aparece no grupo "application"
-     *
-     * Cenário 2 - Controller com mapeamento HTTP fora da publicação canônica:
-     * {@code @RestController @RequestMapping("/api/funcionarios")}
-     * → NÃO tem grupo específico criado
-     * → APARECE no grupo "application"
-     *
-     * Cenário 3 - Endpoints de sistema:
-     * /health, /actuator/info
-     * → APARECE no grupo "application"
-     * </pre>
-     *
-     * <h4>🎪 Benefícios:</h4>
+     * <h4>🏢 Desabilitação em Hosts Corporativos Multi-Grupo:</h4>
+     * <p>Registrado com {@code @ConditionalOnMissingBean(name = "praxisMetadataApplicationOpenApi")} e
+     * {@code @ConditionalOnProperty(prefix = "praxis.openapi.application-group", name = "enabled", havingValue = "true", matchIfMissing = true)}.</p>
      * <ul>
-     *   <li><strong>Cobertura Total:</strong> Nenhum endpoint fica sem documentação</li>
-     *   <li><strong>Fallback Seguro:</strong> Endpoints sem grupo específico continuam documentados</li>
-     *   <li><strong>Debugging:</strong> Facilita identificar endpoints não organizados</li>
-     *   <li><strong>Governança:</strong> Evidencia rapidamente o que ainda não foi publicado na trilha canônica</li>
+     *   <li>Em hosts corporativos com dezenas de grupos dedicados, definir
+     *   {@code praxis.openapi.application-group.enabled=false} evita materializar, capturar e
+     *   indexar um documento agregado redundante com todos os endpoints da aplicação.</li>
+     *   <li>Quando desabilitado (e sem bean {@code GroupedOpenApi} customizado com grupo
+     *   {@code "application"}), chamadas a {@code GET /schemas/catalog} sem {@code group} nem
+     *   {@code path} retornam HTTP {@code 400 Bad Request}, e leituras diretas do grupo
+     *   {@code "application"} falham explicitamente em vez de degradarem para {@code /v3/api-docs}.</li>
+     *   <li>Um host também pode substituir apenas este bean definindo um bean Spring nomeado
+     *   {@code praxisMetadataApplicationOpenApi}.</li>
      * </ul>
      *
-     * <h4>⚠️ Indicador de Adoção Canônica:</h4>
-     * <p>Se endpoints de negócio aparecem neste grupo em vez de grupos específicos,
-     * isso indica que o controller ainda não foi publicado com {@link org.praxisplatform.uischema.annotation.ApiResource}:</p>
-     * <pre>{@code
-     * // ❌ Aparece no grupo "application":
-     * @RestController
-     * @RequestMapping("/api/funcionarios")
-     *
-     * // ✅ Tem grupo próprio "api-funcionarios":
-     * @ApiResource("/api/funcionarios")
-     * }</pre>
-     *
-     * <h4>📊 Exemplo no Swagger UI:</h4>
-     * <pre>
-     * Dropdown Swagger UI:
-     * ├── api-human-resources-funcionarios (específico)
-     * ├── api-human-resources-departamentos (específico)
-     * ├── praxis-metadata-infra (infraestrutura)
-     * └── application (este grupo - fallback)
-     *     ├── /health
-     *     ├── /actuator/info
-     *     └── /api/custom/** (controllers fora do agrupamento específico)
-     * </pre>
-     *
-     * <h4>🔗 Integração com Resolução Automática:</h4>
-     * <p>O OpenApiGroupResolver também considera este grupo, mas com menor prioridade
-     * que grupos mais específicos, garantindo que a resolução automática funcione corretamente.</p>
-     *
-     * @return GroupedOpenApi configurado como fallback para todos os endpoints da aplicação
+     * @return GroupedOpenApi configurado como fallback geral para os endpoints da aplicação
      */
     @Bean
+    @ConditionalOnMissingBean(name = "praxisMetadataApplicationOpenApi")
+    @ConditionalOnProperty(
+            prefix = "praxis.openapi.application-group",
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = true
+    )
     public GroupedOpenApi praxisMetadataApplicationOpenApi() {
         return GroupedOpenApi.builder()
             .group("application")

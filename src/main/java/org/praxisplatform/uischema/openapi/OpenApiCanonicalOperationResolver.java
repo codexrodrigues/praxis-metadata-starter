@@ -2,6 +2,8 @@ package org.praxisplatform.uischema.openapi;
 
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.praxisplatform.uischema.annotation.ApiResource;
@@ -49,7 +51,7 @@ import java.util.HashMap;
  * resolucao de schema e capacidades derivadas do contrato OpenAPI.
  * </p>
  */
-public class OpenApiCanonicalOperationResolver implements CanonicalOperationResolver {
+public class OpenApiCanonicalOperationResolver implements BatchCanonicalOperationResolver {
 
     private static final Set<String> OPENAPI_METHODS = Set.of(
             "get", "put", "post", "delete", "options", "head", "patch", "trace");
@@ -59,9 +61,18 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
     private final BulkResourceOperationBindings bulkOperationBindings;
     private final Supplier<List<String>> publishedOpenApiGroups;
     private final Object publishedOperationIndexMonitor = new Object();
-    private Object cachedPublicationToken;
-    private Map<String, Object> cachedGroupTokens;
-    private OperationIndex cachedOperationIndex;
+    private CachedOperationIndexEntry primaryOperationIndex;
+    private CachedOperationIndexEntry secondaryOperationIndex;
+
+    private record CachedOperationIndexEntry(
+            Object publicationToken,
+            Map<String, Object> groupTokens,
+            OperationIndex index
+    ) {
+        boolean matches(Object publication, Map<String, Object> tokens) {
+            return publicationToken == publication && tokens.equals(groupTokens);
+        }
+    }
 
     public OpenApiCanonicalOperationResolver(
             OpenApiDocumentService openApiDocumentService,
@@ -163,11 +174,14 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
 
     @Override
     public Optional<CanonicalOperationRef> resolveByOperationId(String operationId) {
+        if (!StringUtils.hasText(operationId)) {
+            return Optional.empty();
+        }
         if (bulkOperationBindings.declares(operationId)
                 && bulkOperationBindings.handlerFor(operationId).isEmpty()) {
             throw invalidBinding(operationId, "declared bulk resource operation is incomplete or ambiguous");
         }
-        if (!StringUtils.hasText(operationId) || handlerMapping == null) {
+        if (handlerMapping == null) {
             return Optional.empty();
         }
         List<Map.Entry<RequestMappingInfo, HandlerMethod>> matches = findMappings(operationId);
@@ -175,7 +189,9 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         if (bulkOperationBindings.declares(operationId)) {
             for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : matches) {
                 RequestMappingInfo mapping = entry.getKey();
-                String path = mapping.getPatternValues().stream().findFirst().orElse("");
+                String path = mapping.getPatternValues().stream()
+                        .min(Comparator.comparingInt(String::length).thenComparing(String::compareTo))
+                        .orElse("");
                 String method = mapping.getMethodsCondition().getMethods().stream()
                         .findFirst().map(Enum::name).orElse("GET");
                 verifyPublishedBulkOperation(operationId, path, method);
@@ -185,12 +201,45 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
     }
 
     /**
+     * Resolves a batch of {@code operationIds} from MVC handler mappings only, validating
+     * incomplete bulk declarations and rejecting duplicate mappings without inspecting OpenAPI
+     * documents across groups.
+     */
+    @Override
+    public Map<String, ResolvedMvcOperation> resolveMvcOperationsByIds(java.util.Collection<String> operationIds) {
+        if (operationIds == null || operationIds.isEmpty()) {
+            return Map.of();
+        }
+        validateDeclaredBulkIds(operationIds);
+        if (handlerMapping == null) {
+            return Map.of();
+        }
+        Map<String, List<Map.Entry<RequestMappingInfo, HandlerMethod>>> byOperationId = indexHandlersByOperationId();
+        Map<String, ResolvedMvcOperation> resolved = new LinkedHashMap<>();
+        for (String operationId : operationIds) {
+            if (!StringUtils.hasText(operationId) || resolved.containsKey(operationId)) {
+                continue;
+            }
+            List<Map.Entry<RequestMappingInfo, HandlerMethod>> matches =
+                    byOperationId.getOrDefault(operationId, List.of());
+            rejectDuplicateMappings(operationId, matches);
+            if (matches.isEmpty()) {
+                continue;
+            }
+            Map.Entry<RequestMappingInfo, HandlerMethod> entry = matches.getFirst();
+            resolved.put(operationId, new ResolvedMvcOperation(resolve(entry.getValue(), entry.getKey()), entry.getValue()));
+        }
+        return java.util.Collections.unmodifiableMap(resolved);
+    }
+
+    /**
      * Resolves a batch of {@code operationIds} from MVC handler mappings first, applies
      * {@code scopeFilter} before inspecting OpenAPI documents, and verifies any in-scope declared
      * bulk operations using at most one call-scoped {@link OperationIndex} under
      * {@link OpenApiDocumentService#withSchemaCacheReadLock(Supplier)}. Unpublished OpenAPI sources
      * are never memoized across separate calls.
      */
+    @Override
     public Map<String, CanonicalOperationRef> resolveByOperationIdsForScope(
             java.util.Collection<String> operationIds,
             java.util.function.Predicate<CanonicalOperationRef> scopeFilter
@@ -198,25 +247,17 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         if (operationIds == null || operationIds.isEmpty()) {
             return Map.of();
         }
-        for (String operationId : operationIds) {
-            if (bulkOperationBindings.declares(operationId)
-                    && bulkOperationBindings.handlerFor(operationId).isEmpty()) {
-                throw invalidBinding(operationId, "declared bulk resource operation is incomplete or ambiguous");
-            }
-        }
+        validateDeclaredBulkIds(operationIds);
         if (handlerMapping == null) {
             return Map.of();
         }
-        Map<String, List<Map.Entry<RequestMappingInfo, HandlerMethod>>> byOperationId = new HashMap<>();
-        for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMapping.getHandlerMethods().entrySet()) {
-            String effectiveId = effectiveOperationId(entry.getValue());
-            byOperationId.computeIfAbsent(effectiveId, ignored -> new java.util.ArrayList<>()).add(entry);
-        }
+        Map<String, List<Map.Entry<RequestMappingInfo, HandlerMethod>>> byOperationId = indexHandlersByOperationId();
 
         Map<String, CanonicalOperationRef> selected = new LinkedHashMap<>();
         List<Map.Entry<String, Map.Entry<RequestMappingInfo, HandlerMethod>>> bulkToVerify = new java.util.ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
         for (String operationId : operationIds) {
-            if (!StringUtils.hasText(operationId)) {
+            if (!StringUtils.hasText(operationId) || !seenIds.add(operationId)) {
                 continue;
             }
             List<Map.Entry<RequestMappingInfo, HandlerMethod>> matches =
@@ -236,12 +277,35 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         }
 
         if (!bulkToVerify.isEmpty()) {
-            openApiDocumentService.withSchemaCacheReadLock(() -> {
+            String firstBulkOperationId = bulkToVerify.getFirst().getKey();
+            Boolean verified = openApiDocumentService.withSchemaCacheReadLock(() -> {
                 verifyPublishedBulkOperationsWithinFence(bulkToVerify);
                 return Boolean.TRUE;
             });
+            if (!Boolean.TRUE.equals(verified)) {
+                throw invalidBinding(firstBulkOperationId, "document fence did not complete identity verification");
+            }
         }
         return java.util.Collections.unmodifiableMap(selected);
+    }
+
+    private void validateDeclaredBulkIds(java.util.Collection<String> operationIds) {
+        for (String operationId : operationIds) {
+            if (StringUtils.hasText(operationId)
+                    && bulkOperationBindings.declares(operationId)
+                    && bulkOperationBindings.handlerFor(operationId).isEmpty()) {
+                throw invalidBinding(operationId, "declared bulk resource operation is incomplete or ambiguous");
+            }
+        }
+    }
+
+    private Map<String, List<Map.Entry<RequestMappingInfo, HandlerMethod>>> indexHandlersByOperationId() {
+        Map<String, List<Map.Entry<RequestMappingInfo, HandlerMethod>>> byOperationId = new HashMap<>();
+        for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMapping.getHandlerMethods().entrySet()) {
+            String effectiveId = effectiveOperationId(entry.getValue());
+            byOperationId.computeIfAbsent(effectiveId, ignored -> new java.util.ArrayList<>()).add(entry);
+        }
+        return byOperationId;
     }
 
     @Override
@@ -281,7 +345,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         groups.add(snapshot.group());
         OperationIndex index = snapshot.operationIndex(openApiDocumentService, groups,
                 () -> indexOperations(snapshot, groups, validated.getFirst().operationId()));
-        Map<String, JsonNode> documents = index.documents();
+        Map<String, JsonNode> pathsByGroup = index.pathsByGroup();
         // Route aliases normalize only the requested identities. Never mutate the shared
         // index: later bindings must still see duplicates in paths, callbacks and webhooks.
         Map<String, Set<String>> locationsByOperationId = new HashMap<>();
@@ -292,10 +356,9 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
             String method = operation.method().toLowerCase(Locale.ROOT);
             String canonicalLocation = "/paths/" + escapeJsonPointer(operation.path())
                     + "/" + escapeJsonPointer(method);
-            for (Map.Entry<String, JsonNode> entry : documents.entrySet()) {
-                JsonNode paths = entry.getValue().path("paths");
-                String targetPath = paths.has(operation.path()) ? operation.path()
-                        : openApiDocumentService.resolveDocumentPath(paths, operation.path(), method);
+            for (Map.Entry<String, JsonNode> entry : pathsByGroup.entrySet()) {
+                JsonNode paths = entry.getValue();
+                String targetPath = resolveSummaryDocumentPath(paths, operation.path(), method);
                 if (!StringUtils.hasText(targetPath)) continue;
                 JsonNode targetOperation = paths.path(targetPath).path(method);
                 if (targetOperation.isObject()) {
@@ -312,13 +375,11 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
                     }
                 }
             }
-            JsonNode document = documents.get(operation.group());
-            JsonNode paths = document == null ? null : document.path("paths");
+            JsonNode paths = pathsByGroup.get(operation.group());
             if (paths == null || !paths.isObject()) {
                 throw invalidBinding(operation.operationId(), "captured OpenAPI group has no paths object");
             }
-            String path = paths.has(operation.path()) ? operation.path()
-                    : openApiDocumentService.resolveDocumentPath(paths, operation.path(), method);
+            String path = resolveSummaryDocumentPath(paths, operation.path(), method);
             JsonNode operationNode = StringUtils.hasText(path) ? paths.path(path).path(method) : null;
             if (operationNode == null || !operation.operationId().equals(operationNode.path("operationId").asText(null))) {
                 throw invalidBinding(operation.operationId(), "captured OpenAPI operation does not retain the exact MVC identity");
@@ -332,32 +393,44 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         return List.copyOf(validated);
     }
 
-    record OperationIndex(Map<String, JsonNode> documents, Map<String, Set<String>> locations) { }
+    record GroupOperationSummary(JsonNode pathsSkeleton, Map<String, Set<String>> locations) { }
+
+    record OperationIndex(Map<String, JsonNode> pathsByGroup, Map<String, Set<String>> locations) { }
 
     private OperationIndex indexOperations(CanonicalOpenApiGroupSnapshot snapshot, Set<String> groups,
             String firstOperationId) {
-        Map<String, JsonNode> documents = new LinkedHashMap<>();
-        documents.put(snapshot.group(), snapshot.document());
-        for (String group : groups) {
-            if (documents.containsKey(group)) continue;
-            JsonNode document = openApiDocumentService.getDocumentForGroupStrict(group);
-            if (document == null || !document.path("paths").isObject()) {
-                throw invalidBinding(firstOperationId,
-                        "published OpenAPI group '" + group + "' cannot be inspected for global identity collisions");
-            }
-            documents.put(group, document.deepCopy());
-        }
-
+        Map<String, JsonNode> pathsByGroup = new LinkedHashMap<>();
         Map<String, Set<String>> locationsByOperationId = new HashMap<>();
-        documents.forEach((group, document) -> {
-            Map<String, Set<String>> groupLocations = new HashMap<>();
-            collectDocumentOperationIds(document, groupLocations);
-            groupLocations.forEach((id, locations) -> locationsByOperationId
-                    .computeIfAbsent(id, ignored -> new HashSet<>())
-                    .addAll(locations.stream().map(location -> group + "\u001f" + location).toList()));
-        });
+        GroupOperationSummary snapshotSummary = extractGroupOperationSummary(snapshot.readOnlyDocument());
+        if (snapshotSummary == null) {
+            throw invalidBinding(firstOperationId, "captured OpenAPI group has no paths object");
+        }
+        mergeGroupSummary(snapshot.group(), snapshotSummary, pathsByGroup, locationsByOperationId);
+        List<String> remainingGroups = groups.stream()
+                .filter(group -> !pathsByGroup.containsKey(group))
+                .toList();
+        if (!remainingGroups.isEmpty()) {
+            if (openApiDocumentService.getClass() != CachedOpenApiDocumentService.class
+                    && isDirectOrSpringProxyCachedDocumentService()) {
+                Boolean loaded = openApiDocumentService.withSchemaCacheReadLock(() -> {
+                    for (String group : remainingGroups) {
+                        GroupOperationSummary summary = loadGroupOperationSummaryStrictWithinFence(group, firstOperationId);
+                        mergeGroupSummary(group, summary, pathsByGroup, locationsByOperationId);
+                    }
+                    return Boolean.TRUE;
+                });
+                if (!Boolean.TRUE.equals(loaded)) {
+                    throw invalidBinding(firstOperationId, "document fence did not complete identity verification");
+                }
+            } else {
+                for (String group : remainingGroups) {
+                    GroupOperationSummary summary = loadGroupOperationSummaryStrictWithinFence(group, firstOperationId);
+                    mergeGroupSummary(group, summary, pathsByGroup, locationsByOperationId);
+                }
+            }
+        }
         locationsByOperationId.replaceAll((id, locations) -> Set.copyOf(locations));
-        return new OperationIndex(Map.copyOf(documents), Map.copyOf(locationsByOperationId));
+        return new OperationIndex(Map.copyOf(pathsByGroup), Map.copyOf(locationsByOperationId));
     }
 
     @Override
@@ -558,7 +631,9 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         for (var bulkEntry : bulkEntries) {
             String operationId = bulkEntry.getKey();
             RequestMappingInfo mapping = bulkEntry.getValue().getKey();
-            String path = mapping.getPatternValues().stream().findFirst().orElse("");
+            String path = mapping.getPatternValues().stream()
+                    .min(Comparator.comparingInt(String::length).thenComparing(String::compareTo))
+                    .orElse("");
             String method = mapping.getMethodsCondition().getMethods().stream()
                     .findFirst().map(Enum::name).orElse("GET");
             String group = resolveGroup(path);
@@ -578,25 +653,121 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
     }
 
     private OperationIndex buildEphemeralOperationIndexWithinFence(Set<String> groups, String firstOperationId) {
-        Map<String, JsonNode> documents = new LinkedHashMap<>();
-        for (String publishedGroup : groups) {
-            JsonNode publishedDocument = openApiDocumentService.getDocumentForGroupStrict(publishedGroup);
-            if (publishedDocument == null || !publishedDocument.path("paths").isObject()) {
-                throw invalidBinding(firstOperationId, "published OpenAPI group '" + publishedGroup
-                        + "' cannot be inspected for global identity collisions");
-            }
-            documents.put(publishedGroup, publishedDocument);
-        }
+        Map<String, JsonNode> pathsByGroup = new LinkedHashMap<>();
         Map<String, Set<String>> locationsByOperationId = new HashMap<>();
-        documents.forEach((publishedGroup, publishedDocument) -> {
-            Map<String, Set<String>> groupLocations = new HashMap<>();
-            collectDocumentOperationIds(publishedDocument, groupLocations);
-            groupLocations.forEach((id, locations) -> locationsByOperationId
-                    .computeIfAbsent(id, ignored -> new HashSet<>())
-                    .addAll(locations.stream().map(location -> publishedGroup + "\u001f" + location).toList()));
-        });
+        for (String publishedGroup : groups) {
+            GroupOperationSummary summary = loadGroupOperationSummaryStrictWithinFence(publishedGroup, firstOperationId);
+            mergeGroupSummary(publishedGroup, summary, pathsByGroup, locationsByOperationId);
+        }
         locationsByOperationId.replaceAll((id, locations) -> Set.copyOf(locations));
-        return new OperationIndex(Map.copyOf(documents), Map.copyOf(locationsByOperationId));
+        return new OperationIndex(Map.copyOf(pathsByGroup), Map.copyOf(locationsByOperationId));
+    }
+
+    private GroupOperationSummary loadGroupOperationSummaryStrictWithinFence(String group, String firstOperationId) {
+        GroupOperationSummary summary;
+        if (openApiDocumentService.getClass() == CachedOpenApiDocumentService.class) {
+            summary = ((CachedOpenApiDocumentService) openApiDocumentService).inspectGroupOperationSummaryStrict(group);
+        } else if (isDirectOrSpringProxyCachedDocumentService()) {
+            Object singletonTarget = org.springframework.aop.framework.AopProxyUtils
+                    .getSingletonTarget(openApiDocumentService);
+            if (singletonTarget instanceof CachedOpenApiDocumentService target) {
+                summary = target.inspectGroupOperationSummaryStrict(group);
+            } else if (openApiDocumentService instanceof CachedOpenApiDocumentService cached) {
+                summary = cached.inspectGroupOperationSummaryStrict(group);
+            } else {
+                summary = extractGroupOperationSummary(openApiDocumentService.getDocumentForGroupStrict(group));
+            }
+        } else {
+            summary = extractGroupOperationSummary(openApiDocumentService.getDocumentForGroupStrict(group));
+        }
+        if (summary == null) {
+            throw invalidBinding(firstOperationId, "published OpenAPI group '" + group
+                    + "' cannot be inspected for global identity collisions");
+        }
+        return summary;
+    }
+
+    private boolean isDirectOrSpringProxyCachedDocumentService() {
+        if (openApiDocumentService == null) {
+            return false;
+        }
+        if (openApiDocumentService.getClass() == CachedOpenApiDocumentService.class) {
+            return true;
+        }
+        return org.springframework.aop.support.AopUtils.isAopProxy(openApiDocumentService)
+                && org.springframework.aop.framework.AopProxyUtils.ultimateTargetClass(openApiDocumentService)
+                        == CachedOpenApiDocumentService.class;
+    }
+
+    private String resolveSummaryDocumentPath(JsonNode pathsSkeleton, String path, String method) {
+        if (pathsSkeleton.has(path)) {
+            return path;
+        }
+        JsonNode argument = openApiDocumentService != null
+                && openApiDocumentService.getClass() == CachedOpenApiDocumentService.class
+                ? pathsSkeleton
+                : pathsSkeleton.deepCopy();
+        return openApiDocumentService.resolveDocumentPath(argument, path, method);
+    }
+
+    private static void mergeGroupSummary(
+            String group,
+            GroupOperationSummary summary,
+            Map<String, JsonNode> pathsByGroup,
+            Map<String, Set<String>> locationsByOperationId
+    ) {
+        pathsByGroup.put(group, summary.pathsSkeleton());
+        summary.locations().forEach((id, locations) -> {
+            Set<String> merged = locationsByOperationId.computeIfAbsent(id, ignored -> new HashSet<>());
+            for (String location : locations) {
+                merged.add(group + "\u001f" + location);
+            }
+        });
+    }
+
+    static GroupOperationSummary extractGroupOperationSummary(JsonNode document) {
+        if (document == null || !document.path("paths").isObject()) {
+            return null;
+        }
+        ObjectNode pathsSkeleton = JsonNodeFactory.instance.objectNode();
+        Map<String, Set<String>> groupLocations = new HashMap<>();
+        JsonNode pathsNode = document.path("paths");
+        var pathFields = pathsNode.fields();
+        while (pathFields.hasNext()) {
+            Map.Entry<String, JsonNode> pathEntry = pathFields.next();
+            JsonNode pathItem = pathEntry.getValue();
+            if (!pathItem.isObject()) {
+                continue;
+            }
+            ObjectNode pathSkeleton = pathsSkeleton.putObject(pathEntry.getKey());
+            String pathPointer = "/paths/" + escapeJsonPointer(pathEntry.getKey());
+            for (String method : OPENAPI_METHODS) {
+                JsonNode operation = pathItem.path(method);
+                if (!operation.isObject()) {
+                    continue;
+                }
+                ObjectNode opSkeleton = pathSkeleton.putObject(method);
+                JsonNode identity = operation.get("operationId");
+                if (identity != null && identity.isTextual()) {
+                    opSkeleton.put("operationId", identity.asText());
+                }
+                String location = pathPointer + "/" + method;
+                recordOperationId(operation, location, groupLocations);
+                collectOperationCallbacks(operation, location, groupLocations);
+            }
+        }
+        collectPathItems(document.path("webhooks"), "/webhooks", groupLocations);
+        JsonNode callbacks = document.path("components").path("callbacks");
+        if (callbacks.isObject()) {
+            var callbackFields = callbacks.fields();
+            while (callbackFields.hasNext()) {
+                Map.Entry<String, JsonNode> callback = callbackFields.next();
+                collectCallback(callback.getValue(), "/components/callbacks/" + escapeJsonPointer(callback.getKey()),
+                        groupLocations);
+            }
+        }
+        groupLocations.replaceAll((id, locations) -> Set.copyOf(locations));
+        return new GroupOperationSummary(pathsSkeleton, Map.copyOf(groupLocations));
     }
 
     private void verifyPublishedBulkOperationWithinFence(String operationId, String path, String method) {
@@ -608,66 +779,10 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         }
         groups.add(group);
         OperationIndex index = publishedOperationIndexWithinFence(groups, operationId);
-        if (index != null) {
-            verifyPublishedBulkOperationFromIndex(operationId, path, method, group, groups, index);
-            return;
+        if (index == null) {
+            index = buildEphemeralOperationIndexWithinFence(groups, operationId);
         }
-        JsonNode document = openApiDocumentService.getDocumentForGroupStrict(group);
-        JsonNode paths = document == null ? null : document.path("paths");
-        if (paths == null || !paths.isObject()) {
-            throw invalidBinding(operationId, "served OpenAPI document has no paths object");
-        }
-        String documentPath = paths.has(path) ? path : openApiDocumentService.resolveDocumentPath(paths, path, method);
-        if (!StringUtils.hasText(documentPath)) documentPath = path;
-        JsonNode operation = paths.path(documentPath).path(method.toLowerCase(Locale.ROOT));
-        if (operation.isMissingNode() || !operationId.equals(operation.path("operationId").asText(null))) {
-            throw invalidBinding(operationId, "served OpenAPI operation at " + documentPath + " " + method
-                    + " does not retain the declared identity (actual='" + operation.path("operationId").asText(null) + "')");
-        }
-        String expectedLocation = "/paths/" + escapeJsonPointer(documentPath) + "/"
-                + escapeJsonPointer(method.toLowerCase(Locale.ROOT));
-        Map<String, Set<String>> locationsByOperationId = new HashMap<>();
-        for (String publishedGroup : groups) {
-            JsonNode publishedDocument = publishedGroup.equals(group)
-                    ? document : openApiDocumentService.getDocumentForGroupStrict(publishedGroup);
-            if (publishedDocument == null || !publishedDocument.path("paths").isObject()) {
-                throw invalidBinding(operationId, "published OpenAPI group '" + publishedGroup
-                        + "' cannot be inspected for global identity collisions");
-            }
-            JsonNode publishedPaths = publishedDocument.path("paths");
-            String publishedTargetPath = publishedPaths.has(path) ? path
-                    : openApiDocumentService.resolveDocumentPath(publishedPaths, path, method);
-            if (StringUtils.hasText(publishedTargetPath)) {
-                JsonNode targetOperation = publishedPaths.path(publishedTargetPath)
-                        .path(method.toLowerCase(Locale.ROOT));
-                if (!targetOperation.isMissingNode()
-                        && !operationId.equals(targetOperation.path("operationId").asText(null))) {
-                    throw invalidBinding(operationId, "published OpenAPI group '" + publishedGroup
-                            + "' changes the lifecycle operation identity");
-                }
-            }
-            Map<String, Set<String>> groupLocations = new HashMap<>();
-            collectDocumentOperationIds(publishedDocument, groupLocations);
-            if (StringUtils.hasText(publishedTargetPath)) {
-                JsonNode targetOperation = publishedPaths.path(publishedTargetPath)
-                        .path(method.toLowerCase(Locale.ROOT));
-                if (operationId.equals(targetOperation.path("operationId").asText(null))) {
-                    String publishedTargetLocation = "/paths/" + escapeJsonPointer(publishedTargetPath) + "/"
-                            + escapeJsonPointer(method.toLowerCase(Locale.ROOT));
-                    Set<String> targetLocations = groupLocations.get(operationId);
-                    if (targetLocations != null) {
-                        targetLocations.remove(publishedTargetLocation);
-                        targetLocations.add(expectedLocation);
-                    }
-                }
-            }
-            groupLocations.forEach((id, locations) -> locationsByOperationId
-                    .computeIfAbsent(id, ignored -> new LinkedHashSet<>()).addAll(locations));
-        }
-        Set<String> operationLocations = locationsByOperationId.getOrDefault(operationId, Set.of());
-        if (!operationLocations.equals(Set.of(expectedLocation))) {
-            throw invalidBinding(operationId, "served OpenAPI operationId is not globally unique across published groups, callbacks and webhooks");
-        }
+        verifyPublishedBulkOperationFromIndex(operationId, path, method, group, groups, index);
     }
 
     private OperationIndex publishedOperationIndexWithinFence(Set<String> groups, String operationId) {
@@ -676,20 +791,41 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         Map<String, Object> tokens = groupTokensWithinFence(groups);
         if (tokens == null) return null;
         synchronized (publishedOperationIndexMonitor) {
-            if (cachedOperationIndex != null && cachedPublicationToken == publication
-                    && tokens.equals(cachedGroupTokens)) {
-                return cachedOperationIndex;
+            OperationIndex hit = lookupPublishedOperationIndexLocked(publication, tokens);
+            if (hit != null) {
+                return hit;
             }
-            OperationIndex built = buildEphemeralOperationIndexWithinFence(groups, operationId);
-            if (publication != openApiDocumentService.localPublishedBulkOpenApiPublicationToken()
-                    || !tokens.equals(groupTokensWithinFence(groups))) {
-                throw invalidBinding(operationId, "published OpenAPI photograph changed during identity indexing");
+        }
+        // Build outside the monitor so custom SPIs doing I/O never stall unrelated threads or bypass timed locks.
+        OperationIndex built = buildEphemeralOperationIndexWithinFence(groups, operationId);
+        if (publication != openApiDocumentService.localPublishedBulkOpenApiPublicationToken()
+                || !tokens.equals(groupTokensWithinFence(groups))) {
+            throw invalidBinding(operationId, "published OpenAPI photograph changed during identity indexing");
+        }
+        synchronized (publishedOperationIndexMonitor) {
+            OperationIndex hit = lookupPublishedOperationIndexLocked(publication, tokens);
+            if (hit != null) {
+                return hit;
             }
-            cachedPublicationToken = publication;
-            cachedGroupTokens = tokens;
-            cachedOperationIndex = built;
+            CachedOperationIndexEntry entry = new CachedOperationIndexEntry(publication, tokens, built);
+            // Two-slot LRU retention prevents concurrent preparedCandidateScope reads from evicting the live index.
+            secondaryOperationIndex = primaryOperationIndex;
+            primaryOperationIndex = entry;
             return built;
         }
+    }
+
+    private OperationIndex lookupPublishedOperationIndexLocked(Object publication, Map<String, Object> tokens) {
+        if (primaryOperationIndex != null && primaryOperationIndex.matches(publication, tokens)) {
+            return primaryOperationIndex.index();
+        }
+        if (secondaryOperationIndex != null && secondaryOperationIndex.matches(publication, tokens)) {
+            CachedOperationIndexEntry promoted = secondaryOperationIndex;
+            secondaryOperationIndex = primaryOperationIndex;
+            primaryOperationIndex = promoted;
+            return promoted.index();
+        }
+        return null;
     }
 
     private Map<String, Object> groupTokensWithinFence(Set<String> groups) {
@@ -705,12 +841,11 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
     private void verifyPublishedBulkOperationFromIndex(String operationId, String path, String method,
             String group, Set<String> groups, OperationIndex index) {
         String lowerMethod = method.toLowerCase(Locale.ROOT);
-        JsonNode document = index.documents().get(group);
-        JsonNode paths = document == null ? null : document.path("paths");
+        JsonNode paths = index.pathsByGroup().get(group);
         if (paths == null || !paths.isObject()) {
             throw invalidBinding(operationId, "served OpenAPI document has no paths object");
         }
-        String documentPath = paths.has(path) ? path : openApiDocumentService.resolveDocumentPath(paths, path, method);
+        String documentPath = resolveSummaryDocumentPath(paths, path, method);
         if (!StringUtils.hasText(documentPath)) documentPath = path;
         JsonNode operation = paths.path(documentPath).path(lowerMethod);
         if (operation.isMissingNode() || !operationId.equals(operation.path("operationId").asText(null))) {
@@ -720,14 +855,12 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         String expectedLocation = "/paths/" + escapeJsonPointer(documentPath) + "/" + escapeJsonPointer(lowerMethod);
         Set<String> operationLocations = new HashSet<>(index.locations().getOrDefault(operationId, Set.of()));
         for (String publishedGroup : groups) {
-            JsonNode publishedDocument = index.documents().get(publishedGroup);
-            if (publishedDocument == null || !publishedDocument.path("paths").isObject()) {
+            JsonNode publishedPaths = index.pathsByGroup().get(publishedGroup);
+            if (publishedPaths == null || !publishedPaths.isObject()) {
                 throw invalidBinding(operationId, "published OpenAPI group '" + publishedGroup
                         + "' cannot be inspected for global identity collisions");
             }
-            JsonNode publishedPaths = publishedDocument.path("paths");
-            String publishedTargetPath = publishedPaths.has(path) ? path
-                    : openApiDocumentService.resolveDocumentPath(publishedPaths, path, method);
+            String publishedTargetPath = resolveSummaryDocumentPath(publishedPaths, path, method);
             if (StringUtils.hasText(publishedTargetPath)) {
                 JsonNode targetOperation = publishedPaths.path(publishedTargetPath).path(lowerMethod);
                 if (!targetOperation.isMissingNode()
@@ -749,21 +882,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         }
     }
 
-    private void collectDocumentOperationIds(JsonNode document, Map<String, Set<String>> locationsByOperationId) {
-        collectPathItems(document.path("paths"), "/paths", locationsByOperationId);
-        collectPathItems(document.path("webhooks"), "/webhooks", locationsByOperationId);
-        JsonNode callbacks = document.path("components").path("callbacks");
-        if (callbacks.isObject()) {
-            var callbackFields = callbacks.fields();
-            while (callbackFields.hasNext()) {
-                Map.Entry<String, JsonNode> callback = callbackFields.next();
-                collectCallback(callback.getValue(), "/components/callbacks/" + escapeJsonPointer(callback.getKey()),
-                        locationsByOperationId);
-            }
-        }
-    }
-
-    private void collectPathItems(JsonNode pathItems, String pointer,
+    private static void collectPathItems(JsonNode pathItems, String pointer,
             Map<String, Set<String>> locationsByOperationId) {
         if (pathItems == null || !pathItems.isObject()) return;
         var pathFields = pathItems.fields();
@@ -773,7 +892,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         }
     }
 
-    private void collectPathItem(JsonNode pathItem, String pointer,
+    private static void collectPathItem(JsonNode pathItem, String pointer,
             Map<String, Set<String>> locationsByOperationId) {
         for (String method : OPENAPI_METHODS) {
             JsonNode operation = pathItem.path(method);
@@ -784,7 +903,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         }
     }
 
-    private void collectOperationCallbacks(JsonNode operation, String pointer,
+    private static void collectOperationCallbacks(JsonNode operation, String pointer,
             Map<String, Set<String>> locationsByOperationId) {
         JsonNode callbacks = operation.path("callbacks");
         if (!callbacks.isObject()) return;
@@ -796,7 +915,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         }
     }
 
-    private void collectCallback(JsonNode callback, String pointer,
+    private static void collectCallback(JsonNode callback, String pointer,
             Map<String, Set<String>> locationsByOperationId) {
         if (!callback.isObject()) return;
         var expressions = callback.fields();
@@ -808,7 +927,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         }
     }
 
-    private void recordOperationId(JsonNode operation, String pointer,
+    private static void recordOperationId(JsonNode operation, String pointer,
             Map<String, Set<String>> locationsByOperationId) {
         JsonNode identity = operation.get("operationId");
         if (identity != null && identity.isTextual() && StringUtils.hasText(identity.asText())) {
@@ -816,7 +935,7 @@ public class OpenApiCanonicalOperationResolver implements CanonicalOperationReso
         }
     }
 
-    private String escapeJsonPointer(String value) {
+    private static String escapeJsonPointer(String value) {
         return value.replace("~", "~0").replace("/", "~1");
     }
 

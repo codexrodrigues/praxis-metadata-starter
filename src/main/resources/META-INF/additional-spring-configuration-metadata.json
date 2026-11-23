@@ -1,0 +1,89 @@
+{
+  "properties": [
+    {
+      "name": "praxis.openapi.application-group.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Controls whether PraxisMetadataAutoConfiguration registers the default catch-all 'application' GroupedOpenApi bean covering all paths except '/schemas/**' and '/praxis/cockpit/**'. Set to false on large multi-group hosts to avoid redundant full-application OpenAPI document capture and indexing; when false, '/schemas/catalog' requires explicit 'group' or 'path' unless a custom 'application' GroupedOpenApi bean is registered.",
+      "defaultValue": true
+    },
+    {
+      "name": "praxis.openapi.prewarm.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enables asynchronous background warming of published OpenAPI group documents after ApplicationReadyEvent. In headless/background threads without an HTTP request context, configure 'app.openapi.internal-base-url'.",
+      "defaultValue": false
+    },
+    {
+      "name": "praxis.openapi.http.connect-timeout",
+      "type": "java.time.Duration",
+      "description": "Connect timeout used by internal Metadata HTTP lookups to local SpringDoc OpenAPI endpoints.",
+      "defaultValue": "1s"
+    },
+    {
+      "name": "praxis.openapi.http.read-timeout",
+      "type": "java.time.Duration",
+      "description": "Read timeout used by internal Metadata HTTP lookups to local SpringDoc OpenAPI endpoints.",
+      "defaultValue": "10s"
+    },
+    {
+      "name": "praxis.openapi.bulk-composition-timeout",
+      "type": "java.time.Duration",
+      "description": "Admission deadline budget for governed OpenAPI preparation, lock acquisition, and bulk lifecycle composition.",
+      "defaultValue": "60s"
+    },
+    {
+      "name": "praxis.openapi.validation.api-resource-required",
+      "type": "java.lang.String",
+      "description": "Validation mode enforced by DynamicSwaggerConfig at startup for controllers extending AbstractResourceQueryController or AbstractCollectionCommandResourceController without @ApiResource.",
+      "defaultValue": "WARN"
+    },
+    {
+      "name": "praxis.domain-catalog.cache.max-entries",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of compiled semantic domain catalog entries retained in memory by SemanticDomainCatalogService (LRU eviction).",
+      "defaultValue": 512
+    },
+    {
+      "name": "praxis.query.by-ids.max",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of identifiers accepted per request by GET /{resource}/by-ids and options/by-ids endpoints.",
+      "defaultValue": 200
+    },
+    {
+      "name": "praxis.pagination.max-size",
+      "type": "java.lang.Integer",
+      "description": "Maximum page size allowed by paginated query endpoints (/filter, /filter/cursor, /locate, /options/filter).",
+      "defaultValue": 200
+    },
+    {
+      "name": "praxis.catalog.exclude-paths",
+      "type": "java.lang.String",
+      "description": "Comma-separated list of endpoint paths excluded from GET /schemas/catalog summaries.",
+      "defaultValue": "/api/praxis/config/ui"
+    },
+    {
+      "name": "app.openapi.internal-base-url",
+      "type": "java.lang.String",
+      "description": "Explicit base URL (for example http://localhost:4003) used by server-side OpenAPI document lookups when running behind proxies/containers or during asynchronous prewarm outside a Servlet request thread.",
+      "defaultValue": ""
+    }
+  ],
+  "hints": [
+    {
+      "name": "praxis.openapi.validation.api-resource-required",
+      "values": [
+        {
+          "value": "WARN",
+          "description": "Logs a warning when canonical resource controllers do not declare @ApiResource."
+        },
+        {
+          "value": "FAIL",
+          "description": "Fails application startup when canonical resource controllers do not declare @ApiResource."
+        },
+        {
+          "value": "IGNORE",
+          "description": "Skips startup validation for missing @ApiResource annotations."
+        }
+      ]
+    }
+  ]
+}
