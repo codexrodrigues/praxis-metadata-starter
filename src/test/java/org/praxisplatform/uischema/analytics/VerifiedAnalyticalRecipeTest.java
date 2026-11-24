@@ -13,6 +13,9 @@ import io.swagger.v3.oas.models.Paths;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.action.ActionDefinition;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
+import org.praxisplatform.uischema.annotation.AiControlledUseMode;
+import org.praxisplatform.uischema.annotation.AiUsagePolicy;
+import org.praxisplatform.uischema.annotation.AiVisibilityMode;
 import org.praxisplatform.uischema.annotation.AnalyticalRecipeGovernanceTier;
 import org.praxisplatform.uischema.annotation.AnalyticalRecipeParameter;
 import org.praxisplatform.uischema.annotation.AnalyticsDimensionBinding;
@@ -21,9 +24,13 @@ import org.praxisplatform.uischema.annotation.AnalyticsMetricBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsOperation;
 import org.praxisplatform.uischema.annotation.AnalyticsProjection;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.annotation.DomainGovernance;
+import org.praxisplatform.uischema.annotation.DomainGovernancePreset;
 import org.praxisplatform.uischema.annotation.FilterCriterion;
 import org.praxisplatform.uischema.annotation.UiAnalytics;
 import org.praxisplatform.uischema.annotation.VerifiedAnalyticalRecipe;
+import org.praxisplatform.uischema.capability.AvailabilityDecision;
+import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.praxisplatform.uischema.domain.DomainCatalogResponse;
 import org.praxisplatform.uischema.domain.SemanticDomainCatalogService;
@@ -660,5 +667,155 @@ class VerifiedAnalyticalRecipeTest {
         public void setDepartmentCode(String departmentCode) { this.departmentCode = departmentCode; }
         public List<LocalDate> getEffectiveDateBetween() { return effectiveDateBetween; }
         public void setEffectiveDateBetween(List<LocalDate> effectiveDateBetween) { this.effectiveDateBetween = effectiveDateBetween; }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void enforcesOperationAvailabilityGovernanceAndHateoasLinkOnRecipeEndpoints() throws Exception {
+        WorkforceController controller = new WorkforceController(mockStatsService());
+        CapabilityService capabilityService = mock(CapabilityService.class);
+        when(capabilityService.withOperationAvailabilityScope(any(), any())).thenAnswer(inv -> {
+            java.util.function.Supplier<?> action = inv.getArgument(1);
+            return action.get();
+        });
+        when(capabilityService.collectionOperationAvailability(any(), any(), any())).thenAnswer(inv -> {
+            String opId = inv.getArgument(2);
+            if ("statsGroupBy".equals(opId)) {
+                return AvailabilityDecision.deny("ROLE_MISSING", Map.of("message", "statsGroupBy denied"));
+            }
+            return AvailabilityDecision.allowAll();
+        });
+        ReflectionTestUtils.setField(controller, "capabilityService", capabilityService);
+        ReflectionTestUtils.invokeMethod(controller, "initializeBasePath");
+
+        MockMvc blockedMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        blockedMvc.perform(get("/api/workforce/assignments/stats/recipes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0))
+                .andExpect(jsonPath("$._links.stats-recipes.href").value("/api/workforce/assignments/stats/recipes"));
+
+        blockedMvc.perform(post("/api/workforce/assignments/stats/recipes/active-headcount-by-department")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+
+        WorkforceController openController = new WorkforceController(mockStatsService());
+        CapabilityService openCapService = mock(CapabilityService.class);
+        when(openCapService.withOperationAvailabilityScope(any(), any())).thenAnswer(inv -> {
+            java.util.function.Supplier<?> action = inv.getArgument(1);
+            return action.get();
+        });
+        when(openCapService.collectionOperationAvailability(any(), any(), any()))
+                .thenReturn(AvailabilityDecision.allowAll());
+        ReflectionTestUtils.setField(openController, "capabilityService", openCapService);
+        ReflectionTestUtils.invokeMethod(openController, "initializeBasePath");
+
+        MockMvc openMvc = MockMvcBuilders.standaloneSetup(openController).build();
+        openMvc.perform(post("/api/workforce/assignments/stats/recipes/active-headcount-by-department")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"parameters\":{\"limit\":5}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$._links.stats-recipes.href").value("/api/workforce/assignments/stats/recipes"));
+
+        List<org.springframework.hateoas.Link> discoveryLinks = (List<org.springframework.hateoas.Link>)
+                ReflectionTestUtils.invokeMethod(openController, "buildCollectionDiscoveryLinks");
+        assertNotNull(discoveryLinks);
+        assertTrue(discoveryLinks.stream().anyMatch(link ->
+                "stats-recipes".equals(link.getRel().value())
+                        && "/api/workforce/assignments/stats/recipes".equals(link.getHref())));
+
+        StatsFieldRegistry restrictedRegistry = StatsFieldRegistry.builder()
+                .add(StatsFieldDescriptor.groupByBucket("taxId", "taxId", Set.of(StatsMetric.COUNT)))
+                .add(StatsFieldDescriptor.groupByBucket("departmentCode", "departmentCode", Set.of(StatsMetric.COUNT)))
+                .build();
+        RestrictedGovernanceController restrictedCtrl = new RestrictedGovernanceController(
+                mockRestrictedStatsService(restrictedRegistry));
+        MockMvc govMvc = MockMvcBuilders.standaloneSetup(restrictedCtrl).build();
+        govMvc.perform(post("/api/workforce/restricted/stats/recipes/restricted-field-recipe")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+        govMvc.perform(post("/api/workforce/restricted/stats/recipes/restricted-filter-param-recipe")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"parameters\":{\"auditNoteFilter\":\"abc\"}}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @SuppressWarnings("unchecked")
+    private BaseResourceQueryService<RestrictedWorkforceDto, Long, RestrictedWorkforceFilterDto> mockRestrictedStatsService(
+            StatsFieldRegistry registry
+    ) {
+        BaseResourceQueryService<RestrictedWorkforceDto, Long, RestrictedWorkforceFilterDto> service = mock(BaseResourceQueryService.class);
+        when(service.getStatsFieldRegistry()).thenReturn(registry);
+        return service;
+    }
+
+    static class RestrictedWorkforceDto {
+        private Long id;
+        private String departmentCode;
+        @DomainGovernance(preset = DomainGovernancePreset.LGPD_PERSONAL_ID, reason = "Tax identifier is LGPD PII")
+        private String taxId;
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        public String getDepartmentCode() { return departmentCode; }
+        public void setDepartmentCode(String departmentCode) { this.departmentCode = departmentCode; }
+        public String getTaxId() { return taxId; }
+        public void setTaxId(String taxId) { this.taxId = taxId; }
+    }
+
+    static class RestrictedWorkforceFilterDto implements GenericFilterDTO {
+        @Filterable
+        private String departmentCode;
+        @Filterable
+        @DomainGovernance(
+                reason = "Reasoning denied on internal audit note filter",
+                aiUsage = @AiUsagePolicy(visibility = AiVisibilityMode.ALLOW, reasoningUse = AiControlledUseMode.DENY)
+        )
+        private String auditNoteFilter;
+
+        public String getDepartmentCode() { return departmentCode; }
+        public void setDepartmentCode(String departmentCode) { this.departmentCode = departmentCode; }
+        public String getAuditNoteFilter() { return auditNoteFilter; }
+        public void setAuditNoteFilter(String auditNoteFilter) { this.auditNoteFilter = auditNoteFilter; }
+    }
+
+    @ApiResource(value = "/api/workforce/restricted", resourceKey = "workforce.restricted")
+    @VerifiedAnalyticalRecipe(
+            id = "restricted-field-recipe",
+            title = "Restricted taxId recipe",
+            operation = AnalyticsOperation.GROUP_BY,
+            field = "taxId",
+            metric = StatsMetric.COUNT
+    )
+    @VerifiedAnalyticalRecipe(
+            id = "restricted-filter-param-recipe",
+            title = "Restricted filter param recipe",
+            operation = AnalyticsOperation.GROUP_BY,
+            field = "departmentCode",
+            metric = StatsMetric.COUNT,
+            adjustableParams = {
+                    @AnalyticalRecipeParameter(name = "auditNoteFilter", dataType = "string")
+            }
+    )
+    static class RestrictedGovernanceController
+            extends AbstractResourceQueryController<RestrictedWorkforceDto, Long, RestrictedWorkforceFilterDto> {
+        private final BaseResourceQueryService<RestrictedWorkforceDto, Long, RestrictedWorkforceFilterDto> service;
+
+        RestrictedGovernanceController(
+                BaseResourceQueryService<RestrictedWorkforceDto, Long, RestrictedWorkforceFilterDto> service
+        ) {
+            this.service = service;
+        }
+
+        @Override
+        protected BaseResourceQueryService<RestrictedWorkforceDto, Long, RestrictedWorkforceFilterDto> getService() {
+            return service;
+        }
+
+        @Override
+        protected Long getResponseId(RestrictedWorkforceDto dto) {
+            return dto.getId();
+        }
     }
 }

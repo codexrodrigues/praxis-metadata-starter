@@ -17,6 +17,13 @@ import org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeDescriptor;
 import org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeResolver;
 import org.praxisplatform.uischema.annotation.AnalyticsOperation;
 import org.praxisplatform.uischema.annotation.ApiResource;
+import org.praxisplatform.uischema.annotation.DomainGovernance;
+import org.praxisplatform.uischema.annotation.DomainLineage;
+import org.praxisplatform.uischema.annotation.VerifiedAnalyticalRecipe;
+import org.praxisplatform.uischema.annotation.VerifiedAnalyticalRecipes;
+import org.praxisplatform.uischema.filter.annotation.Filterable;
+import org.praxisplatform.uischema.schema.DomainLineageResolver;
+import org.praxisplatform.uischema.schema.DomainSchemaGovernance;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityService;
 import org.praxisplatform.uischema.concurrency.ResourceVersionEtagService;
@@ -485,6 +492,10 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         if (statsLink != null) {
             links.add(statsLink);
         }
+        Link statsRecipesLink = linkToCollectionStatsRecipesIfAvailable();
+        if (statsRecipesLink != null) {
+            links.add(statsRecipesLink);
+        }
         return links;
     }
 
@@ -855,12 +866,16 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     @GetMapping("/stats/recipes")
     @Operation(summary = "Listar receitas analiticas verificadas do recurso")
     public ResponseEntity<RestApiResponse<List<Map<String, Object>>>> listVerifiedAnalyticalRecipes() {
-        List<Map<String, Object>> payload = resolveControllerAnalyticalRecipes().stream()
-                .map(ResolvedVerifiedAnalyticalRecipe::toMetadataMap)
-                .toList();
-        List<Link> links = new ArrayList<>();
-        addCollectionOperationLink(links, "filter", linkToFilter());
-        return withVersion(ResponseEntity.ok(), RestApiResponse.success(payload, hateoasOrNull(Links.of(links))));
+        return withOperationAvailabilityScope(() -> {
+            List<Map<String, Object>> payload = resolveControllerAnalyticalRecipes().stream()
+                    .filter(recipe -> isCollectionOperationAvailable(resolveRecipeOperationId(recipe.operation())))
+                    .map(ResolvedVerifiedAnalyticalRecipe::toMetadataMap)
+                    .toList();
+            List<Link> links = new ArrayList<>();
+            addCollectionOperationLink(links, "filter", linkToFilter());
+            links.add(Link.of(resourcePath("stats", "recipes"), "stats-recipes"));
+            return withVersion(ResponseEntity.ok(), RestApiResponse.success(payload, hateoasOrNull(Links.of(links))));
+        });
     }
 
     @PostMapping("/stats/recipes/{recipeId}")
@@ -869,62 +884,243 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             @PathVariable String recipeId,
             @RequestBody(required = false) VerifiedRecipeExecutionRequest request
     ) {
-        ResolvedVerifiedAnalyticalRecipe recipe = resolveControllerAnalyticalRecipes().stream()
-                .filter(candidate -> candidate.id().equals(recipeId))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Verified analytical recipe not found: " + recipeId
-                ));
-        try {
-            VerifiedAnalyticalRecipeResolver resolver = effectiveRecipeResolver();
-            VerifiedAnalyticalRecipeResolver.CompiledRecipeExecution<FD> compiled = resolver.compileExecution(
-                    recipe,
-                    resolveFilterDtoClass(),
-                    resolveStatsFieldRegistry(),
-                    request
-            );
-            VerifiedRecipeExecutionResponse result = switch (recipe.operation()) {
-                case GROUP_BY -> new VerifiedRecipeExecutionResponse(
-                        compiled.provenance(),
-                        getService().groupByStats(compiled.groupByRequest()),
-                        null,
-                        null,
-                        null
+        return withOperationAvailabilityScope(() -> {
+            ResolvedVerifiedAnalyticalRecipe recipe = resolveControllerAnalyticalRecipes().stream()
+                    .filter(candidate -> candidate.id().equals(recipeId))
+                    .findFirst()
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Verified analytical recipe not found: " + recipeId
+                    ));
+            assertCollectionOperationAvailable(resolveRecipeOperationId(recipe.operation()));
+            enforceVerifiedRecipeGovernance(recipe);
+            try {
+                VerifiedAnalyticalRecipeResolver resolver = effectiveRecipeResolver();
+                VerifiedAnalyticalRecipeResolver.CompiledRecipeExecution<FD> compiled = resolver.compileExecution(
+                        recipe,
+                        resolveFilterDtoClass(),
+                        resolveStatsFieldRegistry(),
+                        request
                 );
-                case TIMESERIES -> new VerifiedRecipeExecutionResponse(
-                        compiled.provenance(),
-                        null,
-                        getService().timeSeriesStats(compiled.timeSeriesRequest()),
-                        null,
-                        null
-                );
-                case DISTRIBUTION -> new VerifiedRecipeExecutionResponse(
-                        compiled.provenance(),
-                        null,
-                        null,
-                        getService().distributionStats(compiled.distributionRequest()),
-                        null
-                );
-                case COMPARISON -> new VerifiedRecipeExecutionResponse(
-                        compiled.provenance(),
-                        null,
-                        null,
-                        null,
-                        getService().comparisonStats(compiled.comparisonRequest())
-                );
-                case INFERENCE, ANOMALIES -> throw new UnsupportedOperationException(
-                        "Verified analytical recipes do not support operation: " + recipe.operation()
-                );
-            };
-            List<Link> links = new ArrayList<>();
-            addCollectionOperationLink(links, "filter", linkToFilter());
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
-        } catch (UnsupportedOperationException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+                VerifiedRecipeExecutionResponse result = switch (recipe.operation()) {
+                    case GROUP_BY -> new VerifiedRecipeExecutionResponse(
+                            compiled.provenance(),
+                            getService().groupByStats(compiled.groupByRequest()),
+                            null,
+                            null,
+                            null
+                    );
+                    case TIMESERIES -> new VerifiedRecipeExecutionResponse(
+                            compiled.provenance(),
+                            null,
+                            getService().timeSeriesStats(compiled.timeSeriesRequest()),
+                            null,
+                            null
+                    );
+                    case DISTRIBUTION -> new VerifiedRecipeExecutionResponse(
+                            compiled.provenance(),
+                            null,
+                            null,
+                            getService().distributionStats(compiled.distributionRequest()),
+                            null
+                    );
+                    case COMPARISON -> new VerifiedRecipeExecutionResponse(
+                            compiled.provenance(),
+                            null,
+                            null,
+                            null,
+                            getService().comparisonStats(compiled.comparisonRequest())
+                    );
+                    case INFERENCE, ANOMALIES -> throw new UnsupportedOperationException(
+                            "Verified analytical recipes do not support operation: " + recipe.operation()
+                    );
+                };
+                List<Link> links = new ArrayList<>();
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(Link.of(resourcePath("stats", "recipes"), "stats-recipes"));
+                return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+            }
+        });
+    }
+
+    protected Link linkToCollectionStatsRecipesIfAvailable() {
+        boolean hasAnnotatedRecipes = AnnotationUtils.findAnnotation(getClass(), VerifiedAnalyticalRecipe.class) != null
+                || AnnotationUtils.findAnnotation(getClass(), VerifiedAnalyticalRecipes.class) != null;
+        List<VerifiedAnalyticalRecipeDescriptor<FD>> descriptors = resolvedAnalyticalRecipeDescriptors();
+        if (!hasAnnotatedRecipes && (descriptors == null || descriptors.isEmpty())) {
+            return null;
         }
+        return Link.of(resourcePath("stats", "recipes"), "stats-recipes");
+    }
+
+    private static String resolveRecipeOperationId(AnalyticsOperation operation) {
+        if (operation == null) {
+            return "statsGroupBy";
+        }
+        return switch (operation) {
+            case GROUP_BY -> "statsGroupBy";
+            case TIMESERIES -> "statsTimeSeries";
+            case DISTRIBUTION -> "statsDistribution";
+            case COMPARISON -> "statsComparison";
+            case INFERENCE -> "statsInference";
+            case ANOMALIES -> "statsAnomalies";
+        };
+    }
+
+    protected void enforceVerifiedRecipeGovernance(ResolvedVerifiedAnalyticalRecipe recipe) {
+        if (recipe == null) {
+            return;
+        }
+        Set<String> referencedFields = new LinkedHashSet<>();
+        if (StringUtils.hasText(recipe.field())) {
+            referencedFields.add(recipe.field().trim());
+        }
+        if (StringUtils.hasText(recipe.periodField())) {
+            referencedFields.add(recipe.periodField().trim());
+        }
+        for (VerifiedAnalyticalRecipeDescriptor.DimensionSpec dim : recipe.dimensions()) {
+            if (dim != null && StringUtils.hasText(dim.field())) {
+                referencedFields.add(dim.field().trim());
+            }
+        }
+        for (VerifiedAnalyticalRecipeDescriptor.MetricSpec metric : recipe.metrics()) {
+            if (metric != null && StringUtils.hasText(metric.field())) {
+                referencedFields.add(metric.field().trim());
+            }
+        }
+        for (String lockedKey : recipe.lockedFilters().keySet()) {
+            if (StringUtils.hasText(lockedKey)) {
+                referencedFields.add(lockedKey.trim());
+            }
+        }
+        Set<String> reservedParams = Set.of(
+                "limit", "granularity", "timezone", "bucketCount", "bucketSize", "periodPreset", "periodMode");
+        for (VerifiedAnalyticalRecipeDescriptor.ParameterSpec param : recipe.adjustableParams()) {
+            if (param == null) {
+                continue;
+            }
+            if (StringUtils.hasText(param.filterField())) {
+                referencedFields.add(param.filterField().trim());
+            } else if (StringUtils.hasText(param.name()) && !reservedParams.contains(param.name().trim())) {
+                referencedFields.add(param.name().trim());
+            }
+        }
+        if (referencedFields.isEmpty()) {
+            return;
+        }
+
+        Class<?> responseDtoClass = resolveResponseDtoClass();
+        Class<?> filterDtoClass = resolveFilterDtoClass();
+        ObjectNode responseOwnerGov = DomainLineageResolver.resolveTypeGovernance(responseDtoClass);
+        ObjectNode filterOwnerGov = DomainLineageResolver.resolveTypeGovernance(filterDtoClass);
+
+        for (String fieldName : referencedFields) {
+            if (isFieldGovernanceRestricted(responseDtoClass, fieldName, responseOwnerGov)
+                    || isFieldGovernanceRestricted(filterDtoClass, fieldName, filterOwnerGov)) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Verified analytical recipe '" + recipe.id()
+                                + "' references governance-restricted field: " + fieldName
+                );
+            }
+            Field filterField = findDeclaredFieldInHierarchy(filterDtoClass, fieldName);
+            if (filterField != null) {
+                Filterable filterable = filterField.getAnnotation(Filterable.class);
+                if (filterable != null && StringUtils.hasText(filterable.relation())) {
+                    String relation = filterable.relation().trim();
+                    if (isFieldGovernanceRestricted(responseDtoClass, relation, responseOwnerGov)) {
+                        throw new ResponseStatusException(
+                                HttpStatus.FORBIDDEN,
+                                "Verified analytical recipe '" + recipe.id()
+                                        + "' references governance-restricted field: " + fieldName
+                        );
+                    }
+                    int dotIdx = relation.lastIndexOf('.');
+                    if (dotIdx >= 0 && dotIdx + 1 < relation.length()) {
+                        String terminal = relation.substring(dotIdx + 1).trim();
+                        if (isFieldGovernanceRestricted(responseDtoClass, terminal, responseOwnerGov)) {
+                            throw new ResponseStatusException(
+                                    HttpStatus.FORBIDDEN,
+                                    "Verified analytical recipe '" + recipe.id()
+                                            + "' references governance-restricted field: " + fieldName
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean isFieldGovernanceRestricted(Class<?> type, String fieldName, ObjectNode ownerGovernance) {
+        if (type == null || type == Void.class || !StringUtils.hasText(fieldName)) {
+            return false;
+        }
+        Field field = findDeclaredFieldInHierarchy(type, fieldName);
+        java.lang.reflect.Method getter = findAccessorInHierarchy(type, fieldName);
+        if (field == null && getter == null) {
+            return false;
+        }
+        DomainLineage lineage = field != null ? field.getAnnotation(DomainLineage.class) : null;
+        if (lineage == null && getter != null) {
+            lineage = getter.getAnnotation(DomainLineage.class);
+        }
+        DomainGovernance governance = field != null ? field.getAnnotation(DomainGovernance.class) : null;
+        if (governance == null && getter != null) {
+            governance = getter.getAnnotation(DomainGovernance.class);
+        }
+
+        ObjectNode effective = null;
+        if (lineage != null) {
+            effective = DomainLineageResolver.resolve(lineage, governance, ownerGovernance).effectiveGovernance();
+        } else if (governance != null) {
+            effective = DomainSchemaGovernance.mergeOrCopy(ownerGovernance, DomainLineageResolver.toGovernanceNode(governance));
+        } else if (ownerGovernance != null) {
+            effective = ownerGovernance;
+        }
+        if (effective == null) {
+            return false;
+        }
+        String visibility = effective.path("aiUsage").path("visibility").asText("allow");
+        String reasoningUse = effective.path("aiUsage").path("reasoningUse").asText("allow");
+        return "deny".equalsIgnoreCase(visibility)
+                || "mask".equalsIgnoreCase(visibility)
+                || "deny".equalsIgnoreCase(reasoningUse);
+    }
+
+    private static Field findDeclaredFieldInHierarchy(Class<?> type, String fieldName) {
+        for (Class<?> cursor = type; cursor != null && cursor != Object.class; cursor = cursor.getSuperclass()) {
+            try {
+                return cursor.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException ignored) {
+                // continue
+            }
+        }
+        return null;
+    }
+
+    private static java.lang.reflect.Method findAccessorInHierarchy(Class<?> type, String propertyName) {
+        if (!StringUtils.hasText(propertyName)) {
+            return null;
+        }
+        String capitalized = Character.toUpperCase(propertyName.charAt(0))
+                + (propertyName.length() > 1 ? propertyName.substring(1) : "");
+        for (Class<?> cursor = type; cursor != null && cursor != Object.class; cursor = cursor.getSuperclass()) {
+            for (String candidate : List.of(propertyName, "get" + capitalized, "is" + capitalized)) {
+                try {
+                    java.lang.reflect.Method m = cursor.getDeclaredMethod(candidate);
+                    if (m.getParameterCount() == 0) {
+                        return m;
+                    }
+                } catch (NoSuchMethodException ignored) {
+                    // continue
+                }
+            }
+        }
+        return null;
     }
 
     @PostMapping("/export")
