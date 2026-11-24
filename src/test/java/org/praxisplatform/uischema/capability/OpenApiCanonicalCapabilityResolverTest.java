@@ -142,7 +142,9 @@ class OpenApiCanonicalCapabilityResolverTest {
                     "/employees/stats/group-by": { "post": {} },
                     "/employees/stats/timeseries": { "post": {} },
                     "/employees/stats/distribution": { "post": {} },
-                    "/employees/stats/comparison": { "post": {} }
+                    "/employees/stats/comparison": { "post": {} },
+                    "/employees/stats/inference": { "post": {} },
+                    "/employees/stats/anomalies": { "post": {} }
                   }
                 }
                 """);
@@ -158,8 +160,37 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertFalse(capabilities.get("statsTimeSeries"));
         assertFalse(capabilities.get("statsDistribution"));
         assertFalse(capabilities.get("statsComparison"));
+        assertFalse(capabilities.get("statsInference"));
+        assertFalse(capabilities.get("statsAnomalies"));
         resolver.resolveOperations(document, "/employees").values()
                 .forEach(operation -> assertFalse(operation.supported()));
+    }
+
+    @Test
+    void resolvesInferenceAndAnomalyStatsWhenStructurallySupported() throws Exception {
+        JsonNode document = objectMapper.readTree("""
+                {
+                  "paths": {
+                    "/employees/stats/inference": { "post": {} },
+                    "/employees/stats/anomalies": { "post": {} }
+                  }
+                }
+                """);
+        CanonicalCapabilityResolver resolver = new OpenApiCanonicalCapabilityResolver(
+                new StaticOpenApiDocumentService("human-resources", document),
+                ignored -> new ResourceStructuralCapabilities(
+                        false, false, false, false, false, false,
+                        true, true, false, false, false,
+                        StatsCapability.empty(), null
+                )
+        );
+
+        Map<String, Boolean> capabilities = resolver.resolve("/employees");
+        assertTrue(capabilities.get("statsInference"));
+        assertTrue(capabilities.get("statsAnomalies"));
+        Map<String, CapabilityOperation> operations = resolver.resolveOperations(document, "/employees");
+        assertOperation(operations, "statsInference", true, "COLLECTION", "POST", "stats-inference");
+        assertOperation(operations, "statsAnomalies", true, "COLLECTION", "POST", "stats-anomalies");
     }
 
     private static ResourceStructuralCapabilities fullySupported() {
@@ -238,6 +269,8 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertFalse(capabilities.get("statsTimeSeries"));
         assertFalse(capabilities.get("statsDistribution"));
         assertFalse(capabilities.get("statsComparison"));
+        assertFalse(capabilities.get("statsInference"));
+        assertFalse(capabilities.get("statsAnomalies"));
 
         Map<String, CapabilityOperation> operations = resolver.resolveCrudOperations(document, "/payroll-view");
         assertFalse(operations.get("create").supported());

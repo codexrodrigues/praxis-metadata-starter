@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.rest.exceptionhandler;
 
 import lombok.extern.slf4j.Slf4j;
+import org.praxisplatform.intelligence.contracts.error.IntelligenceExecutionException;
 import org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationUnavailableException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.BusinessException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
@@ -285,6 +286,45 @@ public class GlobalExceptionHandler {
         return buildStatusResponse(HttpStatus.SERVICE_UNAVAILABLE,
                 "Bulk discovery is temporarily unavailable. Refresh availability before continuing.",
                 request, "BULK_DISCOVERY_UNAVAILABLE");
+    }
+
+    /** Fallback envelope translation when analytical runtime exceptions escape without starter advice. */
+    @ExceptionHandler(IntelligenceExecutionException.class)
+    public ResponseEntity<RestApiResponse<Object>> handleIntelligenceExecution(
+            IntelligenceExecutionException ex,
+            WebRequest request
+    ) {
+        HttpStatus status = HttpStatus.resolve(ex.errorCode().httpStatus());
+        if (status == null) {
+            status = HttpStatus.SERVICE_UNAVAILABLE;
+        }
+        String detailMessage = normalize(ex.detail());
+        if (detailMessage == null) {
+            detailMessage = normalize(ex.getMessage());
+        }
+        if (detailMessage == null) {
+            detailMessage = defaultResponseMessage(status);
+        }
+        CustomProblemDetail problem = new CustomProblemDetail(detailMessage);
+        problem.setStatus(status);
+        problem.setTitle(defaultProblemTitle(status));
+        problem.setType(URI.create(defaultProblemType(status)));
+        problem.setInstance(instanceUri(request));
+        problem.setCategory(resolveCategory(status));
+        problem.setProperty("errorCode", ex.errorCode().name());
+        String correlationId = normalize(ex.correlationId());
+        if (correlationId == null && request instanceof ServletWebRequest servletWebRequest) {
+            correlationId = normalize(servletWebRequest.getRequest().getHeader("X-Correlation-ID"));
+        }
+        if (correlationId != null) {
+            problem.setProperty("correlationId", correlationId);
+        }
+        enrichErrorDetails(problem, request, ex.errorCode().name());
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(status);
+        if (correlationId != null) {
+            builder = builder.header("X-Correlation-ID", correlationId);
+        }
+        return builder.body(RestApiResponse.failure(detailMessage, List.of(problem)));
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -683,10 +723,10 @@ public class GlobalExceptionHandler {
             return ErrorCategory.UNKNOWN;
         }
         return switch (status) {
-            case BAD_REQUEST, METHOD_NOT_ALLOWED, UNPROCESSABLE_ENTITY -> ErrorCategory.VALIDATION;
+            case BAD_REQUEST, METHOD_NOT_ALLOWED, PAYLOAD_TOO_LARGE, UNPROCESSABLE_ENTITY -> ErrorCategory.VALIDATION;
             case UNAUTHORIZED, FORBIDDEN -> ErrorCategory.SECURITY;
             case NOT_FOUND, CONFLICT, PRECONDITION_FAILED, PRECONDITION_REQUIRED, GONE -> ErrorCategory.BUSINESS_LOGIC;
-            case TOO_MANY_REQUESTS, SERVICE_UNAVAILABLE, INTERNAL_SERVER_ERROR -> ErrorCategory.SYSTEM;
+            case TOO_MANY_REQUESTS, SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT, INTERNAL_SERVER_ERROR -> ErrorCategory.SYSTEM;
             default -> status.is5xxServerError() ? ErrorCategory.SYSTEM : ErrorCategory.UNKNOWN;
         };
     }
@@ -702,12 +742,14 @@ public class GlobalExceptionHandler {
             case FORBIDDEN -> "Access denied.";
             case NOT_FOUND -> "Resource not found.";
             case CONFLICT -> "Request conflict.";
+            case PAYLOAD_TOO_LARGE -> "Payload exceeds maximum allowed size.";
             case PRECONDITION_FAILED -> "Resource version is stale.";
             case PRECONDITION_REQUIRED -> "Resource version is required.";
             case GONE -> "Resource is no longer available.";
             case UNPROCESSABLE_ENTITY -> "Invalid entity.";
             case TOO_MANY_REQUESTS -> "Too many requests.";
             case SERVICE_UNAVAILABLE -> "Service temporarily unavailable.";
+            case GATEWAY_TIMEOUT -> "Gateway timeout.";
             default -> status.is5xxServerError()
                     ? "Internal server error while processing the request."
                     : "Failed to process the request.";
@@ -725,12 +767,14 @@ public class GlobalExceptionHandler {
             case FORBIDDEN -> "Access denied";
             case NOT_FOUND -> "Resource not found";
             case CONFLICT -> "Conflict";
+            case PAYLOAD_TOO_LARGE -> "Payload too large";
             case PRECONDITION_FAILED -> "Stale resource version";
             case PRECONDITION_REQUIRED -> "Resource version required";
             case GONE -> "Resource is no longer available";
             case UNPROCESSABLE_ENTITY -> "Invalid entity";
             case TOO_MANY_REQUESTS -> "Too many requests";
             case SERVICE_UNAVAILABLE -> "Service unavailable";
+            case GATEWAY_TIMEOUT -> "Gateway timeout";
             default -> status.is5xxServerError() ? "Internal server error" : "Request error";
         };
     }
@@ -748,7 +792,7 @@ public class GlobalExceptionHandler {
             case PRECONDITION_FAILED, PRECONDITION_REQUIRED -> RESPONSE_STATUS_CONFLICT_TYPE;
             case GONE -> RESPONSE_STATUS_GONE_TYPE;
             case TOO_MANY_REQUESTS -> RESPONSE_STATUS_THROTTLE_TYPE;
-            case SERVICE_UNAVAILABLE -> RESPONSE_STATUS_UNAVAILABLE_TYPE;
+            case SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT -> RESPONSE_STATUS_UNAVAILABLE_TYPE;
             case INTERNAL_SERVER_ERROR -> RESPONSE_STATUS_INTERNAL_TYPE;
             default -> RESPONSE_STATUS_DEFAULT_TYPE;
         };

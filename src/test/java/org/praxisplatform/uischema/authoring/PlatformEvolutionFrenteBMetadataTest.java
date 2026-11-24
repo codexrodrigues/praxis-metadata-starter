@@ -345,6 +345,9 @@ class PlatformEvolutionFrenteBMetadataTest {
                         "workforce.sample:operation:delete",
                         "workforce.sample:operation:export",
                         "workforce.sample:operation:ai-tool",
+                        "workforce.sample:operation:stats-inference",
+                        "workforce.sample:operation:stats-anomalies",
+                        "workforce.sample:operation:ai-tool",
                         "workforce.sample:action:homologar-registro",
                         "workforce.sample:action:acao-sem-base-legal",
                         "workforce.sample:surface:audit-trail",
@@ -393,5 +396,17 @@ class PlatformEvolutionFrenteBMetadataTest {
                         .orElseThrow();
         assertThat(writeSemLineage.lineageAttributeId()).isNull();
         assertThat(writeSemLineage.failClosedRestricted()).isTrue();
+
+        ResourceDecisionPointDescriptor statsInferencePoint = points.stream()
+                .filter(p -> p.decisionPointKey().equals("workforce.sample:operation:stats-inference"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(statsInferencePoint.kind()).isEqualTo(DecisionPointKind.STATISTICAL_INFERENCE);
+
+        ResourceDecisionPointDescriptor statsAnomaliesPoint = points.stream()
+                .filter(p -> p.decisionPointKey().equals("workforce.sample:operation:stats-anomalies"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(statsAnomaliesPoint.kind()).isEqualTo(DecisionPointKind.ANOMALY_SCAN);
     }
 }

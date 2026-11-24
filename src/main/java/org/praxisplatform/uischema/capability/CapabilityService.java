@@ -81,6 +81,18 @@ public interface CapabilityService {
             StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
     ) {
         return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported, collectionExportCapability,
+                statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
+                comparisonStatsSupportMode, StatsSupportMode.DISABLED, StatsSupportMode.DISABLED);
+    }
+
+    default CapabilitySnapshot collectionCapabilities(
+            String resourceKey, String resourcePath, boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability, StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode,
+            StatsSupportMode inferenceStatsSupportMode, StatsSupportMode anomalyStatsSupportMode
+    ) {
+        return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported, collectionExportCapability,
                 statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode);
     }
 
@@ -114,6 +126,17 @@ public interface CapabilityService {
             String resourceKey, String resourcePath, Object resourceId, StatsFieldRegistry statsFieldRegistry,
             StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
+    ) {
+        return itemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry,
+                groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
+                comparisonStatsSupportMode, StatsSupportMode.DISABLED, StatsSupportMode.DISABLED);
+    }
+
+    default CapabilitySnapshot itemCapabilities(
+            String resourceKey, String resourcePath, Object resourceId, StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode,
+            StatsSupportMode inferenceStatsSupportMode, StatsSupportMode anomalyStatsSupportMode
     ) {
         return itemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry,
                 groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode);

@@ -127,7 +127,14 @@ public class UiAnalyticsAnnotationMapper {
         }
 
         String normalizedPath = operationPath == null ? "" : operationPath.trim();
-        for (String suffix : List.of("/stats/group-by", "/stats/timeseries", "/stats/distribution", "/stats/comparison")) {
+        for (String suffix : List.of(
+                "/stats/group-by",
+                "/stats/timeseries",
+                "/stats/distribution",
+                "/stats/comparison",
+                "/stats/inference",
+                "/stats/anomalies"
+        )) {
             if (normalizedPath.endsWith(suffix)) {
                 return normalizedPath.substring(0, normalizedPath.length() - suffix.length());
             }

@@ -56,7 +56,18 @@ import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsDimension;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsMetric;
+import org.praxisplatform.intelligence.contracts.error.IntelligenceErrorCode;
+import org.praxisplatform.intelligence.contracts.error.IntelligenceExecutionException;
+import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanRequest;
+import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanResponse;
+import org.praxisplatform.intelligence.contracts.inference.InferenceRequest;
+import org.praxisplatform.intelligence.contracts.inference.InferenceResponse;
+import org.praxisplatform.intelligence.contracts.spi.ResourceIntelligenceExecutor;
+import org.praxisplatform.intelligence.contracts.spi.TabularFrameSource;
+import org.praxisplatform.uischema.stats.dto.AnomalyScanStatsRequest;
+import org.praxisplatform.uischema.stats.dto.InferenceStatsRequest;
 import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
+import org.praxisplatform.uischema.stats.service.jpa.JpaStatsTabularFrameSource;
 import org.praxisplatform.uischema.action.ActionDefinition;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.action.ActionScope;
@@ -78,7 +89,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.lang.reflect.Field;
@@ -140,6 +154,20 @@ public abstract class AbstractBaseQueryResourceService<
         boolean optionSources = optionSourceQueryExecutor != null
                 && optionSourceEligibility != null
                 && getOptionSourceRegistry().containsAny(getEntityClass());
+        ResourceIntelligenceExecutor intelligenceExecutor = resolveResourceIntelligenceExecutor();
+        boolean intelligenceInfrastructure = properties.enabled()
+                && statsEligibility != null
+                && intelligenceExecutor != null;
+        StatsSupportMode inferenceSupportMode = getInferenceStatsSupportMode();
+        StatsSupportMode anomalySupportMode = getAnomalyStatsSupportMode();
+        boolean inference = intelligenceInfrastructure
+                && inferenceSupportMode != null
+                && inferenceSupportMode != StatsSupportMode.DISABLED
+                && !registry.descriptors().isEmpty();
+        boolean anomalies = intelligenceInfrastructure
+                && anomalySupportMode != null
+                && anomalySupportMode != StatsSupportMode.DISABLED
+                && !registry.descriptors().isEmpty();
         boolean export = supportsCollectionExport();
         return new ResourceStructuralCapabilities(
                 true,
@@ -148,15 +176,19 @@ public abstract class AbstractBaseQueryResourceService<
                 timeSeries,
                 distribution,
                 comparison,
+                inference,
+                anomalies,
                 export,
                 BaseResourceQueryService.super.getStructuralCapabilities().duplicateDraft(),
                 supportsCursorPagination(),
-                statsInfrastructure
+                (statsInfrastructure || inference || anomalies)
                         ? StatsCapability.from(
                                 registry,
                                 groupBy ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
                                 timeSeries ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
                                 distribution ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
+                                inference ? (inferenceSupportMode == null ? StatsSupportMode.AUTO : inferenceSupportMode) : StatsSupportMode.DISABLED,
+                                anomalies ? (anomalySupportMode == null ? StatsSupportMode.AUTO : anomalySupportMode) : StatsSupportMode.DISABLED,
                                 properties.maxDimensions(),
                                 properties.maxCells(),
                                 properties.maxTimeSeriesWindowDays(),
@@ -182,6 +214,16 @@ public abstract class AbstractBaseQueryResourceService<
 
     @Autowired(required = false)
     private Clock statsClock;
+
+    @Autowired(required = false)
+    private ObjectProvider<ResourceIntelligenceExecutor> resourceIntelligenceExecutorProvider;
+
+    private volatile ResourceIntelligenceExecutor manualResourceIntelligenceExecutor;
+
+    @Autowired(required = false)
+    private ObjectProvider<PlatformTransactionManager> statsTransactionManagerProvider;
+
+    private volatile PlatformTransactionManager manualStatsTransactionManager;
 
     @Autowired(required = false)
     private ObjectProvider<OptionSourceRegistry> optionSourceRegistryProvider;
@@ -299,6 +341,36 @@ public abstract class AbstractBaseQueryResourceService<
         }
         AnnotationAwareOrderComparator.sort(copy);
         this.manualGovernanceInterceptors = List.copyOf(copy);
+    }
+
+    public void setResourceIntelligenceExecutor(ResourceIntelligenceExecutor resourceIntelligenceExecutor) {
+        this.manualResourceIntelligenceExecutor = resourceIntelligenceExecutor;
+    }
+
+    protected final ResourceIntelligenceExecutor resolveResourceIntelligenceExecutor() {
+        if (manualResourceIntelligenceExecutor != null) {
+            return manualResourceIntelligenceExecutor;
+        }
+        return resourceIntelligenceExecutorProvider != null
+                ? resourceIntelligenceExecutorProvider.getIfAvailable()
+                : null;
+    }
+
+    public void setStatsTransactionManager(PlatformTransactionManager transactionManager) {
+        this.manualStatsTransactionManager = transactionManager;
+    }
+
+    protected final TransactionTemplate resolveReadOnlyStatsTransactionTemplate() {
+        PlatformTransactionManager txManager = manualStatsTransactionManager != null
+                ? manualStatsTransactionManager
+                : (statsTransactionManagerProvider != null ? statsTransactionManagerProvider.getIfAvailable() : null);
+        if (txManager == null) {
+            return null;
+        }
+        TransactionTemplate template = new TransactionTemplate(txManager);
+        template.setReadOnly(true);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+        return template;
     }
 
     public void setIncludeTableHiddenExportFieldsByDefault(boolean includeTableHiddenExportFieldsByDefault) {
@@ -482,6 +554,16 @@ public abstract class AbstractBaseQueryResourceService<
         StatsFieldRegistry registry = resolveEffectiveStatsFieldRegistry();
         return registry.descriptors().isEmpty()
                 ? StatsSupportMode.DISABLED : StatsSupportMode.AUTO;
+    }
+
+    @Override
+    public StatsSupportMode getInferenceStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    @Override
+    public StatsSupportMode getAnomalyStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
     }
 
     public StatsSupportMode getComparisonStatsSupportMode() {
@@ -1452,6 +1534,125 @@ public abstract class AbstractBaseQueryResourceService<
                 properties.maxBuckets(),
                 properties.defaultMinBucketCount(),
                 properties.maxInMemorySampleRows()
+        );
+    }
+
+    @Override
+    public InferenceResponse inferenceStats(InferenceStatsRequest<FilterDTO> request) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        StatsSupportMode mode = getInferenceStatsSupportMode();
+        if (!properties.enabled() || mode == null || mode == StatsSupportMode.DISABLED || statsEligibility == null) {
+            throw new UnsupportedOperationException("Statistical inference not implemented");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Inference request must not be null.");
+        }
+        StatsFieldRegistry effectiveRegistry = resolveEffectiveStatsFieldRegistry();
+        StatsEligibility.ResolvedInferenceFields resolved = statsEligibility.validateInference(
+                request,
+                effectiveRegistry,
+                properties.defaultMinBucketCount()
+        );
+        ResourceIntelligenceExecutor executor = resolveResourceIntelligenceExecutor();
+        if (executor == null) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                    "Resource intelligence executor is not configured."
+            );
+        }
+        String resourceKey = resolveEffectiveIntelligenceResourceKey();
+        InferenceRequest contractRequest = request.toInferenceRequest(resourceKey, resolved.effectiveMinBucketCount());
+        Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged())
+                .effectiveSpecification();
+        TabularFrameSource frameSource = buildInferenceTabularFrameSource(
+                contractRequest.datasetKey(),
+                specification,
+                resolved,
+                properties.maxInMemorySampleRows()
+        );
+        return executor.executeInference(resourceKey, contractRequest, frameSource);
+    }
+
+    @Override
+    public AnomalyScanResponse anomalyScanStats(AnomalyScanStatsRequest<FilterDTO> request) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        StatsSupportMode mode = getAnomalyStatsSupportMode();
+        if (!properties.enabled() || mode == null || mode == StatsSupportMode.DISABLED || statsEligibility == null) {
+            throw new UnsupportedOperationException("Anomaly scan stats not implemented");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Anomaly scan request must not be null.");
+        }
+        StatsFieldRegistry effectiveRegistry = resolveEffectiveStatsFieldRegistry();
+        StatsEligibility.ResolvedAnomalyColumns resolved = statsEligibility.validateAnomalyScan(
+                request,
+                effectiveRegistry,
+                properties.defaultMinBucketCount()
+        );
+        ResourceIntelligenceExecutor executor = resolveResourceIntelligenceExecutor();
+        if (executor == null) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                    "Resource intelligence executor is not configured."
+            );
+        }
+        String resourceKey = resolveEffectiveIntelligenceResourceKey();
+        AnomalyScanRequest contractRequest = request.toAnomalyScanRequest(resourceKey, resolved.effectiveMinBucketCount());
+        Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged())
+                .effectiveSpecification();
+        TabularFrameSource frameSource = buildAnomalyTabularFrameSource(
+                contractRequest.datasetKey(),
+                specification,
+                resolved,
+                properties.maxInMemorySampleRows()
+        );
+        return executor.executeAnomalyScan(resourceKey, contractRequest, frameSource);
+    }
+
+    private String resolveEffectiveIntelligenceResourceKey() {
+        String resolved = resolveResourceKey();
+        return (resolved == null || resolved.isBlank()) ? getEntityClass().getSimpleName() : resolved.trim();
+    }
+
+    protected TabularFrameSource buildInferenceTabularFrameSource(
+            String datasetKey,
+            Specification<E> effectiveSpecification,
+            StatsEligibility.ResolvedInferenceFields resolved,
+            int maxRows
+    ) {
+        return new JpaStatsTabularFrameSource<>(
+                datasetKey,
+                getEntityManager(),
+                getRepository(),
+                getEntityClass(),
+                effectiveSpecification,
+                getIdentityPaths(),
+                this::extractId,
+                null,
+                resolved.projectedFields(),
+                maxRows,
+                resolveReadOnlyStatsTransactionTemplate()
+        );
+    }
+
+    protected TabularFrameSource buildAnomalyTabularFrameSource(
+            String datasetKey,
+            Specification<E> effectiveSpecification,
+            StatsEligibility.ResolvedAnomalyColumns resolved,
+            int maxRows
+    ) {
+        return new JpaStatsTabularFrameSource<>(
+                datasetKey,
+                getEntityManager(),
+                getRepository(),
+                getEntityClass(),
+                effectiveSpecification,
+                getIdentityPaths(),
+                this::extractId,
+                resolved.entityKeyColumn(),
+                resolved.projectedFields(),
+                maxRows,
+                resolveReadOnlyStatsTransactionTemplate()
         );
     }
 

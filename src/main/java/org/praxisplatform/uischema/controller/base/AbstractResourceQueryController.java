@@ -56,13 +56,19 @@ import org.praxisplatform.uischema.schema.QuickFilterDescriptor;
 import org.praxisplatform.uischema.rest.response.RestApiResponseDistributionStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseGroupByStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseTimeSeriesStatsResponse;
+import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanResponse;
+import org.praxisplatform.intelligence.contracts.inference.InferenceResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseAnomalyScanResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseComparisonStatsResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseInferenceResponse;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 import org.praxisplatform.uischema.service.base.VersionedCreateUpdateResourceService;
 import org.praxisplatform.uischema.stats.StatsCapability;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
+import org.praxisplatform.uischema.stats.dto.AnomalyScanStatsRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
+import org.praxisplatform.uischema.stats.dto.InferenceStatsRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
@@ -653,6 +659,74 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
         }
+    }
+
+    @PostMapping("/stats/inference")
+    @Operation(summary = "Inferencia estatistica sobre conjunto filtrado do recurso")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Inferencia estatistica executada com sucesso",
+                    content = @Content(schema = @Schema(implementation = RestApiResponseInferenceResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Request de inferencia invalido ou campo nao elegivel"),
+            @ApiResponse(responseCode = "403", description = "Operacao de inferencia indisponivel para o contexto atual"),
+            @ApiResponse(responseCode = "413", description = "Volume de registros filtrados excede o limite maximo em memoria"),
+            @ApiResponse(responseCode = "501", description = "Inferencia estatistica nao habilitada para este recurso"),
+            @ApiResponse(responseCode = "503", description = "Motor de inteligencia estatistica indisponivel")
+    })
+    public ResponseEntity<RestApiResponse<InferenceResponse>> inferenceStats(
+            @RequestBody InferenceStatsRequest<FD> request
+    ) {
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsInference");
+            try {
+                InferenceResponse result = getService().inferenceStats(request);
+                List<Link> links = new ArrayList<>();
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(linkToUiSchema("/stats/inference", "post", "request"));
+                links.add(linkToUiSchema("/stats/inference", "post", "response"));
+                return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+            }
+        });
+    }
+
+    @PostMapping("/stats/anomalies")
+    @Operation(summary = "Varredura estatistica de anomalias sobre conjunto filtrado do recurso")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Varredura de anomalias executada com sucesso",
+                    content = @Content(schema = @Schema(implementation = RestApiResponseAnomalyScanResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Request de anomalias invalido ou campo nao elegivel"),
+            @ApiResponse(responseCode = "403", description = "Operacao de anomalias indisponivel para o contexto atual"),
+            @ApiResponse(responseCode = "413", description = "Volume de registros filtrados excede o limite maximo em memoria"),
+            @ApiResponse(responseCode = "501", description = "Varredura de anomalias nao habilitada para este recurso"),
+            @ApiResponse(responseCode = "503", description = "Motor de inteligencia estatistica indisponivel")
+    })
+    public ResponseEntity<RestApiResponse<AnomalyScanResponse>> anomalyScanStats(
+            @RequestBody AnomalyScanStatsRequest<FD> request
+    ) {
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsAnomalies");
+            try {
+                AnomalyScanResponse result = getService().anomalyScanStats(request);
+                List<Link> links = new ArrayList<>();
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(linkToUiSchema("/stats/anomalies", "post", "request"));
+                links.add(linkToUiSchema("/stats/anomalies", "post", "response"));
+                return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+            }
+        });
     }
 
     @PostMapping("/stats/timeseries")
@@ -1848,7 +1922,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return null;
         }
         ResourceStructuralCapabilities caps = getStructuralCapabilities();
-        if (caps != null && caps.stats() != null && !caps.stats().fields().isEmpty()) {
+        if (caps != null && caps.stats() != null && (!caps.stats().fields().isEmpty() || caps.stats().inference() || caps.stats().anomalies())) {
             return Link.of(resourcePath("stats", "capabilities"), "stats");
         }
         return null;

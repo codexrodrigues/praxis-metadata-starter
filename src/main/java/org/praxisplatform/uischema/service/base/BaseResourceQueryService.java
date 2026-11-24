@@ -1,5 +1,7 @@
 package org.praxisplatform.uischema.service.base;
 
+import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanResponse;
+import org.praxisplatform.intelligence.contracts.inference.InferenceResponse;
 import org.praxisplatform.uischema.concurrency.ResourceRepresentationResult;
 
 import org.praxisplatform.uischema.dto.CursorPage;
@@ -17,7 +19,9 @@ import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
+import org.praxisplatform.uischema.stats.dto.AnomalyScanStatsRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
+import org.praxisplatform.uischema.stats.dto.InferenceStatsRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
@@ -91,6 +95,14 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
     StatsSupportMode getTimeSeriesStatsSupportMode();
 
     StatsSupportMode getDistributionStatsSupportMode();
+
+    default StatsSupportMode getInferenceStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    default StatsSupportMode getAnomalyStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
 
     default StatsSupportMode getComparisonStatsSupportMode() {
         return StatsSupportMode.DISABLED;
@@ -173,6 +185,14 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
     DistributionStatsResponse distributionStats(DistributionStatsRequest<FilterDTO> request);
 
     ComparisonStatsResponse comparisonStats(ComparisonStatsRequest<FilterDTO> request);
+
+    default InferenceResponse inferenceStats(InferenceStatsRequest<FilterDTO> request) {
+        throw new UnsupportedOperationException("Inference stats not implemented");
+    }
+
+    default AnomalyScanResponse anomalyScanStats(AnomalyScanStatsRequest<FilterDTO> request) {
+        throw new UnsupportedOperationException("Anomaly scan stats not implemented");
+    }
 
     default boolean supportsCollectionExport() {
         return false;

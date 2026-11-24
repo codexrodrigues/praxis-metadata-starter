@@ -83,7 +83,9 @@
         "statsGroupBy": { "type": "boolean" },
         "statsTimeSeries": { "type": "boolean" },
         "statsDistribution": { "type": "boolean" },
-        "statsComparison": { "type": "boolean" }
+        "statsComparison": { "type": "boolean" },
+        "statsInference": { "type": "boolean" },
+        "statsAnomalies": { "type": "boolean" }
       }
     }
   },

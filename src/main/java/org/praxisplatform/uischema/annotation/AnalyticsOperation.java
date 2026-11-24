@@ -7,7 +7,9 @@ public enum AnalyticsOperation {
     GROUP_BY("group-by"),
     TIMESERIES("timeseries"),
     DISTRIBUTION("distribution"),
-    COMPARISON("comparison");
+    COMPARISON("comparison"),
+    INFERENCE("inference"),
+    ANOMALIES("anomalies");
 
     private final String wireValue;
 

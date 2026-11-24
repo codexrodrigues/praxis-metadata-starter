@@ -69,6 +69,12 @@
             <artifactId>praxis-rules-engine</artifactId>
             <version>0.1.0-beta.20</version>
         </dependency>
+        <!-- Framework-neutral statistical inference and anomaly contracts (zero runtime deps). -->
+        <dependency>
+            <groupId>io.github.codexrodrigues</groupId>
+            <artifactId>praxis-intelligence-contracts</artifactId>
+            <version>0.1.0-beta.1</version>
+        </dependency>
         <!-- Optional Servlet security integration; hosts opt in via Spring Security on classpath. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

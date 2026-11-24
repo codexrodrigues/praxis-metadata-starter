@@ -159,8 +159,8 @@ class BulkOperationStructuralCompilerTest {
                     registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver()).compileAll().getFirst();
             var first = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
-            assertEquals("sha256:f3993230845dcce3c8ad40ab2a4101eb29e406151534a2d6a48d36b999e8d8ea", first.descriptorFingerprint(),
-                    "independent baseline rc146 operational/1 command reference");
+            assertEquals("sha256:6078fb1443538929a9400bf15529a3a88859fcf282514ebb97f847de3a8928d8", first.descriptorFingerprint(),
+                    "operational/1 command reference updated for statsInference/statsAnomalies capability keys");
             var repeated = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
 
             assertEquals(first.structuralRevision(), repeated.structuralRevision());
@@ -1216,8 +1216,8 @@ class BulkOperationStructuralCompilerTest {
                     registry(actionDefinition()), mapper, new FilteredSchemaReferenceResolver());
             var firstDescriptor = firstCompiler.compileAll().getFirst();
             String firstDigest = BulkStructuralSegmentDigest.compute(firstDescriptor);
-            assertEquals("sha256:bb246583bcfd30c128f113670abe0c07c5f0ca25526ad30d318386b9edafa7b5", firstDigest,
-                    "golden produced independently from the published rc146 baseline, structure/3 unchanged");
+            assertEquals("sha256:ee7301be7f2194f386ecaa9f64daf58f84dc43fb52529ad63139cb89b910e41e", firstDigest,
+                    "structure/3 baseline updated for statsInference/statsAnomalies capability keys");
             assertEquals("praxis.bulk.structure/3", BulkStructuralSegmentDigest.canonicalContent(firstDescriptor)
                     .path("structureVersion").asText());
             assertTrue(firstDigest.matches("sha256:[0-9a-f]{64}"));

@@ -268,6 +268,32 @@ public final class CompositeIdSupport {
         return String.valueOf(value);
     }
 
+    /**
+     * Codifica os componentes escalares ja extraidos de uma chave simples ou composta no mesmo
+     * formato canonico delimitado por {@code ':'} e escapado usado por {@link #encode(Object)}.
+     */
+    public static String encodeComponents(List<?> components) {
+        if (components == null || components.isEmpty()) {
+            return null;
+        }
+        if (components.size() == 1) {
+            Object single = components.getFirst();
+            return single == null ? null : stringify(single);
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < components.size(); i++) {
+            Object value = components.get(i);
+            if (value == null) {
+                return null;
+            }
+            if (i > 0) {
+                sb.append(SEPARATOR_CHAR);
+            }
+            sb.append(escapeComponent(String.valueOf(value)));
+        }
+        return sb.toString();
+    }
+
     public static String stringifyNullable(Object value) {
         return value == null ? null : stringify(value);
     }

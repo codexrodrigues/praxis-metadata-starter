@@ -884,6 +884,104 @@ class CapabilityServiceTest {
         );
     }
 
+    @Test
+    void collectionCapabilitiesRespectInferenceAndAnomalySupportModes() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of(
+                        "statsGroupBy", true,
+                        "statsInference", true,
+                        "statsAnomalies", true
+                )),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        StatsFieldRegistry registry = StatsFieldRegistry.builder()
+                .categoricalGroupByBucket("status", "status")
+                .numericHistogramMeasureField("salario", "salario")
+                .build();
+
+        CapabilitySnapshot disabledSnapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                registry,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED
+        );
+        assertFalse(disabledSnapshot.canonicalOperations().get("statsInference"));
+        assertFalse(disabledSnapshot.canonicalOperations().get("statsAnomalies"));
+        assertFalse(disabledSnapshot.operations().get("statsInference").supported());
+        assertFalse(disabledSnapshot.operations().get("statsAnomalies").supported());
+        assertFalse(disabledSnapshot.stats().inference());
+        assertFalse(disabledSnapshot.stats().anomalies());
+
+        CapabilitySnapshot enabledSnapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                registry,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO
+        );
+        assertTrue(enabledSnapshot.canonicalOperations().get("statsInference"));
+        assertTrue(enabledSnapshot.canonicalOperations().get("statsAnomalies"));
+        assertTrue(enabledSnapshot.operations().get("statsInference").supported());
+        assertTrue(enabledSnapshot.operations().get("statsAnomalies").supported());
+        assertTrue(enabledSnapshot.stats().inference());
+        assertTrue(enabledSnapshot.stats().anomalies());
+        assertEquals(2, enabledSnapshot.stats().fields().size());
+
+        CapabilitySnapshot intelligenceOnlySnapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                registry,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.DISABLED
+        );
+        assertTrue(intelligenceOnlySnapshot.canonicalOperations().get("statsInference"));
+        assertFalse(intelligenceOnlySnapshot.canonicalOperations().get("statsAnomalies"));
+        assertTrue(intelligenceOnlySnapshot.stats().inference());
+        assertFalse(intelligenceOnlySnapshot.stats().anomalies());
+        assertEquals(2, intelligenceOnlySnapshot.stats().fields().size());
+
+        CapabilitySnapshot emptyRegistrySnapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                StatsFieldRegistry.empty(),
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO
+        );
+        assertFalse(emptyRegistrySnapshot.canonicalOperations().get("statsInference"));
+        assertFalse(emptyRegistrySnapshot.canonicalOperations().get("statsAnomalies"));
+        assertFalse(emptyRegistrySnapshot.operations().get("statsInference").supported());
+        assertFalse(emptyRegistrySnapshot.operations().get("statsAnomalies").supported());
+        assertFalse(emptyRegistrySnapshot.stats().inference());
+        assertFalse(emptyRegistrySnapshot.stats().anomalies());
+        assertTrue(emptyRegistrySnapshot.stats().fields().isEmpty());
+    }
+
     private SurfaceCatalogService emptySurfaceCatalogService() {
         return new SurfaceCatalogService(null, null, null) {
             @Override
@@ -977,6 +1075,8 @@ class CapabilityServiceTest {
             operations.put("statsTimeSeries", operation("statsTimeSeries", "COLLECTION", "POST", "stats-timeseries"));
             operations.put("statsDistribution", operation("statsDistribution", "COLLECTION", "POST", "stats-distribution"));
             operations.put("statsComparison", operation("statsComparison", "COLLECTION", "POST", "stats-comparison"));
+            operations.put("statsInference", operation("statsInference", "COLLECTION", "POST", "stats-inference"));
+            operations.put("statsAnomalies", operation("statsAnomalies", "COLLECTION", "POST", "stats-anomalies"));
             return Map.copyOf(operations);
         }
 

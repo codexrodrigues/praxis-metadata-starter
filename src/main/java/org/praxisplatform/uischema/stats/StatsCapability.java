@@ -18,6 +18,8 @@ import java.util.Set;
  * @param maxTimeSeriesWindowDays janela maxima em dias permitida para series temporais diarias ({@code DAY})
  * @param defaultMinBucketCount limiar minimo padrao de k-anonymity (LGPD) aplicado aos campos sem override proprio ({@code 0} = desabilitado por padrao)
  * @param maxInMemorySampleRows limite maximo de linhas carregadas em memoria para agregacoes que exigem ordenacao/amostragem em Java
+ * @param inference indica se o endpoint {@code /stats/inference} esta ativo e suportado para o recurso
+ * @param anomalies indica se o endpoint {@code /stats/anomalies} esta ativo e suportado para o recurso
  */
 public record StatsCapability(
         List<StatsFieldCapability> fields,
@@ -25,7 +27,9 @@ public record StatsCapability(
         int maxCells,
         int maxTimeSeriesWindowDays,
         int defaultMinBucketCount,
-        int maxInMemorySampleRows
+        int maxInMemorySampleRows,
+        boolean inference,
+        boolean anomalies
 ) {
 
     public static final int DEFAULT_MAX_DIMENSIONS = 2;
@@ -45,6 +49,26 @@ public record StatsCapability(
         maxInMemorySampleRows = maxInMemorySampleRows <= 0
                 ? DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS
                 : maxInMemorySampleRows;
+    }
+
+    public StatsCapability(
+            List<StatsFieldCapability> fields,
+            int maxDimensions,
+            int maxCells,
+            int maxTimeSeriesWindowDays,
+            int defaultMinBucketCount,
+            int maxInMemorySampleRows
+    ) {
+        this(
+                fields,
+                maxDimensions,
+                maxCells,
+                maxTimeSeriesWindowDays,
+                defaultMinBucketCount,
+                maxInMemorySampleRows,
+                false,
+                false
+        );
     }
 
     public StatsCapability(List<StatsFieldCapability> fields) {
@@ -185,29 +209,70 @@ public record StatsCapability(
             int defaultMinBucketCount,
             int maxInMemorySampleRows
     ) {
-        if (registry == null || registry.isEmpty()) {
+        return from(
+                registry,
+                groupByStatsSupportMode,
+                timeSeriesStatsSupportMode,
+                distributionStatsSupportMode,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                maxDimensions,
+                maxCells,
+                maxTimeSeriesWindowDays,
+                defaultMinBucketCount,
+                maxInMemorySampleRows
+        );
+    }
+
+    public static StatsCapability from(
+            StatsFieldRegistry registry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode,
+            StatsSupportMode inferenceStatsSupportMode,
+            StatsSupportMode anomalyStatsSupportMode,
+            int maxDimensions,
+            int maxCells,
+            int maxTimeSeriesWindowDays,
+            int defaultMinBucketCount,
+            int maxInMemorySampleRows
+    ) {
+        boolean hasFields = registry != null && !registry.isEmpty();
+        boolean inferenceEnabled = hasFields
+                && inferenceStatsSupportMode != null
+                && inferenceStatsSupportMode != StatsSupportMode.DISABLED;
+        boolean anomaliesEnabled = hasFields
+                && anomalyStatsSupportMode != null
+                && anomalyStatsSupportMode != StatsSupportMode.DISABLED;
+        if (!hasFields) {
             return new StatsCapability(
                     List.of(),
                     maxDimensions,
                     maxCells,
                     maxTimeSeriesWindowDays,
                     defaultMinBucketCount,
-                    maxInMemorySampleRows
+                    maxInMemorySampleRows,
+                    false,
+                    false
             );
         }
         boolean groupByEnabled = groupByStatsSupportMode != StatsSupportMode.DISABLED;
         boolean timeSeriesEnabled = timeSeriesStatsSupportMode != StatsSupportMode.DISABLED;
         boolean distributionEnabled = distributionStatsSupportMode != StatsSupportMode.DISABLED;
-        if (!groupByEnabled && !timeSeriesEnabled && !distributionEnabled) {
+        if (!groupByEnabled && !timeSeriesEnabled && !distributionEnabled
+                && !inferenceEnabled && !anomaliesEnabled) {
             return new StatsCapability(
                     List.of(),
                     maxDimensions,
                     maxCells,
                     maxTimeSeriesWindowDays,
                     defaultMinBucketCount,
-                    maxInMemorySampleRows
+                    maxInMemorySampleRows,
+                    false,
+                    false
             );
         }
+        boolean retainAllForIntelligence = inferenceEnabled || anomaliesEnabled;
         return new StatsCapability(
                 registry.descriptors().stream()
                         .map(descriptor -> restrictDescriptor(
@@ -216,7 +281,8 @@ public record StatsCapability(
                                 timeSeriesEnabled,
                                 distributionEnabled
                         ))
-                        .filter(descriptor -> descriptor.groupByEligible()
+                        .filter(descriptor -> retainAllForIntelligence
+                                || descriptor.groupByEligible()
                                 || descriptor.timeSeriesEligible()
                                 || descriptor.distributionTermsEligible()
                                 || descriptor.distributionHistogramEligible()
@@ -227,7 +293,9 @@ public record StatsCapability(
                 maxCells,
                 maxTimeSeriesWindowDays,
                 defaultMinBucketCount,
-                maxInMemorySampleRows
+                maxInMemorySampleRows,
+                inferenceEnabled,
+                anomaliesEnabled
         );
     }
 

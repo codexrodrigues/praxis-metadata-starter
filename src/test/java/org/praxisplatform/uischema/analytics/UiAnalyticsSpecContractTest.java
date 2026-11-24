@@ -8,9 +8,11 @@ import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -254,6 +256,118 @@ class UiAnalyticsSpecContractTest {
                 """);
 
         assertTrue(schema.validate(histogramExample).isEmpty());
+    }
+
+    @Test
+    void inferenceAndAnomalyOperationsMapAndValidateAgainstAnalyticsSchema() throws Exception {
+        JsonNode schemaRoot = objectMapper.readTree(
+                Files.readString(Path.of("docs", "spec", "x-ui-analytics.schema.json")));
+        JsonNode operationEnum = schemaRoot
+                .path("$defs").path("source")
+                .path("properties").path("operation")
+                .path("enum");
+        List<String> operations = new java.util.ArrayList<>();
+        operationEnum.forEach(node -> operations.add(node.asText()));
+        assertTrue(operations.contains("inference"));
+        assertTrue(operations.contains("anomalies"));
+
+        UiAnalyticsAnnotationMapper mapper = new UiAnalyticsAnnotationMapper();
+        @org.praxisplatform.uischema.annotation.UiAnalytics(projections = {
+                @org.praxisplatform.uischema.annotation.AnalyticsProjection(
+                        id = "inference-test",
+                        intent = org.praxisplatform.uischema.annotation.AnalyticsIntent.COMPARISON,
+                        sourceOperation = org.praxisplatform.uischema.annotation.AnalyticsOperation.INFERENCE,
+                        primaryDimension = @org.praxisplatform.uischema.annotation.AnalyticsDimensionBinding(field = "status"),
+                        primaryMetrics = {@org.praxisplatform.uischema.annotation.AnalyticsMetricBinding(field = "salario", aggregation = "median")}
+                ),
+                @org.praxisplatform.uischema.annotation.AnalyticsProjection(
+                        id = "anomalies-test",
+                        intent = org.praxisplatform.uischema.annotation.AnalyticsIntent.DISTRIBUTION,
+                        sourceOperation = org.praxisplatform.uischema.annotation.AnalyticsOperation.ANOMALIES,
+                        primaryDimension = @org.praxisplatform.uischema.annotation.AnalyticsDimensionBinding(field = "department"),
+                        primaryMetrics = {@org.praxisplatform.uischema.annotation.AnalyticsMetricBinding(field = "salario", aggregation = "sum")}
+                )
+        })
+        final class HostSample {}
+
+        org.praxisplatform.uischema.annotation.UiAnalytics annotation =
+                HostSample.class.getAnnotation(org.praxisplatform.uischema.annotation.UiAnalytics.class);
+        java.util.Map<String, Object> mappedInference =
+                mapper.toXUiAnalytics(annotation, "/intelligent-employees/stats/inference");
+        @SuppressWarnings("unchecked")
+        List<java.util.Map<String, Object>> projections =
+                (List<java.util.Map<String, Object>>) mappedInference.get("projections");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> firstSource =
+                (java.util.Map<String, Object>) projections.getFirst().get("source");
+        assertEquals("/intelligent-employees", firstSource.get("resource"));
+        assertEquals("inference", firstSource.get("operation"));
+
+        java.util.Map<String, Object> mappedAnomalies =
+                mapper.toXUiAnalytics(annotation, "/intelligent-employees/stats/anomalies");
+        @SuppressWarnings("unchecked")
+        List<java.util.Map<String, Object>> anomalyProjections =
+                (List<java.util.Map<String, Object>>) mappedAnomalies.get("projections");
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> secondSource =
+                (java.util.Map<String, Object>) anomalyProjections.get(1).get("source");
+        assertEquals("/intelligent-employees", secondSource.get("resource"));
+        assertEquals("anomalies", secondSource.get("operation"));
+
+        assertEquals("inference", org.praxisplatform.uischema.annotation.AnalyticsOperation.INFERENCE.wireValue());
+        assertEquals("anomalies", org.praxisplatform.uischema.annotation.AnalyticsOperation.ANOMALIES.wireValue());
+
+        JsonSchema schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(objectMapper.readTree(Path.of("docs", "spec", "x-ui-analytics.schema.json").toFile()));
+        JsonNode intelligenceAnalytics = objectMapper.readTree("""
+                {
+                  "projections": [
+                    {
+                      "id": "compensation-inference",
+                      "intent": "comparison",
+                      "source": {
+                        "kind": "praxis.stats",
+                        "resource": "/intelligent-employees",
+                        "operation": "inference"
+                      },
+                      "bindings": {
+                        "primaryDimension": {
+                          "field": "status",
+                          "role": "category"
+                        },
+                        "primaryMetrics": [
+                          {
+                            "field": "salario",
+                            "aggregation": "median"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "compensation-anomalies",
+                      "intent": "distribution",
+                      "source": {
+                        "kind": "praxis.stats",
+                        "resource": "/intelligent-employees",
+                        "operation": "anomalies"
+                      },
+                      "bindings": {
+                        "primaryDimension": {
+                          "field": "department",
+                          "role": "category"
+                        },
+                        "primaryMetrics": [
+                          {
+                            "field": "salario",
+                            "aggregation": "sum"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """);
+        assertTrue(schema.validate(intelligenceAnalytics).isEmpty());
     }
 
     private Set<String> requiredFields(JsonNode definition) {

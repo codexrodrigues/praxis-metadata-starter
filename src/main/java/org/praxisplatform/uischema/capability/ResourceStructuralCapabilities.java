@@ -23,6 +23,8 @@ public record ResourceStructuralCapabilities(
         boolean statsTimeSeries,
         boolean statsDistribution,
         boolean statsComparison,
+        boolean statsInference,
+        boolean statsAnomalies,
         boolean export,
         boolean duplicateDraft,
         boolean cursorPagination,
@@ -46,6 +48,7 @@ public record ResourceStructuralCapabilities(
             boolean statsComparison,
             boolean export,
             boolean duplicateDraft,
+            boolean cursorPagination,
             StatsCapability stats,
             CollectionExportCapability exportCapability
     ) {
@@ -56,6 +59,37 @@ public record ResourceStructuralCapabilities(
                 statsTimeSeries,
                 statsDistribution,
                 statsComparison,
+                false,
+                false,
+                export,
+                duplicateDraft,
+                cursorPagination,
+                stats,
+                exportCapability
+        );
+    }
+
+    public ResourceStructuralCapabilities(
+            boolean options,
+            boolean optionSources,
+            boolean statsGroupBy,
+            boolean statsTimeSeries,
+            boolean statsDistribution,
+            boolean statsComparison,
+            boolean export,
+            boolean duplicateDraft,
+            StatsCapability stats,
+            CollectionExportCapability exportCapability
+    ) {
+        this(
+                options,
+                optionSources,
+                statsGroupBy,
+                statsTimeSeries,
+                statsDistribution,
+                statsComparison,
+                false,
+                false,
                 export,
                 duplicateDraft,
                 false,
@@ -66,7 +100,7 @@ public record ResourceStructuralCapabilities(
 
     public static ResourceStructuralCapabilities unsupported() {
         return new ResourceStructuralCapabilities(
-                false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false,
                 StatsCapability.empty(), null
         );
     }

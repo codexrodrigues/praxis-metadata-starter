@@ -103,9 +103,40 @@ class ResourceStructuralCapabilitiesTest {
         assertTrue(capabilities.statsTimeSeries());
         assertTrue(capabilities.statsDistribution());
         assertTrue(capabilities.statsComparison());
+        assertFalse(capabilities.statsInference());
+        assertFalse(capabilities.statsAnomalies());
+        assertFalse(capabilities.stats().fields().isEmpty());
+        assertFalse(capabilities.stats().inference());
+        assertFalse(capabilities.stats().anomalies());
         assertFalse(capabilities.stats().fields().isEmpty());
         assertTrue(capabilities.export());
         assertEquals(EXPORT, capabilities.exportCapability());
+    }
+
+    @Test
+    void jpaIntelligenceOptInRequiresExecutorAndNonEmptyRegistry() {
+        JpaService optedIn = new JpaService() {
+            @Override public StatsSupportMode getInferenceStatsSupportMode() { return StatsSupportMode.AUTO; }
+            @Override public StatsSupportMode getAnomalyStatsSupportMode() { return StatsSupportMode.AUTO; }
+            @Override public StatsFieldRegistry getStatsFieldRegistry() {
+                return StatsFieldRegistry.of(List.of(StatsFieldDescriptor.numericHistogramMeasureField("amount", "amount")));
+            }
+        };
+        ReflectionTestUtils.setField(optedIn, "statsProperties", new StatsProperties(true, 20, 100, StatsSupportMode.AUTO));
+        ReflectionTestUtils.setField(optedIn, "statsEligibility", new StatsEligibility());
+
+        ResourceStructuralCapabilities withoutExecutor = optedIn.getStructuralCapabilities();
+        assertFalse(withoutExecutor.statsInference());
+        assertFalse(withoutExecutor.statsAnomalies());
+        assertFalse(withoutExecutor.stats().inference());
+        assertFalse(withoutExecutor.stats().anomalies());
+
+        optedIn.setResourceIntelligenceExecutor(mock(org.praxisplatform.intelligence.contracts.spi.ResourceIntelligenceExecutor.class));
+        ResourceStructuralCapabilities withExecutor = optedIn.getStructuralCapabilities();
+        assertTrue(withExecutor.statsInference());
+        assertTrue(withExecutor.statsAnomalies());
+        assertTrue(withExecutor.stats().inference());
+        assertTrue(withExecutor.stats().anomalies());
     }
 
     interface DirectPortService extends BaseResourceQueryService<Response, Long, Filter>,

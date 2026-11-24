@@ -166,6 +166,20 @@ public class ResourceDecisionPointCatalogService {
                         DecisionPointKind.AI_TOOL_EXECUTION,
                         "ai-tool",
                         "Invocação de ferramentas de IA e agentes sobre " + resourceKey));
+        points.add(
+                structuralPoint(
+                        resourceKey,
+                        resourcePath,
+                        DecisionPointKind.STATISTICAL_INFERENCE,
+                        "stats-inference",
+                        "Inferência estatística sobre a coleção de " + resourceKey));
+        points.add(
+                structuralPoint(
+                        resourceKey,
+                        resourcePath,
+                        DecisionPointKind.ANOMALY_SCAN,
+                        "stats-anomalies",
+                        "Varredura estatística de anomalias sobre a coleção de " + resourceKey));
 
         // 2. Workflow actions (@WorkflowAction) across class hierarchy
         for (WorkflowAction action : collectWorkflowActions(controllerClass)) {

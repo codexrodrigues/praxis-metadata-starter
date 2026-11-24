@@ -89,10 +89,10 @@ class BulkAsyncPublicAdmissionTest {
                         public BulkOperationalProfile profile() { return BulkAsyncPublicAdmissionTest.profile(10000); }
                     })).isInstanceOf(IllegalArgumentException.class);
             var sync = BulkOperationalDescriptorComposer.compose(structure,original);
-            // Golden computed with composer + descriptor extracted from public rc164 (5879a9e),
+            // Golden updated from rc164 after statsInference/statsAnomalies were added to canonical capabilities.
             // compiled outside this candidate against this same structural fixture; no database.
             assertThat(sync.descriptorFingerprint()).isEqualTo(
-                    "sha256:065a19d9afc064882fada2719f495affb2c0ea7d70f65f3504bf6c2e2dde187e");
+                    "sha256:e6211c447f4585ba8f02764e81651eda0e282336143153577df6f512cfd0cbc5");
             assertThat(sync.asynchronousCapacityBinding()).isEmpty();
             assertThat(BulkExecutionContract.from(sync).executionModes()).containsExactly(BulkExecutionMode.SYNC);
         }

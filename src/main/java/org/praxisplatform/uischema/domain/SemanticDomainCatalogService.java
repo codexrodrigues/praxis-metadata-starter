@@ -3758,6 +3758,8 @@ public class SemanticDomainCatalogService {
             case "timeSeries" -> "statsTimeSeries";
             case "distribution" -> "statsDistribution";
             case "comparison" -> "statsComparison";
+            case "inference" -> "statsInference";
+            case "anomalies" -> "statsAnomalies";
             default -> null;
         };
         return operationKey != null && Boolean.TRUE.equals(canonicalCapabilities.get(operationKey));
@@ -3773,7 +3775,7 @@ public class SemanticDomainCatalogService {
             return null;
         }
         String suffix = normalizedPath.substring((normalizedResourcePath + "/stats/").length());
-        if (!List.of("group-by", "timeseries", "distribution", "comparison").contains(suffix)) {
+        if (!List.of("group-by", "timeseries", "distribution", "comparison", "inference", "anomalies").contains(suffix)) {
             return null;
         }
         return switch (suffix) {

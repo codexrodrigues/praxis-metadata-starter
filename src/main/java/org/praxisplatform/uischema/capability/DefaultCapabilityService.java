@@ -198,33 +198,50 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
     ) {
+        return collectionCapabilities(resourceKey, resourcePath, collectionExportSupported, collectionExportCapability,
+                statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
+                comparisonStatsSupportMode, StatsSupportMode.DISABLED, StatsSupportMode.DISABLED);
+    }
+
+    @Override
+    public CapabilitySnapshot collectionCapabilities(
+            String resourceKey, String resourcePath, boolean collectionExportSupported,
+            CollectionExportCapability collectionExportCapability, StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode,
+            StatsSupportMode inferenceStatsSupportMode, StatsSupportMode anomalyStatsSupportMode
+    ) {
         var lifecycle = bulkLifecycle.get();
         if (lifecycle == null) return buildCollectionCapabilities(resourceKey, resourcePath, collectionExportSupported,
                 collectionExportCapability, statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode,
-                distributionStatsSupportMode, comparisonStatsSupportMode, Map.of());
+                distributionStatsSupportMode, comparisonStatsSupportMode, inferenceStatsSupportMode,
+                anomalyStatsSupportMode, Map.of());
         return lifecycle.projectReadyCapabilities(resourceKey, contracts -> buildCollectionCapabilities(
                 resourceKey, resourcePath, collectionExportSupported, collectionExportCapability, statsFieldRegistry,
                 groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
-                comparisonStatsSupportMode, contracts));
+                comparisonStatsSupportMode, inferenceStatsSupportMode, anomalyStatsSupportMode, contracts));
     }
 
     private CapabilitySnapshot buildCollectionCapabilities(String resourceKey, String resourcePath,
             boolean collectionExportSupported, CollectionExportCapability collectionExportCapability,
             StatsFieldRegistry statsFieldRegistry, StatsSupportMode groupByStatsSupportMode,
             StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
-            StatsSupportMode comparisonStatsSupportMode,
+            StatsSupportMode comparisonStatsSupportMode, StatsSupportMode inferenceStatsSupportMode,
+            StatsSupportMode anomalyStatsSupportMode,
             Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts) {
         return withCanonicalProjection(resourcePath, projection -> materializeCollectionCapabilities(
                 resourceKey, resourcePath, collectionExportSupported, collectionExportCapability,
                 statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode,
-                distributionStatsSupportMode, comparisonStatsSupportMode, bulkContracts, projection));
+                distributionStatsSupportMode, comparisonStatsSupportMode, inferenceStatsSupportMode,
+                anomalyStatsSupportMode, bulkContracts, projection));
     }
 
     private CapabilitySnapshot materializeCollectionCapabilities(String resourceKey, String resourcePath,
             boolean collectionExportSupported, CollectionExportCapability collectionExportCapability,
             StatsFieldRegistry statsFieldRegistry, StatsSupportMode groupByStatsSupportMode,
             StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
-            StatsSupportMode comparisonStatsSupportMode,
+            StatsSupportMode comparisonStatsSupportMode, StatsSupportMode inferenceStatsSupportMode,
+            StatsSupportMode anomalyStatsSupportMode,
             Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts, CanonicalProjection projection) {
         ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
         if (structural != null) {
@@ -240,7 +257,9 @@ public class DefaultCapabilityService implements CapabilityService {
                     groupByStatsSupportMode,
                     timeSeriesStatsSupportMode,
                     distributionStatsSupportMode,
-                    comparisonStatsSupportMode
+                    comparisonStatsSupportMode,
+                    inferenceStatsSupportMode,
+                    anomalyStatsSupportMode
             );
         }
         List<SurfaceCatalogItem> collectionSurfaces = collectionSurfaces(resourceKey);
@@ -267,7 +286,14 @@ public class DefaultCapabilityService implements CapabilityService {
                         statsFieldRegistry,
                         groupByStatsSupportMode,
                         timeSeriesStatsSupportMode,
-                        distributionStatsSupportMode
+                        distributionStatsSupportMode,
+                        inferenceStatsSupportMode,
+                        anomalyStatsSupportMode,
+                        StatsCapability.DEFAULT_MAX_DIMENSIONS,
+                        StatsCapability.DEFAULT_MAX_CELLS,
+                        StatsCapability.DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS,
+                        StatsCapability.DEFAULT_MIN_BUCKET_COUNT,
+                        StatsCapability.DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS
                 )
         );
         return snapshot.withOperations(applyCollectionAvailability(
@@ -317,29 +343,45 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode
     ) {
+        return itemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry,
+                groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
+                comparisonStatsSupportMode, StatsSupportMode.DISABLED, StatsSupportMode.DISABLED);
+    }
+
+    @Override
+    public CapabilitySnapshot itemCapabilities(
+            String resourceKey, String resourcePath, Object resourceId, StatsFieldRegistry statsFieldRegistry,
+            StatsSupportMode groupByStatsSupportMode, StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode, StatsSupportMode comparisonStatsSupportMode,
+            StatsSupportMode inferenceStatsSupportMode, StatsSupportMode anomalyStatsSupportMode
+    ) {
         var lifecycle = bulkLifecycle.get();
         if (lifecycle == null) return buildItemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry,
                 groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
-                comparisonStatsSupportMode, Map.of());
+                comparisonStatsSupportMode, inferenceStatsSupportMode, anomalyStatsSupportMode, Map.of());
         return lifecycle.projectReadyCapabilities(resourceKey, contracts -> buildItemCapabilities(resourceKey,
                 resourcePath, resourceId, statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode,
-                distributionStatsSupportMode, comparisonStatsSupportMode, contracts));
+                distributionStatsSupportMode, comparisonStatsSupportMode, inferenceStatsSupportMode,
+                anomalyStatsSupportMode, contracts));
     }
 
     private CapabilitySnapshot buildItemCapabilities(String resourceKey, String resourcePath, Object resourceId,
             StatsFieldRegistry statsFieldRegistry, StatsSupportMode groupByStatsSupportMode,
             StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
-            StatsSupportMode comparisonStatsSupportMode,
+            StatsSupportMode comparisonStatsSupportMode, StatsSupportMode inferenceStatsSupportMode,
+            StatsSupportMode anomalyStatsSupportMode,
             Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts) {
         return withCanonicalProjection(resourcePath, projection -> materializeItemCapabilities(
                 resourceKey, resourcePath, resourceId, statsFieldRegistry, groupByStatsSupportMode,
-                timeSeriesStatsSupportMode, distributionStatsSupportMode, comparisonStatsSupportMode, bulkContracts, projection));
+                timeSeriesStatsSupportMode, distributionStatsSupportMode, comparisonStatsSupportMode,
+                inferenceStatsSupportMode, anomalyStatsSupportMode, bulkContracts, projection));
     }
 
     private CapabilitySnapshot materializeItemCapabilities(String resourceKey, String resourcePath, Object resourceId,
             StatsFieldRegistry statsFieldRegistry, StatsSupportMode groupByStatsSupportMode,
             StatsSupportMode timeSeriesStatsSupportMode, StatsSupportMode distributionStatsSupportMode,
-            StatsSupportMode comparisonStatsSupportMode,
+            StatsSupportMode comparisonStatsSupportMode, StatsSupportMode inferenceStatsSupportMode,
+            StatsSupportMode anomalyStatsSupportMode,
             Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> bulkContracts, CanonicalProjection projection) {
         try (var ignored = ResourceStateSnapshotScope.open()) {
             ResourceStructuralCapabilities structural = structuralCapabilities(resourcePath);
@@ -351,7 +393,9 @@ public class DefaultCapabilityService implements CapabilityService {
                         groupByStatsSupportMode,
                         timeSeriesStatsSupportMode,
                         distributionStatsSupportMode,
-                        comparisonStatsSupportMode
+                        comparisonStatsSupportMode,
+                        inferenceStatsSupportMode,
+                        anomalyStatsSupportMode
                 );
             }
             List<SurfaceCatalogItem> itemSurfaces = itemSurfaces(resourceKey, resourceId);
@@ -379,7 +423,14 @@ public class DefaultCapabilityService implements CapabilityService {
                             statsFieldRegistry,
                             groupByStatsSupportMode,
                             timeSeriesStatsSupportMode,
-                            distributionStatsSupportMode
+                            distributionStatsSupportMode,
+                            inferenceStatsSupportMode,
+                            anomalyStatsSupportMode,
+                            StatsCapability.DEFAULT_MAX_DIMENSIONS,
+                            StatsCapability.DEFAULT_MAX_CELLS,
+                            StatsCapability.DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS,
+                            StatsCapability.DEFAULT_MIN_BUCKET_COUNT,
+                            StatsCapability.DEFAULT_MAX_IN_MEMORY_SAMPLE_ROWS
                     )
             );
             return snapshot.withOperations(applyItemAvailability(withBulkOperations(snapshot.operations(), bulkContracts),
@@ -405,7 +456,9 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode groupByStatsSupportMode,
             StatsSupportMode timeSeriesStatsSupportMode,
             StatsSupportMode distributionStatsSupportMode,
-            StatsSupportMode comparisonStatsSupportMode
+            StatsSupportMode comparisonStatsSupportMode,
+            StatsSupportMode inferenceStatsSupportMode,
+            StatsSupportMode anomalyStatsSupportMode
     ) {
         StatsFieldRegistry registry = statsFieldRegistry == null ? StatsFieldRegistry.empty() : statsFieldRegistry;
         boolean supportsGroupBy = groupByStatsSupportMode != StatsSupportMode.DISABLED
@@ -415,10 +468,18 @@ public class DefaultCapabilityService implements CapabilityService {
         boolean supportsDistribution = distributionStatsSupportMode != StatsSupportMode.DISABLED
                 && registry.descriptors().stream().anyMatch(StatsFieldDescriptorPredicates::distribution);
         boolean supportsComparison = comparisonStatsSupportMode != StatsSupportMode.DISABLED && supportsGroupBy && supportsTimeSeries;
+        boolean supportsInference = !registry.isEmpty()
+                && inferenceStatsSupportMode != null
+                && inferenceStatsSupportMode != StatsSupportMode.DISABLED;
+        boolean supportsAnomalies = !registry.isEmpty()
+                && anomalyStatsSupportMode != null
+                && anomalyStatsSupportMode != StatsSupportMode.DISABLED;
         canonicalOperations.computeIfPresent("statsGroupBy", (key, present) -> present && supportsGroupBy);
         canonicalOperations.computeIfPresent("statsTimeSeries", (key, present) -> present && supportsTimeSeries);
         canonicalOperations.computeIfPresent("statsDistribution", (key, present) -> present && supportsDistribution);
         canonicalOperations.computeIfPresent("statsComparison", (key, present) -> present && supportsComparison);
+        canonicalOperations.computeIfPresent("statsInference", (key, present) -> present && supportsInference);
+        canonicalOperations.computeIfPresent("statsAnomalies", (key, present) -> present && supportsAnomalies);
     }
 
     // Only structural resolvers run inside the photograph. Host rules and state loading run

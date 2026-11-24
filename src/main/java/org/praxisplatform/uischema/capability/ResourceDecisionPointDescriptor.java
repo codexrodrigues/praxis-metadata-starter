@@ -71,7 +71,9 @@ public record ResourceDecisionPointDescriptor(
         FIELD_PROJECTION,
         FIELD_WRITE,
         COLLECTION_EXPORT,
-        AI_TOOL_EXECUTION
+        AI_TOOL_EXECUTION,
+        STATISTICAL_INFERENCE,
+        ANOMALY_SCAN
     }
 
     public ResourceDecisionPointDescriptor {

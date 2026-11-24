@@ -47,7 +47,7 @@
         "resource": { "type": "string", "minLength": 1 },
         "operation": {
           "type": "string",
-          "enum": ["group-by", "timeseries", "distribution", "comparison"]
+          "enum": ["group-by", "timeseries", "distribution", "comparison", "inference", "anomalies"]
         }
       }
     },

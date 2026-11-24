@@ -102,6 +102,10 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 && hasOperation(pathsNode, basePath + "/stats/distribution", "post"));
         capabilities.put("statsComparison", structural.statsComparison()
                 && hasOperation(pathsNode, basePath + "/stats/comparison", "post"));
+        capabilities.put("statsInference", structural.statsInference()
+                && hasOperation(pathsNode, basePath + "/stats/inference", "post"));
+        capabilities.put("statsAnomalies", structural.statsAnomalies()
+                && hasOperation(pathsNode, basePath + "/stats/anomalies", "post"));
         return Map.copyOf(capabilities);
     }
 
@@ -256,6 +260,20 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 basePath + "/stats/comparison",
                 "stats-comparison",
                 structural.statsComparison()
+        ));
+        operations.put("statsInference", collectionPostOperation(
+                "statsInference",
+                pathsNode,
+                basePath + "/stats/inference",
+                "stats-inference",
+                structural.statsInference()
+        ));
+        operations.put("statsAnomalies", collectionPostOperation(
+                "statsAnomalies",
+                pathsNode,
+                basePath + "/stats/anomalies",
+                "stats-anomalies",
+                structural.statsAnomalies()
         ));
         return Map.copyOf(operations);
     }

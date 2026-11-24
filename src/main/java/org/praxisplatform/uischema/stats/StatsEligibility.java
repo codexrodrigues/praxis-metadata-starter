@@ -1,9 +1,14 @@
 package org.praxisplatform.uischema.stats;
 
+import org.praxisplatform.intelligence.contracts.anomaly.AnomalyColumnMapping;
+import org.praxisplatform.intelligence.contracts.anomaly.AnomalyMethod;
+import org.praxisplatform.intelligence.contracts.inference.InferenceTestKind;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.stats.dto.AnomalyScanStatsRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
+import org.praxisplatform.uischema.stats.dto.InferenceStatsRequest;
 import org.praxisplatform.uischema.stats.dto.StatsDimensionRequest;
 import org.praxisplatform.uischema.stats.dto.StatsMetricRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
@@ -16,8 +21,12 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -498,5 +507,258 @@ public class StatsEligibility {
                 from.withDayOfMonth(1),
                 to.withDayOfMonth(1)
         ) + 1;
+    }
+
+    /**
+     * Campos e limiar efetivo de k-anonimato resolvidos e autorizados para inferencia estatistica.
+     */
+    public record ResolvedInferenceFields(
+            Map<String, StatsFieldDescriptor> projectedFields,
+            int effectiveMinBucketCount
+    ) {
+        public ResolvedInferenceFields {
+            Objects.requireNonNull(projectedFields, "projectedFields");
+            projectedFields = Collections.unmodifiableMap(new LinkedHashMap<>(projectedFields));
+            effectiveMinBucketCount = Math.max(1, effectiveMinBucketCount);
+        }
+    }
+
+    /**
+     * Coluna pseudonimizavel de identidade, campos analiticos permitidos e piso efetivo de
+     * k-anonimato resolvidos para varredura de anomalias.
+     */
+    public record ResolvedAnomalyColumns(
+            String entityKeyColumn,
+            Map<String, StatsFieldDescriptor> projectedFields,
+            int effectiveMinBucketCount
+    ) {
+        public ResolvedAnomalyColumns {
+            Objects.requireNonNull(entityKeyColumn, "entityKeyColumn");
+            Objects.requireNonNull(projectedFields, "projectedFields");
+            projectedFields = Collections.unmodifiableMap(new LinkedHashMap<>(projectedFields));
+            effectiveMinBucketCount = Math.max(1, effectiveMinBucketCount);
+        }
+    }
+
+    /**
+     * Valida os campos declarados em {@link InferenceStatsRequest} contra o {@link StatsFieldRegistry}
+     * efetivo do recurso (ja filtrado por governanca) e calcula o piso minimo de k-anonimato.
+     */
+    public <FD extends GenericFilterDTO> ResolvedInferenceFields validateInference(
+            InferenceStatsRequest<FD> request,
+            StatsFieldRegistry registry,
+            int defaultMinBucketCount
+    ) {
+        if (request == null) {
+            throw new IllegalArgumentException("Stats request is required.");
+        }
+        if (request.filter() == null) {
+            throw new IllegalArgumentException("Stats filter is required.");
+        }
+        if (request.tests() == null || request.tests().isEmpty()) {
+            throw new IllegalArgumentException("Inference tests are required.");
+        }
+        if (request.minBucketCount() != null && request.minBucketCount() < 1) {
+            throw new IllegalArgumentException("Stats minBucketCount must be at least 1.");
+        }
+
+        boolean hasExpected = isNonBlank(request.expectedField());
+        boolean hasObserved = isNonBlank(request.observedField());
+        boolean hasResidual = isNonBlank(request.residualField());
+        if (!hasExpected && !hasObserved && !hasResidual) {
+            throw new IllegalArgumentException(
+                    "Inference request requires at least one of expectedField, observedField, or residualField."
+            );
+        }
+
+        Set<InferenceTestKind> seenTests = new LinkedHashSet<>();
+        for (InferenceTestKind test : request.tests()) {
+            if (test == null) {
+                throw new IllegalArgumentException("Inference tests must not contain null.");
+            }
+            if (!seenTests.add(test)) {
+                throw new IllegalArgumentException("Duplicate inference test is not allowed: " + test);
+            }
+            switch (test) {
+                case MANN_WHITNEY_U, KOLMOGOROV_SMIRNOV_2SAMP, WELCH_T -> {
+                    if (!(hasExpected && hasObserved)) {
+                        throw new IllegalArgumentException(
+                                "Inference test " + test + " requires both expectedField and observedField."
+                        );
+                    }
+                }
+                case WILCOXON_SIGNED_RANK, ONE_WAY_ANOVA, CHI_SQUARE_INDEPENDENCE -> {
+                    if (!(hasResidual || (hasExpected && hasObserved))) {
+                        throw new IllegalArgumentException(
+                                "Inference test " + test
+                                        + " requires residualField or both expectedField and observedField."
+                        );
+                    }
+                }
+                case BENFORD_NIGRINI_MAD -> {
+                    if (!hasObserved) {
+                        throw new IllegalArgumentException(
+                                "Inference test BENFORD_NIGRINI_MAD requires observedField."
+                        );
+                    }
+                    if (!Boolean.TRUE.equals(request.variableOrRetroactiveEligible())) {
+                        throw new IllegalArgumentException(
+                                "Inference test BENFORD_NIGRINI_MAD requires variableOrRetroactiveEligible=true."
+                        );
+                    }
+                }
+            }
+        }
+
+        StatsFieldRegistry effectiveRegistry = registry == null ? StatsFieldRegistry.empty() : registry;
+        Map<String, StatsFieldDescriptor> projected = new LinkedHashMap<>();
+        int effectiveMinBucket = resolveFloor(defaultMinBucketCount, request.minBucketCount());
+
+        for (String candidate : List.of(
+                nullSafe(request.groupByField()),
+                nullSafe(request.expectedField()),
+                nullSafe(request.observedField()),
+                nullSafe(request.residualField())
+        )) {
+            if (!isNonBlank(candidate)) {
+                continue;
+            }
+            String fieldName = candidate.trim();
+            StatsFieldDescriptor descriptor = effectiveRegistry.resolve(fieldName)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Stats field is not allowed for inference: " + fieldName));
+            projected.putIfAbsent(fieldName, descriptor);
+            if (descriptor.minBucketCount() != null) {
+                effectiveMinBucket = Math.max(effectiveMinBucket, Math.max(1, descriptor.minBucketCount()));
+            }
+        }
+
+        return new ResolvedInferenceFields(projected, effectiveMinBucket);
+    }
+
+    /**
+     * Valida o mapeamento de colunas de {@link AnomalyScanStatsRequest} contra o
+     * {@link StatsFieldRegistry} efetivo, impede reutilizacao da coluna pseudonimizada como campo
+     * analitico bruto e resolve o piso de k-anonimato aplicavel.
+     */
+    public <FD extends GenericFilterDTO> ResolvedAnomalyColumns validateAnomalyScan(
+            AnomalyScanStatsRequest<FD> request,
+            StatsFieldRegistry registry,
+            int defaultMinBucketCount
+    ) {
+        if (request == null) {
+            throw new IllegalArgumentException("Stats request is required.");
+        }
+        if (request.filter() == null) {
+            throw new IllegalArgumentException("Stats filter is required.");
+        }
+        if (request.methods() == null || request.methods().isEmpty()) {
+            throw new IllegalArgumentException("Anomaly scan methods are required.");
+        }
+        if (request.minBucketCount() != null && request.minBucketCount() < 1) {
+            throw new IllegalArgumentException("Stats minBucketCount must be at least 1.");
+        }
+
+        AnomalyColumnMapping mapping = request.columnMapping() != null
+                ? request.columnMapping()
+                : AnomalyColumnMapping.canonical();
+        AnomalyColumnMapping canonical = AnomalyColumnMapping.canonical();
+        String entityKeyColumn = mapping.entityKeyColumn().trim();
+        boolean customMappingProvided = request.columnMapping() != null;
+
+        Set<String> required = new LinkedHashSet<>();
+        for (AnomalyMethod method : request.methods()) {
+            if (method == null) {
+                throw new IllegalArgumentException("Anomaly scan methods must not contain null.");
+            }
+            switch (method) {
+                case PAIRED_RESIDUAL_SHIFT -> {
+                    required.add(mapping.groupColumn().trim());
+                    required.add(mapping.cohortColumn().trim());
+                    required.add(mapping.expectedColumn().trim());
+                    required.add(mapping.observedColumn().trim());
+                    required.add(mapping.residualColumn().trim());
+                }
+                case ROBUST_MAD_ZSCORE, GRUBBS_ESD -> {
+                    required.add(mapping.cohortColumn().trim());
+                    required.add(mapping.expectedColumn().trim());
+                    required.add(mapping.observedColumn().trim());
+                    required.add(mapping.residualColumn().trim());
+                }
+                case NIGRINI_BENFORD -> {
+                    if (!Boolean.TRUE.equals(request.enableBenford())) {
+                        throw new IllegalArgumentException(
+                                "Anomaly method NIGRINI_BENFORD requires enableBenford=true."
+                        );
+                    }
+                    required.add(mapping.observedColumn().trim());
+                    required.add(mapping.variableFlagColumn().trim());
+                }
+                case EMPIRICAL_BAYES_SHRINKAGE -> {
+                    required.add(mapping.unitColumn().trim());
+                    required.add(mapping.residualColumn().trim());
+                }
+            }
+        }
+
+        StatsFieldRegistry effectiveRegistry = registry == null ? StatsFieldRegistry.empty() : registry;
+        Map<String, StatsFieldDescriptor> projected = new LinkedHashMap<>();
+        int effectiveMinBucket = resolveFloor(defaultMinBucketCount, request.minBucketCount());
+
+        record ColumnSlot(String configured, String canonicalDefault) { }
+        List<ColumnSlot> slots = List.of(
+                new ColumnSlot(mapping.cohortColumn(), canonical.cohortColumn()),
+                new ColumnSlot(mapping.groupColumn(), canonical.groupColumn()),
+                new ColumnSlot(mapping.metricColumn(), canonical.metricColumn()),
+                new ColumnSlot(mapping.expectedColumn(), canonical.expectedColumn()),
+                new ColumnSlot(mapping.observedColumn(), canonical.observedColumn()),
+                new ColumnSlot(mapping.residualColumn(), canonical.residualColumn()),
+                new ColumnSlot(mapping.variableFlagColumn(), canonical.variableFlagColumn()),
+                new ColumnSlot(mapping.unitColumn(), canonical.unitColumn())
+        );
+
+        for (ColumnSlot slot : slots) {
+            String colName = slot.configured().trim();
+            if (colName.equals(entityKeyColumn)) {
+                throw new IllegalArgumentException(
+                        "Anomaly column mapping must not reuse entityKeyColumn for analytical field: " + colName
+                );
+            }
+            var descriptorOpt = effectiveRegistry.resolve(colName);
+            if (descriptorOpt.isPresent()) {
+                StatsFieldDescriptor descriptor = descriptorOpt.get();
+                projected.putIfAbsent(colName, descriptor);
+                if (descriptor.minBucketCount() != null) {
+                    effectiveMinBucket = Math.max(effectiveMinBucket, Math.max(1, descriptor.minBucketCount()));
+                }
+            } else if (required.contains(colName)
+                    || (customMappingProvided && !colName.equals(slot.canonicalDefault()))) {
+                throw new IllegalArgumentException(
+                        "Stats field is not allowed for anomaly scan: " + colName
+                );
+            }
+        }
+
+        if (projected.isEmpty()) {
+            throw new IllegalArgumentException("Anomaly scan requires at least one eligible analytical field.");
+        }
+
+        return new ResolvedAnomalyColumns(entityKeyColumn, projected, effectiveMinBucket);
+    }
+
+    private static int resolveFloor(int defaultMinBucketCount, Integer requestedMinBucketCount) {
+        int floor = Math.max(1, defaultMinBucketCount);
+        if (requestedMinBucketCount != null) {
+            floor = Math.max(floor, requestedMinBucketCount);
+        }
+        return floor;
+    }
+
+    private static boolean isNonBlank(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static String nullSafe(String value) {
+        return value == null ? "" : value;
     }
 }

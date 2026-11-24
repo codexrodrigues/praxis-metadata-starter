@@ -1637,7 +1637,7 @@
     const surfaces = resource.surfaces || [];
     const actions = knownActionsForResource(resource);
     const hasCapabilitySnapshot = Boolean(resource.capability);
-    const hasStatsOperation = Boolean(ops.statsGroupBy || ops.statsTimeSeries || ops.statsDistribution);
+    const hasStatsOperation = Boolean(ops.statsGroupBy || ops.statsTimeSeries || ops.statsDistribution || ops.statsComparison || ops.statsInference || ops.statsAnomalies);
     const evidence = {
       table: capabilitySource(Boolean(ops.all), Boolean(surfaces.some((surface) => isViewSurface(surface))), Boolean(fieldSource.length || summary.read)),
       form: capabilitySource(Boolean(ops.create || ops.update), Boolean(surfaces.some((surface) => isFormSurface(surface)) || ui.editableFields), Boolean(hasFormEndpoint(resource))),
@@ -2252,7 +2252,7 @@
     if (ops.all || ops.byId || resource.operationSummary.read) parts.push('leitura');
     if (ops.create || ops.update || ops.delete || resource.operationSummary.write) parts.push('escrita governada');
     if (ops.filter || ops.cursor) parts.push('filtros');
-    if (ops.statsGroupBy || ops.statsTimeSeries || ops.statsDistribution) parts.push('estatísticas');
+    if (ops.statsGroupBy || ops.statsTimeSeries || ops.statsDistribution || ops.statsComparison || ops.statsInference || ops.statsAnomalies) parts.push('estatísticas');
     if (ops.options || ops.optionSources) parts.push('fontes de opção');
     return parts.length ? `O host materializa ${joinHuman(parts)} para este recurso.` : 'Não há operações canônicas suficientes para explicar a integração deste recurso.';
   }
@@ -4986,6 +4986,9 @@
     if (ops.statsGroupBy || resource.operationSummary?.stats) modes.push('grupo');
     if (ops.statsTimeSeries) modes.push('série');
     if (ops.statsDistribution) modes.push('distribuição');
+    if (ops.statsComparison) modes.push('comparação');
+    if (ops.statsInference) modes.push('inferência');
+    if (ops.statsAnomalies) modes.push('anomalias');
     return modes.length ? joinHuman(modes) : 'sem stats';
   }
 
