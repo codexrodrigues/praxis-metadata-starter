@@ -10,6 +10,7 @@ import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.determination.ReactiveDeterminationMetadataCompiler;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentReaders;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.options.OptionSourceDescriptor;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
@@ -396,8 +397,8 @@ public class ApiDocsController {
         String groupName = operationRef.group();
         LOGGER.info("Path '{}' -> grupo resolvido: '{}'", decodedPath, groupName);
 
-        // 2. Obter documento especifico do cache
-        JsonNode rootNode = openApiDocumentService.getDocumentForGroup(groupName);
+        // 2. Obter documento especifico do cache (leitura somente leitura; nunca mutar rootNode)
+        JsonNode rootNode = OpenApiDocumentReaders.readOnlyGroupDocument(openApiDocumentService, groupName, false);
 
         if (rootNode == null) {
             throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + groupName);
@@ -420,7 +421,7 @@ public class ApiDocsController {
             CanonicalOperationRef alternateOperationRef = canonicalOperationResolver.resolve(alternatePath, operation);
             String alternateGroup = alternateOperationRef.group();
             JsonNode alternateRootNode = (alternateGroup != null && !alternateGroup.equals(groupName))
-                    ? openApiDocumentService.getDocumentForGroup(alternateGroup)
+                    ? OpenApiDocumentReaders.readOnlyGroupDocument(openApiDocumentService, alternateGroup, false)
                     : rootNode;
 
             if (alternateRootNode != null) {
@@ -467,7 +468,11 @@ public class ApiDocsController {
         // Se includeInternalSchemas for verdadeiro, substitui schemas internos em uma copia
         // profunda para nao contaminar o documento OpenAPI compartilhado em cache.
         if (includeInternalSchemas && schemaNodeForResponse.isObject()) {
-            replaceInternalSchemas((ObjectNode) schemaNodeForResponse, allSchemas);
+            Set<String> activeRefs = new LinkedHashSet<>();
+            if (StringUtils.hasText(schemaName) && !schemaNodeForResponse.has(REF)) {
+                activeRefs.add(schemaName);
+            }
+            replaceInternalSchemas((ObjectNode) schemaNodeForResponse, allSchemas, activeRefs);
         }
 
         // Converte o esquema para um Map
@@ -1424,9 +1429,14 @@ public class ApiDocsController {
             return;
         }
 
-        JsonNode schemaTree = objectMapper.valueToTree(schemaMap);
         Map<String, Object> referencedSchemas = new LinkedHashMap<>();
-        collectReferencedComponentSchemas(schemaTree, allSchemas, referencedSchemas, new LinkedHashSet<>());
+        collectReferencedComponentSchemasFromValue(
+                schemaMap,
+                allSchemas,
+                referencedSchemas,
+                new LinkedHashSet<>(),
+                Collections.newSetFromMap(new IdentityHashMap<>())
+        );
         if (referencedSchemas.isEmpty()) {
             return;
         }
@@ -1434,6 +1444,47 @@ public class ApiDocsController {
         Map<String, Object> components = new LinkedHashMap<>();
         components.put(SCHEMAS, referencedSchemas);
         schemaMap.put(COMPONENTS, components);
+    }
+
+    private void collectReferencedComponentSchemasFromValue(Object value,
+                                                            JsonNode allSchemas,
+                                                            Map<String, Object> referencedSchemas,
+                                                            Set<String> visitedSchemaNames,
+                                                            Set<Object> visitedValues) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof JsonNode jsonNode) {
+            collectReferencedComponentSchemas(jsonNode, allSchemas, referencedSchemas, visitedSchemaNames);
+            return;
+        }
+        if (value instanceof Map<?, ?> map) {
+            if (!visitedValues.add(map)) {
+                return;
+            }
+            String ref = refText(map.get(REF));
+            if (ref != null) {
+                addReferencedComponentSchema(ref, allSchemas, referencedSchemas, visitedSchemaNames);
+            }
+            String itemSchemaRef = refText(map.get("itemSchemaRef"));
+            if (itemSchemaRef != null && !itemSchemaRef.equals(ref)) {
+                addReferencedComponentSchema(itemSchemaRef, allSchemas, referencedSchemas, visitedSchemaNames);
+            }
+            for (Object child : map.values()) {
+                collectReferencedComponentSchemasFromValue(
+                        child, allSchemas, referencedSchemas, visitedSchemaNames, visitedValues);
+            }
+            return;
+        }
+        if (value instanceof Collection<?> collection) {
+            if (!visitedValues.add(collection)) {
+                return;
+            }
+            for (Object item : collection) {
+                collectReferencedComponentSchemasFromValue(
+                        item, allSchemas, referencedSchemas, visitedSchemaNames, visitedValues);
+            }
+        }
     }
 
     private void collectReferencedComponentSchemas(JsonNode node,
@@ -1466,6 +1517,13 @@ public class ApiDocsController {
                 collectReferencedComponentSchemas(item, allSchemas, referencedSchemas, visitedSchemaNames);
             }
         }
+    }
+
+    private String refText(Object value) {
+        if (!(value instanceof String ref)) {
+            return null;
+        }
+        return ref.startsWith("#/components/schemas/") ? ref : null;
     }
 
     private String refText(JsonNode node) {
@@ -1593,98 +1651,105 @@ public class ApiDocsController {
      * </p>
      */
     private void replaceInternalSchemas(ObjectNode schemaNode, JsonNode allSchemas) {
-        // 0) Top-level $ref
-        JsonNode topRef = schemaNode.path(REF);
-        if (!topRef.isMissingNode()) {
-            String refSchemaName = extractSchemaNameFromRef(topRef.asText());
-            JsonNode refSchemaNode = allSchemas.path(refSchemaName);
-            if (!refSchemaNode.isMissingNode() && refSchemaNode.isObject()) {
-                LOGGER.info("Replacing top-level $ref with full schema {}", refSchemaName);
-                schemaNode.removeAll();
-                schemaNode.setAll(((ObjectNode) refSchemaNode).deepCopy());
-            }
-        }
+        replaceInternalSchemas(schemaNode, allSchemas, new LinkedHashSet<>());
+    }
 
-        // Generic scan over all object fields to catch nested custom keys (e.g., 'schema')
-        Iterator<Entry<String, JsonNode>> genericFields = schemaNode.fields();
-        while (genericFields.hasNext()) {
-            Entry<String, JsonNode> entry = genericFields.next();
-            String key = entry.getKey();
-            JsonNode val = entry.getValue();
-            if (val != null && val.isObject()) {
-                ObjectNode obj = (ObjectNode) val;
-                JsonNode innerRef = obj.path(REF);
-                if (!innerRef.isMissingNode()) {
-                    String refName = extractSchemaNameFromRef(innerRef.asText());
-                    JsonNode refSchemaNode = allSchemas.path(refName);
-                    if (!refSchemaNode.isMissingNode() && refSchemaNode.isObject()) {
-                        obj.removeAll();
-                        obj.setAll(((ObjectNode) refSchemaNode).deepCopy());
-                    }
+    private void replaceInternalSchemas(ObjectNode schemaNode, JsonNode allSchemas, Set<String> activeRefs) {
+        if (schemaNode == null || allSchemas == null || allSchemas.isMissingNode() || !allSchemas.isObject()) {
+            return;
+        }
+        List<String> pushedRefs = null;
+        try {
+            while (true) {
+                JsonNode refNode = schemaNode.get(REF);
+                if (refNode == null || !refNode.isTextual()) {
+                    break;
                 }
-                // Recurse further
-                replaceInternalSchemas(obj, allSchemas);
+                String ref = refNode.asText();
+                String refSchemaName = extractSchemaNameFromRef(ref);
+                if (!StringUtils.hasText(refSchemaName)) {
+                    break;
+                }
+                JsonNode refSchemaNode = allSchemas.path(refSchemaName);
+                if (refSchemaNode.isMissingNode() || !refSchemaNode.isObject()) {
+                    LOGGER.warn("Schema {} not found or not object", refSchemaName);
+                    break;
+                }
+                if (!activeRefs.add(refSchemaName)) {
+                    break;
+                }
+                if (pushedRefs == null) {
+                    pushedRefs = new ArrayList<>(2);
+                }
+                pushedRefs.add(refSchemaName);
+                LOGGER.info("Replacing $ref {} with full schema {}", ref, refSchemaName);
+                inlineReferencedObject(schemaNode, (ObjectNode) refSchemaNode);
             }
-        }
 
-        // 1) Properties
-        if (schemaNode.has(PROPERTIES)) {
-            Iterator<Entry<String, JsonNode>> fields = schemaNode.path(PROPERTIES).fields();
+            Iterator<Entry<String, JsonNode>> fields = schemaNode.fields();
             while (fields.hasNext()) {
-                Entry<String, JsonNode> field = fields.next();
-                JsonNode fieldValue = field.getValue();
-                JsonNode refNode = fieldValue.path(REF);
-                if (!refNode.isMissingNode()) {
-                    String ref = refNode.asText();
-                    String refSchemaName = ref.substring(ref.lastIndexOf('/') + 1);
-                    JsonNode refSchemaNode = allSchemas.path(refSchemaName);
-                    if (!refSchemaNode.isMissingNode() && refSchemaNode.isObject()) {
-                        LOGGER.info("Replacing $ref {} with full schema {}", ref, refSchemaName);
-                        ((ObjectNode) fieldValue).remove(REF);
-                        ((ObjectNode) fieldValue).setAll(((ObjectNode) refSchemaNode).deepCopy());
-                        replaceInternalSchemas((ObjectNode) fieldValue, allSchemas);
-                    } else {
-                        LOGGER.warn("Schema {} not found or not object", refSchemaName);
+                Entry<String, JsonNode> entry = fields.next();
+                if (X_UI.equals(entry.getKey())) {
+                    continue;
+                }
+                JsonNode val = entry.getValue();
+                if (val instanceof ObjectNode childObj) {
+                    replaceInternalSchemas(childObj, allSchemas, activeRefs);
+                } else if (val != null && val.isArray()) {
+                    for (JsonNode element : val) {
+                        if (element instanceof ObjectNode elementObj) {
+                            replaceInternalSchemas(elementObj, allSchemas, activeRefs);
+                        }
                     }
-                } else if (fieldValue.isObject()) {
-                    replaceInternalSchemas((ObjectNode) fieldValue, allSchemas);
                 }
             }
-        }
-
-        // 2) Items
-        if (schemaNode.has(ITEMS) && schemaNode.path(ITEMS).isObject()) {
-            replaceInternalSchemas((ObjectNode) schemaNode.path(ITEMS), allSchemas);
-        }
-
-        // 3) Compositions: allOf/oneOf/anyOf
-        processCompositionArray(schemaNode, allSchemas, "allOf");
-        processCompositionArray(schemaNode, allSchemas, "oneOf");
-        processCompositionArray(schemaNode, allSchemas, "anyOf");
-
-        // 4) additionalProperties
-        if (schemaNode.has("additionalProperties") && schemaNode.path("additionalProperties").isObject()) {
-            replaceInternalSchemas((ObjectNode) schemaNode.path("additionalProperties"), allSchemas);
+        } finally {
+            if (pushedRefs != null) {
+                for (int i = pushedRefs.size() - 1; i >= 0; i--) {
+                    activeRefs.remove(pushedRefs.get(i));
+                }
+            }
         }
     }
 
-    private void processCompositionArray(ObjectNode schemaNode, JsonNode allSchemas, String keyword) {
-        JsonNode comp = schemaNode.path(keyword);
-        if (comp != null && comp.isArray()) {
-            for (JsonNode element : comp) {
-                if (element.isObject()) {
-                    ObjectNode obj = (ObjectNode) element;
-                    JsonNode ref = obj.path(REF);
-                    if (!ref.isMissingNode()) {
-                        String refName = extractSchemaNameFromRef(ref.asText());
-                        JsonNode refSchemaNode = allSchemas.path(refName);
-                        if (!refSchemaNode.isMissingNode() && refSchemaNode.isObject()) {
-                            obj.removeAll();
-                            obj.setAll(((ObjectNode) refSchemaNode).deepCopy());
-                        }
-                    }
-                    replaceInternalSchemas(obj, allSchemas);
+    private void inlineReferencedObject(ObjectNode target, ObjectNode refSchemaNode) {
+        Map<String, JsonNode> siblings = null;
+        Iterator<Entry<String, JsonNode>> existingFields = target.fields();
+        while (existingFields.hasNext()) {
+            Entry<String, JsonNode> entry = existingFields.next();
+            if (!REF.equals(entry.getKey())) {
+                if (siblings == null) {
+                    siblings = new LinkedHashMap<>();
                 }
+                siblings.put(entry.getKey(), entry.getValue());
+            }
+        }
+        target.removeAll();
+        target.setAll(refSchemaNode.deepCopy());
+        if (siblings != null) {
+            for (Entry<String, JsonNode> sibling : siblings.entrySet()) {
+                if (X_UI.equals(sibling.getKey())
+                        && target.get(X_UI) instanceof ObjectNode targetXUi
+                        && sibling.getValue() instanceof ObjectNode siblingXUi) {
+                    mergeObjectNodesPreservingTarget(targetXUi, siblingXUi);
+                } else {
+                    target.set(sibling.getKey(), sibling.getValue());
+                }
+            }
+        }
+    }
+
+    private void mergeObjectNodesPreservingTarget(ObjectNode target, ObjectNode overrides) {
+        Iterator<Entry<String, JsonNode>> fields = overrides.fields();
+        while (fields.hasNext()) {
+            Entry<String, JsonNode> entry = fields.next();
+            String key = entry.getKey();
+            JsonNode overrideVal = entry.getValue();
+            JsonNode existingVal = target.get(key);
+            if (existingVal instanceof ObjectNode existingObj && overrideVal instanceof ObjectNode overrideObj) {
+                mergeObjectNodesPreservingTarget(existingObj, overrideObj);
+            } else {
+                target.set(key, overrideVal);
             }
         }
     }
@@ -1728,7 +1793,7 @@ public class ApiDocsController {
      * </p>
      */
     private JsonNode getDocumentForGroup(String groupName) {
-        return openApiDocumentService.getDocumentForGroup(groupName);
+        return OpenApiDocumentReaders.readOnlyGroupDocument(openApiDocumentService, groupName, false);
     }
 
     /**
@@ -1840,12 +1905,17 @@ public class ApiDocsController {
         }
 
         Map<String, Object> allSchemasMap = allSchemas != null && allSchemas.isObject()
-                ? objectMapper.convertValue(allSchemas, new TypeReference<Map<String, Object>>() { })
+                ? new LazyJsonObjectMap(allSchemas, objectMapper)
                 : Map.of();
 
         Map<String, Object> responseSchemaMap = null;
-        if (allSchemasMap.get(responseClass.getSimpleName()) instanceof Map<?, ?> rawResponseMap) {
-            responseSchemaMap = (Map<String, Object>) rawResponseMap;
+        JsonNode directResponseSchemaNode = allSchemas != null && allSchemas.isObject()
+                ? allSchemas.path(responseClass.getSimpleName())
+                : null;
+        if (directResponseSchemaNode != null && directResponseSchemaNode.isObject()) {
+            if (allSchemasMap.get(responseClass.getSimpleName()) instanceof Map<?, ?> rawResponseMap) {
+                responseSchemaMap = (Map<String, Object>) rawResponseMap;
+            }
         } else {
             JsonNode responseSchemaNode = pathsNode != null
                     ? pathsNode.path("responses").path("200").path("content").path("application/json").path("schema")
@@ -1905,6 +1975,56 @@ public class ApiDocsController {
             }
         }
         return schemaMap;
+    }
+
+    private static final class LazyJsonObjectMap extends AbstractMap<String, Object> {
+        private final JsonNode sourceObject;
+        private final ObjectMapper objectMapper;
+        private final Map<String, Object> memoized = new HashMap<>();
+
+        private LazyJsonObjectMap(JsonNode sourceObject, ObjectMapper objectMapper) {
+            this.sourceObject = sourceObject;
+            this.objectMapper = objectMapper;
+        }
+
+        @Override
+        public boolean containsKey(Object key) {
+            return key instanceof String name && sourceObject.has(name);
+        }
+
+        @Override
+        public Object get(Object key) {
+            if (!(key instanceof String name)) {
+                return null;
+            }
+            if (memoized.containsKey(name)) {
+                return memoized.get(name);
+            }
+            JsonNode child = sourceObject.get(name);
+            if (child == null || child.isMissingNode() || child.isNull()) {
+                memoized.put(name, null);
+                return null;
+            }
+            Object converted = objectMapper.convertValue(child, Object.class);
+            memoized.put(name, converted);
+            return converted;
+        }
+
+        @Override
+        public int size() {
+            return sourceObject.size();
+        }
+
+        @Override
+        public Set<Entry<String, Object>> entrySet() {
+            Set<Entry<String, Object>> entries = new LinkedHashSet<>(sourceObject.size());
+            Iterator<String> fieldNames = sourceObject.fieldNames();
+            while (fieldNames.hasNext()) {
+                String name = fieldNames.next();
+                entries.add(new SimpleImmutableEntry<>(name, get(name)));
+            }
+            return Collections.unmodifiableSet(entries);
+        }
     }
 
 }

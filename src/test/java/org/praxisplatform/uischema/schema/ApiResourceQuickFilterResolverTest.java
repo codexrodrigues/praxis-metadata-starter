@@ -20,9 +20,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -265,6 +268,83 @@ class ApiResourceQuickFilterResolverTest {
                                 f.setApenasComprev(true);
                                 f.setCodigoSetor("001");
                             })
+                            .build()
+            );
+        }
+
+        void ping() { }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void avoidsInstantiatingLazyBeansCachesDeclarativeAndReEvaluatesDynamicProgrammaticFilters() throws Exception {
+        try (AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext()) {
+            ctx.registerBean(ObjectMapper.class);
+            var declarativeDef = new org.springframework.beans.factory.support.RootBeanDefinition(FixtureController.class);
+            declarativeDef.setLazyInit(true);
+            ctx.registerBeanDefinition("lazyDeclarativeController", declarativeDef);
+
+            var programmaticDef = new org.springframework.beans.factory.support.RootBeanDefinition(DynamicProgrammaticController.class);
+            programmaticDef.setLazyInit(true);
+            ctx.registerBeanDefinition("lazyProgrammaticController", programmaticDef);
+            ctx.refresh();
+
+            HandlerMethod declarativeHm = new HandlerMethod(
+                    "lazyDeclarativeController", ctx.getBeanFactory(), FixtureController.class.getDeclaredMethod("list"));
+            HandlerMethod programmaticHm = new HandlerMethod(
+                    "lazyProgrammaticController", ctx.getBeanFactory(), DynamicProgrammaticController.class.getDeclaredMethod("ping"));
+
+            RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+            when(handlerMapping.getHandlerMethods()).thenReturn(Map.of(
+                    RequestMappingInfo.paths("/api/items").build(), declarativeHm,
+                    RequestMappingInfo.paths("/api/dynamic-qf").build(), programmaticHm
+            ));
+
+            ApiResourceQuickFilterResolver resolver =
+                    new ApiResourceQuickFilterResolver(handlerMapping, new ObjectMapper(), ctx);
+
+            // Declarative resolution must never instantiate @Lazy declarative or programmatic beans
+            List<Map<String, Object>> firstDeclarative = resolver.resolve("/api/items");
+            List<Map<String, Object>> secondDeclarative = resolver.resolveByResourceKey("test.items");
+            assertEquals(3, firstDeclarative.size());
+            assertSame(firstDeclarative, secondDeclarative);
+            assertFalse(ctx.getBeanFactory().containsSingleton("lazyDeclarativeController"));
+            assertFalse(ctx.getBeanFactory().containsSingleton("lazyProgrammaticController"));
+
+            // resolveResourcePathByResourceKey must not instantiate even a programmatic @Lazy controller
+            assertEquals("/api/dynamic-qf", resolver.resolveResourcePathByResourceKey("test.dynamic").orElseThrow());
+            assertFalse(ctx.getBeanFactory().containsSingleton("lazyProgrammaticController"));
+
+            // Programmatic resolution instantiates ONLY the matched programmatic bean and never caches dynamic results
+            List<Map<String, Object>> firstDynamic = resolver.resolve("/api/dynamic-qf");
+            List<Map<String, Object>> secondDynamic = resolver.resolve("/api/dynamic-qf");
+            assertTrue(ctx.getBeanFactory().containsSingleton("lazyProgrammaticController"));
+            assertFalse(ctx.getBeanFactory().containsSingleton("lazyDeclarativeController"));
+            assertEquals("run-1", ((Map<String, Object>) firstDynamic.getFirst().get("filter")).get("codigoSetor"));
+            assertEquals("run-2", ((Map<String, Object>) secondDynamic.getFirst().get("filter")).get("codigoSetor"));
+        }
+    }
+
+    @ApiResource(value = "/api/dynamic-qf", resourceKey = "test.dynamic")
+    static class DynamicProgrammaticController extends AbstractReadOnlyResourceController<Map<String, Object>, Long, RetirementFilterDTO> {
+        private final AtomicInteger counter = new AtomicInteger();
+
+        @Override
+        protected BaseResourceQueryService<Map<String, Object>, Long, RetirementFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(Map<String, Object> dto) {
+            return null;
+        }
+
+        @Override
+        protected List<QuickFilterDescriptor<RetirementFilterDTO>> defineQuickFilters() {
+            int seq = counter.incrementAndGet();
+            return List.of(
+                    QuickFilterDescriptor.<RetirementFilterDTO>builder("dyn", "Dynamic")
+                            .where(f -> f.setCodigoSetor("run-" + seq))
                             .build()
             );
         }

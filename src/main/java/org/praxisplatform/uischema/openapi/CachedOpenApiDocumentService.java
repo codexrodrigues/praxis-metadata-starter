@@ -105,29 +105,49 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     }
 
     private JsonNode publishedGroupDocument(PublishedSnapshot publication, String groupName) {
+        return publishedGroupDocument(publication, groupName, false);
+    }
+
+    private JsonNode publishedGroupDocument(PublishedSnapshot publication, String groupName, boolean readOnly) {
         if (!publication.candidate().groups().contains(groupName))
             throw new IllegalStateException("Group is outside the published lifecycle snapshot: " + groupName);
-        return publication.candidate().groupDocument(groupName);
+        return readOnly
+                ? publication.candidate().readOnlyGroupDocument(groupName)
+                : publication.candidate().groupDocument(groupName);
     }
 
     @Override
     public JsonNode getDocumentForGroup(String groupName) {
+        return resolveDocumentForGroup(groupName, false);
+    }
+
+    /**
+     * Returns an internal read-only {@link JsonNode} view of the cached OpenAPI document for
+     * {@code groupName}. Callers MUST NOT mutate the returned tree or any nested node.
+     */
+    public JsonNode getReadOnlyDocumentForGroup(String groupName) {
+        return resolveDocumentForGroup(groupName, true);
+    }
+
+    private JsonNode resolveDocumentForGroup(String groupName, boolean readOnly) {
         return withCacheReadLock(() -> {
             PublishedSnapshot publication = publishedScope.get();
-            if (publication != null) return publishedGroupDocument(publication, groupName);
+            if (publication != null) return publishedGroupDocument(publication, groupName, readOnly);
             Map<String, JsonNode> snapshot = lifecycleSnapshot.get();
             if (snapshot != null) {
                 JsonNode document = snapshot.get(groupName);
                 if (document == null)
                     throw new IllegalStateException("Group is outside the fresh lifecycle snapshot: " + groupName);
-                return document.deepCopy();
+                return readOnly ? document : document.deepCopy();
             }
-            return documentCache.computeIfAbsent(groupName, group -> {
+            CachedDocument cached = documentCache.computeIfAbsent(groupName, group -> {
                 try {
                     JsonNode groupDoc = openApiDocsSupport.fetchOpenApiDocument(restTemplate, openApiBasePath, group, LOGGER);
                     if (groupDoc != null) {
-                        long sizeKB = estimateJsonSize(groupDoc) / 1024;
-                        LOGGER.info("Documento OpenAPI especifico cacheado para grupo '{}' (~{}KB)", group, sizeKB);
+                        if (LOGGER.isInfoEnabled()) {
+                            long sizeKB = estimateJsonSize(groupDoc) / 1024;
+                            LOGGER.info("Documento OpenAPI especifico cacheado para grupo '{}' (~{}KB)", group, sizeKB);
+                        }
                         return new CachedDocument(documentEntrySequence.incrementAndGet(), groupDoc, false);
                     }
                     throw new IllegalStateException("OpenAPI document helper returned null for group: " + group);
@@ -135,22 +155,36 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                     LOGGER.error("Falha critica ao buscar documento OpenAPI para grupo '{}': {}", group, e.getMessage());
                     throw new IllegalStateException("Failed to retrieve the OpenAPI document for group: " + group, e);
                 }
-            }).document();
+            });
+            return readOnly ? cached.readOnlyDocument() : cached.document();
         });
     }
 
     @Override
     public JsonNode getDocumentForGroupStrict(String groupName) {
+        return resolveDocumentForGroupStrict(groupName, false);
+    }
+
+    /**
+     * Returns an internal read-only {@link JsonNode} view of the exact OpenAPI document for
+     * {@code groupName}. Callers MUST NOT mutate the returned tree or any nested node.
+     */
+    public JsonNode getReadOnlyDocumentForGroupStrict(String groupName) {
+        return resolveDocumentForGroupStrict(groupName, true);
+    }
+
+    private JsonNode resolveDocumentForGroupStrict(String groupName, boolean readOnly) {
         return withCacheReadLock(() -> {
             PublishedSnapshot publication = publishedScope.get();
-            if (publication != null) return publishedGroupDocument(publication, groupName);
+            if (publication != null) return publishedGroupDocument(publication, groupName, readOnly);
             Map<String, JsonNode> snapshot = lifecycleSnapshot.get();
             if (snapshot != null) {
                 JsonNode document = snapshot.get(groupName);
                 if (document == null) throw new IllegalStateException("Group is outside the fresh lifecycle snapshot: " + groupName);
-                return document.deepCopy();
+                return readOnly ? document : document.deepCopy();
             }
-            return getOrLoadStrictCachedDocument(groupName).document();
+            CachedDocument cached = getOrLoadStrictCachedDocument(groupName);
+            return readOnly ? cached.readOnlyDocument() : cached.document();
         });
     }
 
@@ -171,8 +205,10 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                     throw new IllegalStateException("Strict OpenAPI group differs from the public cache; "
                             + "a guarded refresh is required: " + group);
                 }
-                long sizeKB = estimateJsonSize(groupDoc) / 1024;
-                LOGGER.info("Documento OpenAPI exato cacheado para grupo '{}' (~{}KB)", group, sizeKB);
+                if (LOGGER.isInfoEnabled()) {
+                    long sizeKB = estimateJsonSize(groupDoc) / 1024;
+                    LOGGER.info("Documento OpenAPI exato cacheado para grupo '{}' (~{}KB)", group, sizeKB);
+                }
                 return new CachedDocument(documentEntrySequence.incrementAndGet(), groupDoc, true);
             } catch (Exception e) {
                 LOGGER.error("Falha ao buscar documento OpenAPI estrito para grupo '{}': {}", group, e.getMessage());
@@ -234,8 +270,10 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
                             restTemplate, openApiBasePath, group, LOGGER);
                     if (groupDoc == null || !groupDoc.isObject())
                         throw new IllegalStateException("OpenAPI strict group helper returned no object for: " + group);
-                    long sizeKB = estimateJsonSize(groupDoc) / 1024;
-                    LOGGER.info("Documento OpenAPI exato atualizado para grupo '{}' (~{}KB)", group, sizeKB);
+                    if (LOGGER.isInfoEnabled()) {
+                        long sizeKB = estimateJsonSize(groupDoc) / 1024;
+                        LOGGER.info("Documento OpenAPI exato atualizado para grupo '{}' (~{}KB)", group, sizeKB);
+                    }
                     return new CachedDocument(documentEntrySequence.incrementAndGet(), groupDoc, true);
                 } catch (Exception e) {
                     LOGGER.error("Falha ao atualizar documento OpenAPI estrito para grupo '{}': {}", group, e.getMessage());

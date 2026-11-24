@@ -19,6 +19,7 @@ import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.hash.SchemaCanonicalizer;
 import org.praxisplatform.uischema.hash.SchemaHashUtil;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentReaders;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.options.EntityLookupDescriptor;
 import org.praxisplatform.uischema.options.LookupSelectionPolicy;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -85,6 +87,8 @@ public class SemanticDomainCatalogService {
     private final String serviceVersion;
     private final BoundedCatalogCache catalogCache = new BoundedCatalogCache(DEFAULT_MAX_CATALOG_CACHE_ENTRIES);
     private final ThreadLocal<Boolean> strictSchemaResolution = ThreadLocal.withInitial(() -> Boolean.FALSE);
+    private final ThreadLocal<Map<String, JsonNode>> requestDocumentCache = new ThreadLocal<>();
+    private final ThreadLocal<Boolean> resourceScopedNonStrictLookup = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private volatile BooleanSupplier applicationGroupAvailableSupplier = () -> true;
 
     public SemanticDomainCatalogService(
@@ -272,19 +276,53 @@ public class SemanticDomainCatalogService {
             throw new IllegalStateException("OpenApiDocumentService is required for strict domain catalog resolution");
         }
         return openApiDocumentService.withSchemaCacheReadLock(() -> {
-            Boolean previous = strictSchemaResolution.get();
+            Boolean previousStrict = strictSchemaResolution.get();
+            Map<String, JsonNode> previousDocs = requestDocumentCache.get();
+            Boolean previousResourceScoped = resourceScopedNonStrictLookup.get();
             strictSchemaResolution.set(Boolean.TRUE);
+            requestDocumentCache.set(new HashMap<>());
+            resourceScopedNonStrictLookup.set(Boolean.FALSE);
             try {
                 return buildCatalogUncached(resourceKey, group);
             } finally {
-                strictSchemaResolution.set(previous);
+                restoreBooleanThreadLocal(resourceScopedNonStrictLookup, previousResourceScoped);
+                restoreRequestDocumentCache(previousDocs);
+                restoreBooleanThreadLocal(strictSchemaResolution, previousStrict);
             }
         });
     }
 
     private DomainCatalogResponse findCatalog(String resourceKey, String group) {
-        return openApiDocumentService == null ? findCatalogWithStableCache(resourceKey, group)
-                : openApiDocumentService.withSchemaCacheReadLock(() -> findCatalogWithStableCache(resourceKey, group));
+        Supplier<DomainCatalogResponse> lookup = () -> {
+            Map<String, JsonNode> previousDocs = requestDocumentCache.get();
+            Boolean previousResourceScoped = resourceScopedNonStrictLookup.get();
+            requestDocumentCache.set(new HashMap<>());
+            resourceScopedNonStrictLookup.set(Boolean.valueOf(resourceKey != null && group == null));
+            try {
+                return findCatalogWithStableCache(resourceKey, group);
+            } finally {
+                restoreBooleanThreadLocal(resourceScopedNonStrictLookup, previousResourceScoped);
+                restoreRequestDocumentCache(previousDocs);
+            }
+        };
+        return openApiDocumentService == null ? lookup.get()
+                : openApiDocumentService.withSchemaCacheReadLock(lookup);
+    }
+
+    private void restoreRequestDocumentCache(Map<String, JsonNode> previousDocs) {
+        if (previousDocs == null) {
+            requestDocumentCache.remove();
+        } else {
+            requestDocumentCache.set(previousDocs);
+        }
+    }
+
+    private static void restoreBooleanThreadLocal(ThreadLocal<Boolean> threadLocal, Boolean previous) {
+        if (previous == null || !previous) {
+            threadLocal.remove();
+        } else {
+            threadLocal.set(previous);
+        }
     }
 
     private DomainCatalogResponse findCatalogWithStableCache(String resourceKey, String group) {
@@ -490,9 +528,9 @@ public class SemanticDomainCatalogService {
             addAnalyticCapabilities(action.resourceKey(), contextKey, action.group(), action.resourcePath(),
                     nodes, edges, bindings, evidence, capabilitiesByResourcePath, analyticCapabilitiesAdded);
             addAction(action, contextKey, nodes, edges, bindings, evidence);
-            addSchemaFields(action.resourceKey(), contextKey, action.group(), action.requestSchema(), "request",
+            addSchemaFields(action.resourceKey(), contextKey, action.group(), action.resourcePath(), action.requestSchema(), "request",
                     canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance, fieldLabelStrength);
-            addSchemaFields(action.resourceKey(), contextKey, action.group(), action.responseSchema(), "response",
+            addSchemaFields(action.resourceKey(), contextKey, action.group(), action.resourcePath(), action.responseSchema(), "response",
                     canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance, fieldLabelStrength);
         }
 
@@ -506,7 +544,7 @@ public class SemanticDomainCatalogService {
                     nodes, edges, bindings, evidence, capabilitiesByResourcePath, analyticCapabilitiesAdded);
             addSurface(surface, contextKey, nodes, edges, bindings, evidence);
             if (!isCrossResourceRelatedSurface(surface)) {
-                addSchemaFields(surface.resourceKey(), contextKey, surface.group(), surface.schema(), surface.schemaType(),
+                addSchemaFields(surface.resourceKey(), contextKey, surface.group(), surface.resourcePath(), surface.schema(), surface.schemaType(),
                         canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance, fieldLabelStrength);
             }
         }
@@ -667,7 +705,7 @@ public class SemanticDomainCatalogService {
             String resource = form.resourceKey(), context = contextKey(resource, form.operation().group());
             ensureContext(contexts, context, form.operation().group());
             ensureConcept(nodes, resource, context, null, form.operation().group(), List.of(), null, capabilitiesByResourcePath);
-            addSchemaFields(resource, context, form.operation().group(), form.schema(), "request",
+            addSchemaFields(resource, context, form.operation().group(), form.operation().path(), form.schema(), "request",
                     canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance, fieldLabelStrength);
             for (var determination : form.determinations()) {
                 JsonNode compiled = HASH_OBJECT_MAPPER.valueToTree(determination);
@@ -1861,6 +1899,7 @@ public class SemanticDomainCatalogService {
             String resourceKey,
             String contextKey,
             String group,
+            String resourcePath,
             CanonicalSchemaRef schemaRef,
             String schemaRole,
             Map<String, String> canonicalResourceKeysByPath,
@@ -1881,9 +1920,8 @@ public class SemanticDomainCatalogService {
             }
             return;
         }
-        JsonNode document = resolveOpenApiDocument(group);
-        JsonNode schema = resolveSchemaFromDocument(document, schemaRef);
-        if (schema == null || schema.isMissingNode()) {
+        ResolvedOpenApiSchema resolved = resolveSchemaWithPreferredResourceGroup(group, resourcePath, schemaRef);
+        if (resolved == null) {
             if (strict) {
                 throw new IllegalStateException(
                         "Unresolved canonical schema in strict domain catalog: " + schemaRef.schemaId()
@@ -1891,7 +1929,7 @@ public class SemanticDomainCatalogService {
             }
             return;
         }
-        addSchemaFieldTree(resourceKey, contextKey, schemaRef, schemaRole, unwrapArray(schema), document, "", new LinkedHashSet<>(), 0,
+        addSchemaFieldTree(resourceKey, contextKey, schemaRef, schemaRole, unwrapArray(resolved.schema()), resolved.document(), "", new LinkedHashSet<>(), 0,
                 canonicalResourceKeysByPath, nodes, edges, bindings, evidence, governance, fieldLabelStrength);
     }
 
@@ -3187,19 +3225,19 @@ public class SemanticDomainCatalogService {
         Map<String, String> descriptions = new LinkedHashMap<>();
         for (SurfaceDefinition surface : sortSurfaces(surfaces)) {
             if (!isCrossResourceRelatedSurface(surface) && "response".equalsIgnoreCase(surface.schemaType())) {
-                putResourceDescriptionIfAbsent(descriptions, surface.resourceKey(), surface.group(), surface.schema());
+                putResourceDescriptionIfAbsent(descriptions, surface.resourceKey(), surface.group(), surface.resourcePath(), surface.schema());
             }
         }
         for (ActionDefinition action : sortActions(actions)) {
-            putResourceDescriptionIfAbsent(descriptions, action.resourceKey(), action.group(), action.responseSchema());
+            putResourceDescriptionIfAbsent(descriptions, action.resourceKey(), action.group(), action.resourcePath(), action.responseSchema());
         }
         for (SurfaceDefinition surface : sortSurfaces(surfaces)) {
             if (!isCrossResourceRelatedSurface(surface)) {
-                putResourceDescriptionIfAbsent(descriptions, surface.resourceKey(), surface.group(), surface.schema());
+                putResourceDescriptionIfAbsent(descriptions, surface.resourceKey(), surface.group(), surface.resourcePath(), surface.schema());
             }
         }
         for (ActionDefinition action : sortActions(actions)) {
-            putResourceDescriptionIfAbsent(descriptions, action.resourceKey(), action.group(), action.requestSchema());
+            putResourceDescriptionIfAbsent(descriptions, action.resourceKey(), action.group(), action.resourcePath(), action.requestSchema());
         }
         return descriptions;
     }
@@ -3208,26 +3246,27 @@ public class SemanticDomainCatalogService {
             Map<String, String> descriptions,
             String resourceKey,
             String group,
+            String resourcePath,
             CanonicalSchemaRef schemaRef
     ) {
         if (!StringUtils.hasText(resourceKey) || descriptions.containsKey(resourceKey)) {
             return;
         }
-        String description = schemaDescription(group, schemaRef);
+        String description = schemaDescription(group, resourcePath, schemaRef);
         if (StringUtils.hasText(description)) {
             descriptions.put(resourceKey, description);
         }
     }
 
-    private String schemaDescription(String group, CanonicalSchemaRef schemaRef) {
+    private String schemaDescription(String group, String resourcePath, CanonicalSchemaRef schemaRef) {
         if (schemaRef == null || !StringUtils.hasText(schemaRef.schemaId()) || openApiDocumentService == null) {
             return null;
         }
-        JsonNode schema = resolveSchema(group, schemaRef);
-        if (schema == null || schema.isMissingNode()) {
+        ResolvedOpenApiSchema resolved = resolveSchemaWithPreferredResourceGroup(group, resourcePath, schemaRef);
+        if (resolved == null || resolved.schema() == null || resolved.schema().isMissingNode()) {
             return null;
         }
-        return unwrapArray(schema).path("description").asText(null);
+        return unwrapArray(resolved.schema()).path("description").asText(null);
     }
 
     private List<DomainCatalogResponse.DomainAliasItem> buildAliases(
@@ -3478,11 +3517,80 @@ public class SemanticDomainCatalogService {
         return resourceNodeKey + ".estado." + keyPart(state);
     }
 
-    private JsonNode resolveSchema(String group, CanonicalSchemaRef schemaRef) {
-        if (schemaRef == null) {
+    private record ResolvedOpenApiSchema(JsonNode document, JsonNode schema) {
+    }
+
+    private ResolvedOpenApiSchema resolveSchemaWithPreferredResourceGroup(
+            String group,
+            String resourcePath,
+            CanonicalSchemaRef schemaRef
+    ) {
+        if (schemaRef == null || openApiDocumentService == null) {
             return null;
         }
-        return resolveSchemaFromDocument(resolveOpenApiDocument(group), schemaRef);
+        if (!Boolean.TRUE.equals(strictSchemaResolution.get())) {
+            String preferredGroup = preferredResourceGroup(group, resourcePath);
+            if (preferredGroup != null) {
+                JsonNode preferredDoc = readOpenApiDocumentNonStrict(preferredGroup);
+                if (preferredDoc != null && !preferredDoc.isMissingNode()) {
+                    try {
+                        JsonNode preferredSchema = resolveSchemaFromDocument(preferredDoc, schemaRef);
+                        if (preferredSchema != null && !preferredSchema.isMissingNode()) {
+                            return new ResolvedOpenApiSchema(preferredDoc, preferredSchema);
+                        }
+                    } catch (RuntimeException ignored) {
+                        // Fall back to the declared group when the per-resource group lacks the schema/path.
+                    }
+                }
+            }
+        }
+        JsonNode document = resolveOpenApiDocument(group);
+        JsonNode schema = resolveSchemaFromDocument(document, schemaRef);
+        if (schema == null || schema.isMissingNode()) {
+            return null;
+        }
+        return new ResolvedOpenApiSchema(document, schema);
+    }
+
+    private String preferredResourceGroup(String group, String resourcePath) {
+        if (!Boolean.TRUE.equals(resourceScopedNonStrictLookup.get())
+                || Boolean.TRUE.equals(strictSchemaResolution.get())
+                || openApiDocumentService == null
+                || !StringUtils.hasText(resourcePath)) {
+            return null;
+        }
+        String resourceGroup = openApiDocumentService.resolveGroupFromPath(resourcePath);
+        if (!StringUtils.hasText(resourceGroup)) {
+            return null;
+        }
+        String trimmedResourceGroup = resourceGroup.trim();
+        if ("application".equals(trimmedResourceGroup)) {
+            return null;
+        }
+        if (group != null && trimmedResourceGroup.equals(group.trim())) {
+            return null;
+        }
+        return trimmedResourceGroup;
+    }
+
+    private boolean hasMatchingResourcePath(JsonNode pathsNode, String resourcePath) {
+        if (pathsNode == null || !pathsNode.isObject() || !StringUtils.hasText(resourcePath)) {
+            return false;
+        }
+        String normalizedResourcePath = normalizeResourcePath(resourcePath);
+        if (!StringUtils.hasText(normalizedResourcePath)) {
+            return false;
+        }
+        Iterator<String> fieldNames = pathsNode.fieldNames();
+        while (fieldNames.hasNext()) {
+            String normalizedPath = normalizeResourcePath(fieldNames.next());
+            if (StringUtils.hasText(normalizedPath)
+                    && (normalizedPath.equals(normalizedResourcePath)
+                            || normalizedPath.startsWith(normalizedResourcePath + "/"))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private JsonNode resolveSchemaFromDocument(JsonNode document, CanonicalSchemaRef schemaRef) {
@@ -3501,49 +3609,78 @@ public class SemanticDomainCatalogService {
             if (!StringUtils.hasText(group)) {
                 throw new IllegalStateException("Explicit OpenAPI group is required for strict domain catalog resolution");
             }
-            JsonNode document = openApiDocumentService.getDocumentForGroupStrict(group.trim());
+            String normalizedGroup = group.trim();
+            String cacheKey = "S:" + normalizedGroup;
+            Map<String, JsonNode> cache = requestDocumentCache.get();
+            if (cache != null && cache.containsKey(cacheKey)) {
+                return cache.get(cacheKey);
+            }
+            JsonNode document = OpenApiDocumentReaders.readOnlyGroupDocument(openApiDocumentService, normalizedGroup, true);
             if (document == null || document.isMissingNode() || !document.isObject()) {
                 throw new IllegalStateException("Strict OpenAPI document is missing for group: " + group);
             }
+            if (cache != null) {
+                cache.put(cacheKey, document);
+            }
             return document;
         }
-        if (!StringUtils.hasText(group)) {
-            if (!applicationGroupAvailableSupplier.getAsBoolean()) {
-                return null;
-            }
-            try {
-                return openApiDocumentService.getDocumentForGroup("application");
-            } catch (RuntimeException ex) {
-                return null;
-            }
-        }
-        try {
-            return openApiDocumentService.getDocumentForGroup(group);
-        } catch (RuntimeException ex) {
+        return readOpenApiDocumentNonStrict(group);
+    }
+
+    private JsonNode readOpenApiDocumentNonStrict(String group) {
+        if (openApiDocumentService == null) {
             return null;
         }
+        String effectiveGroup = StringUtils.hasText(group) ? group.trim() : "application";
+        if ("application".equals(effectiveGroup) && !applicationGroupAvailableSupplier.getAsBoolean()) {
+            return null;
+        }
+        String cacheKey = "N:" + effectiveGroup;
+        Map<String, JsonNode> cache = requestDocumentCache.get();
+        if (cache != null && cache.containsKey(cacheKey)) {
+            return cache.get(cacheKey);
+        }
+        JsonNode document;
+        try {
+            document = OpenApiDocumentReaders.readOnlyGroupDocument(openApiDocumentService, effectiveGroup, false);
+        } catch (RuntimeException ex) {
+            document = null;
+        }
+        if (cache != null) {
+            cache.put(cacheKey, document);
+        }
+        return document;
     }
 
     private JsonNode openApiPaths(String group, String resourcePath) {
-        String resolvedGroup = StringUtils.hasText(group)
-                ? group
-                : openApiDocumentService != null ? openApiDocumentService.resolveGroupFromPath(resourcePath) : null;
-        if (!StringUtils.hasText(resolvedGroup)) {
+        if (openApiDocumentService == null) {
             return null;
         }
         if (Boolean.TRUE.equals(strictSchemaResolution.get())) {
+            String resolvedGroup = StringUtils.hasText(group)
+                    ? group
+                    : openApiDocumentService.resolveGroupFromPath(resourcePath);
+            if (!StringUtils.hasText(resolvedGroup)) {
+                return null;
+            }
             JsonNode document = resolveOpenApiDocument(resolvedGroup);
             return document.path("paths");
         }
-        if ("application".equals(resolvedGroup) && !applicationGroupAvailableSupplier.getAsBoolean()) {
+        String preferredGroup = preferredResourceGroup(group, resourcePath);
+        if (preferredGroup != null) {
+            JsonNode preferredDoc = readOpenApiDocumentNonStrict(preferredGroup);
+            if (preferredDoc != null && hasMatchingResourcePath(preferredDoc.path("paths"), resourcePath)) {
+                return preferredDoc.path("paths");
+            }
+        }
+        String resolvedGroup = StringUtils.hasText(group)
+                ? group
+                : openApiDocumentService.resolveGroupFromPath(resourcePath);
+        if (!StringUtils.hasText(resolvedGroup)) {
             return null;
         }
-        try {
-            JsonNode document = openApiDocumentService.getDocumentForGroup(resolvedGroup);
-            return document == null ? null : document.path("paths");
-        } catch (RuntimeException ex) {
-            return null;
-        }
+        JsonNode document = readOpenApiDocumentNonStrict(resolvedGroup);
+        return document == null ? null : document.path("paths");
     }
 
     private Map<String, Boolean> resolveResourceCapabilities(
@@ -3559,17 +3696,43 @@ public class SemanticDomainCatalogService {
             return cache.get(cacheKey);
         }
         try {
-            String resolvedGroup = StringUtils.hasText(group)
-                    ? group
-                    : openApiDocumentService != null ? openApiDocumentService.resolveGroupFromPath(resourcePath) : null;
-            JsonNode document = openApiDocumentService != null && StringUtils.hasText(resolvedGroup)
-                    ? (Boolean.TRUE.equals(strictSchemaResolution.get())
-                            ? resolveOpenApiDocument(resolvedGroup)
-                            : openApiDocumentService.getDocumentForGroup(resolvedGroup))
-                    : null;
-            Map<String, Boolean> resolved = document != null
-                    ? canonicalCapabilityResolver.resolve(document, resourcePath)
-                    : canonicalCapabilityResolver.resolve(resourcePath);
+            boolean strict = Boolean.TRUE.equals(strictSchemaResolution.get());
+            JsonNode document = null;
+            String resolvedGroup = null;
+            if (openApiDocumentService != null) {
+                if (strict) {
+                    resolvedGroup = StringUtils.hasText(group)
+                            ? group
+                            : openApiDocumentService.resolveGroupFromPath(resourcePath);
+                    if (StringUtils.hasText(resolvedGroup)) {
+                        document = resolveOpenApiDocument(resolvedGroup);
+                    }
+                } else {
+                    String preferredGroup = preferredResourceGroup(group, resourcePath);
+                    if (preferredGroup != null) {
+                        JsonNode preferredDoc = readOpenApiDocumentNonStrict(preferredGroup);
+                        if (preferredDoc != null && hasMatchingResourcePath(preferredDoc.path("paths"), resourcePath)) {
+                            document = preferredDoc;
+                        }
+                    }
+                    if (document == null) {
+                        resolvedGroup = StringUtils.hasText(group)
+                                ? group
+                                : openApiDocumentService.resolveGroupFromPath(resourcePath);
+                        if (StringUtils.hasText(resolvedGroup)) {
+                            document = readOpenApiDocumentNonStrict(resolvedGroup);
+                        }
+                    }
+                }
+            }
+            Map<String, Boolean> resolved;
+            if (document != null) {
+                resolved = canonicalCapabilityResolver.resolve(document, resourcePath);
+            } else if (openApiDocumentService != null && StringUtils.hasText(resolvedGroup)) {
+                resolved = null;
+            } else {
+                resolved = canonicalCapabilityResolver.resolve(resourcePath);
+            }
             Map<String, Boolean> normalized = resolved != null && !resolved.isEmpty() ? resolved : null;
             if (cache != null) {
                 cache.put(cacheKey, normalized);
@@ -4063,7 +4226,6 @@ public class SemanticDomainCatalogService {
         private final Map<String, List<ReactiveDeterminationCatalogSource.CompiledForm>> scopedFormsByResource = new LinkedHashMap<>();
         private final Map<String, Map<String, String>> customFieldLabelsByResource = new LinkedHashMap<>();
         private final Map<String, Map<String, String>> factLabelsByResource = new LinkedHashMap<>();
-        private final Map<String, JsonNode> openApiDocByGroup = new LinkedHashMap<>();
         private final Map<String, Map<String, String>> explicitSchemaLabelsByResource = new LinkedHashMap<>();
         private final Map<String, Set<String>> knownSchemaPropertiesByResource = new LinkedHashMap<>();
 
@@ -4269,18 +4431,18 @@ public class SemanticDomainCatalogService {
             // Walk schemas with the same strength precedence as addField:
             // response x-ui.label (4) > response @Schema.title (3) > request x-ui.label (2) > request @Schema.title (1).
             for (ActionDefinition action : sortedActions) {
-                collectFromSchemaRef(action.group(), action.requestSchema(), false, labels, labelStrength, propertyNames);
-                collectFromSchemaRef(action.group(), action.responseSchema(), true, labels, labelStrength, propertyNames);
+                collectFromSchemaRef(action.group(), action.resourcePath(), action.requestSchema(), false, labels, labelStrength, propertyNames);
+                collectFromSchemaRef(action.group(), action.resourcePath(), action.responseSchema(), true, labels, labelStrength, propertyNames);
             }
             for (SurfaceDefinition surface : sortedSurfaces) {
                 if (!isCrossResourceRelatedSurface(surface)) {
                     boolean responseRole = "response".equalsIgnoreCase(surface.schemaType());
-                    collectFromSchemaRef(surface.group(), surface.schema(), responseRole, labels, labelStrength, propertyNames);
+                    collectFromSchemaRef(surface.group(), surface.resourcePath(), surface.schema(), responseRole, labels, labelStrength, propertyNames);
                 }
             }
             for (ReactiveDeterminationCatalogSource.CompiledForm form : scopedFormsByResource.getOrDefault(resourceKey, List.of())) {
                 if (form.operation() != null) {
-                    collectFromSchemaRef(form.operation().group(), form.schema(), false, labels, labelStrength, propertyNames);
+                    collectFromSchemaRef(form.operation().group(), form.operation().path(), form.schema(), false, labels, labelStrength, propertyNames);
                 }
             }
             if (apiResourceQuickFilterResolver != null && openApiDocumentService != null) {
@@ -4293,6 +4455,7 @@ public class SemanticDomainCatalogService {
 
         private void collectFromSchemaRef(
                 String group,
+                String resourcePath,
                 CanonicalSchemaRef schemaRef,
                 boolean responseRole,
                 Map<String, String> labels,
@@ -4302,14 +4465,12 @@ public class SemanticDomainCatalogService {
             if (schemaRef == null || !StringUtils.hasText(schemaRef.schemaId()) || openApiDocumentService == null) {
                 return;
             }
-            JsonNode document = openApiDocNonStrict(group);
-            if (document == null || document.isMissingNode()) {
+            ResolvedOpenApiSchema resolved = resolveSchemaNonStrictWithPreferredResourceGroup(group, resourcePath, schemaRef);
+            if (resolved == null) {
                 return;
             }
-            JsonNode schema = resolveSchemaFromDocument(document, schemaRef);
-            if (schema == null || schema.isMissingNode()) {
-                return;
-            }
+            JsonNode document = resolved.document();
+            JsonNode schema = resolved.schema();
             boolean isResponseSchema = responseRole || "response".equalsIgnoreCase(schemaRef.schemaType());
             collectExplicitSchemaFieldLabels(
                     unwrapArray(schema),
@@ -4322,6 +4483,36 @@ public class SemanticDomainCatalogService {
                     labelStrength,
                     propertyNames
             );
+        }
+
+        private ResolvedOpenApiSchema resolveSchemaNonStrictWithPreferredResourceGroup(
+                String group,
+                String resourcePath,
+                CanonicalSchemaRef schemaRef
+        ) {
+            String preferredGroup = preferredResourceGroup(group, resourcePath);
+            if (preferredGroup != null) {
+                JsonNode preferredDoc = openApiDocNonStrict(preferredGroup);
+                if (preferredDoc != null && !preferredDoc.isMissingNode()) {
+                    try {
+                        JsonNode preferredSchema = resolveSchemaFromDocument(preferredDoc, schemaRef);
+                        if (preferredSchema != null && !preferredSchema.isMissingNode()) {
+                            return new ResolvedOpenApiSchema(preferredDoc, preferredSchema);
+                        }
+                    } catch (RuntimeException ignored) {
+                        // Fall back to the declared group when the per-resource group lacks the schema/path.
+                    }
+                }
+            }
+            JsonNode document = openApiDocNonStrict(group);
+            if (document == null || document.isMissingNode()) {
+                return null;
+            }
+            JsonNode schema = resolveSchemaFromDocument(document, schemaRef);
+            if (schema == null || schema.isMissingNode()) {
+                return null;
+            }
+            return new ResolvedOpenApiSchema(document, schema);
         }
 
         private void collectFromFilterPath(
@@ -4373,24 +4564,7 @@ public class SemanticDomainCatalogService {
         }
 
         private JsonNode openApiDocNonStrict(String group) {
-            if (openApiDocumentService == null) {
-                return null;
-            }
-            if (!StringUtils.hasText(group) && !applicationGroupAvailableSupplier.getAsBoolean()) {
-                return null;
-            }
-            String effectiveGroup = StringUtils.hasText(group) ? group.trim() : "application";
-            if (openApiDocByGroup.containsKey(effectiveGroup)) {
-                return openApiDocByGroup.get(effectiveGroup);
-            }
-            JsonNode doc;
-            try {
-                doc = openApiDocumentService.getDocumentForGroup(effectiveGroup);
-            } catch (RuntimeException ex) {
-                doc = null;
-            }
-            openApiDocByGroup.put(effectiveGroup, doc);
-            return doc;
+            return readOpenApiDocumentNonStrict(group);
         }
 
         private void collectExplicitSchemaFieldLabels(

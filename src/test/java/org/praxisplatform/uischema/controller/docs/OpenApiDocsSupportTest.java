@@ -22,6 +22,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
@@ -297,5 +299,48 @@ class OpenApiDocsSupportTest {
                 LoggerFactory.getLogger(OpenApiDocsSupportTest.class)
         ));
         server.verify();
+    }
+
+    @Test
+    void fetchOpenApiDocumentFallsBackToWebServerPortForDefaultMockHttpServletRequest() {
+        ReflectionTestUtils.setField(support, "openApiInternalBaseUrl", "");
+        var webServer = mock(org.springframework.boot.web.server.WebServer.class);
+        when(webServer.getPort()).thenReturn(8095);
+        var webCtx = mock(org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.class);
+        when(webCtx.getWebServer()).thenReturn(webServer);
+        ReflectionTestUtils.setField(support, "applicationContext", webCtx);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/employees/capabilities");
+        // Default MockHttpServletRequest has localPort=0, serverPort=80, localAddr=127.0.0.1
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        server.expect(once(), requestTo("http://127.0.0.1:8095/v3/api-docs/stats"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"paths\":{\"/stats/group-by\":{}}}", MediaType.APPLICATION_JSON));
+
+        JsonNode result = support.fetchOpenApiDocument(
+                restTemplate,
+                "/v3/api-docs",
+                "stats",
+                LoggerFactory.getLogger(OpenApiDocsSupportTest.class)
+        );
+        assertEquals(true, result.path("paths").has("/stats/group-by"));
+        server.verify();
+
+        // Non-MockHttpServletRequest keeps port 80 even with ServletWebServerApplicationContext present
+        var wrapped = new jakarta.servlet.http.HttpServletRequestWrapper(request);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(wrapped));
+        var nextServer = MockRestServiceServer.createServer(restTemplate);
+        nextServer.expect(once(), requestTo("http://127.0.0.1/v3/api-docs/stats"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"paths\":{\"/stats/group-by\":{}}}", MediaType.APPLICATION_JSON));
+
+        support.fetchOpenApiDocument(
+                restTemplate,
+                "/v3/api-docs",
+                "stats",
+                LoggerFactory.getLogger(OpenApiDocsSupportTest.class)
+        );
+        nextServer.verify();
     }
 }

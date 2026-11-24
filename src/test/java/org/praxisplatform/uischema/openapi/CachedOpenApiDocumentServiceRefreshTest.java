@@ -252,4 +252,81 @@ class CachedOpenApiDocumentServiceRefreshTest {
             executor.shutdownNow();
         }
     }
+
+    @Test
+    void readOnlyDocumentAccessorsAvoidDefensiveCopiesAndUnwrapSpringProxies() throws Exception {
+        OpenApiDocsSupport support = mock(OpenApiDocsSupport.class);
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode source = mapper.readTree("{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"Inventory\",\"version\":\"1\"},\"paths\":{}}");
+        when(support.fetchOpenApiDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(source);
+        when(support.fetchOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(source);
+        var service = new CachedOpenApiDocumentService(
+                new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)),
+                mapper,
+                support
+        );
+        ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
+
+        JsonNode ro1 = service.getReadOnlyDocumentForGroup("inventory");
+        JsonNode ro2 = service.getReadOnlyDocumentForGroup("inventory");
+        assertThat(ro1).isSameAs(ro2);
+        assertThat(service.getDocumentForGroup("inventory")).isNotSameAs(ro1).isEqualTo(ro1);
+
+        // Spring CGLIB and JDK dynamic proxy unwrapping via OpenApiDocumentReaders (non-strict)
+        var cglibFactory = new org.springframework.aop.framework.ProxyFactory(service);
+        cglibFactory.setProxyTargetClass(true);
+        OpenApiDocumentService cglibProxy = (OpenApiDocumentService) cglibFactory.getProxy();
+        assertThat(OpenApiDocumentReaders.readOnlyGroupDocument(cglibProxy, "inventory", false)).isSameAs(ro1);
+
+        var jdkFactory = new org.springframework.aop.framework.ProxyFactory(service);
+        jdkFactory.setProxyTargetClass(false);
+        jdkFactory.setInterfaces(OpenApiDocumentService.class);
+        OpenApiDocumentService jdkProxy = (OpenApiDocumentService) jdkFactory.getProxy();
+        assertThat(OpenApiDocumentReaders.readOnlyGroupDocument(jdkProxy, "inventory", false)).isSameAs(ro1);
+
+        JsonNode strictRo1 = service.getReadOnlyDocumentForGroupStrict("inventory");
+        JsonNode strictRo2 = service.getReadOnlyDocumentForGroupStrict("inventory");
+        assertThat(strictRo1).isSameAs(strictRo2);
+        assertThat(service.getDocumentForGroupStrict("inventory")).isNotSameAs(strictRo1).isEqualTo(strictRo1);
+        assertThat(OpenApiDocumentReaders.readOnlyGroupDocument(cglibProxy, "inventory", true)).isSameAs(strictRo1);
+        assertThat(OpenApiDocumentReaders.readOnlyGroupDocument(jdkProxy, "inventory", true)).isSameAs(strictRo1);
+
+        // Mockito mock falls back cleanly to getDocumentForGroup / getDocumentForGroupStrict
+        OpenApiDocumentService mockService = mock(OpenApiDocumentService.class);
+        JsonNode mockDoc = mapper.readTree("{\"paths\":{\"/mock\":{}}}");
+        when(mockService.getDocumentForGroup("mock")).thenReturn(mockDoc);
+        when(mockService.getDocumentForGroupStrict("mock")).thenReturn(mockDoc);
+        assertThat(OpenApiDocumentReaders.readOnlyGroupDocument(mockService, "mock", false)).isSameAs(mockDoc);
+        assertThat(OpenApiDocumentReaders.readOnlyGroupDocument(mockService, "mock", true)).isSameAs(mockDoc);
+    }
+
+    @Test
+    void readOnlyDocumentAccessorsHandleFreshLifecycleSnapshotWithoutDeepCopy() throws Exception {
+        OpenApiDocsSupport support = mock(OpenApiDocsSupport.class);
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode doc = mapper.readTree("{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"Inventory\",\"version\":\"1\"},\"paths\":{}}");
+        when(support.fetchOpenApiDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(doc);
+        when(support.fetchFreshOpenApiGroupDocument(any(RestTemplate.class), anyString(), eq("inventory"), any()))
+                .thenReturn(doc);
+        var service = new CachedOpenApiDocumentService(
+                new OpenApiInternalRestTemplate(java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(10)),
+                mapper,
+                support,
+                true
+        );
+        ReflectionTestUtils.setField(service, "openApiBasePath", "/v3/api-docs");
+
+        service.withFreshBulkLifecycleDocuments(Set.of("inventory"), () -> {
+            JsonNode ro1 = service.getReadOnlyDocumentForGroup("inventory");
+            JsonNode ro2 = service.getReadOnlyDocumentForGroupStrict("inventory");
+            assertThat(ro1).isSameAs(ro2);
+            assertThat(service.getDocumentForGroup("inventory")).isNotSameAs(ro1).isEqualTo(ro1);
+            assertThrows(IllegalStateException.class, () -> service.getReadOnlyDocumentForGroup("missing"));
+            assertThrows(IllegalStateException.class, () -> service.getReadOnlyDocumentForGroupStrict("missing"));
+            return null;
+        });
+    }
 }

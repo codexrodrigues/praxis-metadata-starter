@@ -1937,4 +1937,246 @@ class ApiDocsControllerTest {
         assertEquals("#/components/schemas/AddressDto", canonicalAddress.get("$ref"));
         assertFalse(canonicalAddress.containsKey("properties"));
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getFilteredSchemaExpandsCyclicAndDiamondRefsWithoutStackOverflowAndPreservesSiblingXUi() throws Exception {
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn(null);
+        String doc = """
+                {
+                  "paths": {
+                    "/nodes": {
+                      "post": {
+                        "requestBody": {
+                          "content": {
+                            "application/json": {
+                              "schema": { "$ref": "#/components/schemas/NodeRoot" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "components": {
+                    "schemas": {
+                      "NodeRoot": {
+                        "type": "object",
+                        "properties": {
+                          "parent": { "$ref": "#/components/schemas/NodeRoot" },
+                          "billing": {
+                            "$ref": "#/components/schemas/AddressDto",
+                            "description": "Billing address override",
+                            "x-ui": { "label": "Cobranca", "order": 1 }
+                          },
+                          "shipping": {
+                            "$ref": "#/components/schemas/AddressDto",
+                            "x-ui": { "label": "Entrega" }
+                          },
+                          "cycleA": { "$ref": "#/components/schemas/CycleA" }
+                        }
+                      },
+                      "AddressDto": {
+                        "type": "object",
+                        "description": "Generic address",
+                        "x-ui": { "icon": "home", "label": "Padrao" },
+                        "properties": {
+                          "street": { "type": "string" }
+                        }
+                      },
+                      "CycleA": {
+                        "type": "object",
+                        "properties": {
+                          "b": { "$ref": "#/components/schemas/CycleB" }
+                        }
+                      },
+                      "CycleB": {
+                        "type": "object",
+                        "properties": {
+                          "a": { "$ref": "#/components/schemas/CycleA" }
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+
+        server.expect(requestTo("http://localhost/v3/api-docs/nodes"))
+                .andRespond(withSuccess(doc, MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema(
+                "/nodes",
+                "post",
+                true,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH
+        );
+
+        Map<String, Object> body = response.getBody();
+        assertNotNull(body);
+        Map<String, Object> props = (Map<String, Object>) body.get("properties");
+
+        // Self cycle stops cleanly without StackOverflowError
+        Map<String, Object> parent = (Map<String, Object>) props.get("parent");
+        assertEquals("#/components/schemas/NodeRoot", parent.get("$ref"));
+
+        // Mutual cycle A -> B -> A expands B once and stops at back-reference to A
+        Map<String, Object> cycleA = (Map<String, Object>) props.get("cycleA");
+        Map<String, Object> cycleAProps = (Map<String, Object>) cycleA.get("properties");
+        Map<String, Object> cycleB = (Map<String, Object>) cycleAProps.get("b");
+        Map<String, Object> cycleBProps = (Map<String, Object>) cycleB.get("properties");
+        Map<String, Object> backRefA = (Map<String, Object>) cycleBProps.get("a");
+        assertEquals("#/components/schemas/CycleA", backRefA.get("$ref"));
+
+        // Diamond DAG expands BOTH billing and shipping and preserves sibling x-ui + description
+        Map<String, Object> billing = (Map<String, Object>) props.get("billing");
+        assertFalse(billing.containsKey("$ref"));
+        assertEquals("Billing address override", billing.get("description"));
+        assertTrue(((Map<?, ?>) billing.get("properties")).containsKey("street"));
+        Map<String, Object> billingXUi = (Map<String, Object>) billing.get("x-ui");
+        assertEquals("Cobranca", billingXUi.get("label"));
+        assertEquals("home", billingXUi.get("icon"));
+        assertEquals(1, billingXUi.get("order"));
+
+        Map<String, Object> shipping = (Map<String, Object>) props.get("shipping");
+        assertFalse(shipping.containsKey("$ref"));
+        assertTrue(((Map<?, ?>) shipping.get("properties")).containsKey("street"));
+        Map<String, Object> shippingXUi = (Map<String, Object>) shipping.get("x-ui");
+        assertEquals("Entrega", shippingXUi.get("label"));
+        assertEquals("home", shippingXUi.get("icon"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void inheritFilterMetadataConvertsOnlyReferencedSchemasAndEnrichCollectsRefsWithoutValueToTree() throws Exception {
+        ObjectMapper spyMapper = org.mockito.Mockito.spy(new ObjectMapper());
+        ApiDocsController localController = new ApiDocsController();
+        OpenApiDocsSupport docsSupport = new OpenApiDocsSupport();
+        ReflectionTestUtils.setField(docsSupport, "openApiGroupResolver", openApiGroupResolver);
+        ReflectionTestUtils.setField(docsSupport, "openApiInternalBaseUrl", "http://localhost");
+        CachedOpenApiDocumentService docService = new CachedOpenApiDocumentService(restTemplate, spyMapper, docsSupport);
+        ReflectionTestUtils.setField(docService, "openApiBasePath", "/v3/api-docs");
+
+        ApiResourceIdentityResolver identityResolver = mock(ApiResourceIdentityResolver.class);
+        when(identityResolver.resolveResourceDtoPair("/api/heroes/filter", "post"))
+                .thenReturn(java.util.Optional.of(new ApiResourceIdentityResolver.ResourceDtoPair(
+                        HeroResponseFixture.class, HeroFilterFixture.class)));
+        when(identityResolver.resolveResourceMetadata(anyString(), anyString(), anyString()))
+                .thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolveResourceMetadata(anyString())).thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolveResourceKey(anyString(), anyString(), anyString()))
+                .thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolveDtoCustomFieldResourceKey(anyString(), anyString(), anyString()))
+                .thenReturn(java.util.Optional.empty());
+
+        ReflectionTestUtils.setField(localController, "objectMapper", spyMapper);
+        ReflectionTestUtils.setField(localController, "openApiDocsSupport", docsSupport);
+        ReflectionTestUtils.setField(localController, "openApiDocumentService", docService);
+        ReflectionTestUtils.setField(localController, "canonicalOperationResolver",
+                new OpenApiCanonicalOperationResolver(docService, null));
+        ReflectionTestUtils.setField(localController, "schemaReferenceResolver",
+                new FilteredSchemaReferenceResolver());
+        ReflectionTestUtils.setField(localController, "canonicalCapabilityResolver",
+                new OpenApiCanonicalCapabilityResolver(docService));
+        ReflectionTestUtils.setField(localController, "apiResourceIdentityResolver", identityResolver);
+
+        var root = spyMapper.createObjectNode();
+        var paths = root.putObject("paths");
+        paths.putObject("/api/heroes/filter").putObject("post")
+                .putObject("requestBody").putObject("content").putObject("application/json")
+                .putObject("schema").put("$ref", "#/components/schemas/HeroFilterFixture");
+
+        var schemas = root.putObject("components").putObject("schemas");
+        var filterSchema = schemas.putObject("HeroFilterFixture");
+        filterSchema.put("type", "object");
+        var filterProps = filterSchema.putObject("properties");
+        filterProps.putObject("status").put("type", "string");
+        var itemsProp = filterProps.putObject("tags");
+        itemsProp.put("type", "array");
+        itemsProp.putObject("items").put("$ref", "#/components/schemas/HeroTagFixture");
+        itemsProp.putObject("x-ui").put("controlType", "array").putObject("array")
+                .put("itemSchemaRef", "#/components/schemas/HeroTagFixture");
+
+        var respSchema = schemas.putObject("HeroResponseFixture");
+        respSchema.put("type", "object");
+        var respStatus = respSchema.putObject("properties").putObject("status");
+        respStatus.put("type", "string");
+        respStatus.putObject("x-ui").put("icon", "verified").put("controlType", "select")
+                .putArray("options").addObject().put("value", "ACTIVE").put("label", "Active");
+
+        var tagSchema = schemas.putObject("HeroTagFixture");
+        tagSchema.put("type", "object");
+        tagSchema.putObject("properties").putObject("name").put("type", "string");
+
+        for (int i = 0; i < 20; i++) {
+            schemas.putObject("UnrelatedSchema" + i).put("type", "object")
+                    .putObject("properties").putObject("code").put("type", "string");
+        }
+
+        when(openApiGroupResolver.resolveGroup(anyString())).thenReturn("heroes");
+        server.expect(requestTo("http://localhost/v3/api-docs/heroes"))
+                .andRespond(withSuccess(spyMapper.writeValueAsString(root), MediaType.APPLICATION_JSON));
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        org.mockito.Mockito.clearInvocations(spyMapper);
+        var response = localController.getFilteredSchema(
+                "/api/heroes/filter",
+                "post",
+                false,
+                "request",
+                null,
+                null,
+                java.util.Locale.ENGLISH
+        );
+
+        Map<String, Object> body = response.getBody();
+        assertNotNull(body);
+        Map<String, Object> props = (Map<String, Object>) body.get("properties");
+        Map<String, Object> statusXUi = (Map<String, Object>) ((Map<?, ?>) props.get("status")).get("x-ui");
+        assertEquals("verified", statusXUi.get("icon"));
+        assertNotNull(statusXUi.get("options"));
+
+        Map<String, Object> componentsSchemas = (Map<String, Object>) ((Map<?, ?>) body.get("components")).get("schemas");
+        assertTrue(componentsSchemas.containsKey("HeroTagFixture"));
+
+        // Full components.schemas node must never be converted eagerly, and unrelated schemas must not be converted
+        JsonNode cachedSchemasNode = docService.getReadOnlyDocumentForGroup("heroes").path("components").path("schemas");
+        org.mockito.Mockito.verify(spyMapper, org.mockito.Mockito.never())
+                .convertValue(org.mockito.ArgumentMatchers.same(cachedSchemasNode), any(com.fasterxml.jackson.core.type.TypeReference.class));
+        org.mockito.Mockito.verify(spyMapper, org.mockito.Mockito.never())
+                .convertValue(org.mockito.ArgumentMatchers.same(cachedSchemasNode.path("UnrelatedSchema0")), any(Class.class));
+        // Only buildStructuralSchemaPayload calls valueToTree(Map) (not enrichReferencedComponentSchemas)
+        org.mockito.Mockito.verify(spyMapper, org.mockito.Mockito.times(1)).valueToTree(any(Map.class));
+    }
+
+    static class HeroFilterFixture implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
+        private String status;
+        private List<HeroTagFixture> tags;
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        public List<HeroTagFixture> getTags() { return tags; }
+        public void setTags(List<HeroTagFixture> tags) { this.tags = tags; }
+    }
+
+    static class HeroResponseFixture {
+        private String status;
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+    }
+
+    static class HeroTagFixture {
+        private String name;
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+    }
 }

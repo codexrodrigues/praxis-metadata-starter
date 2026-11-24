@@ -70,6 +70,9 @@ public final class OpenApiPublicationCandidate {
         if (!groups.contains(group)) throw new IllegalArgumentException("Group is outside the prepared publication");
         return response(groupPath(basePath, group)).document();
     }
+    com.fasterxml.jackson.databind.JsonNode readOnlyGroupDocument(String group) {
+        return groupCapture(group).readOnlyDocument();
+    }
     long identityId() { return identityId; }
     Object publicationToken() { return publicationToken; }
     OpenApiDocumentCapture groupCapture(String group) {

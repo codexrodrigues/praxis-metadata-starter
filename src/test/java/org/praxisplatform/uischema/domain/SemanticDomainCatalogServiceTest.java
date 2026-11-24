@@ -45,11 +45,14 @@ import org.praxisplatform.uischema.surface.SurfaceScope;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SemanticDomainCatalogServiceTest {
 
@@ -2532,6 +2535,249 @@ class SemanticDomainCatalogServiceTest {
                 .containsEntry("lineage", "PRAXIS_POLICY_STUDIO")
                 .containsEntry("title", "Regra Slot 2 CUST-MY-AUG")
                 .containsEntry("summary", "Doc exclusiva do slot 2.");
+    }
+
+    @Test
+    void prefersPerResourceGroupOnNonStrictResourceLookupCachesWithinRequestAndPreservesAggregateMetadata() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode resourceDoc = mapper.readTree("""
+                {
+                  "paths": {
+                    "/api/human-resources/folhas-pagamento": { "get": {} },
+                    "/api/human-resources/folhas-pagamento/{id}": { "get": {} },
+                    "/api/human-resources/folhas-pagamento/{folhaId}/actions/mark-paid": {
+                      "post": {
+                        "responses": {
+                          "200": {
+                            "content": {
+                              "application/json": {
+                                "schema": { "$ref": "#/components/schemas/RestApiResponseWorkflowResponse" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "/api/human-resources/folhas-pagamento/stats/group-by": {
+                      "post": { "operationId": "folhasPagamentoGroupBy", "responses": { "200": {} } }
+                    }
+                  },
+                  "components": {
+                    "schemas": {
+                      "WorkflowRequest": {
+                        "type": "object",
+                        "properties": { "id": { "type": "integer" } }
+                      },
+                      "RestApiResponseWorkflowResponse": {
+                        "type": "object",
+                        "properties": { "data": { "$ref": "#/components/schemas/WorkflowResponse" } }
+                      },
+                      "WorkflowResponse": {
+                        "type": "object",
+                        "description": "Folha via grupo do recurso",
+                        "properties": {
+                          "id": { "type": "integer" },
+                          "valorLiquido": { "type": "number", "x-ui": { "label": "Valor do Recurso" } }
+                        }
+                      },
+                      "SchedulePayment": {
+                        "type": "object",
+                        "properties": { "dataPagamento": { "type": "string" } }
+                      }
+                    }
+                  }
+                }
+                """);
+        JsonNode aggregateDoc = mapper.readTree("""
+                {
+                  "paths": {
+                    "/api/human-resources/folhas-pagamento/{id}": { "get": {} },
+                    "/api/human-resources/folhas-pagamento/{folhaId}/actions/mark-paid": {
+                      "post": {
+                        "responses": {
+                          "200": {
+                            "content": {
+                              "application/json": {
+                                "schema": { "$ref": "#/components/schemas/RestApiResponseWorkflowResponse" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "components": {
+                    "schemas": {
+                      "WorkflowRequest": { "type": "object", "properties": { "id": { "type": "integer" } } },
+                      "RestApiResponseWorkflowResponse": {
+                        "type": "object",
+                        "properties": { "data": { "$ref": "#/components/schemas/WorkflowResponse" } }
+                      },
+                      "WorkflowResponse": {
+                        "type": "object",
+                        "description": "Folha via grupo agregado",
+                        "properties": {
+                          "id": { "type": "integer" },
+                          "valorLiquido": { "type": "number", "x-ui": { "label": "Valor Agregado" } }
+                        }
+                      },
+                      "SchedulePayment": { "type": "object", "properties": { "dataPagamento": { "type": "string" } } }
+                    }
+                  }
+                }
+                """);
+
+        List<String> publicReads = new ArrayList<>();
+        List<String> strictReads = new ArrayList<>();
+        OpenApiDocumentService trackingDocs = new OpenApiDocumentService() {
+            @Override
+            public String resolveGroupFromPath(String path) {
+                return "api-human-resources-folhas-pagamento";
+            }
+
+            @Override
+            public JsonNode getDocumentForGroup(String groupName) {
+                publicReads.add(groupName);
+                if ("api-human-resources-folhas-pagamento".equals(groupName)) {
+                    return resourceDoc;
+                }
+                if ("human-resources".equals(groupName)) {
+                    return aggregateDoc;
+                }
+                throw new IllegalStateException("Missing group: " + groupName);
+            }
+
+            @Override
+            public JsonNode getDocumentForGroupStrict(String groupName) {
+                strictReads.add(groupName);
+                return "human-resources".equals(groupName) ? aggregateDoc : resourceDoc;
+            }
+
+            @Override
+            public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) {
+                return "h:" + schemaId;
+            }
+
+            @Override
+            public void clearCaches() {
+            }
+        };
+
+        var capabilityResolver = new org.praxisplatform.uischema.capability.OpenApiCanonicalCapabilityResolver(trackingDocs);
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(),
+                OptionSourceRegistry.empty(),
+                trackingDocs,
+                capabilityResolver,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart",
+                "Praxis API Quickstart",
+                "test"
+        );
+
+        DomainCatalogResponse resourceResponse = service.findByResourceKey("human-resources.folhas-pagamento");
+        assertThat(publicReads).containsExactly("api-human-resources-folhas-pagamento");
+        assertThat(strictReads).isEmpty();
+        assertThat(resourceResponse.contexts())
+                .extracting(DomainCatalogResponse.DomainContextItem::contextKey, DomainCatalogResponse.DomainContextItem::semanticOwner)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("human-resources", "human-resources"));
+        assertThat(resourceResponse.nodes())
+                .filteredOn(n -> "human-resources.folhas-pagamento".equals(n.nodeKey()))
+                .singleElement()
+                .satisfies(n -> {
+                    assertThat(n.description()).isEqualTo("Folha via grupo do recurso");
+                    assertThat(n.metadata()).containsEntry("group", "human-resources");
+                });
+        assertThat(resourceResponse.nodes())
+                .filteredOn(n -> "human-resources.folhas-pagamento.field.valor-liquido".equals(n.nodeKey()))
+                .singleElement()
+                .satisfies(n -> assertThat(n.label()).isEqualTo("Valor do Recurso"));
+
+        // Strict resource lookup must still read the exact declared @ApiGroup and reuse request-scoped cache
+        publicReads.clear();
+        DomainCatalogResponse strictResponse = service.findByResourceKeyStrict("human-resources.folhas-pagamento");
+        assertThat(publicReads).isEmpty();
+        assertThat(strictReads).containsExactly("human-resources");
+        assertThat(strictResponse.nodes())
+                .filteredOn(n -> "human-resources.folhas-pagamento.field.valor-liquido".equals(n.nodeKey()))
+                .singleElement()
+                .satisfies(n -> assertThat(n.label()).isEqualTo("Valor Agregado"));
+    }
+
+    @Test
+    void fallsBackToAggregateGroupWhenResourceGroupFailsAndCachesNullResultWithinSingleRequest() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode aggregateDoc = new StubOpenApiDocumentService().getDocumentForGroup("human-resources");
+        AtomicInteger failingGroupCalls = new AtomicInteger();
+        AtomicInteger aggregateGroupCalls = new AtomicInteger();
+
+        OpenApiDocumentService fallbackDocs = new OpenApiDocumentService() {
+            @Override
+            public String resolveGroupFromPath(String path) {
+                return "broken-resource-group";
+            }
+
+            @Override
+            public JsonNode getDocumentForGroup(String groupName) {
+                if ("broken-resource-group".equals(groupName)) {
+                    failingGroupCalls.incrementAndGet();
+                    throw new IllegalStateException("unavailable");
+                }
+                if ("human-resources".equals(groupName)) {
+                    aggregateGroupCalls.incrementAndGet();
+                    return aggregateDoc;
+                }
+                return null;
+            }
+
+            @Override
+            public JsonNode getDocumentForGroupStrict(String groupName) {
+                return getDocumentForGroup(groupName);
+            }
+
+            @Override
+            public String getOrComputeSchemaHash(String schemaId, Supplier<JsonNode> payloadSupplier) {
+                return "h";
+            }
+
+            @Override
+            public void clearCaches() {
+            }
+        };
+
+        ActionDefinitionRegistry baseActions = new StubActionDefinitionRegistry();
+        SurfaceDefinitionRegistry baseSurfaces = new StubSurfaceDefinitionRegistry();
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new ActionDefinitionRegistry() {
+                    @Override public List<ActionDefinition> findByResourceKey(String resourceKey) { return baseActions.findByResourceKey(resourceKey); }
+                    @Override public List<ActionDefinition> findByGroup(String group) { return "human-resources".equals(group) ? baseActions.findByGroup(group) : List.of(); }
+                },
+                new SurfaceDefinitionRegistry() {
+                    @Override public List<SurfaceDefinition> findByResourceKey(String resourceKey) { return baseSurfaces.findByResourceKey(resourceKey); }
+                    @Override public List<SurfaceDefinition> findByGroup(String group) { return "human-resources".equals(group) ? baseSurfaces.findByGroup(group) : List.of(); }
+                },
+                OptionSourceRegistry.empty(),
+                fallbackDocs,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart",
+                "Praxis API Quickstart",
+                "test"
+        );
+        service.setMaxCatalogCacheEntries(1);
+
+        DomainCatalogResponse response = service.findByResourceKey("human-resources.folhas-pagamento");
+        assertThat(response.nodes())
+                .filteredOn(n -> "human-resources.folhas-pagamento.field.valor-liquido".equals(n.nodeKey()))
+                .isNotEmpty();
+        assertThat(failingGroupCalls.get()).isEqualTo(1);
+        assertThat(aggregateGroupCalls.get()).isEqualTo(1);
+
+        // New top-level lookup (when catalog cache evicted) gets a fresh request scope rather than leaking
+        service.findByGroup("other-evict");
+        service.findByResourceKey("human-resources.folhas-pagamento");
+        assertThat(failingGroupCalls.get()).isEqualTo(2);
+        assertThat(aggregateGroupCalls.get()).isEqualTo(2);
     }
 
     private OptionSourceRegistry optionSources() {

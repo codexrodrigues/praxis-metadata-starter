@@ -88,9 +88,10 @@ public final class FilteredSchemaProjection {
         if ("response".equalsIgnoreCase(schemaType) && findDeclaredResponseSchema(operationNode, document) == null)
             throw missing("Bulk UI references require x-ui.responseSchema or a selectable 200/201 response");
         Selection selected = select(document, operation.path(), operation.method(), schemaType);
-        if (!selected.schema().isObject()) throw missing("Filtered bulk schemas must be materializable objects");
+        JsonNode rawSchema = selected.schema;
+        if (!rawSchema.isObject()) throw missing("Filtered bulk schemas must be materializable objects");
         String basePath = deriveBasePathFrom(operation.path());
-        Map<String, Object> schema = objectMapper.convertValue(selected.schema(), new TypeReference<>() { });
+        Map<String, Object> schema = objectMapper.convertValue(rawSchema, new TypeReference<>() { });
         Map<String, Boolean> caps = capabilities.apply(basePath);
         String idField = resolveIdField(explicitIdField, schema, document, basePath, schemaType);
         boolean readOnly = readOnly(explicitReadOnly, caps);
@@ -98,7 +99,7 @@ public final class FilteredSchemaProjection {
                 false, null, null, idField, readOnly);
         var evidence = objectMapper.createObjectNode();
         evidence.put("schemaName", selected.schemaName());
-        evidence.set("schema", selected.schema());
+        evidence.set("schema", rawSchema.deepCopy());
         evidence.set("capabilities", objectMapper.valueToTree(caps));
         // Operation x-ui may select a component different from the raw transport schema.
         JsonNode operationUi = operationNode.get(X_UI);
@@ -108,7 +109,7 @@ public final class FilteredSchemaProjection {
 
     /** Immutable implementation evidence, separate from the raw HTTP schema contract. */
     public record Resolved(CanonicalSchemaRef reference, JsonNode evidence) {
-        public Resolved { evidence = evidence.deepCopy(); }
+        public Resolved { java.util.Objects.requireNonNull(evidence, "evidence"); }
         @Override public JsonNode evidence() { return evidence.deepCopy(); }
     }
 
@@ -120,7 +121,7 @@ public final class FilteredSchemaProjection {
 
     /** Implementation value; not a new HTTP schema contract. */
     public record Selection(String schemaName, JsonNode schema) {
-        public Selection { schema = schema.deepCopy(); }
+        public Selection { java.util.Objects.requireNonNull(schema, "schema"); }
         @Override public JsonNode schema() { return schema.deepCopy(); }
     }
 

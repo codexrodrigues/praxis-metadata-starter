@@ -9,6 +9,7 @@ import org.praxisplatform.uischema.annotation.QuickFilter;
 import org.praxisplatform.uischema.annotation.QuickFilterTone;
 import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.lang.reflect.Field;
@@ -31,15 +33,18 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
@@ -50,6 +55,7 @@ import java.util.function.Consumer;
 @Component
 public class ApiResourceQuickFilterResolver {
 
+    private static final int MAX_COMPILED_CACHE_ENTRIES = 512;
     private static final ObjectMapper DEFAULT_MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -57,6 +63,10 @@ public class ApiResourceQuickFilterResolver {
     private final RequestMappingHandlerMapping handlerMapping;
     private final ObjectMapper objectMapper;
     private final ApplicationContext applicationContext;
+    private final Object indexMonitor = new Object();
+    private volatile ControllerIndex cachedIndex;
+    private final ConcurrentHashMap<CompiledCacheKey, List<Map<String, Object>>> compiledDeclarativeCache =
+            new ConcurrentHashMap<>();
 
     public ApiResourceQuickFilterResolver(
             @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping handlerMapping,
@@ -86,10 +96,8 @@ public class ApiResourceQuickFilterResolver {
         if (resourcePath == null || resourcePath.isBlank() || handlerMapping == null) {
             return Collections.emptyList();
         }
-        String expectedPath = normalizePath(resourcePath);
-        return findControllerCandidate(candidate -> matchesPath(candidate.apiResource(), expectedPath))
-                .map(candidate -> resolveForCandidate(candidate, null))
-                .orElse(Collections.emptyList());
+        ControllerMetadata match = currentIndex().byPath().get(normalizePath(resourcePath));
+        return match == null ? Collections.emptyList() : resolveForCandidate(match, null);
     }
 
     /**
@@ -102,10 +110,8 @@ public class ApiResourceQuickFilterResolver {
         if (!StringUtils.hasText(resourceKey) || handlerMapping == null) {
             return Collections.emptyList();
         }
-        String expectedKey = resourceKey.trim();
-        return findControllerCandidate(candidate -> expectedKey.equals(resolveResourceKey(candidate.apiResource())))
-                .map(candidate -> resolveForCandidate(candidate, null))
-                .orElse(Collections.emptyList());
+        ControllerMetadata match = currentIndex().byResourceKey().get(resourceKey.trim());
+        return match == null ? Collections.emptyList() : resolveForCandidate(match, null);
     }
 
     /**
@@ -115,9 +121,9 @@ public class ApiResourceQuickFilterResolver {
         if (!StringUtils.hasText(resourceKey) || handlerMapping == null) {
             return Optional.empty();
         }
-        String expectedKey = resourceKey.trim();
-        return findControllerCandidate(candidate -> expectedKey.equals(resolveResourceKey(candidate.apiResource())))
-                .map(candidate -> primaryResourcePath(candidate.apiResource()))
+        ControllerMetadata match = currentIndex().byResourceKey().get(resourceKey.trim());
+        return Optional.ofNullable(match)
+                .map(ControllerMetadata::primaryResourcePath)
                 .filter(StringUtils::hasText);
     }
 
@@ -140,55 +146,161 @@ public class ApiResourceQuickFilterResolver {
         return compileQuickFilters(candidate, explicitFilterDtoClass, DEFAULT_MAPPER);
     }
 
-    private Optional<ControllerCandidate> findControllerCandidate(
-            java.util.function.Predicate<ControllerCandidate> predicate
-    ) {
-        Map<Class<?>, Object> seenTypes = new LinkedHashMap<>();
-        for (HandlerMethod handlerMethod : handlerMapping.getHandlerMethods().values()) {
-            Class<?> beanType = ClassUtils.getUserClass(handlerMethod.getBeanType());
-            if (!seenTypes.containsKey(beanType)) {
-                seenTypes.put(beanType, resolveBeanInstance(handlerMethod));
-            }
+    private ControllerIndex currentIndex() {
+        if (handlerMapping == null) {
+            return ControllerIndex.EMPTY;
         }
-        for (Map.Entry<Class<?>, Object> entry : seenTypes.entrySet()) {
-            ApiResource annotation = AnnotatedElementUtils.findMergedAnnotation(entry.getKey(), ApiResource.class);
+        Map<RequestMappingInfo, HandlerMethod> handlerMethods = handlerMapping.getHandlerMethods();
+        if (handlerMethods == null || handlerMethods.isEmpty()) {
+            return ControllerIndex.EMPTY;
+        }
+        int size = handlerMethods.size();
+        ControllerIndex current = this.cachedIndex;
+        if (current != null && current.handlerMethodCount() == size) {
+            return current;
+        }
+        synchronized (indexMonitor) {
+            handlerMethods = handlerMapping.getHandlerMethods();
+            if (handlerMethods == null || handlerMethods.isEmpty()) {
+                this.cachedIndex = ControllerIndex.EMPTY;
+                return ControllerIndex.EMPTY;
+            }
+            size = handlerMethods.size();
+            current = this.cachedIndex;
+            if (current != null && current.handlerMethodCount() == size) {
+                return current;
+            }
+            ControllerIndex rebuilt = buildIndex(handlerMethods, size);
+            this.cachedIndex = rebuilt;
+            return rebuilt;
+        }
+    }
+
+    private ControllerIndex buildIndex(Map<RequestMappingInfo, HandlerMethod> handlerMethods, int size) {
+        Map<String, ControllerMetadata> byPath = new LinkedHashMap<>();
+        Map<String, ControllerMetadata> byResourceKey = new LinkedHashMap<>();
+        Set<Class<?>> seenTypes = new HashSet<>();
+
+        for (HandlerMethod handlerMethod : handlerMethods.values()) {
+            if (handlerMethod == null) {
+                continue;
+            }
+            Class<?> controllerType = resolveControllerType(handlerMethod);
+            if (!seenTypes.add(controllerType)) {
+                continue;
+            }
+            ApiResource annotation = AnnotatedElementUtils.findMergedAnnotation(controllerType, ApiResource.class);
             if (annotation == null) {
                 continue;
             }
-            ControllerCandidate candidate = new ControllerCandidate(entry.getKey(), entry.getValue(), annotation);
-            if (predicate.test(candidate)) {
-                return Optional.of(candidate);
+            Object bean = handlerMethod.getBean();
+            String beanName = bean instanceof String name ? name : null;
+            Object directBean = bean instanceof String ? null : bean;
+            boolean overridesProgrammatic = overridesDefineQuickFilters(controllerType);
+            String resourceKey = resolveResourceKey(annotation);
+            String primaryPath = primaryResourcePath(annotation);
+            ControllerMetadata metadata = new ControllerMetadata(
+                    controllerType,
+                    beanName,
+                    directBean,
+                    annotation,
+                    primaryPath,
+                    overridesProgrammatic
+            );
+            for (String path : annotation.value()) {
+                byPath.putIfAbsent(normalizePath(path), metadata);
+            }
+            for (String path : annotation.path()) {
+                byPath.putIfAbsent(normalizePath(path), metadata);
+            }
+            if (!resourceKey.isEmpty()) {
+                byResourceKey.putIfAbsent(resourceKey, metadata);
             }
         }
-        return Optional.empty();
+        return new ControllerIndex(
+                size,
+                Collections.unmodifiableMap(byPath),
+                Collections.unmodifiableMap(byResourceKey)
+        );
     }
 
-    private Object resolveBeanInstance(HandlerMethod handlerMethod) {
+    private static Class<?> resolveControllerType(HandlerMethod handlerMethod) {
         Object bean = handlerMethod.getBean();
-        if (bean instanceof String beanName) {
-            if (applicationContext != null && applicationContext.containsBean(beanName)) {
-                try {
-                    return applicationContext.getBean(beanName);
-                } catch (Exception ignored) {
-                    return null;
-                }
+        if (!(bean instanceof String) && bean != null && AopUtils.isAopProxy(bean)) {
+            Class<?> ultimate = AopProxyUtils.ultimateTargetClass(bean);
+            if (ultimate != null) {
+                return ClassUtils.getUserClass(ultimate);
             }
-            return null;
         }
-        return bean;
+        return ClassUtils.getUserClass(handlerMethod.getBeanType());
+    }
+
+    private Object resolveControllerInstance(ControllerMetadata metadata) {
+        if (metadata.directBean() != null) {
+            return metadata.directBean();
+        }
+        String beanName = metadata.beanName();
+        if (beanName != null && applicationContext != null && applicationContext.containsBean(beanName)) {
+            try {
+                return applicationContext.getBean(beanName);
+            } catch (Exception ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private List<Map<String, Object>> resolveForCandidate(
-            ControllerCandidate candidate,
+            ControllerMetadata metadata,
             Class<?> explicitFilterDtoClass
     ) {
-        return compileQuickFilters(candidate, explicitFilterDtoClass, this.objectMapper);
+        if (!metadata.overridesDefineQuickFilters()) {
+            CompiledCacheKey key = new CompiledCacheKey(metadata.controllerType(), explicitFilterDtoClass);
+            List<Map<String, Object>> cached = compiledDeclarativeCache.get(key);
+            if (cached != null) {
+                return cached;
+            }
+            List<Map<String, Object>> compiled = compileQuickFilters(
+                    new ControllerCandidate(metadata.controllerType(), null, metadata.apiResource()),
+                    explicitFilterDtoClass,
+                    this.objectMapper,
+                    false
+            );
+            putBoundedDeclarativeCache(key, compiled);
+            return compiled;
+        }
+        Object instance = resolveControllerInstance(metadata);
+        return compileQuickFilters(
+                new ControllerCandidate(metadata.controllerType(), instance, metadata.apiResource()),
+                explicitFilterDtoClass,
+                this.objectMapper,
+                true
+        );
+    }
+
+    private void putBoundedDeclarativeCache(CompiledCacheKey key, List<Map<String, Object>> compiled) {
+        if (compiledDeclarativeCache.size() >= MAX_COMPILED_CACHE_ENTRIES) {
+            Iterator<CompiledCacheKey> it = compiledDeclarativeCache.keySet().iterator();
+            while (compiledDeclarativeCache.size() >= MAX_COMPILED_CACHE_ENTRIES && it.hasNext()) {
+                compiledDeclarativeCache.remove(it.next());
+            }
+        }
+        compiledDeclarativeCache.putIfAbsent(key, compiled);
     }
 
     private static List<Map<String, Object>> compileQuickFilters(
             ControllerCandidate candidate,
             Class<?> explicitFilterDtoClass,
             ObjectMapper mapper
+    ) {
+        return compileQuickFilters(candidate, explicitFilterDtoClass, mapper, true);
+    }
+
+    private static List<Map<String, Object>> compileQuickFilters(
+            ControllerCandidate candidate,
+            Class<?> explicitFilterDtoClass,
+            ObjectMapper mapper,
+            boolean resolveProgrammatic
     ) {
         Class<?> filterDtoClass = explicitFilterDtoClass != null
                 ? explicitFilterDtoClass
@@ -211,21 +323,23 @@ public class ApiResourceQuickFilterResolver {
             }
         }
 
-        List<QuickFilterDescriptor<?>> programmatic = extractProgrammaticDescriptors(
-                candidate.controllerType(),
-                candidate.controllerInstance()
-        );
-        for (QuickFilterDescriptor<?> descriptor : programmatic) {
-            if (descriptor == null || descriptor.id().isBlank()) {
-                continue;
-            }
-            Map<String, Object> serialized = convertProgrammaticQuickFilter(
-                    descriptor,
-                    filterDtoClass,
-                    filterFields,
-                    mapper
+        if (resolveProgrammatic) {
+            List<QuickFilterDescriptor<?>> programmatic = extractProgrammaticDescriptors(
+                    candidate.controllerType(),
+                    candidate.controllerInstance()
             );
-            entries.add(new OrderedEntry(descriptor.order(), seq++, serialized));
+            for (QuickFilterDescriptor<?> descriptor : programmatic) {
+                if (descriptor == null || descriptor.id().isBlank()) {
+                    continue;
+                }
+                Map<String, Object> serialized = convertProgrammaticQuickFilter(
+                        descriptor,
+                        filterDtoClass,
+                        filterFields,
+                        mapper
+                );
+                entries.add(new OrderedEntry(descriptor.order(), seq++, serialized));
+            }
         }
 
         if (entries.isEmpty()) {
@@ -891,17 +1005,33 @@ public class ApiResourceQuickFilterResolver {
         return null;
     }
 
-    private static boolean matchesPath(ApiResource resource, String expectedPath) {
-        return Arrays.stream(resource.value()).anyMatch(path -> normalizePath(path).equals(expectedPath))
-                || Arrays.stream(resource.path()).anyMatch(path -> normalizePath(path).equals(expectedPath));
-    }
-
     private static String normalizePath(String path) {
         if (path == null || path.isBlank()) {
             return "/";
         }
         String normalized = path.trim().replaceAll("/+$", "");
         return normalized.isBlank() ? "/" : normalized;
+    }
+
+    private record ControllerMetadata(
+            Class<?> controllerType,
+            String beanName,
+            Object directBean,
+            ApiResource apiResource,
+            String primaryResourcePath,
+            boolean overridesDefineQuickFilters
+    ) {
+    }
+
+    private record ControllerIndex(
+            int handlerMethodCount,
+            Map<String, ControllerMetadata> byPath,
+            Map<String, ControllerMetadata> byResourceKey
+    ) {
+        private static final ControllerIndex EMPTY = new ControllerIndex(0, Map.of(), Map.of());
+    }
+
+    private record CompiledCacheKey(Class<?> controllerType, Class<?> explicitFilterDtoClass) {
     }
 
     private record ControllerCandidate(Class<?> controllerType, Object controllerInstance, ApiResource apiResource) {

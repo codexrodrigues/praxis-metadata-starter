@@ -2,9 +2,14 @@ package org.praxisplatform.uischema.util;
 
 import org.springdoc.core.models.GroupedOpenApi;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 /**
  * Resolvedor de grupos OpenAPI com estrategia de {@code best match}.
@@ -28,7 +33,11 @@ import java.util.function.Supplier;
  */
 public class OpenApiGroupResolver {
 
+    private static final Pattern MULTIPLE_SLASHES = Pattern.compile("/+");
+
     private final Supplier<List<GroupedOpenApi>> groupedOpenApisSupplier;
+    private final Object indexMonitor = new Object();
+    private volatile GroupIndex cachedIndex;
 
     public OpenApiGroupResolver(List<GroupedOpenApi> groupedOpenApis) {
         this(() -> groupedOpenApis == null ? Collections.emptyList() : groupedOpenApis);
@@ -60,30 +69,33 @@ public class OpenApiGroupResolver {
             return null;
         }
 
-        List<GroupedOpenApi> groupedOpenApis = groupedOpenApisSupplier.get();
-        if (groupedOpenApis == null || groupedOpenApis.isEmpty()) {
+        GroupIndex index = currentIndex();
+        if (!index.hasGroups()) {
             return null;
         }
 
-        String normalizedPath = requestPath.trim().replaceAll("/+", "/");
+        String normalizedPath = requestPath.trim();
+        if (normalizedPath.contains("//")) {
+            normalizedPath = MULTIPLE_SLASHES.matcher(normalizedPath).replaceAll("/");
+        }
         if (!normalizedPath.startsWith("/")) {
             normalizedPath = "/" + normalizedPath;
         }
 
         // 1. Tentar correspondencia direta
-        String match = findBestMatch(groupedOpenApis, normalizedPath);
+        String match = findBestMatch(index, normalizedPath);
         if (match != null) {
             return match;
         }
 
         // 2. Tentar alternar o prefixo /api/
         if (normalizedPath.startsWith("/api/")) {
-            match = findBestMatch(groupedOpenApis, normalizedPath.substring(4));
+            match = findBestMatch(index, normalizedPath.substring(4));
             if (match != null) {
                 return match;
             }
         } else {
-            match = findBestMatch(groupedOpenApis, "/api" + normalizedPath);
+            match = findBestMatch(index, "/api" + normalizedPath);
             if (match != null) {
                 return match;
             }
@@ -102,49 +114,108 @@ public class OpenApiGroupResolver {
         if (groupName == null || groupName.isBlank()) {
             return false;
         }
-        List<GroupedOpenApi> groupedOpenApis = groupedOpenApisSupplier.get();
-        if (groupedOpenApis == null || groupedOpenApis.isEmpty()) {
-            return false;
-        }
-        for (GroupedOpenApi groupedOpenApi : groupedOpenApis) {
-            if (groupedOpenApi != null && groupName.equals(groupedOpenApi.getGroup())) {
-                return true;
-            }
-        }
-        return false;
+        return currentIndex().registeredGroups().contains(groupName);
     }
 
     /**
      * Indica se ha ao menos um {@link GroupedOpenApi} registrado neste resolvedor.
      */
     public boolean hasRegisteredGroups() {
-        List<GroupedOpenApi> groupedOpenApis = groupedOpenApisSupplier.get();
-        return groupedOpenApis != null && !groupedOpenApis.isEmpty();
+        return currentIndex().hasGroups();
     }
 
-    private String findBestMatch(List<GroupedOpenApi> groupedOpenApis, String candidatePath) {
-        String bestMatch = null;
-        int bestMatchLength = 0;
-
-        for (GroupedOpenApi groupedOpenApi : groupedOpenApis) {
-            List<String> patterns = groupedOpenApi.getPathsToMatch();
-            if (patterns == null) {
-                continue;
+    private GroupIndex currentIndex() {
+        List<GroupedOpenApi> groupedOpenApis = groupedOpenApisSupplier.get();
+        if (groupedOpenApis == null || groupedOpenApis.isEmpty()) {
+            return GroupIndex.EMPTY;
+        }
+        GroupIndex current = this.cachedIndex;
+        if (matchesSnapshot(current, groupedOpenApis)) {
+            return current;
+        }
+        synchronized (indexMonitor) {
+            current = this.cachedIndex;
+            if (matchesSnapshot(current, groupedOpenApis)) {
+                return current;
             }
+            GroupIndex rebuilt = buildIndex(groupedOpenApis);
+            this.cachedIndex = rebuilt;
+            return rebuilt;
+        }
+    }
 
-            for (String pattern : patterns) {
-                String normalized = normalize(pattern);
-
-                if (matchesPathBoundary(candidatePath, normalized)) {
-                    if (normalized.length() > bestMatchLength) {
-                        bestMatch = groupedOpenApi.getGroup();
-                        bestMatchLength = normalized.length();
-                    }
+    private static boolean matchesSnapshot(GroupIndex index, List<GroupedOpenApi> current) {
+        if (index == null || index.sourceRefs().length != current.size()) {
+            return false;
+        }
+        GroupedOpenApi[] refs = index.sourceRefs();
+        List<?>[] patternRefs = index.patternListRefs();
+        int[] patternSizes = index.patternListSizes();
+        for (int i = 0; i < refs.length; i++) {
+            GroupedOpenApi candidate = current.get(i);
+            if (candidate != refs[i]) {
+                return false;
+            }
+            if (candidate != null) {
+                List<String> patterns = candidate.getPathsToMatch();
+                if (patterns != patternRefs[i] || (patterns != null && patterns.size() != patternSizes[i])) {
+                    return false;
                 }
             }
         }
+        return true;
+    }
 
-        return bestMatch;
+    private GroupIndex buildIndex(List<GroupedOpenApi> groupedOpenApis) {
+        int size = groupedOpenApis.size();
+        GroupedOpenApi[] sourceRefs = new GroupedOpenApi[size];
+        List<?>[] patternListRefs = new List<?>[size];
+        int[] patternListSizes = new int[size];
+        Set<String> registeredGroups = new HashSet<>();
+        List<PatternRule> rules = new ArrayList<>();
+
+        for (int i = 0; i < size; i++) {
+            GroupedOpenApi groupedOpenApi = groupedOpenApis.get(i);
+            sourceRefs[i] = groupedOpenApi;
+            if (groupedOpenApi == null) {
+                continue;
+            }
+            String groupName = groupedOpenApi.getGroup();
+            if (groupName != null) {
+                registeredGroups.add(groupName);
+            }
+            List<String> patterns = groupedOpenApi.getPathsToMatch();
+            patternListRefs[i] = patterns;
+            if (patterns == null) {
+                continue;
+            }
+            patternListSizes[i] = patterns.size();
+            for (String pattern : patterns) {
+                String normalized = normalize(pattern);
+                if (!normalized.isEmpty()) {
+                    rules.add(new PatternRule(groupName, normalized));
+                }
+            }
+        }
+        // Stable descending length sort preserves first-registered precedence on equal-length ties.
+        rules.sort(Comparator.comparingInt((PatternRule rule) -> rule.normalizedPattern().length()).reversed());
+        return new GroupIndex(
+                true,
+                sourceRefs,
+                patternListRefs,
+                patternListSizes,
+                Set.copyOf(registeredGroups),
+                rules.toArray(PatternRule[]::new)
+        );
+    }
+
+    private String findBestMatch(GroupIndex index, String candidatePath) {
+        for (PatternRule rule : index.rules()) {
+            if (matchesPathBoundary(candidatePath, rule.normalizedPattern())) {
+                return rule.groupName();
+            }
+        }
+        return null;
     }
 
     /**
@@ -177,5 +248,26 @@ public class OpenApiGroupResolver {
             return true;
         }
         return requestPath.startsWith(normalizedPattern + "/");
+    }
+
+    private record PatternRule(String groupName, String normalizedPattern) {
+    }
+
+    private record GroupIndex(
+            boolean hasGroups,
+            GroupedOpenApi[] sourceRefs,
+            List<?>[] patternListRefs,
+            int[] patternListSizes,
+            Set<String> registeredGroups,
+            PatternRule[] rules
+    ) {
+        private static final GroupIndex EMPTY = new GroupIndex(
+                false,
+                new GroupedOpenApi[0],
+                new List<?>[0],
+                new int[0],
+                Set.of(),
+                new PatternRule[0]
+        );
     }
 }

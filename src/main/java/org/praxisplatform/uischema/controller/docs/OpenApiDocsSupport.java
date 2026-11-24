@@ -6,6 +6,8 @@ import org.praxisplatform.uischema.util.OpenApiGroupResolver;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -44,6 +46,9 @@ public class OpenApiDocsSupport {
 
     @Autowired(required = false)
     private OpenApiGroupResolver openApiGroupResolver;
+
+    @Autowired(required = false)
+    private ApplicationContext applicationContext;
 
     /**
      * Indica se o grupo {@code "application"} esta disponivel para leitura fallback, seja pela
@@ -331,6 +336,13 @@ public class OpenApiDocsSupport {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
         HttpServletRequest request = attributes.getRequest();
         int localPort = request.getLocalPort() > 0 ? request.getLocalPort() : request.getServerPort();
+        if (localPort == 80
+                && "org.springframework.mock.web.MockHttpServletRequest".equals(request.getClass().getName())
+                && applicationContext instanceof ServletWebServerApplicationContext webCtx
+                && webCtx.getWebServer() != null
+                && webCtx.getWebServer().getPort() > 0) {
+            localPort = webCtx.getWebServer().getPort();
+        }
         UriComponentsBuilder builder = UriComponentsBuilder.newInstance()
                 .scheme("http")
                 .host(resolveLocalHost(request));

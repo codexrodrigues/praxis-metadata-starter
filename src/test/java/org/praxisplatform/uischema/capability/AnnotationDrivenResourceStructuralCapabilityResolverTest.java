@@ -57,6 +57,72 @@ class AnnotationDrivenResourceStructuralCapabilityResolverTest {
         verify(handlerMapping, times(2)).getHandlerMethods();
     }
 
+    @Test
+    void deduplicatesMatchedControllerBeansBeforeGetBeanAndAvoidsInstantiatingUnrelatedLazyControllers() throws Exception {
+        ResourceStructuralCapabilities expected = new ResourceStructuralCapabilities(
+                true, false, false, false, false, false, false, false,
+                StatsCapability.empty(), null
+        );
+        @SuppressWarnings("unchecked")
+        BaseResourceQueryService<TestDto, Long, TestFilter> service = mock(BaseResourceQueryService.class);
+        when(service.getStructuralCapabilities()).thenReturn(expected);
+
+        try (var ctx = new org.springframework.context.support.GenericApplicationContext()) {
+            var empDef = new org.springframework.beans.factory.support.RootBeanDefinition(
+                    TestController.class, () -> new TestController(service));
+            empDef.setLazyInit(true);
+            ctx.registerBeanDefinition("employeesController", empDef);
+
+            var unrelatedDef = new org.springframework.beans.factory.support.RootBeanDefinition(
+                    UnrelatedLazyController.class, () -> new UnrelatedLazyController(service));
+            unrelatedDef.setLazyInit(true);
+            ctx.registerBeanDefinition("unrelatedLazyController", unrelatedDef);
+            ctx.refresh();
+
+            ApplicationContext spyCtx = org.mockito.Mockito.spy(ctx);
+            Method m1 = AbstractReadOnlyResourceController.class.getMethod("getCollectionCapabilities");
+            Method m2 = AbstractReadOnlyResourceController.class.getMethod("getAll");
+            HandlerMethod hm1 = new HandlerMethod("employeesController", ctx.getBeanFactory(), m1);
+            HandlerMethod hm2 = new HandlerMethod("employeesController", ctx.getBeanFactory(), m2);
+            HandlerMethod unrelatedHm = new HandlerMethod("unrelatedLazyController", ctx.getBeanFactory(), m1);
+
+            RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+            when(handlerMapping.getHandlerMethods()).thenReturn(Map.of(
+                    RequestMappingInfo.paths("/employees/capabilities").build(), hm1,
+                    RequestMappingInfo.paths("/employees/all").build(), hm2,
+                    RequestMappingInfo.paths("/unrelated/capabilities").build(), unrelatedHm
+            ));
+
+            ResourceStructuralCapabilityResolver resolver =
+                    new AnnotationDrivenResourceStructuralCapabilityResolver(handlerMapping, spyCtx);
+
+            assertTrue(resolver.resolve("/employees").options());
+            verify(spyCtx, times(1)).getBean("employeesController");
+            verify(spyCtx, org.mockito.Mockito.never()).getBean("unrelatedLazyController");
+            assertFalse(ctx.getBeanFactory().containsSingleton("unrelatedLazyController"));
+        }
+    }
+
+    @ApiResource(value = "/unrelated", resourceKey = "test.unrelated")
+    private static class UnrelatedLazyController
+            extends AbstractReadOnlyResourceController<TestDto, Long, TestFilter> {
+        private final BaseResourceQueryService<TestDto, Long, TestFilter> service;
+
+        private UnrelatedLazyController(BaseResourceQueryService<TestDto, Long, TestFilter> service) {
+            this.service = service;
+        }
+
+        @Override
+        protected BaseResourceQueryService<TestDto, Long, TestFilter> getService() {
+            return service;
+        }
+
+        @Override
+        protected Long getResponseId(TestDto dto) {
+            return dto.id();
+        }
+    }
+
     @ApiResource(value = "/employees", resourceKey = "test.employees")
     private static final class TestController
             extends AbstractReadOnlyResourceController<TestDto, Long, TestFilter> {
