@@ -16,6 +16,9 @@ import org.praxisplatform.uischema.fact.ResourceFactCatalogProvider;
 import org.praxisplatform.uischema.fact.ResourceFactDescriptor;
 import org.praxisplatform.uischema.action.ActionDefinition;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
+import org.praxisplatform.uischema.analytics.ResolvedVerifiedAnalyticalRecipe;
+import org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeDescriptor;
+import org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeResolver;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.hash.SchemaCanonicalizer;
 import org.praxisplatform.uischema.hash.SchemaHashUtil;
@@ -81,6 +84,7 @@ public class SemanticDomainCatalogService {
     private final DomainRuleSetCatalogProvider domainRuleSetCatalogProvider;
     private final ReactiveDeterminationCatalogSource determinationCatalogSource;
     private final org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver apiResourceQuickFilterResolver;
+    private final VerifiedAnalyticalRecipeResolver verifiedAnalyticalRecipeResolver;
     private final Clock clock;
     private final String serviceKey;
     private final String serviceName;
@@ -200,8 +204,28 @@ public class SemanticDomainCatalogService {
             ReactiveDeterminationCatalogSource determinationCatalogSource,
             org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver apiResourceQuickFilterResolver
     ) {
+        this(actionDefinitionRegistry, surfaceDefinitionRegistry, optionSourceRegistry, openApiDocumentService,
+                canonicalCapabilityResolver, clock, serviceKey, serviceName, serviceVersion,
+                customFieldDefinitionProvider, resourceFactCatalogProvider, tenantContextResolver,
+                domainRuleSetCatalogProvider, determinationCatalogSource, apiResourceQuickFilterResolver, null);
+    }
+
+    public SemanticDomainCatalogService(
+            ActionDefinitionRegistry actionDefinitionRegistry, SurfaceDefinitionRegistry surfaceDefinitionRegistry,
+            OptionSourceRegistry optionSourceRegistry, OpenApiDocumentService openApiDocumentService,
+            CanonicalCapabilityResolver canonicalCapabilityResolver, Clock clock,
+            String serviceKey, String serviceName, String serviceVersion,
+            CustomFieldDefinitionProvider customFieldDefinitionProvider,
+            ResourceFactCatalogProvider resourceFactCatalogProvider,
+            ResourceTenantContextResolver tenantContextResolver,
+            DomainRuleSetCatalogProvider domainRuleSetCatalogProvider,
+            ReactiveDeterminationCatalogSource determinationCatalogSource,
+            org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver apiResourceQuickFilterResolver,
+            VerifiedAnalyticalRecipeResolver verifiedAnalyticalRecipeResolver
+    ) {
         this.determinationCatalogSource = determinationCatalogSource;
         this.apiResourceQuickFilterResolver = apiResourceQuickFilterResolver;
+        this.verifiedAnalyticalRecipeResolver = verifiedAnalyticalRecipeResolver;
         this.customFieldDefinitionProvider = customFieldDefinitionProvider;
         this.resourceFactCatalogProvider = resourceFactCatalogProvider;
         this.tenantContextResolver = tenantContextResolver;
@@ -335,7 +359,8 @@ public class SemanticDomainCatalogService {
                 && resourceFactCatalogProvider == null
                 && domainRuleSetCatalogProvider == null
                 && determinationCatalogSource == null
-                && apiResourceQuickFilterResolver == null) {
+                && apiResourceQuickFilterResolver == null
+                && verifiedAnalyticalRecipeResolver == null) {
             return catalogCache.getOrCompute(baseKey, () -> {
                 List<ActionDefinition> actions = resourceKey != null
                         ? safe(actionDefinitionRegistry.findByResourceKey(resourceKey))
@@ -344,7 +369,7 @@ public class SemanticDomainCatalogService {
                         ? safe(surfaceDefinitionRegistry.findByResourceKey(resourceKey))
                         : safe(surfaceDefinitionRegistry.findByGroup(group));
                 return build(resourceKey, group, actions, surfaces,
-                        Map.of(), Map.of(), Map.of(), List.of(), Map.of(),
+                        Map.of(), Map.of(), Map.of(), List.of(), Map.of(), Map.of(),
                         new SchemaFieldLabelIndex(actions, surfaces, Map.of(), Map.of(), List.of()));
             });
         }
@@ -395,10 +420,11 @@ public class SemanticDomainCatalogService {
             }
         }
         Map<String, List<Map<String, Object>>> quickFilters = collectQuickFiltersByResource(resources);
+        Map<String, List<ResolvedVerifiedAnalyticalRecipe>> verifiedRecipes = collectVerifiedRecipesByResource(resources);
         SchemaFieldLabelIndex labelIndex = new SchemaFieldLabelIndex(actions, surfaces, fields, facts, forms);
         String cacheKey = baseKey;
         if (StringUtils.hasText(tenant) || !fields.isEmpty() || !facts.isEmpty() || !ruleSets.isEmpty()
-                || !forms.isEmpty() || !quickFilters.isEmpty()) {
+                || !forms.isEmpty() || !quickFilters.isEmpty() || !verifiedRecipes.isEmpty()) {
             cacheKey += ":extensions:" + SchemaHashUtil.sha256Hex(HASH_CANONICALIZER.canonicalize(
                     HASH_OBJECT_MAPPER.valueToTree(mapOfNonNull(
                             "tenant", tenant,
@@ -406,11 +432,18 @@ public class SemanticDomainCatalogService {
                             "facts", facts,
                             "ruleSets", ruleSetHashSummaries(ruleSets, labelIndex),
                             "determinationForms", forms,
-                            "quickFilters", quickFilters
+                            "quickFilters", quickFilters,
+                            "verifiedRecipes", verifiedRecipes.entrySet().stream()
+                                    .collect(java.util.stream.Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            e -> e.getValue().stream().map(ResolvedVerifiedAnalyticalRecipe::toMetadataMap).toList(),
+                                            (a, b) -> a,
+                                            LinkedHashMap::new
+                                    ))
                     ))));
         }
         return catalogCache.getOrCompute(cacheKey, () -> build(
-                resourceKey, group, actions, surfaces, fields, facts, ruleSets, forms, quickFilters, labelIndex));
+                resourceKey, group, actions, surfaces, fields, facts, ruleSets, forms, quickFilters, verifiedRecipes, labelIndex));
     }
 
     private DomainCatalogResponse buildCatalogUncached(String resourceKey, String group) {
@@ -477,8 +510,23 @@ public class SemanticDomainCatalogService {
             }
         }
         Map<String, List<Map<String, Object>>> quickFilters = collectQuickFiltersByResource(resources);
-        return build(resourceKey, group, actions, surfaces, fields, facts, ruleSets, forms, quickFilters,
+        Map<String, List<ResolvedVerifiedAnalyticalRecipe>> verifiedRecipes = collectVerifiedRecipesByResource(resources);
+        return build(resourceKey, group, actions, surfaces, fields, facts, ruleSets, forms, quickFilters, verifiedRecipes,
                 new SchemaFieldLabelIndex(actions, surfaces, fields, facts, forms));
+    }
+
+    private Map<String, List<ResolvedVerifiedAnalyticalRecipe>> collectVerifiedRecipesByResource(Set<String> resources) {
+        if (verifiedAnalyticalRecipeResolver == null || resources == null || resources.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<ResolvedVerifiedAnalyticalRecipe>> result = new LinkedHashMap<>();
+        for (String resource : resources) {
+            List<ResolvedVerifiedAnalyticalRecipe> resolved = safe(verifiedAnalyticalRecipeResolver.resolveByResourceKey(resource));
+            if (!resolved.isEmpty()) {
+                result.put(resource, List.copyOf(resolved));
+            }
+        }
+        return result.isEmpty() ? Map.of() : Collections.unmodifiableMap(result);
     }
 
     private Map<String, List<Map<String, Object>>> collectQuickFiltersByResource(Set<String> resources) {
@@ -505,6 +553,7 @@ public class SemanticDomainCatalogService {
             Map<String, List<DomainRuleSetDescriptor>> domainRuleSets,
             List<ReactiveDeterminationCatalogSource.CompiledForm> forms,
             Map<String, List<Map<String, Object>>> quickFiltersByResource,
+            Map<String, List<ResolvedVerifiedAnalyticalRecipe>> verifiedRecipesByResource,
             SchemaFieldLabelIndex labelIndex
     ) {
         Map<String, DomainCatalogResponse.DomainContextItem> contexts = new LinkedHashMap<>();
@@ -576,6 +625,7 @@ public class SemanticDomainCatalogService {
         extendedResources.addAll(resourceFacts.keySet());
         extendedResources.addAll(domainRuleSets.keySet());
         extendedResources.addAll(quickFiltersByResource.keySet());
+        extendedResources.addAll(verifiedRecipesByResource.keySet());
         for (String resource : extendedResources) {
             String context = nodes.containsKey(resource) ? nodes.get(resource).contextKey() : contextKey(resource, requestedGroup);
             String quickFilterPath = apiResourceQuickFilterResolver != null
@@ -626,6 +676,9 @@ public class SemanticDomainCatalogService {
             }
             for (Map<String, Object> quickFilter : resourceQuickFilters) {
                 addQuickFilter(resource, context, quickFilterPath, quickFilter, nodes, edges, bindings, evidence);
+            }
+            for (ResolvedVerifiedAnalyticalRecipe recipe : verifiedRecipesByResource.getOrDefault(resource, List.of())) {
+                addVerifiedAnalyticalRecipe(resource, context, recipe, nodes, edges, bindings, evidence);
             }
         }
 
@@ -985,6 +1038,108 @@ public class SemanticDomainCatalogService {
                         "quickFilterId", id
                 ),
                 firstText(description, "Filtro rápido operacional declarado para o recurso " + resource + "."),
+                1.0
+        ));
+    }
+
+    private void addVerifiedAnalyticalRecipe(
+            String resource,
+            String context,
+            ResolvedVerifiedAnalyticalRecipe recipe,
+            Map<String, DomainCatalogResponse.DomainNodeItem> nodes,
+            Map<String, DomainCatalogResponse.DomainEdgeItem> edges,
+            Map<String, DomainCatalogResponse.DomainBindingItem> bindings,
+            Map<String, DomainCatalogResponse.DomainEvidenceItem> evidence
+    ) {
+        if (recipe == null || !StringUtils.hasText(recipe.id())) {
+            return;
+        }
+        String id = recipe.id().trim();
+        String label = firstText(recipe.title(), id);
+        String description = blankToNull(firstText(recipe.description(), recipe.intent()));
+        String nodeKey = resource + ".analyticalRecipe." + keyPart(id);
+        String evidenceKey = "evidence:" + nodeKey + ":verified-recipe";
+        Map<String, Object> metadata = new LinkedHashMap<>(recipe.toMetadataMap());
+        metadata.put("sourceType", "verified_analytical_recipe");
+        metadata.put("kind", "verified_analytical_recipe");
+
+        List<String> tags = new ArrayList<>();
+        tags.add("analytics");
+        tags.add("verified-recipe");
+        tags.add(recipe.governanceTier().wireValue().toLowerCase(Locale.ROOT));
+        if (recipe.domainTags() != null) {
+            recipe.domainTags().stream().filter(StringUtils::hasText).forEach(tags::add);
+        }
+
+        List<String> aliasKeys = new ArrayList<>();
+        aliasKeys.add(id);
+        aliasKeys.add(label);
+        if (StringUtils.hasText(recipe.intent())) {
+            aliasKeys.add(recipe.intent());
+        }
+
+        nodes.putIfAbsent(nodeKey, new DomainCatalogResponse.DomainNodeItem(
+                nodeKey,
+                context,
+                "verified_analytical_recipe",
+                label,
+                description,
+                "active",
+                "verified_analytical_recipe",
+                1.0,
+                Collections.unmodifiableMap(metadata),
+                List.copyOf(tags),
+                null,
+                context,
+                "active",
+                glossary(label, description, List.copyOf(tags)),
+                resolution(nodeKey, matchKeys(aliasKeys.toArray(String[]::new)), "exact-key-or-alias"),
+                List.of(evidenceKey)
+        ));
+        putEdge(edges, resource + ".has-analytical-recipe." + keyPart(id), resource, nodeKey,
+                "has_analytical_recipe", "Possui receita analitica verificada " + label, 1.0, List.of(evidenceKey));
+
+        Set<String> aggregatedFields = new LinkedHashSet<>();
+        if (StringUtils.hasText(recipe.field())) {
+            aggregatedFields.add(recipe.field());
+        }
+        for (VerifiedAnalyticalRecipeDescriptor.DimensionSpec dim : recipe.dimensions()) {
+            if (StringUtils.hasText(dim.field())) {
+                aggregatedFields.add(dim.field());
+            }
+        }
+        for (VerifiedAnalyticalRecipeDescriptor.MetricSpec metric : recipe.metrics()) {
+            if (StringUtils.hasText(metric.field())) {
+                aggregatedFields.add(metric.field());
+            }
+        }
+        for (String targetField : aggregatedFields) {
+            String fieldNodeKey = resource + ".field." + keyPart(targetField);
+            if (nodes.containsKey(fieldNodeKey)) {
+                putEdge(edges, nodeKey + ".aggregates." + keyPart(targetField), nodeKey, fieldNodeKey,
+                        "aggregates_field", "Agrega campo " + targetField, 1.0, List.of(evidenceKey));
+            }
+        }
+
+        bindings.putIfAbsent("binding:" + nodeKey + ":verified-recipe", new DomainCatalogResponse.DomainBindingItem(
+                "binding:" + nodeKey + ":verified-recipe",
+                nodeKey,
+                "verified_analytical_recipe",
+                Collections.unmodifiableMap(metadata),
+                List.of(),
+                List.of(evidenceKey)
+        ));
+        evidence.putIfAbsent(evidenceKey, evidence(
+                evidenceKey,
+                "annotation",
+                mapOfNonNull(
+                        "kind", "verified_analytical_recipe",
+                        "annotation", "VerifiedAnalyticalRecipe",
+                        "resourceKey", resource,
+                        "recipeId", id,
+                        "provenanceDigest", recipe.provenanceDigest()
+                ),
+                firstText(description, "Receita analitica verificada declarada para o recurso " + resource + "."),
                 1.0
         ));
     }

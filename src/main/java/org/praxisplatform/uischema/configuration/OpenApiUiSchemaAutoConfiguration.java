@@ -261,12 +261,14 @@ public class OpenApiUiSchemaAutoConfiguration {
     public GlobalOpenApiCustomizer uiAnalyticsOpenApiCustomizer(
             RequestMappingHandlerMapping requestMappingHandlerMapping,
             CanonicalOperationResolver canonicalOperationResolver,
-            UiAnalyticsAnnotationMapper uiAnalyticsAnnotationMapper
+            UiAnalyticsAnnotationMapper uiAnalyticsAnnotationMapper,
+            ObjectProvider<org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeResolver> recipeResolverProvider
     ) {
         return new UiAnalyticsOpenApiCustomizer(
                 requestMappingHandlerMapping,
                 canonicalOperationResolver,
-                uiAnalyticsAnnotationMapper
+                uiAnalyticsAnnotationMapper,
+                recipeResolverProvider.getIfAvailable()
         );
     }
 
@@ -971,6 +973,23 @@ public class OpenApiUiSchemaAutoConfiguration {
 
     @Bean
     @ConditionalOnBean(name = "requestMappingHandlerMapping")
+    @ConditionalOnMissingBean(org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeResolver.class)
+    public org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeResolver verifiedAnalyticalRecipeResolver(
+            @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
+            org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping handlerMapping,
+            ObjectProvider<ObjectMapper> objectMapperProvider,
+            ApplicationContext applicationContext,
+            ObjectProvider<java.util.List<org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeProvider>> recipeProviders) {
+        return new org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeResolver(
+                handlerMapping,
+                objectMapperProvider.getIfUnique(),
+                applicationContext,
+                recipeProviders.getIfAvailable(java.util.List::of)
+        );
+    }
+
+    @Bean
+    @ConditionalOnBean(name = "requestMappingHandlerMapping")
     @ConditionalOnMissingBean(org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver.class)
     public org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver apiResourceQuickFilterResolver(
             @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
@@ -1068,6 +1087,7 @@ public class OpenApiUiSchemaAutoConfiguration {
             DomainRuleSetCatalogProvider domainRuleSetCatalogProvider,
             org.praxisplatform.uischema.domain.ReactiveDeterminationCatalogSource determinationCatalogSource,
             ObjectProvider<org.praxisplatform.uischema.schema.ApiResourceQuickFilterResolver> quickFilterResolverProvider,
+            ObjectProvider<org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeResolver> verifiedAnalyticalRecipeResolverProvider,
             ObjectProvider<org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport> openApiDocsSupportProvider,
             @Value("${praxis.openapi.application-group.enabled:true}") boolean applicationGroupEnabled,
             @Value("${praxis.domain-catalog.cache.max-entries:512}") int maxCatalogCacheEntries
@@ -1087,7 +1107,8 @@ public class OpenApiUiSchemaAutoConfiguration {
                 tenantResolver,
                 domainRuleSetCatalogProvider,
                 determinationCatalogSource,
-                quickFilterResolverProvider.getIfAvailable()
+                quickFilterResolverProvider.getIfAvailable(),
+                verifiedAnalyticalRecipeResolverProvider.getIfAvailable()
         );
         service.setMaxCatalogCacheEntries(maxCatalogCacheEntries);
         org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport docsSupport =

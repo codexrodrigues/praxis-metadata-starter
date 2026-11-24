@@ -39,15 +39,26 @@ public class UiAnalyticsOpenApiCustomizer implements GlobalOpenApiCustomizer {
     private final RequestMappingHandlerMapping handlerMapping;
     private final CanonicalOperationResolver canonicalOperationResolver;
     private final UiAnalyticsAnnotationMapper mapper;
+    private final VerifiedAnalyticalRecipeResolver recipeResolver;
 
     public UiAnalyticsOpenApiCustomizer(
             RequestMappingHandlerMapping handlerMapping,
             CanonicalOperationResolver canonicalOperationResolver,
             UiAnalyticsAnnotationMapper mapper
     ) {
+        this(handlerMapping, canonicalOperationResolver, mapper, null);
+    }
+
+    public UiAnalyticsOpenApiCustomizer(
+            RequestMappingHandlerMapping handlerMapping,
+            CanonicalOperationResolver canonicalOperationResolver,
+            UiAnalyticsAnnotationMapper mapper,
+            VerifiedAnalyticalRecipeResolver recipeResolver
+    ) {
         this.handlerMapping = handlerMapping;
         this.canonicalOperationResolver = canonicalOperationResolver;
         this.mapper = mapper;
+        this.recipeResolver = recipeResolver;
     }
 
     @Override
@@ -75,8 +86,16 @@ public class UiAnalyticsOpenApiCustomizer implements GlobalOpenApiCustomizer {
 
         for (Map.Entry<Class<?>, List<Map.Entry<RequestMappingInfo, HandlerMethod>>> beanEntry : handlersByBeanType.entrySet()) {
             Class<?> beanType = beanEntry.getKey();
+            Object controllerInstance = beanEntry.getValue().stream()
+                    .map(e -> e.getValue().getBean())
+                    .filter(b -> b != null && !(b instanceof String))
+                    .findFirst()
+                    .orElse(null);
             UiAnalytics classAnnotation = AnnotatedElementUtils.findMergedAnnotation(beanType, UiAnalytics.class);
-            if (classAnnotation == null) {
+            List<ResolvedVerifiedAnalyticalRecipe> recipes = recipeResolver != null
+                    ? recipeResolver.resolveByController(beanType, controllerInstance)
+                    : List.of();
+            if (classAnnotation == null && recipes.isEmpty()) {
                 continue;
             }
 
@@ -87,11 +106,15 @@ public class UiAnalyticsOpenApiCustomizer implements GlobalOpenApiCustomizer {
                 continue;
             }
 
-            Map<String, Object> existingXUi = getOrNullXUi(target.operation());
-            if (existingXUi != null && existingXUi.containsKey(OperationProperties.ANALYTICS)) {
-                continue;
+            if (classAnnotation != null) {
+                Map<String, Object> existingXUi = getOrNullXUi(target.operation());
+                if (existingXUi == null || !existingXUi.containsKey(OperationProperties.ANALYTICS)) {
+                    attachAnalytics(target.operation(), target.operationRef(), classAnnotation);
+                }
             }
-            attachAnalytics(target.operation(), target.operationRef(), classAnnotation);
+            if (!recipes.isEmpty()) {
+                attachVerifiedRecipes(target.operation(), recipes);
+            }
         }
     }
 
@@ -140,6 +163,23 @@ public class UiAnalyticsOpenApiCustomizer implements GlobalOpenApiCustomizer {
 
         Map<String, Object> xUi = (Map<String, Object>) extensions.computeIfAbsent(X_UI, key -> new LinkedHashMap<>());
         xUi.put(OperationProperties.ANALYTICS, mapper.toXUiAnalytics(annotation, operationRef.path()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void attachVerifiedRecipes(Operation operation, List<ResolvedVerifiedAnalyticalRecipe> recipes) {
+        Map<String, Object> extensions = operation.getExtensions();
+        if (extensions == null) {
+            extensions = new LinkedHashMap<>();
+            operation.setExtensions(extensions);
+        }
+
+        Map<String, Object> xUi = (Map<String, Object>) extensions.computeIfAbsent(X_UI, key -> new LinkedHashMap<>());
+        Object existingAnalytics = xUi.get(OperationProperties.ANALYTICS);
+        Map<String, Object> analyticsMap = existingAnalytics instanceof Map<?, ?> raw
+                ? new LinkedHashMap<>((Map<String, Object>) raw)
+                : new LinkedHashMap<>();
+        analyticsMap.put("verifiedRecipes", recipes.stream().map(ResolvedVerifiedAnalyticalRecipe::toMetadataMap).toList());
+        xUi.put(OperationProperties.ANALYTICS, analyticsMap);
     }
 
     @SuppressWarnings("unchecked")

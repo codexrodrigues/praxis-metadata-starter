@@ -4,12 +4,107 @@
   "title": "x-ui.analytics - 0.5.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["projections"],
+  "anyOf": [
+    { "required": ["projections"] },
+    { "required": ["verifiedRecipes"] }
+  ],
   "properties": {
     "projections": {
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/projection" }
+    },
+    "verifiedRecipes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "operation", "endpointPath", "governanceTier", "version", "provenanceDigest"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "intent": { "type": "string" },
+          "resourceKey": { "type": "string" },
+          "resourcePath": { "type": "string" },
+          "endpointPath": { "type": "string", "minLength": 1 },
+          "operation": {
+            "type": "string",
+            "enum": ["group-by", "timeseries", "distribution", "comparison"]
+          },
+          "field": { "type": "string" },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["field", "extraction"],
+              "properties": {
+                "field": { "type": "string", "minLength": 1 },
+                "extraction": { "type": "string" },
+                "alias": { "type": "string" }
+              }
+            }
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["operation"],
+              "properties": {
+                "operation": { "type": "string", "minLength": 1 },
+                "field": { "type": "string" },
+                "alias": { "type": "string" }
+              }
+            }
+          },
+          "orderBy": { "type": "string" },
+          "limit": { "type": "integer", "minimum": 1 },
+          "granularity": { "type": "string" },
+          "fillGaps": { "type": "boolean" },
+          "distributionMode": { "type": "string" },
+          "bucketCount": { "type": "integer", "minimum": 1 },
+          "bucketSize": { "type": "number" },
+          "timezone": { "type": "string" },
+          "periodField": { "type": "string" },
+          "periodPreset": { "type": "string" },
+          "periodMode": { "type": "string" },
+          "lockedFilters": { "type": "object" },
+          "adjustableParams": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "dataType", "required"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "filterField": { "type": "string" },
+                "description": { "type": "string" },
+                "dataType": { "type": "string" },
+                "required": { "type": "boolean" },
+                "defaultValue": { "type": "string" },
+                "allowedValues": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "minValue": { "type": "string" },
+                "maxValue": { "type": "string" }
+              }
+            }
+          },
+          "governanceTier": {
+            "type": "string",
+            "enum": ["CERTIFIED", "OPERATIONAL", "EXPLORATORY"]
+          },
+          "domainTags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "version": { "type": "string", "minLength": 1 },
+          "provenanceDigest": { "type": "string", "minLength": 16 }
+        }
+      }
     }
   },
   "$defs": {

@@ -12,6 +12,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.annotation.PostConstruct;
+import org.praxisplatform.uischema.analytics.ResolvedVerifiedAnalyticalRecipe;
+import org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeDescriptor;
+import org.praxisplatform.uischema.analytics.VerifiedAnalyticalRecipeResolver;
+import org.praxisplatform.uischema.annotation.AnalyticsOperation;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CapabilityService;
@@ -64,6 +68,7 @@ import org.praxisplatform.uischema.rest.response.RestApiResponseInferenceRespons
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 import org.praxisplatform.uischema.service.base.VersionedCreateUpdateResourceService;
 import org.praxisplatform.uischema.stats.StatsCapability;
+import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import org.praxisplatform.uischema.stats.dto.AnomalyScanStatsRequest;
@@ -74,6 +79,8 @@ import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
+import org.praxisplatform.uischema.stats.dto.VerifiedRecipeExecutionRequest;
+import org.praxisplatform.uischema.stats.dto.VerifiedRecipeExecutionResponse;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.action.ActionCatalogResponse;
@@ -263,6 +270,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
 
     @Autowired(required = false)
     private ResourceVersionScopeProvider resourceVersionScopeProvider;
+
+    @Autowired(required = false)
+    private VerifiedAnalyticalRecipeResolver verifiedAnalyticalRecipeResolver;
 
     /** Optional constructor wiring for hosts; the same services are otherwise supplied by Spring. */
     protected final void configureResourceVersioning(ResourceVersionEtagService etags, ResourceVersionScopeProvider scopes) {
@@ -840,6 +850,81 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 ResponseEntity.ok(),
                 snapshot.stats()
         );
+    }
+
+    @GetMapping("/stats/recipes")
+    @Operation(summary = "Listar receitas analiticas verificadas do recurso")
+    public ResponseEntity<RestApiResponse<List<Map<String, Object>>>> listVerifiedAnalyticalRecipes() {
+        List<Map<String, Object>> payload = resolveControllerAnalyticalRecipes().stream()
+                .map(ResolvedVerifiedAnalyticalRecipe::toMetadataMap)
+                .toList();
+        List<Link> links = new ArrayList<>();
+        addCollectionOperationLink(links, "filter", linkToFilter());
+        return withVersion(ResponseEntity.ok(), RestApiResponse.success(payload, hateoasOrNull(Links.of(links))));
+    }
+
+    @PostMapping("/stats/recipes/{recipeId}")
+    @Operation(summary = "Executar receita analitica verificada com parametros governados (fail-closed)")
+    public ResponseEntity<RestApiResponse<VerifiedRecipeExecutionResponse>> executeVerifiedAnalyticalRecipe(
+            @PathVariable String recipeId,
+            @RequestBody(required = false) VerifiedRecipeExecutionRequest request
+    ) {
+        ResolvedVerifiedAnalyticalRecipe recipe = resolveControllerAnalyticalRecipes().stream()
+                .filter(candidate -> candidate.id().equals(recipeId))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Verified analytical recipe not found: " + recipeId
+                ));
+        try {
+            VerifiedAnalyticalRecipeResolver resolver = effectiveRecipeResolver();
+            VerifiedAnalyticalRecipeResolver.CompiledRecipeExecution<FD> compiled = resolver.compileExecution(
+                    recipe,
+                    resolveFilterDtoClass(),
+                    resolveStatsFieldRegistry(),
+                    request
+            );
+            VerifiedRecipeExecutionResponse result = switch (recipe.operation()) {
+                case GROUP_BY -> new VerifiedRecipeExecutionResponse(
+                        compiled.provenance(),
+                        getService().groupByStats(compiled.groupByRequest()),
+                        null,
+                        null,
+                        null
+                );
+                case TIMESERIES -> new VerifiedRecipeExecutionResponse(
+                        compiled.provenance(),
+                        null,
+                        getService().timeSeriesStats(compiled.timeSeriesRequest()),
+                        null,
+                        null
+                );
+                case DISTRIBUTION -> new VerifiedRecipeExecutionResponse(
+                        compiled.provenance(),
+                        null,
+                        null,
+                        getService().distributionStats(compiled.distributionRequest()),
+                        null
+                );
+                case COMPARISON -> new VerifiedRecipeExecutionResponse(
+                        compiled.provenance(),
+                        null,
+                        null,
+                        null,
+                        getService().comparisonStats(compiled.comparisonRequest())
+                );
+                case INFERENCE, ANOMALIES -> throw new UnsupportedOperationException(
+                        "Verified analytical recipes do not support operation: " + recipe.operation()
+                );
+            };
+            List<Link> links = new ArrayList<>();
+            addCollectionOperationLink(links, "filter", linkToFilter());
+            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+        } catch (UnsupportedOperationException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+        }
     }
 
     @PostMapping("/export")
@@ -2213,6 +2298,43 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     public List<QuickFilterDescriptor<FD>> resolvedQuickFilterDescriptors() {
         List<QuickFilterDescriptor<FD>> defined = defineQuickFilters();
         return defined == null || defined.isEmpty() ? Collections.emptyList() : List.copyOf(defined);
+    }
+
+    /**
+     * Hook programatico e type-safe opcional para declarar receitas analiticas verificadas
+     * do recurso sem literais de nome de campo, complementando {@code @VerifiedAnalyticalRecipe}.
+     *
+     * @return lista ordenada de descritores programaticos de receitas analiticas verificadas
+     */
+    protected List<VerifiedAnalyticalRecipeDescriptor<FD>> defineAnalyticalRecipes() {
+        return Collections.emptyList();
+    }
+
+    /**
+     * Exposicao somente leitura das receitas analiticas programaticas declaradas pelo controller.
+     */
+    public List<VerifiedAnalyticalRecipeDescriptor<FD>> resolvedAnalyticalRecipeDescriptors() {
+        List<VerifiedAnalyticalRecipeDescriptor<FD>> defined = defineAnalyticalRecipes();
+        return defined == null || defined.isEmpty() ? Collections.emptyList() : List.copyOf(defined);
+    }
+
+    /**
+     * Exposicao segura do {@link StatsFieldRegistry} configurado no service do recurso para
+     * validacao fail-fast de receitas analiticas verificadas.
+     */
+    public StatsFieldRegistry resolveStatsFieldRegistry() {
+        BaseResourceQueryService<ResponseDTO, ID, FD> service = getService();
+        return service != null ? service.getStatsFieldRegistry() : StatsFieldRegistry.empty();
+    }
+
+    private VerifiedAnalyticalRecipeResolver effectiveRecipeResolver() {
+        return verifiedAnalyticalRecipeResolver != null
+                ? verifiedAnalyticalRecipeResolver
+                : new VerifiedAnalyticalRecipeResolver(null, objectMapper, null, List.of());
+    }
+
+    private List<ResolvedVerifiedAnalyticalRecipe> resolveControllerAnalyticalRecipes() {
+        return effectiveRecipeResolver().resolveByController(getClass(), this);
     }
 
     private String extractBasePath(String[] values, String[] paths) {
