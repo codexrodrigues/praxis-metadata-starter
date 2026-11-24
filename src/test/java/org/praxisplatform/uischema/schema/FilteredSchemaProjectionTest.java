@@ -64,6 +64,16 @@ class FilteredSchemaProjectionTest {
         var changed = resolve(document, "/items/{id}/preview", "get", "response", null, null);
         assertEquals(first.reference(), changed.reference());
         assertNotEquals(first.evidence(), changed.evidence(), "UI selection evidence, not just its URL, must be fingerprinted");
+
+        ObjectNode mutableEvidence = (ObjectNode) document.deepCopy();
+        var constructedResolved = new FilteredSchemaProjection.Resolved(first.reference(), mutableEvidence);
+        mutableEvidence.remove("paths");
+        assertTrue(constructedResolved.evidence().has("paths"));
+
+        ObjectNode mutableSelectionSchema = (ObjectNode) document.at("/components/schemas/Item").deepCopy();
+        var constructedSelection = new FilteredSchemaProjection.Selection("Item", mutableSelectionSchema);
+        mutableSelectionSchema.remove("properties");
+        assertTrue(constructedSelection.schema().has("properties"));
     }
 
     @ParameterizedTest

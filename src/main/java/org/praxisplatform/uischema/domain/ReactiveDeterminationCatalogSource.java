@@ -18,6 +18,7 @@ import org.praxisplatform.uischema.hash.SchemaHashUtil;
 import org.praxisplatform.uischema.openapi.BatchCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentReaders;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.schema.ApiResourceIdentityResolver;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
@@ -191,9 +192,7 @@ public final class ReactiveDeterminationCatalogSource {
         if (existing != null) {
             return existing;
         }
-        JsonNode document = strict
-                ? documents.getDocumentForGroupStrict(group)
-                : documents.getDocumentForGroup(group);
+        JsonNode document = OpenApiDocumentReaders.readOnlyGroupDocument(documents, group, strict);
         if (document == null) {
             throw new IllegalStateException("Missing form OpenAPI document: " + operationId);
         }

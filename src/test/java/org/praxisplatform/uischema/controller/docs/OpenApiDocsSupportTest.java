@@ -327,9 +327,31 @@ class OpenApiDocsSupportTest {
         assertEquals(true, result.path("paths").has("/stats/group-by"));
         server.verify();
 
-        // Non-MockHttpServletRequest keeps port 80 even with ServletWebServerApplicationContext present
-        var wrapped = new jakarta.servlet.http.HttpServletRequestWrapper(request);
+        // Wrapped MockHttpServletRequest also unwraps and falls back to the embedded WebServer port
+        var wrapped = new jakarta.servlet.http.HttpServletRequestWrapper(
+                new jakarta.servlet.http.HttpServletRequestWrapper(request));
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(wrapped));
+        var wrappedServer = MockRestServiceServer.createServer(restTemplate);
+        wrappedServer.expect(once(), requestTo("http://127.0.0.1:8095/v3/api-docs/stats"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"paths\":{\"/stats/group-by\":{}}}", MediaType.APPLICATION_JSON));
+
+        JsonNode wrappedResult = support.fetchOpenApiDocument(
+                restTemplate,
+                "/v3/api-docs",
+                "stats",
+                LoggerFactory.getLogger(OpenApiDocsSupportTest.class)
+        );
+        assertEquals(true, wrappedResult.path("paths").has("/stats/group-by"));
+        wrappedServer.verify();
+
+        // Genuine non-MockHttpServletRequest keeps port 80 even with ServletWebServerApplicationContext present
+        var servletRequest = mock(jakarta.servlet.http.HttpServletRequest.class);
+        when(servletRequest.getLocalPort()).thenReturn(0);
+        when(servletRequest.getServerPort()).thenReturn(80);
+        when(servletRequest.getLocalAddr()).thenReturn("127.0.0.1");
+        when(servletRequest.getContextPath()).thenReturn("");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(servletRequest));
         var nextServer = MockRestServiceServer.createServer(restTemplate);
         nextServer.expect(once(), requestTo("http://127.0.0.1/v3/api-docs/stats"))
                 .andExpect(method(HttpMethod.GET))

@@ -337,7 +337,7 @@ public class OpenApiDocsSupport {
         HttpServletRequest request = attributes.getRequest();
         int localPort = request.getLocalPort() > 0 ? request.getLocalPort() : request.getServerPort();
         if (localPort == 80
-                && "org.springframework.mock.web.MockHttpServletRequest".equals(request.getClass().getName())
+                && isMockHttpServletRequest(request)
                 && applicationContext instanceof ServletWebServerApplicationContext webCtx
                 && webCtx.getWebServer() != null
                 && webCtx.getWebServer().getPort() > 0) {
@@ -371,5 +371,20 @@ public class OpenApiDocsSupport {
             return localName;
         }
         return "localhost";
+    }
+
+    private static boolean isMockHttpServletRequest(HttpServletRequest request) {
+        jakarta.servlet.ServletRequest current = request;
+        for (int depth = 0; current != null && depth < 16; depth++) {
+            if ("org.springframework.mock.web.MockHttpServletRequest".equals(current.getClass().getName())) {
+                return true;
+            }
+            if (current instanceof jakarta.servlet.ServletRequestWrapper wrapper) {
+                current = wrapper.getRequest();
+            } else {
+                break;
+            }
+        }
+        return false;
     }
 }

@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -350,5 +351,91 @@ class ApiResourceQuickFilterResolverTest {
         }
 
         void ping() { }
+    }
+
+    @ApiResource(
+            value = "/api/declarative-criteria",
+            resourceKey = "test.declarative.criteria",
+            quickFilters = {
+                    @QuickFilter(
+                            id = "criteria-only",
+                            label = "Criteria",
+                            criteria = {
+                                    @FilterCriterion(field = "situacoesIn", values = "HOMOLOGADO"),
+                                    @FilterCriterion(field = "apenasVigentes", bool = true)
+                            }
+                    )
+            }
+    )
+    static class DeclarativeCriteriaController extends AbstractReadOnlyResourceController<Map<String, Object>, Long, RetirementFilterDTO> {
+        @Override
+        protected BaseResourceQueryService<Map<String, Object>, Long, RetirementFilterDTO> getService() {
+            return null;
+        }
+
+        @Override
+        protected Long getResponseId(Map<String, Object> dto) {
+            return null;
+        }
+
+        void ping() { }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void rebuildsIndexWhenHandlerMappingReplacesEntryWithoutChangingSize() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        Method fixtureMethod = FixtureController.class.getDeclaredMethod("list");
+        HandlerMethod fixtureHm = new HandlerMethod(new FixtureController(), fixtureMethod);
+        Method criteriaMethod = DeclarativeCriteriaController.class.getDeclaredMethod("ping");
+        HandlerMethod criteriaHm = new HandlerMethod(new DeclarativeCriteriaController(), criteriaMethod);
+
+        RequestMappingInfo initialInfo = RequestMappingInfo.paths("/api/items").build();
+        RequestMappingInfo replacementInfo = RequestMappingInfo.paths("/api/declarative-criteria").build();
+        when(handlerMapping.getHandlerMethods())
+                .thenReturn(Map.of(initialInfo, fixtureHm))
+                .thenReturn(Map.of(replacementInfo, criteriaHm));
+
+        ApiResourceQuickFilterResolver resolver = new ApiResourceQuickFilterResolver(handlerMapping, new ObjectMapper());
+
+        List<Map<String, Object>> initial = resolver.resolve("/api/items");
+        assertEquals("active", initial.getFirst().get("id"));
+
+        List<Map<String, Object>> afterReplace = resolver.resolve("/api/declarative-criteria");
+        assertEquals(1, afterReplace.size());
+        assertEquals("criteria-only", afterReplace.getFirst().get("id"));
+        assertTrue(resolver.resolve("/api/items").isEmpty());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void cachedDeclarativeQuickFilterPayloadsAndNestedFiltersAreDeeplyImmutable() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        HandlerMethod fixtureHm = new HandlerMethod(
+                new FixtureController(), FixtureController.class.getDeclaredMethod("list"));
+        HandlerMethod criteriaHm = new HandlerMethod(
+                new DeclarativeCriteriaController(), DeclarativeCriteriaController.class.getDeclaredMethod("ping"));
+        when(handlerMapping.getHandlerMethods()).thenReturn(Map.of(
+                RequestMappingInfo.paths("/api/items").build(), fixtureHm,
+                RequestMappingInfo.paths("/api/declarative-criteria").build(), criteriaHm
+        ));
+
+        ApiResourceQuickFilterResolver resolver = new ApiResourceQuickFilterResolver(handlerMapping, new ObjectMapper());
+
+        List<Map<String, Object>> expressionFilters = resolver.resolve("/api/items");
+        Map<String, Object> queryFilter = (Map<String, Object>) expressionFilters.get(0).get("filter");
+        Map<String, Object> jsonFilter = (Map<String, Object>) expressionFilters.get(2).get("filter");
+        assertThrows(UnsupportedOperationException.class, () -> queryFilter.put("tampered", true));
+        assertThrows(UnsupportedOperationException.class, () -> jsonFilter.put("tampered", true));
+        assertSame(expressionFilters, resolver.resolve("/api/items"));
+        assertFalse(jsonFilter.containsKey("tampered"));
+
+        List<Map<String, Object>> criteriaFilters = resolver.resolve("/api/declarative-criteria");
+        Map<String, Object> criteriaMap = (Map<String, Object>) criteriaFilters.getFirst().get("filter");
+        List<Object> situacoes = (List<Object>) criteriaMap.get("situacoesIn");
+        assertThrows(UnsupportedOperationException.class, () -> criteriaMap.put("tampered", true));
+        assertThrows(UnsupportedOperationException.class, () -> situacoes.add("TAMPERED"));
+        assertSame(criteriaFilters, resolver.resolve("/api/declarative-criteria"));
+        assertEquals(List.of("HOMOLOGADO"), situacoes);
     }
 }

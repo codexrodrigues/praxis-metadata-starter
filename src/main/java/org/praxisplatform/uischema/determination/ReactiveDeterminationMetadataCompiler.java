@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.praxisplatform.uischema.openapi.BatchCanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentReaders;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.schema.CanonicalSchemaRef;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
@@ -279,9 +280,11 @@ public class ReactiveDeterminationMetadataCompiler {
         }
         JsonNode document = context.documentsByGroup().get(operation.group());
         if (document == null) {
-            document = context.strict()
-                    ? openApiDocumentService.getDocumentForGroupStrict(operation.group())
-                    : openApiDocumentService.getDocumentForGroup(operation.group());
+            document = OpenApiDocumentReaders.readOnlyGroupDocument(
+                    openApiDocumentService,
+                    operation.group(),
+                    context.strict()
+            );
             if (document == null || document.isMissingNode()) {
                 fail(id, "OpenAPI document for operation group is unavailable");
             }

@@ -6,6 +6,7 @@ import org.praxisplatform.uischema.annotation.ApiGroup;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentReaders;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.schema.FilteredSchemaProjection;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
@@ -277,7 +278,7 @@ public class DomainCatalogController {
 
     private JsonNode fetchOpenApiDocument(String group) {
         LOGGER.info("Fetching OpenAPI doc for group {}", group);
-        return openApiDocumentService.getDocumentForGroup(group);
+        return OpenApiDocumentReaders.readOnlyGroupDocument(openApiDocumentService, group, false);
     }
 
     private List<ResourceMetadata> resourceMetadata() {

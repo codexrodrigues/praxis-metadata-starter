@@ -1731,7 +1731,7 @@ public class ApiDocsController {
                 if (X_UI.equals(sibling.getKey())
                         && target.get(X_UI) instanceof ObjectNode targetXUi
                         && sibling.getValue() instanceof ObjectNode siblingXUi) {
-                    mergeObjectNodesPreservingTarget(targetXUi, siblingXUi);
+                    mergeObjectNodesApplyingOverrides(targetXUi, siblingXUi);
                 } else {
                     target.set(sibling.getKey(), sibling.getValue());
                 }
@@ -1739,7 +1739,7 @@ public class ApiDocsController {
         }
     }
 
-    private void mergeObjectNodesPreservingTarget(ObjectNode target, ObjectNode overrides) {
+    private void mergeObjectNodesApplyingOverrides(ObjectNode target, ObjectNode overrides) {
         Iterator<Entry<String, JsonNode>> fields = overrides.fields();
         while (fields.hasNext()) {
             Entry<String, JsonNode> entry = fields.next();
@@ -1747,7 +1747,7 @@ public class ApiDocsController {
             JsonNode overrideVal = entry.getValue();
             JsonNode existingVal = target.get(key);
             if (existingVal instanceof ObjectNode existingObj && overrideVal instanceof ObjectNode overrideObj) {
-                mergeObjectNodesPreservingTarget(existingObj, overrideObj);
+                mergeObjectNodesApplyingOverrides(existingObj, overrideObj);
             } else {
                 target.set(key, overrideVal);
             }

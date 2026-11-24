@@ -34,6 +34,11 @@ public final class FilteredSchemaProjection {
 
     /** Selects exactly the component or inline request that /schemas/filtered will materialize. */
     public Selection select(JsonNode rootNode, String path, String method, String schemaType) {
+        RawSelection raw = selectReadOnly(rootNode, path, method, schemaType);
+        return new Selection(raw.schemaName(), raw.schema());
+    }
+
+    private RawSelection selectReadOnly(JsonNode rootNode, String path, String method, String schemaType) {
         JsonNode operation = rootNode.path(PATHS).path(path).path(method.toLowerCase(java.util.Locale.ROOT));
         if (operation.isMissingNode()) throw missing("The specified path or operation was not found in the documentation.");
         String name = null;
@@ -58,7 +63,7 @@ public final class FilteredSchemaProjection {
             schema = allSchemas.path(name);
             if (schema.isMissingNode()) throw missing("The specified component schema was not found in the documentation.");
         }
-        return new Selection(name, schema);
+        return new RawSelection(name, schema);
     }
 
     /** Resolves a concrete UI reference and captures its selection evidence from this document. */
@@ -87,8 +92,8 @@ public final class FilteredSchemaProjection {
                 .path(operation.method().toLowerCase(java.util.Locale.ROOT));
         if ("response".equalsIgnoreCase(schemaType) && findDeclaredResponseSchema(operationNode, document) == null)
             throw missing("Bulk UI references require x-ui.responseSchema or a selectable 200/201 response");
-        Selection selected = select(document, operation.path(), operation.method(), schemaType);
-        JsonNode rawSchema = selected.schema;
+        RawSelection selected = selectReadOnly(document, operation.path(), operation.method(), schemaType);
+        JsonNode rawSchema = selected.schema();
         if (!rawSchema.isObject()) throw missing("Filtered bulk schemas must be materializable objects");
         String basePath = deriveBasePathFrom(operation.path());
         Map<String, Object> schema = objectMapper.convertValue(rawSchema, new TypeReference<>() { });
@@ -109,7 +114,7 @@ public final class FilteredSchemaProjection {
 
     /** Immutable implementation evidence, separate from the raw HTTP schema contract. */
     public record Resolved(CanonicalSchemaRef reference, JsonNode evidence) {
-        public Resolved { java.util.Objects.requireNonNull(evidence, "evidence"); }
+        public Resolved { evidence = java.util.Objects.requireNonNull(evidence, "evidence").deepCopy(); }
         @Override public JsonNode evidence() { return evidence.deepCopy(); }
     }
 
@@ -121,9 +126,11 @@ public final class FilteredSchemaProjection {
 
     /** Implementation value; not a new HTTP schema contract. */
     public record Selection(String schemaName, JsonNode schema) {
-        public Selection { java.util.Objects.requireNonNull(schema, "schema"); }
+        public Selection { schema = java.util.Objects.requireNonNull(schema, "schema").deepCopy(); }
         @Override public JsonNode schema() { return schema.deepCopy(); }
     }
+
+    private record RawSelection(String schemaName, JsonNode schema) {}
 
     private static ResponseStatusException missing(String message) {
         return new ResponseStatusException(HttpStatus.NOT_FOUND, message);

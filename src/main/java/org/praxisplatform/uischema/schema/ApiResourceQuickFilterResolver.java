@@ -64,6 +64,7 @@ public class ApiResourceQuickFilterResolver {
     private final ObjectMapper objectMapper;
     private final ApplicationContext applicationContext;
     private final Object indexMonitor = new Object();
+    private final Object cacheEvictionMonitor = new Object();
     private volatile ControllerIndex cachedIndex;
     private final ConcurrentHashMap<CompiledCacheKey, List<Map<String, Object>>> compiledDeclarativeCache =
             new ConcurrentHashMap<>();
@@ -154,34 +155,54 @@ public class ApiResourceQuickFilterResolver {
         if (handlerMethods == null || handlerMethods.isEmpty()) {
             return ControllerIndex.EMPTY;
         }
-        int size = handlerMethods.size();
         ControllerIndex current = this.cachedIndex;
-        if (current != null && current.handlerMethodCount() == size) {
+        if (matchesSnapshot(current, handlerMethods)) {
             return current;
         }
         synchronized (indexMonitor) {
-            handlerMethods = handlerMapping.getHandlerMethods();
-            if (handlerMethods == null || handlerMethods.isEmpty()) {
-                this.cachedIndex = ControllerIndex.EMPTY;
-                return ControllerIndex.EMPTY;
-            }
-            size = handlerMethods.size();
             current = this.cachedIndex;
-            if (current != null && current.handlerMethodCount() == size) {
+            if (matchesSnapshot(current, handlerMethods)) {
                 return current;
             }
-            ControllerIndex rebuilt = buildIndex(handlerMethods, size);
+            ControllerIndex rebuilt = buildIndex(handlerMethods);
             this.cachedIndex = rebuilt;
             return rebuilt;
         }
     }
 
-    private ControllerIndex buildIndex(Map<RequestMappingInfo, HandlerMethod> handlerMethods, int size) {
+    private static boolean matchesSnapshot(
+            ControllerIndex index,
+            Map<RequestMappingInfo, HandlerMethod> current
+    ) {
+        if (index == null || index.handlerRefs().length != current.size()) {
+            return false;
+        }
+        RequestMappingInfo[] mappingRefs = index.mappingRefs();
+        HandlerMethod[] handlerRefs = index.handlerRefs();
+        int i = 0;
+        for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : current.entrySet()) {
+            if (entry.getKey() != mappingRefs[i] || entry.getValue() != handlerRefs[i]) {
+                return false;
+            }
+            i++;
+        }
+        return true;
+    }
+
+    private ControllerIndex buildIndex(Map<RequestMappingInfo, HandlerMethod> handlerMethods) {
+        int size = handlerMethods.size();
+        RequestMappingInfo[] mappingRefs = new RequestMappingInfo[size];
+        HandlerMethod[] handlerRefs = new HandlerMethod[size];
         Map<String, ControllerMetadata> byPath = new LinkedHashMap<>();
         Map<String, ControllerMetadata> byResourceKey = new LinkedHashMap<>();
         Set<Class<?>> seenTypes = new HashSet<>();
 
-        for (HandlerMethod handlerMethod : handlerMethods.values()) {
+        int i = 0;
+        for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMethods.entrySet()) {
+            mappingRefs[i] = entry.getKey();
+            HandlerMethod handlerMethod = entry.getValue();
+            handlerRefs[i] = handlerMethod;
+            i++;
             if (handlerMethod == null) {
                 continue;
             }
@@ -218,7 +239,8 @@ public class ApiResourceQuickFilterResolver {
             }
         }
         return new ControllerIndex(
-                size,
+                mappingRefs,
+                handlerRefs,
                 Collections.unmodifiableMap(byPath),
                 Collections.unmodifiableMap(byResourceKey)
         );
@@ -279,13 +301,17 @@ public class ApiResourceQuickFilterResolver {
     }
 
     private void putBoundedDeclarativeCache(CompiledCacheKey key, List<Map<String, Object>> compiled) {
-        if (compiledDeclarativeCache.size() >= MAX_COMPILED_CACHE_ENTRIES) {
-            Iterator<CompiledCacheKey> it = compiledDeclarativeCache.keySet().iterator();
-            while (compiledDeclarativeCache.size() >= MAX_COMPILED_CACHE_ENTRIES && it.hasNext()) {
-                compiledDeclarativeCache.remove(it.next());
+        synchronized (cacheEvictionMonitor) {
+            if (!compiledDeclarativeCache.containsKey(key)
+                    && compiledDeclarativeCache.size() >= MAX_COMPILED_CACHE_ENTRIES) {
+                Iterator<CompiledCacheKey> it = compiledDeclarativeCache.keySet().iterator();
+                while (compiledDeclarativeCache.size() >= MAX_COMPILED_CACHE_ENTRIES && it.hasNext()) {
+                    it.next();
+                    it.remove();
+                }
             }
+            compiledDeclarativeCache.putIfAbsent(key, compiled);
         }
-        compiledDeclarativeCache.putIfAbsent(key, compiled);
     }
 
     private static List<Map<String, Object>> compileQuickFilters(
@@ -361,9 +387,11 @@ public class ApiResourceQuickFilterResolver {
     ) {
         String id = qf.id().trim();
         String label = qf.label() != null && !qf.label().isBlank() ? qf.label().trim() : id;
-        Object compiledFilter = qf.criteria() != null && qf.criteria().length > 0
-                ? compileCriteria(qf.criteria(), filterFields)
-                : parseFilterExpressionInternal(qf.filter(), filterFields, mapper);
+        Object compiledFilter = freezeValue(
+                qf.criteria() != null && qf.criteria().length > 0
+                        ? compileCriteria(qf.criteria(), filterFields)
+                        : parseFilterExpressionInternal(qf.filter(), filterFields, mapper)
+        );
 
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", id);
@@ -713,14 +741,14 @@ public class ApiResourceQuickFilterResolver {
             try {
                 Map<String, Object> parsed = mapper.readValue(trimmed, new TypeReference<Map<String, Object>>() {});
                 if (filterFields == null || filterFields.isEmpty()) {
-                    return parsed;
+                    return freezeValue(parsed);
                 }
                 Map<String, Object> coerced = new LinkedHashMap<>();
                 for (Map.Entry<String, Object> entry : parsed.entrySet()) {
                     Field field = filterFields.get(entry.getKey());
                     coerced.put(entry.getKey(), field != null ? coerceAgainstField(entry.getValue(), field) : entry.getValue());
                 }
-                return Collections.unmodifiableMap(coerced);
+                return freezeValue(coerced);
             } catch (Exception ignored) {
                 // fallback to key-value or raw
             }
@@ -739,10 +767,34 @@ public class ApiResourceQuickFilterResolver {
                 }
             }
             if (!map.isEmpty()) {
-                return Collections.unmodifiableMap(map);
+                return freezeValue(map);
             }
         }
         return trimmed;
+    }
+
+    private static Object freezeValue(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            if (map.isEmpty()) {
+                return Collections.emptyMap();
+            }
+            Map<Object, Object> copy = new LinkedHashMap<>(map.size());
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                copy.put(entry.getKey(), freezeValue(entry.getValue()));
+            }
+            return Collections.unmodifiableMap(copy);
+        }
+        if (value instanceof Collection<?> collection) {
+            if (collection.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<Object> copy = new ArrayList<>(collection.size());
+            for (Object item : collection) {
+                copy.add(freezeValue(item));
+            }
+            return Collections.unmodifiableList(copy);
+        }
+        return value;
     }
 
     private static Object parseQueryValueGuided(String val, Field targetField) {
@@ -1024,11 +1076,17 @@ public class ApiResourceQuickFilterResolver {
     }
 
     private record ControllerIndex(
-            int handlerMethodCount,
+            RequestMappingInfo[] mappingRefs,
+            HandlerMethod[] handlerRefs,
             Map<String, ControllerMetadata> byPath,
             Map<String, ControllerMetadata> byResourceKey
     ) {
-        private static final ControllerIndex EMPTY = new ControllerIndex(0, Map.of(), Map.of());
+        private static final ControllerIndex EMPTY = new ControllerIndex(
+                new RequestMappingInfo[0],
+                new HandlerMethod[0],
+                Map.of(),
+                Map.of()
+        );
     }
 
     private record CompiledCacheKey(Class<?> controllerType, Class<?> explicitFilterDtoClass) {

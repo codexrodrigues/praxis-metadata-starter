@@ -6,6 +6,7 @@ import org.praxisplatform.uischema.action.ActionCatalogResponse;
 import org.praxisplatform.uischema.action.ActionCatalogService;
 import org.praxisplatform.uischema.action.ActionScope;
 import org.praxisplatform.uischema.exporting.CollectionExportCapability;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentReaders;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.stats.StatsCapability;
 import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
@@ -443,7 +444,8 @@ public class DefaultCapabilityService implements CapabilityService {
                 Map<String, Boolean> indicators;
                 Map<String, CapabilityOperation> operations;
                 if (published) {
-                    var document = openApiDocumentService.getDocumentForGroup(openApiDocumentService.resolveGroupFromPath(resourcePath));
+                    var document = OpenApiDocumentReaders.readOnlyGroupDocument(
+                            openApiDocumentService, openApiDocumentService.resolveGroupFromPath(resourcePath), false);
                     indicators = Map.copyOf(canonicalCapabilityResolver.resolve(document, resourcePath));
                     operations = Map.copyOf(canonicalCapabilityResolver.resolveOperations(document, resourcePath));
                 } else {

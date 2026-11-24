@@ -3,6 +3,7 @@ package org.praxisplatform.uischema.surface;
 import org.praxisplatform.uischema.capability.AvailabilityDecision;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.capability.CapabilityOperation;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentReaders;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationUnavailableException;
 import org.slf4j.Logger;
@@ -389,7 +390,7 @@ public class SurfaceCatalogService {
                     return cached.capabilities();
                 }
             }
-            var document = documents.getDocumentForGroup(group);
+            var document = OpenApiDocumentReaders.readOnlyGroupDocument(documents, group, false);
             if (token == null && document != null) {
                 token = documents.groupDocumentCacheToken(group);
                 if (token == null) {

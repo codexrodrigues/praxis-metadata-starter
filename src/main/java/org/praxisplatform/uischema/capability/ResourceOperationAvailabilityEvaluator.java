@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.capability;
 
+import org.praxisplatform.uischema.openapi.OpenApiDocumentReaders;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.surface.SurfaceCatalogItem;
 import org.praxisplatform.uischema.surface.SurfaceCatalogNotFoundException;
@@ -73,7 +74,9 @@ public final class ResourceOperationAvailabilityEvaluator {
                         .isActualTransactionActive())
                     throw new IllegalStateException("Discovery projection must start outside operational transactions");
                 var resolved = published
-                        ? resolver.resolveOperations(documents.getDocumentForGroup(documents.resolveGroupFromPath(path)), path)
+                        ? resolver.resolveOperations(
+                                OpenApiDocumentReaders.readOnlyGroupDocument(documents, documents.resolveGroupFromPath(path), false),
+                                path)
                         : resolver.resolveOperations(path);
                 var detached = Map.copyOf(resolved);
                 capture.fence = published ? documents.captureBulkLifecycleDocumentFence() : null;

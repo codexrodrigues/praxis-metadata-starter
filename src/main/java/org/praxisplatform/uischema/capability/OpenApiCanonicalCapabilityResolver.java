@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.capability;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.praxisplatform.uischema.openapi.OpenApiDocumentReaders;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.springframework.util.StringUtils;
 
@@ -125,7 +126,7 @@ public class OpenApiCanonicalCapabilityResolver implements CanonicalCapabilityRe
                 return cached;
             }
         }
-        JsonNode openApiDocument = openApiDocumentService.getDocumentForGroup(group);
+        JsonNode openApiDocument = OpenApiDocumentReaders.readOnlyGroupDocument(openApiDocumentService, group, false);
         if (token == null) {
             token = openApiDocumentService.groupDocumentCacheToken(group);
         }
