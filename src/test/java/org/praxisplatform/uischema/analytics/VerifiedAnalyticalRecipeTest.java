@@ -741,6 +741,131 @@ class VerifiedAnalyticalRecipeTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void enforcesStatsAvailabilityBadRequestMappingProviderLinksAndPluralRelationsGovernance() throws Exception {
+        // 1. Provider-only controller emits stats-recipes HATEOAS link
+        PlainProviderController providerCtrl = new PlainProviderController(mockStatsService());
+        VerifiedAnalyticalRecipeProvider provider = (resourceKey, resourcePath) -> List.of(
+                VerifiedAnalyticalRecipeDescriptor.<org.praxisplatform.uischema.filter.dto.GenericFilterDTO>builder(
+                                "provider-recipe",
+                                "Provider Recipe")
+                        .description("From provider")
+                        .intent("provider intent")
+                        .operation(AnalyticsOperation.GROUP_BY)
+                        .field("departmentCode")
+                        .metric(StatsMetric.COUNT, null)
+                        .orderBy(org.praxisplatform.uischema.stats.StatsBucketOrder.VALUE_DESC)
+                        .limit(10)
+                        .governanceTier(AnalyticalRecipeGovernanceTier.OPERATIONAL)
+                        .build()
+        );
+        VerifiedAnalyticalRecipeResolver providerResolver = new VerifiedAnalyticalRecipeResolver(
+                mock(RequestMappingHandlerMapping.class), OBJECT_MAPPER, null, List.of(provider));
+        ReflectionTestUtils.setField(providerCtrl, "verifiedAnalyticalRecipeResolver", providerResolver);
+        ReflectionTestUtils.invokeMethod(providerCtrl, "initializeBasePath");
+        List<org.springframework.hateoas.Link> providerLinks = (List<org.springframework.hateoas.Link>)
+                ReflectionTestUtils.invokeMethod(providerCtrl, "buildCollectionDiscoveryLinks");
+        assertNotNull(providerLinks);
+        assertTrue(providerLinks.stream().anyMatch(link ->
+                "stats-recipes".equals(link.getRel().value())
+                        && "/api/workforce/provider/stats/recipes".equals(link.getHref())));
+
+        // 2. groupByStats enforces collection operation availability (403 when statsGroupBy denied)
+        CapabilityService denyGroupBy = mock(CapabilityService.class);
+        when(denyGroupBy.withOperationAvailabilityScope(any(), any())).thenAnswer(inv -> {
+            java.util.function.Supplier<?> action = inv.getArgument(1);
+            return action.get();
+        });
+        when(denyGroupBy.collectionOperationAvailability(any(), any(), any())).thenAnswer(inv -> {
+            String opId = inv.getArgument(2);
+            return "statsGroupBy".equals(opId)
+                    ? AvailabilityDecision.deny("DENIED", Map.of("message", "statsGroupBy denied"))
+                    : AvailabilityDecision.allowAll();
+        });
+        ReflectionTestUtils.setField(providerCtrl, "capabilityService", denyGroupBy);
+        MockMvc providerMvc = MockMvcBuilders.standaloneSetup(providerCtrl).build();
+        providerMvc.perform(post("/api/workforce/provider/stats/group-by")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"field\":\"departmentCode\",\"metric\":{\"operation\":\"COUNT\"}}"))
+                .andExpect(status().isForbidden());
+
+        // 3. Invalid date parameter returns 400 Bad Request (not 500)
+        StatsFieldRegistry tsRegistry = StatsFieldRegistry.builder()
+                .temporalTimeSeriesField("effectiveDate", "effectiveDate")
+                .numericHistogramMeasureField("grossAmount", "grossAmount")
+                .build();
+        TimeSeriesRevenueController tsCtrl = new TimeSeriesRevenueController(mockStatsService(tsRegistry));
+        MockMvc tsMvc = MockMvcBuilders.standaloneSetup(tsCtrl).build();
+        tsMvc.perform(post("/api/workforce/ts-gross/stats/recipes/monthly-gross-sum")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"parameters\":{\"effectiveDateBetween\":\"not-a-date,2026-02-28\"}}"))
+                .andExpect(status().isBadRequest());
+
+        // 4. Filterable.relations() plural referencing restricted DTO field returns 403 Forbidden
+        PluralRelationController pluralCtrl = new PluralRelationController(mockRestrictedStatsService(
+                StatsFieldRegistry.builder()
+                        .add(StatsFieldDescriptor.groupByBucket("departmentCode", "departmentCode", Set.of(StatsMetric.COUNT)))
+                        .build(),
+                true));
+        MockMvc pluralMvc = MockMvcBuilders.standaloneSetup(pluralCtrl).build();
+        pluralMvc.perform(post("/api/workforce/plural-rel/stats/recipes/plural-restricted")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"parameters\":{\"broadSearch\":\"123\"}}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @ApiResource(value = "/api/workforce/provider", resourceKey = "workforce.provider")
+    static class PlainProviderController
+            extends AbstractResourceQueryController<WorkforceDto, Long, WorkforceFilterDto> {
+        private final BaseResourceQueryService<WorkforceDto, Long, WorkforceFilterDto> service;
+
+        PlainProviderController(BaseResourceQueryService<WorkforceDto, Long, WorkforceFilterDto> service) {
+            this.service = service;
+        }
+
+        @Override protected BaseResourceQueryService<WorkforceDto, Long, WorkforceFilterDto> getService() { return service; }
+        @Override protected Long getResponseId(WorkforceDto dto) { return dto.getId(); }
+    }
+
+    static class PluralRestrictedFilterDto implements GenericFilterDTO {
+        @Filterable(operation = Filterable.FilterOperation.LIKE, relations = { "departmentCode", "department.taxId" })
+        private String broadSearch;
+
+        public String getBroadSearch() { return broadSearch; }
+        public void setBroadSearch(String broadSearch) { this.broadSearch = broadSearch; }
+    }
+
+    @ApiResource(value = "/api/workforce/plural-rel", resourceKey = "workforce.plural.rel")
+    @VerifiedAnalyticalRecipe(
+            id = "plural-restricted",
+            title = "Plural relation restricted recipe",
+            operation = AnalyticsOperation.GROUP_BY,
+            field = "departmentCode",
+            metric = StatsMetric.COUNT,
+            adjustableParams = { @AnalyticalRecipeParameter(name = "broadSearch", dataType = "string") }
+    )
+    static class PluralRelationController
+            extends AbstractResourceQueryController<RestrictedWorkforceDto, Long, PluralRestrictedFilterDto> {
+        private final BaseResourceQueryService<RestrictedWorkforceDto, Long, PluralRestrictedFilterDto> service;
+
+        PluralRelationController(BaseResourceQueryService<RestrictedWorkforceDto, Long, PluralRestrictedFilterDto> service) {
+            this.service = service;
+        }
+
+        @Override protected BaseResourceQueryService<RestrictedWorkforceDto, Long, PluralRestrictedFilterDto> getService() { return service; }
+        @Override protected Long getResponseId(RestrictedWorkforceDto dto) { return dto.getId(); }
+    }
+
+    @SuppressWarnings("unchecked")
+    private BaseResourceQueryService<RestrictedWorkforceDto, Long, PluralRestrictedFilterDto> mockRestrictedStatsService(
+            StatsFieldRegistry registry, boolean unusedPluralOverload
+    ) {
+        BaseResourceQueryService<RestrictedWorkforceDto, Long, PluralRestrictedFilterDto> service = mock(BaseResourceQueryService.class);
+        when(service.getStatsFieldRegistry()).thenReturn(registry);
+        return service;
+    }
+
     @SuppressWarnings("unchecked")
     private BaseResourceQueryService<RestrictedWorkforceDto, Long, RestrictedWorkforceFilterDto> mockRestrictedStatsService(
             StatsFieldRegistry registry

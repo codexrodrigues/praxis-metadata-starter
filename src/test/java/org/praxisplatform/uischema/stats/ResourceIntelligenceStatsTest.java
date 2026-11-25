@@ -582,6 +582,69 @@ class ResourceIntelligenceStatsTest {
         assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, status413.getStatusCode());
     }
 
+    @Test
+    void anomalyScanStatsRequestAutoEnablesBenfordOnlyWhenMethodIncludesNigriniAndOmitted() {
+        AnomalyScanStatsRequest<SampleFilterDTO> autoEnabled = new AnomalyScanStatsRequest<>(
+                null,
+                "benford-auto",
+                "workforce.sample-payroll",
+                Set.of(AnomalyMethod.NIGRINI_BENFORD),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+        assertTrue(autoEnabled.toAnomalyScanRequest("workforce.sample-payroll", 10).enableBenford());
+
+        AnomalyScanStatsRequest<SampleFilterDTO> explicitlyDisabled = new AnomalyScanStatsRequest<>(
+                null,
+                "benford-off",
+                "workforce.sample-payroll",
+                Set.of(AnomalyMethod.NIGRINI_BENFORD),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Boolean.FALSE,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+        assertFalse(explicitlyDisabled.toAnomalyScanRequest("workforce.sample-payroll", 10).enableBenford());
+
+        AnomalyScanStatsRequest<SampleFilterDTO> nonBenfordDefault = new AnomalyScanStatsRequest<>(
+                null,
+                "benford-none",
+                "workforce.sample-payroll",
+                Set.of(AnomalyMethod.ROBUST_MAD_ZSCORE),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+        assertFalse(nonBenfordDefault.toAnomalyScanRequest("workforce.sample-payroll", 10).enableBenford());
+    }
+
     private static StatsProperties enabledProperties(int maxInMemoryRows) {
         return new StatsProperties(
                 true,

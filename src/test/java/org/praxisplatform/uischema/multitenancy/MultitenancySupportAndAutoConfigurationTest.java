@@ -205,12 +205,16 @@ class MultitenancySupportAndAutoConfigurationTest {
         assertThat(matchesAny(parsed, "/api/employees/filter")).isTrue();
         assertThat(matchesAny(parsed, "/api/workforce/employees/filter/cursor")).isTrue();
         assertThat(matchesAny(parsed, "/api/v1/workforce/employees/stats/group-by")).isTrue();
+        assertThat(matchesAny(parsed, "/api/workforce/employees/stats/inference")).isTrue();
+        assertThat(matchesAny(parsed, "/api/v1/workforce/employees/stats/anomalies")).isTrue();
+        assertThat(matchesAny(parsed, "/api/workforce/employees/stats/recipes/active-headcount")).isTrue();
         assertThat(matchesAny(parsed, "/api/workforce/employees/option-sources/departments/options/filter")).isTrue();
         assertThat(matchesAny(parsed, "/api/workforce/employees/option-sources/departments/options/by-ids")).isTrue();
 
         assertThat(matchesAny(parsed, "/api/workforce/employees")).isFalse();
         assertThat(matchesAny(parsed, "/api/workforce/employees/bulk/update")).isFalse();
         assertThat(matchesAny(parsed, "/api/workforce/employees/actions/approve")).isFalse();
+        assertThat(matchesAny(parsed, "/api/workforce/employees/stats/recipes/a/b")).isFalse();
     }
 
     @Test

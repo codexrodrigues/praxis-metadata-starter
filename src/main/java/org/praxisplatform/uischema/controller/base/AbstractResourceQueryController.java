@@ -640,18 +640,21 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     public ResponseEntity<RestApiResponse<GroupByStatsResponse>> groupByStats(
             @RequestBody GroupByStatsRequest<FD> request
     ) {
-        try {
-            GroupByStatsResponse result = getService().groupByStats(request);
-            List<Link> links = new ArrayList<>();
-            addCollectionOperationLink(links, "filter", linkToFilter());
-            links.add(linkToUiSchema("/stats/group-by", "post", "request"));
-            links.add(linkToUiSchema("/stats/group-by", "post", "response"));
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
-        } catch (UnsupportedOperationException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
-        }
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsGroupBy");
+            try {
+                GroupByStatsResponse result = getService().groupByStats(request);
+                List<Link> links = new ArrayList<>();
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(linkToUiSchema("/stats/group-by", "post", "request"));
+                links.add(linkToUiSchema("/stats/group-by", "post", "response"));
+                return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+            }
+        });
     }
 
     @PostMapping("/stats/comparison")
@@ -668,18 +671,21 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     public ResponseEntity<RestApiResponse<ComparisonStatsResponse>> comparisonStats(
             @RequestBody ComparisonStatsRequest<FD> request
     ) {
-        try {
-            ComparisonStatsResponse result = getService().comparisonStats(request);
-            List<Link> links = new ArrayList<>();
-            addCollectionOperationLink(links, "filter", linkToFilter());
-            links.add(linkToUiSchema("/stats/comparison", "post", "request"));
-            links.add(linkToUiSchema("/stats/comparison", "post", "response"));
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
-        } catch (UnsupportedOperationException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
-        }
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsComparison");
+            try {
+                ComparisonStatsResponse result = getService().comparisonStats(request);
+                List<Link> links = new ArrayList<>();
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(linkToUiSchema("/stats/comparison", "post", "request"));
+                links.add(linkToUiSchema("/stats/comparison", "post", "response"));
+                return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+            }
+        });
     }
 
     @PostMapping("/stats/inference")
@@ -786,18 +792,21 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     public ResponseEntity<RestApiResponse<TimeSeriesStatsResponse>> timeSeriesStats(
             @RequestBody TimeSeriesStatsRequest<FD> request
     ) {
-        try {
-            TimeSeriesStatsResponse result = getService().timeSeriesStats(request);
-            List<Link> links = new ArrayList<>();
-            addCollectionOperationLink(links, "filter", linkToFilter());
-            links.add(linkToUiSchema("/stats/timeseries", "post", "request"));
-            links.add(linkToUiSchema("/stats/timeseries", "post", "response"));
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
-        } catch (UnsupportedOperationException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
-        }
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsTimeSeries");
+            try {
+                TimeSeriesStatsResponse result = getService().timeSeriesStats(request);
+                List<Link> links = new ArrayList<>();
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(linkToUiSchema("/stats/timeseries", "post", "request"));
+                links.add(linkToUiSchema("/stats/timeseries", "post", "response"));
+                return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+            }
+        });
     }
 
     @PostMapping("/stats/distribution")
@@ -836,18 +845,21 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     public ResponseEntity<RestApiResponse<DistributionStatsResponse>> distributionStats(
             @RequestBody DistributionStatsRequest<FD> request
     ) {
-        try {
-            DistributionStatsResponse result = getService().distributionStats(request);
-            List<Link> links = new ArrayList<>();
-            addCollectionOperationLink(links, "all", linkToAll());
-            links.add(linkToUiSchema("/stats/distribution", "post", "request"));
-            links.add(linkToUiSchema("/stats/distribution", "post", "response"));
-            return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
-        } catch (IllegalArgumentException ex) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
-        } catch (UnsupportedOperationException ex) {
-            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
-        }
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsDistribution");
+            try {
+                DistributionStatsResponse result = getService().distributionStats(request);
+                List<Link> links = new ArrayList<>();
+                addCollectionOperationLink(links, "all", linkToAll());
+                links.add(linkToUiSchema("/stats/distribution", "post", "request"));
+                links.add(linkToUiSchema("/stats/distribution", "post", "response"));
+                return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Not implemented.");
+            }
+        });
     }
 
     @GetMapping("/stats/capabilities")
@@ -894,14 +906,19 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     ));
             assertCollectionOperationAvailable(resolveRecipeOperationId(recipe.operation()));
             enforceVerifiedRecipeGovernance(recipe);
+            VerifiedAnalyticalRecipeResolver resolver = effectiveRecipeResolver();
+            VerifiedAnalyticalRecipeResolver.CompiledRecipeExecution<FD> compiled;
             try {
-                VerifiedAnalyticalRecipeResolver resolver = effectiveRecipeResolver();
-                VerifiedAnalyticalRecipeResolver.CompiledRecipeExecution<FD> compiled = resolver.compileExecution(
+                compiled = resolver.compileExecution(
                         recipe,
                         resolveFilterDtoClass(),
                         resolveStatsFieldRegistry(),
                         request
                 );
+            } catch (IllegalArgumentException | IllegalStateException | java.time.format.DateTimeParseException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            }
+            try {
                 VerifiedRecipeExecutionResponse result = switch (recipe.operation()) {
                     case GROUP_BY -> new VerifiedRecipeExecutionResponse(
                             compiled.provenance(),
@@ -951,7 +968,9 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         boolean hasAnnotatedRecipes = AnnotationUtils.findAnnotation(getClass(), VerifiedAnalyticalRecipe.class) != null
                 || AnnotationUtils.findAnnotation(getClass(), VerifiedAnalyticalRecipes.class) != null;
         List<VerifiedAnalyticalRecipeDescriptor<FD>> descriptors = resolvedAnalyticalRecipeDescriptors();
-        if (!hasAnnotatedRecipes && (descriptors == null || descriptors.isEmpty())) {
+        boolean hasProviderRecipes = verifiedAnalyticalRecipeResolver != null
+                && !resolveControllerAnalyticalRecipes().isEmpty();
+        if (!hasAnnotatedRecipes && (descriptors == null || descriptors.isEmpty()) && !hasProviderRecipes) {
             return null;
         }
         return Link.of(resourcePath("stats", "recipes"), "stats-recipes");
@@ -998,7 +1017,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             }
         }
         Set<String> reservedParams = Set.of(
-                "limit", "granularity", "timezone", "bucketCount", "bucketSize", "periodPreset", "periodMode");
+                "limit", "granularity", "timezone", "from", "to", "fillGaps",
+                "bucketCount", "bucketSize", "periodPreset", "periodMode");
         for (VerifiedAnalyticalRecipeDescriptor.ParameterSpec param : recipe.adjustableParams()) {
             if (param == null) {
                 continue;
@@ -1030,27 +1050,46 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             Field filterField = findDeclaredFieldInHierarchy(filterDtoClass, fieldName);
             if (filterField != null) {
                 Filterable filterable = filterField.getAnnotation(Filterable.class);
-                if (filterable != null && StringUtils.hasText(filterable.relation())) {
-                    String relation = filterable.relation().trim();
-                    if (isFieldGovernanceRestricted(responseDtoClass, relation, responseOwnerGov)) {
-                        throw new ResponseStatusException(
-                                HttpStatus.FORBIDDEN,
-                                "Verified analytical recipe '" + recipe.id()
-                                        + "' references governance-restricted field: " + fieldName
-                        );
-                    }
-                    int dotIdx = relation.lastIndexOf('.');
-                    if (dotIdx >= 0 && dotIdx + 1 < relation.length()) {
-                        String terminal = relation.substring(dotIdx + 1).trim();
-                        if (isFieldGovernanceRestricted(responseDtoClass, terminal, responseOwnerGov)) {
-                            throw new ResponseStatusException(
-                                    HttpStatus.FORBIDDEN,
-                                    "Verified analytical recipe '" + recipe.id()
-                                            + "' references governance-restricted field: " + fieldName
-                            );
+                if (filterable != null) {
+                    assertFilterRelationGovernanceAllowed(
+                            recipe.id(), fieldName, filterable.relation(), responseDtoClass, responseOwnerGov);
+                    if (filterable.relations() != null) {
+                        for (String rel : filterable.relations()) {
+                            assertFilterRelationGovernanceAllowed(
+                                    recipe.id(), fieldName, rel, responseDtoClass, responseOwnerGov);
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private static void assertFilterRelationGovernanceAllowed(
+            String recipeId,
+            String fieldName,
+            String rawRelation,
+            Class<?> responseDtoClass,
+            ObjectNode responseOwnerGov) {
+        if (!StringUtils.hasText(rawRelation)) {
+            return;
+        }
+        String relation = rawRelation.trim();
+        if (isFieldGovernanceRestricted(responseDtoClass, relation, responseOwnerGov)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Verified analytical recipe '" + recipeId
+                            + "' references governance-restricted field: " + fieldName
+            );
+        }
+        int dotIdx = relation.lastIndexOf('.');
+        if (dotIdx >= 0 && dotIdx + 1 < relation.length()) {
+            String terminal = relation.substring(dotIdx + 1).trim();
+            if (isFieldGovernanceRestricted(responseDtoClass, terminal, responseOwnerGov)) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Verified analytical recipe '" + recipeId
+                                + "' references governance-restricted field: " + fieldName
+                );
             }
         }
     }

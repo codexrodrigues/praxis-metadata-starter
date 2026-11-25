@@ -44,7 +44,7 @@ public record AnomalyScanStatsRequest<FD extends GenericFilterDTO>(
         Integer minCohortSize,
         @Schema(description = "Tamanho minimo de grupo exigido para avaliacao coletiva de deslocamento pareado; padrao 20.")
         Integer minGroupSize,
-        @Schema(description = "Habilita auditoria forense de primeiro digito de Nigrini-Benford quando houver coluna elegivel; padrao false.")
+        @Schema(description = "Habilita auditoria forense de primeiro digito de Nigrini-Benford quando houver coluna elegivel; habilitado automaticamente quando omitido e methods contem NIGRINI_BENFORD, caso contrario false.")
         Boolean enableBenford,
         @Schema(description = "Amostra minima de lancamentos positivos elegiveis exigida pelo teste de Benford; padrao 500.")
         Integer minBenfordSamples,
@@ -77,7 +77,9 @@ public record AnomalyScanStatsRequest<FD extends GenericFilterDTO>(
         double resolvedMad = madThreshold == null ? 3.5d : madThreshold;
         int resolvedMinCohort = minCohortSize == null ? 15 : minCohortSize;
         int resolvedMinGroup = minGroupSize == null ? 20 : minGroupSize;
-        boolean resolvedBenford = Boolean.TRUE.equals(enableBenford);
+        boolean resolvedBenford = enableBenford != null
+                ? enableBenford
+                : (methods != null && methods.contains(AnomalyMethod.NIGRINI_BENFORD));
         int resolvedMinBenfordSamples = minBenfordSamples == null ? 500 : minBenfordSamples;
         int resolvedMinBucket = Math.max(1, effectiveMinBucketCount);
         int resolvedMaxFindings = maxFindings == null ? 200 : maxFindings;

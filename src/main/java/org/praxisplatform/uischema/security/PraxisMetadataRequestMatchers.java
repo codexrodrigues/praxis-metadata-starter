@@ -26,6 +26,9 @@ public final class PraxisMetadataRequestMatchers {
             "/stats/timeseries",
             "/stats/distribution",
             "/stats/comparison",
+            "/stats/inference",
+            "/stats/anomalies",
+            "/stats/recipes/*",
             "/options/filter",
             "/option-sources/*/options/filter",
             "/option-sources/*/options/by-ids"

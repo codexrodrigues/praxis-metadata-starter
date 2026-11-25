@@ -73,7 +73,7 @@ Para receitas geradas programaticamente fora do controller (por exemplo a partir
 
 ## 3. Inferência Estatística e Varredura de Anomalias (`/stats/inference` e `/stats/anomalies`)
 
-Quando o recurso publica campos analíticos em `StatsFieldRegistry` e um executor compatível está disponível no host, `AbstractResourceQueryController` expõe duas operações analíticas determinísticas com garantia *fail-closed*:
+Por padrão *fail-closed*, `AbstractBaseQueryResourceService#getInferenceStatsSupportMode()` e `#getAnomalyStatsSupportMode()` retornam **`StatsSupportMode.DISABLED`** (`501 Not Implemented` quando invocados). Para habilitar os endpoints em um recurso que já publica `StatsFieldRegistry` (e com `ResourceIntelligenceExecutor` configurado no host), o service deve sobrescrever explicitamente esses métodos retornando `StatsSupportMode.AUTO` ou `StatsSupportMode.ENABLED`.
 
 ### Endpoints e contratos
 
@@ -87,6 +87,6 @@ Quando o recurso publica campos analíticos em `StatsFieldRegistry` e um executo
 1. **Escopo de acesso e filtro tipado (`FD`):** O filtro `request.filter()` passa pelo `ResourceFilterAccessScope` resolvido no servidor antes de extrair qualquer dado tabular. O parâmetro `datasetKey`, quando enviado, deve corresponder exatamente ao `resourceKey` canônico do recurso (`IllegalArgumentException` -> `400 Bad Request`).
 2. **Piso de k-anonimato imposto pelo servidor:** Em `toInferenceRequest(canonicalResourceKey, effectiveMinBucketCount)` e `toAnomalyScanRequest(canonicalResourceKey, effectiveMinBucketCount)`, o limiar mínimo de k-anonimato por coorte nunca pode ser reduzido abaixo do piso governado pelo servidor. Grupos menores são suprimidos (`suppressedCellCount` / `suppressionStatus`).
 3. **Parâmetros padronizados:**
-   - **`InferenceStatsRequest<FD>`:** `tests` (`List<InferenceTestKind>`), `groupByField`, `expectedField`, `observedField`, `residualField`, `variableOrRetroactiveEligible`, `alpha` (padrão `0.05`), `materialityThreshold`, `minBucketCount`, `seed`, `asOfDate`.
-   - **`AnomalyScanStatsRequest<FD>`:** `methods` (`Set<AnomalyMethod>`), `columnMapping` (`AnomalyColumnMapping.canonical()` quando omitido), `alpha` (`0.05` para controle BH FDR), `materialityThreshold`, `madThreshold` (`3.5` para escore robusto MAD), `minCohortSize` (`15`), `minGroupSize` (`20`), `enableBenford` (`false` por padrão), `minBenfordSamples` (`500`), `minBucketCount`, `maxFindings` (`200`), `seed`, `asOfDate`.
+   - **`InferenceStatsRequest<FD>`:** `filter`, `requestId`, `datasetKey`, `tests` (`List<InferenceTestKind>`), `groupByField`, `expectedField`, `observedField`, `residualField`, `variableOrRetroactiveEligible`, `alpha` (padrão `0.05`), `materialityThreshold`, `minBucketCount`, `seed`, `asOfDate`.
+   - **`AnomalyScanStatsRequest<FD>`:** `filter`, `requestId`, `datasetKey`, `methods` (`Set<AnomalyMethod>`), `columnMapping` (`AnomalyColumnMapping.canonical()` quando omitido), `alpha` (`0.05` para controle BH FDR), `materialityThreshold`, `madThreshold` (`3.5` para escore robusto MAD), `minCohortSize` (`15`), `minGroupSize` (`20`), `enableBenford` (habilitado automaticamente quando omitido e `methods` contém `NIGRINI_BENFORD`; `false` caso contrário), `minBenfordSamples` (`500`), `minBucketCount`, `maxFindings` (`200`), `seed`, `asOfDate`.
 4. **Sem fallback fabricado:** Ausência de executor configurado falha fechado com `503 Service Unavailable` / estado `ENGINE_UNAVAILABLE`, preservando o limite de registros filtrados (`413 Payload Too Large` quando excedido).
