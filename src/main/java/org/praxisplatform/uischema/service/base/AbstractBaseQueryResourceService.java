@@ -31,10 +31,12 @@ import org.praxisplatform.uischema.options.service.OptionSourceQueryExecutor;
 import org.praxisplatform.uischema.repository.base.BaseCrudRepository;
 import org.praxisplatform.uischema.service.base.annotation.DefaultSortColumn;
 import org.praxisplatform.uischema.stats.StatsEligibility;
+import org.praxisplatform.uischema.stats.StatsDimensionExtraction;
 import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.stats.StatsProperties;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
+import org.praxisplatform.uischema.util.OpenApiUiUtils;
 import org.praxisplatform.uischema.stats.ComparisonPeriodMode;
 import org.praxisplatform.uischema.stats.ComparisonPeriodResolver;
 import org.praxisplatform.uischema.stats.StatsBucketOrder;
@@ -1410,7 +1412,7 @@ public abstract class AbstractBaseQueryResourceService<
                     window.timezone()
             ));
         }
-        return statsQueryExecutor.executeGroupBy(
+        GroupByStatsResponse response = statsQueryExecutor.executeGroupBy(
                 entityManager,
                 entityClass,
                 specification,
@@ -1423,6 +1425,7 @@ public abstract class AbstractBaseQueryResourceService<
                 properties.defaultMinBucketCount(),
                 properties.maxInMemorySampleRows()
         );
+        return enrichGroupByLabels(response, dimensions);
     }
 
     private ComparisonPeriodWindow resolveGroupByWindow(
@@ -1483,21 +1486,48 @@ public abstract class AbstractBaseQueryResourceService<
             throw new UnsupportedOperationException("Time-series stats not implemented");
         }
 
+        Clock effectiveClock = statsClock == null ? Clock.systemUTC() : statsClock;
         StatsFieldDescriptor descriptor = statsEligibility.validateTimeSeries(
                 request,
                 resolveEffectiveStatsFieldRegistry(),
                 properties.maxSeriesPoints(),
-                properties.maxTimeSeriesWindowDays()
+                properties.maxTimeSeriesWindowDays(),
+                properties.maxTimeSeriesWindowWeeks(),
+                properties.maxTimeSeriesWindowMonths(),
+                effectiveClock
         );
-        List<ResolvedStatsMetric> resolvedMetrics = resolveMetrics(request.effectiveMetrics(), "time-series");
-        Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged()).effectiveSpecification();
+        TimeSeriesStatsRequest<FilterDTO> effectiveRequest = request;
+        if (request.rollingWindow() != null) {
+            java.time.ZoneId effectiveZone = (request.timezone() == null || request.timezone().isBlank())
+                    ? java.time.ZoneOffset.UTC
+                    : java.time.ZoneId.of(request.timezone().trim());
+            java.time.LocalDate[] bounds = StatsEligibility.resolveRollingWindow(
+                    request.rollingWindow(),
+                    effectiveZone,
+                    effectiveClock
+            );
+            effectiveRequest = new TimeSeriesStatsRequest<>(
+                    request.filter(),
+                    request.field(),
+                    request.granularity(),
+                    request.metric(),
+                    bounds[0],
+                    bounds[1],
+                    request.fillGaps(),
+                    request.metrics(),
+                    request.timezone(),
+                    request.rollingWindow()
+            );
+        }
+        List<ResolvedStatsMetric> resolvedMetrics = resolveMetrics(effectiveRequest.effectiveMetrics(), "time-series");
+        Specification<E> specification = resolveResourceFilterQuery(effectiveRequest.filter(), Pageable.unpaged()).effectiveSpecification();
         return statsQueryExecutor.executeTimeSeries(
                 entityManager,
                 entityClass,
                 specification,
                 descriptor,
                 resolvedMetrics,
-                request,
+                effectiveRequest,
                 properties.maxSeriesPoints(),
                 properties.maxTimeSeriesWindowDays(),
                 properties.defaultMinBucketCount(),
@@ -1734,7 +1764,7 @@ public abstract class AbstractBaseQueryResourceService<
                 effectiveMinBucketCount
         );
         boolean suppressionConfigured = effectiveMinBucketCount > 0;
-        return new ComparisonStatsResponse(
+        ComparisonStatsResponse response = new ComparisonStatsResponse(
                 request.field(),
                 request.periodField(),
                 request.metrics(),
@@ -1743,8 +1773,204 @@ public abstract class AbstractBaseQueryResourceService<
                 result.buckets(),
                 suppressionConfigured ? result.suppressedBucketCount() > 0 : Boolean.FALSE,
                 suppressionConfigured ? result.suppressedBucketCount() : null,
-                suppressionConfigured ? effectiveMinBucketCount : null
+                suppressionConfigured ? effectiveMinBucketCount : null,
+                result.populationTotalCount(),
+                result.suppressedPoolCount(),
+                result.truncated()
         );
+        return enrichComparisonLabels(response, descriptor);
+    }
+
+    private GroupByStatsResponse enrichGroupByLabels(
+            GroupByStatsResponse response,
+            List<ResolvedStatsDimension> dimensions
+    ) {
+        if (response == null || response.buckets() == null || response.buckets().isEmpty()
+                || dimensions == null || dimensions.isEmpty()) {
+            return response;
+        }
+        Class<?> responseType = getResponseType();
+        if (responseType == null) {
+            return response;
+        }
+        List<Map<String, String>> labelMapsByDim = new ArrayList<>(dimensions.size());
+        boolean anyLabels = false;
+        for (ResolvedStatsDimension dim : dimensions) {
+            if (dim.extraction() == StatsDimensionExtraction.NONE
+                    && Objects.equals(dim.descriptor().keyPropertyPath(), dim.descriptor().labelPropertyPath())) {
+                Map<String, String> resolved = resolveDtoFieldOptionLabels(responseType, dim.descriptor());
+                labelMapsByDim.add(resolved);
+                if (!resolved.isEmpty()) {
+                    anyLabels = true;
+                }
+            } else {
+                labelMapsByDim.add(Map.of());
+            }
+        }
+        if (!anyLabels) {
+            return response;
+        }
+
+        boolean changed = false;
+        List<GroupByBucket> enrichedBuckets = new ArrayList<>(response.buckets().size());
+        for (GroupByBucket bucket : response.buckets()) {
+            if (bucket == null) {
+                enrichedBuckets.add(null);
+                continue;
+            }
+            if (bucket.keys() != null && bucket.labels() != null && !bucket.keys().isEmpty()) {
+                int count = Math.min(Math.min(bucket.keys().size(), bucket.labels().size()), labelMapsByDim.size());
+                List<String> updatedLabels = new ArrayList<>(bucket.labels());
+                boolean bucketChanged = false;
+                for (int d = 0; d < count; d++) {
+                    Map<String, String> labelMap = labelMapsByDim.get(d);
+                    if (labelMap.isEmpty()) {
+                        continue;
+                    }
+                    String resolved = resolveHumanBucketLabel(bucket.keys().get(d), updatedLabels.get(d), labelMap);
+                    if (resolved != null && !Objects.equals(resolved, updatedLabels.get(d))) {
+                        updatedLabels.set(d, resolved);
+                        bucketChanged = true;
+                    }
+                }
+                if (bucketChanged) {
+                    changed = true;
+                    String compositeLabel = updatedLabels.size() == 1
+                            ? updatedLabels.get(0)
+                            : String.join(" | ", updatedLabels);
+                    enrichedBuckets.add(new GroupByBucket(
+                            bucket.key(),
+                            compositeLabel,
+                            bucket.value(),
+                            bucket.count(),
+                            bucket.values(),
+                            bucket.keys(),
+                            List.copyOf(updatedLabels),
+                            bucket.coordinates()
+                    ));
+                } else {
+                    enrichedBuckets.add(bucket);
+                }
+            } else {
+                Map<String, String> primaryMap = labelMapsByDim.get(0);
+                String resolved = primaryMap.isEmpty()
+                        ? null
+                        : resolveHumanBucketLabel(bucket.key(), bucket.label(), primaryMap);
+                if (resolved != null && !Objects.equals(resolved, bucket.label())) {
+                    changed = true;
+                    enrichedBuckets.add(new GroupByBucket(
+                            bucket.key(),
+                            resolved,
+                            bucket.value(),
+                            bucket.count(),
+                            bucket.values(),
+                            bucket.keys(),
+                            bucket.labels(),
+                            bucket.coordinates()
+                    ));
+                } else {
+                    enrichedBuckets.add(bucket);
+                }
+            }
+        }
+        if (!changed) {
+            return response;
+        }
+        return new GroupByStatsResponse(
+                response.field(),
+                response.metric(),
+                List.copyOf(enrichedBuckets),
+                response.metrics(),
+                response.dimensions(),
+                response.window(),
+                response.suppressed(),
+                response.suppressedBucketCount(),
+                response.minBucketCount(),
+                response.populationTotalCount(),
+                response.suppressedPoolCount(),
+                response.truncated()
+        );
+    }
+
+    private ComparisonStatsResponse enrichComparisonLabels(
+            ComparisonStatsResponse response,
+            StatsFieldDescriptor descriptor
+    ) {
+        if (response == null || response.buckets() == null || response.buckets().isEmpty() || descriptor == null) {
+            return response;
+        }
+        if (!Objects.equals(descriptor.keyPropertyPath(), descriptor.labelPropertyPath())) {
+            return response;
+        }
+        Class<?> responseType = getResponseType();
+        if (responseType == null) {
+            return response;
+        }
+        Map<String, String> labelMap = resolveDtoFieldOptionLabels(responseType, descriptor);
+        if (labelMap.isEmpty()) {
+            return response;
+        }
+        boolean changed = false;
+        List<ComparisonBucket> enriched = new ArrayList<>(response.buckets().size());
+        for (ComparisonBucket bucket : response.buckets()) {
+            if (bucket == null) {
+                enriched.add(null);
+                continue;
+            }
+            String resolved = resolveHumanBucketLabel(bucket.key(), bucket.label(), labelMap);
+            if (resolved != null && !Objects.equals(resolved, bucket.label())) {
+                changed = true;
+                enriched.add(new ComparisonBucket(bucket.key(), resolved, bucket.values(), bucket.suppressed()));
+            } else {
+                enriched.add(bucket);
+            }
+        }
+        if (!changed) {
+            return response;
+        }
+        return new ComparisonStatsResponse(
+                response.field(),
+                response.periodField(),
+                response.metrics(),
+                response.currentPeriod(),
+                response.previousPeriod(),
+                List.copyOf(enriched),
+                response.suppressed(),
+                response.suppressedBucketCount(),
+                response.minBucketCount(),
+                response.populationTotalCount(),
+                response.suppressedPoolCount(),
+                response.truncated()
+        );
+    }
+
+    private static Map<String, String> resolveDtoFieldOptionLabels(Class<?> responseType, StatsFieldDescriptor descriptor) {
+        Map<String, String> byField = OpenApiUiUtils.extractUiSchemaOptionLabels(responseType, descriptor.field());
+        if (!byField.isEmpty()) {
+            return byField;
+        }
+        if (descriptor.keyPropertyPath() != null && !Objects.equals(descriptor.keyPropertyPath(), descriptor.field())) {
+            return OpenApiUiUtils.extractUiSchemaOptionLabels(responseType, descriptor.keyPropertyPath());
+        }
+        return Map.of();
+    }
+
+    private static String resolveHumanBucketLabel(Object rawKey, String currentLabel, Map<String, String> labelMap) {
+        if (rawKey == null || labelMap == null || labelMap.isEmpty()) {
+            return null;
+        }
+        String rawKeyText = String.valueOf(rawKey);
+        boolean isRawOrMissing = currentLabel == null
+                || currentLabel.isBlank()
+                || Objects.equals(currentLabel, rawKeyText);
+        if (!isRawOrMissing) {
+            return null;
+        }
+        String resolved = labelMap.get(rawKeyText);
+        if (resolved == null) {
+            resolved = labelMap.get(rawKeyText.trim());
+        }
+        return (resolved == null || resolved.isBlank()) ? null : resolved;
     }
 
     private int resolveComparisonMinBucketCount(
@@ -1782,37 +2008,92 @@ public abstract class AbstractBaseQueryResourceService<
         List<Object> visibleKeys = new ArrayList<>();
         Map<Object, Long> effectiveScoreByKey = new LinkedHashMap<>();
 
-        if (effectiveMinBucketCount > 0) {
-            for (Object key : keys) {
-                GroupByBucket now = currentByKey.get(key);
-                GroupByBucket before = previousByKey.get(key);
-                long nowCount = now == null ? 0L : now.count();
-                long beforeCount = before == null ? 0L : before.count();
-                Long nowNum = currentPositiveNumeric.get(key);
-                Long beforeNum = previousPositiveNumeric.get(key);
+        long currentTotalRows = 0L;
+        int suppressedCurrentActiveCount = 0;
+        int suppressedPreviousActiveCount = 0;
+        long suppressedCurrentRowSum = 0L;
+        long suppressedPreviousRowSum = 0L;
+        long suppressedCurrentNumericSum = 0L;
+        long suppressedPreviousNumericSum = 0L;
 
+        for (Object key : keys) {
+            GroupByBucket now = currentByKey.get(key);
+            GroupByBucket before = previousByKey.get(key);
+            long nowCount = now == null ? 0L : now.count();
+            long beforeCount = before == null ? 0L : before.count();
+            if (nowCount > 0L) {
+                currentTotalRows += nowCount;
+            }
+            Long nowNum = currentPositiveNumeric.get(key);
+            Long beforeNum = previousPositiveNumeric.get(key);
+            long nowNumSafe = nowNum != null && nowNum > 0L ? nowNum : 0L;
+            long beforeNumSafe = beforeNum != null && beforeNum > 0L ? beforeNum : 0L;
+
+            if (effectiveMinBucketCount > 0) {
                 boolean nowViolates = (nowCount > 0L && nowCount < effectiveMinBucketCount)
-                        || (nowNum != null && nowNum > 0L && nowNum < effectiveMinBucketCount);
+                        || (nowNumSafe > 0L && nowNumSafe < effectiveMinBucketCount);
                 boolean beforeViolates = (beforeCount > 0L && beforeCount < effectiveMinBucketCount)
-                        || (beforeNum != null && beforeNum > 0L && beforeNum < effectiveMinBucketCount);
+                        || (beforeNumSafe > 0L && beforeNumSafe < effectiveMinBucketCount);
 
                 long minPositiveCount = minPositiveLong(nowCount, nowNum, beforeCount, beforeNum);
                 effectiveScoreByKey.put(key, minPositiveCount);
 
                 if (nowViolates || beforeViolates) {
                     suppressedKeys.add(key);
+                    if (nowCount > 0L) {
+                        suppressedCurrentActiveCount++;
+                        suppressedCurrentRowSum += nowCount;
+                    }
+                    if (beforeCount > 0L) {
+                        suppressedPreviousActiveCount++;
+                        suppressedPreviousRowSum += beforeCount;
+                    }
+                    suppressedCurrentNumericSum += nowNumSafe;
+                    suppressedPreviousNumericSum += beforeNumSafe;
                 } else {
                     visibleKeys.add(key);
                 }
             }
-            if (suppressedKeys.size() == 1 && !visibleKeys.isEmpty()) {
-                Object complementaryKey = visibleKeys.stream()
-                        .min(Comparator.<Object, Long>comparing(effectiveScoreByKey::get)
-                                .thenComparing((left, right) -> compareBucketKeys(left, right)))
-                        .orElse(null);
-                if (complementaryKey != null) {
-                    suppressedKeys.add(complementaryKey);
-                }
+        }
+
+        while (effectiveMinBucketCount > 0
+                && !suppressedKeys.isEmpty()
+                && !visibleKeys.isEmpty()
+                && (suppressedKeys.size() == 1
+                    || suppressedCurrentActiveCount == 1
+                    || suppressedPreviousActiveCount == 1
+                    || (suppressedCurrentRowSum > 0L && suppressedCurrentRowSum < effectiveMinBucketCount)
+                    || (suppressedPreviousRowSum > 0L && suppressedPreviousRowSum < effectiveMinBucketCount)
+                    || (suppressedCurrentNumericSum > 0L && suppressedCurrentNumericSum < effectiveMinBucketCount)
+                    || (suppressedPreviousNumericSum > 0L && suppressedPreviousNumericSum < effectiveMinBucketCount))) {
+            Object complementaryKey = visibleKeys.stream()
+                    .min(Comparator.<Object, Long>comparing(effectiveScoreByKey::get)
+                            .thenComparing((left, right) -> compareBucketKeys(left, right)))
+                    .orElse(null);
+            if (complementaryKey == null) {
+                break;
+            }
+            visibleKeys.remove(complementaryKey);
+            suppressedKeys.add(complementaryKey);
+            GroupByBucket now = currentByKey.get(complementaryKey);
+            GroupByBucket before = previousByKey.get(complementaryKey);
+            long nowCount = now == null ? 0L : now.count();
+            long beforeCount = before == null ? 0L : before.count();
+            if (nowCount > 0L) {
+                suppressedCurrentActiveCount++;
+                suppressedCurrentRowSum += nowCount;
+            }
+            if (beforeCount > 0L) {
+                suppressedPreviousActiveCount++;
+                suppressedPreviousRowSum += beforeCount;
+            }
+            Long nowNum = currentPositiveNumeric.get(complementaryKey);
+            Long beforeNum = previousPositiveNumeric.get(complementaryKey);
+            if (nowNum != null && nowNum > 0L) {
+                suppressedCurrentNumericSum += nowNum;
+            }
+            if (beforeNum != null && beforeNum > 0L) {
+                suppressedPreviousNumericSum += beforeNum;
             }
         }
 
@@ -1839,9 +2120,40 @@ public abstract class AbstractBaseQueryResourceService<
                 .sorted(comparisonOrder(metrics.get(0).effectiveAlias(), order))
                 .toList();
         int limit = requestedLimit == null ? maxBuckets : Math.min(requestedLimit, maxBuckets);
+        boolean truncated = buckets.size() > limit;
+
+        Long populationTotalCount;
+        Long suppressedPoolCount;
+        if (effectiveMinBucketCount <= 0) {
+            populationTotalCount = currentTotalRows;
+            suppressedPoolCount = null;
+        } else if (suppressedCurrentActiveCount == 0) {
+            if (currentTotalRows == 0L) {
+                populationTotalCount = 0L;
+                suppressedPoolCount = 0L;
+            } else if (currentTotalRows < effectiveMinBucketCount) {
+                populationTotalCount = null;
+                suppressedPoolCount = null;
+            } else {
+                populationTotalCount = currentTotalRows;
+                suppressedPoolCount = 0L;
+            }
+        } else if (currentTotalRows >= effectiveMinBucketCount
+                && suppressedCurrentRowSum >= effectiveMinBucketCount
+                && suppressedCurrentRowSum >= (long) suppressedCurrentActiveCount + effectiveMinBucketCount - 1L) {
+            populationTotalCount = currentTotalRows;
+            suppressedPoolCount = suppressedCurrentRowSum;
+        } else {
+            populationTotalCount = null;
+            suppressedPoolCount = null;
+        }
+
         return new ComparisonSuppressionResult(
                 buckets.stream().limit(limit).toList(),
-                suppressedKeys.size()
+                suppressedKeys.size(),
+                populationTotalCount,
+                suppressedPoolCount,
+                truncated
         );
     }
 
@@ -1854,7 +2166,13 @@ public abstract class AbstractBaseQueryResourceService<
         return min;
     }
 
-    private record ComparisonSuppressionResult(List<ComparisonBucket> buckets, int suppressedBucketCount) {
+    private record ComparisonSuppressionResult(
+            List<ComparisonBucket> buckets,
+            int suppressedBucketCount,
+            Long populationTotalCount,
+            Long suppressedPoolCount,
+            boolean truncated
+    ) {
     }
 
     private Number value(GroupByBucket bucket, String alias) {

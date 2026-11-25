@@ -906,6 +906,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     ));
             assertCollectionOperationAvailable(resolveRecipeOperationId(recipe.operation()));
             enforceVerifiedRecipeGovernance(recipe);
+            enforceContextFilterGovernance(recipe, request);
             VerifiedAnalyticalRecipeResolver resolver = effectiveRecipeResolver();
             VerifiedAnalyticalRecipeResolver.CompiledRecipeExecution<FD> compiled;
             try {
@@ -1029,7 +1030,27 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 referencedFields.add(param.name().trim());
             }
         }
-        if (referencedFields.isEmpty()) {
+        assertReferencedFieldsGovernanceAllowed(recipe.id(), referencedFields);
+    }
+
+    protected void enforceContextFilterGovernance(
+            ResolvedVerifiedAnalyticalRecipe recipe,
+            VerifiedRecipeExecutionRequest request
+    ) {
+        if (recipe == null || request == null || request.contextFilters().isEmpty()) {
+            return;
+        }
+        Set<String> candidateFields = new LinkedHashSet<>();
+        for (String key : request.contextFilters().keySet()) {
+            if (StringUtils.hasText(key)) {
+                candidateFields.add(key.trim());
+            }
+        }
+        assertReferencedFieldsGovernanceAllowed(recipe.id(), candidateFields);
+    }
+
+    private void assertReferencedFieldsGovernanceAllowed(String recipeId, Set<String> referencedFields) {
+        if (referencedFields == null || referencedFields.isEmpty()) {
             return;
         }
 
@@ -1043,7 +1064,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                     || isFieldGovernanceRestricted(filterDtoClass, fieldName, filterOwnerGov)) {
                 throw new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
-                        "Verified analytical recipe '" + recipe.id()
+                        "Verified analytical recipe '" + recipeId
                                 + "' references governance-restricted field: " + fieldName
                 );
             }
@@ -1052,11 +1073,11 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                 Filterable filterable = filterField.getAnnotation(Filterable.class);
                 if (filterable != null) {
                     assertFilterRelationGovernanceAllowed(
-                            recipe.id(), fieldName, filterable.relation(), responseDtoClass, responseOwnerGov);
+                            recipeId, fieldName, filterable.relation(), responseDtoClass, responseOwnerGov);
                     if (filterable.relations() != null) {
                         for (String rel : filterable.relations()) {
                             assertFilterRelationGovernanceAllowed(
-                                    recipe.id(), fieldName, rel, responseDtoClass, responseOwnerGov);
+                                    recipeId, fieldName, rel, responseDtoClass, responseOwnerGov);
                         }
                     }
                 }

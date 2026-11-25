@@ -26,7 +26,13 @@ public record TimeSeriesStatsResponse(
         @JsonInclude(JsonInclude.Include.NON_NULL)
         Integer suppressedBucketCount,
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        Integer minBucketCount
+        Integer minBucketCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Long populationTotalCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Long suppressedPoolCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Boolean truncated
 ) {
     /**
      * Construtor para respostas de metrica unica.
@@ -37,7 +43,7 @@ public record TimeSeriesStatsResponse(
             StatsMetricRequest metric,
             List<TimeSeriesPoint> points
     ) {
-        this(field, granularity, metric, points, null, null, null, null);
+        this(field, granularity, metric, points, null, null, null, null, null, null, null);
     }
 
     /**
@@ -50,7 +56,23 @@ public record TimeSeriesStatsResponse(
             List<TimeSeriesPoint> points,
             List<StatsMetricRequest> metrics
     ) {
-        this(field, granularity, metric, points, metrics, null, null, null);
+        this(field, granularity, metric, points, metrics, null, null, null, null, null, null);
+    }
+
+    /**
+     * Construtor retrocompativel sem campos de universo SDC/truncamento.
+     */
+    public TimeSeriesStatsResponse(
+            String field,
+            TimeSeriesGranularity granularity,
+            StatsMetricRequest metric,
+            List<TimeSeriesPoint> points,
+            List<StatsMetricRequest> metrics,
+            Boolean suppressed,
+            Integer suppressedBucketCount,
+            Integer minBucketCount
+    ) {
+        this(field, granularity, metric, points, metrics, suppressed, suppressedBucketCount, minBucketCount, null, null, null);
     }
 
     /**

@@ -212,9 +212,10 @@ class StatsGovernanceE2ETest extends AbstractE2eH2Test {
         assertTrue(tsWithGapsData.path("suppressed").asBoolean());
         assertEquals(3, tsWithGapsData.path("suppressedBucketCount").asInt());
         assertEquals(5, tsWithGapsData.path("points").size());
-        // Suppressed slot 2023-01 must have null value and 0 count (no leak of count=1)
+        // Suppressed slot 2023-01 must have null value, null count and suppressed=true (no leak of count=1 or false zero)
         assertTrue(tsWithGapsData.path("points").get(2).path("value").isNull());
-        assertEquals(0, tsWithGapsData.path("points").get(2).path("count").asInt());
+        assertTrue(tsWithGapsData.path("points").get(2).path("count").isNull());
+        assertTrue(tsWithGapsData.path("points").get(2).path("suppressed").asBoolean());
 
         // In comparison over Feb 2023 vs Jan 2023: HR=(0 vs 1) and OPS=(1 vs 0); both have <2 on their active side
         // so both comparison buckets must be suppressed instead of leaking false -100%/0 counts!

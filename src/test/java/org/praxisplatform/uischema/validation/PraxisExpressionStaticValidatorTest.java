@@ -1,5 +1,6 @@
 package org.praxisplatform.uischema.validation;
 
+import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.media.Schema;
@@ -445,5 +446,36 @@ class PraxisExpressionStaticValidatorTest {
                 fallbackTextExpr = "= row.fallbackInexistente"
         )
         public Double taxaOcupacao;
+    }
+
+    @Test
+    @DisplayName("Validates x-ui.presentationRules JsonLogic variable references against DTO properties")
+    void testPresentationRulesStaticValidation() {
+        List<String> validErrors = validator.validateDtoClass(ValidPresentationRulesDTO.class, true);
+        assertTrue(validErrors.isEmpty(), "Expected no errors for valid presentationRules, got: " + validErrors);
+
+        InvalidDomainExpressionException ex = assertThrows(
+                InvalidDomainExpressionException.class,
+                () -> validator.validateDtoClass(InvalidPresentationRulesDTO.class, true));
+        assertTrue(ex.getMessage().contains("situacaoInexistente"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("presentationRules[0].when"), ex.getMessage());
+    }
+
+    public static class ValidPresentationRulesDTO {
+        public String situacao;
+
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\"==\":[{\"var\":\"situacao\"},\"AFASTADO\"]},\"set\":{\"tone\":\"neutral\",\"suffix\":\"h · afast.\"}},{\"when\":{\"==\":[{\"var\":\"value\"},0]},\"set\":{\"tone\":\"muted\"}}]"))
+        public Integer jornadaSemanal;
+    }
+
+    public static class InvalidPresentationRulesDTO {
+        public String situacao;
+
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\"==\":[{\"var\":\"situacaoInexistente\"},\"AFASTADO\"]},\"set\":{\"tone\":\"neutral\"}}]"))
+        public Integer jornadaSemanal;
     }
 }

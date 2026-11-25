@@ -26,7 +26,8 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
         LocalDate to,
         Boolean fillGaps,
         List<StatsMetricRequest> metrics,
-        String timezone
+        String timezone,
+        RollingWindowRequest rollingWindow
 ) {
     /**
      * Construtor para o modo de metrica unica.
@@ -40,7 +41,7 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
             LocalDate to,
             Boolean fillGaps
     ) {
-        this(filter, field, granularity, metric, from, to, fillGaps, null, null);
+        this(filter, field, granularity, metric, from, to, fillGaps, null, null, null);
     }
 
     /**
@@ -56,7 +57,24 @@ public record TimeSeriesStatsRequest<FD extends GenericFilterDTO>(
             Boolean fillGaps,
             List<StatsMetricRequest> metrics
     ) {
-        this(filter, field, granularity, metric, from, to, fillGaps, metrics, null);
+        this(filter, field, granularity, metric, from, to, fillGaps, metrics, null, null);
+    }
+
+    /**
+     * Construtor para o modo multi-metrica com datas explicitas sem {@code rollingWindow}.
+     */
+    public TimeSeriesStatsRequest(
+            FD filter,
+            String field,
+            TimeSeriesGranularity granularity,
+            StatsMetricRequest metric,
+            LocalDate from,
+            LocalDate to,
+            Boolean fillGaps,
+            List<StatsMetricRequest> metrics,
+            String timezone
+    ) {
+        this(filter, field, granularity, metric, from, to, fillGaps, metrics, timezone, null);
     }
 
     /**

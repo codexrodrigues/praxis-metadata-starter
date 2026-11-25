@@ -30,13 +30,19 @@ public record GroupByStatsResponse(
         @JsonInclude(JsonInclude.Include.NON_NULL)
         Integer suppressedBucketCount,
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        Integer minBucketCount
+        Integer minBucketCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Long populationTotalCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Long suppressedPoolCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Boolean truncated
 ) {
     /**
      * Construtor para respostas de metrica unica 1D.
      */
     public GroupByStatsResponse(String field, StatsMetricRequest metric, List<GroupByBucket> buckets) {
-        this(field, metric, buckets, null, null, null, null, null, null);
+        this(field, metric, buckets, null, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -48,7 +54,7 @@ public record GroupByStatsResponse(
             List<GroupByBucket> buckets,
             List<StatsMetricRequest> metrics
     ) {
-        this(field, metric, buckets, metrics, null, null, null, null, null);
+        this(field, metric, buckets, metrics, null, null, null, null, null, null, null, null);
     }
 
     /**
@@ -62,7 +68,24 @@ public record GroupByStatsResponse(
             List<StatsDimensionRequest> dimensions,
             ComparisonPeriodWindow window
     ) {
-        this(field, metric, buckets, metrics, dimensions, window, null, null, null);
+        this(field, metric, buckets, metrics, dimensions, window, null, null, null, null, null, null);
+    }
+
+    /**
+     * Construtor retrocompativel sem campos de universo SDC/truncamento.
+     */
+    public GroupByStatsResponse(
+            String field,
+            StatsMetricRequest metric,
+            List<GroupByBucket> buckets,
+            List<StatsMetricRequest> metrics,
+            List<StatsDimensionRequest> dimensions,
+            ComparisonPeriodWindow window,
+            Boolean suppressed,
+            Integer suppressedBucketCount,
+            Integer minBucketCount
+    ) {
+        this(field, metric, buckets, metrics, dimensions, window, suppressed, suppressedBucketCount, minBucketCount, null, null, null);
     }
 
     /**

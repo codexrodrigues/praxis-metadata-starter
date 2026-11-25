@@ -9,11 +9,13 @@ import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.InferenceStatsRequest;
+import org.praxisplatform.uischema.stats.dto.RollingWindowRequest;
 import org.praxisplatform.uischema.stats.dto.StatsDimensionRequest;
 import org.praxisplatform.uischema.stats.dto.StatsMetricRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsDimension;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -218,7 +220,10 @@ public class StatsEligibility {
                 request,
                 registry,
                 maxPoints,
-                StatsCapability.DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS
+                StatsCapability.DEFAULT_MAX_TIME_SERIES_WINDOW_DAYS,
+                StatsProperties.DEFAULT_MAX_TIME_SERIES_WINDOW_WEEKS,
+                StatsProperties.DEFAULT_MAX_TIME_SERIES_WINDOW_MONTHS,
+                Clock.systemUTC()
         );
     }
 
@@ -227,6 +232,26 @@ public class StatsEligibility {
             StatsFieldRegistry registry,
             int maxPoints,
             int maxTimeSeriesWindowDays
+    ) {
+        return validateTimeSeries(
+                request,
+                registry,
+                maxPoints,
+                maxTimeSeriesWindowDays,
+                StatsProperties.DEFAULT_MAX_TIME_SERIES_WINDOW_WEEKS,
+                StatsProperties.DEFAULT_MAX_TIME_SERIES_WINDOW_MONTHS,
+                Clock.systemUTC()
+        );
+    }
+
+    public <FD extends GenericFilterDTO> StatsFieldDescriptor validateTimeSeries(
+            TimeSeriesStatsRequest<FD> request,
+            StatsFieldRegistry registry,
+            int maxPoints,
+            int maxTimeSeriesWindowDays,
+            int maxTimeSeriesWindowWeeks,
+            int maxTimeSeriesWindowMonths,
+            Clock clock
     ) {
         if (request == null) {
             throw new IllegalArgumentException("Stats request is required.");
@@ -248,6 +273,11 @@ public class StatsEligibility {
         for (StatsMetricRequest metric : metrics) {
             resolveMetricField(metric, registry, "time-series");
         }
+        if (request.rollingWindow() != null && (request.from() != null || request.to() != null)) {
+            throw new IllegalArgumentException(
+                    "Time-series request must not combine rollingWindow with explicit from/to dates."
+            );
+        }
         if (request.from() != null && request.to() != null && request.from().isAfter(request.to())) {
             throw new IllegalArgumentException("Time-series range is invalid: from must be on or before to.");
         }
@@ -264,12 +294,16 @@ public class StatsEligibility {
                     "Temporal interval time-series requires both from and to dates when bounds are provided: " + request.field()
             );
         }
+        ZoneId effectiveZone = (request.timezone() == null || request.timezone().isBlank())
+                ? ZoneOffset.UTC
+                : ZoneId.of(request.timezone().trim());
         LocalDate effectiveFrom = request.from();
         LocalDate effectiveTo = request.to();
-        if (descriptor.isTemporalInterval() && effectiveFrom == null && effectiveTo == null) {
-            ZoneId effectiveZone = (request.timezone() == null || request.timezone().isBlank())
-                    ? ZoneOffset.UTC
-                    : ZoneId.of(request.timezone().trim());
+        if (request.rollingWindow() != null) {
+            LocalDate[] resolvedRolling = resolveRollingWindow(request.rollingWindow(), effectiveZone, clock);
+            effectiveFrom = resolvedRolling[0];
+            effectiveTo = resolvedRolling[1];
+        } else if (descriptor.isTemporalInterval() && effectiveFrom == null && effectiveTo == null) {
             LocalDate[] defaults = resolveDefaultIntervalWindow(
                     request.granularity(),
                     maxPoints,
@@ -288,6 +322,24 @@ public class StatsEligibility {
                             "Maximum time-series window exceeded: " + maxTimeSeriesWindowDays + " days."
                     );
                 }
+            } else if (!descriptor.isTemporalInterval()
+                    && request.granularity() == TimeSeriesGranularity.WEEK
+                    && maxTimeSeriesWindowWeeks > 0) {
+                long weeks = estimatePoints(effectiveFrom, effectiveTo, TimeSeriesGranularity.WEEK);
+                if (weeks > maxTimeSeriesWindowWeeks) {
+                    throw new IllegalArgumentException(
+                            "Maximum weekly time-series window exceeded: " + maxTimeSeriesWindowWeeks + " weeks."
+                    );
+                }
+            } else if (!descriptor.isTemporalInterval()
+                    && request.granularity() == TimeSeriesGranularity.MONTH
+                    && maxTimeSeriesWindowMonths > 0) {
+                long months = estimatePoints(effectiveFrom, effectiveTo, TimeSeriesGranularity.MONTH);
+                if (months > maxTimeSeriesWindowMonths) {
+                    throw new IllegalArgumentException(
+                            "Maximum monthly time-series window exceeded: " + maxTimeSeriesWindowMonths + " months."
+                    );
+                }
             }
             long points = estimatePoints(effectiveFrom, effectiveTo, request.granularity());
             if (points > maxPoints) {
@@ -295,6 +347,29 @@ public class StatsEligibility {
             }
         }
         return descriptor;
+    }
+
+    public static LocalDate[] resolveRollingWindow(
+            RollingWindowRequest rollingWindow,
+            ZoneId zoneId,
+            Clock clock
+    ) {
+        if (rollingWindow == null || rollingWindow.unit() == null) {
+            throw new IllegalArgumentException("Rolling window is required.");
+        }
+        int count = rollingWindow.count();
+        if (count < 1 || count > 120) {
+            throw new IllegalArgumentException("Rolling window count must be between 1 and 120.");
+        }
+        ZoneId effectiveZone = zoneId == null ? ZoneOffset.UTC : zoneId;
+        Clock effectiveClock = clock == null ? Clock.systemUTC() : clock;
+        LocalDate today = LocalDate.now(effectiveClock.withZone(effectiveZone));
+        LocalDate from = switch (rollingWindow.unit()) {
+            case DAYS -> today.minusDays(count - 1L);
+            case WEEKS -> today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(count - 1L);
+            case MONTHS -> today.withDayOfMonth(1).minusMonths(count - 1L);
+        };
+        return new LocalDate[] { from, today };
     }
 
     public static LocalDate[] resolveDefaultIntervalWindow(

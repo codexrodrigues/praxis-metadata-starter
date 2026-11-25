@@ -261,13 +261,29 @@ public class PraxisExpressionStaticValidator {
                 continue;
             }
 
-            // Inspeciona presentation.visualization
+            // Inspeciona presentation.visualization e presentationRules
             Object rawPresentation = uiMap.get("presentation");
             if (rawPresentation instanceof Map<?, ?> presentation) {
                 Object rawViz = presentation.get("visualization");
                 if (rawViz instanceof Map<?, ?> viz) {
                     for (String exprKey : VISUALIZATION_EXPR_KEYS) {
                         validateVizField(exprKey, viz.get(exprKey), validPropNames, schemaName, propName, schemaErrors);
+                    }
+                }
+            }
+
+            Object rawPresentationRules = uiMap.get("presentationRules");
+            if (rawPresentationRules instanceof List<?> presentationRules) {
+                Set<String> presentationRuleValidProps = new LinkedHashSet<>(validPropNames);
+                presentationRuleValidProps.addAll(Set.of("value", "rawValue", "fieldName"));
+                for (int i = 0; i < presentationRules.size(); i++) {
+                    Object rule = presentationRules.get(i);
+                    if (rule instanceof Map<?, ?> ruleMap && ruleMap.get("when") instanceof Map<?, ?> whenMap) {
+                        ValidationResult res = validateJsonLogic(
+                                whenMap,
+                                presentationRuleValidProps,
+                                schemaName + "." + propName + ".presentationRules[" + i + "].when");
+                        schemaErrors.addAll(res.errors());
                     }
                 }
             }

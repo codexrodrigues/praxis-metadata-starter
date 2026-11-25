@@ -60,6 +60,7 @@ public final class VerifiedAnalyticalRecipeDescriptor<F extends GenericFilterDTO
     private final List<String> domainTags;
     private final String version;
     private final int order;
+    private final KpiHint kpiHint;
 
     private VerifiedAnalyticalRecipeDescriptor(Builder<F> builder) {
         this.id = Objects.requireNonNull(builder.id, "id must not be null").trim();
@@ -90,6 +91,7 @@ public final class VerifiedAnalyticalRecipeDescriptor<F extends GenericFilterDTO
         this.domainTags = List.copyOf(builder.domainTags);
         this.version = builder.version == null || builder.version.isBlank() ? "1.0.0" : builder.version.trim();
         this.order = builder.order;
+        this.kpiHint = builder.kpiHint;
     }
 
     public static <F extends GenericFilterDTO> Builder<F> builder(String id, String title) {
@@ -122,6 +124,7 @@ public final class VerifiedAnalyticalRecipeDescriptor<F extends GenericFilterDTO
     public List<String> domainTags() { return domainTags; }
     public String version() { return version; }
     public int order() { return order; }
+    public KpiHint kpiHint() { return kpiHint; }
 
     public record DimensionSpec(String field, StatsDimensionExtraction extraction, String alias) {
         public DimensionSpec {
@@ -162,6 +165,39 @@ public final class VerifiedAnalyticalRecipeDescriptor<F extends GenericFilterDTO
         }
     }
 
+    public record KpiHint(
+            String polarity,
+            String unitSingular,
+            String unitPlural,
+            String suggestedDerivationKind,
+            String suggestedVisualizationKind,
+            BigDecimal referenceTarget,
+            List<Map<String, Object>> suggestedThresholds
+    ) {
+        public KpiHint {
+            polarity = polarity == null || polarity.isBlank() ? null : polarity.trim();
+            unitSingular = unitSingular == null || unitSingular.isBlank() ? null : unitSingular.trim();
+            unitPlural = unitPlural == null || unitPlural.isBlank() ? null : unitPlural.trim();
+            suggestedDerivationKind = suggestedDerivationKind == null || suggestedDerivationKind.isBlank()
+                    ? null
+                    : suggestedDerivationKind.trim();
+            suggestedVisualizationKind = suggestedVisualizationKind == null || suggestedVisualizationKind.isBlank()
+                    ? null
+                    : suggestedVisualizationKind.trim();
+            if (suggestedThresholds == null || suggestedThresholds.isEmpty()) {
+                suggestedThresholds = List.of();
+            } else {
+                List<Map<String, Object>> copied = new ArrayList<>(suggestedThresholds.size());
+                for (Map<String, Object> item : suggestedThresholds) {
+                    if (item != null && !item.isEmpty()) {
+                        copied.add(Collections.unmodifiableMap(new LinkedHashMap<>(item)));
+                    }
+                }
+                suggestedThresholds = List.copyOf(copied);
+            }
+        }
+    }
+
     public static final class Builder<F extends GenericFilterDTO> {
         private final String id;
         private final String title;
@@ -189,6 +225,7 @@ public final class VerifiedAnalyticalRecipeDescriptor<F extends GenericFilterDTO
         private final List<String> domainTags = new ArrayList<>();
         private String version = "1.0.0";
         private int order;
+        private KpiHint kpiHint;
 
         private Builder(String id, String title) {
             this.id = id;
@@ -250,6 +287,7 @@ public final class VerifiedAnalyticalRecipeDescriptor<F extends GenericFilterDTO
         }
         public Builder<F> version(String version) { this.version = version; return this; }
         public Builder<F> order(int order) { this.order = order; return this; }
+        public Builder<F> kpiHint(KpiHint kpiHint) { this.kpiHint = kpiHint; return this; }
 
         public VerifiedAnalyticalRecipeDescriptor<F> build() {
             if (id == null || id.isBlank()) {

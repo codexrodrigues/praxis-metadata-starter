@@ -18,10 +18,12 @@ import org.praxisplatform.uischema.id.JpaCriteriaPathSupport;
 import org.praxisplatform.uischema.stats.DistributionMode;
 import org.praxisplatform.uischema.stats.StatsBucketOrder;
 import org.praxisplatform.uischema.stats.StatsDimensionExtraction;
+import org.praxisplatform.uischema.stats.StatsEligibility;
 import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
 import org.praxisplatform.uischema.stats.StatsMetric;
 import org.praxisplatform.uischema.stats.StatsProperties;
 import org.praxisplatform.uischema.stats.TimeSeriesGranularity;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.praxisplatform.uischema.stats.dto.ComparisonPeriodWindow;
 import org.praxisplatform.uischema.stats.dto.DistributionBucket;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
@@ -237,7 +239,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         TypedQuery<Tuple> typedQuery = entityManager.createQuery(query);
         int limit = request.limit() == null ? maxBuckets : Math.min(request.limit(), maxBuckets);
         if (effectiveMinBucketCount <= 0) {
-            typedQuery.setMaxResults(limit);
+            typedQuery.setMaxResults(limit + 1);
         }
 
         boolean exposeMultiMetricShape = exposesMultiMetricShape(request.metrics());
@@ -251,7 +253,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 if (count <= 0L) {
                     continue;
                 }
-                List<Long> positiveNumericCounts = extractSqlPositiveNumericCounts(tuple, tracksNumericCount);
+                List<Long> positiveNumericCounts = extractSqlAlignedNumericCounts(tuple, tracksNumericCount);
                 candidates.add(new SuppressionCandidate1D<>(
                         normalizeStatsKeyValue(tuple.get("groupKey")),
                         count,
@@ -261,30 +263,72 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             suppressedKeys = apply1DComplementarySuppression(candidates, effectiveMinBucketCount);
         }
 
+        boolean truncated;
+        long totalRows = 0L;
+        long suppressedRowSum = 0L;
         List<GroupByBucket> buckets = new ArrayList<>(Math.min(limit, rawTuples.size()));
-        for (Tuple tuple : rawTuples) {
-            long count = ((Number) tuple.get("groupCount")).longValue();
-            Object rawKey = tuple.get("groupKey");
-            Object normalizedKey = normalizeStatsKeyValue(rawKey);
-            if (effectiveMinBucketCount > 0 && (count <= 0L || suppressedKeys.contains(normalizedKey))) {
-                continue;
+        if (effectiveMinBucketCount <= 0) {
+            truncated = rawTuples.size() > limit;
+            int rowsToEmit = Math.min(limit, rawTuples.size());
+            for (int i = 0; i < rowsToEmit; i++) {
+                Tuple tuple = rawTuples.get(i);
+                long count = ((Number) tuple.get("groupCount")).longValue();
+                Object rawKey = tuple.get("groupKey");
+                Object labelValue = hasDistinctLabelPath ? tuple.get("groupLabel") : rawKey;
+                Number value = (Number) tuple.get("groupValue");
+                buckets.add(new GroupByBucket(
+                        rawKey,
+                        labelValue == null ? (rawKey == null ? "null" : String.valueOf(rawKey)) : String.valueOf(labelValue),
+                        value,
+                        count,
+                        exposeMultiMetricShape ? extractMetricValues(tuple, resolvedMetrics) : null
+                ));
             }
-            if (buckets.size() >= limit) {
-                break;
+            if (truncated) {
+                totalRows = countMatchingRows(entityManager, entityClass, specification);
+            } else {
+                for (Tuple tuple : rawTuples) {
+                    totalRows += ((Number) tuple.get("groupCount")).longValue();
+                }
             }
-            Object labelValue = hasDistinctLabelPath ? tuple.get("groupLabel") : rawKey;
-            Number value = (Number) tuple.get("groupValue");
-            buckets.add(new GroupByBucket(
-                    rawKey,
-                    labelValue == null ? (rawKey == null ? "null" : String.valueOf(rawKey)) : String.valueOf(labelValue),
-                    value,
-                    count,
-                    exposeMultiMetricShape ? extractMetricValues(tuple, resolvedMetrics) : null
-            ));
+        } else {
+            int visibleCount = 0;
+            for (Tuple tuple : rawTuples) {
+                long count = ((Number) tuple.get("groupCount")).longValue();
+                if (count <= 0L) {
+                    continue;
+                }
+                totalRows += count;
+                Object rawKey = tuple.get("groupKey");
+                Object normalizedKey = normalizeStatsKeyValue(rawKey);
+                if (suppressedKeys.contains(normalizedKey)) {
+                    suppressedRowSum += count;
+                    continue;
+                }
+                visibleCount++;
+                if (buckets.size() < limit) {
+                    Object labelValue = hasDistinctLabelPath ? tuple.get("groupLabel") : rawKey;
+                    Number value = (Number) tuple.get("groupValue");
+                    buckets.add(new GroupByBucket(
+                            rawKey,
+                            labelValue == null ? (rawKey == null ? "null" : String.valueOf(rawKey)) : String.valueOf(labelValue),
+                            value,
+                            count,
+                            exposeMultiMetricShape ? extractMetricValues(tuple, resolvedMetrics) : null
+                    ));
+                }
+            }
+            truncated = visibleCount > limit;
         }
 
         boolean suppressionConfigured = effectiveMinBucketCount > 0;
         int suppressedBucketCount = suppressedKeys.size();
+        SdcTotals sdcTotals = resolveSdcTotals(
+                totalRows,
+                suppressedRowSum,
+                suppressedBucketCount,
+                effectiveMinBucketCount
+        );
         return new GroupByStatsResponse(
                 groupDescriptor.field(),
                 request.primaryMetric(),
@@ -294,7 +338,10 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 null,
                 suppressionConfigured ? suppressedBucketCount > 0 : Boolean.FALSE,
                 suppressionConfigured ? suppressedBucketCount : null,
-                suppressionConfigured ? effectiveMinBucketCount : null
+                suppressionConfigured ? effectiveMinBucketCount : null,
+                sdcTotals.populationTotalCount(),
+                sdcTotals.suppressedPoolCount(),
+                truncated
         );
     }
 
@@ -482,10 +529,18 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 ? suppressCellsAntiDifferentiation(cells, dimensions.size(), effectiveMinBucketCount)
                 : Set.of();
         int suppressedBucketCount = suppressedKeys.size();
+        long totalRows = 0L;
+        long suppressedRowSum = 0L;
         List<MultiDimensionCellAggregate> eligibleCells = new ArrayList<>(cells.size());
         for (Map.Entry<CellCoordinateKey, MultiDimensionCellAggregate> entry : cells.entrySet()) {
             MultiDimensionCellAggregate cell = entry.getValue();
+            if (cell.count() > 0L) {
+                totalRows += cell.count();
+            }
             if (effectiveMinBucketCount > 0 && (cell.count() <= 0L || suppressedKeys.contains(entry.getKey()))) {
+                if (suppressedKeys.contains(entry.getKey()) && cell.count() > 0L) {
+                    suppressedRowSum += cell.count();
+                }
                 continue;
             }
             eligibleCells.add(cell);
@@ -561,6 +616,13 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 : null;
 
         boolean suppressionConfigured = effectiveMinBucketCount > 0;
+        boolean truncated = eligibleCells.size() > limit;
+        SdcTotals sdcTotals = resolveSdcTotals(
+                totalRows,
+                suppressedRowSum,
+                suppressedBucketCount,
+                effectiveMinBucketCount
+        );
         return new GroupByStatsResponse(
                 dimensions.get(0).field(),
                 primaryMetric,
@@ -570,7 +632,10 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 window,
                 suppressionConfigured ? suppressedBucketCount > 0 : Boolean.FALSE,
                 suppressionConfigured ? suppressedBucketCount : null,
-                suppressionConfigured ? effectiveMinBucketCount : null
+                suppressionConfigured ? effectiveMinBucketCount : null,
+                sdcTotals.populationTotalCount(),
+                sdcTotals.suppressedPoolCount(),
+                truncated
         );
     }
 
@@ -929,6 +994,22 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             int maxInMemorySampleRows
     ) {
         ZoneId zoneId = resolveTimeSeriesZone(request.timezone());
+        TimeSeriesStatsRequest<?> effectiveRequest = request;
+        if (request.rollingWindow() != null && request.from() == null && request.to() == null) {
+            LocalDate[] bounds = StatsEligibility.resolveRollingWindow(request.rollingWindow(), zoneId, null);
+            effectiveRequest = new TimeSeriesStatsRequest<>(
+                    request.filter(),
+                    request.field(),
+                    request.granularity(),
+                    request.metric(),
+                    bounds[0],
+                    bounds[1],
+                    request.fillGaps(),
+                    request.metrics(),
+                    request.timezone(),
+                    request.rollingWindow()
+            );
+        }
         int effectiveMinBucketCount = resolveFieldAndMetricsMinBucketCount(
                 timeDescriptor,
                 resolvedMetrics,
@@ -941,7 +1022,7 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                     specification,
                     timeDescriptor,
                     resolvedMetrics,
-                    request,
+                    effectiveRequest,
                     maxPoints,
                     maxTimeSeriesWindowDays,
                     effectiveMinBucketCount,
@@ -961,21 +1042,37 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             predicates.add(basePredicate);
         }
         predicates.add(cb.isNotNull(timePath));
-        if (request.from() != null) {
-            LocalDate fromFloor = normalizeStart(request.from(), request.granularity());
+        if (effectiveRequest.from() != null) {
+            LocalDate fromFloor = normalizeStart(effectiveRequest.from(), effectiveRequest.granularity());
             Predicate fromBound = intervalLowerBoundPredicate(cb, timePath, fromFloor, zoneId);
             if (fromBound != null) {
                 predicates.add(fromBound);
             }
         }
-        if (request.to() != null) {
-            LocalDate toCeiling = bucketEnd(normalizeStart(request.to(), request.granularity()), request.granularity());
+        if (effectiveRequest.to() != null) {
+            LocalDate toCeiling = bucketEnd(normalizeStart(effectiveRequest.to(), effectiveRequest.granularity()), effectiveRequest.granularity());
             Predicate toBound = intervalUpperBoundPredicate(cb, timePath, toCeiling, zoneId);
             if (toBound != null) {
                 predicates.add(toBound);
             }
         }
         query.where(predicates.toArray(Predicate[]::new));
+
+        if (isSqlPushdownTimeSeriesEligible(entityManager, entityClass, cb, timePath, timeDescriptor, resolvedMetrics, zoneId)) {
+            return executeSqlPushdownTimeSeries(
+                    entityManager,
+                    cb,
+                    query,
+                    root,
+                    timePath,
+                    timeDescriptor,
+                    resolvedMetrics,
+                    effectiveRequest,
+                    maxPoints,
+                    effectiveMinBucketCount,
+                    zoneId
+            );
+        }
 
         List<jakarta.persistence.criteria.Selection<?>> selections = new ArrayList<>();
         selections.add(timePath.alias("timeValue"));
@@ -985,7 +1082,171 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         List<Tuple> values = executeBoundedInMemoryQuery(entityManager.createQuery(query), maxInMemorySampleRows);
         Map<LocalDate, TimeSeriesBucketAggregate> buckets = new LinkedHashMap<>();
         for (Tuple tuple : values) {
-            LocalDate bucketStart = toBucketStart(tuple.get("timeValue"), request.granularity(), zoneId);
+            LocalDate bucketStart = toBucketStart(tuple.get("timeValue"), effectiveRequest.granularity(), zoneId);
+            if (bucketStart == null) {
+                continue;
+            }
+            if (effectiveRequest.from() != null && bucketStart.isBefore(normalizeStart(effectiveRequest.from(), effectiveRequest.granularity()))) {
+                continue;
+            }
+            if (effectiveRequest.to() != null && bucketStart.isAfter(normalizeStart(effectiveRequest.to(), effectiveRequest.granularity()))) {
+                continue;
+            }
+            TimeSeriesBucketAggregate aggregate = buckets.computeIfAbsent(
+                    bucketStart,
+                    ignored -> TimeSeriesBucketAggregate.empty(resolvedMetrics)
+            );
+            aggregate.accumulate(tuple, resolvedMetrics, numericPlans);
+        }
+
+        if (Boolean.TRUE.equals(effectiveRequest.fillGaps())) {
+            fillGaps(buckets, effectiveRequest, maxPoints, resolvedMetrics);
+        }
+
+        return buildTimeSeriesResponse(
+                timeDescriptor,
+                resolvedMetrics,
+                effectiveRequest,
+                buckets,
+                maxPoints,
+                effectiveMinBucketCount
+        );
+    }
+
+    private <E> boolean isSqlPushdownTimeSeriesEligible(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            CriteriaBuilder cb,
+            Path<?> timePath,
+            StatsFieldDescriptor timeDescriptor,
+            List<ResolvedStatsMetric> resolvedMetrics,
+            ZoneId zoneId
+    ) {
+        if (timeDescriptor.isTemporalInterval()
+                || !(cb instanceof org.hibernate.query.criteria.HibernateCriteriaBuilder)
+                || !isPostgresDialect(entityManager)
+                || resolvedMetrics == null
+                || resolvedMetrics.isEmpty()) {
+            return false;
+        }
+        // Fixed non-UTC ZoneOffsets (e.g. "-03:00") invert sign in PostgreSQL AT TIME ZONE / date_trunc;
+        // fall back to Java aggregation for non-UTC fixed offsets while allowing ZoneOffset.UTC / IANA zones.
+        if (zoneId instanceof java.time.ZoneOffset && !java.time.ZoneOffset.UTC.equals(zoneId)) {
+            return false;
+        }
+        Class<?> timeJavaType = timePath.getJavaType();
+        if (timeJavaType != LocalDate.class
+                && timeJavaType != LocalDateTime.class
+                && timeJavaType != Instant.class
+                && timeJavaType != OffsetDateTime.class
+                && timeJavaType != ZonedDateTime.class) {
+            return false;
+        }
+        if (isCompositePropertyPath(entityManager, entityClass, timeDescriptor.keyPropertyPath())) {
+            return false;
+        }
+        for (ResolvedStatsMetric resolvedMetric : resolvedMetrics) {
+            StatsMetric op = resolvedMetric.metric().operation();
+            if (op.isPercentile() || op == StatsMetric.AVG_PER_CYCLE_OCCURRENCE) {
+                return false;
+            }
+            if (resolvedMetric.descriptor() != null
+                    && isCompositePropertyPath(entityManager, entityClass, resolvedMetric.descriptor().keyPropertyPath())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isPostgresDialect(EntityManager entityManager) {
+        try {
+            var sessionFactory = entityManager.getEntityManagerFactory()
+                    .unwrap(org.hibernate.engine.spi.SessionFactoryImplementor.class);
+            if (sessionFactory == null) {
+                return false;
+            }
+            String dialectName = sessionFactory.getJdbcServices().getDialect().getClass().getSimpleName();
+            return dialectName != null && dialectName.toLowerCase(java.util.Locale.ROOT).contains("postgres");
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    private static String sanitizeSqlZoneId(ZoneId zoneId) {
+        if (zoneId == null || java.time.ZoneOffset.UTC.equals(zoneId)) {
+            return "UTC";
+        }
+        String id = zoneId.getId().trim();
+        if ("Z".equalsIgnoreCase(id)) {
+            return "UTC";
+        }
+        if (!id.matches("^[A-Za-z0-9_/+:-]+$")) {
+            throw new IllegalArgumentException("Unsupported timezone identifier for SQL time-series: " + id);
+        }
+        return id;
+    }
+
+    private <E> TimeSeriesStatsResponse executeSqlPushdownTimeSeries(
+            EntityManager entityManager,
+            CriteriaBuilder cb,
+            CriteriaQuery<Tuple> query,
+            Root<E> root,
+            Path<?> timePath,
+            StatsFieldDescriptor timeDescriptor,
+            List<ResolvedStatsMetric> resolvedMetrics,
+            TimeSeriesStatsRequest<?> request,
+            int maxPoints,
+            int effectiveMinBucketCount,
+            ZoneId zoneId
+    ) {
+        org.hibernate.query.criteria.HibernateCriteriaBuilder hcb =
+                (org.hibernate.query.criteria.HibernateCriteriaBuilder) cb;
+        String truncUnit = switch (request.granularity()) {
+            case DAY -> "day";
+            case WEEK -> "week";
+            case MONTH -> "month";
+        };
+        Class<?> timeJavaType = timePath.getJavaType();
+        Expression<?> bucketExpression;
+        if (timeJavaType == LocalDate.class || timeJavaType == LocalDateTime.class) {
+            bucketExpression = hcb.sql(
+                    "date_trunc('" + truncUnit + "', cast(? as timestamp))",
+                    LocalDateTime.class,
+                    timePath
+            );
+        } else {
+            String safeZoneId = sanitizeSqlZoneId(zoneId);
+            bucketExpression = hcb.sql(
+                    "date_trunc('" + truncUnit + "', ?, '" + safeZoneId + "')",
+                    Instant.class,
+                    timePath
+            );
+        }
+
+        List<jakarta.persistence.criteria.Selection<?>> selections = new ArrayList<>();
+        selections.add(bucketExpression.alias("bucketStart"));
+        selections.add(cb.count(root).alias("bucketCount"));
+        int[] sqlMetricTupleIndices = new int[resolvedMetrics.size()];
+        int[] sqlNumericCountTupleIndices = new int[resolvedMetrics.size()];
+        Arrays.fill(sqlNumericCountTupleIndices, -1);
+        for (int index = 0; index < resolvedMetrics.size(); index++) {
+            ResolvedStatsMetric resolvedMetric = resolvedMetrics.get(index);
+            sqlMetricTupleIndices[index] = selections.size();
+            selections.add(resolveValueExpression(cb, root, resolvedMetric).alias(metricTupleAlias(index)));
+            if (effectiveMinBucketCount > 0 && isNumericFieldMetric(resolvedMetric)) {
+                sqlNumericCountTupleIndices[index] = selections.size();
+                Path<Number> metricPath = resolveNumericPath(root, Objects.requireNonNull(resolvedMetric.descriptor()).keyPropertyPath());
+                selections.add(cb.count(metricPath).alias(metricNumericCountAlias(index)));
+            }
+        }
+        query.multiselect(selections);
+        query.groupBy(bucketExpression);
+        query.orderBy(cb.asc(bucketExpression));
+
+        List<Tuple> tuples = entityManager.createQuery(query).getResultList();
+        Map<LocalDate, TimeSeriesBucketAggregate> buckets = new LinkedHashMap<>();
+        for (Tuple tuple : tuples) {
+            LocalDate bucketStart = toBucketStart(tuple.get("bucketStart"), request.granularity(), zoneId);
             if (bucketStart == null) {
                 continue;
             }
@@ -995,11 +1256,17 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             if (request.to() != null && bucketStart.isAfter(normalizeStart(request.to(), request.granularity()))) {
                 continue;
             }
-            TimeSeriesBucketAggregate aggregate = buckets.computeIfAbsent(
+            long rowCount = ((Number) tuple.get("bucketCount")).longValue();
+            buckets.put(
                     bucketStart,
-                    ignored -> TimeSeriesBucketAggregate.empty(resolvedMetrics)
+                    TimeSeriesBucketAggregate.fromSqlGroup(
+                            tuple,
+                            rowCount,
+                            resolvedMetrics,
+                            sqlMetricTupleIndices,
+                            sqlNumericCountTupleIndices
+                    )
             );
-            aggregate.accumulate(tuple, resolvedMetrics, numericPlans);
         }
 
         if (Boolean.TRUE.equals(request.fillGaps())) {
@@ -1195,9 +1462,12 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
 
         boolean fillGaps = Boolean.TRUE.equals(request.fillGaps());
         boolean exposeMultiMetricShape = exposesMultiMetricShape(request.metrics());
-        List<TimeSeriesPoint> points = buckets.entrySet().stream()
+        List<Map.Entry<LocalDate, TimeSeriesBucketAggregate>> eligibleEntries = buckets.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .filter(entry -> fillGaps || !suppressedDates.contains(entry.getKey()))
+                .toList();
+        boolean truncated = eligibleEntries.size() > maxPoints;
+        List<TimeSeriesPoint> points = eligibleEntries.stream()
                 .limit(maxPoints)
                 .map(entry -> {
                     LocalDate date = entry.getKey();
@@ -1207,8 +1477,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                                 bucketEnd(date, request.granularity()),
                                 date.toString(),
                                 null,
-                                0L,
-                                null
+                                null,
+                                null,
+                                Boolean.TRUE
                         );
                     }
                     return new TimeSeriesPoint(
@@ -1217,13 +1488,38 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                             date.toString(),
                             entry.getValue().primaryValue(request.primaryMetric()),
                             entry.getValue().count(),
-                            exposeMultiMetricShape ? entry.getValue().values() : null
+                            exposeMultiMetricShape ? entry.getValue().values() : null,
+                            null
                     );
                 })
                 .toList();
 
         boolean suppressionConfigured = effectiveMinBucketCount > 0;
         int suppressedBucketCount = suppressedDates.size();
+        Long populationTotalCount = null;
+        Long suppressedPoolCount = null;
+        if (!timeDescriptor.isTemporalInterval()) {
+            long totalRows = 0L;
+            long suppressedRowSum = 0L;
+            for (Map.Entry<LocalDate, TimeSeriesBucketAggregate> entry : buckets.entrySet()) {
+                long bucketCount = entry.getValue().count();
+                if (bucketCount > 0L) {
+                    totalRows += bucketCount;
+                    if (suppressedDates.contains(entry.getKey())) {
+                        suppressedRowSum += bucketCount;
+                    }
+                }
+            }
+            SdcTotals sdcTotals = resolveSdcTotals(
+                    totalRows,
+                    suppressedRowSum,
+                    suppressedBucketCount,
+                    effectiveMinBucketCount
+            );
+            populationTotalCount = sdcTotals.populationTotalCount();
+            suppressedPoolCount = sdcTotals.suppressedPoolCount();
+        }
+
         return new TimeSeriesStatsResponse(
                 timeDescriptor.field(),
                 request.granularity(),
@@ -1232,7 +1528,10 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 exposeMultiMetricShape ? request.effectiveMetrics() : null,
                 suppressionConfigured ? suppressedBucketCount > 0 : Boolean.FALSE,
                 suppressionConfigured ? suppressedBucketCount : null,
-                suppressionConfigured ? effectiveMinBucketCount : null
+                suppressionConfigured ? effectiveMinBucketCount : null,
+                populationTotalCount,
+                suppressedPoolCount,
+                truncated
         );
     }
 
@@ -1847,21 +2146,19 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         return rows;
     }
 
-    private List<Long> extractSqlPositiveNumericCounts(Tuple tuple, boolean[] tracksNumericCount) {
-        List<Long> positiveCounts = null;
+    private List<Long> extractSqlAlignedNumericCounts(Tuple tuple, boolean[] tracksNumericCount) {
+        List<Long> counts = new ArrayList<>(tracksNumericCount.length);
+        boolean anyTracked = false;
         for (int index = 0; index < tracksNumericCount.length; index++) {
             if (!tracksNumericCount[index]) {
+                counts.add(0L);
                 continue;
             }
+            anyTracked = true;
             Number count = (Number) tuple.get(metricNumericCountAlias(index));
-            if (count != null && count.longValue() > 0L) {
-                if (positiveCounts == null) {
-                    positiveCounts = new ArrayList<>(2);
-                }
-                positiveCounts.add(count.longValue());
-            }
+            counts.add(count == null ? 0L : Math.max(0L, count.longValue()));
         }
-        return positiveCounts == null ? List.of() : positiveCounts;
+        return anyTracked ? counts : List.of();
     }
 
     private List<Long> toPositiveNumericCountList(Number count) {
@@ -1869,6 +2166,52 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
             return List.of();
         }
         return List.of(count.longValue());
+    }
+
+    private <E> long countMatchingRows(
+            EntityManager entityManager,
+            Class<E> entityClass,
+            Specification<E> specification
+    ) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
+        Root<E> root = countQuery.from(entityClass);
+        Predicate predicate = specification == null ? null : specification.toPredicate(root, countQuery, cb);
+        if (predicate != null) {
+            countQuery.where(predicate);
+        }
+        countQuery.select(cb.count(root));
+        Long total = entityManager.createQuery(countQuery).getSingleResult();
+        return total == null ? 0L : total;
+    }
+
+    private record SdcTotals(Long populationTotalCount, Long suppressedPoolCount) {
+    }
+
+    private static SdcTotals resolveSdcTotals(
+            long totalRows,
+            long suppressedRowSum,
+            int suppressedBucketCount,
+            int effectiveMinBucketCount
+    ) {
+        if (effectiveMinBucketCount <= 0) {
+            return new SdcTotals(totalRows, null);
+        }
+        if (suppressedBucketCount <= 0) {
+            if (totalRows == 0L) {
+                return new SdcTotals(0L, 0L);
+            }
+            if (totalRows < effectiveMinBucketCount) {
+                return new SdcTotals(null, null);
+            }
+            return new SdcTotals(totalRows, 0L);
+        }
+        if (totalRows < effectiveMinBucketCount
+                || suppressedRowSum < effectiveMinBucketCount
+                || suppressedRowSum < (long) suppressedBucketCount + effectiveMinBucketCount - 1L) {
+            return new SdcTotals(null, null);
+        }
+        return new SdcTotals(totalRows, suppressedRowSum);
     }
 
     private BigDecimal computeNiceHistogramBucketSize(BigDecimal min, BigDecimal max, int effectiveBucketCount) {
@@ -1933,6 +2276,31 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         return false;
     }
 
+    private static void addAlignedNumericCounts(long[] targetSums, List<Long> counts) {
+        if (targetSums == null || targetSums.length == 0 || counts == null || counts.isEmpty()) {
+            return;
+        }
+        int bound = Math.min(targetSums.length, counts.size());
+        for (int i = 0; i < bound; i++) {
+            Long value = counts.get(i);
+            if (value != null && value > 0L) {
+                targetSums[i] += value;
+            }
+        }
+    }
+
+    private static boolean hasUnderprotectedNumericMetric(long[] suppressedNumericSums, int effectiveMinBucketCount) {
+        if (suppressedNumericSums == null || effectiveMinBucketCount <= 0) {
+            return false;
+        }
+        for (long sum : suppressedNumericSums) {
+            if (sum > 0L && sum < effectiveMinBucketCount) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private <K> Set<K> apply1DComplementarySuppression(
             List<SuppressionCandidate1D<K>> candidates,
             int effectiveMinBucketCount
@@ -1940,19 +2308,33 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         if (effectiveMinBucketCount <= 0 || candidates == null || candidates.isEmpty()) {
             return Set.of();
         }
+        int numericWidth = 0;
+        for (SuppressionCandidate1D<K> candidate : candidates) {
+            if (candidate.positiveNumericCounts() != null) {
+                numericWidth = Math.max(numericWidth, candidate.positiveNumericCounts().size());
+            }
+        }
         Set<K> suppressed = new java.util.LinkedHashSet<>();
         List<SuppressionCandidate1D<K>> visible = new ArrayList<>();
+        long suppressedRowSum = 0L;
+        long[] suppressedNumericSums = new long[numericWidth];
         for (SuppressionCandidate1D<K> candidate : candidates) {
             if (candidate.rowCount() <= 0L) {
                 continue;
             }
             if (violatesMinBucketCount(candidate.rowCount(), candidate.positiveNumericCounts(), effectiveMinBucketCount)) {
                 suppressed.add(candidate.key());
+                suppressedRowSum += candidate.rowCount();
+                addAlignedNumericCounts(suppressedNumericSums, candidate.positiveNumericCounts());
             } else {
                 visible.add(candidate);
             }
         }
-        if (suppressed.size() == 1 && !visible.isEmpty()) {
+        while (!suppressed.isEmpty()
+                && !visible.isEmpty()
+                && (suppressed.size() == 1
+                    || suppressedRowSum < effectiveMinBucketCount
+                    || hasUnderprotectedNumericMetric(suppressedNumericSums, effectiveMinBucketCount))) {
             SuppressionCandidate1D<K> partner = visible.stream()
                     .min((left, right) -> {
                         int strengthCmp = Long.compare(left.effectiveStrength(), right.effectiveStrength());
@@ -1962,9 +2344,13 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                         return compareCoordinateKey(left.key(), right.key());
                     })
                     .orElse(null);
-            if (partner != null) {
-                suppressed.add(partner.key());
+            if (partner == null) {
+                break;
             }
+            visible.remove(partner);
+            suppressed.add(partner.key());
+            suppressedRowSum += partner.rowCount();
+            addAlignedNumericCounts(suppressedNumericSums, partner.positiveNumericCounts());
         }
         return suppressed;
     }
@@ -2011,24 +2397,39 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         }
 
         List<SuppressionCandidate1D<CellCoordinateKey>> nonEmptyEntries = new ArrayList<>(cells.size());
+        Map<CellCoordinateKey, SuppressionCandidate1D<CellCoordinateKey>> candidateByKey = new LinkedHashMap<>(cells.size());
         Set<CellCoordinateKey> suppressed = new java.util.LinkedHashSet<>();
+        int numericWidth = 0;
+        long globalSuppressedRowSum = 0L;
         for (Map.Entry<CellCoordinateKey, MultiDimensionCellAggregate> entry : cells.entrySet()) {
             MultiDimensionCellAggregate cell = entry.getValue();
             if (cell.count() <= 0L) {
                 continue;
             }
+            List<Long> numericCounts = cell.positiveNumericCounts();
+            numericWidth = Math.max(numericWidth, numericCounts.size());
             SuppressionCandidate1D<CellCoordinateKey> candidate = new SuppressionCandidate1D<>(
                     entry.getKey(),
                     cell.count(),
-                    cell.positiveNumericCounts()
+                    numericCounts
             );
             nonEmptyEntries.add(candidate);
+            candidateByKey.put(entry.getKey(), candidate);
             if (violatesMinBucketCount(cell.count(), candidate.positiveNumericCounts(), effectiveMinBucketCount)) {
                 suppressed.add(entry.getKey());
             }
         }
         if (suppressed.isEmpty()) {
             return Set.of();
+        }
+
+        long[] globalSuppressedNumericSums = new long[numericWidth];
+        for (CellCoordinateKey key : suppressed) {
+            SuppressionCandidate1D<CellCoordinateKey> c = candidateByKey.get(key);
+            if (c != null) {
+                globalSuppressedRowSum += c.rowCount();
+                addAlignedNumericCounts(globalSuppressedNumericSums, c.positiveNumericCounts());
+            }
         }
 
         @SuppressWarnings("unchecked")
@@ -2060,25 +2461,39 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 for (int axis = 0; axis < dimensionCount; axis++) {
                     for (List<SuppressionCandidate1D<CellCoordinateKey>> slice : slicesByAxis[axis].values()) {
                         int suppressedInSlice = 0;
+                        long suppressedSliceRowSum = 0L;
+                        long[] suppressedSliceNumericSums = new long[numericWidth];
                         SuppressionCandidate1D<CellCoordinateKey> smallestAvailable = null;
                         for (SuppressionCandidate1D<CellCoordinateKey> entry : slice) {
                             if (suppressed.contains(entry.key())) {
                                 suppressedInSlice++;
+                                suppressedSliceRowSum += entry.rowCount();
+                                addAlignedNumericCounts(suppressedSliceNumericSums, entry.positiveNumericCounts());
                             } else if (smallestAvailable == null
                                     || compareCellStrength(entry, smallestAvailable) < 0) {
                                 smallestAvailable = entry;
                             }
                         }
-                        if (suppressedInSlice == 1 && smallestAvailable != null) {
-                            suppressed.add(smallestAvailable.key());
-                            changed = true;
+                        if (suppressedInSlice > 0
+                                && smallestAvailable != null
+                                && (suppressedInSlice == 1
+                                    || suppressedSliceRowSum < effectiveMinBucketCount
+                                    || hasUnderprotectedNumericMetric(suppressedSliceNumericSums, effectiveMinBucketCount))) {
+                            if (suppressed.add(smallestAvailable.key())) {
+                                globalSuppressedRowSum += smallestAvailable.rowCount();
+                                addAlignedNumericCounts(globalSuppressedNumericSums, smallestAvailable.positiveNumericCounts());
+                                changed = true;
+                            }
                         }
                     }
                 }
             } while (changed);
 
             globalAdded = false;
-            if (suppressed.size() == 1) {
+            if (!suppressed.isEmpty()
+                    && (suppressed.size() == 1
+                        || globalSuppressedRowSum < effectiveMinBucketCount
+                        || hasUnderprotectedNumericMetric(globalSuppressedNumericSums, effectiveMinBucketCount))) {
                 SuppressionCandidate1D<CellCoordinateKey> smallestGlobal = null;
                 for (SuppressionCandidate1D<CellCoordinateKey> entry : nonEmptyEntries) {
                     if (!suppressed.contains(entry.key())
@@ -2086,8 +2501,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                         smallestGlobal = entry;
                     }
                 }
-                if (smallestGlobal != null) {
-                    suppressed.add(smallestGlobal.key());
+                if (smallestGlobal != null && suppressed.add(smallestGlobal.key())) {
+                    globalSuppressedRowSum += smallestGlobal.rowCount();
+                    addAlignedNumericCounts(globalSuppressedNumericSums, smallestGlobal.positiveNumericCounts());
                     globalAdded = true;
                 }
             }
@@ -2711,20 +3127,18 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         }
 
         List<Long> positiveNumericCounts() {
-            List<Long> positive = null;
+            List<Long> aligned = new ArrayList<>(metrics.size());
+            boolean anyNumeric = false;
             for (ResolvedStatsMetric metric : metrics) {
                 StatsMetric op = metric.metric().operation();
                 if (metric.descriptor() != null && op != StatsMetric.COUNT && op != StatsMetric.DISTINCT_COUNT) {
-                    long numCount = aggregates.get(metric.alias()).numericCount();
-                    if (numCount > 0L) {
-                        if (positive == null) {
-                            positive = new ArrayList<>(2);
-                        }
-                        positive.add(numCount);
-                    }
+                    anyNumeric = true;
+                    aligned.add(Math.max(0L, aggregates.get(metric.alias()).numericCount()));
+                } else {
+                    aligned.add(0L);
                 }
             }
-            return positive == null ? List.of() : positive;
+            return anyNumeric ? aligned : List.of();
         }
 
         Number primaryValue(StatsMetricRequest primaryMetric, Long cycleOccurrences) {
@@ -2759,6 +3173,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         private long count;
         private final Set<Object> distinctValues = new HashSet<>();
         private final FieldSampleAccumulator sharedNumeric;
+        private Number sqlAggregatedValue;
+        private boolean hasSqlAggregatedValue;
 
         private AggregateValue(FieldSampleAccumulator sharedNumeric) {
             this.sharedNumeric = sharedNumeric;
@@ -2766,6 +3182,12 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
 
         static AggregateValue empty(FieldSampleAccumulator sharedNumeric) {
             return new AggregateValue(sharedNumeric);
+        }
+
+        void setSqlAggregateValue(long bucketRowCount, Number aggregatedValue) {
+            this.count = bucketRowCount;
+            this.sqlAggregatedValue = aggregatedValue;
+            this.hasSqlAggregatedValue = true;
         }
 
         void incrementCount() {
@@ -2780,6 +3202,9 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         }
 
         Number value(StatsMetric metric) {
+            if (hasSqlAggregatedValue) {
+                return sqlAggregatedValue;
+            }
             if (metric == StatsMetric.COUNT) {
                 return count;
             }
@@ -2813,15 +3238,20 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         private final List<ResolvedStatsMetric> metrics;
         private final Map<String, AggregateValue> aggregates;
         private final Map<String, FieldSampleAccumulator> numericAccumulators;
+        private final long[] sqlNumericCounts;
 
         private TimeSeriesBucketAggregate(
                 List<ResolvedStatsMetric> metrics,
                 Map<String, AggregateValue> aggregates,
-                Map<String, FieldSampleAccumulator> numericAccumulators
+                Map<String, FieldSampleAccumulator> numericAccumulators,
+                long count,
+                long[] sqlNumericCounts
         ) {
             this.metrics = metrics;
             this.aggregates = aggregates;
             this.numericAccumulators = numericAccumulators;
+            this.count = count;
+            this.sqlNumericCounts = sqlNumericCounts;
         }
 
         static TimeSeriesBucketAggregate empty(List<ResolvedStatsMetric> metrics) {
@@ -2839,7 +3269,38 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
                 }
                 aggregates.put(metric.alias(), AggregateValue.empty(shared));
             }
-            return new TimeSeriesBucketAggregate(List.copyOf(metrics), aggregates, numericAccumulators);
+            return new TimeSeriesBucketAggregate(List.copyOf(metrics), aggregates, numericAccumulators, 0L, null);
+        }
+
+        static TimeSeriesBucketAggregate fromSqlGroup(
+                Tuple tuple,
+                long rowCount,
+                List<ResolvedStatsMetric> metrics,
+                int[] sqlMetricTupleIndices,
+                int[] sqlNumericCountTupleIndices
+        ) {
+            Map<String, AggregateValue> aggregates = new LinkedHashMap<>();
+            long[] numericCounts = new long[metrics.size()];
+            boolean anyTracked = false;
+            for (int index = 0; index < metrics.size(); index++) {
+                ResolvedStatsMetric metric = metrics.get(index);
+                Number aggVal = (Number) tuple.get(sqlMetricTupleIndices[index]);
+                AggregateValue agg = AggregateValue.empty(null);
+                agg.setSqlAggregateValue(rowCount, aggVal);
+                aggregates.put(metric.alias(), agg);
+                if (sqlNumericCountTupleIndices[index] >= 0) {
+                    anyTracked = true;
+                    Number numericCount = (Number) tuple.get(sqlNumericCountTupleIndices[index]);
+                    numericCounts[index] = numericCount == null ? 0L : Math.max(0L, numericCount.longValue());
+                }
+            }
+            return new TimeSeriesBucketAggregate(
+                    List.copyOf(metrics),
+                    aggregates,
+                    Map.of(),
+                    rowCount,
+                    anyTracked ? numericCounts : null
+            );
         }
 
         void accumulate(Tuple tuple, List<ResolvedStatsMetric> metrics, List<TimeSeriesNumericPlan> numericPlans) {
@@ -2866,19 +3327,21 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         }
 
         List<Long> positiveNumericCounts() {
+            if (sqlNumericCounts != null) {
+                List<Long> counts = new ArrayList<>(sqlNumericCounts.length);
+                for (long nc : sqlNumericCounts) {
+                    counts.add(Math.max(0L, nc));
+                }
+                return counts;
+            }
             if (numericAccumulators.isEmpty()) {
                 return List.of();
             }
-            List<Long> positive = null;
+            List<Long> counts = new ArrayList<>(numericAccumulators.size());
             for (FieldSampleAccumulator acc : numericAccumulators.values()) {
-                if (acc.numericCount > 0L) {
-                    if (positive == null) {
-                        positive = new ArrayList<>(numericAccumulators.size());
-                    }
-                    positive.add(acc.numericCount);
-                }
+                counts.add(Math.max(0L, acc.numericCount));
             }
-            return positive == null ? List.of() : positive;
+            return counts;
         }
 
         Number primaryValue(StatsMetricRequest primaryMetric) {

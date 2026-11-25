@@ -18,6 +18,8 @@ import org.praxisplatform.uischema.extension.annotation.UISchema;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.RecordComponent;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -531,6 +533,224 @@ public class OpenApiUiUtils {
             }
         }
         return values;
+    }
+
+    private static final ClassValue<Map<String, Map<String, String>>> DTO_OPTION_LABELS_CACHE =
+            new ClassValue<>() {
+                @Override
+                protected Map<String, Map<String, String>> computeValue(Class<?> type) {
+                    return scanDtoOptionLabels(type);
+                }
+            };
+
+    /**
+     * Extrai um mapa {@code rawValue -> label} de um {@code Enum} Java usando apenas rotulos
+     * humanos declarados ({@link org.praxisplatform.uischema.option.PraxisUiOptionEnum},
+     * {@link UISchema#label()} em constantes, acessores como {@code getLabel()}/{@code getDescricao()}
+     * ou {@link Schema#description()} curto).
+     */
+    public static Map<String, String> extractEnumOptionLabels(Class<?> optionEnum) {
+        if (optionEnum == null || optionEnum == Void.class || !optionEnum.isEnum()) {
+            return Map.of();
+        }
+        Object[] constants = optionEnum.getEnumConstants();
+        if (constants == null || constants.length == 0) {
+            return Map.of();
+        }
+        Method jsonValueMethod = findJsonValueMethod(optionEnum);
+        Method labelMethod = findFirstNoArgStringMethod(
+                optionEnum,
+                "getLabel",
+                "label",
+                "getDescricao",
+                "descricao",
+                "getTitle",
+                "title"
+        );
+        Map<String, String> labels = new LinkedHashMap<>();
+        for (Object constant : constants) {
+            if (!(constant instanceof Enum<?> enumConstant)) {
+                continue;
+            }
+            if (enumConstant instanceof org.praxisplatform.uischema.option.PraxisUiOptionEnum praxisOption) {
+                String lbl = praxisOption.label() == null ? "" : praxisOption.label().trim();
+                if (!lbl.isEmpty()) {
+                    if (praxisOption.value() != null && !praxisOption.value().trim().isEmpty()) {
+                        labels.putIfAbsent(praxisOption.value().trim(), lbl);
+                    }
+                    labels.putIfAbsent(enumConstant.name(), lbl);
+                }
+                continue;
+            }
+            Object rawValue = resolveEnumOptionRawValue(enumConstant, jsonValueMethod);
+            Field constantField = findEnumConstantField(optionEnum, enumConstant.name());
+            UISchema constantUi = constantField != null ? constantField.getAnnotation(UISchema.class) : null;
+            Schema constantSchema = constantField != null ? constantField.getAnnotation(Schema.class) : null;
+            String label = null;
+            if (constantUi != null && constantUi.label() != null && !constantUi.label().trim().isEmpty()) {
+                label = constantUi.label().trim();
+            } else {
+                String fromMethod = invokeStringMethod(enumConstant, labelMethod);
+                if (!fromMethod.isEmpty()) {
+                    label = fromMethod;
+                } else if (constantSchema != null && constantSchema.description() != null) {
+                    String desc = constantSchema.description().trim();
+                    if (!desc.isEmpty() && desc.length() <= 36 && !desc.endsWith(".")) {
+                        label = desc;
+                    }
+                }
+            }
+            if (label != null && !label.isEmpty()) {
+                if (rawValue != null) {
+                    String rawText = String.valueOf(rawValue).trim();
+                    if (!rawText.isEmpty()) {
+                        labels.putIfAbsent(rawText, label);
+                    }
+                }
+                labels.putIfAbsent(enumConstant.name(), label);
+            }
+        }
+        return labels.isEmpty() ? Map.of() : Map.copyOf(labels);
+    }
+
+    /**
+     * Resolve, com cache por classe, o mapa {@code rawKey -> label} publicado via
+     * {@link UISchema#optionItems()}, {@link UISchema#optionEnum()}, {@code Enum} com rotulo
+     * semantico ou {@link UISchema#labelTrue()}/{@link UISchema#labelFalse()} para uma propriedade
+     * de {@code dtoClass}.
+     */
+    public static Map<String, String> extractUiSchemaOptionLabels(Class<?> dtoClass, String fieldName) {
+        if (dtoClass == null || fieldName == null || fieldName.isBlank()) {
+            return Map.of();
+        }
+        Map<String, String> map = DTO_OPTION_LABELS_CACHE.get(dtoClass).get(fieldName.trim());
+        return map == null ? Map.of() : map;
+    }
+
+    private static Map<String, Map<String, String>> scanDtoOptionLabels(Class<?> dtoClass) {
+        if (dtoClass == null || dtoClass == Object.class) {
+            return Map.of();
+        }
+        Map<String, Map<String, String>> resolved = new LinkedHashMap<>();
+        if (dtoClass.isRecord()) {
+            RecordComponent[] components = dtoClass.getRecordComponents();
+            if (components != null) {
+                for (RecordComponent component : components) {
+                    Map<String, String> candidate = resolveMemberOptionLabels(
+                            component.getType(),
+                            component.getAnnotation(UISchema.class),
+                            component.getAccessor() != null ? component.getAccessor().getAnnotation(UISchema.class) : null
+                    );
+                    if (!candidate.isEmpty()) {
+                        resolved.putIfAbsent(component.getName(), candidate);
+                    }
+                }
+            }
+        }
+        for (Class<?> current = dtoClass; current != null && current != Object.class; current = current.getSuperclass()) {
+            for (Field field : current.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                if (resolved.containsKey(field.getName())) {
+                    continue;
+                }
+                Map<String, String> candidate = resolveMemberOptionLabels(
+                        field.getType(),
+                        field.getAnnotation(UISchema.class),
+                        null
+                );
+                if (!candidate.isEmpty()) {
+                    resolved.put(field.getName(), candidate);
+                }
+            }
+            for (Method method : current.getDeclaredMethods()) {
+                if (Modifier.isStatic(method.getModifiers()) || method.getParameterCount() != 0 || method.getReturnType() == void.class) {
+                    continue;
+                }
+                String propName = deriveGetterPropertyName(current, method);
+                if (propName == null || resolved.containsKey(propName)) {
+                    continue;
+                }
+                Map<String, String> candidate = resolveMemberOptionLabels(
+                        method.getReturnType(),
+                        method.getAnnotation(UISchema.class),
+                        null
+                );
+                if (!candidate.isEmpty()) {
+                    resolved.put(propName, candidate);
+                }
+            }
+        }
+        return resolved.isEmpty() ? Map.of() : Map.copyOf(resolved);
+    }
+
+    private static String deriveGetterPropertyName(Class<?> owner, Method method) {
+        String name = method.getName();
+        if (owner.isRecord()) {
+            return null;
+        }
+        if (name.startsWith("get") && name.length() > 3 && !"getClass".equals(name)) {
+            return Character.toLowerCase(name.charAt(3)) + name.substring(4);
+        }
+        if (name.startsWith("is") && name.length() > 2
+                && (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class)) {
+            return Character.toLowerCase(name.charAt(2)) + name.substring(3);
+        }
+        return null;
+    }
+
+    private static Map<String, String> resolveMemberOptionLabels(
+            Class<?> propertyType,
+            UISchema primaryUi,
+            UISchema secondaryUi
+    ) {
+        for (UISchema ui : new UISchema[] { primaryUi, secondaryUi }) {
+            if (ui == null) {
+                continue;
+            }
+            if (ui.optionItems() != null && ui.optionItems().length > 0) {
+                Map<String, String> map = new LinkedHashMap<>();
+                for (UiOption item : ui.optionItems()) {
+                    if (item == null || item.label() == null || item.label().trim().isEmpty()) {
+                        continue;
+                    }
+                    String lbl = item.label().trim();
+                    if (item.value() != null) {
+                        map.putIfAbsent(item.value(), lbl);
+                        String trimmedVal = item.value().trim();
+                        if (!trimmedVal.isEmpty()) {
+                            map.putIfAbsent(trimmedVal, lbl);
+                        }
+                    }
+                }
+                if (!map.isEmpty()) {
+                    return Map.copyOf(map);
+                }
+            }
+            if (ui.optionEnum() != null && ui.optionEnum() != Void.class && ui.optionEnum().isEnum()) {
+                Map<String, String> enumLabels = extractEnumOptionLabels(ui.optionEnum());
+                if (!enumLabels.isEmpty()) {
+                    return enumLabels;
+                }
+            }
+            if (propertyType == boolean.class || propertyType == Boolean.class) {
+                Map<String, String> boolMap = new LinkedHashMap<>();
+                if (ui.labelTrue() != null && !ui.labelTrue().trim().isEmpty()) {
+                    boolMap.put("true", ui.labelTrue().trim());
+                }
+                if (ui.labelFalse() != null && !ui.labelFalse().trim().isEmpty()) {
+                    boolMap.put("false", ui.labelFalse().trim());
+                }
+                if (!boolMap.isEmpty()) {
+                    return Map.copyOf(boolMap);
+                }
+            }
+        }
+        if (propertyType != null && propertyType.isEnum()) {
+            return extractEnumOptionLabels(propertyType);
+        }
+        return Map.of();
     }
 
     /**

@@ -1,5 +1,7 @@
 package org.praxisplatform.uischema.stats.dto;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -7,21 +9,43 @@ import java.util.Map;
  * {@code POST /stats/recipes/{recipeId}}.
  *
  * <p>
- * Runtime evaluation is fail-closed: only parameter names declared in the recipe's
- * {@code adjustableParams} catalog are accepted, and locked filter criteria enforced by the
- * server can never be widened, cleared, or overridden.
+ * Runtime evaluation enforces strict separation between {@code parameters} and
+ * {@code contextFilters}: {@code parameters} is fail-closed against the recipe's
+ * {@code adjustableParams} catalog, whereas optional {@code contextFilters} carries ambient
+ * scope or cross-filter criteria from the host cockpit, filtered strictly against the resource's
+ * {@code FilterDTO} fields and always subordinated to explicit {@code parameters} and
+ * server-side {@code lockedFilters}.
  * </p>
  */
 public record VerifiedRecipeExecutionRequest(
         Map<String, Object> parameters,
-        String timezone
+        String timezone,
+        Map<String, Object> contextFilters
 ) {
     public VerifiedRecipeExecutionRequest {
-        parameters = parameters == null ? Map.of() : Map.copyOf(parameters);
+        parameters = sanitizeMap(parameters);
         timezone = timezone == null || timezone.isBlank() ? null : timezone.trim();
+        contextFilters = sanitizeMap(contextFilters);
+    }
+
+    public VerifiedRecipeExecutionRequest(Map<String, Object> parameters, String timezone) {
+        this(parameters, timezone, Map.of());
     }
 
     public VerifiedRecipeExecutionRequest() {
-        this(Map.of(), null);
+        this(Map.of(), null, Map.of());
+    }
+
+    private static Map<String, Object> sanitizeMap(Map<String, Object> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> sanitized = new LinkedHashMap<>();
+        raw.forEach((key, value) -> {
+            if (key != null && !key.isBlank() && value != null) {
+                sanitized.put(key.trim(), value);
+            }
+        });
+        return sanitized.isEmpty() ? Map.of() : Collections.unmodifiableMap(sanitized);
     }
 }

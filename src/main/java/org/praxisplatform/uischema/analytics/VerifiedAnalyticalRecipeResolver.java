@@ -264,7 +264,8 @@ public class VerifiedAnalyticalRecipeResolver {
                 : Map.of();
 
         Map<String, Object> appliedParams = new LinkedHashMap<>();
-        Map<String, Object> adjustableFilterValues = new LinkedHashMap<>();
+        Map<String, Object> defaultAdjustableFilterValues = new LinkedHashMap<>();
+        Map<String, Object> explicitAdjustableFilterValues = new LinkedHashMap<>();
         Integer limitOverride = null;
         LocalDate fromOverride = null;
         LocalDate toOverride = null;
@@ -275,11 +276,13 @@ public class VerifiedAnalyticalRecipeResolver {
         ComparisonPeriodMode modeOverride = null;
 
         for (VerifiedAnalyticalRecipeDescriptor.ParameterSpec spec : recipe.adjustableParams()) {
+            boolean explicitProvided = safeRequest.parameters().containsKey(spec.name());
             Object rawValue;
-            if (safeRequest.parameters().containsKey(spec.name())) {
+            if (explicitProvided) {
                 rawValue = safeRequest.parameters().get(spec.name());
             } else if (STAT_PARAM_TIMEZONE.equals(spec.name()) && requestedTimezone != null) {
                 rawValue = requestedTimezone;
+                explicitProvided = true;
             } else {
                 rawValue = spec.defaultValue();
             }
@@ -324,12 +327,30 @@ public class VerifiedAnalyticalRecipeResolver {
                                     + targetField + "' in recipe '" + recipe.id() + "'."
                     );
                 }
-                adjustableFilterValues.put(targetField, validatedValue);
+                if (explicitProvided) {
+                    explicitAdjustableFilterValues.put(targetField, validatedValue);
+                } else {
+                    defaultAdjustableFilterValues.put(targetField, validatedValue);
+                }
             }
         }
 
-        // Server wins: lockedFilters sempre sobrescreve por ultimo.
-        Map<String, Object> effectiveFilterMap = new LinkedHashMap<>(adjustableFilterValues);
+        // Context filters do cockpit: somente campos validos do FilterDTO e subordinados a
+        // parameters explicitos e lockedFilters do servidor. Chaves de outros recursos sao ignoradas.
+        Map<String, Object> contextFilterValues = new LinkedHashMap<>();
+        safeRequest.contextFilters().forEach((key, value) -> {
+            if (value == null || (value instanceof String str && str.isBlank())) {
+                return;
+            }
+            if (filterFields.containsKey(key) && !recipe.lockedFilters().containsKey(key)) {
+                contextFilterValues.put(key, value);
+            }
+        });
+
+        // Precedencia estrita: defaults da receita < contextFilters < parameters explicitos < lockedFilters.
+        Map<String, Object> effectiveFilterMap = new LinkedHashMap<>(defaultAdjustableFilterValues);
+        effectiveFilterMap.putAll(contextFilterValues);
+        effectiveFilterMap.putAll(explicitAdjustableFilterValues);
         effectiveFilterMap.putAll(recipe.lockedFilters());
         FD compiledFilter = buildFilterDto(filterDtoClass, filterFields, effectiveFilterMap);
 
@@ -636,8 +657,9 @@ public class VerifiedAnalyticalRecipeResolver {
                 params,
                 ann.governanceTier(),
                 Arrays.stream(ann.domainTags()).filter(StringUtils::hasText).map(String::trim).toList(),
-                StringUtils.hasText(ann.version()) ? ann.version().trim() : "1.0.0",
+                ann.version() != null && StringUtils.hasText(ann.version()) ? ann.version().trim() : "1.0.0",
                 ann.order(),
+                null,
                 filterDtoClass,
                 filterFields,
                 statsRegistry
@@ -710,6 +732,7 @@ public class VerifiedAnalyticalRecipeResolver {
                 descriptor.domainTags(),
                 descriptor.version(),
                 descriptor.order(),
+                descriptor.kpiHint(),
                 filterDtoClass,
                 filterFields,
                 statsRegistry
@@ -744,6 +767,7 @@ public class VerifiedAnalyticalRecipeResolver {
             List<String> domainTags,
             String version,
             int order,
+            VerifiedAnalyticalRecipeDescriptor.KpiHint kpiHint,
             Class<?> filterDtoClass,
             Map<String, Field> filterFields,
             StatsFieldRegistry statsRegistry
@@ -836,7 +860,8 @@ public class VerifiedAnalyticalRecipeResolver {
                 domainTags,
                 version,
                 order,
-                provenanceDigest
+                provenanceDigest,
+                kpiHint
         );
 
         validateAgainstStatsRegistry(resolved, statsRegistry, false);

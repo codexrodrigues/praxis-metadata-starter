@@ -216,6 +216,8 @@ public enum FieldConfigProperties {
     VALUE_PRESENTATION("valuePresentation"),
     /** Contrato canônico de apresentação visual para células/listas somente leitura */
     PRESENTATION("presentation"),
+    /** Regras condicionais em Json Logic para apresentação visual em leitura/tabela */
+    PRESENTATION_RULES("presentationRules"),
 
     // ----------------------------------------------------------
     // 10. Propriedades Específicas para Filtros

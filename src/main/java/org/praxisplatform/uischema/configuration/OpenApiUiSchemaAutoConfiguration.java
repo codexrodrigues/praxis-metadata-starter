@@ -534,7 +534,9 @@ public class OpenApiUiSchemaAutoConfiguration {
             @Value("${praxis.stats.max-cells:500}") int maxCells,
             @Value("${praxis.stats.max-time-series-window-days:366}") int maxTimeSeriesWindowDays,
             @Value("${praxis.stats.default-min-bucket-count:0}") int defaultMinBucketCount,
-            @Value("${praxis.stats.max-in-memory-sample-rows:100000}") int maxInMemorySampleRows
+            @Value("${praxis.stats.max-in-memory-sample-rows:100000}") int maxInMemorySampleRows,
+            @Value("${praxis.stats.max-time-series-window-weeks:156}") int maxTimeSeriesWindowWeeks,
+            @Value("${praxis.stats.max-time-series-window-months:120}") int maxTimeSeriesWindowMonths
     ) {
         return new StatsProperties(
                 enabled,
@@ -547,7 +549,9 @@ public class OpenApiUiSchemaAutoConfiguration {
                 maxCells,
                 maxTimeSeriesWindowDays,
                 defaultMinBucketCount,
-                maxInMemorySampleRows
+                maxInMemorySampleRows,
+                maxTimeSeriesWindowWeeks,
+                maxTimeSeriesWindowMonths
         );
     }
 

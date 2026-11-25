@@ -494,12 +494,24 @@
         },
         "tone": {
           "type": "string",
-          "enum": ["neutral", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
+          "enum": ["neutral", "muted", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
         },
         "icon": { "type": "string", "minLength": 1 },
+        "iconTrue": { "type": "string", "minLength": 1 },
+        "iconFalse": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
-        "prefix": { "type": "string" },
-        "suffix": { "type": "string" },
+        "labelTrue": { "type": "string", "minLength": 1 },
+        "labelFalse": { "type": "string", "minLength": 1 },
+        "toneTrue": {
+          "type": "string",
+          "enum": ["neutral", "muted", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
+        },
+        "toneFalse": {
+          "type": "string",
+          "enum": ["neutral", "muted", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
+        },
+        "prefix": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "suffix": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "badge": { "type": "string", "minLength": 1 },
         "tooltip": { "type": "string", "minLength": 1 },
         "appearance": {
@@ -710,7 +722,46 @@
             "copy": { "type": "boolean" },
             "details": { "type": "boolean" },
             "expand": { "type": "boolean" },
-            "link": { "type": "boolean" }
+            "link": { "type": "boolean" },
+            "quickView": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "presentationRules": {
+      "type": "array",
+      "description": "Ordered Json Logic conditional overrides for readonly/list/table-cell visual presentation.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["when"],
+        "anyOf": [
+          { "required": ["set"] },
+          { "required": ["effect"] }
+        ],
+        "properties": {
+          "when": {
+            "oneOf": [
+              { "type": "object" },
+              { "type": "boolean" },
+              { "type": "null" }
+            ]
+          },
+          "set": {
+            "allOf": [
+              { "$ref": "#/properties/presentation" },
+              { "minProperties": 1 }
+            ]
+          },
+          "effect": {
+            "allOf": [
+              { "$ref": "#/properties/presentation" },
+              { "minProperties": 1 }
+            ]
           }
         }
       }

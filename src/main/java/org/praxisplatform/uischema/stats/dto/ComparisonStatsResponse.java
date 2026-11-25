@@ -17,7 +17,13 @@ public record ComparisonStatsResponse(
         @JsonInclude(JsonInclude.Include.NON_NULL)
         Integer suppressedBucketCount,
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        Integer minBucketCount
+        Integer minBucketCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Long populationTotalCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Long suppressedPoolCount,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Boolean truncated
 ) {
     public ComparisonStatsResponse(
             String field,
@@ -27,6 +33,20 @@ public record ComparisonStatsResponse(
             ComparisonPeriodWindow previousPeriod,
             List<ComparisonBucket> buckets
     ) {
-        this(field, periodField, metrics, currentPeriod, previousPeriod, buckets, null, null, null);
+        this(field, periodField, metrics, currentPeriod, previousPeriod, buckets, null, null, null, null, null, null);
+    }
+
+    public ComparisonStatsResponse(
+            String field,
+            String periodField,
+            List<StatsMetricRequest> metrics,
+            ComparisonPeriodWindow currentPeriod,
+            ComparisonPeriodWindow previousPeriod,
+            List<ComparisonBucket> buckets,
+            Boolean suppressed,
+            Integer suppressedBucketCount,
+            Integer minBucketCount
+    ) {
+        this(field, periodField, metrics, currentPeriod, previousPeriod, buckets, suppressed, suppressedBucketCount, minBucketCount, null, null, null);
     }
 }

@@ -815,6 +815,60 @@ class VerifiedAnalyticalRecipeTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void appliesValidContextFiltersIgnoresForeignKeysPreservesPrecedenceAndEnforcesGovernance() throws Exception {
+        AtomicReference<GroupByStatsRequest<WorkforceFilterDto>> captured = new AtomicReference<>();
+        WorkforceController controller = new WorkforceController(mockStatsServiceWithCapture(captured));
+        ReflectionTestUtils.setField(controller, "objectMapper", OBJECT_MAPPER);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        // Cockpit sends ambient scope/cross filters + explicit adjustable param:
+        // - valid FilterDTO fields in contextFilters (effectiveDateBetween) are compiled into filter()
+        // - foreign-resource keys in contextFilters (otherResourceUnitId) are safely ignored
+        // - explicit parameters (departmentCode=ENG) override matching contextFilters (departmentCode=HR)
+        // - lockedFilters (status=ACTIVE) ALWAYS win over contextFilters (status=TERMINATED)
+        mockMvc.perform(post("/api/workforce/assignments/stats/recipes/active-headcount-by-department")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "parameters": {
+                                    "departmentCode": "ENG",
+                                    "limit": 5
+                                  },
+                                  "contextFilters": {
+                                    "departmentCode": "HR",
+                                    "status": "TERMINATED",
+                                    "effectiveDateBetween": ["2026-01-01", "2026-03-31"],
+                                    "otherResourceUnitId": "unit-99"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.provenance.lockedFilters.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.provenance.appliedParameters.departmentCode").value("ENG"));
+
+        GroupByStatsRequest<WorkforceFilterDto> executed = captured.get();
+        assertNotNull(executed);
+        assertEquals("ACTIVE", executed.filter().getStatus());
+        assertEquals("ENG", executed.filter().getDepartmentCode());
+        assertEquals(
+                List.of(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 3, 31)),
+                executed.filter().getEffectiveDateBetween());
+
+        // Governance-restricted contextFilter must still fail with 403 Forbidden
+        StatsFieldRegistry restrictedRegistry = StatsFieldRegistry.builder()
+                .add(StatsFieldDescriptor.groupByBucket("taxId", "taxId", Set.of(StatsMetric.COUNT)))
+                .add(StatsFieldDescriptor.groupByBucket("departmentCode", "departmentCode", Set.of(StatsMetric.COUNT)))
+                .build();
+        RestrictedGovernanceController restrictedCtrl = new RestrictedGovernanceController(
+                mockRestrictedStatsService(restrictedRegistry));
+        MockMvc govMvc = MockMvcBuilders.standaloneSetup(restrictedCtrl).build();
+        govMvc.perform(post("/api/workforce/restricted/stats/recipes/restricted-filter-param-recipe")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contextFilters\":{\"auditNoteFilter\":\"abc\"}}"))
+                .andExpect(status().isForbidden());
+    }
+
     @ApiResource(value = "/api/workforce/provider", resourceKey = "workforce.provider")
     static class PlainProviderController
             extends AbstractResourceQueryController<WorkforceDto, Long, WorkforceFilterDto> {

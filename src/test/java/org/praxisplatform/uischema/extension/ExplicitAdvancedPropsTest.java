@@ -1,6 +1,10 @@
 package org.praxisplatform.uischema.extension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.networknt.schema.JsonSchema;
+import com.networknt.schema.JsonSchemaFactory;
+import com.networknt.schema.SpecVersion;
+import com.networknt.schema.ValidationMessage;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.models.media.Schema;
 import org.junit.jupiter.api.Test;
@@ -8,8 +12,10 @@ import org.praxisplatform.uischema.*;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
 
 import java.lang.annotation.Annotation;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -279,8 +285,321 @@ class ExplicitAdvancedPropsTest {
         String campo;
     }
 
+    @Test
+    void resolverShouldPublishValidPresentationRulesAndConformToFieldSchema() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(mapper);
+        Schema<?> property = new Schema<>().type("integer");
+        property.setName("weeklyHours");
+
+        Annotation uiSchema = ValidPresentationRules.class.getDeclaredField("campo").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        assertTrue(xui.get(FieldConfigProperties.PRESENTATION_RULES.getValue()) instanceof List<?>);
+        List<?> rules = (List<?>) xui.get(FieldConfigProperties.PRESENTATION_RULES.getValue());
+        assertEquals(2, rules.size());
+
+        JsonSchema fieldSpec = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(mapper.readTree(Path.of("docs/spec/x-ui-field.schema.json").toFile()));
+        Set<ValidationMessage> errors = fieldSpec.validate(mapper.valueToTree(xui));
+        assertTrue(errors.isEmpty(), "Expected valid x-ui payload for presentationRules, got: " + errors);
+    }
+
+    @Test
+    void resolverShouldRejectNonArrayPresentationRules() throws Exception {
+        assertInvalidCondition(NonArrayPresentationRules.class, "presentationRules must be an array");
+    }
+
+    @Test
+    void resolverShouldRejectPresentationRuleWithoutWhen() throws Exception {
+        assertInvalidCondition(MissingWhenPresentationRules.class, "presentationRules[0].when is required");
+    }
+
+    @Test
+    void resolverShouldRejectPresentationRuleWithUnknownJsonLogicOperator() throws Exception {
+        assertInvalidCondition(InvalidOperatorPresentationRules.class, "unsupported Json Logic operator `unknownOp`");
+    }
+
+    @Test
+    void resolverShouldRejectPresentationRuleWithoutSetOrEffect() throws Exception {
+        assertInvalidCondition(MissingSetPresentationRules.class, "must define a non-empty 'set' or 'effect'");
+    }
+
+    @Test
+    void resolverShouldRejectPresentationRuleWithEmptySet() throws Exception {
+        assertInvalidCondition(EmptySetPresentationRules.class, "must define a non-empty 'set' or 'effect'");
+    }
+
+    @Test
+    void resolverShouldRejectUnknownRuleTopLevelProperty() throws Exception {
+        assertInvalidCondition(UnknownRulePropertyPresentationRules.class, "contains unsupported property 'extra'");
+    }
+
+    @Test
+    void resolverShouldRejectUnknownPresentationPropertyInsideSet() throws Exception {
+        assertInvalidCondition(
+                UnknownSetPropertyPresentationRules.class,
+                "contains unsupported presentation property 'presetner'");
+    }
+
+    @Test
+    void resolverShouldRejectInvalidToneAndPresenterInsideSet() throws Exception {
+        assertInvalidCondition(InvalidTonePresentationRules.class, "presentationRules[0].set.tone has unsupported value 'amber'");
+        assertInvalidCondition(InvalidPresenterPresentationRules.class, "presentationRules[0].set.presenter has unsupported value 'sparkline'");
+    }
+
+    @Test
+    void resolverShouldRejectInvalidSuffixAndBlankIconInsideSet() throws Exception {
+        assertInvalidCondition(NonStringSuffixPresentationRules.class, "presentationRules[0].set.suffix must be a non-empty string");
+        assertInvalidCondition(BlankSuffixPresentationRules.class, "presentationRules[0].set.suffix must be a non-empty string");
+        assertInvalidCondition(BlankBaseSuffixPresentation.class, "x-ui.presentation for field campo.suffix must be a non-empty string");
+        assertInvalidCondition(InvalidBaseTonePresentation.class, "x-ui.presentation for field campo.tone has unsupported value 'amber'");
+        assertInvalidCondition(InvalidBasePresenterPresentation.class, "x-ui.presentation for field campo.presenter has unsupported value 'sparkline'");
+        assertInvalidCondition(BlankIconPresentationRules.class, "presentationRules[0].set.icon must be a non-empty string");
+    }
+
+    @Test
+    void resolverShouldAllowBooleanPresentationKeysMutedToneAndSpacedAffixes() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(mapper);
+        Schema<?> property = new Schema<>().type("boolean");
+        property.setName("ativo");
+
+        Annotation uiSchema = ValidBooleanPresentationWithAffixes.class.getDeclaredField("campo").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        JsonSchema fieldSpec = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(mapper.readTree(Path.of("docs/spec/x-ui-field.schema.json").toFile()));
+        Set<ValidationMessage> errors = fieldSpec.validate(mapper.valueToTree(xui));
+        assertTrue(errors.isEmpty(), "Expected valid x-ui payload for boolean presentation + spaced prefix/muted tone, got: " + errors);
+    }
+
+    @Test
+    void fieldSchemaShouldRejectPresentationRuleMissingEffectOrHavingEmptySet() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonSchema fieldSpec = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(mapper.readTree(Path.of("docs/spec/x-ui-field.schema.json").toFile()));
+
+        Set<ValidationMessage> missingEffectErrors = fieldSpec.validate(
+                mapper.readTree("{\"presentationRules\":[{\"when\":true}]}"));
+        assertFalse(missingEffectErrors.isEmpty(), "Expected schema failure when both set and effect are omitted");
+
+        Set<ValidationMessage> emptySetErrors = fieldSpec.validate(
+                mapper.readTree("{\"presentationRules\":[{\"when\":true,\"set\":{}}]}"));
+        assertFalse(emptySetErrors.isEmpty(), "Expected schema failure when set is empty");
+    }
+
+    @Test
+    void resolverAndSchemaShouldAcceptObjectQuickViewAndAllElevenTonesInPresentationInteractions() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        CustomOpenApiResolver resolver = new CustomOpenApiResolver(mapper);
+        Schema<?> property = new Schema<>().type("string");
+        property.setName("employeeCode");
+
+        Annotation uiSchema = ValidQuickViewAndTonesPresentation.class.getDeclaredField("campo").getAnnotation(UISchema.class);
+        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ uiSchema }, null, false);
+
+        Map<String, Object> xui = getXui(property);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> presentation = (Map<String, Object>) xui.get(FieldConfigProperties.PRESENTATION.getValue());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> interactions = (Map<String, Object>) presentation.get("interactions");
+        assertEquals(Boolean.TRUE, interactions.get("copy"));
+        assertTrue(interactions.get("quickView") instanceof Map<?, ?>);
+
+        JsonSchema fieldSpec = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(mapper.readTree(Path.of("docs/spec/x-ui-field.schema.json").toFile()));
+        Set<ValidationMessage> errors = fieldSpec.validate(mapper.valueToTree(xui));
+        assertTrue(errors.isEmpty(), "Expected valid x-ui payload for interactions.quickView object and canonical tones, got: " + errors);
+    }
+
+    @Test
+    void resolverAndSchemaShouldRejectNonObjectOrEmptyQuickViewInteraction() throws Exception {
+        assertInvalidCondition(BooleanQuickViewInteraction.class, "interactions.quickView must be a non-empty object");
+        assertInvalidCondition(StringQuickViewInteraction.class, "interactions.quickView must be a non-empty object");
+        assertInvalidCondition(EmptyQuickViewInteraction.class, "interactions.quickView must be a non-empty object");
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonSchema fieldSpec = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(mapper.readTree(Path.of("docs/spec/x-ui-field.schema.json").toFile()));
+        assertFalse(fieldSpec.validate(
+                mapper.readTree("{\"presentation\":{\"interactions\":{\"quickView\":true}}}")).isEmpty());
+        assertFalse(fieldSpec.validate(
+                mapper.readTree("{\"presentation\":{\"interactions\":{\"quickView\":{}}}}")).isEmpty());
+    }
+
     private static class ValidJsonLogicConditionalDisplay {
         @UISchema(conditionalDisplay = "{\"==\":[{\"var\":\"form.status\"},\"active\"]}")
+        String campo;
+    }
+
+    private static class ValidPresentationRules {
+        @UISchema(
+                extraProperties = {
+                        @ExtensionProperty(name = "presentation.presenter", value = "iconValue"),
+                        @ExtensionProperty(name = "presentation.suffix", value = "h/wk"),
+                        @ExtensionProperty(
+                                name = "presentationRules",
+                                value = "[{\"when\":{\"==\":[{\"var\":\"status\"},\"RETIRED\"]},\"set\":{\"presenter\":\"iconValue\",\"tone\":\"neutral\",\"suffix\":\"h (hist)\"}},{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]},\"effect\":{\"presenter\":\"chip\",\"tone\":\"warning\",\"appearance\":\"soft\",\"icon\":\"schedule\",\"suffix\":\"h/wk\",\"tooltip\":\"Above standard weekly cap\"}}]"
+                        )
+                }
+        )
+        String campo;
+    }
+
+    private static class NonArrayPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(name = "presentationRules", value = "{\"when\":{}}"))
+        String campo;
+    }
+
+    private static class MissingWhenPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(name = "presentationRules", value = "[{\"set\":{\"tone\":\"warning\"}}]"))
+        String campo;
+    }
+
+    private static class InvalidOperatorPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\"unknownOp\":[{\"var\":\"weeklyHours\"},44]},\"set\":{\"tone\":\"warning\"}}]"
+        ))
+        String campo;
+    }
+
+    private static class MissingSetPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]}}]"
+        ))
+        String campo;
+    }
+
+    private static class EmptySetPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]},\"set\":{}}]"
+        ))
+        String campo;
+    }
+
+    private static class UnknownRulePropertyPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]},\"set\":{\"tone\":\"warning\"},\"extra\":123}]"
+        ))
+        String campo;
+    }
+
+    private static class UnknownSetPropertyPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]},\"set\":{\"presetner\":\"chip\"}}]"
+        ))
+        String campo;
+    }
+
+    private static class InvalidTonePresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]},\"set\":{\"tone\":\"amber\"}}]"
+        ))
+        String campo;
+    }
+
+    private static class InvalidPresenterPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]},\"set\":{\"presenter\":\"sparkline\"}}]"
+        ))
+        String campo;
+    }
+
+    private static class NonStringSuffixPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]},\"set\":{\"suffix\":123}}]"
+        ))
+        String campo;
+    }
+
+    private static class BlankIconPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]},\"set\":{\"icon\":\"   \"}}]"
+        ))
+        String campo;
+    }
+
+    private static class BlankSuffixPresentationRules {
+        @UISchema(extraProperties = @ExtensionProperty(
+                name = "presentationRules",
+                value = "[{\"when\":{\">\":[{\"var\":\"weeklyHours\"},44]},\"set\":{\"suffix\":\"   \"}}]"
+        ))
+        String campo;
+    }
+
+    private static class BlankBaseSuffixPresentation {
+        @UISchema(extraProperties = @ExtensionProperty(name = "presentation.suffix", value = "   "))
+        String campo;
+    }
+
+    private static class InvalidBaseTonePresentation {
+        @UISchema(extraProperties = @ExtensionProperty(name = "presentation.tone", value = "amber"))
+        String campo;
+    }
+
+    private static class InvalidBasePresenterPresentation {
+        @UISchema(extraProperties = @ExtensionProperty(name = "presentation.presenter", value = "sparkline"))
+        String campo;
+    }
+
+    private static class ValidBooleanPresentationWithAffixes {
+        @UISchema(
+                extraProperties = {
+                        @ExtensionProperty(name = "presentation.presenter", value = "badge"),
+                        @ExtensionProperty(name = "presentation.prefix", value = "R$ "),
+                        @ExtensionProperty(name = "presentation.suffix", value = " pts"),
+                        @ExtensionProperty(name = "presentation.tone", value = "muted"),
+                        @ExtensionProperty(name = "presentation.iconTrue", value = "check_circle"),
+                        @ExtensionProperty(name = "presentation.iconFalse", value = "cancel"),
+                        @ExtensionProperty(name = "presentation.labelTrue", value = "Sim"),
+                        @ExtensionProperty(name = "presentation.labelFalse", value = "Não"),
+                        @ExtensionProperty(name = "presentation.toneTrue", value = "success"),
+                        @ExtensionProperty(name = "presentation.toneFalse", value = "neutral")
+                }
+        )
+        String campo;
+    }
+
+    private static class ValidQuickViewAndTonesPresentation {
+        @UISchema(
+                extraProperties = {
+                        @ExtensionProperty(name = "presentation.presenter", value = "chip"),
+                        @ExtensionProperty(name = "presentation.tone", value = "secondary"),
+                        @ExtensionProperty(name = "presentation.appearance", value = "soft"),
+                        @ExtensionProperty(name = "presentation.interactions.copy", value = "true"),
+                        @ExtensionProperty(
+                                name = "presentation.interactions.quickView",
+                                value = "{\"resourceKey\":\"workforce.employees\",\"surfaceId\":\"detail\",\"detailPresentation\":\"drawer\"}"
+                        )
+                }
+        )
+        String campo;
+    }
+
+    private static class BooleanQuickViewInteraction {
+        @UISchema(extraProperties = @ExtensionProperty(name = "presentation.interactions.quickView", value = "true"))
+        String campo;
+    }
+
+    private static class StringQuickViewInteraction {
+        @UISchema(extraProperties = @ExtensionProperty(name = "presentation.interactions.quickView", value = "detail"))
+        String campo;
+    }
+
+    private static class EmptyQuickViewInteraction {
+        @UISchema(extraProperties = @ExtensionProperty(name = "presentation.interactions.quickView", value = "{}"))
         String campo;
     }
 

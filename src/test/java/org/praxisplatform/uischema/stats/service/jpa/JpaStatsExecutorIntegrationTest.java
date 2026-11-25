@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
 import org.praxisplatform.uischema.stats.DistributionMode;
+import org.praxisplatform.uischema.stats.RollingWindowUnit;
 import org.praxisplatform.uischema.stats.StatsBucketOrder;
 import org.praxisplatform.uischema.stats.StatsDimensionExtraction;
 import org.praxisplatform.uischema.stats.StatsFieldDescriptor;
@@ -21,8 +22,10 @@ import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByBucket;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
+import org.praxisplatform.uischema.stats.dto.RollingWindowRequest;
 import org.praxisplatform.uischema.stats.dto.StatsDimensionRequest;
 import org.praxisplatform.uischema.stats.dto.StatsMetricRequest;
+import org.praxisplatform.uischema.stats.dto.TimeSeriesPoint;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import org.praxisplatform.uischema.stats.service.ResolvedStatsDimension;
@@ -555,12 +558,16 @@ class JpaStatsExecutorIntegrationTest {
         assertEquals(4, tsSuppressed.points().size());
         assertEquals(250.0, tsSuppressed.points().get(0).value().doubleValue(), 0.001); // 2026-03-01 visible
         org.junit.jupiter.api.Assertions.assertNull(tsSuppressed.points().get(1).value()); // 2026-03-02 complementary suppressed
-        assertEquals(0L, tsSuppressed.points().get(1).count());
+        org.junit.jupiter.api.Assertions.assertNull(tsSuppressed.points().get(1).count());
+        assertEquals(0L, tsSuppressed.points().get(1).countOrZero());
+        assertEquals(Boolean.TRUE, tsSuppressed.points().get(1).suppressed());
         org.junit.jupiter.api.Assertions.assertNull(tsSuppressed.points().get(2).value()); // 2026-03-03 primary suppressed (numericCount=1)
-        assertEquals(0L, tsSuppressed.points().get(2).count());
-        // Empty fillGap point 2026-03-04 returns null (not 0.0d) for AVG with numericCount == 0
+        org.junit.jupiter.api.Assertions.assertNull(tsSuppressed.points().get(2).count());
+        assertEquals(Boolean.TRUE, tsSuppressed.points().get(2).suppressed());
+        // Empty fillGap point 2026-03-04 returns null value and 0L count (suppressed == null)
         org.junit.jupiter.api.Assertions.assertNull(tsSuppressed.points().get(3).value());
         assertEquals(0L, tsSuppressed.points().get(3).count());
+        org.junit.jupiter.api.Assertions.assertNull(tsSuppressed.points().get(3).suppressed());
     }
 
     @Test
@@ -687,6 +694,211 @@ class JpaStatsExecutorIntegrationTest {
                         10
                 )
         );
+    }
+
+    @Test
+    void enforces1DAnd2DComplementarySumFloorSdcPartitionGuardAndTruncationMetadata() {
+        StatsFieldDescriptor deptDesc = StatsFieldDescriptor.categoricalGroupByBucket("department", "department");
+        StatsFieldDescriptor teamDesc = StatsFieldDescriptor.categoricalGroupByBucket("team", "team");
+        List<ResolvedStatsDimension> deptDim = List.of(new ResolvedStatsDimension(
+                new StatsDimensionRequest("department", StatsDimensionExtraction.NONE, "department"),
+                deptDesc
+        ));
+        StatsMetricRequest countMetric = new StatsMetricRequest(StatsMetric.COUNT, null, "count");
+        List<ResolvedStatsMetric> countOnly = List.of(new ResolvedStatsMetric(countMetric, null));
+
+        // 1. Brecha 1D {1, 1} com k=5 e visiveis {10, 20}: absorve menor visivel (10) -> pool=12, total=32
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            entityManager.createQuery("DELETE FROM JpaStatsExecutorIntegrationTest$AllocationRecordEntity").executeUpdate();
+            persistMany("A", "T1", 1, "100.00", "2026-03-01", null);
+            persistMany("B", "T1", 1, "100.00", "2026-03-01", null);
+            persistMany("C", "T1", 10, "100.00", "2026-03-01", null);
+            persistMany("D", "T1", 20, "100.00", "2026-03-01", null);
+        });
+        GroupByStatsResponse resp1DSumFloor = executor.executeGroupBy(
+                entityManager,
+                AllocationRecordEntity.class,
+                null,
+                deptDim,
+                countOnly,
+                new GroupByStatsRequest<>(new EmptyFilterDTO(), "department", countMetric, 10, StatsBucketOrder.KEY_ASC),
+                null,
+                10,
+                100,
+                5,
+                100_000
+        );
+        assertTrue(resp1DSumFloor.suppressed());
+        assertEquals(3, resp1DSumFloor.suppressedBucketCount());
+        assertEquals(32L, resp1DSumFloor.populationTotalCount());
+        assertEquals(12L, resp1DSumFloor.suppressedPoolCount());
+        assertFalse(resp1DSumFloor.truncated());
+        assertEquals(1, resp1DSumFloor.buckets().size());
+        assertEquals("D", resp1DSumFloor.buckets().get(0).key());
+
+        // 2. Guarda SDC de particao unica: {1, 1} + {10} com k=2 -> suppressedBucketCount=2, sum=2 < 2+2-1=3 -> totals omitidos (null)
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            entityManager.createQuery("DELETE FROM JpaStatsExecutorIntegrationTest$AllocationRecordEntity").executeUpdate();
+            persistMany("A", "T1", 1, "100.00", "2026-03-01", null);
+            persistMany("B", "T1", 1, "100.00", "2026-03-01", null);
+            persistMany("C", "T1", 10, "100.00", "2026-03-01", null);
+        });
+        GroupByStatsResponse respSdcGuarded = executor.executeGroupBy(
+                entityManager,
+                AllocationRecordEntity.class,
+                null,
+                deptDim,
+                countOnly,
+                new GroupByStatsRequest<>(new EmptyFilterDTO(), "department", countMetric, 10, StatsBucketOrder.KEY_ASC),
+                null,
+                10,
+                100,
+                2,
+                100_000
+        );
+        assertTrue(respSdcGuarded.suppressed());
+        assertEquals(2, respSdcGuarded.suppressedBucketCount());
+        org.junit.jupiter.api.Assertions.assertNull(respSdcGuarded.populationTotalCount());
+        org.junit.jupiter.api.Assertions.assertNull(respSdcGuarded.suppressedPoolCount());
+        assertEquals(1, respSdcGuarded.buckets().size());
+
+        // 3. Folga SDC satisfeita: {1, 2} + {10} com k=2 -> absorbed {1, 2} sum=3 >= 2+2-1=3 -> totals publicados
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            entityManager.createQuery("DELETE FROM JpaStatsExecutorIntegrationTest$AllocationRecordEntity").executeUpdate();
+            persistMany("A", "T1", 1, "100.00", "2026-03-01", null);
+            persistMany("B", "T1", 1, "100.00", "2026-03-01", null);
+            persistMany("C", "T1", 10, "100.00", "2026-03-01", null);
+        });
+        // Add 1 more to B so B=2, wait k=3 so A(1) & B(2) violate k=3 and sum=3, k=3 -> 3+2-1=4; add 1 more to B (=3) & use k=4? Wait: for k=2, make A(1) and B(1) -> wait B needs size >= k=2? No, A=1 violates k=2, smallest visible B=2 absorbed -> {A(1), B(2)} sum=3 >= 2+2-1=3!
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            entityManager.createQuery("DELETE FROM JpaStatsExecutorIntegrationTest$AllocationRecordEntity").executeUpdate();
+            persistMany("A", "T1", 1, "100.00", "2026-03-01", null);
+            persistMany("B", "T1", 2, "100.00", "2026-03-01", null);
+            persistMany("C", "T1", 10, "100.00", "2026-03-01", null);
+        });
+        GroupByStatsResponse respSdcSafe = executor.executeGroupBy(
+                entityManager,
+                AllocationRecordEntity.class,
+                null,
+                deptDim,
+                countOnly,
+                new GroupByStatsRequest<>(new EmptyFilterDTO(), "department", countMetric, 10, StatsBucketOrder.KEY_ASC),
+                null,
+                10,
+                100,
+                2,
+                100_000
+        );
+        assertTrue(respSdcSafe.suppressed());
+        assertEquals(2, respSdcSafe.suppressedBucketCount());
+        assertEquals(13L, respSdcSafe.populationTotalCount());
+        assertEquals(3L, respSdcSafe.suppressedPoolCount());
+
+        // 4. Truncation com e sem k-anonymity preserva populationTotalCount exato e truncated=true
+        GroupByStatsResponse truncatedNoK = executor.executeGroupBy(
+                entityManager,
+                AllocationRecordEntity.class,
+                null,
+                deptDim,
+                countOnly,
+                new GroupByStatsRequest<>(new EmptyFilterDTO(), "department", countMetric, 2, StatsBucketOrder.VALUE_DESC),
+                null,
+                10,
+                100,
+                0,
+                100_000
+        );
+        assertTrue(truncatedNoK.truncated());
+        assertEquals(2, truncatedNoK.buckets().size());
+        assertEquals(13L, truncatedNoK.populationTotalCount());
+
+        // 5. Total populacional menor que k: todos suprimidos e populationTotalCount = null
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            entityManager.createQuery("DELETE FROM JpaStatsExecutorIntegrationTest$AllocationRecordEntity").executeUpdate();
+            persistMany("SMALL", "T1", 3, "100.00", "2026-03-01", null);
+        });
+        GroupByStatsResponse tinyPop = executor.executeGroupBy(
+                entityManager,
+                AllocationRecordEntity.class,
+                null,
+                deptDim,
+                countOnly,
+                new GroupByStatsRequest<>(new EmptyFilterDTO(), "department", countMetric, 10, StatsBucketOrder.KEY_ASC),
+                null,
+                10,
+                100,
+                5,
+                100_000
+        );
+        assertTrue(tinyPop.suppressed());
+        assertEquals(0, tinyPop.buckets().size());
+        org.junit.jupiter.api.Assertions.assertNull(tinyPop.populationTotalCount());
+        org.junit.jupiter.api.Assertions.assertNull(tinyPop.suppressedPoolCount());
+
+        // 6. Guarda 2D {1, 1} na mesma fatia com k=5 absorve celular visivel na mesma linha/coluna
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            entityManager.createQuery("DELETE FROM JpaStatsExecutorIntegrationTest$AllocationRecordEntity").executeUpdate();
+            persistMany("D1", "T1", 1, "100.00", "2026-03-01", null);
+            persistMany("D1", "T2", 1, "100.00", "2026-03-01", null);
+            persistMany("D1", "T3", 6, "100.00", "2026-03-01", null);
+            persistMany("D2", "T1", 8, "100.00", "2026-03-01", null);
+            persistMany("D2", "T2", 9, "100.00", "2026-03-01", null);
+            persistMany("D2", "T3", 10, "100.00", "2026-03-01", null);
+        });
+        GroupByStatsResponse matrix2DSumFloor = executor.executeGroupBy(
+                entityManager,
+                AllocationRecordEntity.class,
+                null,
+                List.of(
+                        new ResolvedStatsDimension(new StatsDimensionRequest("department", StatsDimensionExtraction.NONE, "department"), deptDesc),
+                        new ResolvedStatsDimension(new StatsDimensionRequest("team", StatsDimensionExtraction.NONE, "team"), teamDesc)
+                ),
+                countOnly,
+                new GroupByStatsRequest<>(
+                        new EmptyFilterDTO(),
+                        null,
+                        countMetric,
+                        20,
+                        StatsBucketOrder.KEY_ASC,
+                        countOnly.stream().map(ResolvedStatsMetric::metric).toList(),
+                        List.of(
+                                new StatsDimensionRequest("department", StatsDimensionExtraction.NONE, "department"),
+                                new StatsDimensionRequest("team", StatsDimensionExtraction.NONE, "team")
+                        ),
+                        null, null, null, null, false, null
+                ),
+                null,
+                20,
+                100,
+                5,
+                100_000
+        );
+        assertTrue(matrix2DSumFloor.suppressed());
+        // (D1,T1)=1 and (D1,T2)=1 violate k=5 on row D1 with sum=2 < 5, so row D1 absorbs (D1,T3)=6;
+        // then col T1 and col T2 each only have 1 suppressed cell -> absorb (D2,T1) and (D2,T2), and T3 also closes row D2!
+        assertEquals(6, matrix2DSumFloor.suppressedBucketCount());
+        assertEquals(0, matrix2DSumFloor.buckets().size());
+        assertEquals(35L, matrix2DSumFloor.populationTotalCount());
+        assertEquals(35L, matrix2DSumFloor.suppressedPoolCount());
+
+        // 7. RollingWindow + interval series leaves populationTotalCount = null on overlapping intervals
+        TimeSeriesStatsResponse intervalResp = executor.executeTimeSeries(
+                entityManager,
+                AllocationRecordEntity.class,
+                null,
+                StatsFieldDescriptor.temporalIntervalTimeSeriesField("contractDates", "startDate", "endDate"),
+                List.of(new ResolvedStatsMetric(new StatsMetricRequest(StatsMetric.COUNT, null, "active"), null)),
+                new TimeSeriesStatsRequest<>(new EmptyFilterDTO(), "contractDates", TimeSeriesGranularity.MONTH, null, LocalDate.of(2026, 2, 1), LocalDate.of(2026, 3, 31), Boolean.TRUE, List.of(new StatsMetricRequest(StatsMetric.COUNT, null, "active")), "UTC"),
+                10,
+                366,
+                0,
+                100_000
+        );
+        org.junit.jupiter.api.Assertions.assertNull(intervalResp.populationTotalCount());
+        org.junit.jupiter.api.Assertions.assertNull(intervalResp.suppressedPoolCount());
+        TimeSeriesPoint rollingTestPoint = new TimeSeriesPoint(LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31), "2026-03", null, null, null, Boolean.TRUE);
+        assertEquals(0L, rollingTestPoint.countOrZero());
+        assertEquals(RollingWindowUnit.MONTHS, new RollingWindowRequest(RollingWindowUnit.MONTHS, 36).unit());
     }
 
     private void persistMany(String dept, String team, int count, String amount, String startDate, String endDate) {

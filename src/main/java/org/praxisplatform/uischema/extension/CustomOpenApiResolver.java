@@ -353,6 +353,7 @@ public class CustomOpenApiResolver extends ModelResolver {
             applyDraftCleared(property, annotations);
             applyResourceState(property, annotations);
             validateEffectiveMicroVisualization(property, annotations);
+            validateEffectivePresentation(property);
         }
         return validatorUpdated;
     }
@@ -2607,6 +2608,7 @@ public class CustomOpenApiResolver extends ModelResolver {
         String normalizedName = propertyName.trim();
         Object parsedValue = isJsonLogicConditionProperty(normalizedName)
                 || isConditionalValidationProperty(normalizedName)
+                || isPresentationRulesProperty(normalizedName)
                 ? parseStrictStructuredValue(rawValue, normalizedName)
                 : parseNestedExtraPropertyValue(rawValue);
         return normalizeXuiExtraProperty(normalizedName, parsedValue);
@@ -2652,6 +2654,10 @@ public class CustomOpenApiResolver extends ModelResolver {
         if (isConditionalValidationProperty(normalizedName)) {
             validateConditionalValidationRules(parsedValue, normalizedName);
         }
+
+        if (isPresentationRulesProperty(normalizedName)) {
+            validatePresentationRules(parsedValue, normalizedName);
+        }
         return parsedValue;
     }
 
@@ -2664,6 +2670,149 @@ public class CustomOpenApiResolver extends ModelResolver {
 
     private boolean isConditionalValidationProperty(String propertyName) {
         return ValidationProperties.CONDITIONAL_VALIDATION.getValue().equals(propertyName);
+    }
+
+    private boolean isPresentationRulesProperty(String propertyName) {
+        return FieldConfigProperties.PRESENTATION_RULES.getValue().equals(propertyName);
+    }
+
+    private static final Set<String> PRESENTATION_RULE_KEYS = Set.of("when", "set", "effect");
+    private static final Set<String> PRESENTATION_PROPERTIES = Set.of(
+            "presenter", "variant", "tone", "icon", "iconTrue", "iconFalse",
+            "label", "labelTrue", "labelFalse", "toneTrue", "toneFalse",
+            "prefix", "suffix", "badge", "tooltip", "appearance",
+            "valuePresentation", "visualization", "interactions");
+    private static final Set<String> PRESENTATION_PRESENTERS = Set.of(
+            "text", "badge", "chip", "status", "iconValue", "progress", "rating", "microVisualization");
+    private static final Set<String> PRESENTATION_TONES = Set.of(
+            "neutral", "muted", "primary", "secondary", "info", "success", "warning",
+            "danger", "critical", "positive", "negative");
+    private static final Set<String> PRESENTATION_APPEARANCES = Set.of(
+            "plain", "soft", "outlined", "filled");
+    private static final Set<String> PRESENTATION_INTERACTIONS = Set.of(
+            "copy", "details", "expand", "link", "quickView");
+
+    private void validateEffectivePresentation(Schema<?> property) {
+        Map<String, Object> uiExtension = getExistingUIExtensionMap(property);
+        if (uiExtension == null) {
+            return;
+        }
+        Object rawPresentation = uiExtension.get(FieldConfigProperties.PRESENTATION.getValue());
+        if (rawPresentation == null) {
+            return;
+        }
+        String path = "x-ui.presentation" + (property.getName() == null ? "" : " for field " + property.getName());
+        if (!(rawPresentation instanceof Map<?, ?> presentationMap)) {
+            throw new IllegalArgumentException(path + " must be an object.");
+        }
+        validatePresentationOverrideMap(presentationMap, path);
+    }
+
+    private void validatePresentationRules(Object parsedValue, String propertyPath) {
+        if (!(parsedValue instanceof List<?> rules)) {
+            throw new IllegalArgumentException(propertyPath + " must be an array of presentation rules.");
+        }
+
+        for (int index = 0; index < rules.size(); index++) {
+            Object rule = rules.get(index);
+            String rulePath = propertyPath + "[" + index + "]";
+            if (!(rule instanceof Map<?, ?> ruleMap)) {
+                throw new IllegalArgumentException(rulePath + " must be an object.");
+            }
+            for (Object key : ruleMap.keySet()) {
+                if (!(key instanceof String keyName) || !PRESENTATION_RULE_KEYS.contains(keyName)) {
+                    throw new IllegalArgumentException(rulePath + " contains unsupported property '" + key + "'.");
+                }
+            }
+            if (!ruleMap.containsKey("when")) {
+                throw new IllegalArgumentException(rulePath + ".when is required.");
+            }
+            validateJsonLogicCondition(ruleMap.get("when"), rulePath + ".when", true);
+            Object setVal = ruleMap.get("set");
+            Object effectVal = ruleMap.get("effect");
+            boolean validSet = setVal instanceof Map<?, ?> setMap && !setMap.isEmpty();
+            boolean validEffect = effectVal instanceof Map<?, ?> effectMap && !effectMap.isEmpty();
+            if (!validSet && !validEffect) {
+                throw new IllegalArgumentException(rulePath + " must define a non-empty 'set' or 'effect' presentation object.");
+            }
+            if (ruleMap.containsKey("set") && setVal != null && !validSet) {
+                throw new IllegalArgumentException(rulePath + ".set must be a non-empty presentation object.");
+            }
+            if (ruleMap.containsKey("effect") && effectVal != null && !validEffect) {
+                throw new IllegalArgumentException(rulePath + ".effect must be a non-empty presentation object.");
+            }
+            if (validSet) {
+                validatePresentationOverrideMap((Map<?, ?>) setVal, rulePath + ".set");
+            }
+            if (validEffect) {
+                validatePresentationOverrideMap((Map<?, ?>) effectVal, rulePath + ".effect");
+            }
+        }
+    }
+
+    private void validatePresentationOverrideMap(Map<?, ?> presentationMap, String path) {
+        for (Map.Entry<?, ?> entry : presentationMap.entrySet()) {
+            Object rawKey = entry.getKey();
+            if (!(rawKey instanceof String key) || !PRESENTATION_PROPERTIES.contains(key)) {
+                throw new IllegalArgumentException(path + " contains unsupported presentation property '" + rawKey + "'.");
+            }
+            Object val = entry.getValue();
+            switch (key) {
+                case "presenter", "variant" -> {
+                    if (!(val instanceof String s) || !PRESENTATION_PRESENTERS.contains(s)) {
+                        throw new IllegalArgumentException(path + "." + key + " has unsupported value '" + val + "'.");
+                    }
+                }
+                case "tone", "toneTrue", "toneFalse" -> {
+                    if (!(val instanceof String s) || !PRESENTATION_TONES.contains(s)) {
+                        throw new IllegalArgumentException(path + "." + key + " has unsupported value '" + val + "'.");
+                    }
+                }
+                case "appearance" -> {
+                    if (!(val instanceof String s) || !PRESENTATION_APPEARANCES.contains(s)) {
+                        throw new IllegalArgumentException(path + ".appearance has unsupported value '" + val + "'.");
+                    }
+                }
+                case "icon", "iconTrue", "iconFalse", "label", "labelTrue", "labelFalse", "badge", "tooltip" -> {
+                    if (!(val instanceof String s) || s.isBlank()) {
+                        throw new IllegalArgumentException(path + "." + key + " must be a non-empty string.");
+                    }
+                }
+                case "prefix", "suffix" -> {
+                    if (!(val instanceof String s) || s.isBlank()) {
+                        throw new IllegalArgumentException(path + "." + key + " must be a non-empty string.");
+                    }
+                }
+                case "valuePresentation", "visualization" -> {
+                    if (!(val instanceof Map<?, ?>)) {
+                        throw new IllegalArgumentException(path + "." + key + " must be an object.");
+                    }
+                }
+                case "interactions" -> {
+                    if (!(val instanceof Map<?, ?> interMap)) {
+                        throw new IllegalArgumentException(path + ".interactions must be an object.");
+                    }
+                    for (Map.Entry<?, ?> interEntry : interMap.entrySet()) {
+                        if (!(interEntry.getKey() instanceof String interKey)
+                                || !PRESENTATION_INTERACTIONS.contains(interKey)) {
+                            throw new IllegalArgumentException(path + ".interactions contains unsupported property '"
+                                    + interEntry.getKey() + "'.");
+                        }
+                        if ("quickView".equals(interKey)) {
+                            if (!(interEntry.getValue() instanceof Map<?, ?> quickViewMap)
+                                    || quickViewMap.isEmpty()) {
+                                throw new IllegalArgumentException(path + ".interactions.quickView"
+                                        + " must be a non-empty object.");
+                            }
+                        } else if (!(interEntry.getValue() instanceof Boolean)) {
+                            throw new IllegalArgumentException(path + ".interactions." + interKey
+                                    + " must be a boolean.");
+                        }
+                    }
+                }
+                default -> { }
+            }
+        }
     }
 
     private void validateConditionalValidationRules(Object parsedValue, String propertyPath) {

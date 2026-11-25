@@ -49,8 +49,74 @@ public record ResolvedVerifiedAnalyticalRecipe(
         List<String> domainTags,
         String version,
         int order,
-        String provenanceDigest
+        String provenanceDigest,
+        VerifiedAnalyticalRecipeDescriptor.KpiHint kpiHint
 ) {
+
+    public ResolvedVerifiedAnalyticalRecipe(
+            String id,
+            String title,
+            String description,
+            String intent,
+            String resourceKey,
+            String resourcePath,
+            String endpointPath,
+            AnalyticsOperation operation,
+            String field,
+            List<VerifiedAnalyticalRecipeDescriptor.DimensionSpec> dimensions,
+            List<VerifiedAnalyticalRecipeDescriptor.MetricSpec> metrics,
+            StatsBucketOrder orderBy,
+            int limit,
+            TimeSeriesGranularity granularity,
+            boolean fillGaps,
+            DistributionMode distributionMode,
+            Integer bucketCount,
+            BigDecimal bucketSize,
+            String timezone,
+            String periodField,
+            ComparisonPeriodPreset periodPreset,
+            ComparisonPeriodMode periodMode,
+            Map<String, Object> lockedFilters,
+            List<VerifiedAnalyticalRecipeDescriptor.ParameterSpec> adjustableParams,
+            AnalyticalRecipeGovernanceTier governanceTier,
+            List<String> domainTags,
+            String version,
+            int order,
+            String provenanceDigest
+    ) {
+        this(
+                id,
+                title,
+                description,
+                intent,
+                resourceKey,
+                resourcePath,
+                endpointPath,
+                operation,
+                field,
+                dimensions,
+                metrics,
+                orderBy,
+                limit,
+                granularity,
+                fillGaps,
+                distributionMode,
+                bucketCount,
+                bucketSize,
+                timezone,
+                periodField,
+                periodPreset,
+                periodMode,
+                lockedFilters,
+                adjustableParams,
+                governanceTier,
+                domainTags,
+                version,
+                order,
+                provenanceDigest,
+                null
+        );
+    }
 
     public ResolvedVerifiedAnalyticalRecipe {
         dimensions = dimensions == null ? List.of() : List.copyOf(dimensions);
@@ -180,6 +246,33 @@ public record ResolvedVerifiedAnalyticalRecipe(
         }
         payload.put("version", version);
         payload.put("provenanceDigest", provenanceDigest);
+        if (kpiHint != null) {
+            Map<String, Object> hintMap = new LinkedHashMap<>();
+            if (hasText(kpiHint.polarity())) {
+                hintMap.put("polarity", kpiHint.polarity());
+            }
+            if (hasText(kpiHint.unitSingular())) {
+                hintMap.put("unitSingular", kpiHint.unitSingular());
+            }
+            if (hasText(kpiHint.unitPlural())) {
+                hintMap.put("unitPlural", kpiHint.unitPlural());
+            }
+            if (hasText(kpiHint.suggestedDerivationKind())) {
+                hintMap.put("suggestedDerivationKind", kpiHint.suggestedDerivationKind());
+            }
+            if (hasText(kpiHint.suggestedVisualizationKind())) {
+                hintMap.put("suggestedVisualizationKind", kpiHint.suggestedVisualizationKind());
+            }
+            if (kpiHint.referenceTarget() != null) {
+                hintMap.put("referenceTarget", kpiHint.referenceTarget());
+            }
+            if (kpiHint.suggestedThresholds() != null && !kpiHint.suggestedThresholds().isEmpty()) {
+                hintMap.put("suggestedThresholds", kpiHint.suggestedThresholds());
+            }
+            if (!hintMap.isEmpty()) {
+                payload.put("kpiHint", Map.copyOf(hintMap));
+            }
+        }
         return Map.copyOf(payload);
     }
 
