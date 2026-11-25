@@ -19,6 +19,9 @@ class NumericPercentInferenceTest {
     private static class Dummy {
         @Digits(integer = 5, fraction = 2)
         String salary;
+
+        @Digits(integer = 2, fraction = 0)
+        Integer totalDays;
     }
 
     @Test
@@ -37,16 +40,29 @@ class NumericPercentInferenceTest {
     }
 
     @Test
-    void digitsShouldDefineNumericStepWhenAbsent() throws Exception {
+    void digitsShouldDefineNumericStepAndSemanticNumericFormatWhenAbsent() throws Exception {
         CustomOpenApiResolver resolver = new CustomOpenApiResolver(new ObjectMapper());
-        Schema<?> property = new Schema<>().type("number");
-        property.setName("salary");
-        Annotation digits = Dummy.class.getDeclaredField("salary").getAnnotation(Digits.class);
+        Schema<?> decimalProp = new Schema<>().type("number");
+        decimalProp.setName("salary");
+        Annotation salaryDigits = Dummy.class.getDeclaredField("salary").getAnnotation(Digits.class);
 
-        resolver.applyBeanValidatorAnnotations(property, new Annotation[]{ TestUISchemaDefaults.instance(), digits }, null, false);
+        resolver.applyBeanValidatorAnnotations(
+                decimalProp, new Annotation[]{ TestUISchemaDefaults.instance(), salaryDigits }, null, false);
 
-        Map<String,Object> xui = getXui(property);
-        assertEquals("0.01", xui.get(FieldConfigProperties.NUMERIC_STEP.getValue()));
+        Map<String, Object> decimalXui = getXui(decimalProp);
+        assertEquals("0.01", decimalXui.get(FieldConfigProperties.NUMERIC_STEP.getValue()));
+        assertEquals(NumericFormat.DECIMAL.getValue(), decimalXui.get(FieldConfigProperties.NUMERIC_FORMAT.getValue()));
+
+        Schema<?> intProp = new Schema<>().type("integer");
+        intProp.setName("totalDays");
+        Annotation totalDaysDigits = Dummy.class.getDeclaredField("totalDays").getAnnotation(Digits.class);
+
+        resolver.applyBeanValidatorAnnotations(
+                intProp, new Annotation[]{ TestUISchemaDefaults.instance(), totalDaysDigits }, null, false);
+
+        Map<String, Object> intXui = getXui(intProp);
+        assertEquals("1", intXui.get(FieldConfigProperties.NUMERIC_STEP.getValue()));
+        assertEquals(NumericFormat.INTEGER.getValue(), intXui.get(FieldConfigProperties.NUMERIC_FORMAT.getValue()));
     }
 
     @SuppressWarnings("unchecked")

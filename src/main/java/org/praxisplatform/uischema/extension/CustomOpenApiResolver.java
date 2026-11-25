@@ -982,21 +982,13 @@ public class CustomOpenApiResolver extends ModelResolver {
             Method fractionMethod = annotation.annotationType().getMethod("fraction");
             int fractionDigits = (int) fractionMethod.invoke(annotation);
 
-            // Configura formato numérico baseado nos dígitos inteiros e fracionários
+            // Configura formato numérico semântico baseado nos dígitos inteiros e fracionários
             if (!uiExtension.containsKey(FieldConfigProperties.NUMERIC_FORMAT.getValue())) {
-                StringBuilder format = new StringBuilder();
-                format.append("#");
-
-                if (integerDigits > 1) {
-                    format.append(",".repeat(integerDigits - 1));
-                }
-
-                if (fractionDigits > 0) {
-                    format.append(".");
-                    format.append("#".repeat(fractionDigits));
-                }
-
-                uiExtension.put(FieldConfigProperties.NUMERIC_FORMAT.getValue(), format.toString());
+                String numericFormat =
+                        fractionDigits > 0
+                                ? NumericFormat.DECIMAL.getValue()
+                                : NumericFormat.INTEGER.getValue();
+                uiExtension.put(FieldConfigProperties.NUMERIC_FORMAT.getValue(), numericFormat);
             }
 
             // Configura step para garantir precisão adequada (usar helper centralizado)
