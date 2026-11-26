@@ -8,6 +8,11 @@ import java.util.UUID;
 import org.praxisplatform.uischema.rest.exceptionhandler.ErrorCategory;
 import org.praxisplatform.uischema.rest.response.CustomProblemDetail;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
+import org.springframework.boot.autoconfigure.condition.SpringBootCondition;
+import org.springframework.context.annotation.ConditionContext;
+import org.springframework.context.annotation.Conditional;
+import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +35,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * {@code praxis.bulk.lifecycle.admin-endpoints.enabled=true}.
  */
 @RestController
+@Conditional(BulkPublicationAdminController.AutoConfiguredOnlyCondition.class)
 @RequestMapping("${praxis.bulk.lifecycle.admin-endpoints.base-path:/api/platform/bulk-operations/publication}")
 public class BulkPublicationAdminController {
     private static final CacheControl NO_STORE = CacheControl.noStore();
@@ -55,7 +61,7 @@ public class BulkPublicationAdminController {
                 : correlationHeader;
         BulkLifecycleAuditContext audit = BulkLifecycleAuditContext.sanitized(actor, realm, correlation);
         BulkPublicationJobSnapshot snapshot = jobService.submit(intent, audit);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+        URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{jobId}")
                 .buildAndExpand(snapshot.jobId())
                 .toUri();
@@ -197,5 +203,14 @@ public class BulkPublicationAdminController {
             String actor,
             String realm,
             String correlationId) {
+    }
+
+    static final class AutoConfiguredOnlyCondition extends SpringBootCondition {
+        @Override
+        public ConditionOutcome getMatchOutcome(
+                ConditionContext context, AnnotatedTypeMetadata metadata) {
+            return ConditionOutcome.noMatch(
+                    "BulkPublicationAdminController is opt-in and registered exclusively via BulkOperationLifecycleAutoConfiguration");
+        }
     }
 }

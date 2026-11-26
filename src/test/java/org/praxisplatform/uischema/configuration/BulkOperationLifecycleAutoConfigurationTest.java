@@ -19,6 +19,9 @@ import org.praxisplatform.uischema.openapi.OpenApiInternalRestTemplate;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
@@ -109,5 +112,58 @@ class BulkOperationLifecycleAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(BulkPublicationAdminController.class);
                     assertThat(context).doesNotHaveBean("governedOpenApiPublicationFilterRegistration");
                 });
+    }
+
+    @Test
+    void componentScanDoesNotInstantiateAdminControllerWhenLifecycleDisabled() {
+        new WebApplicationContextRunner()
+                .withUserConfiguration(HostBulkPackageScanConfiguration.class)
+                .withConfiguration(AutoConfigurations.of(BulkOperationLifecycleAutoConfiguration.class))
+                .withPropertyValues(
+                        "praxis.bulk.lifecycle.enabled=false",
+                        "praxis.bulk.lifecycle.admin-endpoints.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(BulkPublicationAdminController.class);
+                });
+    }
+
+    @Test
+    void componentScanDoesNotBypassAdminEndpointsOptInGateWhenLifecycleEnabled() {
+        contextRunner()
+                .withUserConfiguration(HostBulkPackageScanConfiguration.class)
+                .withPropertyValues("praxis.bulk.lifecycle.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(BulkPublicationJobService.class);
+                    assertThat(context).doesNotHaveBean(BulkPublicationAdminController.class);
+                });
+    }
+
+    @Test
+    void componentScanAllowsAutoConfiguredAdminControllerWhenExplicitlyEnabled() {
+        contextRunner()
+                .withUserConfiguration(HostBulkPackageScanConfiguration.class)
+                .withPropertyValues(
+                        "praxis.bulk.lifecycle.enabled=true",
+                        "praxis.bulk.lifecycle.admin-endpoints.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(BulkPublicationAdminController.class);
+                    RequestMappingHandlerMapping handlerMapping =
+                            context.getBean(RequestMappingHandlerMapping.class);
+                    assertThat(handlerMapping.getHandlerMethods().keySet())
+                            .anySatisfy(info -> assertThat(info.getPatternValues())
+                                    .contains("/api/platform/bulk-operations/publication/jobs"));
+                });
+    }
+
+    @Configuration
+    @ComponentScan(
+            basePackageClasses = BulkPublicationAdminController.class,
+            excludeFilters = @ComponentScan.Filter(
+                    type = FilterType.REGEX,
+                    pattern = "org\\.praxisplatform\\.uischema\\.bulk\\.(?:.*Test.*|p3fixture\\..*|persistence\\..*)"))
+    static class HostBulkPackageScanConfiguration {
     }
 }
