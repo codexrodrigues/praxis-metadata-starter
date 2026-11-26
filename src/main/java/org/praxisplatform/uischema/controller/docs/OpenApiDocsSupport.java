@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -22,8 +23,10 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 /**
  * Componente de suporte para resolucao e leitura de documentos OpenAPI do starter.
@@ -320,40 +323,90 @@ public class OpenApiDocsSupport {
         if (usesConfiguredInternalBaseUrl())
             throw new IllegalStateException("Local publication cannot use a configured remote OpenAPI origin");
         var attributes = RequestContextHolder.getRequestAttributes();
-        if (!(attributes instanceof ServletRequestAttributes servlet))
+        if (attributes instanceof ServletRequestAttributes servlet) {
+            var request = servlet.getRequest();
+            String containerContext = request.getServletContext().getContextPath();
+            if (!Objects.equals(containerContext, request.getContextPath()))
+                throw new IllegalStateException("Publication request context differs from the Servlet container context");
+            return containerContext;
+        }
+        if (attributes != null)
             throw new IllegalStateException("Local publication requires an active Servlet request context");
-        var request = servlet.getRequest();
-        String containerContext = request.getServletContext().getContextPath();
-        if (!java.util.Objects.equals(containerContext, request.getContextPath()))
-            throw new IllegalStateException("Publication request context differs from the Servlet container context");
-        return containerContext;
+        return runningServletWebServerContext().getServletContext().getContextPath();
     }
 
     private String resolveOpenApiBaseUrl() {
         if (StringUtils.hasText(openApiInternalBaseUrl)) {
             return openApiInternalBaseUrl.replaceAll("/+$", "");
         }
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
-        HttpServletRequest request = attributes.getRequest();
-        int localPort = request.getLocalPort() > 0 ? request.getLocalPort() : request.getServerPort();
-        if (localPort == 80
-                && isMockHttpServletRequest(request)
-                && applicationContext instanceof ServletWebServerApplicationContext webCtx
-                && webCtx.getWebServer() != null
-                && webCtx.getWebServer().getPort() > 0) {
-            localPort = webCtx.getWebServer().getPort();
+        var attributes = RequestContextHolder.getRequestAttributes();
+        if (attributes instanceof ServletRequestAttributes servlet) {
+            HttpServletRequest request = servlet.getRequest();
+            int localPort = request.getLocalPort() > 0 ? request.getLocalPort() : request.getServerPort();
+            if (localPort == 80
+                    && isMockHttpServletRequest(request)
+                    && applicationContext instanceof ServletWebServerApplicationContext webCtx
+                    && webCtx.getWebServer() != null
+                    && webCtx.getWebServer().getPort() > 0) {
+                localPort = webCtx.getWebServer().getPort();
+            }
+            return buildLocalOpenApiBaseUrl(resolveLocalHost(request), localPort, request.getContextPath());
         }
+        if (attributes != null) {
+            throw new IllegalStateException("Local OpenAPI resolution requires an active Servlet request context");
+        }
+        // Async background jobs run without RequestContextHolder; resolve the in-process embedded web server directly.
+        ServletWebServerApplicationContext webCtx = runningServletWebServerContext();
+        return buildLocalOpenApiBaseUrl(
+                resolveLoopbackHost(webCtx),
+                webCtx.getWebServer().getPort(),
+                webCtx.getServletContext().getContextPath()
+        );
+    }
+
+    private ServletWebServerApplicationContext runningServletWebServerContext() {
+        if (!(applicationContext instanceof ServletWebServerApplicationContext webCtx)) {
+            throw new IllegalStateException("Local publication requires an active Servlet request context");
+        }
+        ServletContext servletContext = webCtx.getServletContext();
+        var webServer = webCtx.getWebServer();
+        if (servletContext == null || servletContext.getContextPath() == null
+                || webServer == null || webServer.getPort() <= 0) {
+            throw new IllegalStateException("Local publication requires an active Servlet request context");
+        }
+        return webCtx;
+    }
+
+    private String buildLocalOpenApiBaseUrl(String host, int localPort, String contextPath) {
         UriComponentsBuilder builder = UriComponentsBuilder.newInstance()
                 .scheme("http")
-                .host(resolveLocalHost(request));
+                .host(host);
         if (localPort > 0 && localPort != 80) {
             builder.port(localPort);
         }
-        String contextPath = request.getContextPath();
         if (StringUtils.hasText(contextPath)) {
             builder.path(contextPath);
         }
         return builder.build().toUriString();
+    }
+
+    private String resolveLoopbackHost(ServletWebServerApplicationContext webCtx) {
+        Environment env = webCtx.getEnvironment();
+        String configuredAddress = env != null ? env.getProperty("server.address") : null;
+        if (!StringUtils.hasText(configuredAddress)) {
+            return "127.0.0.1";
+        }
+        String trimmed = configuredAddress.trim();
+        if ("0.0.0.0".equals(trimmed)
+                || "::".equals(trimmed)
+                || "[::]".equals(trimmed)
+                || "0:0:0:0:0:0:0:0".equals(trimmed)
+                || "::1".equals(trimmed)
+                || "[::1]".equals(trimmed)
+                || "0:0:0:0:0:0:0:1".equals(trimmed)) {
+            return "127.0.0.1";
+        }
+        return trimmed;
     }
 
     /** Whether this helper was configured to fetch documentation from a different URL/process. */
