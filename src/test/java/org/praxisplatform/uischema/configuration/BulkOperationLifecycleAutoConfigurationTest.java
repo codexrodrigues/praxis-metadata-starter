@@ -6,6 +6,7 @@ import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.bulk.BulkControlPlaneInfrastructure;
 import org.praxisplatform.uischema.bulk.BulkExecutionInfrastructure;
 import org.praxisplatform.uischema.bulk.BulkExecutionRoleConfiguration;
+import org.praxisplatform.uischema.bulk.BulkOperationControlIdentity;
 import org.praxisplatform.uischema.bulk.BulkOperationLifecycle;
 import org.praxisplatform.uischema.bulk.BulkPublicationAdminController;
 import org.praxisplatform.uischema.bulk.BulkPublicationJobService;
@@ -27,6 +28,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import javax.sql.DataSource;
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -155,6 +157,33 @@ class BulkOperationLifecycleAutoConfigurationTest {
                     assertThat(handlerMapping.getHandlerMethods().keySet())
                             .anySatisfy(info -> assertThat(info.getPatternValues())
                                     .contains("/api/platform/bulk-operations/publication/jobs"));
+                });
+    }
+
+    @Test
+    void autoReadyInitializerRunsOnApplicationReadyEventNotContextRefreshedEvent() {
+        var identity = new BulkOperationControlIdentity("ns", "op.bulk");
+        BulkOperationLifecycle lifecycle = mock(BulkOperationLifecycle.class,
+                org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+        org.mockito.Mockito.when(lifecycle.configuredIdentities()).thenReturn(List.of(identity));
+
+        contextRunner()
+                .withBean(BulkOperationLifecycle.class, () -> lifecycle)
+                .withPropertyValues("praxis.bulk.lifecycle.auto-ready-on-startup=true")
+                .run(context -> {
+                    assertThat(context).hasBean("praxisBulkLifecycleAutoReadyInitializer");
+                    org.mockito.Mockito.verify(lifecycle, org.mockito.Mockito.never())
+                            .ensureReadyOnStartup(org.mockito.ArgumentMatchers.any());
+
+                    var app = new org.springframework.boot.SpringApplication(Object.class);
+                    var sourceCtx = context.getSourceApplicationContext();
+                    context.publishEvent(new org.springframework.boot.context.event.ApplicationReadyEvent(
+                            app, new String[0], sourceCtx, Duration.ofMillis(1)));
+                    context.publishEvent(new org.springframework.boot.context.event.ApplicationReadyEvent(
+                            app, new String[0], sourceCtx, Duration.ofMillis(1)));
+
+                    org.mockito.Mockito.verify(lifecycle, org.mockito.Mockito.times(1))
+                            .ensureReadyOnStartup(identity);
                 });
     }
 

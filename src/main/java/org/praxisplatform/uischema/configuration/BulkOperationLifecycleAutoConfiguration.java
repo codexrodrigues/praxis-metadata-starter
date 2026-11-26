@@ -33,10 +33,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.boot.autoconfigure.security.SecurityProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.DelegatingFilterProxyRegistrationBean;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.util.List;
@@ -135,7 +135,7 @@ public class BulkOperationLifecycleAutoConfiguration {
      */
     @Bean
     @ConditionalOnProperty(name = "praxis.bulk.lifecycle.auto-ready-on-startup", havingValue = "true")
-    public ApplicationListener<ContextRefreshedEvent> praxisBulkLifecycleAutoReadyInitializer(
+    public ApplicationListener<ApplicationReadyEvent> praxisBulkLifecycleAutoReadyInitializer(
             BulkOperationLifecycle lifecycle,
             ApplicationContext applicationContext
     ) {
