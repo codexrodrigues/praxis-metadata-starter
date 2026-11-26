@@ -11,6 +11,8 @@ import org.praxisplatform.uischema.bulk.BulkExecutionInfrastructure;
 import org.praxisplatform.uischema.bulk.BulkOperationControlIdentity;
 import org.praxisplatform.uischema.bulk.BulkOperationDescriptorProvider;
 import org.praxisplatform.uischema.bulk.BulkOperationLifecycle;
+import org.praxisplatform.uischema.bulk.BulkPublicationAdminController;
+import org.praxisplatform.uischema.bulk.BulkPublicationJobService;
 import org.praxisplatform.uischema.bulk.BulkResourceOperationBindings;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
@@ -111,6 +113,20 @@ public class BulkOperationLifecycleAutoConfiguration {
         return new BulkOperationLifecycle(bindings, operations, documents, actions,
                 objectMapper, schemaReferences, runtime, controlPlane,
                 effectiveProviders, capabilities);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(BulkPublicationJobService.class)
+    public BulkPublicationJobService bulkPublicationJobService(BulkOperationLifecycle lifecycle) {
+        return new BulkPublicationJobService(lifecycle);
+    }
+
+    @Bean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    @ConditionalOnProperty(name = "praxis.bulk.lifecycle.admin-endpoints.enabled", havingValue = "true")
+    @ConditionalOnMissingBean(BulkPublicationAdminController.class)
+    public BulkPublicationAdminController bulkPublicationAdminController(BulkPublicationJobService jobService) {
+        return new BulkPublicationAdminController(jobService);
     }
 
     /**

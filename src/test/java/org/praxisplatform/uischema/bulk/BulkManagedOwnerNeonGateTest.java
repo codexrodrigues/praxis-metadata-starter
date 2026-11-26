@@ -56,7 +56,7 @@ class BulkManagedOwnerNeonGateTest {
     }
 
     private static void configuredRetentionFresh(Fixture f) throws Exception {
-        assertThat(f.migrate()).isEqualTo(20);
+        assertThat(f.migrate()).isEqualTo(21);
         f.validate();
         assertThat(f.count("select count(*) from pg_auth_members m join pg_roles r on r.oid=m.roleid "
                 + "join pg_roles member on member.oid=m.member where r.rolname='praxis_bulk_retention_executor' "
@@ -66,10 +66,10 @@ class BulkManagedOwnerNeonGateTest {
                 + "where r.rolname in ('praxis_bulk_retention_owner','praxis_bulk_control_owner','praxis_bulk_capacity_owner') "
                 + "and m.member=(select oid from pg_roles where rolname='" + f.assignment.ownerRole + "') "
                 + "and m.admin_option and not m.inherit_option and not m.set_option")).isEqualTo(3);
-        String history = f.historyPrefix(20);
+        String history = f.historyPrefix(21);
         List<String> catalogue = f.catalogueSnapshot();
         assertThat(f.migrate()).isZero();
-        assertThat(f.historyPrefix(20)).isEqualTo(history);
+        assertThat(f.historyPrefix(21)).isEqualTo(history);
         assertThat(f.catalogueSnapshot()).isEqualTo(catalogue);
         f.assertRuntimeCannotOwnDdl();
     }
@@ -85,7 +85,7 @@ class BulkManagedOwnerNeonGateTest {
         String prefix = f.historyPrefix(4);
         List<String> edge = f.retentionEdge();
         assertThat(edge).hasSize(1);
-        assertThat(f.migrate()).isEqualTo(16);
+        assertThat(f.migrate()).isEqualTo(17);
         assertThat(f.historyPrefix(4)).isEqualTo(prefix);
         f.assertRetentionExecutorAttributes();
         assertThat(f.retentionEdge()).isEqualTo(edge);
@@ -100,7 +100,7 @@ class BulkManagedOwnerNeonGateTest {
         String prefix = f.historyPrefix(19);
         assertThat(f.count("select count(*) from praxis_bulk.praxis_bulk_manifest_bootstrap where phase='PENDING'"))
                 .isEqualTo(1);
-        assertThat(f.migrate()).isEqualTo(1);
+        assertThat(f.migrate()).isEqualTo(2);
         assertThat(f.historyPrefix(19)).isEqualTo(prefix);
         f.validate();
         assertThat(f.migrate()).isZero();
@@ -169,18 +169,18 @@ class BulkManagedOwnerNeonGateTest {
                 + "where n.nspname='praxis_bulk' and a.grantee='" + f.runtimeRole + "'::regrole")).isZero();
         assertThat(f.count("select count(*) from praxis_bulk.praxis_bulk_manifest_bootstrap where phase='PENDING'"))
                 .isEqualTo(1);
-        assertThat(f.migrate()).isEqualTo(1);
+        assertThat(f.migrate()).isEqualTo(2);
         f.validate();
     }
 
     private static void completeRevokedDenied(Fixture f) throws Exception {
-        assertThat(f.migrate()).isEqualTo(20);
+        assertThat(f.migrate()).isEqualTo(21);
         f.validate();
         f.execute("revoke usage on schema praxis_bulk from " + f.runtimeRole);
-        String history = f.historyPrefix(20);
+        String history = f.historyPrefix(21);
         assertThatThrownBy(f::migrate).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("bulk retention schema grants differ");
-        assertThat(f.historyPrefix(20)).isEqualTo(history);
+        assertThat(f.historyPrefix(21)).isEqualTo(history);
         assertThat(f.count("select count(*) from pg_namespace n cross join lateral aclexplode(n.nspacl) a "
                 + "where n.nspname='praxis_bulk' and a.grantee='" + f.runtimeRole + "'::regrole")).isZero();
     }
@@ -188,7 +188,7 @@ class BulkManagedOwnerNeonGateTest {
     private static void originalFourUpgrade(Fixture f) throws Exception {
         f.originalFour();
         String prefix = f.historyPrefix(4);
-        assertThat(f.migrate()).isEqualTo(16);
+        assertThat(f.migrate()).isEqualTo(17);
         assertThat(f.historyPrefix(4)).isEqualTo(prefix);
         f.validate();
         assertThat(f.migrate()).isZero();
@@ -197,7 +197,7 @@ class BulkManagedOwnerNeonGateTest {
     private static void managedTwelveUpgrade(Fixture f) throws Exception {
         f.ddlTarget(12);
         String prefix = f.historyPrefix(12);
-        assertThat(f.migrate()).isEqualTo(8);
+        assertThat(f.migrate()).isEqualTo(9);
         assertThat(f.historyPrefix(12)).isEqualTo(prefix);
         f.validate();
         assertThat(f.migrate()).isZero();

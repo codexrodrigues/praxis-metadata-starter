@@ -346,10 +346,10 @@ final class BulkCapacityOccupancyPostgresFixture implements AutoCloseable {
             issuer = scope.issuer;
             ownerSource = source("postgres", localDatabase);
             if (scope.neon == null) {
-                assertThat(BulkPostgresTestSupport.migrate(ownerSource, this.namespaceDeployments)).isEqualTo(20);
+                assertThat(BulkPostgresTestSupport.migrate(ownerSource, this.namespaceDeployments)).isEqualTo(21);
             } else {
                 if (!scope.reusesFirstDomain(localDatabase))
-                    assertThat(BulkExecutionMigrator.migrate(ownerSource, this.namespaceDeployments, scope.roles())).isEqualTo(20);
+                    assertThat(BulkExecutionMigrator.migrate(ownerSource, this.namespaceDeployments, scope.roles())).isEqualTo(21);
                 BulkExecutionMigrator.validate(ownerSource, scope.roles());
             }
             runtimeSource = source("bulk_runtime_test", localDatabase);

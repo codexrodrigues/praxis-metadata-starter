@@ -119,6 +119,10 @@ final class BulkPostgresTestSupport {
             admin.execute("grant execute on function praxis_bulk.atomic_evidence_complete(uuid,integer) to "
                     + runtimeRole);
         }
+        if (Boolean.TRUE.equals(admin.queryForObject(
+                "select to_regprocedure('praxis_bulk.read_lifecycle_audit(text,integer)') is not null", Boolean.class))) {
+            admin.execute("grant execute on function praxis_bulk.read_lifecycle_audit(text,integer) to " + runtimeRole);
+        }
         return new BulkExecutionRoleConfiguration("postgres", Set.of(runtimeRole), Set.of(), Set.of());
     }
 
@@ -137,6 +141,16 @@ final class BulkPostgresTestSupport {
         if (Boolean.TRUE.equals(admin.queryForObject(
                 "select to_regprocedure('praxis_bulk.transition_openapi_publication(text,text,bigint,text,text)') is not null", Boolean.class))) {
             admin.execute("grant execute on function praxis_bulk.transition_openapi_publication(text,text,bigint,text,text) to "
+                    + controlRole);
+        }
+        if (Boolean.TRUE.equals(admin.queryForObject(
+                "select to_regprocedure('praxis_bulk.suspend_operation_and_publication(text,text,text,bigint,bigint)') is not null", Boolean.class))) {
+            admin.execute("grant execute on function praxis_bulk.suspend_operation_and_publication(text,text,text,bigint,bigint) to "
+                    + controlRole);
+        }
+        if (Boolean.TRUE.equals(admin.queryForObject(
+                "select to_regprocedure('praxis_bulk.record_lifecycle_audit(uuid,text,text,text,text,text,text,bigint,bigint,text,text)') is not null", Boolean.class))) {
+            admin.execute("grant execute on function praxis_bulk.record_lifecycle_audit(uuid,text,text,text,text,text,text,bigint,bigint,text,text) to "
                     + controlRole);
         }
     }

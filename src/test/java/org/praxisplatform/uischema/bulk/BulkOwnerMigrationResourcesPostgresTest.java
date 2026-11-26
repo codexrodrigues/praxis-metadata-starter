@@ -49,7 +49,7 @@ class BulkOwnerMigrationResourcesPostgresTest {
                         .table("praxis_bulk_schema_history").createSchemas(true)
                         .baselineOnMigrate(false).cleanDisabled(true).validateOnMigrate(true)
                         .load().migrate().migrationsExecuted;
-                assertThat(migrated).isEqualTo(20);
+                assertThat(migrated).isEqualTo(21);
                 proof.assertHistoryAndBootstrap("PENDING");
                 proof.assertionsComplete = true;
             } catch (Exception | AssertionError failure) {
@@ -68,7 +68,7 @@ class BulkOwnerMigrationResourcesPostgresTest {
                 var roles = BulkExecutionRoleConfiguration.none("postgres");
                 int migrated = BulkExecutionMigrator.migrate(proof.pool,
                         Map.of("tenant:prod:owner-resources", "deployment-owner-resources"), roles);
-                assertThat(migrated).isEqualTo(20);
+                assertThat(migrated).isEqualTo(21);
                 proof.assertHistoryAndBootstrap("COMPLETE");
                 BulkExecutionMigrator.validate(proof.pool, roles);
                 proof.assertionsComplete = true;
@@ -174,7 +174,7 @@ class BulkOwnerMigrationResourcesPostgresTest {
                             .schemas("praxis_bulk").defaultSchema("praxis_bulk")
                             .table("praxis_bulk_schema_history").createSchemas(true)
                             .baselineOnMigrate(false).cleanDisabled(true).validateOnMigrate(true).load();
-                    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(20);
+                    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(21);
                     retry.assertHistoryAndBootstrap("PENDING");
                     // Bare Flyway certifies DDL/checksums, not the public serving bootstrap.
                     flyway.validate();
@@ -216,7 +216,7 @@ class BulkOwnerMigrationResourcesPostgresTest {
                 retry.unfinishedOutcome = "RETRY_POSITIVE_FAILED";
                 retry.cleanupEvidence = closed;
                 try {
-                    assertThat(BulkExecutionMigrator.migrate(retry.pool, deployment, roles)).isEqualTo(20);
+                    assertThat(BulkExecutionMigrator.migrate(retry.pool, deployment, roles)).isEqualTo(21);
                     retry.assertHistoryAndBootstrap("COMPLETE");
                     BulkExecutionMigrator.validate(retry.pool, roles);
                     retry.assertionsComplete = true;
@@ -301,7 +301,7 @@ class BulkOwnerMigrationResourcesPostgresTest {
                     edge.set("nativeAfterRollback", returned);
                     assertThat(returned).isEqualTo(before);
                     holder.rollback();
-                    assertThat(BulkExecutionMigrator.migrate(proof.pool, deployment, roles)).isEqualTo(20);
+                    assertThat(BulkExecutionMigrator.migrate(proof.pool, deployment, roles)).isEqualTo(21);
                     proof.assertHistoryAndBootstrap("COMPLETE");
                     BulkExecutionMigrator.validate(proof.pool, roles);
                     var afterRetry = poolNativeTimeouts(proof.pool);
@@ -437,10 +437,10 @@ class BulkOwnerMigrationResourcesPostgresTest {
                         assertThat(failed).hasSize(1);
                         proof.failure = failed.getFirst().failure();
                         assertTypedEventAcquisitionFailure(proof.failure);
-                        assertThat(applied).containsExactly(20);
+                        assertThat(applied).containsExactly(21);
                     } else {
                         assertThat(failed).isEmpty();
-                        assertThat(applied).containsExactlyInAnyOrder(20, 0);
+                        assertThat(applied).containsExactlyInAnyOrder(21, 0);
                     }
                     proof.assertHistoryAndBootstrap("COMPLETE");
                     assertSharedOwnerPoolReleased(proof);
@@ -778,8 +778,8 @@ class BulkOwnerMigrationResourcesPostgresTest {
             stopSampler();
             assertThat(samplingFailures).isEmpty();
             var phase = committedPhase();
-            assertThat(phase.get("historyRows").asInt()).isEqualTo(20);
-            assertThat(phase.get("latestVersion").asInt()).isEqualTo(20);
+            assertThat(phase.get("historyRows").asInt()).isEqualTo(21);
+            assertThat(phase.get("latestVersion").asInt()).isEqualTo(21);
             assertThat(phase.get("readBootstrap").asText()).isEqualTo(expectedPhase);
             assertThat(phase.get("occupancyBootstrap").asText()).isEqualTo(expectedPhase);
             assertThat(maxTotal.get()).isLessThanOrEqualTo(capacity);

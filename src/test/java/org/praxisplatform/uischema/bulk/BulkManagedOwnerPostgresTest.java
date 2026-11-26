@@ -22,7 +22,7 @@ class BulkManagedOwnerPostgresTest {
 
     @Test void freshManagedOwnerCreatesRolesAndCompletesExactBootstrapThenRepeatsZero() throws Exception {
         try (var fixture = new Fixture()) {
-            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(20);
+            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(21);
             BulkExecutionMigrator.validate(fixture.owner, fixture.roles);
             assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isZero();
             assertThat(fixture.count("select count(*) from pg_auth_members m join pg_roles r on r.oid=m.roleid "
@@ -36,7 +36,7 @@ class BulkManagedOwnerPostgresTest {
         try (var fixture = new Fixture()) {
             fixture.originalFour();
             String before = fixture.historyPrefix(4);
-            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(16);
+            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(17);
             assertThat(fixture.historyPrefix(4)).isEqualTo(before);
             BulkExecutionMigrator.validate(fixture.owner, fixture.roles);
         }
@@ -46,7 +46,7 @@ class BulkManagedOwnerPostgresTest {
         try (var fixture = new Fixture()) {
             fixture.ddlNineteen();
             String before = fixture.historyPrefix(19);
-            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(1);
+            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(2);
             assertThat(fixture.historyPrefix(19)).isEqualTo(before);
             BulkExecutionMigrator.validate(fixture.owner, fixture.roles);
         }
@@ -72,10 +72,10 @@ class BulkManagedOwnerPostgresTest {
         try (var fixture = new Fixture()) {
             BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles);
             fixture.execute("revoke usage on schema praxis_bulk from " + RUNTIME);
-            String history = fixture.historyPrefix(20);
+            String history = fixture.historyPrefix(21);
             assertThatThrownBy(() -> BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles))
                     .isInstanceOf(IllegalStateException.class);
-            assertThat(fixture.historyPrefix(20)).isEqualTo(history);
+            assertThat(fixture.historyPrefix(21)).isEqualTo(history);
             assertThat(fixture.count("select count(*) from pg_namespace n cross join lateral aclexplode(n.nspacl) a "
                     + "where n.nspname='praxis_bulk' and a.grantee=(select oid from pg_roles where rolname='" + RUNTIME + "')")).isZero();
         }
@@ -109,7 +109,7 @@ class BulkManagedOwnerPostgresTest {
                     + "where n.nspname='praxis_bulk' and a.grantee=(select oid from pg_roles where rolname='" + RUNTIME + "')")).isZero();
             assertThat(fixture.count("select count(*) from praxis_bulk.praxis_bulk_manifest_bootstrap where phase='PENDING'"))
                     .isEqualTo(1);
-            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(1);
+            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(2);
         }
     }
 
@@ -178,7 +178,7 @@ class BulkManagedOwnerPostgresTest {
         try (var fixture = new Fixture()) {
             fixture.ddlTarget(12);
             String history = fixture.historyPrefix(12);
-            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(8);
+            assertThat(BulkExecutionMigrator.migrate(fixture.owner, BINDING, fixture.roles)).isEqualTo(9);
             assertThat(fixture.historyPrefix(12)).isEqualTo(history);
             BulkExecutionMigrator.validate(fixture.owner, fixture.roles);
         }

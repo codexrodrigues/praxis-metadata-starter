@@ -9,8 +9,9 @@ class BulkMigrationLineageTest {
     @Test void freshResolutionExposesOneOrderedCanonicalResourcePerVersion() {
         var selected = BulkMigrationLineage.resolve(List.of());
         assertThat(selected.appliedVersion()).isZero();
-        assertThat(selected.getResources("V", new String[] {".sql"})).hasSize(20);
+        assertThat(selected.getResources("V", new String[] {".sql"})).hasSize(21);
         assertThat(selected.getResource("V5__bulk_governed_lifecycle.sql")).isNotNull();
+        assertThat(selected.getResource("V21__bulk_lifecycle_audit.sql")).isNotNull();
         assertThat(selected.getResource("V999__unknown.sql")).isNull();
         assertThat(selected.getResources("R", new String[] {".sql"})).isEmpty();
     }

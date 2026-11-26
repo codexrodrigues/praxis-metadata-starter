@@ -61,7 +61,7 @@ class BulkPreviewPageReaderPostgresTest {
 
     @BeforeEach void reset() {
         sql.execute("drop schema if exists praxis_bulk cascade");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(20);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(21);
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
 
@@ -225,7 +225,7 @@ class BulkPreviewPageReaderPostgresTest {
                 .target("2").load().migrate();
         var value = evaluation(proposal());
         BulkPostgresTestSupport.insertLegacyInput(sql, value);
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(18);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(19);
         assertThat(page(value.proposal().id(), -1, 1, 10).kind())
                 .isEqualTo(BulkPreviewPageReader.Kind.UNAVAILABLE_LEGACY);
     }
@@ -342,12 +342,12 @@ class BulkPreviewPageReaderPostgresTest {
         assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank"))
                 .isEqualTo(history);
         assertThat(BulkExecutionMigrator.migrate(owner, deployments,
-                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(1);
+                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(2);
         BulkExecutionMigrator.validate(owner, BulkPostgresTestSupport.testRoleConfiguration());
         var completeData = readerRecoveryData();
         var completeCatalog = readerRecoveryCatalog();
         var completeHistory = sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
-        assertReaderMigrationHistory(completeHistory, 20);
+        assertReaderMigrationHistory(completeHistory, 21);
         assertThat(readerBootstrapPhases()).containsOnly("COMPLETE").hasSize(7);
         assertThat(BulkExecutionMigrator.migrate(owner, deployments,
                 BulkPostgresTestSupport.testRoleConfiguration())).isZero();

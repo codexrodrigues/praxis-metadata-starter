@@ -38,7 +38,7 @@ class JdbcBulkProposalStorePostgresTest {
     @AfterAll void stop() throws Exception { if (postgres != null) postgres.close(); }
     @BeforeEach void reset() { sql.execute("drop schema if exists praxis_bulk cascade"); }
     void migrate() {
-        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(20);
+        assertThat(BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId())).isEqualTo(21);
         BulkPostgresTestSupport.ready(dataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count() { return sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_proposal", Integer.class); }
@@ -80,7 +80,7 @@ class JdbcBulkProposalStorePostgresTest {
                         java.util.Map.of(CONTEXT.namespaceId(), BulkPostgresTestSupport.DEPLOYMENT_ID));
             };
             var first = executor.submit(task); var second = executor.submit(task);
-            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(20);
+            assertThat(first.get(30, TimeUnit.SECONDS)+second.get(30, TimeUnit.SECONDS)).isEqualTo(21);
         }
         BulkPostgresTestSupport.migrate(dataSource, CONTEXT.namespaceId());
         BulkExecutionMigrator.validate(dataSource, BulkPostgresTestSupport.testRoleConfiguration());
@@ -300,6 +300,7 @@ class JdbcBulkProposalStorePostgresTest {
                 + "praxis_bulk.praxis_bulk_capacity_slot, praxis_bulk.praxis_bulk_capacity_occupation to bulk_runtime");
         sql.execute("grant execute on function praxis_bulk.lock_capacity_marker(), "
                 + "praxis_bulk.claim_capacity_execution(uuid,text,text,uuid,bigint) to bulk_runtime");
+        sql.execute("grant execute on function praxis_bulk.read_lifecycle_audit(text,integer) to bulk_runtime");
         var roles = new BulkExecutionRoleConfiguration("postgres",
                 java.util.Set.of("bulk_runtime_test", "durable_runtime", "bulk_runtime"), java.util.Set.of(), java.util.Set.of());
         BulkExecutionMigrator.validate(dataSource, roles);

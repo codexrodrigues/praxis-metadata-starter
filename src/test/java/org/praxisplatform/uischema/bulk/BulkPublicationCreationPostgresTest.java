@@ -159,9 +159,9 @@ class BulkPublicationCreationPostgresTest {
             var second = executor.submit(() -> { assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
                 return BulkExecutionMigrator.migrate(source, BINDING); });
             start.countDown();
-            assertThat(first.get(60, TimeUnit.SECONDS) + second.get(60, TimeUnit.SECONDS)).isEqualTo(20);
+            assertThat(first.get(60, TimeUnit.SECONDS) + second.get(60, TimeUnit.SECONDS)).isEqualTo(21);
             var sql = new JdbcTemplate(source);
-            assertThat(version(sql)).isEqualTo(20);
+            assertThat(version(sql)).isEqualTo(21);
             assertDenyOnlyIdentity(sql);
             BulkExecutionMigrator.validate(source, BulkExecutionRoleConfiguration.none("postgres"));
         }
