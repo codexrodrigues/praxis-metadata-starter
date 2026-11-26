@@ -115,17 +115,26 @@ public final class BulkPublicationJobService implements DisposableBean {
             MutableJobState state) {
         state.markRunning();
         BulkBatchProgressListener listener = state::updateProgress;
+        BulkNamespaceBatchResult result = null;
+        Throwable failure = null;
         try {
-            BulkNamespaceBatchResult result = switch (intent) {
+            result = switch (intent) {
                 case PUBLISH_ALL -> lifecycle.publishAll(namespace, audit, listener);
                 case RECONCILE_ALL -> lifecycle.reconcileAll(namespace, audit, listener);
             };
-            state.markCompleted(result);
-        } catch (Throwable failure) {
-            state.markFailed(classifyErrorCode(failure), sanitizeErrorMessage(failure));
+        } catch (Throwable ex) {
+            failure = ex;
         } finally {
             activeJobsByNamespace.remove(namespace, jobId);
-            recordCompletedHistory(jobId);
+            try {
+                if (failure != null) {
+                    state.markFailed(classifyErrorCode(failure), sanitizeErrorMessage(failure));
+                } else {
+                    state.markCompleted(result);
+                }
+            } finally {
+                recordCompletedHistory(jobId);
+            }
         }
     }
 
