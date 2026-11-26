@@ -8,12 +8,20 @@ import io.swagger.v3.oas.models.media.StringSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.CalculationMemory;
 import org.praxisplatform.uischema.annotation.CalculationTrail;
 import org.praxisplatform.uischema.annotation.MicroVisualization;
 import org.praxisplatform.uischema.annotation.MicroVisualizationKind;
 import org.praxisplatform.uischema.annotation.Threshold;
+import org.praxisplatform.uischema.annotation.UiSurface;
+import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.praxisplatform.uischema.extension.annotation.UISchema;
+import org.praxisplatform.uischema.filter.dto.GenericFilterDTO;
+import org.praxisplatform.uischema.id.CompositeResourceId;
+import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
+import org.praxisplatform.uischema.surface.SurfaceKind;
+import org.praxisplatform.uischema.surface.SurfaceScope;
 import org.springframework.mock.env.MockEnvironment;
 
 import java.util.*;
@@ -477,5 +485,166 @@ class PraxisExpressionStaticValidatorTest {
                 name = "presentationRules",
                 value = "[{\"when\":{\"==\":[{\"var\":\"situacaoInexistente\"},\"AFASTADO\"]},\"set\":{\"tone\":\"neutral\"}}]"))
         public Integer jornadaSemanal;
+    }
+
+    @Test
+    @DisplayName("Validates @UiSurface relatedChildParentField compatibility with CompositeResourceId and FilterDTO")
+    void testValidateControllerSurfacesCompatibility() {
+        List<String> incompatibleErrors = validator.validateControllerSurfaces(
+                List.of(IncompatibleCompositeParentController.class, ChildTargetController.class));
+        assertFalse(incompatibleErrors.isEmpty());
+        assertTrue(incompatibleErrors.stream().anyMatch(err ->
+                err.contains("CompositeKey") && err.contains("numericParentRef")));
+
+        List<String> validStringErrors = validator.validateControllerSurfaces(
+                List.of(ValidCompositeToStringParentController.class, ChildTargetController.class));
+        assertTrue(validStringErrors.isEmpty(), () -> "Expected no errors but got: " + validStringErrors);
+
+        List<String> validSameCompositeErrors = validator.validateControllerSurfaces(
+                List.of(ValidCompositeToCompositeParentController.class, ChildTargetController.class));
+        assertTrue(validSameCompositeErrors.isEmpty(), () -> "Expected no errors but got: " + validSameCompositeErrors);
+
+        List<String> validScalarSelectionErrors = validator.validateControllerSurfaces(
+                List.of(ValidScalarSelectionParentController.class, ChildTargetController.class));
+        assertTrue(validScalarSelectionErrors.isEmpty(), () -> "Expected no errors but got: " + validScalarSelectionErrors);
+
+        List<String> missingChildFieldErrors = validator.validateControllerSurfaces(
+                List.of(MissingChildFilterFieldParentController.class, ChildTargetController.class));
+        assertFalse(missingChildFieldErrors.isEmpty());
+        assertTrue(missingChildFieldErrors.stream().anyMatch(err -> err.contains("campoFantasma")));
+
+        List<String> missingSelectionErrors = validator.validateControllerSurfaces(
+                List.of(MissingSelectionKeyParentController.class, ChildTargetController.class));
+        assertFalse(missingSelectionErrors.isEmpty());
+        assertTrue(missingSelectionErrors.stream().anyMatch(err -> err.contains("selectionInexistente")));
+
+        List<String> scalarToCompositeErrors = validator.validateControllerSurfaces(
+                List.of(ScalarToCompositeChildParentController.class, ChildTargetController.class));
+        assertFalse(scalarToCompositeErrors.isEmpty());
+        assertTrue(scalarToCompositeErrors.stream().anyMatch(err -> err.contains("compositeParentRef")));
+
+        List<String> strictMissingChild = validator.validateControllerSurfaces(
+                List.of(UnknownChildParentController.class), true);
+        assertFalse(strictMissingChild.isEmpty());
+
+        List<String> nonStrictMissingChild = validator.validateControllerSurfaces(
+                List.of(UnknownChildParentController.class), false);
+        assertTrue(nonStrictMissingChild.isEmpty());
+    }
+
+    public record CompositeKey(Long orgId, Integer seq) implements CompositeResourceId {}
+
+    public static class ParentSurfaceDTO {
+        public CompositeKey id;
+        public Long numfunc;
+    }
+
+    public static class ChildSurfaceDTO {
+        public Long id;
+    }
+
+    public static class ChildSurfaceFilterDTO implements GenericFilterDTO {
+        public String compositeParentWire;
+        public CompositeKey compositeParentRef;
+        public Long numericParentRef;
+    }
+
+    @ApiResource(value = "/api/test/child-targets", resourceKey = "test.child-targets")
+    public static class ChildTargetController
+            extends AbstractResourceQueryController<ChildSurfaceDTO, Long, ChildSurfaceFilterDTO> {
+        @Override protected BaseResourceQueryService<ChildSurfaceDTO, Long, ChildSurfaceFilterDTO> getService() { return null; }
+        @Override protected Long getResponseId(ChildSurfaceDTO dto) { return dto.id; }
+    }
+
+    @ApiResource(value = "/api/test/parent-incompatible", resourceKey = "test.parent-incompatible")
+    public static class IncompatibleCompositeParentController
+            extends AbstractResourceQueryController<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> {
+        @Override protected BaseResourceQueryService<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> getService() { return null; }
+        @Override protected CompositeKey getResponseId(ParentSurfaceDTO dto) { return dto.id; }
+
+        @UiSurface(id = "bad-numeric", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM, title = "Bad",
+                relatedChildResourceKey = "test.child-targets", relatedChildParentField = "numericParentRef")
+        public void badSurface() {}
+    }
+
+    @ApiResource(value = "/api/test/parent-valid-string", resourceKey = "test.parent-valid-string")
+    public static class ValidCompositeToStringParentController
+            extends AbstractResourceQueryController<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> {
+        @Override protected BaseResourceQueryService<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> getService() { return null; }
+        @Override protected CompositeKey getResponseId(ParentSurfaceDTO dto) { return dto.id; }
+
+        @UiSurface(id = "good-wire", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM, title = "Good Wire",
+                relatedChildResourcePath = "/api/test/child-targets", relatedChildParentField = "compositeParentWire")
+        public void goodWireSurface() {}
+    }
+
+    @ApiResource(value = "/api/test/parent-valid-composite", resourceKey = "test.parent-valid-composite")
+    public static class ValidCompositeToCompositeParentController
+            extends AbstractResourceQueryController<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> {
+        @Override protected BaseResourceQueryService<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> getService() { return null; }
+        @Override protected CompositeKey getResponseId(ParentSurfaceDTO dto) { return dto.id; }
+
+        @UiSurface(id = "good-composite", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM, title = "Good Composite",
+                relatedChildResourceKey = "test.child-targets", relatedChildParentField = "compositeParentRef")
+        public void goodCompositeSurface() {}
+    }
+
+    @ApiResource(value = "/api/test/parent-valid-scalar-sel", resourceKey = "test.parent-valid-scalar-sel")
+    public static class ValidScalarSelectionParentController
+            extends AbstractResourceQueryController<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> {
+        @Override protected BaseResourceQueryService<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> getService() { return null; }
+        @Override protected CompositeKey getResponseId(ParentSurfaceDTO dto) { return dto.id; }
+
+        @UiSurface(id = "good-scalar-sel", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM, title = "Good Scalar Sel",
+                relatedChildResourceKey = "test.child-targets",
+                relatedSelectionKeyField = "numfunc",
+                relatedChildParentField = "numericParentRef")
+        public void goodScalarSelectionSurface() {}
+    }
+
+    @ApiResource(value = "/api/test/parent-missing-child-field", resourceKey = "test.parent-missing-child-field")
+    public static class MissingChildFilterFieldParentController
+            extends AbstractResourceQueryController<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> {
+        @Override protected BaseResourceQueryService<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> getService() { return null; }
+        @Override protected CompositeKey getResponseId(ParentSurfaceDTO dto) { return dto.id; }
+
+        @UiSurface(id = "missing-field", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM, title = "Missing Field",
+                relatedChildResourceKey = "test.child-targets", relatedChildParentField = "campoFantasma")
+        public void missingChildFieldSurface() {}
+    }
+
+    @ApiResource(value = "/api/test/parent-missing-sel", resourceKey = "test.parent-missing-sel")
+    public static class MissingSelectionKeyParentController
+            extends AbstractResourceQueryController<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> {
+        @Override protected BaseResourceQueryService<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> getService() { return null; }
+        @Override protected CompositeKey getResponseId(ParentSurfaceDTO dto) { return dto.id; }
+
+        @UiSurface(id = "missing-sel", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM, title = "Missing Sel",
+                relatedChildResourceKey = "test.child-targets",
+                relatedSelectionKeyField = "selectionInexistente",
+                relatedChildParentField = "numericParentRef")
+        public void missingSelectionKeySurface() {}
+    }
+
+    @ApiResource(value = "/api/test/parent-scalar-to-composite", resourceKey = "test.parent-scalar-to-composite")
+    public static class ScalarToCompositeChildParentController
+            extends AbstractResourceQueryController<ChildSurfaceDTO, Long, ChildSurfaceFilterDTO> {
+        @Override protected BaseResourceQueryService<ChildSurfaceDTO, Long, ChildSurfaceFilterDTO> getService() { return null; }
+        @Override protected Long getResponseId(ChildSurfaceDTO dto) { return dto.id; }
+
+        @UiSurface(id = "scalar-to-composite", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM, title = "Scalar to Composite",
+                relatedChildResourceKey = "test.child-targets", relatedChildParentField = "compositeParentRef")
+        public void scalarToCompositeSurface() {}
+    }
+
+    @ApiResource(value = "/api/test/parent-unknown-child", resourceKey = "test.parent-unknown-child")
+    public static class UnknownChildParentController
+            extends AbstractResourceQueryController<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> {
+        @Override protected BaseResourceQueryService<ParentSurfaceDTO, CompositeKey, ChildSurfaceFilterDTO> getService() { return null; }
+        @Override protected CompositeKey getResponseId(ParentSurfaceDTO dto) { return dto.id; }
+
+        @UiSurface(id = "unknown-child", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM, title = "Unknown Child",
+                relatedChildResourceKey = "test.non-existent", relatedChildParentField = "compositeParentWire")
+        public void unknownChildSurface() {}
     }
 }
