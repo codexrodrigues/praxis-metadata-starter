@@ -714,3 +714,12 @@ Between `cd7a876694` (`v8.0.0-rc.198`) and `13683d9284`, `main` integrated 20 co
 4. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
    - Inventoried all 17 new files (`9` `no_db`, `1` `support`, `5` `metadata_h2`, `2` `bulk_embedded_pg`), refreshed committed-blob `sha256` digests on all 58 modified test sources, and recomputed `reviewedScopeDigest` (and `dependencyDigest` where applicable) on affected `impactReview` and `historical_reuse` closures, preserving all raw reuse artifacts and prior B–H / resource-contract obligations.
 
+## 2026-11-26 reconciliation: v8.0.0-rc.200 (PR #325 async OpenAPI local ServletWebServer context + release governance)
+
+Following `0ab57d9e4f` (`v8.0.0-rc.199`), PR [#325](https://github.com/codexrodrigues/praxis-metadata-starter/pull/325) (`e0443c3fc1`) updated `OpenApiDocsSupport.java` and `OpenApiDocsSupportTest.java` so local async publication threads without `RequestContextHolder` resolve the in-process `ServletWebServerApplicationContext` loopback URL and context path. Zero database, SQL, bulk-schema, or resource-contract changes were introduced.
+
+1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Updated the committed-blob `sha256` digest of `src/test/java/org/praxisplatform/uischema/controller/docs/OpenApiDocsSupportTest.java` (`no_db`) at `e0443c3fc1` and recomputed `reviewedScopeDigest` on the `36` `impactReview` closures referencing `OpenApiDocsSupport.java`, leaving all `historical_reuse` closures, raw artifacts, and prior B–H / resource-contract obligations unchanged.
+2. **Inter-agent release governance (`AGENTS.md`):**
+   - Documented mandatory consultation of `RELEASING.md`, causal `neon-test-inventory.json` reconciliation, pre-tag Neon release secret provisioning, and coordinate immutability rules so `v8.0.0-rc.200` cleanly supersedes `v8.0.0-rc.199`.
+
