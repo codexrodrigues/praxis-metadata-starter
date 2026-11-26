@@ -723,3 +723,11 @@ Following `0ab57d9e4f` (`v8.0.0-rc.199`), PR [#325](https://github.com/codexrodr
 2. **Inter-agent release governance (`AGENTS.md`):**
    - Documented mandatory consultation of `RELEASING.md`, causal `neon-test-inventory.json` reconciliation, pre-tag Neon release secret provisioning, and coordinate immutability rules so `v8.0.0-rc.200` cleanly supersedes `v8.0.0-rc.199`.
 
+## 2026-11-26 reconciliation: post-v8.0.0-rc.200 hardening (future `v8.0.0-rc.201`: `BulkPublicationAdminController` `Principal`/error hardening & `ApplicationReadyEvent` startup listener)
+
+Following `b5358dce93` (`v8.0.0-rc.200`), `BulkPublicationAdminController.java`, `BulkOperationLifecycleAutoConfiguration.java`, `BulkNamespaceBatchAndAsyncPublicationTest.java`, and `BulkOperationLifecycleAutoConfigurationTest.java` were hardened on `fix/bulk-admin-principal-and-ready-event` so opt-in admin job submission derives `actor` strictly from `Principal`, `@ExceptionHandler` responses omit raw internal exception text, and `praxisBulkLifecycleAutoReadyInitializer` listens to `ApplicationReadyEvent` (after web-server port binding). Zero database, SQL, Flyway migration, bulk-storage permission, or resource-contract changes were introduced.
+
+1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Refreshed committed-blob `sha256` digests on `BulkNamespaceBatchAndAsyncPublicationTest.java` (`excluded_outside_impact` / `bulk_embedded_pg`) and `BulkOperationLifecycleAutoConfigurationTest.java` (`no_db`), and recomputed `reviewedScopeDigest` on affected `impactReview` and `historical_reuse` closures encompassing `uischema/bulk/` / `uischema/`, preserving all `rawArtifactSha256`, `dependencyDigest`, and B–H / resource-contract obligations unchanged.
+
+
