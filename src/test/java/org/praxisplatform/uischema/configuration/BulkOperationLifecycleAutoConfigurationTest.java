@@ -7,6 +7,8 @@ import org.praxisplatform.uischema.bulk.BulkControlPlaneInfrastructure;
 import org.praxisplatform.uischema.bulk.BulkExecutionInfrastructure;
 import org.praxisplatform.uischema.bulk.BulkExecutionRoleConfiguration;
 import org.praxisplatform.uischema.bulk.BulkOperationLifecycle;
+import org.praxisplatform.uischema.bulk.BulkPublicationAdminController;
+import org.praxisplatform.uischema.bulk.BulkPublicationJobService;
 import org.praxisplatform.uischema.bulk.BulkResourceOperationBindings;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
@@ -65,6 +67,8 @@ class BulkOperationLifecycleAutoConfigurationTest {
         contextRunner().run(context -> {
             assertThat(context).hasSingleBean(BulkOperationLifecycleAutoConfiguration.class);
             assertThat(context).hasSingleBean(BulkOperationLifecycle.class);
+            assertThat(context).hasSingleBean(BulkPublicationJobService.class);
+            assertThat(context).doesNotHaveBean(BulkPublicationAdminController.class);
             assertThat(context).hasBean("governedOpenApiPublicationFilterRegistration");
         });
     }
@@ -75,17 +79,34 @@ class BulkOperationLifecycleAutoConfigurationTest {
                 .withPropertyValues("praxis.bulk.lifecycle.enabled=true")
                 .run(context -> {
                     assertThat(context).hasSingleBean(BulkOperationLifecycle.class);
+                    assertThat(context).hasSingleBean(BulkPublicationJobService.class);
+                    assertThat(context).doesNotHaveBean(BulkPublicationAdminController.class);
                     assertThat(context).hasBean("governedOpenApiPublicationFilterRegistration");
+                });
+    }
+
+    @Test
+    void registersAdminControllerOnlyWhenExplicitlyEnabled() {
+        contextRunner()
+                .withPropertyValues("praxis.bulk.lifecycle.admin-endpoints.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(BulkOperationLifecycle.class);
+                    assertThat(context).hasSingleBean(BulkPublicationJobService.class);
+                    assertThat(context).hasSingleBean(BulkPublicationAdminController.class);
                 });
     }
 
     @Test
     void skipsLifecycleAndFilterWhenDeclarativelyDisabled() {
         contextRunner()
-                .withPropertyValues("praxis.bulk.lifecycle.enabled=false")
+                .withPropertyValues(
+                        "praxis.bulk.lifecycle.enabled=false",
+                        "praxis.bulk.lifecycle.admin-endpoints.enabled=true")
                 .run(context -> {
                     assertThat(context).doesNotHaveBean(BulkOperationLifecycleAutoConfiguration.class);
                     assertThat(context).doesNotHaveBean(BulkOperationLifecycle.class);
+                    assertThat(context).doesNotHaveBean(BulkPublicationJobService.class);
+                    assertThat(context).doesNotHaveBean(BulkPublicationAdminController.class);
                     assertThat(context).doesNotHaveBean("governedOpenApiPublicationFilterRegistration");
                 });
     }

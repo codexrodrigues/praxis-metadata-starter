@@ -92,7 +92,7 @@ class BulkOpenApiPublicationPostgresTest {
             var originalHistory = admin.queryForList("select * from praxis_bulk.praxis_bulk_schema_history order by installed_rank");
             var originalBinding = admin.queryForList("select * from praxis_bulk.praxis_bulk_namespace_binding");
             var originalBucket = admin.queryForList("select * from praxis_bulk.praxis_bulk_deployment_bucket");
-            assertThat(BulkExecutionMigrator.migrate(source, Map.of(NS, DEPLOYMENT))).isEqualTo(7);
+            assertThat(BulkExecutionMigrator.migrate(source, Map.of(NS, DEPLOYMENT))).isEqualTo(8);
             assertThat(admin.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='13'", Integer.class))
                     .isEqualTo(checksum);
             assertThat(admin.queryForList("select * from praxis_bulk.praxis_bulk_schema_history "

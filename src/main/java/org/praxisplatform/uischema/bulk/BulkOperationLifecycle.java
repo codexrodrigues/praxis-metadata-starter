@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.bulk;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -9,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
@@ -72,6 +74,11 @@ public final class BulkOperationLifecycle {
         });
     }
 
+    /** Returns the durable lifecycle namespace owned by this service. */
+    public String namespace() {
+        return runtime.namespace();
+    }
+
     /**
      * Reads the publication-current durable READY generation through the runtime-role fence,
      * without composing OpenAPI or installing a local photograph. The identity must name a
@@ -117,48 +124,11 @@ public final class BulkOperationLifecycle {
      * using one SQL round-trip inside the runtime-role fence. Must start outside any transaction.
      */
     public List<BulkOperationControlSnapshot> listControlSnapshots(String namespace) {
-        Objects.requireNonNull(namespace, "namespace");
-        if (!runtime.namespace().equals(namespace)) {
-            throw new IllegalArgumentException(
-                    "Bulk operation namespace is outside the configured lifecycle namespace");
-        }
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
-            throw unavailable("Published readiness lookup must start outside transactions");
-        }
-        if (!bindings.diagnostics().isEmpty()) {
-            throw contractDiagnostic(
-                    "Bulk MVC declarations contain diagnostics: " + String.join("; ", bindings.diagnostics()));
-        }
-        Map<String, BulkOperationDescriptorProvider> remainingProviders = new LinkedHashMap<>(providerSnapshot());
-        Set<String> sortedIds = new java.util.TreeSet<>();
-        for (BulkOperationBinding binding : bindings.bulkOperations()) {
-            String opId = binding.confirmationOperationId();
-            BulkOperationDescriptorProvider provider = remainingProviders.remove(opId);
-            if (provider == null && binding.mode() != BulkMode.DOMAIN_COMMAND) {
-                continue;
-            }
-            if (provider == null) {
-                throw contractDiagnostic(
-                        "A validated confirmation binding has no descriptor provider: " + opId, opId);
-            }
-            if (provider.executionInfrastructure() != runtime) {
-                throw contractDiagnostic(
-                        "Published readiness lookup requires a provider bound to this runtime infrastructure",
-                        opId);
-            }
-            sortedIds.add(opId);
-        }
-        if (!remainingProviders.isEmpty()) {
-            String stray = remainingProviders.keySet().iterator().next();
-            throw contractDiagnostic(
-                    "A descriptor provider has no validated bulk confirmation binding: "
-                            + String.join(", ", remainingProviders.keySet()),
-                    stray);
-        }
-        if (sortedIds.isEmpty()) {
+        List<String> operationIds = resolveOperationalIds(namespace,
+                "Published readiness lookup must start outside transactions");
+        if (operationIds.isEmpty()) {
             return List.of();
         }
-        List<String> operationIds = List.copyOf(sortedIds);
         return runtime.withLifecycleRead(connection -> {
             JdbcBulkOpenApiPublication.Snapshot publication =
                     JdbcBulkOpenApiPublication.lockForRead(connection, runtime.namespace(), runtime.deploymentId());
@@ -546,6 +516,16 @@ public final class BulkOperationLifecycle {
      * fingerprint and a stale generation never retries implicitly.
      */
     public BulkOperationControlExpectation publish(BulkOperationControlIdentity identity, long expectedGeneration) {
+        return publish(identity, expectedGeneration, null);
+    }
+
+    /**
+     * Variant of {@link #publish(BulkOperationControlIdentity, long)} that optionally appends an
+     * immutable {@code PUBLISH} entry to the durable V21 lifecycle audit ledger inside the same
+     * control-plane commit transaction.
+     */
+    public BulkOperationControlExpectation publish(
+            BulkOperationControlIdentity identity, long expectedGeneration, BulkLifecycleAuditContext audit) {
         requireOperationalIdentity(identity);
         if (expectedGeneration < 0 || expectedGeneration == Long.MAX_VALUE)
             throw new IllegalArgumentException("expectedGeneration must be nonnegative and incrementable");
@@ -565,7 +545,7 @@ public final class BulkOperationLifecycle {
                 operationResolver.refreshPublishedOpenApiGroupsStrict(requiredOpenApiGroups());
                 return new PreparedPublication(candidate, descriptor(identity, false));
             });
-            return commitPrepared(identity, expectedGeneration, prepared, publication, false);
+            return commitPrepared(identity, expectedGeneration, prepared, publication, false, audit);
         }
         if (!publication.published()) {
             // Initial/uncomposed ledgers must be durably suspended before capture. Direct UPDATE,
@@ -591,14 +571,15 @@ public final class BulkOperationLifecycle {
             return descriptor(identity, false);
         });
         return commitPrepared(identity, expectedGeneration, new PreparedPublication(candidate, descriptor),
-                capturedPublication, !capturedPublication.published());
+                capturedPublication, !capturedPublication.published(), audit);
     }
 
     private record PreparedPublication(org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate candidate,
             BulkOperationalDescriptor descriptor) {}
 
     private BulkOperationControlExpectation commitPrepared(BulkOperationControlIdentity identity, long expectedGeneration,
-            PreparedPublication prepared, JdbcBulkOpenApiPublication.Snapshot before, boolean newPublication) {
+            PreparedPublication prepared, JdbcBulkOpenApiPublication.Snapshot before, boolean newPublication,
+            BulkLifecycleAuditContext audit) {
         long publicationGeneration = newPublication ? Math.incrementExact(before.generation()) : before.generation();
         documents.withPreparedBulkOpenApiCommit(prepared.candidate(), () -> {
             var admitted = descriptor(identity, false);
@@ -627,6 +608,11 @@ public final class BulkOperationLifecycle {
                     // Throw inside the control transaction so a losing operation also rolls back global publication.
                     if (!operation.applied() || operation.generation() != expectedGeneration + 1)
                         throw conflict("Bulk operation publication lost its generation race");
+                    if (audit != null) {
+                        JdbcBulkLifecycleAudit.record(connection, UUID.randomUUID(), identity.namespaceId(),
+                                runtime.deploymentId(), identity.confirmationOperationId(), "PUBLISH", audit,
+                                expectedGeneration, operation.generation(), "READY");
+                    }
                     return null;
                 });
             } catch (RuntimeException uncertain) {
@@ -655,6 +641,15 @@ public final class BulkOperationLifecycle {
 
     /** Reconciles an already committed publication without control CAS or domain mutation. */
     public BulkOperationControlExpectation reconcilePublished(BulkOperationControlIdentity identity, long readyGeneration) {
+        return reconcilePublished(identity, readyGeneration, null);
+    }
+
+    /**
+     * Reconciles an already committed publication and, when {@code audit} is non-null, appends an
+     * immutable {@code RECONCILE} record to the V21 lifecycle audit ledger after installation.
+     */
+    public BulkOperationControlExpectation reconcilePublished(
+            BulkOperationControlIdentity identity, long readyGeneration, BulkLifecycleAuditContext audit) {
         requireOperationalIdentity(identity);
         documents.requireBulkOpenApiServing();
         var publication = readPublication();
@@ -675,7 +670,491 @@ public final class BulkOperationLifecycle {
             return null;
         });
         documents.installBulkOpenApiPublication(prepared.candidate(), publication.generation());
+        if (audit != null) {
+            controlPlane.withConnection(connection -> {
+                JdbcBulkLifecycleAudit.record(connection, UUID.randomUUID(), identity.namespaceId(),
+                        runtime.deploymentId(), identity.confirmationOperationId(), "RECONCILE", audit,
+                        readyGeneration, readyGeneration, "READY");
+                return null;
+            });
+        }
         return prepared.descriptor().expectation(readyGeneration);
+    }
+
+    /** Reads persistent V21 lifecycle audit entries for the configured namespace, newest first. */
+    public List<BulkLifecycleAuditEntry> listAuditEntries(int limit) {
+        return listAuditEntries(runtime.namespace(), limit);
+    }
+
+    /** Reads persistent V21 lifecycle audit entries for {@code namespace}, newest first (1..500). */
+    public List<BulkLifecycleAuditEntry> listAuditEntries(String namespace, int limit) {
+        requireNamespace(namespace);
+        if (limit < 1 || limit > 500) {
+            throw new IllegalArgumentException("Lifecycle audit limit must be between 1 and 500");
+        }
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw unavailable("Lifecycle audit lookup must start outside transactions");
+        }
+        return runtime.withLifecycleRead(connection -> JdbcBulkLifecycleAudit.read(connection, namespace, limit));
+    }
+
+    /** Publishes all eligible operations in the configured namespace using one OpenAPI composition. */
+    public BulkNamespaceBatchResult publishAll() {
+        return publishAll(runtime.namespace(), null, BulkBatchProgressListener.NOOP);
+    }
+
+    /** Publishes all eligible operations in {@code namespace} using one OpenAPI composition. */
+    public BulkNamespaceBatchResult publishAll(String namespace) {
+        return publishAll(namespace, null, BulkBatchProgressListener.NOOP);
+    }
+
+    /** Publishes all eligible operations in {@code namespace}, appending {@code PUBLISH_ALL} audit entries. */
+    public BulkNamespaceBatchResult publishAll(String namespace, BulkLifecycleAuditContext audit) {
+        return publishAll(namespace, audit, BulkBatchProgressListener.NOOP);
+    }
+
+    /**
+     * Publishes all eligible operations in {@code namespace} sharing a single cold OpenAPI
+     * composition and a single descriptor compilation, reporting incremental progress to
+     * {@code progressListener}.
+     */
+    public BulkNamespaceBatchResult publishAll(
+            String namespace, BulkLifecycleAuditContext audit, BulkBatchProgressListener progressListener) {
+        BulkBatchProgressListener listener = progressListener != null ? progressListener : BulkBatchProgressListener.NOOP;
+        documents.requireBulkOpenApiServing();
+        List<String> operationIds = resolveOperationalIds(namespace,
+                "Namespace publication batch must start outside transactions");
+        if (operationIds.isEmpty()) {
+            listener.onProgress("COMPLETED", 0, 0, 0, 0, 0);
+            return new BulkNamespaceBatchResult(namespace, "PUBLISH_ALL", null,
+                    0, 0, 0, 0, 0, List.of(), Instant.now());
+        }
+        BatchReadSnapshot readSnapshot = runtime.withLifecycleRead(connection -> new BatchReadSnapshot(
+                JdbcBulkOpenApiPublication.lockForRead(connection, runtime.namespace(), runtime.deploymentId()),
+                JdbcBulkOperationControl.lockBatchForAdmission(connection, runtime.namespace(), operationIds)));
+        JdbcBulkOpenApiPublication.Snapshot initialPublication = readSnapshot.publication();
+        JdbcBulkOpenApiPublication.Snapshot publication = initialPublication;
+        PreparedBatch preparedBatch;
+        if (initialPublication.published() && documents.hasLocalPublishedBulkOpenApiPublication()) {
+            preparedBatch = documents.withPublishedBulkOpenApiPublication((candidate, generation) -> {
+                requireSamePublication(initialPublication, candidate, generation);
+                operationResolver.refreshPublishedOpenApiGroupsStrict(requiredOpenApiGroups());
+                return new PreparedBatch(candidate, generation, true, indexDescriptors(descriptors(false)));
+            });
+        } else {
+            if (!initialPublication.published()) {
+                boolean needsGlobalSuspension = !"SUSPENDED".equals(initialPublication.state());
+                documents.withBulkLifecycleCompositionLock(() -> {
+                    if (needsGlobalSuspension) {
+                        suspendGlobalPublication(initialPublication);
+                    }
+                    withLifecycleCacheFence(() -> { documents.clearCaches(); return null; });
+                    return null;
+                });
+                if (needsGlobalSuspension) {
+                    publication = readPublication();
+                }
+            }
+            JdbcBulkOpenApiPublication.Snapshot capturedPublication = publication;
+            var candidate = documents.prepareBulkOpenApiPublication(Set.copyOf(
+                    operationResolver.publishedOpenApiGroups(requiredOpenApiGroups())));
+            if (capturedPublication.published()) {
+                requireSamePublication(capturedPublication, candidate, capturedPublication.generation());
+            }
+            Map<String, BulkOperationalDescriptor> compiledByOp = documents.withPreparedBulkOpenApiPublication(
+                    candidate, () -> {
+                        operationResolver.refreshPublishedOpenApiGroupsStrict(requiredOpenApiGroups());
+                        return indexDescriptors(descriptors(false));
+                    });
+            preparedBatch = new PreparedBatch(candidate, capturedPublication.generation(),
+                    capturedPublication.published(), compiledByOp);
+        }
+
+        int total = operationIds.size();
+        listener.onProgress("PREPARED", total, 0, 0, 0, 0);
+
+        BatchExecutionState state = new BatchExecutionState(preparedBatch.published(), preparedBatch.publicationGeneration());
+        boolean hasPending = operationIds.stream().anyMatch(opId -> {
+            JdbcBulkOperationControl.Snapshot snap = readSnapshot.controls().get(opId);
+            return snap != null && ("UNCOMPOSED".equals(snap.state()) || "SUSPENDED".equals(snap.state()));
+        });
+        if (hasPending) {
+            documents.withPreparedBulkOpenApiCommit(preparedBatch.candidate(), () -> {
+                executePublishBatchItems(operationIds, readSnapshot.controls(), preparedBatch, audit,
+                        listener, total, state);
+                return null;
+            });
+        } else {
+            executePublishBatchItems(operationIds, readSnapshot.controls(), preparedBatch, audit,
+                    listener, total, state);
+        }
+        if (state.pubPublished && (state.succeeded > 0 || !documents.hasLocalPublishedBulkOpenApiPublication())) {
+            documents.installBulkOpenApiPublication(preparedBatch.candidate(), state.pubGeneration);
+        }
+        listener.onProgress("COMPLETED", total, state.processed, state.succeeded, state.skipped, state.failed);
+        return new BulkNamespaceBatchResult(namespace, "PUBLISH_ALL",
+                state.pubPublished ? state.pubGeneration : null,
+                total, state.processed, state.succeeded, state.skipped, state.failed,
+                List.copyOf(state.items), Instant.now());
+    }
+
+    /** Reconciles all eligible READY operations in the configured namespace using one OpenAPI composition. */
+    public BulkNamespaceBatchResult reconcileAll() {
+        return reconcileAll(runtime.namespace(), null, BulkBatchProgressListener.NOOP);
+    }
+
+    /** Reconciles all eligible READY operations in {@code namespace} using one OpenAPI composition. */
+    public BulkNamespaceBatchResult reconcileAll(String namespace) {
+        return reconcileAll(namespace, null, BulkBatchProgressListener.NOOP);
+    }
+
+    /** Reconciles all eligible READY operations in {@code namespace}, appending {@code RECONCILE_ALL} audit entries. */
+    public BulkNamespaceBatchResult reconcileAll(String namespace, BulkLifecycleAuditContext audit) {
+        return reconcileAll(namespace, audit, BulkBatchProgressListener.NOOP);
+    }
+
+    /**
+     * Reconciles all committed {@code READY} operations in {@code namespace} on this node using a
+     * single cold OpenAPI composition and a single descriptor compilation, then installs the local
+     * publication photograph once and reports progress to {@code progressListener}.
+     */
+    public BulkNamespaceBatchResult reconcileAll(
+            String namespace, BulkLifecycleAuditContext audit, BulkBatchProgressListener progressListener) {
+        BulkBatchProgressListener listener = progressListener != null ? progressListener : BulkBatchProgressListener.NOOP;
+        documents.requireBulkOpenApiServing();
+        List<String> operationIds = resolveOperationalIds(namespace,
+                "Namespace reconciliation batch must start outside transactions");
+        if (operationIds.isEmpty()) {
+            listener.onProgress("COMPLETED", 0, 0, 0, 0, 0);
+            return new BulkNamespaceBatchResult(namespace, "RECONCILE_ALL", null,
+                    0, 0, 0, 0, 0, List.of(), Instant.now());
+        }
+        JdbcBulkOpenApiPublication.Snapshot publication = readPublication();
+        if (!publication.published()) {
+            throw conflict("No committed OpenAPI publication can be reconciled");
+        }
+        var candidate = documents.prepareBulkOpenApiPublication(Set.copyOf(
+                operationResolver.publishedOpenApiGroups(requiredOpenApiGroups())));
+        requireSamePublication(publication, candidate, publication.generation());
+        Map<String, BulkOperationalDescriptor> compiledByOp = documents.withPreparedBulkOpenApiPublication(
+                candidate, () -> {
+                    operationResolver.refreshPublishedOpenApiGroupsStrict(requiredOpenApiGroups());
+                    return indexDescriptors(descriptors(false));
+                });
+        int total = operationIds.size();
+        listener.onProgress("PREPARED", total, 0, 0, 0, 0);
+
+        BatchReadSnapshot verifiedRead = runtime.withLifecycleRead(connection -> {
+            JdbcBulkOpenApiPublication.Snapshot global = JdbcBulkOpenApiPublication.lockForRead(
+                    connection, runtime.namespace(), runtime.deploymentId());
+            requireSamePublication(global, candidate, publication.generation());
+            Map<String, JdbcBulkOperationControl.Snapshot> controls = JdbcBulkOperationControl.lockBatchForAdmission(
+                    connection, runtime.namespace(), operationIds);
+            return new BatchReadSnapshot(global, controls);
+        });
+        long publicationGeneration = verifiedRead.publication().generation();
+        int processed = 0;
+        int succeeded = 0;
+        int skipped = 0;
+        int failed = 0;
+        List<BulkNamespaceBatchResult.ItemOutcome> items = new ArrayList<>(total);
+        List<ReconciledAuditItem> reconciledAuditItems = new ArrayList<>();
+        for (String operationId : operationIds) {
+            BulkOperationalDescriptor descriptor = compiledByOp.get(operationId);
+            if (descriptor == null) {
+                throw contractDiagnostic("Bulk operation identity is not a validated lifecycle binding", operationId);
+            }
+            JdbcBulkOperationControl.Snapshot control = verifiedRead.controls().get(operationId);
+            if (control == null || !control.ready()) {
+                Long gen = control != null ? control.generation() : null;
+                String st = control != null ? control.state() : "MISSING";
+                skipped++;
+                items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, gen, gen, st,
+                        BulkNamespaceBatchResult.ItemStatus.SKIPPED_NOT_READY,
+                        "Operation is not READY and was skipped during reconciliation"));
+            } else if (!matches(control, "READY", control.generation(), descriptor)) {
+                failed++;
+                items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, control.generation(),
+                        control.generation(), control.state(), BulkNamespaceBatchResult.ItemStatus.FAILED,
+                        "Committed operation does not match compiled descriptor"));
+            } else {
+                succeeded++;
+                items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, control.generation(),
+                        control.generation(), "READY", BulkNamespaceBatchResult.ItemStatus.RECONCILED,
+                        "Reconciled local OpenAPI photograph"));
+                reconciledAuditItems.add(new ReconciledAuditItem(operationId, control.generation()));
+            }
+            processed++;
+            listener.onProgress("RECONCILING", total, processed, succeeded, skipped, failed);
+        }
+        if (succeeded > 0) {
+            documents.installBulkOpenApiPublication(candidate, publicationGeneration);
+            if (audit != null) {
+                controlPlane.withConnection(connection -> {
+                    for (ReconciledAuditItem reconciled : reconciledAuditItems) {
+                        JdbcBulkLifecycleAudit.record(connection, UUID.randomUUID(), runtime.namespace(),
+                                runtime.deploymentId(), reconciled.operationId(), "RECONCILE_ALL", audit,
+                                reconciled.generation(), reconciled.generation(), "READY");
+                    }
+                    return null;
+                });
+            }
+        }
+        listener.onProgress("COMPLETED", total, processed, succeeded, skipped, failed);
+        return new BulkNamespaceBatchResult(namespace, "RECONCILE_ALL", publicationGeneration,
+                total, processed, succeeded, skipped, failed, List.copyOf(items), Instant.now());
+    }
+
+    private void executePublishBatchItems(
+            List<String> operationIds,
+            Map<String, JdbcBulkOperationControl.Snapshot> controls,
+            PreparedBatch preparedBatch,
+            BulkLifecycleAuditContext audit,
+            BulkBatchProgressListener listener,
+            int total,
+            BatchExecutionState state) {
+        for (String operationId : operationIds) {
+            BulkOperationalDescriptor descriptor = preparedBatch.compiledByOp().get(operationId);
+            if (descriptor == null) {
+                throw contractDiagnostic("Bulk operation identity is not a validated lifecycle binding", operationId);
+            }
+            JdbcBulkOperationControl.Snapshot control = controls.get(operationId);
+            if (control == null) {
+                state.failed++;
+                state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, null, null, "MISSING",
+                        BulkNamespaceBatchResult.ItemStatus.FAILED, "Bulk operation control row is missing"));
+            } else if ("READY".equals(control.state())) {
+                if (state.pubPublished
+                        && matches(control, "READY", control.generation(), descriptor)) {
+                    state.skipped++;
+                    state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, control.generation(),
+                            control.generation(), "READY",
+                            BulkNamespaceBatchResult.ItemStatus.SKIPPED_ALREADY_READY,
+                            "Operation is already READY with matching descriptor"));
+                } else {
+                    state.failed++;
+                    state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, control.generation(),
+                            control.generation(), control.state(),
+                            BulkNamespaceBatchResult.ItemStatus.FAILED,
+                            "Operation is READY with a stale descriptor or publication state and must be suspended first"));
+                }
+            } else if ("UNCOMPOSED".equals(control.state()) || "SUSPENDED".equals(control.state())) {
+                long expectedOpGen = control.generation();
+                if (expectedOpGen < 0 || expectedOpGen == Long.MAX_VALUE) {
+                    state.failed++;
+                    state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, expectedOpGen, expectedOpGen,
+                            control.state(), BulkNamespaceBatchResult.ItemStatus.FAILED,
+                            "Operation generation cannot advance"));
+                } else {
+                    commitBatchPublishItem(operationId, expectedOpGen, control.state(), descriptor,
+                            preparedBatch.candidate(), audit, state);
+                }
+            } else {
+                state.failed++;
+                state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, control.generation(),
+                        control.generation(), control.state(), BulkNamespaceBatchResult.ItemStatus.FAILED,
+                        "Unsupported control state for publish: " + control.state()));
+            }
+            state.processed++;
+            listener.onProgress("PUBLISHING", total, state.processed, state.succeeded, state.skipped, state.failed);
+        }
+    }
+
+    private void commitBatchPublishItem(
+            String operationId,
+            long expectedOpGen,
+            String initialState,
+            BulkOperationalDescriptor descriptor,
+            org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate candidate,
+            BulkLifecycleAuditContext audit,
+            BatchExecutionState state) {
+        boolean newPublication = !state.pubPublished;
+        long targetPubGen = newPublication ? Math.incrementExact(state.pubGeneration) : state.pubGeneration;
+        var started = new java.util.concurrent.atomic.AtomicBoolean();
+        var rejectedByPolicy = new java.util.concurrent.atomic.AtomicBoolean();
+        try {
+            controlPlane.withConnection(connection -> {
+                documents.withBulkLifecycleCompositionLock(() -> connection);
+                started.set(true);
+                if (newPublication) {
+                    var global = JdbcBulkOpenApiPublication.transition(connection, runtime.namespace(),
+                            runtime.deploymentId(), state.pubGeneration,
+                            JdbcBulkOpenApiPublication.Target.PUBLISHED, candidate.digest());
+                    if (!global.applied() || global.generation() != targetPubGen) {
+                        rejectedByPolicy.set(true);
+                        throw conflict("OpenAPI publication lost its generation race");
+                    }
+                }
+                var operation = JdbcBulkOperationControl.transition(connection, runtime.namespace(),
+                        operationId, expectedOpGen, JdbcBulkOperationControl.Target.READY,
+                        descriptor.descriptorFingerprint(), descriptor.structuralRevision(),
+                        targetPubGen, candidate.digest());
+                if (!operation.applied() || operation.generation() != expectedOpGen + 1) {
+                    rejectedByPolicy.set(true);
+                    throw conflict("Bulk operation publication lost its generation race");
+                }
+                if (audit != null) {
+                    JdbcBulkLifecycleAudit.record(connection, UUID.randomUUID(), runtime.namespace(),
+                            runtime.deploymentId(), operationId, "PUBLISH_ALL", audit,
+                            expectedOpGen, operation.generation(), "READY");
+                }
+                return null;
+            });
+            state.pubPublished = true;
+            state.pubGeneration = targetPubGen;
+            state.succeeded++;
+            state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, expectedOpGen,
+                    expectedOpGen + 1, "READY", BulkNamespaceBatchResult.ItemStatus.PUBLISHED,
+                    "Published operational descriptor"));
+        } catch (BulkPublicationConflictException conflictEx) {
+            if (!started.get() || rejectedByPolicy.get()) {
+                if (!state.pubPublished) {
+                    try {
+                        JdbcBulkOpenApiPublication.Snapshot refreshedPub = readPublication();
+                        state.pubPublished = refreshedPub.published();
+                        state.pubGeneration = refreshedPub.generation();
+                    } catch (RuntimeException refreshFailure) {
+                        conflictEx.addSuppressed(refreshFailure);
+                    }
+                }
+                state.failed++;
+                state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, expectedOpGen,
+                        expectedOpGen, initialState, BulkNamespaceBatchResult.ItemStatus.FAILED,
+                        conflictEx.getMessage()));
+                return;
+            }
+            try {
+                runtime.withLifecycleRead(connection -> {
+                    var global = JdbcBulkOpenApiPublication.lockForRead(connection, runtime.namespace(), runtime.deploymentId());
+                    requireSamePublication(global, candidate, targetPubGen);
+                    var operation = JdbcBulkOperationControl.lockForAdmission(connection, runtime.namespace(), operationId);
+                    if (!matches(operation, "READY", expectedOpGen + 1, descriptor)) {
+                        throw conflict("Publication commit was not reconciled to its exact global and operation identities");
+                    }
+                    return null;
+                });
+                state.pubPublished = true;
+                state.pubGeneration = targetPubGen;
+                state.succeeded++;
+                state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, expectedOpGen,
+                        expectedOpGen + 1, "READY", BulkNamespaceBatchResult.ItemStatus.PUBLISHED,
+                        "Published operational descriptor"));
+            } catch (RuntimeException unreconciled) {
+                state.failed++;
+                state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, expectedOpGen,
+                        expectedOpGen, initialState, BulkNamespaceBatchResult.ItemStatus.FAILED,
+                        conflictEx.getMessage()));
+            }
+        } catch (RuntimeException uncertain) {
+            if (!started.get()) {
+                throw uncertain;
+            }
+            try {
+                runtime.withLifecycleRead(connection -> {
+                    var global = JdbcBulkOpenApiPublication.lockForRead(connection, runtime.namespace(), runtime.deploymentId());
+                    requireSamePublication(global, candidate, targetPubGen);
+                    var operation = JdbcBulkOperationControl.lockForAdmission(connection, runtime.namespace(), operationId);
+                    if (!matches(operation, "READY", expectedOpGen + 1, descriptor)) {
+                        throw conflict("Publication commit was not reconciled to its exact global and operation identities");
+                    }
+                    return null;
+                });
+                state.pubPublished = true;
+                state.pubGeneration = targetPubGen;
+                state.succeeded++;
+                state.items.add(new BulkNamespaceBatchResult.ItemOutcome(operationId, expectedOpGen,
+                        expectedOpGen + 1, "READY", BulkNamespaceBatchResult.ItemStatus.PUBLISHED,
+                        "Published operational descriptor"));
+            } catch (RuntimeException unreconciled) {
+                uncertain.addSuppressed(unreconciled);
+                throw uncertain;
+            }
+        }
+    }
+
+    private static Map<String, BulkOperationalDescriptor> indexDescriptors(
+            List<BulkOperationalDescriptor> descriptors) {
+        Map<String, BulkOperationalDescriptor> indexed = new LinkedHashMap<>(descriptors.size());
+        for (BulkOperationalDescriptor descriptor : descriptors) {
+            indexed.put(descriptor.identity().confirmationOperationId(), descriptor);
+        }
+        return Map.copyOf(indexed);
+    }
+
+    private List<String> resolveOperationalIds(String namespace, String activeTxMessage) {
+        requireNamespace(namespace);
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw unavailable(activeTxMessage);
+        }
+        if (!bindings.diagnostics().isEmpty()) {
+            throw contractDiagnostic(
+                    "Bulk MVC declarations contain diagnostics: " + String.join("; ", bindings.diagnostics()));
+        }
+        Map<String, BulkOperationDescriptorProvider> remainingProviders = new LinkedHashMap<>(providerSnapshot());
+        Set<String> sortedIds = new java.util.TreeSet<>();
+        for (BulkOperationBinding binding : bindings.bulkOperations()) {
+            String opId = binding.confirmationOperationId();
+            BulkOperationDescriptorProvider provider = remainingProviders.remove(opId);
+            if (provider == null && binding.mode() != BulkMode.DOMAIN_COMMAND) {
+                continue;
+            }
+            if (provider == null) {
+                throw contractDiagnostic(
+                        "A validated confirmation binding has no descriptor provider: " + opId, opId);
+            }
+            if (provider.executionInfrastructure() != runtime) {
+                throw contractDiagnostic(
+                        "Published readiness lookup requires a provider bound to this runtime infrastructure",
+                        opId);
+            }
+            sortedIds.add(opId);
+        }
+        if (!remainingProviders.isEmpty()) {
+            String stray = remainingProviders.keySet().iterator().next();
+            throw contractDiagnostic(
+                    "A descriptor provider has no validated bulk confirmation binding: "
+                            + String.join(", ", remainingProviders.keySet()),
+                    stray);
+        }
+        return sortedIds.isEmpty() ? List.of() : List.copyOf(sortedIds);
+    }
+
+    private void requireNamespace(String namespace) {
+        Objects.requireNonNull(namespace, "namespace");
+        if (!runtime.namespace().equals(namespace)) {
+            throw new IllegalArgumentException(
+                    "Bulk operation namespace is outside the configured lifecycle namespace");
+        }
+    }
+
+    private record PreparedBatch(
+            org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate candidate,
+            long publicationGeneration,
+            boolean published,
+            Map<String, BulkOperationalDescriptor> compiledByOp) {
+    }
+
+    private record BatchReadSnapshot(
+            JdbcBulkOpenApiPublication.Snapshot publication,
+            Map<String, JdbcBulkOperationControl.Snapshot> controls) {
+    }
+
+    private record ReconciledAuditItem(String operationId, long generation) {
+    }
+
+    private static final class BatchExecutionState {
+        private boolean pubPublished;
+        private long pubGeneration;
+        private int processed;
+        private int succeeded;
+        private int skipped;
+        private int failed;
+        private final List<BulkNamespaceBatchResult.ItemOutcome> items = new ArrayList<>();
+
+        private BatchExecutionState(boolean pubPublished, long pubGeneration) {
+            this.pubPublished = pubPublished;
+            this.pubGeneration = pubGeneration;
+        }
     }
 
     /**
@@ -743,47 +1222,85 @@ public final class BulkOperationLifecycle {
     }
 
     /**
-     * Durably suspends one operation before invalidating local OpenAPI caches. The durable fence
-     * is authoritative even if local cache invalidation subsequently fails.
+     * Durably suspends the target operation and global deployment publication atomically in one
+     * PostgreSQL transaction before invalidating local OpenAPI caches. The durable fence is
+     * authoritative even if local cache invalidation subsequently fails.
      */
     public long suspend(BulkOperationControlIdentity identity, long expectedGeneration) {
-        return documents.withBulkLifecycleCompositionLock(() -> suspendUnderCompositionLock(identity, expectedGeneration));
+        return suspend(identity, expectedGeneration, null);
     }
 
-    private long suspendUnderCompositionLock(BulkOperationControlIdentity identity, long expectedGeneration) {
-        requireIdentity(identity);
-        JdbcBulkOperationControl.Snapshot before = read(identity);
-        if (before == null || before.generation() != expectedGeneration)
-            throw conflict("Bulk operation suspension lost its expected generation");
-        long generation = suspendDurably(identity, expectedGeneration);
-        suspendGlobalPublication(readPublication());
-        withLifecycleCacheFence(() -> { documents.clearCaches(); return null; });
-        return generation;
+    /**
+     * Atomically suspends the target operation and global deployment publication and, when
+     * {@code audit} is non-null, appends a {@code SUSPEND} entry to the durable V21 audit ledger
+     * inside the same database transaction.
+     */
+    public long suspend(
+            BulkOperationControlIdentity identity, long expectedGeneration, BulkLifecycleAuditContext audit) {
+        return documents.withBulkLifecycleCompositionLock(() ->
+                suspendUnderCompositionLock(identity, expectedGeneration, audit));
     }
 
-    private long suspendDurably(BulkOperationControlIdentity identity, long expectedGeneration) {
+    private long suspendUnderCompositionLock(
+            BulkOperationControlIdentity identity, long expectedGeneration, BulkLifecycleAuditContext audit) {
         requireIdentity(identity);
-        if (expectedGeneration < 0 || expectedGeneration == Long.MAX_VALUE)
+        if (expectedGeneration < 0 || expectedGeneration == Long.MAX_VALUE) {
             throw new IllegalArgumentException("expectedGeneration must be nonnegative and incrementable");
-        JdbcBulkOperationControl.Transition transition;
+        }
+        JdbcBulkOperationControl.Snapshot before = read(identity);
+        if (before == null || before.generation() != expectedGeneration) {
+            throw conflict("Bulk operation suspension lost its expected generation");
+        }
+        JdbcBulkOpenApiPublication.Snapshot beforePublication = readPublication();
+        if (beforePublication == null || beforePublication.generation() < 0
+                || beforePublication.generation() == Long.MAX_VALUE) {
+            throw conflict("Bulk publication generation cannot advance");
+        }
+        long expectedPublicationGeneration = beforePublication.generation();
+        long expectedOperationGeneration = Math.incrementExact(expectedGeneration);
+        long expectedNextPublicationGeneration = Math.incrementExact(expectedPublicationGeneration);
+        JdbcBulkOperationControl.SuspendTransition transition;
         try {
-            transition = controlPlane.withConnection(connection ->
-                    JdbcBulkOperationControl.transition(connection, identity.namespaceId(),
-                            identity.confirmationOperationId(), expectedGeneration,
-                            JdbcBulkOperationControl.Target.SUSPENDED, null, null, null, null));
+            transition = controlPlane.withConnection(connection -> {
+                JdbcBulkOperationControl.SuspendTransition result = JdbcBulkOperationControl.suspendWithPublication(
+                        connection, identity.namespaceId(), runtime.deploymentId(),
+                        identity.confirmationOperationId(), expectedGeneration, expectedPublicationGeneration);
+                if (!result.applied() || result.operationGeneration() != expectedOperationGeneration
+                        || result.publicationGeneration() != expectedNextPublicationGeneration) {
+                    throw conflict("Bulk operation suspension lost its generation race");
+                }
+                if (audit != null) {
+                    JdbcBulkLifecycleAudit.record(connection, UUID.randomUUID(), identity.namespaceId(),
+                            runtime.deploymentId(), identity.confirmationOperationId(), "SUSPEND", audit,
+                            expectedGeneration, result.operationGeneration(), "SUSPENDED");
+                }
+                return result;
+            });
         } catch (RuntimeException uncertain) {
-            JdbcBulkOperationControl.Snapshot after = readAfterUncertainCommit(identity, uncertain);
-            if (after != null && "SUSPENDED".equals(after.state())
-                    && after.generation() == expectedGeneration + 1
-                    && after.descriptorFingerprint() == null && after.structuralRevision() == null) {
-                return after.generation();
+            JdbcBulkOperationControl.Snapshot afterOp = readAfterUncertainCommit(identity, uncertain);
+            JdbcBulkOpenApiPublication.Snapshot afterPub = readPublicationAfterUncertainCommit(uncertain);
+            if (afterOp != null && "SUSPENDED".equals(afterOp.state())
+                    && afterOp.generation() == expectedOperationGeneration
+                    && afterOp.descriptorFingerprint() == null && afterOp.structuralRevision() == null
+                    && afterPub != null && "SUSPENDED".equals(afterPub.state())
+                    && afterPub.generation() == expectedNextPublicationGeneration
+                    && afterPub.documentDigest() == null) {
+                withLifecycleCacheFence(() -> { documents.clearCaches(); return null; });
+                return afterOp.generation();
             }
             throw uncertain;
         }
-        if (!transition.applied()) throw conflict("Bulk operation suspension lost its generation race");
-        if (transition.generation() != expectedGeneration + 1)
-            throw conflict("Bulk operation suspension returned a noncanonical generation");
-        return transition.generation();
+        withLifecycleCacheFence(() -> { documents.clearCaches(); return null; });
+        return transition.operationGeneration();
+    }
+
+    private JdbcBulkOpenApiPublication.Snapshot readPublicationAfterUncertainCommit(RuntimeException original) {
+        try {
+            return readPublication();
+        } catch (RuntimeException reconciliationFailure) {
+            original.addSuppressed(reconciliationFailure);
+            return null;
+        }
     }
 
     /**

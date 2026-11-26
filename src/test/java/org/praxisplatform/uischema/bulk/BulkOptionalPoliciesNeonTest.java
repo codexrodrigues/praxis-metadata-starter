@@ -127,18 +127,18 @@ class BulkOptionalPoliciesNeonTest {
         var roles = new BulkExecutionRoleConfiguration(ownerRole, Set.of(runtimeRole), Set.of(), Set.of(controlRole));
         if (!resume) {
         owner.measure("fresh", () -> assertThat(BulkExecutionMigrator.migrate(owner,
-                Map.of(NAMESPACE, DEPLOYMENT), roles)).isEqualTo(20));
+                Map.of(NAMESPACE, DEPLOYMENT), roles)).isEqualTo(21));
         owner.measure("strict", () -> BulkExecutionMigrator.validate(owner, roles));
         owner.measure("repeat-zero", () -> assertThat(BulkExecutionMigrator.migrate(owner,
                 Map.of(NAMESPACE, DEPLOYMENT), roles)).isZero());
         owner.measure("negative-acl", () -> rejectsAlteredAcl(owner, roles, runtimeRole));
         owner.measure("negative-trigger", () -> rejectsAlteredTrigger(owner, roles));
         owner.measure("negative-DE", () -> BulkNeonAdversarialProof.catalogs(owner, roles, runtimeRole));
-        System.out.println("NEON_PROOF_MIGRATION=20,strict-validation-passed");
+        System.out.println("NEON_PROOF_MIGRATION=21,strict-validation-passed");
         }
         var ownerSql = new JdbcTemplate(owner);
         if (resume) {
-            assertThat(ownerSql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history where success and version is not null", Integer.class)).isEqualTo(20);
+            assertThat(ownerSql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history where success and version is not null", Integer.class)).isEqualTo(21);
             assertThat(ownerSql.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap", String.class)).isEqualTo("COMPLETE");
             assertThat(ownerSql.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap", String.class)).isEqualTo("COMPLETE");
             assertThat(ownerSql.queryForObject("select to_regclass('public.bulk_optional_domain') is null", Boolean.class)).isTrue();

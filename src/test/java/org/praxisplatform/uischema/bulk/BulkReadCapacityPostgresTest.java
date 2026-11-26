@@ -76,7 +76,7 @@ class BulkReadCapacityPostgresTest {
     @BeforeEach
     void reset() {
         sql.execute("drop schema if exists praxis_bulk cascade");
-        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(20);
+        assertThat(BulkPostgresTestSupport.migrate(owner, CONTEXT.namespaceId())).isEqualTo(21);
         BulkPostgresTestSupport.ready(owner, CONTEXT.namespaceId(),
                 CONTEXT.operationRef().operationId());
         assertCurrentSchemaComplete();

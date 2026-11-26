@@ -105,6 +105,40 @@ final class JdbcBulkOperationControl {
         }
     }
 
+    /**
+     * Atomically suspends the deployment OpenAPI publication and every currently READY operation
+     * in {@code deploymentId} (plus the targeted operation row if UNCOMPOSED/SUSPENDED) inside
+     * the caller's single PostgreSQL transaction.
+     */
+    static SuspendTransition suspendWithPublication(
+            Connection connection,
+            String namespaceId,
+            String deploymentId,
+            String operationId,
+            long expectedGeneration,
+            long expectedPublicationGeneration) throws SQLException {
+        try (var statement = connection.prepareStatement("""
+                select applied, operation_generation, publication_generation
+                  from praxis_bulk.suspend_operation_and_publication(?, ?, ?, ?, ?)
+                """)) {
+            statement.setString(1, namespaceId);
+            statement.setString(2, deploymentId);
+            statement.setString(3, operationId);
+            statement.setLong(4, expectedGeneration);
+            statement.setLong(5, expectedPublicationGeneration);
+            try (var rows = statement.executeQuery()) {
+                if (!rows.next()) {
+                    throw new SQLException("Atomic suspension returned no result");
+                }
+                var result = new SuspendTransition(rows.getBoolean(1), rows.getLong(2), rows.getLong(3));
+                if (rows.next()) {
+                    throw new SQLException("Atomic suspension returned duplicate rows");
+                }
+                return result;
+            }
+        }
+    }
+
     enum Target { READY, SUSPENDED }
 
     record Snapshot(String state, long generation, String descriptorFingerprint, String structuralRevision) {
@@ -112,4 +146,6 @@ final class JdbcBulkOperationControl {
     }
 
     record Transition(boolean applied, long generation) { }
+
+    record SuspendTransition(boolean applied, long operationGeneration, long publicationGeneration) { }
 }

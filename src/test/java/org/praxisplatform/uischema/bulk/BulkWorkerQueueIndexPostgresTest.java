@@ -27,7 +27,7 @@ class BulkWorkerQueueIndexPostgresTest {
         try (var pg = postgres()) {
             var owner = pg.getPostgresDatabase();
             var sql = new JdbcTemplate(owner);
-            assertThat(BulkExecutionMigrator.migrate(owner, NAMESPACES, ROLES)).isEqualTo(20);
+            assertThat(BulkExecutionMigrator.migrate(owner, NAMESPACES, ROLES)).isEqualTo(21);
             BulkExecutionMigrator.validate(owner, ROLES);
             var before = history(sql);
             var phases = phases(sql);
@@ -54,7 +54,7 @@ class BulkWorkerQueueIndexPostgresTest {
             var phases = phases(sql);
             assertThat(phases).hasSize(7).allMatch("COMPLETE"::equals);
             assertThat(sql.queryForObject("select to_regclass(?) is null", Boolean.class, INDEX)).isTrue();
-            assertThat(BulkExecutionMigrator.migrate(owner, NAMESPACES, ROLES)).isEqualTo(1);
+            assertThat(BulkExecutionMigrator.migrate(owner, NAMESPACES, ROLES)).isEqualTo(2);
             assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history where version is null OR version::integer<=19 order by installed_rank"))
                     .isEqualTo(before);
             assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_namespace_binding order by namespace_id"))
@@ -81,7 +81,7 @@ class BulkWorkerQueueIndexPostgresTest {
             try (var pg = postgres()) {
                 var owner = pg.getPostgresDatabase();
                 var sql = new JdbcTemplate(owner);
-                assertThat(BulkExecutionMigrator.migrate(owner, NAMESPACES, ROLES)).isEqualTo(20);
+                assertThat(BulkExecutionMigrator.migrate(owner, NAMESPACES, ROLES)).isEqualTo(21);
                 sql.execute("DROP INDEX " + INDEX);
                 if (!replacement.isEmpty()) sql.execute(replacement);
                 var before = history(sql);
@@ -120,7 +120,7 @@ class BulkWorkerQueueIndexPostgresTest {
             assertThat(rawHistoricalV19(owner)).isEqualTo(19);
             assertThat(phases(sql)).hasSize(7).allMatch("PENDING"::equals);
             var before = history(sql);
-            assertThat(BulkExecutionMigrator.migrate(owner, NAMESPACES, ROLES)).isEqualTo(1);
+            assertThat(BulkExecutionMigrator.migrate(owner, NAMESPACES, ROLES)).isEqualTo(2);
             assertThat(phases(sql)).hasSize(7).allMatch("COMPLETE"::equals);
             assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_schema_history where version is null OR version::integer<=19 order by installed_rank"))
                     .isEqualTo(before);

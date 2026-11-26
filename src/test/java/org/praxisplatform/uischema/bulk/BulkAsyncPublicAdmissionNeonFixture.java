@@ -117,7 +117,7 @@ final class BulkAsyncPublicAdmissionNeonFixture implements AutoCloseable {
             phase("DOMAIN_VALIDATION");
         }else{
             assertThat(BulkExecutionMigrator.migrate(owner,Map.of(NS,DEP),roles,
-                    List.of(new BulkOperationControlIdentity(NS,BulkAsyncPublicAdmissionConsumer.OPERATION)))).isEqualTo(20);
+                    List.of(new BulkOperationControlIdentity(NS,BulkAsyncPublicAdmissionConsumer.OPERATION)))).isEqualTo(21);
             BulkExecutionMigrator.validate(owner,roles);
             assertThat(BulkExecutionMigrator.migrate(owner,Map.of(NS,DEP),roles)).isZero();
         }

@@ -35,7 +35,7 @@ class BulkEvaluationStorePostgresTest {
     @AfterAll void stop() throws Exception {if(postgres!=null)postgres.close();}
     @BeforeEach void reset(){sql.execute("drop schema if exists praxis_bulk cascade");}
     void migrate(){
-        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(20);
+        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(21);
         BulkPostgresTestSupport.ready(schemaOwnerDataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
     }
     int count(String table){return sql.queryForObject("select count(*) from praxis_bulk."+table,Integer.class);}
@@ -44,8 +44,8 @@ class BulkEvaluationStorePostgresTest {
                 .defaultSchema("praxis_bulk").table("praxis_bulk_schema_history").baselineOnMigrate(false).cleanDisabled(true).target("1").load().migrate();
         var value=proposal();BulkPostgresTestSupport.insertLegacyProposal(sql,value);
         var before=sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class);
-        // V1 is already installed by this upgrade fixture, so Flyway executes V2 through V20.
-        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(19);
+        // V1 is already installed by this upgrade fixture, so Flyway executes V2 through V21.
+        assertThat(BulkPostgresTestSupport.migrate(schemaOwnerDataSource, CONTEXT.namespaceId())).isEqualTo(20);
         BulkPostgresTestSupport.ready(schemaOwnerDataSource, CONTEXT.namespaceId(), CONTEXT.operationRef().operationId());
         assertThat(sql.queryForObject("select checksum from praxis_bulk.praxis_bulk_schema_history where version='1'",Integer.class)).isEqualTo(before);
         var recovered=tx.execute(status->store.find(CONTEXT,value.id()).orElseThrow());
@@ -431,7 +431,7 @@ class BulkEvaluationStorePostgresTest {
                 + "where version='20'",Integer.class)).isZero();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
-                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(1);
+                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(2);
         assertV20OnceAndZeroWorkReplay(BulkPostgresTestSupport.testRoleConfiguration(),historyBeforeRetry);
         assertThat(sql.queryForObject("""
                 select phase from praxis_bulk.praxis_bulk_preview_bootstrap where bootstrap_version=9
@@ -607,7 +607,7 @@ class BulkEvaluationStorePostgresTest {
         sql.execute("alter table praxis_bulk.praxis_bulk_preview_state enable trigger user");
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
-                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(1);
+                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(2);
         assertV20OnceAndZeroWorkReplay(BulkPostgresTestSupport.testRoleConfiguration(),historyBeforeRetry);
         assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_openapi_publication")).isEqualTo(publicationOrigin);
         assertThat(sql.queryForList("select * from praxis_bulk.praxis_bulk_subject_bucket")).isEqualTo(originalSubjectBucket);
@@ -909,7 +909,7 @@ class BulkEvaluationStorePostgresTest {
         assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
                 + "where version='20'",Integer.class)).isZero();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
-                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID))).isEqualTo(1);
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID))).isEqualTo(2);
         assertV20OnceAndZeroWorkReplay(BulkExecutionRoleConfiguration.none("postgres"),historyBeforeRetry);
         assertThat(count("praxis_bulk_target_manifest")).isEqualTo(first.targets().size()+second.targets().size());
         assertThat(count("praxis_bulk_target_preview")).isZero();
@@ -941,7 +941,7 @@ class BulkEvaluationStorePostgresTest {
         grantPublicationReadToExistingRuntimeRoles();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
                 java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),
-                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(1);
+                BulkPostgresTestSupport.testRoleConfiguration())).isEqualTo(2);
         assertThat(sql.queryForObject("""
                 select has_table_privilege('bulk_runtime_test','praxis_bulk.praxis_bulk_target_manifest','select,insert')
                 """,Boolean.class)).isTrue();
@@ -985,7 +985,7 @@ class BulkEvaluationStorePostgresTest {
         assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
                 + "where version='20'",Integer.class)).isZero();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
-                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isEqualTo(1);
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isEqualTo(2);
         assertV20OnceAndZeroWorkReplay(BulkPostgresTestSupport.testRoleConfiguration(),historyBeforeRetry);
         assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
                 .isEqualTo("COMPLETE");
@@ -1045,7 +1045,7 @@ class BulkEvaluationStorePostgresTest {
         assertThat(sql.queryForObject("select count(*) from praxis_bulk.praxis_bulk_schema_history "
                 + "where version='20'",Integer.class)).isZero();
         assertThat(BulkExecutionMigrator.migrate(schemaOwnerDataSource,
-                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isEqualTo(1);
+                java.util.Map.of(CONTEXT.namespaceId(),BulkPostgresTestSupport.DEPLOYMENT_ID),roles)).isEqualTo(2);
         assertV20OnceAndZeroWorkReplay(BulkPostgresTestSupport.testRoleConfiguration(),historyBeforeRetry);
         assertThat(sql.queryForObject("select phase from praxis_bulk.praxis_bulk_manifest_bootstrap",String.class))
                 .isEqualTo("COMPLETE");

@@ -26,7 +26,7 @@ import org.flywaydb.core.api.resource.LoadableResource;
  * current canonical resource. No caller selects a migration mode or repairs history.
  */
 final class BulkMigrationLineage implements ResourceProvider {
-    private static final int LAST_VERSION = 20;
+    private static final int LAST_VERSION = 21;
     private static final String ROOT = "/db/praxis-bulk-migration-lineage/";
     private static final String CANONICAL_ROOT = "/db/praxis-bulk-migrations/";
     private final Map<Integer, MigrationResource> resources;

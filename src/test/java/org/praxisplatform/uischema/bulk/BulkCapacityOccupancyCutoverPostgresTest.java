@@ -220,15 +220,15 @@ class BulkCapacityOccupancyCutoverPostgresTest {
             var before = historicalRows(historical.observer);
             assertThat(before.get(BulkExecutionMigrator.HISTORY_TABLE)).hasSize(18); // SCHEMA plus V1..V17.
             assertThat(BulkExecutionMigrator.migrate(historical.owner, Map.of(NAMESPACE, DEPLOYMENT),
-                    historical.roles)).isEqualTo(3);
+                    historical.roles)).isEqualTo(4);
             historicalUnchanged(historical.observer, before);
             assertSuspended(historical.observer);
             assertThat(historical.observer.queryForObject("select max(version::integer) from "
-                    + "praxis_bulk.praxis_bulk_schema_history where version is not null", Integer.class)).isEqualTo(20);
+                    + "praxis_bulk.praxis_bulk_schema_history where version is not null", Integer.class)).isEqualTo(21);
             assertThat(historical.observer.queryForObject("""
                     select count(*) from praxis_bulk.praxis_bulk_schema_history
-                     where version in ('18','19','20') and success
-                    """, Long.class)).isEqualTo(3);
+                     where version in ('18','19','20','21') and success
+                    """, Long.class)).isEqualTo(4);
             assertThat(historical.observer.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_read_bootstrap",
                     String.class)).isEqualTo("COMPLETE");
             assertThat(historical.observer.queryForObject("select phase from praxis_bulk.praxis_bulk_capacity_occupancy_bootstrap",
