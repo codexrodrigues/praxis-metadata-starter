@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @AutoConfiguration
 @AutoConfigureAfter(value = OpenApiUiSchemaAutoConfiguration.class,
         name = "org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration")
+@ConditionalOnProperty(name = "praxis.bulk.lifecycle.enabled", havingValue = "true", matchIfMissing = true)
 @ConditionalOnBean({BulkControlPlaneInfrastructure.class, BulkExecutionInfrastructure.class,
         RequestMappingHandlerMapping.class, CanonicalOperationResolver.class, OpenApiDocumentService.class,
         ActionDefinitionRegistry.class, SchemaReferenceResolver.class, BulkResourceOperationBindings.class})

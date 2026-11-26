@@ -301,9 +301,137 @@ class BulkLifecycleReadBatchTest {
                             if (failure instanceof SQLException) assertThat(error.getCause()).isSameAs(failure);
                             else assertThat(error).isSameAs(failure);
                         });
-                assertThat(f.r.operationSql).isNull();
+        assertThat(f.r.operationSql).isNull();
                 verify(f.r.connection).rollback();
             }
+        }
+    }
+
+    @Test void listControlSnapshotsReadsSortedBatchOnceAndPreservesSuspendedAndEmptyRows() throws Exception {
+        try (var f = new Fixture();
+                var context = BulkCrudStructuralCompilerTest.context(
+                        BulkCrudStructuralCompilerTest.AtomicCrudController.class)) {
+            var documents = coldDocuments();
+            var bindings = BulkResourceOperationBindings.from(context.getBean(
+                    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping.class));
+            // Pick actual confirmed IDs declared on CompleteBulkController to avoid binding assumptions
+            var declaredOps = bindings.bulkOperations().stream().toList();
+            List<BulkOperationDescriptorProvider> providers = declaredOps.stream()
+                    .map(b -> (BulkOperationDescriptorProvider) new BulkCrudOperationalCompositionTest.Provider(
+                            b.confirmationOperationId(), "r1",
+                            BulkCrudOperationalCompositionTest.UNIFORM_POINTER, b.mode(), f.runtime))
+                    .toList();
+            var lifecycle = new BulkOperationLifecycle(bindings,
+                    mock(org.praxisplatform.uischema.openapi.CanonicalOperationResolver.class), documents,
+                    mock(org.praxisplatform.uischema.action.ActionDefinitionRegistry.class),
+                    new com.fasterxml.jackson.databind.ObjectMapper(),
+                    mock(org.praxisplatform.uischema.schema.SchemaReferenceResolver.class), f.runtime, f.control,
+                    providers);
+            clearInvocations(documents);
+
+            java.time.OffsetDateTime updatedAt = java.time.OffsetDateTime.parse("2026-11-26T12:34:56Z");
+            f.r.publicationRows = new Object[][] {{"PUBLISHED", 7L, "sha256:" + "a".repeat(64), updatedAt}};
+            List<String> expectedSortedIds = declaredOps.stream()
+                    .map(BulkOperationBinding::confirmationOperationId).distinct().sorted().toList();
+            assertThat(expectedSortedIds).hasSizeGreaterThanOrEqualTo(2);
+            List<Object[]> batchRows = new ArrayList<>();
+            batchRows.add(new Object[] {expectedSortedIds.get(0), "SUSPENDED", 5L, null, null});
+            batchRows.add(new Object[] {expectedSortedIds.get(1), "READY", 9L, "fp", "rev"});
+            for (int i = 2; i < expectedSortedIds.size(); i++) {
+                batchRows.add(new Object[] {expectedSortedIds.get(i), null, null, null, null});
+            }
+            f.r.batchOperationRows = batchRows.toArray(Object[][]::new);
+
+            List<BulkOperationControlSnapshot> snapshots = lifecycle.listControlSnapshots();
+            assertThat(snapshots).hasSize(expectedSortedIds.size());
+            assertThat(snapshots.get(0).operationId()).isEqualTo(expectedSortedIds.get(0));
+            assertThat(snapshots.get(0).state()).isEqualTo("SUSPENDED");
+            assertThat(snapshots.get(0).generation()).isEqualTo(5L);
+            assertThat(snapshots.get(0).ready()).isFalse();
+            assertThat(snapshots.get(0).present()).isTrue();
+            assertThat(snapshots.get(0).publicationState()).isEqualTo("PUBLISHED");
+            assertThat(snapshots.get(0).publicationGeneration()).isEqualTo(7L);
+            assertThat(snapshots.get(0).publicationUpdatedAt()).isEqualTo(updatedAt.toInstant());
+
+            assertThat(snapshots.get(1).operationId()).isEqualTo(expectedSortedIds.get(1));
+            assertThat(snapshots.get(1).state()).isEqualTo("READY");
+            assertThat(snapshots.get(1).generation()).isEqualTo(9L);
+            assertThat(snapshots.get(1).ready()).isTrue();
+            assertThat(snapshots.get(1).present()).isTrue();
+
+            assertThat(f.r.batchOperationSql).contains("unnest(?)", "praxis_bulk.lock_operation_control(?, u.operation_id)");
+            assertThat(f.r.batchOperationIds).containsExactly((Object[]) expectedSortedIds.toArray(String[]::new));
+            assertThat(f.r.operationSql).isNull();
+            assertThat(f.runtimeAttest).hasValue(1);
+            verify(f.r.connection, times(1)).commit();
+            verifyNoInteractions(f.c.source, documents);
+        }
+    }
+
+    @Test void listControlSnapshotsEnforcesNamespaceTransactionAndContractDiagnosticsBeforeSql() throws Exception {
+        try (var f = new Fixture();
+                var valid = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class);
+                var domainCtx = BulkCrudStructuralCompilerTest.context(BulkResourceOperationBindingsTest.CompleteBulkController.class);
+                var malformed = BulkCrudStructuralCompilerTest.context(BulkResourceOperationBindingsTest.MissingUpdateSource.class)) {
+            var documents = coldDocuments();
+            var lifecycle = lifecycle(f, valid, documents, List.of(provider(f, "crud.uniform")));
+
+            assertThatThrownBy(() -> lifecycle.listControlSnapshots(null)).isInstanceOf(NullPointerException.class);
+            assertThatThrownBy(() -> lifecycle.listControlSnapshots("foreign"))
+                    .isInstanceOf(IllegalArgumentException.class);
+
+            TransactionSynchronizationManager.setActualTransactionActive(true);
+            try {
+                assertThatThrownBy(lifecycle::listControlSnapshots)
+                        .isInstanceOf(BulkLifecycleUnavailableException.class)
+                        .isInstanceOf(IllegalStateException.class);
+            } finally {
+                TransactionSynchronizationManager.setActualTransactionActive(false);
+            }
+
+            var malformedLifecycle = lifecycle(f, malformed, documents, List.of(provider(f, "crud.uniform")));
+            assertThatThrownBy(malformedLifecycle::listControlSnapshots)
+                    .isInstanceOf(BulkContractDiagnosticException.class);
+
+            var domainMissingProvider = lifecycle(f, domainCtx, documents, List.of());
+            assertThatThrownBy(domainMissingProvider::listControlSnapshots)
+                    .isInstanceOf(BulkContractDiagnosticException.class)
+                    .satisfies(ex -> assertThat(((BulkContractDiagnosticException) ex).operationId()).isNotBlank());
+
+            var strayProvider = lifecycle(f, valid, documents,
+                    List.of(provider(f, "crud.uniform"), provider(f, "stray.confirm")));
+            assertThatThrownBy(strayProvider::listControlSnapshots)
+                    .isInstanceOf(BulkContractDiagnosticException.class)
+                    .satisfies(ex -> assertThat(((BulkContractDiagnosticException) ex).operationId()).isEqualTo("stray.confirm"));
+
+            var otherInfra = new BulkExecutionInfrastructure(f.r.source, new DataSourceTransactionManager(f.r.source),
+                    "ns", "dep", ROLES);
+            var wrongInfraProvider = new BulkCrudOperationalCompositionTest.Provider("crud.uniform", "r1",
+                    BulkCrudOperationalCompositionTest.UNIFORM_POINTER, BulkMode.UNIFORM_UPDATE, otherInfra);
+            var wrongInfraLifecycle = lifecycle(f, valid, documents, List.of(wrongInfraProvider));
+            assertThatThrownBy(wrongInfraLifecycle::listControlSnapshots)
+                    .isInstanceOf(BulkContractDiagnosticException.class)
+                    .satisfies(ex -> assertThat(((BulkContractDiagnosticException) ex).operationId()).isEqualTo("crud.uniform"));
+
+            assertThatThrownBy(() -> lifecycle.readPublishedReadyGeneration(new BulkOperationControlIdentity("ns", "unknown")))
+                    .isInstanceOf(BulkContractDiagnosticException.class)
+                    .satisfies(ex -> assertThat(((BulkContractDiagnosticException) ex).operationId()).isEqualTo("unknown"));
+            verifyNoInteractions(f.r.source, f.c.source);
+        }
+    }
+
+    @Test void listControlSnapshotsPropagatesSqlAndDuplicateRowFailures() throws Exception {
+        try (var f = new Fixture();
+                var context = BulkCrudStructuralCompilerTest.context(BulkCrudStructuralCompilerTest.CrudController.class)) {
+            var lifecycle = lifecycle(f, context, coldDocuments(), List.of(provider(f, "crud.uniform")));
+            f.r.batchOperationRows = new Object[][] {
+                    {"crud.uniform", "READY", 1L, "f", "r"},
+                    {"crud.uniform", "READY", 1L, "f", "r"}
+            };
+            assertThatThrownBy(lifecycle::listControlSnapshots)
+                    .isInstanceOf(org.springframework.dao.DataAccessException.class)
+                    .satisfies(err -> assertThat(err.getCause()).hasMessageContaining("duplicate rows"));
+            verify(f.r.connection).rollback();
         }
     }
 
@@ -391,15 +519,28 @@ class BulkLifecycleReadBatchTest {
         SQLException parseFailure,closeFailure;
         PreparedStatement lastTail;
         String operationSql;
+        String batchOperationSql;
+        Object[] batchOperationIds;
         final Map<Integer, Object> operationParameters = new HashMap<>();
         Object[][] operationRows = new Object[0][];
+        Object[][] batchOperationRows = new Object[0][];
+        Object[][] publicationRows = new Object[][] {
+                {"SUSPENDED", 0L, null, java.time.OffsetDateTime.parse("2026-11-26T10:00:00Z")}
+        };
         SQLException operationFailure;
+        SQLException batchOperationFailure;
         List<ResultSet> lastRows;
         Endpoint(boolean control) throws Exception {
             when(source.getConnection()).thenReturn(connection);
             when(connection.getAutoCommit()).thenAnswer(call->autoCommit);
             doAnswer(call->{autoCommit=call.getArgument(0);return null;}).when(connection).setAutoCommit(anyBoolean());
             when(connection.getTransactionIsolation()).thenReturn(Connection.TRANSACTION_READ_COMMITTED);
+            when(connection.createArrayOf(eq("text"), any(Object[].class))).thenAnswer(call -> {
+                Object[] elements = call.getArgument(1);
+                var array = mock(java.sql.Array.class);
+                when(array.getArray()).thenReturn(elements);
+                return array;
+            });
             when(connection.createStatement()).thenAnswer(call->{
                 var s=mock(Statement.class);
                 when(s.execute(anyString())).thenAnswer(x->{executions.incrementAndGet();return true;});
@@ -407,6 +548,30 @@ class BulkLifecycleReadBatchTest {
             });
             when(connection.prepareStatement(anyString())).thenAnswer(call->{
                 String sql=call.getArgument(0);var p=mock(PreparedStatement.class);
+                if (sql.contains("praxis_bulk.lock_openapi_publication(?, ?)")) {
+                    doAnswer(x -> null).when(p).setString(anyInt(), anyString());
+                    when(p.executeQuery()).thenAnswer(x -> {
+                        executions.incrementAndGet();
+                        return rows(publicationRows);
+                    });
+                    return p;
+                }
+                if (sql.contains("unnest(?)")) {
+                    batchOperationSql = sql;
+                    doAnswer(x -> {
+                        java.sql.Array arr = x.getArgument(1);
+                        batchOperationIds = (Object[]) arr.getArray();
+                        return null;
+                    }).when(p).setArray(anyInt(), any(java.sql.Array.class));
+                    doAnswer(x -> { operationParameters.put(x.getArgument(0), x.getArgument(1)); return null; })
+                            .when(p).setString(anyInt(), anyString());
+                    when(p.executeQuery()).thenAnswer(x -> {
+                        executions.incrementAndGet();
+                        if (batchOperationFailure != null) throw batchOperationFailure;
+                        return rows(batchOperationRows);
+                    });
+                    return p;
+                }
                 if (sql.contains("praxis_bulk.lock_operation_control(?, ?)")) {
                     operationSql = sql;
                     doAnswer(x -> { operationParameters.put(x.getArgument(0), x.getArgument(1)); return null; })
@@ -464,7 +629,21 @@ class BulkLifecycleReadBatchTest {
         var r=mock(ResultSet.class);var cursor=new AtomicInteger(-1);var wasNull=new boolean[1];
         when(r.next()).thenAnswer(c->cursor.incrementAndGet()<values.length);
         when(r.getString(anyInt())).thenAnswer(c->{Object v=values[cursor.get()][(int)c.getArgument(0)-1];wasNull[0]=v==null;return v==null?null:v.toString();});
-        when(r.getLong(anyInt())).thenAnswer(c -> ((Number) values[cursor.get()][(int)c.getArgument(0)-1]).longValue());
+        when(r.getLong(anyInt())).thenAnswer(c -> {
+            Object v = values[cursor.get()][(int) c.getArgument(0) - 1];
+            wasNull[0] = v == null;
+            return v == null ? 0L : ((Number) v).longValue();
+        });
+        when(r.getObject(anyInt())).thenAnswer(c -> {
+            Object v = values[cursor.get()][(int) c.getArgument(0) - 1];
+            wasNull[0] = v == null;
+            return v;
+        });
+        when(r.getObject(anyInt(), eq(java.time.OffsetDateTime.class))).thenAnswer(c -> {
+            Object v = values[cursor.get()][(int) c.getArgument(0) - 1];
+            wasNull[0] = v == null;
+            return (java.time.OffsetDateTime) v;
+        });
         when(r.getBoolean(anyInt())).thenAnswer(c->{Object v=values[cursor.get()][(int)c.getArgument(0)-1];wasNull[0]=v==null;return Boolean.TRUE.equals(v);});
         when(r.wasNull()).thenAnswer(c->wasNull[0]);return r;
     }
