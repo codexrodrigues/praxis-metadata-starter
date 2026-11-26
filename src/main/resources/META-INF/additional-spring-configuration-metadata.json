@@ -31,6 +31,18 @@
       "defaultValue": "60s"
     },
     {
+      "name": "praxis.bulk.lifecycle.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Controls whether BulkOperationLifecycleAutoConfiguration activates governed bulk publication lifecycle enforcement.",
+      "defaultValue": true
+    },
+    {
+      "name": "praxis.bulk.lifecycle.auto-ready-on-startup",
+      "type": "java.lang.Boolean",
+      "description": "Opt-in startup initializer that publishes or reconciles every configured bulk confirmation operation onto READY after ContextRefreshedEvent.",
+      "defaultValue": false
+    },
+    {
       "name": "praxis.openapi.validation.api-resource-required",
       "type": "java.lang.String",
       "description": "Validation mode enforced by DynamicSwaggerConfig at startup for controllers extending AbstractResourceQueryController or AbstractCollectionCommandResourceController without @ApiResource.",

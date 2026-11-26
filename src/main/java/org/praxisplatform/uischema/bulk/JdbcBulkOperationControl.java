@@ -1,7 +1,12 @@
 package org.praxisplatform.uischema.bulk;
 
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /** Restricted SQL-function boundary for the publication-bound operation-control row. */
 final class JdbcBulkOperationControl {
@@ -21,6 +26,56 @@ final class JdbcBulkOperationControl {
                 var snapshot = new Snapshot(rows.getString(1), rows.getLong(2), rows.getString(3), rows.getString(4));
                 if (rows.next()) throw new SQLException("Operation control returned duplicate rows");
                 return snapshot;
+            }
+        }
+    }
+
+    /**
+     * Acquires SHARE locks across a batch of operation IDs in one query; returns a null snapshot
+     * for absent or stale-publication rows while preserving UNCOMPOSED/SUSPENDED rows.
+     */
+    static Map<String, Snapshot> lockBatchForAdmission(
+            Connection connection, String namespaceId, List<String> operationIds) throws SQLException {
+        if (operationIds == null || operationIds.isEmpty()) {
+            return Map.of();
+        }
+        Array idsArray = connection.createArrayOf("text", operationIds.toArray(String[]::new));
+        try (var statement = connection.prepareStatement("""
+                select u.operation_id, c.state, c.generation, c.descriptor_fingerprint, c.structural_revision
+                  from unnest(?) as u(operation_id)
+                  left join lateral praxis_bulk.lock_operation_control(?, u.operation_id) c on true
+                """)) {
+            statement.setArray(1, idsArray);
+            statement.setString(2, namespaceId);
+            Map<String, Snapshot> snapshots = new LinkedHashMap<>();
+            try (var rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    String operationId = rows.getString(1);
+                    String state = rows.getString(2);
+                    if (snapshots.containsKey(operationId)) {
+                        throw new SQLException("Operation control returned duplicate rows for " + operationId);
+                    }
+                    if (state == null) {
+                        if (rows.getObject(3) != null) {
+                            throw new SQLException("Operation control returned incomplete row for " + operationId);
+                        }
+                        snapshots.put(operationId, null);
+                        continue;
+                    }
+                    long generation = rows.getLong(3);
+                    if (rows.wasNull()) {
+                        throw new SQLException("Operation control returned incomplete row for " + operationId);
+                    }
+                    snapshots.put(operationId,
+                            new Snapshot(state, generation, rows.getString(4), rows.getString(5)));
+                }
+            }
+            return Collections.unmodifiableMap(snapshots);
+        } finally {
+            try {
+                idsArray.free();
+            } catch (SQLException ignored) {
+                // Best-effort driver cleanup.
             }
         }
     }

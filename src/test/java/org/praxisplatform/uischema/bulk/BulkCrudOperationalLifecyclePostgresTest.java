@@ -482,6 +482,49 @@ class BulkCrudOperationalLifecyclePostgresTest {
         }
     }
 
+    @Test
+    void listControlSnapshotsUsesSingleReadPreservesSuspendedGenerationsAndEmitsConflictType() throws Exception {
+        try (var fixture = fixture()) {
+            List<BulkOperationControlSnapshot> initial = fixture.lifecycle.listControlSnapshots();
+            assertEquals(0, fixture.fresh.get(), "batch snapshot lookup must not compose OpenAPI");
+            assertEquals(List.of("crud.items", "crud.uniform"),
+                    initial.stream().map(BulkOperationControlSnapshot::operationId).toList());
+            for (BulkOperationControlSnapshot item : initial) {
+                assertEquals("UNCOMPOSED", item.state());
+                assertEquals(0L, item.generation());
+                assertEquals("UNCOMPOSED", item.publicationState());
+                assertEquals(0L, item.publicationGeneration());
+                assertNotNull(item.publicationUpdatedAt());
+            }
+
+            assertThrows(BulkPublicationConflictException.class,
+                    () -> fixture.lifecycle.publish(identity("crud.uniform"), 99L));
+
+            fixture.lifecycle.publish(identity("crud.uniform"), 0L);
+            List<BulkOperationControlSnapshot> published = fixture.lifecycle.listControlSnapshots();
+            assertEquals("UNCOMPOSED", published.get(0).state());
+            assertEquals(0L, published.get(0).generation());
+            assertEquals("PUBLISHED", published.get(0).publicationState());
+            assertEquals(2L, published.get(0).publicationGeneration());
+            assertEquals("READY", published.get(1).state());
+            assertEquals(1L, published.get(1).generation());
+            assertTrue(published.get(1).ready());
+
+            assertThrows(BulkPublicationConflictException.class,
+                    () -> fixture.lifecycle.publish(identity("crud.uniform"), 0L));
+
+            fixture.lifecycle.suspend(identity("crud.uniform"), 1L);
+            List<BulkOperationControlSnapshot> suspended = fixture.lifecycle.listControlSnapshots();
+            assertEquals("SUSPENDED", suspended.get(1).state());
+            assertEquals(2L, suspended.get(1).generation(),
+                    "SUSPENDED row must retain its incremented generation for subsequent re-publish");
+            assertFalse(suspended.get(1).ready());
+            assertTrue(suspended.get(1).present());
+            assertEquals("SUSPENDED", suspended.get(1).publicationState());
+            assertEquals(3L, suspended.get(1).publicationGeneration());
+        }
+    }
+
     static BulkOperationControlIdentity identity(String id) { return new BulkOperationControlIdentity(NAMESPACE, id); }
 
     static void assertUnlocked(CachedOpenApiDocumentService documents) {
