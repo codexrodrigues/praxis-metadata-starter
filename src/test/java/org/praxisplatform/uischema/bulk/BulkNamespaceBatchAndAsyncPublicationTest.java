@@ -186,10 +186,11 @@ class BulkNamespaceBatchAndAsyncPublicationTest {
                 fixture.holdGate.set(new Gate(entered, release));
 
                 MvcResult submitted = mvc.perform(post("/api/platform/bulk-operations/publication/jobs")
+                                .principal(() -> "release-bot")
                                 .header("X-Correlation-Id", "corr-http-1")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                                        {"intent":"PUBLISH_ALL","actor":"release-bot","realm":"prod"}
+                                        {"intent":"PUBLISH_ALL","actor":"spoofed-attacker","realm":"prod"}
                                         """))
                         .andExpect(status().isAccepted())
                         .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
@@ -252,6 +253,20 @@ class BulkNamespaceBatchAndAsyncPublicationTest {
                 mvc.perform(get("/api/platform/bulk-operations/publication/audit").param("limit", "0"))
                         .andExpect(status().isBadRequest())
                         .andExpect(jsonPath("$.errors[0].code").value("BULK_PUBLICATION_INVALID_REQUEST"));
+
+                // Unauthenticated request ignoring spoofed actor falls back to "anonymous"
+                MvcResult unauthenticatedSubmitted = mvc.perform(post("/api/platform/bulk-operations/publication/jobs")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"intent":"PUBLISH_ALL","actor":"spoofed-attacker"}
+                                        """))
+                        .andExpect(status().isAccepted())
+                        .andExpect(jsonPath("$.data.actor").value("anonymous"))
+                        .andReturn();
+                UUID unauthJobId = UUID.fromString(
+                        JSON.readTree(unauthenticatedSubmitted.getResponse().getContentAsString())
+                                .path("data").path("jobId").asText());
+                assertThat(awaitTerminal(jobService, unauthJobId).status()).isEqualTo(BulkPublicationJobStatus.COMPLETED);
             } finally {
                 jobService.destroy();
             }
@@ -268,20 +283,24 @@ class BulkNamespaceBatchAndAsyncPublicationTest {
                 .thenThrow(new BulkContractDiagnosticException("missing provider", "crud.uniform"));
 
         MockMvc mvc = standaloneMvc(new BulkPublicationAdminController(mockJobs));
-        mvc.perform(post("/api/platform/bulk-operations/publication/jobs")
+        String unavailableBody = mvc.perform(post("/api/platform/bulk-operations/publication/jobs")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
                 .andExpect(jsonPath("$.errors[0].category").value("SYSTEM"))
-                .andExpect(jsonPath("$.errors[0].code").value("BULK_LIFECYCLE_UNAVAILABLE"));
+                .andExpect(jsonPath("$.errors[0].code").value("BULK_LIFECYCLE_UNAVAILABLE"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(unavailableBody).doesNotContain("openApi down");
 
-        mvc.perform(get("/api/platform/bulk-operations/publication/audit").param("limit", "25"))
+        String diagnosticBody = mvc.perform(get("/api/platform/bulk-operations/publication/audit").param("limit", "25"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
                 .andExpect(jsonPath("$.errors[0].category").value("VALIDATION"))
                 .andExpect(jsonPath("$.errors[0].code").value("BULK_CONTRACT_DIAGNOSTIC"))
-                .andExpect(jsonPath("$.errors[0].target").value("crud.uniform"));
+                .andExpect(jsonPath("$.errors[0].target").value("crud.uniform"))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(diagnosticBody).doesNotContain("missing provider");
     }
 
     @Test

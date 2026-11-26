@@ -1,6 +1,7 @@
 package org.praxisplatform.uischema.bulk;
 
 import java.net.URI;
+import java.security.Principal;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -8,6 +9,8 @@ import java.util.UUID;
 import org.praxisplatform.uischema.rest.exceptionhandler.ErrorCategory;
 import org.praxisplatform.uischema.rest.response.CustomProblemDetail;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
 import org.springframework.boot.autoconfigure.condition.SpringBootCondition;
 import org.springframework.context.annotation.ConditionContext;
@@ -38,6 +41,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 @Conditional(BulkPublicationAdminController.AutoConfiguredOnlyCondition.class)
 @RequestMapping("${praxis.bulk.lifecycle.admin-endpoints.base-path:/api/platform/bulk-operations/publication}")
 public class BulkPublicationAdminController {
+    private static final Logger log = LoggerFactory.getLogger(BulkPublicationAdminController.class);
     private static final CacheControl NO_STORE = CacheControl.noStore();
 
     private final BulkPublicationJobService jobService;
@@ -50,11 +54,15 @@ public class BulkPublicationAdminController {
     @PostMapping("/jobs")
     public ResponseEntity<RestApiResponse<BulkPublicationJobSnapshot>> submitJob(
             @RequestBody(required = false) SubmitJobRequest request,
-            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader) {
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationHeader,
+            Principal principal) {
         BulkPublicationJobIntent intent = request != null && request.intent() != null
                 ? request.intent()
                 : BulkPublicationJobIntent.PUBLISH_ALL;
-        String actor = request != null ? request.actor() : null;
+        // Derive actor exclusively from the authenticated Principal so callers cannot spoof V21 audit identity.
+        String actor = principal != null && principal.getName() != null && !principal.getName().isBlank()
+                ? principal.getName()
+                : null;
         String realm = request != null ? request.realm() : null;
         String correlation = request != null && request.correlationId() != null && !request.correlationId().isBlank()
                 ? request.correlationId()
@@ -114,10 +122,11 @@ public class BulkPublicationAdminController {
 
     @ExceptionHandler(BulkPublicationConflictException.class)
     public ResponseEntity<RestApiResponse<Void>> handleConflict(BulkPublicationConflictException ex) {
+        log.warn("Bulk publication admin conflict: {}", ex.getMessage());
         CustomProblemDetail problem = buildProblem(
                 HttpStatus.CONFLICT,
                 "Bulk publication conflict",
-                safeMessage(ex.getMessage(), "Bulk publication operation conflicted with current state"),
+                "Bulk publication conflicted with current generation or active job state.",
                 ErrorCategory.CONFLICT,
                 "BULK_PUBLICATION_CONFLICT",
                 null);
@@ -128,10 +137,11 @@ public class BulkPublicationAdminController {
 
     @ExceptionHandler(BulkLifecycleUnavailableException.class)
     public ResponseEntity<RestApiResponse<Void>> handleUnavailable(BulkLifecycleUnavailableException ex) {
+        log.error("Bulk lifecycle admin endpoint unavailable: {}", ex.getMessage(), ex);
         CustomProblemDetail problem = buildProblem(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 "Bulk lifecycle unavailable",
-                safeMessage(ex.getMessage(), "Bulk lifecycle infrastructure is unavailable"),
+                "Bulk lifecycle infrastructure is temporarily unavailable.",
                 ErrorCategory.SYSTEM,
                 "BULK_LIFECYCLE_UNAVAILABLE",
                 null);
@@ -142,10 +152,11 @@ public class BulkPublicationAdminController {
 
     @ExceptionHandler(BulkContractDiagnosticException.class)
     public ResponseEntity<RestApiResponse<Void>> handleDiagnostic(BulkContractDiagnosticException ex) {
+        log.error("Bulk contract diagnostic on admin endpoint (operationId={}): {}", ex.operationId(), ex.getMessage());
         CustomProblemDetail problem = buildProblem(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 "Bulk contract diagnostic",
-                safeMessage(ex.getMessage(), "Bulk operation contract validation failed"),
+                "Bulk operation contract validation failed.",
                 ErrorCategory.VALIDATION,
                 "BULK_CONTRACT_DIAGNOSTIC",
                 ex.operationId());
@@ -160,10 +171,11 @@ public class BulkPublicationAdminController {
             HttpMessageNotReadableException.class
     })
     public ResponseEntity<RestApiResponse<Void>> handleInvalidRequest(Exception ex) {
+        log.warn("Invalid bulk publication admin request: {}", ex.getMessage());
         CustomProblemDetail problem = buildProblem(
                 HttpStatus.BAD_REQUEST,
                 "Invalid bulk publication request",
-                safeMessage(ex.getMessage(), "Invalid request parameters"),
+                "Invalid bulk publication request parameters.",
                 ErrorCategory.VALIDATION,
                 "BULK_PUBLICATION_INVALID_REQUEST",
                 null);
@@ -189,15 +201,7 @@ public class BulkPublicationAdminController {
         return problem;
     }
 
-    private static String safeMessage(String raw, String fallback) {
-        if (raw == null || raw.isBlank()) {
-            return fallback;
-        }
-        String cleaned = raw.trim().replaceAll("[\\p{Cntrl}\\r\\n]+", " ");
-        return cleaned.isBlank() ? fallback : cleaned;
-    }
-
-    /** Optional request payload for asynchronous job submission. */
+    /** Optional request payload for asynchronous job submission; {@code actor} is ignored in favor of {@link Principal}. */
     public record SubmitJobRequest(
             BulkPublicationJobIntent intent,
             String actor,
