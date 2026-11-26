@@ -365,4 +365,53 @@ class OpenApiDocsSupportTest {
         );
         nextServer.verify();
     }
+
+    @Test
+    void localPublicationContextAndBaseUrlResolveFromRunningServletWebServerWhenNoRequestBound() {
+        ReflectionTestUtils.setField(support, "openApiInternalBaseUrl", "");
+        var servletContext = mock(jakarta.servlet.ServletContext.class);
+        when(servletContext.getContextPath()).thenReturn("/host");
+        var webServer = mock(org.springframework.boot.web.server.WebServer.class);
+        when(webServer.getPort()).thenReturn(18094);
+        var env = new org.springframework.mock.env.MockEnvironment().withProperty("server.address", "0.0.0.0");
+        var webCtx = mock(org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.class);
+        when(webCtx.getServletContext()).thenReturn(servletContext);
+        when(webCtx.getWebServer()).thenReturn(webServer);
+        when(webCtx.getEnvironment()).thenReturn(env);
+        ReflectionTestUtils.setField(support, "applicationContext", webCtx);
+
+        RequestContextHolder.resetRequestAttributes();
+        try {
+            assertEquals("/host", support.localPublicationContextPath());
+
+            var captureServer = MockRestServiceServer.createServer(restTemplate);
+            captureServer.expect(once(), requestTo("http://127.0.0.1:18094/host/v3/api-docs/stats"))
+                    .andExpect(method(HttpMethod.GET))
+                    .andRespond(withSuccess("{\"openapi\":\"3.1.0\",\"paths\":{\"/stats/group-by\":{}}}",
+                            MediaType.APPLICATION_JSON));
+            var capture = support.fetchFreshOpenApiResponseCapture(
+                    restTemplate,
+                    "/v3/api-docs/stats",
+                    LoggerFactory.getLogger(OpenApiDocsSupportTest.class),
+                    new ObjectMapper()
+            );
+            org.junit.jupiter.api.Assertions.assertNotNull(capture);
+            captureServer.verify();
+
+            ReflectionTestUtils.setField(support, "openApiInternalBaseUrl", "http://remote.example:9090");
+            assertThrows(IllegalStateException.class, support::localPublicationContextPath);
+            ReflectionTestUtils.setField(support, "openApiInternalBaseUrl", "");
+
+            when(webServer.getPort()).thenReturn(0);
+            assertThrows(IllegalStateException.class, support::localPublicationContextPath);
+            assertThrows(IllegalStateException.class, () -> support.fetchFreshOpenApiResponseCapture(
+                    restTemplate,
+                    "/v3/api-docs/stats",
+                    LoggerFactory.getLogger(OpenApiDocsSupportTest.class),
+                    new ObjectMapper()
+            ));
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+    }
 }
