@@ -5,11 +5,22 @@ import io.swagger.v3.core.converter.AnnotatedType;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.core.converter.ResolvedSchema;
 import io.swagger.v3.oas.models.media.Schema;
+import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.QuickFilterTone;
+import org.praxisplatform.uischema.annotation.UiSurface;
+import org.praxisplatform.uischema.controller.base.AbstractResourceQueryController;
 import org.praxisplatform.uischema.extension.CustomOpenApiResolver;
+import org.praxisplatform.uischema.id.CompositeIdSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.ResolvableType;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.web.bind.annotation.RequestMapping;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.RecordComponent;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -375,6 +386,320 @@ public class PraxisExpressionStaticValidator {
             }
         }
         return allErrors;
+    }
+
+    /**
+     * Valida estaticamente o binding de superfícies {@link UiSurface} relacionadas entre controllers,
+     * falhando quando {@code relatedChildParentField} é incompatível com a chave simples/composta
+     * do recurso pai ou não existe no {@code FilterDTO} filho. Usa modo estrito ({@code strict = true}).
+     */
+    public List<String> validateControllerSurfaces(Collection<Class<?>> controllerClasses) {
+        return validateControllerSurfaces(controllerClasses, true);
+    }
+
+    /**
+     * Valida estaticamente o binding de superfícies {@link UiSurface} relacionadas entre controllers.
+     *
+     * <p>Quando {@code strict = true}, referências a {@code relatedChildResourceKey} ou
+     * {@code relatedChildResourcePath} cujo controller filho não foi resolvido no conjunto
+     * analisado também geram erro de validação.</p>
+     */
+    public List<String> validateControllerSurfaces(Collection<Class<?>> controllerClasses, boolean strict) {
+        if (controllerClasses == null || controllerClasses.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Map<String, ControllerSurfaceContract> byResourceKey = new LinkedHashMap<>();
+        Map<String, ControllerSurfaceContract> byPath = new LinkedHashMap<>();
+        List<ControllerSurfaceContract> indexed = new ArrayList<>();
+
+        for (Class<?> controllerClass : controllerClasses) {
+            ControllerSurfaceContract contract = extractControllerSurfaceContract(controllerClass);
+            if (contract == null) {
+                continue;
+            }
+            indexed.add(contract);
+            if (contract.resourceKey() != null && !contract.resourceKey().isBlank()) {
+                byResourceKey.putIfAbsent(contract.resourceKey(), contract);
+            }
+            for (String pathVariant : contract.normalizedPaths()) {
+                byPath.putIfAbsent(pathVariant, contract);
+            }
+        }
+
+        List<String> errors = new ArrayList<>();
+        for (ControllerSurfaceContract parent : indexed) {
+            for (Method method : collectControllerMethods(parent.controllerClass())) {
+                UiSurface surface = AnnotatedElementUtils.findMergedAnnotation(method, UiSurface.class);
+                if (surface == null || surface.relatedChildParentField().isBlank()) {
+                    continue;
+                }
+                validateRelatedSurfaceBinding(parent, method, surface, byResourceKey, byPath, strict, errors);
+            }
+        }
+        return errors;
+    }
+
+    private void validateRelatedSurfaceBinding(
+            ControllerSurfaceContract parent,
+            Method method,
+            UiSurface surface,
+            Map<String, ControllerSurfaceContract> byResourceKey,
+            Map<String, ControllerSurfaceContract> byPath,
+            boolean strict,
+            List<String> errors
+    ) {
+        String surfaceId = surface.id().isBlank() ? method.getName() : surface.id().trim();
+        String parentField = surface.relatedChildParentField().trim();
+        String childKey = surface.relatedChildResourceKey().trim();
+        String childPath = normalizeSurfaceResourcePath(surface.relatedChildResourcePath());
+
+        ControllerSurfaceContract child = !childKey.isEmpty() ? byResourceKey.get(childKey) : null;
+        if (child == null && !childPath.isEmpty()) {
+            child = byPath.get(childPath);
+        }
+        if (child == null) {
+            if (strict && (!childKey.isEmpty() || !childPath.isEmpty())) {
+                String targetDesc = !childKey.isEmpty() ? childKey : surface.relatedChildResourcePath().trim();
+                errors.add(String.format(
+                        "Controller %s @UiSurface(id='%s') declares relatedChildParentField '%s', but target child controller '%s' was not found in the inspected set.",
+                        parent.controllerClass().getSimpleName(), surfaceId, parentField, targetDesc));
+            }
+            return;
+        }
+
+        Class<?> childFilterType = child.filterDtoType();
+        if (childFilterType == null) {
+            errors.add(String.format(
+                    "Controller %s @UiSurface(id='%s') cannot resolve child FilterDTO type for '%s'.",
+                    parent.controllerClass().getSimpleName(), surfaceId, child.controllerClass().getSimpleName()));
+            return;
+        }
+
+        ResolvableType childFilterFieldType = resolvePropertyType(childFilterType, parentField);
+        if (childFilterFieldType == null) {
+            errors.add(String.format(
+                    "Controller %s @UiSurface(id='%s') declares relatedChildParentField '%s', which does not exist in child FilterDTO %s.",
+                    parent.controllerClass().getSimpleName(), surfaceId, parentField, childFilterType.getSimpleName()));
+            return;
+        }
+
+        String selectionKeyField = surface.relatedSelectionKeyField().trim();
+        Class<?> parentWireKeyType;
+        String parentKeySourceDesc;
+        if (selectionKeyField.isEmpty() || "id".equals(selectionKeyField)) {
+            parentWireKeyType = parent.idType();
+            if (parentWireKeyType == null && parent.responseDtoType() != null) {
+                ResolvableType idProp = resolvePropertyType(parent.responseDtoType(), "id");
+                parentWireKeyType = idProp != null ? idProp.resolve() : null;
+            }
+            parentKeySourceDesc = "parent ID ('" + (selectionKeyField.isEmpty() ? "id" : selectionKeyField) + "')";
+        } else {
+            if (parent.responseDtoType() == null) {
+                errors.add(String.format(
+                        "Controller %s @UiSurface(id='%s') declares relatedSelectionKeyField '%s', but parent ResponseDTO type could not be resolved.",
+                        parent.controllerClass().getSimpleName(), surfaceId, selectionKeyField));
+                return;
+            }
+            ResolvableType selectionProp = resolvePropertyType(parent.responseDtoType(), selectionKeyField);
+            if (selectionProp == null) {
+                errors.add(String.format(
+                        "Controller %s @UiSurface(id='%s') declares relatedSelectionKeyField '%s', which does not exist in parent ResponseDTO %s.",
+                        parent.controllerClass().getSimpleName(),
+                        surfaceId,
+                        selectionKeyField,
+                        parent.responseDtoType().getSimpleName()));
+                return;
+            }
+            parentWireKeyType = selectionProp.resolve();
+            parentKeySourceDesc = "relatedSelectionKeyField '" + selectionKeyField + "'";
+        }
+
+        if (parentWireKeyType == null) {
+            return;
+        }
+
+        Class<?> childElementType = unwrapFilterElementType(childFilterFieldType);
+        if (childElementType == null) {
+            return;
+        }
+
+        boolean parentComposite = CompositeIdSupport.isCompositeIdType(parentWireKeyType);
+        boolean childComposite = CompositeIdSupport.isCompositeIdType(childElementType);
+
+        if (parentComposite) {
+            boolean compatible = childElementType == String.class
+                    || childElementType == CharSequence.class
+                    || childElementType == Object.class
+                    || parentWireKeyType.isAssignableFrom(childElementType)
+                    || childElementType.isAssignableFrom(parentWireKeyType);
+            if (!compatible) {
+                errors.add(String.format(
+                        "Controller %s @UiSurface(id='%s') uses composite %s (%s, serialized on the wire as 'a:b'), which is incompatible with %s.%s of type %s. Use String, a compatible composite ID type, or declare a scalar relatedSelectionKeyField.",
+                        parent.controllerClass().getSimpleName(),
+                        surfaceId,
+                        parentKeySourceDesc,
+                        parentWireKeyType.getSimpleName(),
+                        childFilterType.getSimpleName(),
+                        parentField,
+                        childElementType.getSimpleName()));
+            }
+        } else if (childComposite) {
+            errors.add(String.format(
+                    "Controller %s @UiSurface(id='%s') uses scalar %s (%s), which is incompatible with composite filter field %s.%s (%s).",
+                    parent.controllerClass().getSimpleName(),
+                    surfaceId,
+                    parentKeySourceDesc,
+                    parentWireKeyType.getSimpleName(),
+                    childFilterType.getSimpleName(),
+                    parentField,
+                    childElementType.getSimpleName()));
+        }
+    }
+
+    private record ControllerSurfaceContract(
+            Class<?> controllerClass,
+            String resourceKey,
+            Set<String> normalizedPaths,
+            Class<?> responseDtoType,
+            Class<?> idType,
+            Class<?> filterDtoType) { }
+
+    private ControllerSurfaceContract extractControllerSurfaceContract(Class<?> controllerClass) {
+        if (controllerClass == null || !AbstractResourceQueryController.class.isAssignableFrom(controllerClass)) {
+            return null;
+        }
+        ResolvableType superType = ResolvableType.forClass(controllerClass).as(AbstractResourceQueryController.class);
+        Class<?> responseDtoType = superType.getGeneric(0).resolve();
+        Class<?> idType = superType.getGeneric(1).resolve();
+        Class<?> filterDtoType = superType.getGeneric(2).resolve();
+
+        ApiResource apiResource = AnnotatedElementUtils.findMergedAnnotation(controllerClass, ApiResource.class);
+        RequestMapping mapping = AnnotatedElementUtils.findMergedAnnotation(controllerClass, RequestMapping.class);
+        String resourceKey = apiResource != null ? apiResource.resourceKey().trim() : "";
+
+        Set<String> paths = new LinkedHashSet<>();
+        if (mapping != null) {
+            for (String path : mapping.path()) {
+                addNormalizedPathVariants(paths, path);
+            }
+            for (String path : mapping.value()) {
+                addNormalizedPathVariants(paths, path);
+            }
+        }
+        return new ControllerSurfaceContract(
+                controllerClass, resourceKey, Set.copyOf(paths), responseDtoType, idType, filterDtoType);
+    }
+
+    private static void addNormalizedPathVariants(Set<String> paths, String rawPath) {
+        String normalized = normalizeSurfaceResourcePath(rawPath);
+        if (!normalized.isEmpty()) {
+            paths.add(normalized);
+            if (normalized.startsWith("api/")) {
+                paths.add(normalized.substring(4));
+            }
+        }
+    }
+
+    private static String normalizeSurfaceResourcePath(String rawPath) {
+        if (rawPath == null || rawPath.isBlank()) {
+            return "";
+        }
+        String clean = rawPath.trim();
+        while (clean.startsWith("/")) {
+            clean = clean.substring(1);
+        }
+        while (clean.endsWith("/")) {
+            clean = clean.substring(0, clean.length() - 1);
+        }
+        return clean;
+    }
+
+    private static List<Method> collectControllerMethods(Class<?> controllerClass) {
+        List<Method> collected = new ArrayList<>();
+        Set<String> seenSignatures = new LinkedHashSet<>();
+        Class<?> current = controllerClass;
+        while (current != null && current != Object.class) {
+            for (Method method : current.getDeclaredMethods()) {
+                if (method.isSynthetic() || method.isBridge()) {
+                    continue;
+                }
+                String sig = method.getName() + Arrays.toString(method.getParameterTypes());
+                if (seenSignatures.add(sig)) {
+                    collected.add(method);
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return collected;
+    }
+
+    private static ResolvableType resolvePropertyType(Class<?> ownerType, String propertyName) {
+        Class<?> current = ownerType;
+        while (current != null && current != Object.class) {
+            if (current.isRecord()) {
+                for (RecordComponent component : current.getRecordComponents()) {
+                    if (component.getName().equals(propertyName)) {
+                        return ResolvableType.forType(
+                                component.getGenericType(), ResolvableType.forClass(ownerType));
+                    }
+                }
+            }
+            for (Field field : current.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                if (field.getName().equals(propertyName)) {
+                    return ResolvableType.forField(field, ownerType);
+                }
+            }
+            current = current.getSuperclass();
+        }
+
+        String cap = propertyName.length() == 1
+                ? propertyName.toUpperCase(Locale.ROOT)
+                : Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
+        String getName = "get" + cap;
+        String isName = "is" + cap;
+        current = ownerType;
+        while (current != null && current != Object.class) {
+            for (Method method : current.getDeclaredMethods()) {
+                if (method.isSynthetic() || method.isBridge()
+                        || Modifier.isStatic(method.getModifiers())
+                        || method.getParameterCount() != 0) {
+                    continue;
+                }
+                String name = method.getName();
+                if (name.equals(getName) || name.equals(isName) || name.equals(propertyName)) {
+                    return ResolvableType.forMethodReturnType(method, ownerType);
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return null;
+    }
+
+    private static Class<?> unwrapFilterElementType(ResolvableType type) {
+        ResolvableType current = type;
+        for (int depth = 0; depth < 3 && current != null && current != ResolvableType.NONE; depth++) {
+            Class<?> raw = current.resolve();
+            if (raw == null) {
+                return null;
+            }
+            if (raw.isArray()) {
+                current = current.getComponentType();
+                continue;
+            }
+            if (Collection.class.isAssignableFrom(raw)) {
+                current = current.asCollection().getGeneric(0);
+                continue;
+            }
+            if (Optional.class.isAssignableFrom(raw)) {
+                current = current.getGeneric(0);
+                continue;
+            }
+            return raw;
+        }
+        return current != null ? current.resolve() : null;
     }
 
     private void validateRuleExpressionOrLogic(String ruleName, Object ruleValue, Set<String> validProps,
