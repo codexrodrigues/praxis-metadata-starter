@@ -69,8 +69,20 @@
     - `inlineQuickPresets.position` aceita `auto`, `footer`, `start` e `end`; `start/end` sao posicoes logicas e devem respeitar RTL no consumidor.
     - O JSON publicado pelo backend MUST NOT conter `calculateRange`, callbacks, scripts ou expressoes de regra de negocio executadas no frontend.
   - Numerico: `numericFormat` (enum), `numericStep`, `numericMin`, `numericMax`, `numericMaxLength`
+  - Faixas monetarias (`priceRange` / `inlineCurrencyRange`): `currency`, `currencyPosition`, `showCurrencySymbol`, `decimalPlaces`, `locale`, `thousandsSeparator`, `decimalSeparator`, `allowNegative`, `inlinePanelTitle`, `inlinePanelIcon`, `inlinePanelIconColor`, `showAnchors`, `showTicks`, `showInlineInputs`, `sliderStep`, `shiftStep`, `minDistance`, `maxDistance`, `requireTwoBounds`, `operatorModes`, `defaultOperatorMode`, `inputMinLabel`, `inputMaxLabel`, `inputExactLabel`, `quickPresets[]`, `quickPresetsAuto`, `quickPresetsLabels`, `marks[]`, `semanticBands[]` e `inlineDistribution`
   - Apresentacao de valor: `valuePresentation{ type, style?, format?, currency?, number? }` como contrato canonico de display/read-only para valores escalares
-  - Apresentacao visual readonly/list/table-cell: `presentation{ presenter, tone?, appearance?, icon?, label?, prefix?, suffix?, tooltip?, valuePresentation?, visualization?, interactions? }`; consumidores podem materializar como `chip`, `badge`, `status`, `iconValue` ou microvisualizacao sem alterar o valor bruto usado para sort/filter/export. `label` representa texto fixo opcional da apresentacao; omita `label` quando o consumidor deve exibir o valor da linha/campo. `prefix` e `suffix` sao afixos visuais, como `#` em codigos corporativos.
+  - Apresentacao visual readonly/list/table-cell: `presentation{ presenter, tone?, appearance?, icon?, label?, prefix?, suffix?, tooltip?, valuePresentation?, visualization?, interactions? }`; consumidores podem materializar como `chip`, `badge`, `status`, `iconValue` ou microvisualizacao sem alterar o valor bruto usado para sort/filter/export. `label` representa texto fixo opcional da apresentacao; omita `label` quando o consumidor deve exibir o valor da linha/campo. `prefix` e `suffix` sao afixos visuais, como `#` em codigos corporativos. `interactions` aceita flags booleanas (`copy`, `details`, `expand`, `link`) e o binding opcional `quickView` (objeto nao vazio, alinhado a `ResourceQuickViewBinding`).
+
+### Matriz canonica de tons semanticos e superficies (`x-ui.presentation`)
+
+- Tons semanticos aceitos pelo starter e pelo JSON Schema:
+  - **7 tons canonicos:** `neutral`, `primary`, `secondary`, `info`, `success`, `warning`, `danger`.
+  - **4 aliases normalizados no runtime `@praxisui/core` (`normalizeTone`):** `muted -> neutral`, `positive -> success`, `critical | negative -> danger`.
+- Correspondencia entre superficies oficiais (`Table`, `Quick View`, `FieldShell`, `List` e `microVisualization`):
+  - **Celulas de tabela (`@praxisui/table`):** `badge`/`chip` mapeiam `neutral/muted -> basic`, `danger/critical/negative -> warn`, preservando `primary`, `secondary`, `accent`, `info`, `success`, `warning`; renderer `icon` suporta `text`, `textField`, `prefix`, `suffix`, `tooltip` e `quickView`.
+  - **Quick View (`@praxisui/dialog`):** `summaryItems[].tone` aplica `data-tone` para os 7 tons canonicos; itens LGPD mascarados suprimem badges de tom semantico e acoes de copia, exibindo o selo de governanca e `maskReason`.
+  - **Fichas e drawers readonly (`FieldShell` em `@praxisui/dynamic-fields`):** materializam `data-presentation-tone`, `data-presentation-appearance` (`plain | soft | outlined | filled`), `icon`, `prefix`/`suffix` (sem afixos sobre valores vazios ou mascarados) e hidratam `@MicroVisualization` a partir de `*Expr` ou do valor do controle (com supressao visual para campos mascarados).
+  - **Exemplo neutro:** `{ "presenter": "chip", "tone": "secondary", "appearance": "soft", "interactions": { "quickView": { "resourceKey": "workforce.employees", "surfaceId": "detail" } } }`.
   - Validacao (top-level): `required`, `minLength`, `maxLength`, `min`, `max`, `pattern`, `range`, mensagens (`*Message`), alem de `email`, `url`, `matchField`, `uniqueValidator`, `customValidator`, `asyncValidator`, `minWords`, `validationTrigger(s)`, `validationDebounce`, `showInlineErrors`, `errorPosition`
   - Validacao agrupada: bloco `validation{}` com chaves basicas quando o produtor optar por agrupar regras no mesmo namespace
 - Operacao (x-ui por operacao)
@@ -150,7 +162,8 @@
 - SHOULD: extensoes privadas usarem o prefixo `custom.`.
 - MUST: `capabilities` conter apenas valores boolean; chaves adicionais sao permitidas.
 - SHOULD: publicar `x-ui.valuePresentation` para campos escalares de exibicao quando a intencao semantica estiver clara.
-- SHOULD: publicar `x-ui.presentation` quando a semantica canonica do campo exigir materializacao visual em listas ou tabelas, como siglas em chip, categorias em badge ou codigo com prefixo visual.
+- SHOULD: publicar `x-ui.presentation` quando a semantica canonica do campo exigir materializacao visual em listas ou tabelas, como siglas em chip, categorias em badge ou codigo/unidade com `prefix`/`suffix` e `tooltip`.
+- SHOULD: publicar `x-ui.presentationRules` (array ordenado de `{ when, set | effect }`) quando a apresentacao visual em modo somente leitura ou celula de tabela depender de outros campos do registro (validado `fail-closed` contra Json Logic canonico e `#/properties/presentation`). Em superficies tabulares e de resumo (`first-match`), vence a primeira regra satisfeita; `presentationRules` nunca alteram o valor bruto usado em ordenacao, filtro, exportacao ou envio de formulario.
 - MUST NOT: publicar `x-ui.valuePresentation` automatico para ranges, selecoes, arrays, objects ou IDs semanticos sem override explicito.
 - MUST NOT: usar `x-ui.icon` isolado como instrucao global para renderizar icone em celula; icone de celula deve vir de `x-ui.presentation.icon` combinado com `presentation.presenter`.
 - MUST NOT: sobrecarregar `x-ui.valuePresentation` para chips, badges ou prefixos visuais.

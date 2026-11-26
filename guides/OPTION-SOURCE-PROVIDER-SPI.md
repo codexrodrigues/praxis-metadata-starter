@@ -261,6 +261,31 @@ usar, como `code`, `status`, `selectable`, `disabledReason` ou atributos
 funcionais do catalogo. Nao faca sanitizacao silenciosa no provider; falhe em
 teste quando uma chave privada aparecer.
 
+## Materializando OptionDTO rico com EntityLookupOptionMapper
+
+Quando um `OptionSourceProvider` customizado atende a um lookup `RESOURCE_ENTITY`
+com `display.fields[]`, `descriptionPropertyPaths`, `badgePropertyPaths`, `status`,
+`selectionPolicy` e mascaramento declarativo LGPD, utilize o componente utilitário
+público `EntityLookupOptionMapper` em vez de montar `OptionDTO.extra` manualmente:
+
+```java
+OptionDTO<Object> option = EntityLookupOptionMapper.toOption(
+    request.descriptor(),
+    employeeEntity
+);
+```
+
+Para projeções parciais ou respostas sem entidade JPA direta, utilize
+`EntityLookupOptionMapper.mapFromValues(...)` ou `mapFromResolved(...)`
+informando a classe DTO/entidade portadora de `@DomainGovernance`. O mapper:
+
+- materializa `code`, `description`, `status`, `selectable`, `disabledReason`,
+  `detailHref`/`detailRoute`, `badges` e `richFields[]` com `key`, `label`, `icon`,
+  `presentation`, `tone`, `format` e `value`;
+- aplica mascaramento declarativo (`***`) conforme `@DomainGovernance` quando o
+  provedor de autorização OPA não está ativo, falhando fechado sem publicar documento
+  cru nem identidade de adapter/provider em `OptionDTO.extra`.
+
 ## Dataset version
 
 Se a fonte externa nao depende da tabela JPA do recurso base, sobrescreva:

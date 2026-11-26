@@ -593,17 +593,49 @@ a UI pode mostrar ou usar, como <code>code</code>, <code>status</code>,
 <code>selectable</code>, <code>disabledReason</code> ou atributos
 funcionais do catalogo. Nao faca sanitizacao silenciosa no provider;
 falhe em teste quando uma chave privada aparecer.</p>
+<h2
+id="materializando-optiondto-rico-com-entitylookupoptionmapper">Materializando
+OptionDTO rico com EntityLookupOptionMapper</h2>
+<p>Quando um <code>OptionSourceProvider</code> customizado atende a um
+lookup <code>RESOURCE_ENTITY</code> com <code>display.fields[]</code>,
+<code>descriptionPropertyPaths</code>, <code>badgePropertyPaths</code>,
+<code>status</code>, <code>selectionPolicy</code> e mascaramento
+declarativo LGPD, utilize o componente utilitário público
+<code>EntityLookupOptionMapper</code> em vez de montar
+<code>OptionDTO.extra</code> manualmente:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>OptionDTO<span class="op">&lt;</span><span class="bu">Object</span><span class="op">&gt;</span> option <span class="op">=</span> EntityLookupOptionMapper<span class="op">.</span><span class="fu">toOption</span><span class="op">(</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    request<span class="op">.</span><span class="fu">descriptor</span><span class="op">(),</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    employeeEntity</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div>
+<p>Para projeções parciais ou respostas sem entidade JPA direta, utilize
+<code>EntityLookupOptionMapper.mapFromValues(...)</code> ou
+<code>mapFromResolved(...)</code> informando a classe DTO/entidade
+portadora de <code>@DomainGovernance</code>. O mapper:</p>
+<ul>
+<li>materializa <code>code</code>, <code>description</code>,
+<code>status</code>, <code>selectable</code>,
+<code>disabledReason</code>,
+<code>detailHref</code>/<code>detailRoute</code>, <code>badges</code> e
+<code>richFields[]</code> com <code>key</code>, <code>label</code>,
+<code>icon</code>, <code>presentation</code>, <code>tone</code>,
+<code>format</code> e <code>value</code>;</li>
+<li>aplica mascaramento declarativo (<code>***</code>) conforme
+<code>@DomainGovernance</code> quando o provedor de autorização OPA não
+está ativo, falhando fechado sem publicar documento cru nem identidade
+de adapter/provider em <code>OptionDTO.extra</code>.</li>
+</ul>
 <h2 id="dataset-version">Dataset version</h2>
 <p>Se a fonte externa nao depende da tabela JPA do recurso base,
 sobrescreva:</p>
-<div class="sourceCode" id="cb7"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> Optional<span class="op">&lt;</span><span class="bu">String</span><span class="op">&gt;</span> <span class="fu">getOptionSourceDatasetVersion</span><span class="op">(</span><span class="bu">String</span> sourceKey<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="st">&quot;externalLookup&quot;</span><span class="op">.</span><span class="fu">equals</span><span class="op">(</span>sourceKey<span class="op">))</span> <span class="op">{</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> Optional<span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;externalLookup:v1&quot;</span><span class="op">);</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">super</span><span class="op">.</span><span class="fu">getOptionSourceDatasetVersion</span><span class="op">(</span>sourceKey<span class="op">);</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> Optional<span class="op">&lt;</span><span class="bu">String</span><span class="op">&gt;</span> <span class="fu">getOptionSourceDatasetVersion</span><span class="op">(</span><span class="bu">String</span> sourceKey<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="st">&quot;externalLookup&quot;</span><span class="op">.</span><span class="fu">equals</span><span class="op">(</span>sourceKey<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> Optional<span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;externalLookup:v1&quot;</span><span class="op">);</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">super</span><span class="op">.</span><span class="fu">getOptionSourceDatasetVersion</span><span class="op">(</span>sourceKey<span class="op">);</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <p>Isso evita que endpoints de option source consultem o repository JPA
 do recurso base apenas para emitir versao.</p>
 <script type="module">

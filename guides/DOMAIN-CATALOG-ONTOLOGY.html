@@ -399,14 +399,23 @@ identidade declarada pelo produtor: a verificação federada de autoridade
 pertence ao Config.</p>
 <h2 id="determinações-por-formulário">Determinações por formulário</h2>
 <p><code>ReactiveDeterminationCatalogSource</code> enumera os escopos
-registrados e resolve cada operação pelo
-<code>CanonicalOperationResolver</code>, sem inferência por prefixo de
-URL. O recurso é resolvido pelo
-<code>ApiResourceIdentityResolver</code>. Schema e identidade estrutural
-usam <code>FilteredSchemaProjection</code> e
+registrados e resolve os <code>operationId</code>s em lote pelo
+<code>BatchCanonicalOperationResolver#resolveMvcOperationsByIds</code>
+(ou <code>CanonicalOperationResolver#resolveByOperationId</code> em
+implementações customizadas), sem inferência por prefixo de URL e sem
+acionar varreduras OpenAPI cross-group para formulários fora do escopo
+ou operações <code>@BulkResourceOperation(UPDATE_SOURCE)</code> de
+destino. O recurso é resolvido pelo
+<code>ApiResourceIdentityResolver</code> diretamente a partir do
+<code>HandlerMethod</code> localizado (suportando proxies Spring AOP).
+Cada formulário escopado continua validando a preservação do
+<code>operationId</code> publicado no documento OpenAPI do seu próprio
+grupo. Schema e identidade estrutural usam
+<code>FilteredSchemaProjection</code> e
 <code>SchemaReferenceResolver</code>; a saída de
-<code>ReactiveDeterminationMetadataCompiler</code> é preservada
-integralmente.</p>
+<code>ReactiveDeterminationMetadataCompiler</code> (que também agrupa
+resoluções de operações e documentos por grupo dentro da mesma
+compilação) é preservada integralmente.</p>
 <p>Cada tupla serviço/recurso/schemaOperationId/formMode/id produz um nó
 <code>operation</code> com
 <code>metadata.operationKind=reactive_determination</code> e
@@ -448,10 +457,20 @@ sendo a lista de gatilhos: uma entrada contextual não vira gatilho e
 ON_INIT não fabrica gatilhos de alteração. Não há produto cartesiano de
 causalidade entre inputs e outputs nem <code>edge.metadata</code>.</p>
 <h2 id="integridade-de-publicação">Integridade de publicação</h2>
-<p>A materialização inteira usa o lock canônico de leitura do cache de
-schemas. O fingerprint considera o formulário, as determinações
-compiladas e o documento OpenAPI do grupo, incluindo componentes
-referenciados que não são inputs/outputs. Operação
+<p>A materialização inteira de formulários em
+<code>ReactiveDeterminationCatalogSource</code> (inclusive no modo
+estrito <code>findByResourceKeyStrict</code> /
+<code>findByGroupStrict</code>) executa sob um único lock canônico de
+leitura do cache de schemas (<code>withSchemaCacheReadLock</code>),
+reutilizando uma captura coerente por grupo durante a chamada sem
+<code>deepCopy()</code> por formulário e mantendo dois slots de hash por
+grupo para evitar que preparações concorrentes
+(<code>preparedCandidateScope</code>) expulsem a fotografia em produção
+(<code>publishedScope</code>). <code>SemanticDomainCatalogService</code>
+mantém cache LRU limitado em memória para o catálogo derivado por
+recurso/grupo/tenant. O fingerprint considera o formulário, as
+determinações compiladas e o documento OpenAPI do grupo, incluindo
+componentes referenciados que não são inputs/outputs. Operação
 inexistente/divergente, ponteiro inválido, escritores sobrepostos e
 ciclos impedem a publicação afetada com o diagnóstico do
 resolvedor/compilador.</p>

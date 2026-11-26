@@ -352,17 +352,35 @@ opções</a>.</p>
 <code>praxis-metadata-starter</code>.</p>
 <h2 id="estratégias-de-busca">Estratégias de busca</h2>
 <p>Lookups que aceitam mais de uma intenção podem publicar
-<code>filtering.searchStrategies</code>. Cada item tem uma
+<code>filtering.searchStrategies</code> e, opcionalmente,
+<code>filtering.defaultSearchStrategy</code>. Cada item tem uma
 <code>key</code> única, um <code>kind</code> e o limite mínimo. O
-cliente envia a intenção em <code>searchStrategy</code>; quando houver
-somente uma estratégia declarada, o runtime a seleciona automaticamente.
-Com duas ou mais, a escolha é obrigatória: o runtime não infere código,
-nome ou documento a partir do texto.</p>
+cliente envia a intenção em <code>searchStrategy</code>:</p>
+<ul>
+<li>com uma única estratégia declarada, o runtime a seleciona
+automaticamente;</li>
+<li>com duas ou mais estratégias, se
+<code>filtering.defaultSearchStrategy</code> estiver declarada no
+contrato, o servidor e o runtime a assumem como intenção padrão; se
+<code>defaultSearchStrategy</code> for omitida, a escolha explícita
+continua obrigatória (o runtime nunca infere código, nome ou documento a
+partir do texto).</li>
+</ul>
 <p>Uma estratégia pode declarar <code>inputFormat=digits</code> quando o
 código de negócio é estritamente numérico. O runtime rejeita outros
 caracteres antes de resolver o provider. O default compatível é
 <code>text</code>; o formato público não revela coluna, parâmetro, SQL
 nem binding interno.</p>
+<p>Na busca textual descritiva (<code>searchMode</code> diferente de
+<code>exact</code>/<code>none</code> e estratégias que não sejam
+<code>normalized-document</code>, <code>inputFormat=digits</code> ou
+<code>business-code</code>), o executor JPA aplica tokenização Omnibox
+multi-token por espaço (até 5 tokens com escape de <code>%</code>,
+<code>_</code> e <code>\</code>), exigindo que todos os tokens combinem
+em pelo menos um dos <code>searchPropertyPaths</code>. Estratégias
+<code>normalized-document</code> (<code>CPF</code>/<code>CNPJ</code> sem
+pontuação), <code>inputFormat=digits</code> e <code>business-code</code>
+preservam o termo íntegro sem divisão por espaços.</p>
 <p><code>normalized-document</code> aceita dígitos com separadores
 visuais e encaminha apenas os dígitos ao provider; o mínimo é avaliado
 depois da normalização. A validação de checksum ou de documentos aceitos
@@ -825,6 +843,65 @@ class="sourceCode json"><code class="sourceCode json"><span id="cb8-1"><a href="
 <span id="cb8-88"><a href="#cb8-88" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
 <span id="cb8-89"><a href="#cb8-89" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
 <span id="cb8-90"><a href="#cb8-90" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3
+id="derivação-por-dto-linhagem-jpa-e-modal-tabular-x-ui.optionsource.dialog">Derivação
+por DTO, Linhagem JPA e Modal Tabular
+(<code>x-ui.optionSource.dialog</code>)</h3>
+<p>Para evitar duplicação entre <code>ResponseDTO</code>, entidade JPA e
+<code>FilterDTO</code>, utilize:</p>
+<ul>
+<li><strong><code>EntityLookupDescriptor.directoryBuilderFromDto(entityKey, EmployeeResponseDTO.class, Employee.class)</code></strong>:
+resolve campos achatados do DTO para caminhos JPA reais via
+<code>DtoEntityPathResolver</code> (promove
+<code>@DomainLineage.sourcePaths[0]</code> na entidade raiz apenas
+quando <code>sourcePaths.length == 1</code> e
+<code>transformation != DERIVED</code>, e resolve FKs relacionadas via
+<code>@ResourceReference.valueField</code> -&gt;
+<code>@JoinColumn</code>, falhando fechado em ambiguidade);</li>
+<li><strong><code>LookupFilteringDescriptor.builderFromFilterDto(EmployeeFilterDTO.class, registrySnapshot)</code></strong>:
+deriva <code>availableFilters</code> exclusivamente de campos
+<code>@Filterable</code> reais (preenchendo opções estáticas
+<code>enum</code> e <code>optionSource</code> + <code>dependsOn</code> +
+<code>dependencyFilterMap</code> em filtros <code>reference</code>,
+validados pelo gate <code>P50</code> contra vazamento de campos
+restritos);</li>
+<li><strong><code>LookupDialogDescriptor</code> +
+<code>LookupResultColumnDescriptor</code></strong>: publica o contrato
+tabular do modal avançado sob
+<code>x-ui.optionSource.dialog</code>.</li>
+</ul>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> filtering <span class="op">=</span> LookupFilteringDescriptor</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">builderFromFilterDto</span><span class="op">(</span>EmployeeFilterDTO<span class="op">.</span><span class="fu">class</span><span class="op">,</span> referenceRegistry<span class="op">)</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">includedFields</span><span class="op">(</span><span class="st">&quot;companyId&quot;</span><span class="op">,</span> <span class="st">&quot;departmentId&quot;</span><span class="op">,</span> <span class="st">&quot;status&quot;</span><span class="op">,</span> <span class="st">&quot;hireDateBetween&quot;</span><span class="op">)</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">quickFilterFields</span><span class="op">(</span><span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;status&quot;</span><span class="op">))</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">sortOptions</span><span class="op">(</span><span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">LookupSortOption</span><span class="op">(</span><span class="st">&quot;code&quot;</span><span class="op">,</span> <span class="st">&quot;employeeCode&quot;</span><span class="op">,</span> <span class="st">&quot;asc&quot;</span><span class="op">,</span> <span class="st">&quot;Matrícula&quot;</span><span class="op">),</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">LookupSortOption</span><span class="op">(</span><span class="st">&quot;name&quot;</span><span class="op">,</span> <span class="st">&quot;fullName&quot;</span><span class="op">,</span> <span class="st">&quot;asc&quot;</span><span class="op">,</span> <span class="st">&quot;Nome A-Z&quot;</span><span class="op">)))</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">defaultSort</span><span class="op">(</span><span class="st">&quot;name&quot;</span><span class="op">)</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">searchStrategies</span><span class="op">(</span><span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">LookupSearchStrategyDefinition</span><span class="op">(</span><span class="st">&quot;text&quot;</span><span class="op">,</span> <span class="st">&quot;descriptive-text&quot;</span><span class="op">,</span> <span class="dv">2</span><span class="op">),</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">LookupSearchStrategyDefinition</span><span class="op">(</span><span class="st">&quot;code&quot;</span><span class="op">,</span> <span class="st">&quot;business-code&quot;</span><span class="op">,</span> <span class="dv">1</span><span class="op">)))</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">defaultSearchStrategy</span><span class="op">(</span><span class="st">&quot;text&quot;</span><span class="op">)</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">build</span><span class="op">();</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> dialog <span class="op">=</span> LookupDialogDescriptor<span class="op">.</span><span class="fu">builder</span><span class="op">()</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">enabled</span><span class="op">(</span><span class="kw">true</span><span class="op">)</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">title</span><span class="op">(</span><span class="st">&quot;Diretório de colaboradores (Workforce)&quot;</span><span class="op">)</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">size</span><span class="op">(</span><span class="st">&quot;lg&quot;</span><span class="op">)</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">previewPanel</span><span class="op">(</span><span class="kw">true</span><span class="op">)</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">resultColumns</span><span class="op">(</span><span class="bu">List</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">LookupResultColumnDescriptor</span><span class="op">(</span><span class="st">&quot;employeeCode&quot;</span><span class="op">,</span> <span class="st">&quot;Código&quot;</span><span class="op">,</span> <span class="st">&quot;code&quot;</span><span class="op">,</span> <span class="st">&quot;112px&quot;</span><span class="op">),</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">LookupResultColumnDescriptor</span><span class="op">(</span><span class="st">&quot;fullName&quot;</span><span class="op">,</span> <span class="st">&quot;Colaborador&quot;</span><span class="op">,</span> <span class="st">&quot;label&quot;</span><span class="op">),</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">LookupResultColumnDescriptor</span><span class="op">(</span><span class="st">&quot;description&quot;</span><span class="op">,</span> <span class="st">&quot;Cargo e Departamento&quot;</span><span class="op">,</span> <span class="st">&quot;description&quot;</span><span class="op">),</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>        <span class="kw">new</span> <span class="fu">LookupResultColumnDescriptor</span><span class="op">(</span><span class="st">&quot;status&quot;</span><span class="op">,</span> <span class="st">&quot;Situação&quot;</span><span class="op">,</span> <span class="st">&quot;status&quot;</span><span class="op">,</span> <span class="st">&quot;124px&quot;</span><span class="op">)))</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">build</span><span class="op">();</span></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a><span class="dt">var</span> lookup <span class="op">=</span> EntityLookupDescriptor</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">directoryBuilderFromDto</span><span class="op">(</span><span class="st">&quot;workforce.employees&quot;</span><span class="op">,</span> EmployeeResponseDTO<span class="op">.</span><span class="fu">class</span><span class="op">,</span> Employee<span class="op">.</span><span class="fu">class</span><span class="op">)</span></span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">filtering</span><span class="op">(</span>filtering<span class="op">)</span></span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">dialog</span><span class="op">(</span>dialog<span class="op">)</span></span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span><span class="fu">build</span><span class="op">();</span></span></code></pre></div>
 <h2 id="boas-praticas">Boas praticas</h2>
 <ul>
 <li>use <code>option-sources</code> para dimensoes derivadas</li>
@@ -877,30 +954,30 @@ descriptors inválidos (ex.: <code>key</code> nula) lançam
 <p>Use ferramentas como Postman ou curl para testar endpoints:</p>
 <ul>
 <li><p><strong>Filtro de Opções</strong>:</p>
-<div class="sourceCode" id="cb9"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-X</span> POST <span class="st">&quot;http://localhost:8080/api/resource/option-sources/universo/options/filter&quot;</span> <span class="dt">\</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Content-Type: application/json&quot;</span> <span class="dt">\</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-d</span> <span class="st">&#39;{&quot;search&quot;: &quot;Empresa&quot;, &quot;page&quot;: 0, &quot;size&quot;: 10}&#39;</span></span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-X</span> POST <span class="st">&quot;http://localhost:8080/api/resource/option-sources/universo/options/filter&quot;</span> <span class="dt">\</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Content-Type: application/json&quot;</span> <span class="dt">\</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-d</span> <span class="st">&#39;{&quot;search&quot;: &quot;Empresa&quot;, &quot;page&quot;: 0, &quot;size&quot;: 10}&#39;</span></span></code></pre></div>
 <p>Esperado: <code>Page&lt;OptionDTO&gt;</code> com <code>id</code>,
 <code>label</code>.</p></li>
 <li><p><strong>Reidratação por IDs</strong>:</p>
-<div class="sourceCode" id="cb10"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="st">&quot;http://localhost:8080/api/resource/option-sources/universo/options/by-ids?ids=1&amp;ids=2&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="st">&quot;http://localhost:8080/api/resource/option-sources/universo/options/by-ids?ids=1&amp;ids=2&quot;</span></span></code></pre></div>
 <p>Esperado: array JSON top-level <code>List&lt;OptionDTO&gt;</code>
 para IDs encontrados, preservando a ordem solicitada. IDs inexistentes
 sao omitidos; respostas 200 nao devem conter itens
 <code>null</code>.</p></li>
 <li><p><strong>Reidratação contextual por IDs</strong>:</p>
-<div class="sourceCode" id="cb11"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-X</span> POST <span class="st">&quot;http://localhost:8080/api/resource/option-sources/universo/options/by-ids&quot;</span> <span class="dt">\</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Content-Type: application/json&quot;</span> <span class="dt">\</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-d</span> <span class="st">&#39;{&quot;filter&quot;: {&quot;empresaId&quot;: 10}, &quot;filters&quot;: [{&quot;field&quot;: &quot;status&quot;, &quot;operator&quot;: &quot;equals&quot;, &quot;value&quot;: &quot;ACTIVE&quot;}], &quot;ids&quot;: [&quot;1&quot;, &quot;2&quot;]}&#39;</span></span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-X</span> POST <span class="st">&quot;http://localhost:8080/api/resource/option-sources/universo/options/by-ids&quot;</span> <span class="dt">\</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-H</span> <span class="st">&quot;Content-Type: application/json&quot;</span> <span class="dt">\</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">-d</span> <span class="st">&#39;{&quot;filter&quot;: {&quot;empresaId&quot;: 10}, &quot;filters&quot;: [{&quot;field&quot;: &quot;status&quot;, &quot;operator&quot;: &quot;equals&quot;, &quot;value&quot;: &quot;ACTIVE&quot;}], &quot;ids&quot;: [&quot;1&quot;, &quot;2&quot;]}&#39;</span></span></code></pre></div>
 <p>Esperado: <code>List&lt;OptionDTO&gt;</code> preservando a ordem dos
 IDs encontrados dentro do contexto publico informado em
 <code>filter</code> e validado contra <code>filters</code>.</p></li>
 <li><p><strong>Verificar Schema</strong>:</p>
-<div class="sourceCode" id="cb12"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="st">&quot;http://localhost:8080/schemas/filtered&quot;</span></span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="st">&quot;http://localhost:8080/schemas/filtered&quot;</span></span></code></pre></div>
 <p>Procure por <code>x-ui.optionSource</code> nos campos.</p></li>
 </ul>
 <h3 id="logs-úteis">Logs Úteis</h3>
@@ -915,49 +992,49 @@ normalização.</li>
 StatsFieldRegistry</h3>
 <p>Para <code>DISTINCT_DIMENSION</code>, o executor pode usar
 <code>StatsFieldRegistry</code> como backend:</p>
-<div class="sourceCode" id="cb13"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No service, registre no StatsFieldRegistry primeiro</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>statsFieldRegistry<span class="op">.</span><span class="fu">register</span><span class="op">(</span>VwAnalyticsFolhaPagamento<span class="op">.</span><span class="fu">class</span><span class="op">,</span> <span class="st">&quot;universo&quot;</span><span class="op">);</span></span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Depois, no OptionSourceRegistry</span></span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>OptionSourceDescriptor descriptor <span class="op">=</span> <span class="kw">new</span> <span class="fu">OptionSourceDescriptor</span><span class="op">(</span></span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span></span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    OptionSourceType<span class="op">.</span><span class="fu">DISTINCT_DIMENSION</span><span class="op">,</span></span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ... outros campos</span></span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No service, registre no StatsFieldRegistry primeiro</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>statsFieldRegistry<span class="op">.</span><span class="fu">register</span><span class="op">(</span>VwAnalyticsFolhaPagamento<span class="op">.</span><span class="fu">class</span><span class="op">,</span> <span class="st">&quot;universo&quot;</span><span class="op">);</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Depois, no OptionSourceRegistry</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>OptionSourceDescriptor descriptor <span class="op">=</span> <span class="kw">new</span> <span class="fu">OptionSourceDescriptor</span><span class="op">(</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;universo&quot;</span><span class="op">,</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    OptionSourceType<span class="op">.</span><span class="fu">DISTINCT_DIMENSION</span><span class="op">,</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ... outros campos</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div>
 <p>Isso permite reaproveitar lógica de stats para options.</p>
 <h3 id="customizando-optiondto-com-extra">Customizando OptionDTO com
 Extra</h3>
 <p>Para adicionar metadados (ex.: count de ocorrências):</p>
-<div class="sourceCode" id="cb14"><pre
-class="sourceCode java"><code class="sourceCode java"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No service, sobrescreva filterOptionSourceOptions</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> Page<span class="op">&lt;</span>OptionDTO<span class="op">&gt;</span> <span class="fu">filterOptionSourceOptions</span><span class="op">(</span><span class="bu">String</span> sourceKey<span class="op">,</span> GenericFilterDTO filter<span class="op">,</span> <span class="bu">Pageable</span> pageable<span class="op">)</span> <span class="op">{</span></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Lógica customizada</span></span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> options<span class="op">.</span><span class="fu">map</span><span class="op">(</span>option <span class="op">-&gt;</span> option<span class="op">.</span><span class="fu">withExtra</span><span class="op">(</span><span class="bu">Map</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;count&quot;</span><span class="op">,</span> <span class="dv">42</span><span class="op">)));</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co">// No service, sobrescreva filterOptionSourceOptions</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="at">@Override</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span> Page<span class="op">&lt;</span>OptionDTO<span class="op">&gt;</span> <span class="fu">filterOptionSourceOptions</span><span class="op">(</span><span class="bu">String</span> sourceKey<span class="op">,</span> GenericFilterDTO filter<span class="op">,</span> <span class="bu">Pageable</span> pageable<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Lógica customizada</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> options<span class="op">.</span><span class="fu">map</span><span class="op">(</span>option <span class="op">-&gt;</span> option<span class="op">.</span><span class="fu">withExtra</span><span class="op">(</span><span class="bu">Map</span><span class="op">.</span><span class="fu">of</span><span class="op">(</span><span class="st">&quot;count&quot;</span><span class="op">,</span> <span class="dv">42</span><span class="op">)));</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
 <h3 id="optionsource-como-contrato-canonico"><code>optionSource</code>
 Como Contrato Canonico</h3>
 <p>Forma baseada em endpoint direto:</p>
-<div class="sourceCode" id="cb15"><pre
-class="sourceCode json"><code class="sourceCode json"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;campo&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;endpoint&quot;</span><span class="fu">:</span> <span class="st">&quot;/options/filter&quot;</span><span class="fu">,</span></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;valueField&quot;</span><span class="fu">:</span> <span class="st">&quot;id&quot;</span><span class="fu">,</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;displayField&quot;</span><span class="fu">:</span> <span class="st">&quot;label&quot;</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
-<p>Forma canonica com OptionSource:</p>
 <div class="sourceCode" id="cb16"><pre
 class="sourceCode json"><code class="sourceCode json"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;campo&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;x-ui.optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;campo&quot;</span><span class="fu">,</span></span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;RESOURCE_ENTITY&quot;</span><span class="fu">,</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/campo&quot;</span></span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;endpoint&quot;</span><span class="fu">:</span> <span class="st">&quot;/options/filter&quot;</span><span class="fu">,</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;valueField&quot;</span><span class="fu">:</span> <span class="st">&quot;id&quot;</span><span class="fu">,</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;displayField&quot;</span><span class="fu">:</span> <span class="st">&quot;label&quot;</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<p>Forma canonica com OptionSource:</p>
+<div class="sourceCode" id="cb17"><pre
+class="sourceCode json"><code class="sourceCode json"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;campo&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;x-ui.optionSource&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;key&quot;</span><span class="fu">:</span> <span class="st">&quot;campo&quot;</span><span class="fu">,</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;type&quot;</span><span class="fu">:</span> <span class="st">&quot;RESOURCE_ENTITY&quot;</span><span class="fu">,</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>      <span class="dt">&quot;resourcePath&quot;</span><span class="fu">:</span> <span class="st">&quot;/api/campo&quot;</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">}</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
 <p>Publique <code>x-ui.optionSource</code> como contrato canonico.
 Endpoints diretos para opcoes podem existir como implementacao
 operacional, mas nao devem redefinir a semantica metadata-driven

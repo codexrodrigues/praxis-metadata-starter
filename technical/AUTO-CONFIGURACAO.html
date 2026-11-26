@@ -400,10 +400,54 @@ baseline atual.</p>
 <td>Tamanho maximo de pagina nos endpoints paginados.</td>
 </tr>
 <tr>
+<td><code>praxis.openapi.application-group.enabled</code></td>
+<td><code>true</code></td>
+<td>Habilita o grupo OpenAPI catch-all <code>application</code>. Defina
+<code>false</code> em hosts multi-grupo para evitar documento agregado
+redundante (nesse modo, <code>GET /schemas/catalog</code> exige
+<code>group</code> ou <code>path</code> explicitos).</td>
+</tr>
+<tr>
+<td><code>praxis.openapi.prewarm.enabled</code></td>
+<td><code>false</code></td>
+<td>Aquece grupos OpenAPI em thread background apos
+<code>ApplicationReadyEvent</code> (requer
+<code>app.openapi.internal-base-url</code> definido).</td>
+</tr>
+<tr>
+<td><code>praxis.openapi.http.connect-timeout</code></td>
+<td><code>1s</code></td>
+<td>Timeout de conexao para chamadas HTTP internas ao SpringDoc.</td>
+</tr>
+<tr>
+<td><code>praxis.openapi.http.read-timeout</code></td>
+<td><code>10s</code></td>
+<td>Timeout de leitura para chamadas HTTP internas ao SpringDoc.</td>
+</tr>
+<tr>
+<td><code>praxis.openapi.bulk-composition-timeout</code></td>
+<td><code>60s</code></td>
+<td>Orcamento maximo de admissao/lock na composicao OpenAPI de lifecycle
+bulk.</td>
+</tr>
+<tr>
+<td><code>praxis.openapi.validation.api-resource-required</code></td>
+<td><code>WARN</code></td>
+<td>Politica de validacao no startup para controllers sem
+<code>@ApiResource</code> (<code>WARN</code>, <code>FAIL</code>,
+<code>IGNORE</code>).</td>
+</tr>
+<tr>
+<td><code>praxis.domain-catalog.cache.max-entries</code></td>
+<td><code>512</code></td>
+<td>Limite maximo de entradas LRU retidas em memoria no cache de
+<code>SemanticDomainCatalogService</code>.</td>
+</tr>
+<tr>
 <td><code>app.openapi.internal-base-url</code></td>
 <td>vazio</td>
-<td>Origem interna explicita para consultas server-side ao
-SpringDoc.</td>
+<td>Origem interna explicita para consultas server-side ao SpringDoc e
+prewarm em background.</td>
 </tr>
 </tbody>
 </table>
@@ -413,8 +457,10 @@ faz</h2>
 id="praxismetadataautoconfiguration"><code>PraxisMetadataAutoConfiguration</code></h3>
 <ul>
 <li>registra infraestrutura base</li>
-<li>publica grupos <code>praxis-metadata-infra</code> e
-<code>application</code></li>
+<li>publica grupo <code>praxis-metadata-infra</code> e,
+condicionalmente, o grupo <code>application</code> (controlado por
+<code>praxis.openapi.application-group.enabled</code> e
+<code>@ConditionalOnMissingBean(name = "praxisMetadataApplicationOpenApi")</code>)</li>
 <li>participa do bootstrap do scanning e do agrupamento OpenAPI</li>
 </ul>
 <h3

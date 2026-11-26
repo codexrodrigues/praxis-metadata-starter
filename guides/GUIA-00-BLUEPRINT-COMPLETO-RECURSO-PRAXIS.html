@@ -491,7 +491,8 @@ máx. ~35 caracteres, sem ponto final e <strong>nunca</strong> cópia de
 <code>FieldDataType</code> e <code>FieldControlType</code> explícitos
 (usando os 65+ controles especializados como <code>AVATAR</code>,
 <code>CPF_CNPJ_INPUT</code>, <code>PHONE</code>,
-<code>CURRENCY_INPUT</code>, <code>DATE_PICKER</code>,
+<code>CURRENCY_INPUT</code>, <code>PRICE_RANGE</code>,
+<code>INLINE_CURRENCY_RANGE</code>, <code>DATE_PICKER</code>,
 <code>DATE_RANGE</code>, <code>ENTITY_LOOKUP</code>,
 <code>SELECT</code>, <code>CHECKBOX</code>, <code>PERCENT_SLIDER</code>,
 <code>FILE_UPLOAD</code>, <code>CRON_BUILDER</code>); <code>icon</code>
@@ -533,7 +534,17 @@ e <code>workflowInitial()</code>; mutuamente exclusivos; proibido
 <code>extraProperties</code> de apresentação
 (<code>labelTrue</code>/<code>labelFalse</code>,
 <code>toneTrue</code>/<code>toneFalse</code>,
-<code>presentation.presenter</code>).</td>
+<code>presentation.presenter</code>, <code>presentation.prefix</code>,
+<code>presentation.suffix</code>, <code>presentation.tooltip</code>,
+<code>presentationRules</code> —
+<code>FieldConfigProperties.PRESENTATION_RULES</code> em Json Logic
+canônico validado fail-closed com precedência <code>first-match</code>
+em tabela/resumo, além das chaves canônicas de faixa monetária de
+<code>FieldConfigProperties</code> como <code>currency</code>,
+<code>inlinePanelTitle</code>, <code>inlinePanelIcon</code>,
+<code>showAnchors</code>, <code>operatorModes</code>,
+<code>sliderStep</code>, <code>quickPresets</code>, <code>marks</code>,
+<code>semanticBands</code> e <code>inlineDistribution</code>).</td>
 </tr>
 <tr>
 <td style="text-align: center;"><strong>4</strong></td>
@@ -651,9 +662,20 @@ recurso <strong>e</strong> todos os campos de exibição de FKs
 <code>OptionSourceRegistry</code> fontes <code>RESOURCE_ENTITY</code> e
 <code>DISTINCT_DIMENSION</code> completas. Todo
 <code>RESOURCE_ENTITY</code> deve preencher
-<code>EntityLookupDescriptor</code> com: (a)
-<code>codePropertyPath</code>, <code>descriptionPropertyPaths</code>,
-<code>statusPropertyPath</code>; (b) <code>LookupSelectionPolicy</code>
+<code>EntityLookupDescriptor</code> (preferencialmente via
+<code>directoryBuilderFromDto(entityKey, ResponseDTO.class, Entity.class)</code>):
+(a) <code>codePropertyPath</code>,
+<code>descriptionPropertyPaths</code>, <code>statusPropertyPath</code>
+(com <code>DtoEntityPathResolver</code> promovendo
+<code>@DomainLineage.sourcePaths[0]</code> na entidade raiz apenas
+quando <code>sourcePaths.length == 1</code> e
+<code>transformation != DERIVED</code>, e resolvendo FKs relacionadas
+via <code>@ResourceReference.valueField</code> -&gt;
+<code>@JoinColumn</code>, falhando fechado em ambiguidade, além de
+<code>LookupDisplayFieldDescriptor.fromDtoField(dtoClass, dtoField, entityPropertyPath)</code>
+e
+<code>LookupDisplayDescriptor.fieldsFromDto(dtoClass, orderedDtoToEntityMap)</code>);
+(b) <code>LookupSelectionPolicy</code>
 (<code>selectablePropertyPath</code>,
 <code>allowedStatuses</code>/<code>blockedStatuses</code>,
 <code>allowRetainInvalidExistingValue = true</code>,
@@ -664,15 +686,22 @@ recurso <strong>e</strong> todos os campos de exibição de FKs
 <code>presentation = "drawer"</code>); (d)
 <code>LookupDisplayDescriptor</code> (<code>preset = "directory"</code>,
 <code>fields</code>); (e) <code>LookupFilteringDescriptor</code>
-(<code>sortOptions</code>, <code>defaultSort</code>,
-<code>searchStrategies</code> com suporte a <code>code</code>,
-<code>text</code> e <code>normalized-document</code> para busca sem
-pontuação em CPF/CNPJ/matrícula, além de <code>availableFilters</code>
-referenciando exclusivamente campos <code>@Filterable</code> reais do
-<code>FilterDTO</code> para execução <em>fail-closed</em>); e (f)
-<code>dependsOn</code> + <code>dependencyFilterMap</code> para filtros
-em cascata (ex.: <code>companyId</code> /
-<code>organizationId</code>).</td>
+(<code>fromFilterDto</code> / <code>builderFromFilterDto</code>,
+derivando automaticamente
+<code>@UiOption</code>/<code>PraxisUiOptionEnum</code> em filtros
+<code>enum</code> e <code>optionSource</code> + <code>dependsOn</code> +
+<code>dependencyFilterMap</code> em filtros <code>reference</code> com
+validação <code>@Filterable</code> + gate <code>P50</code>,
+<code>sortOptions</code>, <code>defaultSort</code>,
+<code>searchStrategies</code> e <code>defaultSearchStrategy</code> com
+busca Omnibox multi-token aplicada apenas em busca textual descritiva);
+(f) <code>LookupDialogDescriptor</code> (<code>resultColumns</code>,
+<code>previewPanel</code>) publicado em
+<code>x-ui.optionSource.dialog</code>; e (g) <code>dependsOn</code> +
+<code>dependencyFilterMap</code> para cascata e
+<code>EntityLookupOptionMapper</code> em providers customizados com
+mascaramento LGPD sem vazar documento cru ou metadados de provider em
+<code>OptionDTO.extra</code>.</td>
 </tr>
 <tr>
 <td style="text-align: center;"><strong>9</strong></td>
@@ -690,7 +719,13 @@ nomes legíveis de seus relacionamentos (<code>OR</code>); (b) combinação
 multi-operador sobre o mesmo atributo
 (<code>LIKE</code>/<code>STARTS_WITH</code>/<code>EQUAL</code>/<code>IN</code>,
 intervalos <code>BETWEEN</code> com
-<code>DATE_RANGE</code>/<code>PRICE_RANGE</code>, janelas relativas
+<code>DATE_RANGE</code>/<code>PRICE_RANGE</code>/<code>INLINE_CURRENCY_RANGE</code>
+— incluindo chaves <code>FieldConfigProperties</code> de popover
+monetário como <code>inlinePanelTitle</code>,
+<code>inlinePanelIcon</code>, <code>showAnchors</code>,
+<code>operatorModes</code>, <code>quickPresets</code>,
+<code>marks</code>, <code>semanticBands</code>,
+<code>inlineDistribution</code>, janelas relativas
 <code>IN_LAST_DAYS</code>/<code>IN_NEXT_DAYS</code>/<code>ON_DATE</code>,
 <strong>janelas de ausência/estagnação e auditoria de nulidade</strong>
 <code>IS_NULL</code>/<code>IS_NOT_NULL</code>/<code>IS_FALSE</code>,
@@ -1171,25 +1206,32 @@ style="text-align: left;"><code>EntityLookupDescriptor.directoryBuilderFromDto</
 / <code>directoryBuilder</code></td>
 <td style="text-align: left;">Construir o lookup rico via
 <strong><code>EntityLookupDescriptor.directoryBuilderFromDto(entityKey, ResponseDTO.class)</code></strong>
-(<code>PLAT-EVO-09</code>, 2 argumentos
-<code>String entityKey, Class&lt;?&gt; responseDtoClass</code>,
-introspectando <code>@ResourceIdentity</code> + <code>@UISchema</code>
-em POJOs, superclasses <code>*Dados</code>, <code>record</code>s e
-getters via <code>LookupDisplayFieldDescriptor.fromDtoField</code>,
-<strong>priorizando automaticamente campos visíveis com
-<code>UISchemaPreset.ENTERPRISE_CODE</code> sobre o <code>id</code>
-substituto</strong> em <code>codePropertyPath</code> e
-<code>searchPropertyPaths</code> e <strong>auto-detectando campos
-anotados com <code>@ResourceState</code> ou <code>optionEnum</code>
-implementando <code>PraxisUiOptionEnum</code></strong> para preencher
-<code>status</code>, <code>statusLabels</code> e
-<code>selectionPolicy</code>) ou <code>directoryBuilder</code>.
-Personalizar status, <code>LookupSelectionPolicy</code>, dependências em
-cascata e surfaces de detalhe sem passar <code>null</code> a cada
-subcontrato. O registro da fonte
-(<code>OptionSourceRegistryContributor</code> /
-<code>OptionSourceRegistry</code>) e os endpoints continuam explícitos
-em <code>ApiPaths</code> do host.</td>
+ou a sobrecarga entity-aware
+<strong><code>directoryBuilderFromDto(entityKey, ResponseDTO.class, Entity.class)</code></strong>
+(<code>DtoEntityPathResolver</code>: promove
+<code>@DomainLineage.sourcePaths[0]</code> na entidade raiz somente
+quando <code>sourcePaths.length == 1</code> e
+<code>transformation != DERIVED</code>, e resolve FKs relacionadas via
+<code>@ResourceReference.valueField</code> -&gt;
+<code>@JoinColumn</code>, falhando fechado em ambiguidade; use
+<code>LookupDisplayFieldDescriptor.fromDtoField(dtoClass, dtoField, entityPropertyPath)</code>
+e
+<code>LookupDisplayDescriptor.fieldsFromDto(dtoClass, orderedDtoToEntityMap)</code>
+quando houver mapeamento explícito DTO -&gt; JPA). Prioriza
+<code>UISchemaPreset.ENTERPRISE_CODE</code> sobre <code>id</code> e
+auto-detecta
+<code>@ResourceState</code>/<code>PraxisUiOptionEnum</code>. Combine com
+<strong><code>LookupFilteringDescriptor.fromFilterDto</code> /
+<code>builderFromFilterDto</code></strong> (opções estáticas
+<code>enum</code>, <code>optionSource</code>+cascata
+<code>reference</code>, validação <code>@Filterable</code> e gate
+<code>P50</code>), <strong><code>LookupDialogDescriptor</code> /
+<code>LookupResultColumnDescriptor</code></strong>
+(<code>x-ui.optionSource.dialog</code>),
+<code>defaultSearchStrategy</code> governado (busca Omnibox multi-token
+restrita a texto descritivo) e
+<strong><code>EntityLookupOptionMapper</code></strong> para providers
+customizados com mascaramento LGPD em <code>OptionDTO.extra</code>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><strong>8</strong></td>
@@ -1579,32 +1621,73 @@ linhas) e reutilizando <code>LEFT JOIN</code>s
 </ul></li>
 <li><strong>Combinação Multi-Operador sobre o Mesmo Atributo:</strong>
 <ul>
-<li><strong>Textos e Códigos:</strong> <code>LIKE</code> (contém),
+<li><p><strong>Textos e Códigos:</strong> <code>LIKE</code> (contém),
 <code>STARTS_WITH</code> (prefixo hierárquico/código),
 <code>EQUAL</code> (exato) e <code>IN</code> (lista de códigos em
-lote);</li>
-<li><strong>Datas e Vigências:</strong> combinar <code>BETWEEN</code>
+lote);</p></li>
+<li><p><strong>Datas e Vigências:</strong> combinar <code>BETWEEN</code>
 (<code>DATE_RANGE</code>), <code>ON_DATE</code>,
 <code>GREATER_OR_EQUAL</code>/<code>LESS_OR_EQUAL</code>,
 <strong><code>IN_LAST_DAYS</code></strong> (eventos recentes:
 admitidos/criados nos últimos N dias) e
 <strong><code>IN_NEXT_DAYS</code></strong> (radar preventivo:
-contratos/avaliações/férias vencendo nos próximos N dias);</li>
-<li><strong>Valores e Quantidades:</strong> <code>BETWEEN</code>
-(<code>PRICE_RANGE</code>), <code>GREATER_OR_EQUAL</code> (piso) e
-<code>LESS_OR_EQUAL</code> (teto);</li>
-<li><strong>Auditoria de Completude Cadastral e Predicados de
+contratos/avaliações/férias vencendo nos próximos N dias);</p></li>
+<li><p><strong>Valores e Quantidades (<code>BETWEEN</code> com
+<code>PRICE_RANGE</code> / <code>INLINE_CURRENCY_RANGE</code>):</strong>
+um único campo <code>List&lt;BigDecimal&gt;</code> anotado com
+<code>@Filterable(operation = FilterOperation.BETWEEN, relation = "...", inline = true)</code>
+atende nativamente aos quatro modos do popover inline
+(<code>between</code> <code>[min, max]</code>, <code>gte</code>
+<code>[min]</code>/<code>[min, null]</code>, <code>lte</code>
+<code>[null, max]</code> e <code>eq</code> <code>[v, v]</code>) via
+<code>RangePayloadNormalizer</code> e
+<code>GenericSpecificationsBuilder</code> (mantendo
+<code>GREATER_OR_EQUAL</code>/<code>LESS_OR_EQUAL</code> escalares
+apenas quando integrações externas exigirem parâmetros planos). Utilize
+<code>@UISchema</code> com
+<code>numericFormat = NumericFormat.CURRENCY</code>, ícone
+<code>snake_case</code> minúsculo (<code>"payments"</code>) e
+<code>extraProperties</code> tipadas de
+<code>FieldConfigProperties</code> validadas por
+<code>x-ui-field.schema.json</code> (sem inventar chaves fora do
+schema):</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode java"><code class="sourceCode java"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">@Schema</span><span class="op">(</span>description <span class="op">=</span> <span class="st">&quot;Faixa de remuneração bruta contratual utilizada para filtrar registros.&quot;</span><span class="op">)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="at">@UISchema</span><span class="op">(</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    label <span class="op">=</span> <span class="st">&quot;Faixa salarial&quot;</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    type <span class="op">=</span> FieldDataType<span class="op">.</span><span class="fu">NUMBER</span><span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    controlType <span class="op">=</span> FieldControlType<span class="op">.</span><span class="fu">PRICE_RANGE</span><span class="op">,</span> <span class="co">// auto-promovido para inlineCurrencyRange na toolbar; ou use INLINE_CURRENCY_RANGE</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    numericFormat <span class="op">=</span> NumericFormat<span class="op">.</span><span class="fu">CURRENCY</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    numericMin <span class="op">=</span> <span class="st">&quot;0&quot;</span><span class="op">,</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    numericMax <span class="op">=</span> <span class="st">&quot;50000&quot;</span><span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    numericStep <span class="op">=</span> <span class="st">&quot;100&quot;</span><span class="op">,</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    icon <span class="op">=</span> <span class="st">&quot;payments&quot;</span><span class="op">,</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    extraProperties <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;currency&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;BRL&quot;</span><span class="op">),</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;locale&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;pt-BR&quot;</span><span class="op">),</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;inlinePanelTitle&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;Faixa salarial contratada&quot;</span><span class="op">),</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;inlinePanelIcon&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;payments&quot;</span><span class="op">),</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;showAnchors&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;auto&quot;</span><span class="op">),</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;operatorModes&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;[</span><span class="sc">\&quot;</span><span class="st">between</span><span class="sc">\&quot;</span><span class="st">,</span><span class="sc">\&quot;</span><span class="st">gte</span><span class="sc">\&quot;</span><span class="st">,</span><span class="sc">\&quot;</span><span class="st">lte</span><span class="sc">\&quot;</span><span class="st">,</span><span class="sc">\&quot;</span><span class="st">eq</span><span class="sc">\&quot;</span><span class="st">]&quot;</span><span class="op">),</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;defaultOperatorMode&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;between&quot;</span><span class="op">),</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;sliderStep&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;500&quot;</span><span class="op">),</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="at">@ExtensionProperty</span><span class="op">(</span>name <span class="op">=</span> <span class="st">&quot;quickPresets&quot;</span><span class="op">,</span> value <span class="op">=</span> <span class="st">&quot;[{</span><span class="sc">\&quot;</span><span class="st">id</span><span class="sc">\&quot;</span><span class="st">:</span><span class="sc">\&quot;</span><span class="st">upto-5k</span><span class="sc">\&quot;</span><span class="st">,</span><span class="sc">\&quot;</span><span class="st">label</span><span class="sc">\&quot;</span><span class="st">:</span><span class="sc">\&quot;</span><span class="st">Até R$ 5 mil</span><span class="sc">\&quot;</span><span class="st">,</span><span class="sc">\&quot;</span><span class="st">maxPrice</span><span class="sc">\&quot;</span><span class="st">:5000,</span><span class="sc">\&quot;</span><span class="st">mode</span><span class="sc">\&quot;</span><span class="st">:</span><span class="sc">\&quot;</span><span class="st">lte</span><span class="sc">\&quot;</span><span class="st">}]&quot;</span><span class="op">)</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="at">@Filterable</span><span class="op">(</span>operation <span class="op">=</span> FilterOperation<span class="op">.</span><span class="fu">BETWEEN</span><span class="op">,</span> relation <span class="op">=</span> <span class="st">&quot;baseSalary&quot;</span><span class="op">,</span> inline <span class="op">=</span> <span class="kw">true</span><span class="op">)</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span> <span class="bu">List</span><span class="op">&lt;</span><span class="bu">BigDecimal</span><span class="op">&gt;</span> salaryBetween<span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>Auditoria de Completude Cadastral e Predicados de
 Ausência/Estagnação (<code>IS_NULL</code> / <code>IS_NOT_NULL</code> /
 <code>IS_FALSE</code> / Anti-Event Windows):</strong> criar filtros
 explícitos para localizar cadastros com pendências, omissões ou ausência
 de eventos numa janela temporal (ex.: <em>“sem conta bancária”</em>,
 <em>“sem gestor/substituto alocado”</em>, <em>“sem documento
 comprobatório”</em>, <em>“sem movimentação funcional / sem homologação
-de estágio”</em>, <em>“sem parcela programada”</em>);</li>
-<li><strong>Cardinalidade de Coleções Filhas (<code>SIZE_GT</code>,
+de estágio”</em>, <em>“sem parcela programada”</em>);</p></li>
+<li><p><strong>Cardinalidade de Coleções Filhas (<code>SIZE_GT</code>,
 <code>SIZE_EQ</code>, <code>SIZE_LT</code>):</strong> filtrar a entidade
 pai pelo volume de itens relacionados (ex.: <em>“com mais de N
-dependentes/alocações”</em>).</li>
+dependentes/alocações”</em>).</p></li>
 </ul></li>
 <li><strong>Navegação Relacional em Múltiplos Níveis e Vocabulário
 Humano (<code>relation = "a.b.c"</code>):</strong>

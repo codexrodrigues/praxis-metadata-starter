@@ -37,6 +37,7 @@ O nome do arquivo `GUIA-02-AI-BACKEND-CRUD-METADATA` permanece estável para lin
 - [Filtros e Paginação](FILTROS-E-PAGINACAO.html)
 - [Ordenação Padrão](ORDEM-PADRAO.html)
 - [Views Somente Leitura](READ-ONLY-VIEWS.html)
+- [Receitas Analíticas Verificadas e Inteligência Estatística](VERIFIED-ANALYTICAL-RECIPES-AND-STATISTICAL-INTELLIGENCE.html)
 - [Erros e Respostas](ERROS-E-RESPOSTAS.html)
 - [Admissão de Mutações de Recurso](RESOURCE-MUTATION-ADMISSION.html)
 - [Adoção de Duplicate-Draft](DUPLICATE-DRAFT-ADOPTION.html)

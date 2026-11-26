@@ -89,6 +89,7 @@
   - selecao (`options`, `endpoint`, `valueField`, `displayField`, `multiple`, `emptyOptionText`) -> componentes de selecao
   - atalhos de periodo (`shortcuts`, `inlineQuickPresets`, `inlineOverlay`) -> `dateRange` e `inlineDateRange`; o backend publica ids built-in ou periodos corporativos estaticos ja resolvidos, e o runtime Angular materializa sem executar `calculateRange` vindo de JSON
   - numerico (`numericFormat`, `numeric*`) -> componentes numericos
+  - faixas monetarias (`currency`, `inlinePanelTitle`, `inlinePanelIcon`, `inlinePanelIconColor`, `showAnchors`, `operatorModes`, `defaultOperatorMode`, `marks`, `semanticBands`, `inlineDistribution`, `quickPresets`) -> `priceRange` e `inlineCurrencyRange` com ancora clicavel, histograma opcional e seletores tipados de operador
   - `valuePresentation` -> formatacao escalar readonly/display
   - `presentation` -> materializacao visual readonly/list/table-cell; no runtime Angular oficial, `presenter: chip|badge|status|iconValue|microVisualization` pode virar renderer de coluna sem alterar o valor bruto da linha
 - x-ui por operacao

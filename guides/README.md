@@ -79,6 +79,7 @@ Use depois da geracao para validar build, endpoints, schemas e consumo.
 - [Exportacao de Colecoes](COLLECTION-EXPORT.md)
 - [Enterprise Availability Adoption](ENTERPRISE-AVAILABILITY-ADOPTION.md)
 - [Views / Somente Leitura](READ-ONLY-VIEWS.md)
+- [Receitas Analíticas Verificadas e Inteligência Estatística](VERIFIED-ANALYTICAL-RECIPES-AND-STATISTICAL-INTELLIGENCE.md)
 - [Erros e Respostas](ERROS-E-RESPOSTAS.md)
 - [Do Cadastro Básico ao Contrato Semântico](GUIA-05-DO-CRUD-AO-CONTRATO-SEMANTICO.md)
 - [Redacao Semantica de Annotations para IA](GUIA-06-REDACAO-SEMANTICA-DE-ANNOTATIONS-PARA-IA.md)

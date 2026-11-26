@@ -26,6 +26,14 @@ rota estrutural com nomes diferentes para variáveis de template; o batch normal
 essa localização-alvo. Uma identidade diferente na mesma rota ou o mesmo ID em outra rota,
 callback ou webhook continua sendo conflito.
 
+## Resolução em lote e proxies Spring (`BatchCanonicalOperationResolver`)
+
+`OpenApiCanonicalOperationResolver` implementa a extensão de SPI `BatchCanonicalOperationResolver`, permitindo resolver coleções de `operationId` em uma única passagem pelo `RequestMappingHandlerMapping` de forma transparente mesmo quando o bean está envolvido por proxies Spring AOP (CGLIB ou JDK Dynamic Proxy):
+
+- `resolveMvcOperationsByIds(Collection<String>)`: valida declarações bulk incompletas e rejeita mapeamentos MVC duplicados/conflitantes, mas **não** executa inspeção OpenAPI cross-group. Deve ser usado exclusivamente por fluxos de discovery não executável de formulários (como `ReactiveDeterminationCatalogSource`), que verificam o `operationId` apenas contra o documento OpenAPI do grupo local do formulário.
+- `resolveByOperationIdsForScope(Collection<String>, Predicate<CanonicalOperationRef>)`: aplica o filtro de escopo antes da inspeção OpenAPI e verifica qualquer operação `@BulkResourceOperation` incluída no escopo contra o índice de operações publicadas (paths, callbacks e webhooks de todos os grupos publicados) sob uma única leitura de lock de cache (`withSchemaCacheReadLock`).
+- Consumers estruturais de leitura bulk (como `AbstractBulkGovernedResourceController` e `ReactiveDeterminationMetadataCompiler`) usam `instanceof BatchCanonicalOperationResolver` para agrupar resoluções de múltiplos links/determinações na mesma resposta sem degradar quando há interceptors AOP no bean.
+
 ## Lookup existente e compatibilidade
 
 `resolveByOperationId` mantém o fallback legado para nome Java e o retorno vazio para ID ausente. Entretanto, um ID efetivo presente em mais de um mapping agora falha com `IllegalStateException`, em vez de escolher a primeira ocorrência. Uma colisão entre ID explícito e nome Java legado também falha; filtrar primeiro pelo recurso esconderia uma ambiguidade global.

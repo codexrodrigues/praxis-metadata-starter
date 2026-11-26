@@ -390,6 +390,38 @@ mesma rota estrutural com nomes diferentes para variáveis de template; o
 batch normaliza somente essa localização-alvo. Uma identidade diferente
 na mesma rota ou o mesmo ID em outra rota, callback ou webhook continua
 sendo conflito.</p>
+<h2
+id="resolução-em-lote-e-proxies-spring-batchcanonicaloperationresolver">Resolução
+em lote e proxies Spring
+(<code>BatchCanonicalOperationResolver</code>)</h2>
+<p><code>OpenApiCanonicalOperationResolver</code> implementa a extensão
+de SPI <code>BatchCanonicalOperationResolver</code>, permitindo resolver
+coleções de <code>operationId</code> em uma única passagem pelo
+<code>RequestMappingHandlerMapping</code> de forma transparente mesmo
+quando o bean está envolvido por proxies Spring AOP (CGLIB ou JDK
+Dynamic Proxy):</p>
+<ul>
+<li><code>resolveMvcOperationsByIds(Collection&lt;String&gt;)</code>:
+valida declarações bulk incompletas e rejeita mapeamentos MVC
+duplicados/conflitantes, mas <strong>não</strong> executa inspeção
+OpenAPI cross-group. Deve ser usado exclusivamente por fluxos de
+discovery não executável de formulários (como
+<code>ReactiveDeterminationCatalogSource</code>), que verificam o
+<code>operationId</code> apenas contra o documento OpenAPI do grupo
+local do formulário.</li>
+<li><code>resolveByOperationIdsForScope(Collection&lt;String&gt;, Predicate&lt;CanonicalOperationRef&gt;)</code>:
+aplica o filtro de escopo antes da inspeção OpenAPI e verifica qualquer
+operação <code>@BulkResourceOperation</code> incluída no escopo contra o
+índice de operações publicadas (paths, callbacks e webhooks de todos os
+grupos publicados) sob uma única leitura de lock de cache
+(<code>withSchemaCacheReadLock</code>).</li>
+<li>Consumers estruturais de leitura bulk (como
+<code>AbstractBulkGovernedResourceController</code> e
+<code>ReactiveDeterminationMetadataCompiler</code>) usam
+<code>instanceof BatchCanonicalOperationResolver</code> para agrupar
+resoluções de múltiplos links/determinações na mesma resposta sem
+degradar quando há interceptors AOP no bean.</li>
+</ul>
 <h2 id="lookup-existente-e-compatibilidade">Lookup existente e
 compatibilidade</h2>
 <p><code>resolveByOperationId</code> mantém o fallback legado para nome

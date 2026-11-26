@@ -315,6 +315,87 @@
         { "type": "string" }
       ]
     },
+    "showAnchors": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "string", "enum": ["auto"] }
+      ],
+      "description": "Controls clickable click-to-snap value anchors beneath inline range sliders."
+    },
+    "inlinePanelTitle": { "type": "string" },
+    "inlinePanelIcon": { "type": "string" },
+    "inlinePanelIconColor": { "type": "string" },
+    "showInlineInputs": { "type": "boolean" },
+    "sliderStep": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "shiftStep": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "minDistance": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "maxDistance": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "requireTwoBounds": { "type": "boolean" },
+    "operatorModes": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/inlineCurrencyRangeOperatorMode" },
+          "uniqueItems": true
+        },
+        { "type": "string" }
+      ]
+    },
+    "defaultOperatorMode": { "$ref": "#/definitions/inlineCurrencyRangeOperatorMode" },
+    "marks": {
+      "oneOf": [
+        { "type": "boolean" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/rangeSliderMark" }
+        },
+        { "type": "string" }
+      ]
+    },
+    "semanticBands": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "$ref": "#/definitions/rangeSliderSemanticBand" }
+        },
+        { "type": "string" }
+      ]
+    },
+    "currency": { "type": "string", "minLength": 1 },
+    "currencyPosition": { "type": "string", "enum": ["before", "after"] },
+    "showCurrencySymbol": { "type": "boolean" },
+    "decimalPlaces": { "type": "integer", "minimum": 0 },
+    "locale": { "type": "string", "minLength": 1 },
+    "thousandsSeparator": { "type": "string" },
+    "thousandSeparator": { "type": "string" },
+    "decimalSeparator": { "type": "string" },
+    "allowNegative": { "type": "boolean" },
+    "inputMinLabel": { "type": "string" },
+    "inputMaxLabel": { "type": "string" },
+    "inputExactLabel": { "type": "string" },
+    "startMin": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "startMax": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "endMin": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "endMax": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "startPlaceholder": { "type": "string" },
+    "endPlaceholder": { "type": "string" },
+    "startLabel": { "type": "string" },
+    "endLabel": { "type": "string" },
+    "hideSubLabels": { "type": "boolean" },
+    "inlineChipDisplay": {
+      "type": "string",
+      "enum": ["badge", "value", "label-value"]
+    },
+    "layout": {
+      "type": "string",
+      "enum": ["row", "column"]
+    },
+    "gap": { "oneOf": [ { "type": "number" }, { "type": "string" } ] },
+    "clearButtonPlacement": {
+      "type": "string",
+      "enum": ["group", "subinputs"]
+    },
 
     "endpoint": {
       "type": "string",
@@ -413,12 +494,24 @@
         },
         "tone": {
           "type": "string",
-          "enum": ["neutral", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
+          "enum": ["neutral", "muted", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
         },
         "icon": { "type": "string", "minLength": 1 },
+        "iconTrue": { "type": "string", "minLength": 1 },
+        "iconFalse": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
-        "prefix": { "type": "string" },
-        "suffix": { "type": "string" },
+        "labelTrue": { "type": "string", "minLength": 1 },
+        "labelFalse": { "type": "string", "minLength": 1 },
+        "toneTrue": {
+          "type": "string",
+          "enum": ["neutral", "muted", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
+        },
+        "toneFalse": {
+          "type": "string",
+          "enum": ["neutral", "muted", "primary", "secondary", "info", "success", "warning", "danger", "critical", "positive", "negative"]
+        },
+        "prefix": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "suffix": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "badge": { "type": "string", "minLength": 1 },
         "tooltip": { "type": "string", "minLength": 1 },
         "appearance": {
@@ -629,7 +722,46 @@
             "copy": { "type": "boolean" },
             "details": { "type": "boolean" },
             "expand": { "type": "boolean" },
-            "link": { "type": "boolean" }
+            "link": { "type": "boolean" },
+            "quickView": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    },
+    "presentationRules": {
+      "type": "array",
+      "description": "Ordered Json Logic conditional overrides for readonly/list/table-cell visual presentation.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["when"],
+        "anyOf": [
+          { "required": ["set"] },
+          { "required": ["effect"] }
+        ],
+        "properties": {
+          "when": {
+            "oneOf": [
+              { "type": "object" },
+              { "type": "boolean" },
+              { "type": "null" }
+            ]
+          },
+          "set": {
+            "allOf": [
+              { "$ref": "#/properties/presentation" },
+              { "minProperties": 1 }
+            ]
+          },
+          "effect": {
+            "allOf": [
+              { "$ref": "#/properties/presentation" },
+              { "minProperties": 1 }
+            ]
           }
         }
       }
@@ -823,6 +955,39 @@
         }
       }
     },
+    "inlineCurrencyRangeOperatorMode": {
+      "type": "string",
+      "enum": ["between", "gte", "lte", "eq"]
+    },
+    "rangeSliderMark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "number" },
+        "label": { "type": "string" },
+        "tone": {
+          "type": "string",
+          "enum": ["neutral", "info", "success", "warning", "danger"]
+        },
+        "disabled": { "type": "boolean" }
+      }
+    },
+    "rangeSliderSemanticBand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "number" },
+        "end": { "type": "number" },
+        "label": { "type": "string" },
+        "tone": {
+          "type": "string",
+          "enum": ["neutral", "info", "success", "warning", "danger"]
+        },
+        "color": { "type": "string" }
+      }
+    },
     "isoDateOnly": {
       "type": "string",
       "format": "date",
@@ -972,6 +1137,9 @@
         },
         "filtering": {
           "$ref": "#/definitions/lookupFiltering"
+        },
+        "dialog": {
+          "$ref": "#/definitions/lookupDialog"
         },
         "excludeSelfField": { "type": "boolean" },
         "searchMode": {
@@ -1231,8 +1399,49 @@
           "description": "Declared lookup search intents. Each item key must be unique; the runtime rejects duplicate keys.",
           "items": { "$ref": "#/definitions/lookupSearchStrategy" },
           "uniqueItems": true
+        },
+        "defaultSearchStrategy": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Default search strategy key used when multiple search strategies are declared and the request omits searchStrategy."
         }
       }
+    },
+    "lookupDialog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "title": { "type": "string" },
+        "size": {
+          "type": "string",
+          "enum": ["sm", "md", "lg", "xl", "full"]
+        },
+        "previewPanel": { "type": "boolean" },
+        "allowColumnChooser": { "type": "boolean" },
+        "allowSavedViews": { "type": "boolean" },
+        "resultColumns": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/lookupResultColumn" }
+        },
+        "openActionLabel": { "type": "string" },
+        "applyActionLabel": { "type": "string" },
+        "cancelActionLabel": { "type": "string" }
+      }
+    },
+    "lookupResultColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["code", "label", "description", "status", "disabledReason", "custom"]
+        },
+        "width": { "type": "string", "minLength": 1 }
+      },
+      "required": ["field"]
     },
     "lookupSearchStrategy": {
       "type": "object",
@@ -1273,6 +1482,26 @@
           "enum": ["contains", "startsWith", "equals", "in", "before", "after", "between", "gt", "gte", "lt", "lte"]
         },
         "optionsSource": { "type": "string", "minLength": 1 },
+        "options": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/optionItem" }
+        },
+        "optionSource": {
+          "$ref": "#/definitions/optionSource"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "uniqueItems": true
+        },
+        "dependencyFilterMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
         "required": { "type": "boolean" },
         "hidden": { "type": "boolean" }
       },

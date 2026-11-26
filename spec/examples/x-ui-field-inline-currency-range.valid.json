@@ -1,0 +1,85 @@
+{
+  "label": "Faixa salarial",
+  "name": "salaryRange",
+  "type": "number",
+  "controlType": "inlineCurrencyRange",
+  "currency": "BRL",
+  "currencyPosition": "before",
+  "showCurrencySymbol": true,
+  "decimalPlaces": 2,
+  "locale": "pt-BR",
+  "min": 0,
+  "max": 50000,
+  "step": 100,
+  "sliderStep": 500,
+  "shiftStep": 1000,
+  "minDistance": 500,
+  "maxDistance": 45000,
+  "requireTwoBounds": false,
+  "inlinePanelTitle": "Faixa salarial contratada",
+  "inlinePanelIcon": "payments",
+  "inlinePanelIconColor": "#0f766e",
+  "showAnchors": "auto",
+  "showTicks": "auto",
+  "showInlineInputs": true,
+  "operatorModes": ["between", "gte", "lte", "eq"],
+  "defaultOperatorMode": "between",
+  "inputMinLabel": "De",
+  "inputMaxLabel": "Ate",
+  "inputExactLabel": "Valor",
+  "quickPresets": [
+    {
+      "id": "until-5k",
+      "label": "Ate R$ 5 mil",
+      "maxPrice": 5000,
+      "mode": "lte"
+    },
+    {
+      "id": "mid-band",
+      "label": "R$ 5 mil - R$ 15 mil",
+      "minPrice": 5000,
+      "maxPrice": 15000,
+      "mode": "between"
+    },
+    {
+      "id": "above-15k",
+      "label": "Acima de R$ 15 mil",
+      "minPrice": 15000,
+      "mode": "gte"
+    }
+  ],
+  "marks": [
+    { "value": 5000, "label": "R$ 5k", "tone": "neutral" },
+    { "value": 15000, "label": "R$ 15k", "tone": "info" },
+    { "value": 30000, "label": "R$ 30k", "tone": "warning" }
+  ],
+  "semanticBands": [
+    { "start": 0, "end": 15000, "label": "Base operacional", "tone": "info" },
+    { "start": 15000, "end": 50000, "label": "Faixa executiva", "tone": "success" }
+  ],
+  "inlineDistribution": [
+    { "id": "b1", "value": 24, "from": 0, "to": 10000, "label": "0 - 10k" },
+    { "id": "b2", "value": 42, "from": 10000, "to": 25000, "label": "10k - 25k" },
+    { "id": "b3", "value": 18, "from": 25000, "to": 50000, "label": "25k - 50k" }
+  ],
+  "inlineOverlay": {
+    "applyMode": "explicit",
+    "actions": {
+      "apply": {
+        "label": "Aplicar",
+        "appearance": "filled",
+        "colorRole": "primary"
+      },
+      "cancel": {
+        "label": "Cancelar",
+        "appearance": "text",
+        "colorRole": "neutral"
+      },
+      "clear": {
+        "label": "Limpar",
+        "appearance": "outlined",
+        "colorRole": "neutral"
+      }
+    }
+  }
+}

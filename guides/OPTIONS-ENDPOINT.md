@@ -11,16 +11,28 @@ Guia canonico para publicar selects metadata-driven no
 ## Estratégias de busca
 
 Lookups que aceitam mais de uma intenção podem publicar
-`filtering.searchStrategies`. Cada item tem uma `key` única, um `kind` e o
-limite mínimo. O cliente envia a intenção em `searchStrategy`; quando houver
-somente uma estratégia declarada, o runtime a seleciona automaticamente. Com
-duas ou mais, a escolha é obrigatória: o runtime não infere código, nome ou
-documento a partir do texto.
+`filtering.searchStrategies` e, opcionalmente, `filtering.defaultSearchStrategy`.
+Cada item tem uma `key` única, um `kind` e o limite mínimo. O cliente envia a
+intenção em `searchStrategy`:
+
+- com uma única estratégia declarada, o runtime a seleciona automaticamente;
+- com duas ou mais estratégias, se `filtering.defaultSearchStrategy` estiver
+  declarada no contrato, o servidor e o runtime a assumem como intenção padrão;
+  se `defaultSearchStrategy` for omitida, a escolha explícita continua
+  obrigatória (o runtime nunca infere código, nome ou documento a partir do texto).
 
 Uma estratégia pode declarar `inputFormat=digits` quando o código de negócio é
 estritamente numérico. O runtime rejeita outros caracteres antes de resolver o
 provider. O default compatível é `text`; o formato público não revela coluna,
 parâmetro, SQL nem binding interno.
+
+Na busca textual descritiva (`searchMode` diferente de `exact`/`none` e estratégias
+que não sejam `normalized-document`, `inputFormat=digits` ou `business-code`), o
+executor JPA aplica tokenização Omnibox multi-token por espaço (até 5 tokens com
+escape de `%`, `_` e `\`), exigindo que todos os tokens combinem em pelo menos um
+dos `searchPropertyPaths`. Estratégias `normalized-document` (`CPF`/`CNPJ` sem
+pontuação), `inputFormat=digits` e `business-code` preservam o termo íntegro sem
+divisão por espaços.
 
 `normalized-document` aceita dígitos com separadores visuais e encaminha apenas
 os dígitos ao provider; o mínimo é avaliado depois da normalização. A validação
@@ -441,6 +453,48 @@ Contrato minimo recomendado para Entity Lookup:
     }
   }
 }
+```
+
+### Derivação por DTO, Linhagem JPA e Modal Tabular (`x-ui.optionSource.dialog`)
+
+Para evitar duplicação entre `ResponseDTO`, entidade JPA e `FilterDTO`, utilize:
+
+- **`EntityLookupDescriptor.directoryBuilderFromDto(entityKey, EmployeeResponseDTO.class, Employee.class)`**: resolve campos achatados do DTO para caminhos JPA reais via `DtoEntityPathResolver` (promove `@DomainLineage.sourcePaths[0]` na entidade raiz apenas quando `sourcePaths.length == 1` e `transformation != DERIVED`, e resolve FKs relacionadas via `@ResourceReference.valueField` -> `@JoinColumn`, falhando fechado em ambiguidade);
+- **`LookupFilteringDescriptor.builderFromFilterDto(EmployeeFilterDTO.class, registrySnapshot)`**: deriva `availableFilters` exclusivamente de campos `@Filterable` reais (preenchendo opções estáticas `enum` e `optionSource` + `dependsOn` + `dependencyFilterMap` em filtros `reference`, validados pelo gate `P50` contra vazamento de campos restritos);
+- **`LookupDialogDescriptor` + `LookupResultColumnDescriptor`**: publica o contrato tabular do modal avançado sob `x-ui.optionSource.dialog`.
+
+```java
+var filtering = LookupFilteringDescriptor
+    .builderFromFilterDto(EmployeeFilterDTO.class, referenceRegistry)
+    .includedFields("companyId", "departmentId", "status", "hireDateBetween")
+    .quickFilterFields(List.of("status"))
+    .sortOptions(List.of(
+        new LookupSortOption("code", "employeeCode", "asc", "Matrícula"),
+        new LookupSortOption("name", "fullName", "asc", "Nome A-Z")))
+    .defaultSort("name")
+    .searchStrategies(List.of(
+        new LookupSearchStrategyDefinition("text", "descriptive-text", 2),
+        new LookupSearchStrategyDefinition("code", "business-code", 1)))
+    .defaultSearchStrategy("text")
+    .build();
+
+var dialog = LookupDialogDescriptor.builder()
+    .enabled(true)
+    .title("Diretório de colaboradores (Workforce)")
+    .size("lg")
+    .previewPanel(true)
+    .resultColumns(List.of(
+        new LookupResultColumnDescriptor("employeeCode", "Código", "code", "112px"),
+        new LookupResultColumnDescriptor("fullName", "Colaborador", "label"),
+        new LookupResultColumnDescriptor("description", "Cargo e Departamento", "description"),
+        new LookupResultColumnDescriptor("status", "Situação", "status", "124px")))
+    .build();
+
+var lookup = EntityLookupDescriptor
+    .directoryBuilderFromDto("workforce.employees", EmployeeResponseDTO.class, Employee.class)
+    .filtering(filtering)
+    .dialog(dialog)
+    .build();
 ```
 
 ## Boas praticas

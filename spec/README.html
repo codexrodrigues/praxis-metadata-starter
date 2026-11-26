@@ -451,6 +451,23 @@ de negocio executadas no frontend.</li>
 <li>Numerico: <code>numericFormat</code> (enum),
 <code>numericStep</code>, <code>numericMin</code>,
 <code>numericMax</code>, <code>numericMaxLength</code></li>
+<li>Faixas monetarias (<code>priceRange</code> /
+<code>inlineCurrencyRange</code>): <code>currency</code>,
+<code>currencyPosition</code>, <code>showCurrencySymbol</code>,
+<code>decimalPlaces</code>, <code>locale</code>,
+<code>thousandsSeparator</code>, <code>decimalSeparator</code>,
+<code>allowNegative</code>, <code>inlinePanelTitle</code>,
+<code>inlinePanelIcon</code>, <code>inlinePanelIconColor</code>,
+<code>showAnchors</code>, <code>showTicks</code>,
+<code>showInlineInputs</code>, <code>sliderStep</code>,
+<code>shiftStep</code>, <code>minDistance</code>,
+<code>maxDistance</code>, <code>requireTwoBounds</code>,
+<code>operatorModes</code>, <code>defaultOperatorMode</code>,
+<code>inputMinLabel</code>, <code>inputMaxLabel</code>,
+<code>inputExactLabel</code>, <code>quickPresets[]</code>,
+<code>quickPresetsAuto</code>, <code>quickPresetsLabels</code>,
+<code>marks[]</code>, <code>semanticBands[]</code> e
+<code>inlineDistribution</code></li>
 <li>Apresentacao de valor:
 <code>valuePresentation{ type, style?, format?, currency?, number? }</code>
 como contrato canonico de display/read-only para valores escalares</li>
@@ -462,7 +479,57 @@ microvisualizacao sem alterar o valor bruto usado para
 sort/filter/export. <code>label</code> representa texto fixo opcional da
 apresentacao; omita <code>label</code> quando o consumidor deve exibir o
 valor da linha/campo. <code>prefix</code> e <code>suffix</code> sao
-afixos visuais, como <code>#</code> em codigos corporativos.</li>
+afixos visuais, como <code>#</code> em codigos corporativos.
+<code>interactions</code> aceita flags booleanas (<code>copy</code>,
+<code>details</code>, <code>expand</code>, <code>link</code>) e o
+binding opcional <code>quickView</code> (objeto nao vazio, alinhado a
+<code>ResourceQuickViewBinding</code>).</li>
+</ul></li>
+</ul>
+<h3
+id="matriz-canonica-de-tons-semanticos-e-superficies-x-ui.presentation">Matriz
+canonica de tons semanticos e superficies
+(<code>x-ui.presentation</code>)</h3>
+<ul>
+<li>Tons semanticos aceitos pelo starter e pelo JSON Schema:
+<ul>
+<li><strong>7 tons canonicos:</strong> <code>neutral</code>,
+<code>primary</code>, <code>secondary</code>, <code>info</code>,
+<code>success</code>, <code>warning</code>, <code>danger</code>.</li>
+<li><strong>4 aliases normalizados no runtime
+<code>@praxisui/core</code> (<code>normalizeTone</code>):</strong>
+<code>muted -&gt; neutral</code>, <code>positive -&gt; success</code>,
+<code>critical | negative -&gt; danger</code>.</li>
+</ul></li>
+<li>Correspondencia entre superficies oficiais (<code>Table</code>,
+<code>Quick View</code>, <code>FieldShell</code>, <code>List</code> e
+<code>microVisualization</code>):
+<ul>
+<li><strong>Celulas de tabela (<code>@praxisui/table</code>):</strong>
+<code>badge</code>/<code>chip</code> mapeiam
+<code>neutral/muted -&gt; basic</code>,
+<code>danger/critical/negative -&gt; warn</code>, preservando
+<code>primary</code>, <code>secondary</code>, <code>accent</code>,
+<code>info</code>, <code>success</code>, <code>warning</code>; renderer
+<code>icon</code> suporta <code>text</code>, <code>textField</code>,
+<code>prefix</code>, <code>suffix</code>, <code>tooltip</code> e
+<code>quickView</code>.</li>
+<li><strong>Quick View (<code>@praxisui/dialog</code>):</strong>
+<code>summaryItems[].tone</code> aplica <code>data-tone</code> para os 7
+tons canonicos; itens LGPD mascarados suprimem badges de tom semantico e
+acoes de copia, exibindo o selo de governanca e
+<code>maskReason</code>.</li>
+<li><strong>Fichas e drawers readonly (<code>FieldShell</code> em
+<code>@praxisui/dynamic-fields</code>):</strong> materializam
+<code>data-presentation-tone</code>,
+<code>data-presentation-appearance</code>
+(<code>plain | soft | outlined | filled</code>), <code>icon</code>,
+<code>prefix</code>/<code>suffix</code> (sem afixos sobre valores vazios
+ou mascarados) e hidratam <code>@MicroVisualization</code> a partir de
+<code>*Expr</code> ou do valor do controle (com supressao visual para
+campos mascarados).</li>
+<li><strong>Exemplo neutro:</strong>
+<code>{ "presenter": "chip", "tone": "secondary", "appearance": "soft", "interactions": { "quickView": { "resourceKey": "workforce.employees", "surfaceId": "detail" } } }</code>.</li>
 <li>Validacao (top-level): <code>required</code>,
 <code>minLength</code>, <code>maxLength</code>, <code>min</code>,
 <code>max</code>, <code>pattern</code>, <code>range</code>, mensagens
@@ -646,8 +713,16 @@ chaves adicionais sao permitidas.</li>
 escalares de exibicao quando a intencao semantica estiver clara.</li>
 <li>SHOULD: publicar <code>x-ui.presentation</code> quando a semantica
 canonica do campo exigir materializacao visual em listas ou tabelas,
-como siglas em chip, categorias em badge ou codigo com prefixo
-visual.</li>
+como siglas em chip, categorias em badge ou codigo/unidade com
+<code>prefix</code>/<code>suffix</code> e <code>tooltip</code>.</li>
+<li>SHOULD: publicar <code>x-ui.presentationRules</code> (array ordenado
+de <code>{ when, set | effect }</code>) quando a apresentacao visual em
+modo somente leitura ou celula de tabela depender de outros campos do
+registro (validado <code>fail-closed</code> contra Json Logic canonico e
+<code>#/properties/presentation</code>). Em superficies tabulares e de
+resumo (<code>first-match</code>), vence a primeira regra satisfeita;
+<code>presentationRules</code> nunca alteram o valor bruto usado em
+ordenacao, filtro, exportacao ou envio de formulario.</li>
 <li>MUST NOT: publicar <code>x-ui.valuePresentation</code> automatico
 para ranges, selecoes, arrays, objects ou IDs semanticos sem override
 explicito.</li>
