@@ -284,6 +284,47 @@ class BulkNamespaceBatchAndAsyncPublicationTest {
                 .andExpect(jsonPath("$.errors[0].target").value("crud.uniform"));
     }
 
+    @Test
+    void immediateResubmissionAfterObservingTerminalStateNeverConflicts() {
+        BulkOperationLifecycle mockLifecycle = mock(BulkOperationLifecycle.class,
+                org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+        when(mockLifecycle.namespace()).thenReturn(NAMESPACE);
+        when(mockLifecycle.publishAll(org.mockito.ArgumentMatchers.eq(NAMESPACE),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new BulkNamespaceBatchResult(
+                        NAMESPACE, "PUBLISH_ALL", 1L, 0, 0, 0, 0, 0, List.of(), java.time.Instant.now()));
+        when(mockLifecycle.reconcileAll(org.mockito.ArgumentMatchers.eq(NAMESPACE),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new BulkLifecycleUnavailableException("simulated unavailability"));
+
+        BulkPublicationJobService service = new BulkPublicationJobService(mockLifecycle);
+        BulkLifecycleAuditContext audit = BulkLifecycleAuditContext.sanitized("race-tester", "platform", "corr-race");
+        try {
+            for (int i = 0; i < 100; i++) {
+                BulkPublicationJobIntent intent = (i % 2 == 0)
+                        ? BulkPublicationJobIntent.PUBLISH_ALL
+                        : BulkPublicationJobIntent.RECONCILE_ALL;
+                BulkPublicationJobSnapshot submitted = service.submit(NAMESPACE, intent, audit);
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+                BulkPublicationJobSnapshot terminal = submitted;
+                while (terminal.status() != BulkPublicationJobStatus.COMPLETED
+                        && terminal.status() != BulkPublicationJobStatus.FAILED) {
+                    if (System.nanoTime() >= deadline) {
+                        throw new AssertionError("Timed out awaiting job completion at iteration " + i);
+                    }
+                    Thread.onSpinWait();
+                    terminal = service.findJob(submitted.jobId()).orElseThrow();
+                }
+                assertThat(terminal.status()).isEqualTo(
+                        intent == BulkPublicationJobIntent.PUBLISH_ALL
+                                ? BulkPublicationJobStatus.COMPLETED
+                                : BulkPublicationJobStatus.FAILED);
+            }
+        } finally {
+            service.destroy();
+        }
+    }
+
     private static MockMvc standaloneMvc(BulkPublicationAdminController controller) {
         return MockMvcBuilders.standaloneSetup(controller)
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(JSON))
