@@ -121,6 +121,7 @@ public final class BulkPublicationJobService implements DisposableBean {
             result = switch (intent) {
                 case PUBLISH_ALL -> lifecycle.publishAll(namespace, audit, listener);
                 case RECONCILE_ALL -> lifecycle.reconcileAll(namespace, audit, listener);
+                case CONVERGE_ALL -> lifecycle.convergeAll(namespace, audit, listener);
             };
         } catch (Throwable ex) {
             failure = ex;

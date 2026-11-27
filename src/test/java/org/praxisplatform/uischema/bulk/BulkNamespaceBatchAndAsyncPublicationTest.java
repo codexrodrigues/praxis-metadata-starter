@@ -18,6 +18,7 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
+import org.praxisplatform.uischema.openapi.BulkOpenApiGuardMode;
 import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationFilter;
 import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
@@ -344,6 +345,157 @@ class BulkNamespaceBatchAndAsyncPublicationTest {
         }
     }
 
+    @Test
+    void convergeAllPublishesInitialReconcilesSameDigestAndRepublishesOnDriftInSingleComposition()
+            throws Exception {
+        try (var nodeA = createFixture(null)) {
+            int expectedSingleCompilationCalls = measureSingleCompilationSchemaCalls(nodeA.context);
+
+            // 1. Cold start UNCOMPOSED -> PUBLISH_ALL in one cold composition
+            BulkLifecycleAuditContext bootAudit = BulkLifecycleAuditContext.of(
+                    "node-a", "platform", "corr-conv-1");
+            BulkNamespaceBatchResult initial = nodeA.lifecycle.convergeAll(
+                    NAMESPACE, bootAudit, BulkBatchProgressListener.NOOP);
+            assertThat(initial.intent()).isEqualTo("CONVERGE_ALL");
+            assertThat(initial.publicationGeneration()).isEqualTo(2L);
+            assertThat(initial.succeededCount()).isEqualTo(4);
+            assertThat(initial.skippedCount()).isZero();
+            assertThat(initial.failedCount()).isZero();
+            assertThat(initial.items())
+                    .extracting(BulkNamespaceBatchResult.ItemOutcome::status)
+                    .containsOnly(BulkNamespaceBatchResult.ItemStatus.PUBLISHED);
+            assertThat(nodeA.freshFetches.get()).isEqualTo(1);
+            assertThat(nodeA.schemaResolveCalls.get()).isEqualTo(expectedSingleCompilationCalls);
+            assertThat(nodeA.lifecycle.requireReady(identity("crud.uniform")).generation()).isEqualTo(1L);
+
+            // 2. Warm repeat skips all READY ops without cold composition
+            BulkNamespaceBatchResult warmRepeat = nodeA.lifecycle.convergeAll(
+                    NAMESPACE, bootAudit, BulkBatchProgressListener.NOOP);
+            assertThat(warmRepeat.skippedCount()).isEqualTo(4);
+            assertThat(warmRepeat.succeededCount()).isZero();
+            assertThat(nodeA.freshFetches.get()).isEqualTo(1);
+
+            // 3. Cold replica sharing DB with same release digest reconciles in place (RECONCILE_ALL)
+            try (var nodeB = createFixture(nodeA.store)) {
+                BulkNamespaceBatchResult replica = nodeB.lifecycle.convergeAll(
+                        NAMESPACE,
+                        BulkLifecycleAuditContext.of("node-b", "platform", "corr-conv-2"),
+                        BulkBatchProgressListener.NOOP);
+                assertThat(replica.intent()).isEqualTo("CONVERGE_ALL");
+                assertThat(replica.publicationGeneration()).isEqualTo(2L);
+                assertThat(replica.succeededCount()).isEqualTo(4);
+                assertThat(replica.failedCount()).isZero();
+                assertThat(replica.items())
+                        .extracting(BulkNamespaceBatchResult.ItemOutcome::status)
+                        .containsOnly(BulkNamespaceBatchResult.ItemStatus.RECONCILED);
+                assertThat(nodeB.freshFetches.get()).isEqualTo(1);
+                assertThat(nodeB.lifecycle.requireReady(identity("crud.uniform")).generation()).isEqualTo(1L);
+
+                // 4. Rolling release changes OpenAPI document -> nodeC suspends gen=2 (gen=3) and publishes gen=4 cleanly
+                try (var nodeC = createFixture(nodeA.store)) {
+                    nodeC.value.putObject("info")
+                            .put("title", "Batch publication fixture v2")
+                            .put("version", "2");
+                    BulkNamespaceBatchResult rolled = nodeC.lifecycle.convergeAll(
+                            NAMESPACE,
+                            BulkLifecycleAuditContext.of("node-c", "platform", "corr-conv-3"),
+                            BulkBatchProgressListener.NOOP);
+                    assertThat(rolled.intent()).isEqualTo("CONVERGE_ALL");
+                    assertThat(rolled.publicationGeneration()).isEqualTo(4L);
+                    assertThat(rolled.succeededCount()).isEqualTo(4);
+                    assertThat(rolled.failedCount()).isZero();
+                    assertThat(rolled.items())
+                            .extracting(BulkNamespaceBatchResult.ItemOutcome::status)
+                            .containsOnly(BulkNamespaceBatchResult.ItemStatus.PUBLISHED);
+                    assertThat(nodeC.freshFetches.get()).isEqualTo(1);
+                    assertThat(nodeC.lifecycle.requireReady(identity("crud.uniform")).generation()).isEqualTo(3L);
+                    // NodeB's old local photograph is now fenced out cleanly.
+                    assertThatThrownBy(() -> nodeB.lifecycle.requireReady(identity("crud.uniform")))
+                            .isInstanceOf(RuntimeException.class);
+                }
+            }
+        }
+    }
+
+    @Test
+    void asyncConvergeAllJobViaAdminControllerCompletesAndRecordsAudit() throws Exception {
+        try (var fixture = createFixture(null)) {
+            BulkPublicationJobService jobService = new BulkPublicationJobService(fixture.lifecycle);
+            try {
+                MockMvc mvc = standaloneMvc(new BulkPublicationAdminController(jobService));
+                MvcResult submitted = mvc.perform(post("/api/platform/bulk-operations/publication/jobs")
+                                .principal(() -> "deploy-bot")
+                                .header("X-Correlation-Id", "corr-converge-http")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"intent\":\"CONVERGE_ALL\",\"realm\":\"prd\"}"))
+                        .andExpect(status().isAccepted())
+                        .andExpect(jsonPath("$.data.intent").value("CONVERGE_ALL"))
+                        .andReturn();
+                UUID jobId = UUID.fromString(
+                        JSON.readTree(submitted.getResponse().getContentAsString())
+                                .path("data").path("jobId").asText());
+                BulkPublicationJobSnapshot completed = awaitTerminal(jobService, jobId);
+                assertThat(completed.status()).isEqualTo(BulkPublicationJobStatus.COMPLETED);
+                assertThat(completed.succeededCount()).isEqualTo(4);
+                assertThat(completed.result().intent()).isEqualTo("CONVERGE_ALL");
+                assertThat(fixture.lifecycle.listAuditEntries(10))
+                        .hasSize(4)
+                        .allSatisfy(entry -> assertThat(entry.intent()).isEqualTo("PUBLISH_ALL"));
+            } finally {
+                jobService.destroy();
+            }
+        }
+    }
+
+    @Test
+    void bulkScopedGuardModeServesOrdinaryOpenApiDocsWhileSuspendedWhileKeepingBulkFailClosed()
+            throws Exception {
+        try (var fixture = createFixture(null, BulkOpenApiGuardMode.BULK_SCOPED)) {
+            assertThat(fixture.documents.bulkOpenApiGuardMode()).isEqualTo(BulkOpenApiGuardMode.BULK_SCOPED);
+
+            // While UNCOMPOSED/SUSPENDED: non-bulk OpenAPI and contextual read admission work without 503,
+            // while bulk readiness enforcement stays strictly fail-closed.
+            assertThat(fixture.documents.admitContextualReadPublication()).isNull();
+            assertThat(fixture.documents.getDocumentForGroup("crud").path("info").path("title").asText())
+                    .isEqualTo("Batch publication fixture");
+            assertHttpOpenApiGetOk(fixture.filter, "/v3/api-docs/crud");
+            assertThatThrownBy(() -> fixture.lifecycle.requireReady(identity("crud.uniform")))
+                    .isInstanceOf(RuntimeException.class);
+
+            // Converge -> bulk becomes READY and filter serves published bytes.
+            BulkNamespaceBatchResult converged = fixture.lifecycle.convergeAll(
+                    NAMESPACE, BulkLifecycleAuditContext.of("scoped-op", "prd", "corr-scoped"), BulkBatchProgressListener.NOOP);
+            assertThat(converged.succeededCount()).isEqualTo(4);
+            assertThat(fixture.lifecycle.requireReady(identity("crud.uniform")).generation()).isEqualTo(1L);
+            assertHttpOpenApiGetOk(fixture.filter, "/v3/api-docs/crud");
+
+            // Simulate another release suspending global publication -> ordinary reads still serve 200 OK cleanly,
+            // while bulk execution/readiness stays strictly fail-closed.
+            fixture.lifecycle.suspend(identity("crud.uniform"), 1L);
+            assertThat(fixture.documents.admitContextualReadPublication()).isNull();
+            assertThat(fixture.documents.getDocumentForGroup("crud").path("info").path("title").asText())
+                    .isEqualTo("Batch publication fixture");
+            assertHttpOpenApiGetOk(fixture.filter, "/v3/api-docs/crud");
+            assertThatThrownBy(() -> fixture.lifecycle.requireReady(identity("crud.uniform")))
+                    .isInstanceOf(RuntimeException.class);
+        }
+    }
+
+    private static void assertHttpOpenApiGetOk(GovernedOpenApiPublicationFilter filter, String path)
+            throws Exception {
+        var servlet = new MockServletContext();
+        var req = new MockHttpServletRequest(servlet, "GET", path);
+        req.setRequestURI(path);
+        req.setServletPath(path);
+        req.setDispatcherType(jakarta.servlet.DispatcherType.REQUEST);
+        var res = new MockHttpServletResponse();
+        filter.doFilter(req, res, (input, output) -> {
+            ((jakarta.servlet.http.HttpServletResponse) output).setStatus(200);
+            output.getOutputStream().write("{\"openapi\":\"3.0.3\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        });
+        assertThat(res.getStatus()).isEqualTo(200);
+    }
+
     private static MockMvc standaloneMvc(BulkPublicationAdminController controller) {
         return MockMvcBuilders.standaloneSetup(controller)
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(JSON))
@@ -401,6 +553,11 @@ class BulkNamespaceBatchAndAsyncPublicationTest {
     }
 
     private static BatchFixture createFixture(SharedStore existingStore) throws Exception {
+        return createFixture(existingStore, BulkOpenApiGuardMode.GLOBAL_STRICT);
+    }
+
+    private static BatchFixture createFixture(
+            SharedStore existingStore, BulkOpenApiGuardMode guardMode) throws Exception {
         SharedStore store = existingStore != null ? existingStore : new SharedStore();
         boolean ownsStore = existingStore == null;
         try {
@@ -487,7 +644,8 @@ class BulkNamespaceBatchAndAsyncPublicationTest {
             };
 
             var client = new OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(10));
-            var documents = new CachedOpenApiDocumentService(client, new ObjectMapper(), source, true);
+            var documents = new CachedOpenApiDocumentService(
+                    client, new ObjectMapper(), source, true, Duration.ofSeconds(60), guardMode);
             ReflectionTestUtils.setField(documents, "openApiBasePath", "/v3/api-docs");
             filterHolder[0] = new GovernedOpenApiPublicationFilter(documents);
             filterHolder[0].init(new MockFilterConfig(servletContext, "bulkPublication"));
@@ -507,8 +665,8 @@ class BulkNamespaceBatchAndAsyncPublicationTest {
             var lifecycle = new BulkOperationLifecycle(bindings, resolver, documents,
                     mock(ActionDefinitionRegistry.class), COMPILER_MAPPER, countingResolver(schemaResolveCalls),
                     store.runtime, store.control, providers);
-            return new BatchFixture(store, ownsStore, context, client, documents, bindings, resolver,
-                    lifecycle, freshFetches, schemaResolveCalls, holdGate);
+            return new BatchFixture(store, ownsStore, context, client, documents, filterHolder[0], bindings, resolver,
+                    lifecycle, value, freshFetches, schemaResolveCalls, holdGate);
         } catch (Exception | Error failure) {
             if (ownsStore) {
                 store.close();
@@ -555,9 +713,11 @@ class BulkNamespaceBatchAndAsyncPublicationTest {
             AnnotationConfigWebApplicationContext context,
             OpenApiInternalRestTemplate client,
             CachedOpenApiDocumentService documents,
+            GovernedOpenApiPublicationFilter filter,
             BulkResourceOperationBindings bindings,
             OpenApiCanonicalOperationResolver resolver,
             BulkOperationLifecycle lifecycle,
+            ObjectNode value,
             AtomicInteger freshFetches,
             AtomicInteger schemaResolveCalls,
             AtomicReference<Gate> holdGate) implements AutoCloseable {

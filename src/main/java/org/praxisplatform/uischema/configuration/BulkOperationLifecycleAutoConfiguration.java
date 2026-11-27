@@ -8,10 +8,13 @@ import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.bulk.AnnotationDrivenBulkDescriptorDiscovery;
 import org.praxisplatform.uischema.bulk.BulkControlPlaneInfrastructure;
 import org.praxisplatform.uischema.bulk.BulkExecutionInfrastructure;
+import org.praxisplatform.uischema.bulk.BulkLifecycleAuditContext;
 import org.praxisplatform.uischema.bulk.BulkOperationControlIdentity;
 import org.praxisplatform.uischema.bulk.BulkOperationDescriptorProvider;
 import org.praxisplatform.uischema.bulk.BulkOperationLifecycle;
 import org.praxisplatform.uischema.bulk.BulkPublicationAdminController;
+import org.praxisplatform.uischema.bulk.BulkPublicationConflictException;
+import org.praxisplatform.uischema.bulk.BulkPublicationJobIntent;
 import org.praxisplatform.uischema.bulk.BulkPublicationJobService;
 import org.praxisplatform.uischema.bulk.BulkResourceOperationBindings;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
@@ -20,10 +23,13 @@ import org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationFilter;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
 import org.praxisplatform.uischema.schema.SchemaReferenceResolver;
 import org.praxisplatform.uischema.service.base.AbstractBaseResourceService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -37,9 +43,11 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Conditional wiring for the explicitly opted-in governed bulk lifecycle. */
@@ -51,6 +59,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
         RequestMappingHandlerMapping.class, CanonicalOperationResolver.class, OpenApiDocumentService.class,
         ActionDefinitionRegistry.class, SchemaReferenceResolver.class, BulkResourceOperationBindings.class})
 public class BulkOperationLifecycleAutoConfiguration {
+    private static final Logger log = LoggerFactory.getLogger(BulkOperationLifecycleAutoConfiguration.class);
 
     @Autowired(required = false)
     private ObjectProvider<AbstractBaseResourceService<?, ?, ?, ?, ?, ?>> resourceServicesProvider;
@@ -146,6 +155,44 @@ public class BulkOperationLifecycleAutoConfiguration {
             }
             for (BulkOperationControlIdentity identity : lifecycle.configuredIdentities()) {
                 lifecycle.ensureReadyOnStartup(identity);
+            }
+        };
+    }
+
+    /**
+     * Opt-in asynchronous startup convergence listener ({@code praxis.bulk.lifecycle.startup-convergence})
+     * supporting {@code NONE}, {@code RECONCILE_ALL}, or {@code CONVERGE_ALL}. Submits a single
+     * asynchronous namespace-wide job on {@link ApplicationReadyEvent} so startup readiness probes are
+     * not blocked by full OpenAPI composition.
+     */
+    @Bean
+    @Lazy(false)
+    @ConditionalOnProperty(name = "praxis.bulk.lifecycle.startup-convergence")
+    public ApplicationListener<ApplicationReadyEvent> praxisBulkLifecycleStartupConvergenceInitializer(
+            BulkPublicationJobService jobService,
+            ApplicationContext applicationContext,
+            @Value("${praxis.bulk.lifecycle.startup-convergence:NONE}") String mode
+    ) {
+        String normalized = mode == null ? "NONE" : mode.trim().replace('-', '_').toUpperCase(Locale.ROOT);
+        BulkPublicationJobIntent intent = switch (normalized) {
+            case "", "NONE" -> null;
+            case "RECONCILE_ALL" -> BulkPublicationJobIntent.RECONCILE_ALL;
+            case "CONVERGE_ALL" -> BulkPublicationJobIntent.CONVERGE_ALL;
+            default -> throw new IllegalArgumentException(
+                    "Invalid praxis.bulk.lifecycle.startup-convergence '" + mode
+                            + "'; expected NONE, RECONCILE_ALL, or CONVERGE_ALL");
+        };
+        AtomicBoolean executed = new AtomicBoolean(false);
+        return event -> {
+            if (intent == null
+                    || event.getApplicationContext() != applicationContext
+                    || !executed.compareAndSet(false, true)) {
+                return;
+            }
+            try {
+                jobService.submit(intent, BulkLifecycleAuditContext.system());
+            } catch (BulkPublicationConflictException conflict) {
+                log.warn("Skipped startup bulk convergence ({}): {}", intent, conflict.getMessage());
             }
         };
     }

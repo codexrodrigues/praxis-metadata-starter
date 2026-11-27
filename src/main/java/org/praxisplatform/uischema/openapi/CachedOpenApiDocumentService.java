@@ -55,6 +55,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     private final ReentrantReadWriteLock cacheLifecycleLock = new ReentrantReadWriteLock(true);
     private final ReentrantLock compositionPreparationLock = new ReentrantLock(true);
     private final Duration bulkCompositionTimeout;
+    private final BulkOpenApiGuardMode bulkOpenApiGuardMode;
     private final ThreadLocal<OpenApiInternalRestTemplate.Deadline> compositionDeadline = new ThreadLocal<>();
     private final ThreadLocal<Boolean> invalidationFence = ThreadLocal.withInitial(() -> false);
     // Local cache invalidation fence only; this is not a revision of the upstream OpenAPI source.
@@ -91,12 +92,27 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 
     public CachedOpenApiDocumentService(RestTemplate restTemplate, ObjectMapper objectMapper,
             OpenApiDocsSupport openApiDocsSupport, boolean springdocCacheDisabled, Duration bulkCompositionTimeout) {
+        this(restTemplate, objectMapper, openApiDocsSupport, springdocCacheDisabled,
+                bulkCompositionTimeout, BulkOpenApiGuardMode.GLOBAL_STRICT);
+    }
+
+    public CachedOpenApiDocumentService(RestTemplate restTemplate, ObjectMapper objectMapper,
+            OpenApiDocsSupport openApiDocsSupport, boolean springdocCacheDisabled,
+            Duration bulkCompositionTimeout, BulkOpenApiGuardMode bulkOpenApiGuardMode) {
         OpenApiInternalRestTemplate.positiveMillis(bulkCompositionTimeout, "bulkCompositionTimeout");
         this.bulkCompositionTimeout = bulkCompositionTimeout;
+        this.bulkOpenApiGuardMode = bulkOpenApiGuardMode == null
+                ? BulkOpenApiGuardMode.GLOBAL_STRICT
+                : bulkOpenApiGuardMode;
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
         this.openApiDocsSupport = openApiDocsSupport;
         this.springdocCacheDisabled = springdocCacheDisabled;
+    }
+
+    /** Returns the configured OpenAPI read guard mode when governed bulk lifecycle is active. */
+    public BulkOpenApiGuardMode bulkOpenApiGuardMode() {
+        return bulkOpenApiGuardMode;
     }
 
     @Override
@@ -299,8 +315,20 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 
     private <T> T withCacheReadLock(Supplier<T> action) {
         if (publishedScope.get() != null) return action.get();
-        if (publicationGuard != null && lifecycleSnapshot.get() == null)
-            return withPublishedBulkOpenApiPublication((candidate, generation) -> action.get());
+        if (publicationGuard != null && lifecycleSnapshot.get() == null) {
+            if (bulkOpenApiGuardMode == BulkOpenApiGuardMode.BULK_SCOPED) {
+                if (publishedSnapshot != null && !cacheLifecycleLock.isWriteLockedByCurrentThread()) {
+                    try {
+                        return withPublishedBulkOpenApiPublication((candidate, generation) -> action.get());
+                    } catch (GovernedOpenApiPublicationUnavailableException unavailableInBulkScopedMode) {
+                        // Non-bulk OpenAPI and schema reads fall back to local cache serving when
+                        // governed publication is suspended, drifted, or mid-transition.
+                    }
+                }
+            } else {
+                return withPublishedBulkOpenApiPublication((candidate, generation) -> action.get());
+            }
+        }
         cacheLifecycleLock.readLock().lock();
         try {
             return action.get();
@@ -662,6 +690,34 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 
     OpenApiDocumentCapture publishedBulkOpenApiResponse(String contextPath, String exactPath) {
         requireOutsidePublicationScope();
+        if (bulkOpenApiGuardMode == BulkOpenApiGuardMode.BULK_SCOPED) {
+            if (publishedSnapshot == null) {
+                return null;
+            }
+            return withCompositionDeadline(() -> {
+                if (!cacheLifecycleLock.readLock().tryLock()) {
+                    return null;
+                }
+                try {
+                    compositionDeadline.get().remainingNanos();
+                    PublishedSnapshot snapshot = publishedSnapshot;
+                    if (snapshot == null) {
+                        return null;
+                    }
+                    requirePublishedSnapshot(snapshot);
+                    if (!snapshot.candidate().contextPath().equals(contextPath)) {
+                        return null;
+                    }
+                    OpenApiDocumentCapture capture = snapshot.candidate().response(exactPath);
+                    requirePublishedSnapshot(snapshot);
+                    return capture;
+                } catch (GovernedOpenApiPublicationUnavailableException unavailableInBulkScopedMode) {
+                    return null;
+                } finally {
+                    cacheLifecycleLock.readLock().unlock();
+                }
+            });
+        }
         return withCompositionDeadline(() -> withTimedLock(cacheLifecycleLock.readLock(), () -> {
             PublishedSnapshot snapshot = publishedSnapshot;
             requirePublishedSnapshot(snapshot);
@@ -725,6 +781,20 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         if (publishedScope.get() != null) {
             throw new IllegalStateException("Contextual read admission requires an independent publication scope");
         }
+        if (bulkOpenApiGuardMode == BulkOpenApiGuardMode.BULK_SCOPED) {
+            if (publishedSnapshot == null) {
+                return null;
+            }
+            try {
+                return capturePublishedDocumentFence();
+            } catch (GovernedOpenApiPublicationUnavailableException unavailableInBulkScopedMode) {
+                return null;
+            }
+        }
+        return capturePublishedDocumentFence();
+    }
+
+    private BulkLifecycleDocumentFence capturePublishedDocumentFence() {
         return withCompositionDeadline(() -> withTimedLock(cacheLifecycleLock.readLock(), () -> {
             PublishedSnapshot snapshot = publishedSnapshot;
             requirePublishedSnapshot(snapshot);
