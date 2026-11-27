@@ -2398,6 +2398,80 @@ while leaving all test-file <code>sha256</code> digests,
 obligations unchanged.</li>
 </ul></li>
 </ol>
+<h2
+id="reconciliation-cast-localdatelocaldatetime-sql-pushdown-time-series-buckets-to-date-future-v8.0.0-rc.203">2026-11-27
+reconciliation: cast <code>LocalDate</code>/<code>LocalDateTime</code>
+SQL pushdown time-series buckets to <code>DATE</code> (future
+<code>v8.0.0-rc.203</code>)</h2>
+<p>Following <code>be0a565439</code> on <code>main</code>,
+<code>JpaStatsQueryExecutor.executeSqlPushdownTimeSeries</code> now
+casts PostgreSQL <code>date_trunc</code> bucket expressions for
+<code>LocalDate</code> and <code>LocalDateTime</code> fields to
+<code>DATE</code> (<code>LocalDate.class</code>) so calendar buckets
+remain invariant when <code>hibernate.jdbc.time_zone=UTC</code> runs
+under a non-UTC JVM timezone, covered by
+<code>JpaStatsTimeSeriesPostgresPushdownTest.preservesCalendarBucketsWhenHibernateJdbcTimeZoneIsUtcUnderNonUtcJvm</code>
+(<code>3/3</code> PASS locally). Zero durable bulk schema, ACL, Flyway
+migration, or resource-contract storage changes were introduced.</p>
+<ol type="1">
+<li><strong>Causal inventory reconciliation
+(<code>tools/release/neon-test-inventory.json</code>):</strong>
+<ul>
+<li>Refreshed the committed-blob <code>sha256</code> digest on
+<code>src/test/java/org/praxisplatform/uischema/stats/service/jpa/JpaStatsTimeSeriesPostgresPushdownTest.java</code>
+(<code>excluded_outside_impact</code> / <code>metadata_h2</code>,
+<code>3/3</code> PASS locally) and recomputed
+<code>reviewedScopeDigest</code> on affected <code>impactReview</code>
+and <code>historical_reuse</code> closures encompassing
+<code>uischema/stats/</code> and <code>uischema/</code>, leaving all
+<code>rawArtifactSha256</code>, <code>dependencyDigest</code>, and prior
+B–H / resource-contract obligations unchanged.</li>
+</ul></li>
+</ol>
+<h2
+id="reconciliation-add-bulk_scoped-openapi-guard-mode-converge_all-job-and-indexed-openapi-customizers-future-v8.0.0-rc.203">2026-11-27
+reconciliation: add <code>BULK_SCOPED</code> OpenAPI guard mode,
+<code>CONVERGE_ALL</code> job, and indexed OpenAPI customizers (future
+<code>v8.0.0-rc.203</code>)</h2>
+<p>Following <code>8fceda83c3</code> on <code>main</code>, added opt-in
+blast-radius isolation (<code>BulkOpenApiGuardMode</code>:
+<code>GLOBAL_STRICT</code> default vs. <code>BULK_SCOPED</code> on
+<code>praxis.bulk.lifecycle.openapi-guard-mode</code>) across
+<code>CachedOpenApiDocumentService</code> and
+<code>GovernedOpenApiPublicationFilter</code>, single-composition atomic
+rollout convergence (<code>BulkPublicationJobIntent.CONVERGE_ALL</code>,
+<code>BulkOperationLifecycle.convergeAll</code>, and
+<code>@Lazy(false)</code>
+<code>praxis.bulk.lifecycle.startup-convergence</code> listener
+recording V21-compliant <code>'RECONCILE_ALL'</code> and
+<code>'PUBLISH_ALL'</code> audit intents), path-indexed
+<code>UiAnalyticsOpenApiCustomizer</code>, and an
+<code>AtomicReference</code>-cached
+<code>filterSchemaInheritanceOpenApiCustomizer</code>. Bulk admission,
+execution, bulk capability/action projection, and producer capture
+remain fail-closed; zero SQL, Flyway migration, bulk-storage
+ACL/permission, or resource-contract storage changes were
+introduced.</p>
+<ol type="1">
+<li><strong>Causal inventory reconciliation
+(<code>tools/release/neon-test-inventory.json</code>):</strong>
+<ul>
+<li>Refreshed committed-blob <code>sha256</code> digests on
+<code>UiAnalyticsOpenApiCustomizerTest.java</code> (<code>no_db</code>),
+<code>BulkOperationLifecycleAutoConfigurationTest.java</code>
+(<code>no_db</code>),
+<code>GovernedOpenApiPublicationFilterTest.java</code>
+(<code>no_db</code>), and
+<code>BulkNamespaceBatchAndAsyncPublicationTest.java</code>
+(<code>excluded_outside_impact</code> / <code>bulk_embedded_pg</code>,
+<code>8/8</code> PASS locally), and recomputed
+<code>reviewedScopeDigest</code> on affected <code>impactReview</code>
+and <code>historical_reuse</code> closures encompassing
+<code>uischema/bulk/</code> and <code>uischema/</code>, leaving all
+<code>rawArtifactSha256</code>, <code>dependencyDigest</code>, and prior
+B–H / resource-contract obligations unchanged.</li>
+</ul></li>
+</ol>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {
