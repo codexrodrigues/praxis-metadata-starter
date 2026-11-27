@@ -1269,7 +1269,7 @@ public final class BulkOperationLifecycle {
                 if (!state.pubPublished) {
                     try {
                         JdbcBulkOpenApiPublication.Snapshot refreshedPub = readPublication();
-                        state.pubPublished = refreshedPub.published();
+                        state.pubPublished = isMatchingPublishedPublication(refreshedPub, candidate);
                         state.pubGeneration = refreshedPub.generation();
                     } catch (RuntimeException refreshFailure) {
                         conflictEx.addSuppressed(refreshFailure);

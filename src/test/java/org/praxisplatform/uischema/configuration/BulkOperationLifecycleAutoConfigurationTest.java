@@ -230,6 +230,29 @@ class BulkOperationLifecycleAutoConfigurationTest {
     }
 
     @Test
+    void startupConvergenceInitializerIsNotLazyWhenGlobalLazyInitIsEnabled() {
+        BulkPublicationJobService jobService = mock(BulkPublicationJobService.class,
+                org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+
+        contextRunner()
+                .withBean(BulkPublicationJobService.class, () -> jobService)
+                .withInitializer(ctx -> ctx.addBeanFactoryPostProcessor(
+                        new org.springframework.boot.LazyInitializationBeanFactoryPostProcessor()))
+                .withPropertyValues(
+                        "spring.main.lazy-initialization=true",
+                        "praxis.bulk.lifecycle.startup-convergence=CONVERGE_ALL")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasBean("praxisBulkLifecycleStartupConvergenceInitializer");
+                    var app = new org.springframework.boot.SpringApplication(Object.class);
+                    context.publishEvent(new org.springframework.boot.context.event.ApplicationReadyEvent(
+                            app, new String[0], context.getSourceApplicationContext(), Duration.ofMillis(1)));
+                    org.mockito.Mockito.verify(jobService, org.mockito.Mockito.times(1))
+                            .submit(BulkPublicationJobIntent.CONVERGE_ALL, BulkLifecycleAuditContext.system());
+                });
+    }
+
+    @Test
     void openApiGuardModePropertyConfiguresCachedOpenApiDocumentService() {
         var client = new OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(10));
         var openApiSupport = new OpenApiDocsSupport();

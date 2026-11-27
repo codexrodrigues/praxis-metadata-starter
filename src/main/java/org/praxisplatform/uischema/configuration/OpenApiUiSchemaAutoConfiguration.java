@@ -134,6 +134,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Auto-configuracao principal do modulo de OpenAPI e UI Schema.
@@ -279,10 +280,12 @@ public class OpenApiUiSchemaAutoConfiguration {
     public GlobalOpenApiCustomizer filterSchemaInheritanceOpenApiCustomizer(
             RequestMappingHandlerMapping requestMappingHandlerMapping
     ) {
+        record FilterInheritanceSnapshot(
+                org.springframework.web.method.HandlerMethod[] handlers,
+                Map<Class<?>, Class<?>> mapping
+        ) {}
         final Object cacheLock = new Object();
-        final Map<Class<?>, Class<?>>[] cachedMapping = new Map[1];
-        final org.springframework.web.method.HandlerMethod[][] cachedValues =
-                new org.springframework.web.method.HandlerMethod[1][];
+        final AtomicReference<FilterInheritanceSnapshot> cachedSnapshot = new AtomicReference<>();
         return openApi -> {
             if (openApi == null || openApi.getComponents() == null || openApi.getComponents().getSchemas() == null) {
                 return;
@@ -290,12 +293,12 @@ public class OpenApiUiSchemaAutoConfiguration {
             @SuppressWarnings("rawtypes")
             Map<String, io.swagger.v3.oas.models.media.Schema> componentSchemas = openApi.getComponents().getSchemas();
             var handlerValues = requestMappingHandlerMapping.getHandlerMethods().values();
-            Map<Class<?>, Class<?>> filterToResponse = cachedMapping[0];
-            org.springframework.web.method.HandlerMethod[] currentSnapshot = cachedValues[0];
-            if (filterToResponse == null || currentSnapshot == null || currentSnapshot.length != handlerValues.size()) {
+            FilterInheritanceSnapshot snapshot = cachedSnapshot.get();
+            if (snapshot == null || !sameHandlerCollection(snapshot.handlers(), handlerValues)) {
                 synchronized (cacheLock) {
                     var currentValues = requestMappingHandlerMapping.getHandlerMethods().values();
-                    if (cachedMapping[0] == null || cachedValues[0] == null || cachedValues[0].length != currentValues.size()) {
+                    snapshot = cachedSnapshot.get();
+                    if (snapshot == null || !sameHandlerCollection(snapshot.handlers(), currentValues)) {
                         Map<Class<?>, Class<?>> built = new java.util.LinkedHashMap<>();
                         for (var handler : currentValues) {
                             Class<?> beanType = org.springframework.util.ClassUtils.getUserClass(handler.getBeanType());
@@ -311,12 +314,14 @@ public class OpenApiUiSchemaAutoConfiguration {
                                 }
                             }
                         }
-                        cachedValues[0] = currentValues.toArray(org.springframework.web.method.HandlerMethod[]::new);
-                        cachedMapping[0] = java.util.Collections.unmodifiableMap(built);
+                        snapshot = new FilterInheritanceSnapshot(
+                                currentValues.toArray(org.springframework.web.method.HandlerMethod[]::new),
+                                java.util.Collections.unmodifiableMap(built));
+                        cachedSnapshot.set(snapshot);
                     }
-                    filterToResponse = cachedMapping[0];
                 }
             }
+            Map<Class<?>, Class<?>> filterToResponse = snapshot.mapping();
             for (var entry : filterToResponse.entrySet()) {
                 Class<?> filterClass = entry.getKey();
                 Class<?> responseClass = entry.getValue();
@@ -332,6 +337,22 @@ public class OpenApiUiSchemaAutoConfiguration {
                 }
             }
         };
+    }
+
+    private static boolean sameHandlerCollection(
+            org.springframework.web.method.HandlerMethod[] cached,
+            java.util.Collection<org.springframework.web.method.HandlerMethod> current
+    ) {
+        if (cached == null || cached.length != current.size()) {
+            return false;
+        }
+        int i = 0;
+        for (var handler : current) {
+            if (cached[i++] != handler) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Bean

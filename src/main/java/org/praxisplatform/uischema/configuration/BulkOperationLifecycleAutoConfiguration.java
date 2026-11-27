@@ -43,6 +43,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.util.List;
@@ -165,6 +166,7 @@ public class BulkOperationLifecycleAutoConfiguration {
      * not blocked by full OpenAPI composition.
      */
     @Bean
+    @Lazy(false)
     @ConditionalOnProperty(name = "praxis.bulk.lifecycle.startup-convergence")
     public ApplicationListener<ApplicationReadyEvent> praxisBulkLifecycleStartupConvergenceInitializer(
             BulkPublicationJobService jobService,
