@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.Paths;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.annotation.AnalyticalRecipeGovernanceTier;
 import org.praxisplatform.uischema.annotation.AnalyticsComparisonPeriodBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsDimensionBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsGranularity;
@@ -23,6 +24,7 @@ import org.praxisplatform.uischema.openapi.CanonicalOperationRef;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.stats.ComparisonPeriodMode;
 import org.praxisplatform.uischema.stats.ComparisonPeriodPreset;
+import org.praxisplatform.uischema.stats.StatsBucketOrder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
@@ -30,6 +32,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +41,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class UiAnalyticsOpenApiCustomizerTest {
@@ -354,6 +360,181 @@ class UiAnalyticsOpenApiCustomizerTest {
                 IllegalArgumentException.class,
                 () -> new UiAnalyticsAnnotationMapper().toXUiAnalytics(invalid, "/reports/stats/group-by")
         );
+    }
+
+    @Test
+    void cachesIndexedBindingsAcrossOpenApiBuildsUntilHandlerMappingsChange() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        VerifiedAnalyticalRecipeResolver recipeResolver = mock(VerifiedAnalyticalRecipeResolver.class);
+        UiAnalyticsOpenApiCustomizer customizer = new UiAnalyticsOpenApiCustomizer(
+                handlerMapping,
+                operationResolver,
+                new UiAnalyticsAnnotationMapper(),
+                recipeResolver
+        );
+
+        SampleController sampleController = new SampleController();
+        UnannotatedController unannotatedController = new UnannotatedController();
+        Method sampleMethod = SampleController.class.getDeclaredMethod("groupBy");
+        Method unannotatedMethod = UnannotatedController.class.getDeclaredMethod("groupBy");
+        RequestMappingInfo sampleMapping = RequestMappingInfo.paths("/reports/stats/group-by").build();
+        RequestMappingInfo unannotatedMapping = RequestMappingInfo.paths("/other/stats/group-by").build();
+
+        Map<RequestMappingInfo, HandlerMethod> initialHandlers = new LinkedHashMap<>();
+        initialHandlers.put(sampleMapping, new HandlerMethod(sampleController, sampleMethod));
+        initialHandlers.put(unannotatedMapping, new HandlerMethod(unannotatedController, unannotatedMethod));
+        // Wrap in a fresh unmodifiable copy per call, mimicking Spring MVC AbstractHandlerMethodMapping.
+        when(handlerMapping.getHandlerMethods()).thenAnswer(inv -> java.util.Collections.unmodifiableMap(initialHandlers));
+        when(operationResolver.resolve(any(HandlerMethod.class), any(RequestMappingInfo.class)))
+                .thenReturn(new CanonicalOperationRef("reports", "groupBy", "/reports/stats/group-by", "post"));
+        when(recipeResolver.resolveByController(any(), any())).thenReturn(List.of());
+
+        OpenAPI matchingDoc1 = new OpenAPI().paths(new Paths().addPathItem("/reports/stats/group-by", new PathItem().post(new Operation())));
+        OpenAPI unrelatedDoc = new OpenAPI().paths(new Paths().addPathItem("/unrelated/items", new PathItem().get(new Operation())));
+        OpenAPI matchingDoc2 = new OpenAPI().paths(new Paths().addPathItem("/reports/stats/group-by", new PathItem().post(new Operation())));
+
+        customizer.customise(matchingDoc1);
+        customizer.customise(unrelatedDoc);
+        customizer.customise(matchingDoc2);
+
+        assertNotNull(matchingDoc1.getPaths().get("/reports/stats/group-by").getPost().getExtensions().get("x-ui"));
+        assertNull(unrelatedDoc.getPaths().get("/unrelated/items").getGet().getExtensions());
+        assertNotNull(matchingDoc2.getPaths().get("/reports/stats/group-by").getPost().getExtensions().get("x-ui"));
+        verify(operationResolver, times(1)).resolve(any(HandlerMethod.class), any(RequestMappingInfo.class));
+        verify(recipeResolver, times(1)).resolveByController(eq(SampleController.class), any());
+        verify(recipeResolver, times(1)).resolveByController(eq(UnannotatedController.class), any());
+
+        // Add a dynamic mapping and ensure the cache invalidates and rebuilds.
+        Method dynamicMethod = CrossFilterController.class.getDeclaredMethod("groupBy");
+        RequestMappingInfo dynamicMapping = RequestMappingInfo.paths("/dynamic/stats/group-by").build();
+        initialHandlers.put(dynamicMapping, new HandlerMethod(new CrossFilterController(), dynamicMethod));
+        when(operationResolver.resolve(any(HandlerMethod.class), eq(dynamicMapping)))
+                .thenReturn(new CanonicalOperationRef("dynamic", "groupBy", "/dynamic/stats/group-by", "post"));
+
+        OpenAPI dynamicDoc = new OpenAPI().paths(new Paths().addPathItem("/dynamic/stats/group-by", new PathItem().post(new Operation())));
+        customizer.customise(dynamicDoc);
+
+        assertNotNull(dynamicDoc.getPaths().get("/dynamic/stats/group-by").getPost().getExtensions().get("x-ui"));
+        verify(operationResolver, times(3)).resolve(any(HandlerMethod.class), any(RequestMappingInfo.class));
+        verify(recipeResolver, times(2)).resolveByController(eq(SampleController.class), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void resolvesClassLevelStatsPreferenceFilterFallbackMethodPrecedenceAndVerifiedRecipes() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        VerifiedAnalyticalRecipeResolver recipeResolver = mock(VerifiedAnalyticalRecipeResolver.class);
+        UiAnalyticsOpenApiCustomizer customizer = new UiAnalyticsOpenApiCustomizer(
+                handlerMapping,
+                operationResolver,
+                new UiAnalyticsAnnotationMapper(),
+                recipeResolver
+        );
+
+        ClassAnnotatedStatsAndFilterController controller = new ClassAnnotatedStatsAndFilterController();
+        Method statsMethod = ClassAnnotatedStatsAndFilterController.class.getDeclaredMethod("statsGroupBy");
+        Method filterMethod = ClassAnnotatedStatsAndFilterController.class.getDeclaredMethod("filter");
+        RequestMappingInfo statsMapping = RequestMappingInfo.paths("/analytics/stats/group-by").build();
+        RequestMappingInfo filterMapping = RequestMappingInfo.paths("/analytics/filter").build();
+
+        Map<RequestMappingInfo, HandlerMethod> handlers = new LinkedHashMap<>();
+        handlers.put(filterMapping, new HandlerMethod(controller, filterMethod));
+        handlers.put(statsMapping, new HandlerMethod(controller, statsMethod));
+        when(handlerMapping.getHandlerMethods()).thenReturn(handlers);
+        when(operationResolver.resolve(any(HandlerMethod.class), eq(statsMapping)))
+                .thenReturn(new CanonicalOperationRef("analytics", "statsGroupBy", "/analytics/stats/group-by", "post"));
+        when(operationResolver.resolve(any(HandlerMethod.class), eq(filterMapping)))
+                .thenReturn(new CanonicalOperationRef("analytics", "filter", "/analytics/filter", "post"));
+
+        ResolvedVerifiedAnalyticalRecipe recipe = new ResolvedVerifiedAnalyticalRecipe(
+                "verified-summary",
+                "Verified Summary",
+                "Resumo verificado",
+                "ranking",
+                "analytics",
+                "/analytics",
+                "/analytics/stats/group-by",
+                AnalyticsOperation.GROUP_BY,
+                "department",
+                List.of(),
+                List.of(),
+                StatsBucketOrder.VALUE_DESC,
+                10,
+                null,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of(),
+                List.of(),
+                AnalyticalRecipeGovernanceTier.OPERATIONAL,
+                List.of(),
+                "1.0.0",
+                0,
+                "sha256:test"
+        );
+        when(recipeResolver.resolveByController(eq(ClassAnnotatedStatsAndFilterController.class), any()))
+                .thenReturn(List.of(recipe));
+
+        // 1) Both /stats/group-by and /filter present -> prefers /stats/group-by and attaches class @UiAnalytics + recipes
+        Operation statsOp = new Operation();
+        Operation filterOp = new Operation();
+        OpenAPI fullDoc = new OpenAPI().paths(new Paths()
+                .addPathItem("/analytics/filter", new PathItem().post(filterOp))
+                .addPathItem("/analytics/stats/group-by", new PathItem().post(statsOp)));
+        customizer.customise(fullDoc);
+
+        Map<String, Object> statsAnalytics = (Map<String, Object>) ((Map<String, Object>) statsOp.getExtensions().get("x-ui")).get("analytics");
+        assertEquals("class-ranking", ((List<Map<String, Object>>) statsAnalytics.get("projections")).get(0).get("id"));
+        assertEquals(List.of(recipe.toMetadataMap()), statsAnalytics.get("verifiedRecipes"));
+        Map<String, Object> fullDocFilterAnalytics = (Map<String, Object>) ((Map<String, Object>) filterOp.getExtensions().get("x-ui")).get("analytics");
+        assertEquals("method-filter-override", ((List<Map<String, Object>>) fullDocFilterAnalytics.get("projections")).get(0).get("id"));
+        assertFalse(fullDocFilterAnalytics.containsKey("verifiedRecipes"));
+
+        // 2) Only /filter present with method-level @UiAnalytics -> method precedence preserved and recipes merged
+        Operation fallbackFilterOp = new Operation();
+        OpenAPI filterOnlyDoc = new OpenAPI().paths(new Paths()
+                .addPathItem("/analytics/filter", new PathItem().post(fallbackFilterOp)));
+        customizer.customise(filterOnlyDoc);
+
+        Map<String, Object> filterAnalytics = (Map<String, Object>) ((Map<String, Object>) fallbackFilterOp.getExtensions().get("x-ui")).get("analytics");
+        assertEquals("method-filter-override", ((List<Map<String, Object>>) filterAnalytics.get("projections")).get(0).get("id"));
+        assertEquals(List.of(recipe.toMetadataMap()), filterAnalytics.get("verifiedRecipes"));
+    }
+
+    @UiAnalytics(
+            projections = @AnalyticsProjection(
+                    id = "class-ranking",
+                    intent = AnalyticsIntent.RANKING,
+                    sourceOperation = AnalyticsOperation.GROUP_BY,
+                    primaryDimension = @AnalyticsDimensionBinding(field = "department"),
+                    primaryMetrics = @AnalyticsMetricBinding(field = "total", aggregation = "sum")
+            )
+    )
+    static class ClassAnnotatedStatsAndFilterController {
+
+        @PostMapping("/analytics/stats/group-by")
+        public void statsGroupBy() {
+        }
+
+        @PostMapping("/analytics/filter")
+        @UiAnalytics(
+                projections = @AnalyticsProjection(
+                        id = "method-filter-override",
+                        intent = AnalyticsIntent.TREND,
+                        sourceOperation = AnalyticsOperation.GROUP_BY,
+                        primaryDimension = @AnalyticsDimensionBinding(field = "competencia"),
+                        primaryMetrics = @AnalyticsMetricBinding(field = "total", aggregation = "count")
+                )
+        )
+        public void filter() {
+        }
     }
 
     static class SampleController {
