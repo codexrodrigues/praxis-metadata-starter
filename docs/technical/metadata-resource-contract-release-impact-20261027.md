@@ -737,4 +737,11 @@ Following `21647eb67f` on `main`, added `BulkProtocolPayloadException`, `PraxisB
 1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
    - Inventoried new unit contract suite `src/test/java/org/praxisplatform/uischema/stats/ResourceSimulationAndCounterfactualStatsTest.java` (`no_db`), refreshed committed-blob `sha256` digests on the 13 modified test sources (`no_db` / `support` / `excluded_outside_impact`), and recomputed `reviewedScopeDigest` on affected `impactReview` and `historical_reuse` closures encompassing `uischema/bulk/` and `uischema/`, leaving all `rawArtifactSha256`, `dependencyDigest`, and prior B–H / resource-contract obligations unchanged.
 
+## 2026-11-27 reconciliation: bump `praxis-intelligence-contracts` to `0.1.0-beta.2` (future `v8.0.0-rc.202`)
+
+Following `1f08d1f168` (`v8.0.0-rc.201`), bumped `io.github.codexrodrigues:praxis-intelligence-contracts` in `pom.xml` from `0.1.0-beta.1` to `0.1.0-beta.2` so Wave 2 simulation/counterfactual orchestrator SPIs (`CounterfactualSearchOrchestrator`, `StochasticRevalidationPolicy`, `StochasticSimulationOrchestrator`, and the strict anchor revalidation overload in `EpistemicEnvelope`) resolve from Maven Central. Zero database, SQL, Flyway migration, bulk-storage ACL/permission, or resource-contract storage changes were introduced.
+
+1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Refreshed `reviewedScopeDigest` and `dependencyDigest` on `impactReview` and `historical_reuse` closures encompassing `pom.xml` while leaving all test-file `sha256` digests, `rawArtifactSha256`, and prior B–H / resource-contract obligations unchanged.
+
 
