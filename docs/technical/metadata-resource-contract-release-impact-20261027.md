@@ -744,4 +744,11 @@ Following `1f08d1f168` (`v8.0.0-rc.201`), bumped `io.github.codexrodrigues:praxi
 1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
    - Refreshed `reviewedScopeDigest` and `dependencyDigest` on `impactReview` and `historical_reuse` closures encompassing `pom.xml` while leaving all test-file `sha256` digests, `rawArtifactSha256`, and prior B–H / resource-contract obligations unchanged.
 
+## 2026-11-27 reconciliation: cast `LocalDate`/`LocalDateTime` SQL pushdown time-series buckets to `DATE` (future `v8.0.0-rc.203`)
+
+Following `be0a565439` on `main`, `JpaStatsQueryExecutor.executeSqlPushdownTimeSeries` now casts PostgreSQL `date_trunc` bucket expressions for `LocalDate` and `LocalDateTime` fields to `DATE` (`LocalDate.class`) so calendar buckets remain invariant when `hibernate.jdbc.time_zone=UTC` runs under a non-UTC JVM timezone, covered by `JpaStatsTimeSeriesPostgresPushdownTest.preservesCalendarBucketsWhenHibernateJdbcTimeZoneIsUtcUnderNonUtcJvm` (`3/3` PASS locally). Zero durable bulk schema, ACL, Flyway migration, or resource-contract storage changes were introduced.
+
+1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Refreshed the committed-blob `sha256` digest on `src/test/java/org/praxisplatform/uischema/stats/service/jpa/JpaStatsTimeSeriesPostgresPushdownTest.java` (`excluded_outside_impact` / `metadata_h2`, `3/3` PASS locally) and recomputed `reviewedScopeDigest` on affected `impactReview` and `historical_reuse` closures encompassing `uischema/stats/` and `uischema/`, leaving all `rawArtifactSha256`, `dependencyDigest`, and prior B–H / resource-contract obligations unchanged.
+
 
