@@ -67,7 +67,7 @@
         <dependency>
             <groupId>io.github.codexrodrigues</groupId>
             <artifactId>praxis-rules-engine</artifactId>
-            <version>0.1.0-beta.20</version>
+            <version>0.1.0-beta.24</version>
         </dependency>
         <!-- Framework-neutral statistical inference and anomaly contracts (zero runtime deps). -->
         <dependency>

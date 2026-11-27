@@ -14,6 +14,8 @@ import org.praxisplatform.rules.contract.RuleDecision;
 import org.praxisplatform.rules.contract.RuleExecutorRef;
 import org.praxisplatform.rules.contract.RuleFailPolicy;
 import org.praxisplatform.rules.contract.RuleParameterDefinition;
+import org.praxisplatform.rules.contract.RuleParameterInvariant;
+import org.praxisplatform.rules.contract.RuleParameterMetadata;
 import org.praxisplatform.rules.contract.RuleParameterTemplate;
 import org.praxisplatform.rules.contract.RuleParameterType;
 import org.praxisplatform.rules.contract.RuleParameterization;
@@ -996,6 +998,382 @@ class SemanticDomainCatalogServiceTest {
             assertThat(rule).containsEntry("requiredFactPaths", List.of("draft.valorLiquido"));
             assertThat(rule).containsEntry("referencedFactPaths", List.of("draft.valorLiquido"));
         });
+    }
+
+    @Test
+    void projectsContract18ParameterMetadataInvariantsAndActiveTenantValuesInDomainCatalog() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expression = mapper.readTree("""
+                {"and":[
+                  {">=":[{"var":"draft.diasParcela"},10]},
+                  {"<=":[{"var":"draft.diasParcela"},30]}
+                ]}
+                """);
+        JsonNode invariantExpr = mapper.readTree("""
+                {"<=":[{"var":"minDiasParcela"},{"var":"maxDiasParcela"}]}
+                """);
+        RuleParameterTemplate template = new RuleParameterTemplate(
+                "ferias.parcela-bounds",
+                "1.8",
+                RuleExecutorRef.jsonLogic(expression),
+                RuleDecision.DENY,
+                "ERG-00650",
+                List.of("draft.diasParcela"),
+                List.of(
+                        new RuleParameterDefinition(
+                                "maxDiasParcela",
+                                RuleParameterType.INTEGER,
+                                true,
+                                false,
+                                false,
+                                "days",
+                                mapper.getNodeFactory().numberNode(30),
+                                java.math.BigDecimal.valueOf(10),
+                                java.math.BigDecimal.valueOf(45),
+                                List.of(),
+                                List.of("/and/1/<=/1"),
+                                new RuleParameterMetadata(
+                                        "Máximo de dias por parcela",
+                                        "Limite superior permitido por parcela de gozo de férias.",
+                                        "Lei nº 8.112/1990, art. 77",
+                                        "Parcelamento",
+                                        2
+                                )
+                        ),
+                        new RuleParameterDefinition(
+                                "minDiasParcela",
+                                RuleParameterType.INTEGER,
+                                true,
+                                false,
+                                false,
+                                "days",
+                                mapper.getNodeFactory().numberNode(10),
+                                java.math.BigDecimal.valueOf(5),
+                                java.math.BigDecimal.valueOf(15),
+                                List.of(),
+                                List.of("/and/0/>=/1"),
+                                new RuleParameterMetadata(
+                                        "Mínimo de dias por parcela",
+                                        "Duração mínima obrigatória de cada parcela de férias.",
+                                        "LC nº 840/2011, art. 125",
+                                        "Parcelamento",
+                                        1
+                                )
+                        )
+                ),
+                List.of(new RuleParameterInvariant(
+                        "MIN_LTE_MAX",
+                        "O mínimo de dias da parcela não pode superar o máximo permitido.",
+                        RuleExecutorRef.jsonLogic(invariantExpr)
+                ))
+        );
+        RuleSetDefinition definition = new RuleSetDefinition(
+                new RuleSetRef(
+                        "human-resources",
+                        "human-resources.ferias",
+                        "human-resources.ferias.concessao",
+                        "CREATE",
+                        1
+                ),
+                List.of("draft", "context"),
+                List.of(new DecisionSlot(
+                        "ferias.parcela-bounds",
+                        DecisionStage.DOMAIN_DECISION,
+                        SlotCardinality.SINGLE,
+                        OverridePolicy.PARAMETERIZABLE,
+                        DecisionAggregationPolicy.SINGLE_RESULT,
+                        template,
+                        List.of()
+                )),
+                List.of(
+                        new DecisionBinding(
+                                "product.ferias.parcela-bounds",
+                                "ferias.parcela-bounds",
+                                DecisionSource.PRODUCT,
+                                null,
+                                RuleExecutorRef.jsonLogic(expression),
+                                List.of(),
+                                1,
+                                true,
+                                RuleDecision.DENY,
+                                "ERG-00650",
+                                List.of("draft.diasParcela"),
+                                null
+                        ),
+                        new DecisionBinding(
+                                "customer.df.ferias.parcela-bounds",
+                                "ferias.parcela-bounds",
+                                DecisionSource.CUSTOMER,
+                                CompositionPolicy.PARAMETERIZE,
+                                null,
+                                List.of(),
+                                2,
+                                true,
+                                null,
+                                null,
+                                List.of(),
+                                new RuleParameterization(
+                                        "ferias.parcela-bounds",
+                                        "1.8",
+                                        mapper.createObjectNode()
+                                                .put("minDiasParcela", 5)
+                                                .put("maxDiasParcela", 30)
+                                )
+                        )
+                ),
+                RuleRuntimeCompatibility.current(),
+                RuleFailPolicy.FAIL_CLOSED
+        );
+
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(),
+                optionSources(),
+                new StubOpenApiDocumentService(),
+                null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart",
+                "Praxis API Quickstart",
+                "test",
+                null,
+                null,
+                null,
+                DomainRuleSetCatalogProvider.ofDefinitions(List.of(definition), code -> java.util.Optional.empty())
+        );
+
+        DomainCatalogResponse response = service.findByResourceKey("human-resources.ferias");
+        DomainCatalogResponse.DomainNodeItem ruleSetNode = response.nodes().stream()
+                .filter(node -> "human-resources.ferias.concessao".equals(node.metadata().get("ruleSetKey")))
+                .findFirst()
+                .orElseThrow();
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> slots = (List<Map<String, Object>>) ruleSetNode.metadata().get("slots");
+        assertThat(slots).singleElement().satisfies(slot -> {
+            assertThat(slot)
+                    .containsEntry("parameterizable", true)
+                    .containsEntry("templateKey", "ferias.parcela-bounds")
+                    .containsEntry("templateVersion", "1.8");
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> parameters = (List<Map<String, Object>>) slot.get("parameters");
+            assertThat(parameters).hasSize(2);
+            assertThat(parameters.get(0))
+                    .containsEntry("name", "minDiasParcela")
+                    .containsEntry("displayOrder", 1)
+                    .containsEntry("label", "Mínimo de dias por parcela")
+                    .containsEntry("description", "Duração mínima obrigatória de cada parcela de férias.")
+                    .containsEntry("legalBasis", "LC nº 840/2011, art. 125")
+                    .containsEntry("group", "Parcelamento")
+                    .containsEntry("unit", "days")
+                    .containsEntry("defaultValue", 10);
+            assertThat(parameters.get(1))
+                    .containsEntry("name", "maxDiasParcela")
+                    .containsEntry("displayOrder", 2)
+                    .containsEntry("defaultValue", 30);
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> invariants = (List<Map<String, Object>>) slot.get("invariants");
+            assertThat(invariants).singleElement().satisfies(inv -> assertThat(inv)
+                    .containsEntry("code", "MIN_LTE_MAX")
+                    .containsEntry("message", "O mínimo de dias da parcela não pode superar o máximo permitido."));
+        });
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rules = (List<Map<String, Object>>) ruleSetNode.metadata().get("rules");
+        assertThat(rules).hasSize(2);
+        Map<String, Object> baselineRule = rules.get(0);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> baselineParams = (List<Map<String, Object>>) baselineRule.get("effectiveParameters");
+        assertThat(baselineParams).hasSize(2);
+        assertThat(baselineParams.get(0))
+                .containsEntry("name", "minDiasParcela")
+                .containsEntry("value", 10)
+                .containsEntry("defaultValue", 10)
+                .containsEntry("customized", false);
+
+        Map<String, Object> tenantRule = rules.get(1);
+        assertThat(tenantRule)
+                .containsEntry("parameterTemplateKey", "ferias.parcela-bounds")
+                .containsEntry("parameterTemplateVersion", "1.8")
+                .containsEntry("parameterValues", Map.of("minDiasParcela", 5, "maxDiasParcela", 30));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tenantParams = (List<Map<String, Object>>) tenantRule.get("effectiveParameters");
+        assertThat(tenantParams).hasSize(2);
+        assertThat(tenantParams.get(0))
+                .containsEntry("name", "minDiasParcela")
+                .containsEntry("value", 5)
+                .containsEntry("defaultValue", 10)
+                .containsEntry("customized", true);
+        assertThat(tenantParams.get(1))
+                .containsEntry("name", "maxDiasParcela")
+                .containsEntry("value", 30)
+                .containsEntry("defaultValue", 30)
+                .containsEntry("customized", false);
+    }
+
+    @Test
+    void nullableDefaultMatchesJsonNullAndParameterChangesInvalidateCatalogCache() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode expression = mapper.readTree("""
+                {"==":[{"var":"draft.observacao"},null]}
+                """);
+        JsonNode trueExpression = mapper.readTree("true");
+        java.util.function.BiFunction<Integer, String, RuleSetDefinition> buildDefinition = (maxDias, invariantMsg) -> {
+            RuleParameterTemplate template = new RuleParameterTemplate(
+                    "ferias.nullable-and-cache",
+                    "1.8",
+                    RuleExecutorRef.jsonLogic(expression),
+                    RuleDecision.DENY,
+                    "ERG-00651",
+                    List.of("draft.diasParcela"),
+                    List.of(
+                            new RuleParameterDefinition(
+                                    "observacaoPadrao",
+                                    RuleParameterType.STRING,
+                                    false,
+                                    true,
+                                    false,
+                                    null,
+                                    null,
+                                    null,
+                                    null,
+                                    List.of(),
+                                    List.of("/==/1"),
+                                    new RuleParameterMetadata(
+                                            "Observação padrão",
+                                            "Observação opcional.",
+                                            null,
+                                            "Geral",
+                                            1
+                                    )
+                            ),
+                            new RuleParameterDefinition(
+                                    "maxDiasParcela",
+                                    RuleParameterType.INTEGER,
+                                    true,
+                                    false,
+                                    false,
+                                    "days",
+                                    mapper.getNodeFactory().numberNode(30),
+                                    java.math.BigDecimal.valueOf(10),
+                                    java.math.BigDecimal.valueOf(45),
+                                    List.of(),
+                                    List.of(),
+                                    new RuleParameterMetadata(
+                                            "Máximo de dias",
+                                            "Limite superior configurável.",
+                                            null,
+                                            "Geral",
+                                            2
+                                    )
+                            )
+                    ),
+                    List.of(new RuleParameterInvariant(
+                            "MAX_DAYS_CHECK",
+                            invariantMsg,
+                            RuleExecutorRef.jsonLogic(trueExpression)
+                    ))
+            );
+            var paramsNode = mapper.createObjectNode();
+            paramsNode.set("observacaoPadrao", mapper.nullNode());
+            paramsNode.put("maxDiasParcela", maxDias);
+            return new RuleSetDefinition(
+                    new RuleSetRef(
+                            "human-resources",
+                            "human-resources.ferias",
+                            "human-resources.ferias.nullable-cache",
+                            "CREATE",
+                            1
+                    ),
+                    List.of("draft"),
+                    List.of(new DecisionSlot(
+                            "ferias.nullable-cache",
+                            DecisionStage.DOMAIN_DECISION,
+                            SlotCardinality.SINGLE,
+                            OverridePolicy.PARAMETERIZABLE,
+                            DecisionAggregationPolicy.SINGLE_RESULT,
+                            template,
+                            List.of()
+                    )),
+                    List.of(new DecisionBinding(
+                            "customer.df.ferias.nullable-cache",
+                            "ferias.nullable-cache",
+                            DecisionSource.CUSTOMER,
+                            CompositionPolicy.PARAMETERIZE,
+                            null,
+                            List.of(),
+                            1,
+                            true,
+                            null,
+                            null,
+                            List.of(),
+                            new RuleParameterization("ferias.nullable-and-cache", "1.8", paramsNode)
+                    )),
+                    RuleRuntimeCompatibility.current(),
+                    RuleFailPolicy.FAIL_CLOSED
+            );
+        };
+
+        // Recompute definition dynamically on every provider lookup to simulate updated active tenant values
+        var activeDef = new java.util.concurrent.atomic.AtomicReference<>(
+                buildDefinition.apply(30, "Regra inicial")
+        );
+        SemanticDomainCatalogService service = new SemanticDomainCatalogService(
+                new StubActionDefinitionRegistry(),
+                new StubSurfaceDefinitionRegistry(),
+                optionSources(),
+                new StubOpenApiDocumentService(),
+                null,
+                Clock.fixed(Instant.parse("2026-04-21T10:30:00Z"), ZoneOffset.UTC),
+                "praxis-api-quickstart",
+                "Praxis API Quickstart",
+                "test",
+                null,
+                null,
+                null,
+                (resourceKey, tenantId) -> "human-resources.ferias".equals(resourceKey)
+                        ? List.of(DomainRuleSetDescriptor.of(activeDef.get(), code -> java.util.Optional.empty(), Map.of()))
+                        : List.of()
+        );
+
+        DomainCatalogResponse first = service.findByResourceKey("human-resources.ferias");
+        DomainCatalogResponse.DomainNodeItem firstNode = first.nodes().stream()
+                .filter(node -> "human-resources.ferias.nullable-cache".equals(node.metadata().get("ruleSetKey")))
+                .findFirst()
+                .orElseThrow();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> firstRules = (List<Map<String, Object>>) firstNode.metadata().get("rules");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> firstParams = (List<Map<String, Object>>) firstRules.getFirst().get("effectiveParameters");
+        assertThat(firstParams.get(0))
+                .containsEntry("name", "observacaoPadrao")
+                .containsEntry("customized", false);
+        assertThat(firstParams.get(1))
+                .containsEntry("name", "maxDiasParcela")
+                .containsEntry("value", 30)
+                .containsEntry("customized", false);
+
+        // Mutate parameter value and invariant message -> cache key hash must change and serve updated projection
+        activeDef.set(buildDefinition.apply(20, "Regra atualizada"));
+        DomainCatalogResponse second = service.findByResourceKey("human-resources.ferias");
+        DomainCatalogResponse.DomainNodeItem secondNode = second.nodes().stream()
+                .filter(node -> "human-resources.ferias.nullable-cache".equals(node.metadata().get("ruleSetKey")))
+                .findFirst()
+                .orElseThrow();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> secondSlots = (List<Map<String, Object>>) secondNode.metadata().get("slots");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> secondInvariants = (List<Map<String, Object>>) secondSlots.getFirst().get("invariants");
+        assertThat(secondInvariants).singleElement().satisfies(inv ->
+                assertThat(inv).containsEntry("message", "Regra atualizada"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> secondRules = (List<Map<String, Object>>) secondNode.metadata().get("rules");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> secondParams = (List<Map<String, Object>>) secondRules.getFirst().get("effectiveParameters");
+        assertThat(secondParams.get(1))
+                .containsEntry("name", "maxDiasParcela")
+                .containsEntry("value", 20)
+                .containsEntry("customized", true);
     }
 
     @Test

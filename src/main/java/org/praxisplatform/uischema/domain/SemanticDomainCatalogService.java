@@ -6,6 +6,11 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.praxisplatform.rules.contract.DecisionBinding;
 import org.praxisplatform.rules.contract.DecisionSlot;
+import org.praxisplatform.rules.contract.RuleParameterDefinition;
+import org.praxisplatform.rules.contract.RuleParameterInvariant;
+import org.praxisplatform.rules.contract.RuleParameterMetadata;
+import org.praxisplatform.rules.contract.RuleParameterTemplate;
+import org.praxisplatform.rules.contract.RuleParameterization;
 import org.praxisplatform.rules.contract.RuleSetDefinition;
 import org.praxisplatform.rules.contract.RuleSetRef;
 import org.praxisplatform.rules.facts.PraxisFactTreeBuilder;
@@ -1175,6 +1180,9 @@ public class SemanticDomainCatalogService {
         for (DecisionSlot slot : safe(definition.slots())) {
             slotsByKey.put(slot.slotKey(), slot);
             RuleDocumentationDescriptor slotDoc = descriptor.slotDocumentation().get(slot.slotKey());
+            RuleParameterTemplate template = slot.parameterTemplate();
+            List<Map<String, Object>> templateParameters = projectTemplateParameters(template);
+            List<Map<String, Object>> templateInvariants = projectTemplateInvariants(template);
             slotItems.add(mapOfNonNull(
                     "slotKey", slot.slotKey(),
                     "stage", slot.stage() != null ? slot.stage().name() : null,
@@ -1182,9 +1190,12 @@ public class SemanticDomainCatalogService {
                     "overridePolicy", slot.overridePolicy() != null ? slot.overridePolicy().name() : null,
                     "aggregationPolicy", slot.aggregationPolicy() != null ? slot.aggregationPolicy().name() : null,
                     "requiredControlDependencies", slot.requiredControlDependencies(),
-                    "parameterizable", slot.parameterTemplate() != null ? Boolean.TRUE : null,
-                    "templateKey", slot.parameterTemplate() != null ? blankToNull(slot.parameterTemplate().templateKey()) : null,
-                    "templateReasonCode", slot.parameterTemplate() != null ? blankToNull(slot.parameterTemplate().falseReasonCode()) : null,
+                    "parameterizable", template != null ? Boolean.TRUE : null,
+                    "templateKey", template != null ? blankToNull(template.templateKey()) : null,
+                    "templateVersion", template != null ? blankToNull(template.templateVersion()) : null,
+                    "templateReasonCode", template != null ? blankToNull(template.falseReasonCode()) : null,
+                    "parameters", templateParameters.isEmpty() ? null : templateParameters,
+                    "invariants", templateInvariants.isEmpty() ? null : templateInvariants,
                     "title", slotDoc != null ? slotDoc.title() : null,
                     "summary", slotDoc != null ? slotDoc.summary() : null,
                     "whenApplies", slotDoc != null ? slotDoc.whenApplies() : null,
@@ -1311,6 +1322,15 @@ public class SemanticDomainCatalogService {
                     : null;
             Map<String, String> ruleFactPathLabels = labelIndex.resolveFactPathLabels(
                     resourceKey, bindingReferencedPaths, descriptor.conceptRootBindings(), nodes);
+            RuleParameterTemplate slotTemplate = slot != null ? slot.parameterTemplate() : null;
+            RuleParameterization parameterization = binding.parameterization();
+            Object parameterValues = parameterization != null
+                    && parameterization.values() != null
+                    && !parameterization.values().isEmpty()
+                    ? jsonNodeToJavaValue(parameterization.values())
+                    : null;
+            List<Map<String, Object>> effectiveParameters =
+                    projectEffectiveParameters(slotTemplate, parameterization);
 
             ruleItems.add(mapOfNonNull(
                     "bindingKey", binding.bindingKey(),
@@ -1319,7 +1339,11 @@ public class SemanticDomainCatalogService {
                     "compositionPolicy", binding.compositionPolicy() != null ? binding.compositionPolicy().name() : null,
                     "order", binding.order(),
                     "enabled", binding.enabled(),
-                    "parameterized", binding.parameterization() != null ? Boolean.TRUE : null,
+                    "parameterized", parameterization != null ? Boolean.TRUE : null,
+                    "parameterTemplateKey", parameterization != null ? blankToNull(parameterization.templateKey()) : null,
+                    "parameterTemplateVersion", parameterization != null ? blankToNull(parameterization.templateVersion()) : null,
+                    "parameterValues", parameterValues,
+                    "effectiveParameters", effectiveParameters.isEmpty() ? null : effectiveParameters,
                     "falseDecision", effectiveFalseDecision,
                     "reasonCode", effectiveReasonCode,
                     "targetField", ruleTargetField,
@@ -1494,6 +1518,14 @@ public class SemanticDomainCatalogService {
                         resourceKey, targetFields, descriptor.conceptRootBindings(), null);
                 Map<String, String> referencedFactPathLabels = labelIndex.resolveFactPathLabels(
                         resourceKey, descriptor.referencedFactPaths(), descriptor.conceptRootBindings(), null);
+                List<RuleParameterTemplate> slotTemplates = safe(def.slots()).stream()
+                        .map(DecisionSlot::parameterTemplate)
+                        .filter(Objects::nonNull)
+                        .toList();
+                List<RuleParameterization> bindingParameterizations = safe(def.bindings()).stream()
+                        .map(DecisionBinding::parameterization)
+                        .filter(Objects::nonNull)
+                        .toList();
                 items.add(mapOfNonNull(
                         "ruleSetKey", descriptor.ruleSetKey(),
                         "operationKey", descriptor.operationKey(),
@@ -1511,12 +1543,164 @@ public class SemanticDomainCatalogService {
                         "ruleDocumentation", descriptor.ruleDocumentation().isEmpty() ? null : descriptor.ruleDocumentation(),
                         "ruleSetDocumentation", descriptor.ruleSetDocumentation(),
                         "targetFieldLabels", targetFieldLabels.isEmpty() ? null : targetFieldLabels,
-                        "referencedFactPathLabels", referencedFactPathLabels.isEmpty() ? null : referencedFactPathLabels
+                        "referencedFactPathLabels", referencedFactPathLabels.isEmpty() ? null : referencedFactPathLabels,
+                        "slotTemplates", slotTemplates.isEmpty() ? null : slotTemplates,
+                        "bindingParameterizations", bindingParameterizations.isEmpty() ? null : bindingParameterizations
                 ));
             }
             summary.put(entry.getKey(), List.copyOf(items));
         }
         return Map.copyOf(summary);
+    }
+
+    private List<Map<String, Object>> projectTemplateParameters(RuleParameterTemplate template) {
+        if (template == null || safe(template.parameters()).isEmpty()) {
+            return List.of();
+        }
+        return safe(template.parameters()).stream()
+                .filter(Objects::nonNull)
+                .sorted(RULE_PARAMETER_ORDER)
+                .map(param -> buildRuleParameterMap(param, null, false, false))
+                .toList();
+    }
+
+    private List<Map<String, Object>> projectTemplateInvariants(RuleParameterTemplate template) {
+        if (template == null || safe(template.invariants()).isEmpty()) {
+            return List.of();
+        }
+        return safe(template.invariants()).stream()
+                .filter(Objects::nonNull)
+                .map(inv -> mapOfNonNull(
+                        "code", blankToNull(inv.code()),
+                        "message", blankToNull(inv.message())
+                ))
+                .filter(entry -> !entry.isEmpty())
+                .toList();
+    }
+
+    private List<Map<String, Object>> projectEffectiveParameters(
+            RuleParameterTemplate template,
+            RuleParameterization parameterization
+    ) {
+        if (template == null || safe(template.parameters()).isEmpty()) {
+            return List.of();
+        }
+        JsonNode overrideValues = parameterization != null ? parameterization.values() : null;
+        return safe(template.parameters()).stream()
+                .filter(Objects::nonNull)
+                .sorted(RULE_PARAMETER_ORDER)
+                .map(param -> {
+                    String name = param.name();
+                    boolean hasOverride = overrideValues != null
+                            && StringUtils.hasText(name)
+                            && overrideValues.has(name);
+                    JsonNode overrideNode = hasOverride ? overrideValues.get(name) : null;
+                    JsonNode effectiveNode = hasOverride ? overrideNode : param.defaultValue();
+                    boolean customized = hasOverride && !jsonNodesEquivalent(overrideNode, param.defaultValue());
+                    return buildRuleParameterMap(param, effectiveNode, true, customized);
+                })
+                .toList();
+    }
+
+    private Map<String, Object> buildRuleParameterMap(
+            RuleParameterDefinition param,
+            JsonNode effectiveValueNode,
+            boolean includeEffectiveState,
+            boolean customized
+    ) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        if (StringUtils.hasText(param.name())) {
+            item.put("name", param.name().trim());
+        }
+        if (param.type() != null) {
+            item.put("type", param.type().name());
+        }
+        item.put("required", param.required());
+        item.put("nullable", param.nullable());
+        item.put("readOnly", param.readOnly());
+        String unit = blankToNull(param.unit());
+        if (unit != null) {
+            item.put("unit", unit);
+        }
+        if (param.defaultValue() != null) {
+            item.put("defaultValue", jsonNodeToJavaValue(param.defaultValue()));
+        }
+        if (includeEffectiveState) {
+            if (effectiveValueNode != null) {
+                item.put("value", jsonNodeToJavaValue(effectiveValueNode));
+            }
+            item.put("customized", customized);
+        }
+        if (param.minimum() != null) {
+            item.put("minimum", param.minimum());
+        }
+        if (param.maximum() != null) {
+            item.put("maximum", param.maximum());
+        }
+        List<JsonNode> rawAllowed = safe(param.allowedValues());
+        if (!rawAllowed.isEmpty()) {
+            List<Object> allowed = new ArrayList<>(rawAllowed.size());
+            for (JsonNode allowedNode : rawAllowed) {
+                allowed.add(jsonNodeToJavaValue(allowedNode));
+            }
+            item.put("allowedValues", Collections.unmodifiableList(allowed));
+        }
+        RuleParameterMetadata metadata = param.metadata();
+        if (metadata != null && !metadata.isEmpty()) {
+            String label = blankToNull(metadata.label());
+            if (label != null) {
+                item.put("label", label);
+            }
+            String description = blankToNull(metadata.description());
+            if (description != null) {
+                item.put("description", description);
+            }
+            String legalBasis = blankToNull(metadata.legalBasis());
+            if (legalBasis != null) {
+                item.put("legalBasis", legalBasis);
+            }
+            String group = blankToNull(metadata.group());
+            if (group != null) {
+                item.put("group", group);
+            }
+            if (metadata.displayOrder() != null) {
+                item.put("displayOrder", metadata.displayOrder());
+            }
+        }
+        return Collections.unmodifiableMap(item);
+    }
+
+    private static final Comparator<RuleParameterDefinition> RULE_PARAMETER_ORDER = Comparator
+            .comparing(
+                    (RuleParameterDefinition param) ->
+                            param.metadata() != null ? param.metadata().displayOrder() : null,
+                    Comparator.nullsLast(Integer::compareTo)
+            )
+            .thenComparing(
+                    param -> param.name() != null ? param.name() : "",
+                    String::compareTo
+            );
+
+    private Object jsonNodeToJavaValue(JsonNode node) {
+        if (node == null || node.isNull() || node.isMissingNode()) {
+            return null;
+        }
+        return HASH_OBJECT_MAPPER.convertValue(node, Object.class);
+    }
+
+    private boolean jsonNodesEquivalent(JsonNode left, JsonNode right) {
+        boolean leftNull = left == null || left.isNull() || left.isMissingNode();
+        boolean rightNull = right == null || right.isNull() || right.isMissingNode();
+        if (leftNull && rightNull) {
+            return true;
+        }
+        if (leftNull || rightNull) {
+            return false;
+        }
+        if (left.isNumber() && right.isNumber()) {
+            return left.decimalValue().compareTo(right.decimalValue()) == 0;
+        }
+        return left.equals(right);
     }
 
     private void addAction(
