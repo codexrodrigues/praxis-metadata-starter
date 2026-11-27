@@ -6,13 +6,16 @@ import org.praxisplatform.uischema.action.ActionDefinitionRegistry;
 import org.praxisplatform.uischema.bulk.BulkControlPlaneInfrastructure;
 import org.praxisplatform.uischema.bulk.BulkExecutionInfrastructure;
 import org.praxisplatform.uischema.bulk.BulkExecutionRoleConfiguration;
+import org.praxisplatform.uischema.bulk.BulkLifecycleAuditContext;
 import org.praxisplatform.uischema.bulk.BulkOperationControlIdentity;
 import org.praxisplatform.uischema.bulk.BulkOperationLifecycle;
 import org.praxisplatform.uischema.bulk.BulkPublicationAdminController;
+import org.praxisplatform.uischema.bulk.BulkPublicationJobIntent;
 import org.praxisplatform.uischema.bulk.BulkPublicationJobService;
 import org.praxisplatform.uischema.bulk.BulkResourceOperationBindings;
 import org.praxisplatform.uischema.capability.CanonicalCapabilityResolver;
 import org.praxisplatform.uischema.controller.docs.OpenApiDocsSupport;
+import org.praxisplatform.uischema.openapi.BulkOpenApiGuardMode;
 import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiDocumentService;
@@ -184,6 +187,64 @@ class BulkOperationLifecycleAutoConfigurationTest {
 
                     org.mockito.Mockito.verify(lifecycle, org.mockito.Mockito.times(1))
                             .ensureReadyOnStartup(identity);
+                });
+    }
+
+    @Test
+    void startupConvergenceInitializerSubmitsAsyncJobOnlyOnceWhenConfigured() {
+        BulkPublicationJobService jobService = mock(BulkPublicationJobService.class,
+                org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+
+        contextRunner()
+                .withBean(BulkPublicationJobService.class, () -> jobService)
+                .withPropertyValues("praxis.bulk.lifecycle.startup-convergence=CONVERGE_ALL")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasBean("praxisBulkLifecycleStartupConvergenceInitializer");
+                    org.mockito.Mockito.verify(jobService, org.mockito.Mockito.never())
+                            .submit(org.mockito.ArgumentMatchers.any(BulkPublicationJobIntent.class),
+                                    org.mockito.ArgumentMatchers.any());
+
+                    var app = new org.springframework.boot.SpringApplication(Object.class);
+                    var sourceCtx = context.getSourceApplicationContext();
+                    context.publishEvent(new org.springframework.boot.context.event.ApplicationReadyEvent(
+                            app, new String[0], sourceCtx, Duration.ofMillis(1)));
+                    context.publishEvent(new org.springframework.boot.context.event.ApplicationReadyEvent(
+                            app, new String[0], sourceCtx, Duration.ofMillis(1)));
+
+                    org.mockito.Mockito.verify(jobService, org.mockito.Mockito.times(1))
+                            .submit(BulkPublicationJobIntent.CONVERGE_ALL, BulkLifecycleAuditContext.system());
+                });
+
+        BulkPublicationJobService noopJobService = mock(BulkPublicationJobService.class,
+                org.mockito.Mockito.withSettings().mockMaker(org.mockito.MockMakers.INLINE));
+        contextRunner()
+                .withBean(BulkPublicationJobService.class, () -> noopJobService)
+                .withPropertyValues("praxis.bulk.lifecycle.startup-convergence=NONE")
+                .run(context -> {
+                    var app = new org.springframework.boot.SpringApplication(Object.class);
+                    context.publishEvent(new org.springframework.boot.context.event.ApplicationReadyEvent(
+                            app, new String[0], context.getSourceApplicationContext(), Duration.ofMillis(1)));
+                    org.mockito.Mockito.verifyNoInteractions(noopJobService);
+                });
+    }
+
+    @Test
+    void openApiGuardModePropertyConfiguresCachedOpenApiDocumentService() {
+        var client = new OpenApiInternalRestTemplate(Duration.ofSeconds(1), Duration.ofSeconds(10));
+        var openApiSupport = new OpenApiDocsSupport();
+        new WebApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(OpenApiUiSchemaAutoConfiguration.class))
+                .withBean(org.springframework.web.client.RestTemplate.class, () -> client)
+                .withBean(ObjectMapper.class, ObjectMapper::new)
+                .withBean(OpenApiDocsSupport.class, () -> openApiSupport)
+                .withPropertyValues(
+                        "springdoc.cache.disabled=true",
+                        "praxis.bulk.lifecycle.openapi-guard-mode=BULK_SCOPED")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    CachedOpenApiDocumentService service = context.getBean(CachedOpenApiDocumentService.class);
+                    assertThat(service.bulkOpenApiGuardMode()).isEqualTo(BulkOpenApiGuardMode.BULK_SCOPED);
                 });
     }
 

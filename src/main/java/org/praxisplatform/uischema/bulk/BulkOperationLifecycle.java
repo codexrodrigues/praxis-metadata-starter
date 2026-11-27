@@ -798,6 +798,115 @@ public final class BulkOperationLifecycle {
                 List.copyOf(state.items), Instant.now());
     }
 
+    /** Converges all eligible operations in the configured namespace onto READY using one OpenAPI composition. */
+    public BulkNamespaceBatchResult convergeAll() {
+        return convergeAll(runtime.namespace(), null, BulkBatchProgressListener.NOOP);
+    }
+
+    /** Converges all eligible operations in {@code namespace} onto READY using one OpenAPI composition. */
+    public BulkNamespaceBatchResult convergeAll(String namespace) {
+        return convergeAll(namespace, null, BulkBatchProgressListener.NOOP);
+    }
+
+    /** Converges all eligible operations in {@code namespace} onto READY, recording V21 audit entries. */
+    public BulkNamespaceBatchResult convergeAll(String namespace, BulkLifecycleAuditContext audit) {
+        return convergeAll(namespace, audit, BulkBatchProgressListener.NOOP);
+    }
+
+    /**
+     * Converges all eligible operations in {@code namespace} onto {@code READY} using at most one
+     * cold OpenAPI composition and one descriptor compilation:
+     * <ul>
+     *   <li>If the installed local snapshot and durable publication match the current release and all
+     *       operations are already {@code READY}, skips with zero cold fetches.</li>
+     *   <li>If the durable publication matches the composed digest, reconciles in-place (recording
+     *       {@code RECONCILE_ALL} audit entries) or publishes only pending operations.</li>
+     *   <li>If the durable publication is {@code UNCOMPOSED}, {@code SUSPENDED}, or on a previous
+     *       release digest, suspends any stale generation atomically and publishes the new release
+     *       within the same batch (recording {@code PUBLISH_ALL} audit entries).</li>
+     * </ul>
+     */
+    public BulkNamespaceBatchResult convergeAll(
+            String namespace, BulkLifecycleAuditContext audit, BulkBatchProgressListener progressListener) {
+        BulkBatchProgressListener listener = progressListener != null ? progressListener : BulkBatchProgressListener.NOOP;
+        documents.requireBulkOpenApiServing();
+        List<String> operationIds = resolveOperationalIds(namespace,
+                "Namespace convergence batch must start outside transactions");
+        if (operationIds.isEmpty()) {
+            listener.onProgress("COMPLETED", 0, 0, 0, 0, 0);
+            return new BulkNamespaceBatchResult(namespace, "CONVERGE_ALL", null,
+                    0, 0, 0, 0, 0, List.of(), Instant.now());
+        }
+
+        BatchReadSnapshot initialRead = readBatchSnapshot(operationIds);
+        if (initialRead.publication().published() && documents.hasLocalPublishedBulkOpenApiPublication()) {
+            try {
+                BulkNamespaceBatchResult fastResult = documents.withPublishedBulkOpenApiPublication(
+                        (publishedCandidate, generation) -> {
+                            requireSamePublication(initialRead.publication(), publishedCandidate, generation);
+                            operationResolver.refreshPublishedOpenApiGroupsStrict(requiredOpenApiGroups());
+                            Map<String, BulkOperationalDescriptor> compiled = indexDescriptors(descriptors(false));
+                            if (allOperationsReadyAndMatching(operationIds, initialRead.controls(), compiled)) {
+                                return buildAllAlreadyReadyResult(namespace, operationIds, initialRead, listener);
+                            }
+                            return null;
+                        });
+                if (fastResult != null) {
+                    return fastResult;
+                }
+            } catch (BulkPublicationConflictException
+                     | org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationUnavailableException drifted) {
+                // Installed snapshot drifted or durable ledger transitioned; converge with one cold composition.
+            }
+        }
+
+        org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate candidate = documents.prepareBulkOpenApiPublication(
+                Set.copyOf(operationResolver.publishedOpenApiGroups(requiredOpenApiGroups())));
+        Map<String, BulkOperationalDescriptor> compiledByOp = documents.withPreparedBulkOpenApiPublication(
+                candidate, () -> {
+                    operationResolver.refreshPublishedOpenApiGroupsStrict(requiredOpenApiGroups());
+                    return indexDescriptors(descriptors(false));
+                });
+        int total = operationIds.size();
+        listener.onProgress("PREPARED", total, 0, 0, 0, 0);
+
+        BatchReadSnapshot current = readBatchSnapshot(operationIds);
+        if (isMatchingPublishedPublication(current.publication(), candidate)
+                && !hasDriftedReadyOperation(operationIds, current.controls(), compiledByOp)) {
+            if (!hasPendingOperation(operationIds, current.controls())) {
+                return reconcilePreparedBatch(namespace, operationIds, candidate, compiledByOp,
+                        current, audit, listener, "CONVERGE_ALL");
+            }
+            return publishPreparedBatch(namespace, operationIds, candidate, compiledByOp,
+                    current, true, current.publication().generation(), audit, listener, "CONVERGE_ALL");
+        }
+
+        if (!"SUSPENDED".equals(current.publication().state())) {
+            JdbcBulkOpenApiPublication.Snapshot beforeSuspend = current.publication();
+            try {
+                documents.withBulkLifecycleCompositionLock(() -> {
+                    suspendGlobalPublication(beforeSuspend);
+                    return null;
+                });
+            } catch (BulkPublicationConflictException raced) {
+                // Re-read below in case a peer replica suspended or already published this release digest.
+            }
+            current = readBatchSnapshot(operationIds);
+            if (isMatchingPublishedPublication(current.publication(), candidate)
+                    && !hasDriftedReadyOperation(operationIds, current.controls(), compiledByOp)) {
+                if (!hasPendingOperation(operationIds, current.controls())) {
+                    return reconcilePreparedBatch(namespace, operationIds, candidate, compiledByOp,
+                            current, audit, listener, "CONVERGE_ALL");
+                }
+                return publishPreparedBatch(namespace, operationIds, candidate, compiledByOp,
+                        current, true, current.publication().generation(), audit, listener, "CONVERGE_ALL");
+            }
+        }
+
+        return publishPreparedBatch(namespace, operationIds, candidate, compiledByOp,
+                current, false, current.publication().generation(), audit, listener, "CONVERGE_ALL");
+    }
+
     /** Reconciles all eligible READY operations in the configured namespace using one OpenAPI composition. */
     public BulkNamespaceBatchResult reconcileAll() {
         return reconcileAll(runtime.namespace(), null, BulkBatchProgressListener.NOOP);
@@ -852,6 +961,155 @@ public final class BulkOperationLifecycle {
                     connection, runtime.namespace(), operationIds);
             return new BatchReadSnapshot(global, controls);
         });
+        return reconcilePreparedBatch(namespace, operationIds, candidate, compiledByOp,
+                verifiedRead, audit, listener, "RECONCILE_ALL");
+    }
+
+    private BatchReadSnapshot readBatchSnapshot(List<String> operationIds) {
+        return runtime.withLifecycleRead(connection -> new BatchReadSnapshot(
+                JdbcBulkOpenApiPublication.lockForRead(connection, runtime.namespace(), runtime.deploymentId()),
+                JdbcBulkOperationControl.lockBatchForAdmission(connection, runtime.namespace(), operationIds)));
+    }
+
+    private static boolean isMatchingPublishedPublication(
+            JdbcBulkOpenApiPublication.Snapshot publication,
+            org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate candidate) {
+        return publication != null
+                && publication.published()
+                && Objects.equals(publication.documentDigest(), candidate.digest());
+    }
+
+    private static boolean hasDriftedReadyOperation(
+            List<String> operationIds,
+            Map<String, JdbcBulkOperationControl.Snapshot> controls,
+            Map<String, BulkOperationalDescriptor> compiledByOp) {
+        for (String operationId : operationIds) {
+            JdbcBulkOperationControl.Snapshot control = controls.get(operationId);
+            BulkOperationalDescriptor descriptor = compiledByOp.get(operationId);
+            if (control != null && "READY".equals(control.state())
+                    && (descriptor == null || !matches(control, "READY", control.generation(), descriptor))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasPendingOperation(
+            List<String> operationIds,
+            Map<String, JdbcBulkOperationControl.Snapshot> controls) {
+        for (String operationId : operationIds) {
+            JdbcBulkOperationControl.Snapshot control = controls.get(operationId);
+            if (control != null && ("UNCOMPOSED".equals(control.state()) || "SUSPENDED".equals(control.state()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean allOperationsReadyAndMatching(
+            List<String> operationIds,
+            Map<String, JdbcBulkOperationControl.Snapshot> controls,
+            Map<String, BulkOperationalDescriptor> compiledByOp) {
+        for (String operationId : operationIds) {
+            JdbcBulkOperationControl.Snapshot control = controls.get(operationId);
+            BulkOperationalDescriptor descriptor = compiledByOp.get(operationId);
+            if (control == null || !control.ready() || descriptor == null
+                    || !matches(control, "READY", control.generation(), descriptor)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private BulkNamespaceBatchResult buildAllAlreadyReadyResult(
+            String namespace,
+            List<String> operationIds,
+            BatchReadSnapshot initialRead,
+            BulkBatchProgressListener listener) {
+        int total = operationIds.size();
+        listener.onProgress("PREPARED", total, 0, 0, 0, 0);
+        List<BulkNamespaceBatchResult.ItemOutcome> items = new ArrayList<>(total);
+        int processed = 0;
+        for (String operationId : operationIds) {
+            JdbcBulkOperationControl.Snapshot control = initialRead.controls().get(operationId);
+            items.add(new BulkNamespaceBatchResult.ItemOutcome(
+                    operationId,
+                    control.generation(),
+                    control.generation(),
+                    "READY",
+                    BulkNamespaceBatchResult.ItemStatus.SKIPPED_ALREADY_READY,
+                    "Operation is already READY with matching descriptor"));
+            processed++;
+            listener.onProgress("PUBLISHING", total, processed, 0, processed, 0);
+        }
+        listener.onProgress("COMPLETED", total, processed, 0, processed, 0);
+        return new BulkNamespaceBatchResult(
+                namespace,
+                "CONVERGE_ALL",
+                initialRead.publication().generation(),
+                total,
+                processed,
+                0,
+                processed,
+                0,
+                List.copyOf(items),
+                Instant.now());
+    }
+
+    private BulkNamespaceBatchResult publishPreparedBatch(
+            String namespace,
+            List<String> operationIds,
+            org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate candidate,
+            Map<String, BulkOperationalDescriptor> compiledByOp,
+            BatchReadSnapshot readSnapshot,
+            boolean initiallyPublished,
+            long initialPublicationGeneration,
+            BulkLifecycleAuditContext audit,
+            BulkBatchProgressListener listener,
+            String resultIntent) {
+        int total = operationIds.size();
+        PreparedBatch preparedBatch = new PreparedBatch(
+                candidate, initialPublicationGeneration, initiallyPublished, compiledByOp);
+        BatchExecutionState state = new BatchExecutionState(initiallyPublished, initialPublicationGeneration);
+        if (hasPendingOperation(operationIds, readSnapshot.controls())) {
+            documents.withPreparedBulkOpenApiCommit(candidate, () -> {
+                executePublishBatchItems(operationIds, readSnapshot.controls(), preparedBatch, audit,
+                        listener, total, state);
+                return null;
+            });
+        } else {
+            executePublishBatchItems(operationIds, readSnapshot.controls(), preparedBatch, audit,
+                    listener, total, state);
+        }
+        if (!initiallyPublished && state.failed > 0) {
+            BatchReadSnapshot afterRace = readBatchSnapshot(operationIds);
+            if (isMatchingPublishedPublication(afterRace.publication(), candidate)
+                    && !hasDriftedReadyOperation(operationIds, afterRace.controls(), compiledByOp)
+                    && !hasPendingOperation(operationIds, afterRace.controls())) {
+                return reconcilePreparedBatch(namespace, operationIds, candidate, compiledByOp,
+                        afterRace, audit, listener, resultIntent);
+            }
+        }
+        if (state.pubPublished && (state.succeeded > 0 || !documents.hasLocalPublishedBulkOpenApiPublication())) {
+            documents.installBulkOpenApiPublication(candidate, state.pubGeneration);
+        }
+        listener.onProgress("COMPLETED", total, state.processed, state.succeeded, state.skipped, state.failed);
+        return new BulkNamespaceBatchResult(namespace, resultIntent,
+                state.pubPublished ? state.pubGeneration : null,
+                total, state.processed, state.succeeded, state.skipped, state.failed,
+                List.copyOf(state.items), Instant.now());
+    }
+
+    private BulkNamespaceBatchResult reconcilePreparedBatch(
+            String namespace,
+            List<String> operationIds,
+            org.praxisplatform.uischema.openapi.OpenApiPublicationCandidate candidate,
+            Map<String, BulkOperationalDescriptor> compiledByOp,
+            BatchReadSnapshot verifiedRead,
+            BulkLifecycleAuditContext audit,
+            BulkBatchProgressListener listener,
+            String resultIntent) {
+        int total = operationIds.size();
         long publicationGeneration = verifiedRead.publication().generation();
         int processed = 0;
         int succeeded = 0;
@@ -901,7 +1159,7 @@ public final class BulkOperationLifecycle {
             }
         }
         listener.onProgress("COMPLETED", total, processed, succeeded, skipped, failed);
-        return new BulkNamespaceBatchResult(namespace, "RECONCILE_ALL", publicationGeneration,
+        return new BulkNamespaceBatchResult(namespace, resultIntent, publicationGeneration,
                 total, processed, succeeded, skipped, failed, List.copyOf(items), Instant.now());
     }
 

@@ -89,11 +89,26 @@ public final class GovernedOpenApiPublicationFilter implements Filter {
             unavailable(response); return;
         }
         byte[] bytes;
+        boolean allowScopedFallback = documents.bulkOpenApiGuardMode() == BulkOpenApiGuardMode.BULK_SCOPED;
         try {
             OpenApiDocumentCapture capture = documents.publishedBulkOpenApiResponse(context, exactPath);
-            if (capture == null) { unavailable(response); return; }
+            if (capture == null) {
+                if (allowScopedFallback) {
+                    chain.doFilter(input, output);
+                } else {
+                    unavailable(response);
+                }
+                return;
+            }
             bytes = capture.bytes();
-        } catch (RuntimeException unavailable) { unavailable(response); return; }
+        } catch (RuntimeException unavailable) {
+            if (allowScopedFallback && unavailable instanceof GovernedOpenApiPublicationUnavailableException) {
+                chain.doFilter(input, output);
+                return;
+            }
+            unavailable(response);
+            return;
+        }
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType("application/json");
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());

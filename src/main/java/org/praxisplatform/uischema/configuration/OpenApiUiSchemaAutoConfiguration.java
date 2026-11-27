@@ -44,6 +44,7 @@ import org.praxisplatform.uischema.filter.range.RangePayloadNormalizer;
 import org.praxisplatform.uischema.filter.specification.GenericSpecificationsBuilder;
 import org.praxisplatform.uischema.filter.web.FilterPayloadNormalizer;
 import org.praxisplatform.uischema.filter.web.FilterRequestBodyAdvice;
+import org.praxisplatform.uischema.openapi.BulkOpenApiGuardMode;
 import org.praxisplatform.uischema.openapi.CachedOpenApiDocumentService;
 import org.praxisplatform.uischema.openapi.CanonicalOperationResolver;
 import org.praxisplatform.uischema.openapi.OpenApiCanonicalOperationResolver;
@@ -278,25 +279,42 @@ public class OpenApiUiSchemaAutoConfiguration {
     public GlobalOpenApiCustomizer filterSchemaInheritanceOpenApiCustomizer(
             RequestMappingHandlerMapping requestMappingHandlerMapping
     ) {
+        final Object cacheLock = new Object();
+        final Map<Class<?>, Class<?>>[] cachedMapping = new Map[1];
+        final org.springframework.web.method.HandlerMethod[][] cachedValues =
+                new org.springframework.web.method.HandlerMethod[1][];
         return openApi -> {
             if (openApi == null || openApi.getComponents() == null || openApi.getComponents().getSchemas() == null) {
                 return;
             }
             @SuppressWarnings("rawtypes")
             Map<String, io.swagger.v3.oas.models.media.Schema> componentSchemas = openApi.getComponents().getSchemas();
-            Map<Class<?>, Class<?>> filterToResponse = new java.util.LinkedHashMap<>();
-            for (var handler : requestMappingHandlerMapping.getHandlerMethods().values()) {
-                Class<?> beanType = org.springframework.util.ClassUtils.getUserClass(handler.getBeanType());
-                if (org.praxisplatform.uischema.controller.base.AbstractResourceQueryController.class.isAssignableFrom(beanType)) {
-                    Class<?>[] args = org.springframework.core.GenericTypeResolver.resolveTypeArguments(
-                            beanType,
-                            org.praxisplatform.uischema.controller.base.AbstractResourceQueryController.class
-                    );
-                    if (args != null && args.length >= 3
-                            && args[0] != null && args[0] != Object.class
-                            && args[2] != null && args[2] != Object.class) {
-                        filterToResponse.putIfAbsent(args[2], args[0]);
+            var handlerValues = requestMappingHandlerMapping.getHandlerMethods().values();
+            Map<Class<?>, Class<?>> filterToResponse = cachedMapping[0];
+            org.springframework.web.method.HandlerMethod[] currentSnapshot = cachedValues[0];
+            if (filterToResponse == null || currentSnapshot == null || currentSnapshot.length != handlerValues.size()) {
+                synchronized (cacheLock) {
+                    var currentValues = requestMappingHandlerMapping.getHandlerMethods().values();
+                    if (cachedMapping[0] == null || cachedValues[0] == null || cachedValues[0].length != currentValues.size()) {
+                        Map<Class<?>, Class<?>> built = new java.util.LinkedHashMap<>();
+                        for (var handler : currentValues) {
+                            Class<?> beanType = org.springframework.util.ClassUtils.getUserClass(handler.getBeanType());
+                            if (org.praxisplatform.uischema.controller.base.AbstractResourceQueryController.class.isAssignableFrom(beanType)) {
+                                Class<?>[] args = org.springframework.core.GenericTypeResolver.resolveTypeArguments(
+                                        beanType,
+                                        org.praxisplatform.uischema.controller.base.AbstractResourceQueryController.class
+                                );
+                                if (args != null && args.length >= 3
+                                        && args[0] != null && args[0] != Object.class
+                                        && args[2] != null && args[2] != Object.class) {
+                                    built.putIfAbsent(args[2], args[0]);
+                                }
+                            }
+                        }
+                        cachedValues[0] = currentValues.toArray(org.springframework.web.method.HandlerMethod[]::new);
+                        cachedMapping[0] = java.util.Collections.unmodifiableMap(built);
                     }
+                    filterToResponse = cachedMapping[0];
                 }
             }
             for (var entry : filterToResponse.entrySet()) {
@@ -613,10 +631,16 @@ public class OpenApiUiSchemaAutoConfiguration {
             ObjectMapper objectMapper,
             OpenApiDocsSupport openApiDocsSupport,
             @Value("${springdoc.cache.disabled:false}") boolean springdocCacheDisabled,
-            @Value("${praxis.openapi.bulk-composition-timeout:60s}") String bulkCompositionTimeout
+            @Value("${praxis.openapi.bulk-composition-timeout:60s}") String bulkCompositionTimeout,
+            @Value("${praxis.bulk.lifecycle.openapi-guard-mode:GLOBAL_STRICT}") String bulkOpenApiGuardMode
     ) {
-        return new CachedOpenApiDocumentService(restTemplate, objectMapper, openApiDocsSupport,
-                springdocCacheDisabled, org.springframework.boot.convert.DurationStyle.detectAndParse(bulkCompositionTimeout));
+        return new CachedOpenApiDocumentService(
+                restTemplate,
+                objectMapper,
+                openApiDocsSupport,
+                springdocCacheDisabled,
+                org.springframework.boot.convert.DurationStyle.detectAndParse(bulkCompositionTimeout),
+                BulkOpenApiGuardMode.fromProperty(bulkOpenApiGuardMode));
     }
 
     /**

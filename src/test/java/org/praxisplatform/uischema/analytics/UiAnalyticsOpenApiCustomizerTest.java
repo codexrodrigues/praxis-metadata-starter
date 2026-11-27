@@ -111,6 +111,51 @@ class UiAnalyticsOpenApiCustomizerTest {
     }
 
     @Test
+    void reusesCompiledIndexAcrossOpenApiDocumentsAndRefreshesWhenMappingsChange() throws Exception {
+        RequestMappingHandlerMapping handlerMapping = mock(RequestMappingHandlerMapping.class);
+        CanonicalOperationResolver operationResolver = mock(CanonicalOperationResolver.class);
+        UiAnalyticsOpenApiCustomizer customizer = new UiAnalyticsOpenApiCustomizer(
+                handlerMapping,
+                operationResolver,
+                new UiAnalyticsAnnotationMapper()
+        );
+
+        SampleController controller = new SampleController();
+        Method method = SampleController.class.getDeclaredMethod("groupBy");
+        HandlerMethod handlerMethod = new HandlerMethod(controller, method);
+        RequestMappingInfo initialInfo = RequestMappingInfo.paths("/reports/stats/group-by").build();
+        Map<RequestMappingInfo, HandlerMethod> initialMappings = Map.of(initialInfo, handlerMethod);
+
+        when(handlerMapping.getHandlerMethods()).thenReturn(initialMappings);
+        when(operationResolver.resolve(handlerMethod, initialInfo))
+                .thenReturn(new CanonicalOperationRef("reports", "groupBy", "/reports/stats/group-by", "post"));
+
+        for (int i = 0; i < 10; i++) {
+            OpenAPI openAPI = new OpenAPI().paths(new Paths()
+                    .addPathItem("/reports/stats/group-by", new PathItem().post(new Operation())));
+            customizer.customise(openAPI);
+            assertNotNull(openAPI.getPaths().get("/reports/stats/group-by").getPost().getExtensions());
+        }
+
+        org.mockito.Mockito.verify(operationResolver, org.mockito.Mockito.times(1))
+                .resolve(handlerMethod, initialInfo);
+
+        RequestMappingInfo secondInfo = RequestMappingInfo.paths("/reports/v2/stats/group-by").build();
+        Map<RequestMappingInfo, HandlerMethod> updatedMappings = Map.of(secondInfo, handlerMethod);
+        when(handlerMapping.getHandlerMethods()).thenReturn(updatedMappings);
+        when(operationResolver.resolve(handlerMethod, secondInfo))
+                .thenReturn(new CanonicalOperationRef("reports", "groupBy", "/reports/v2/stats/group-by", "post"));
+
+        OpenAPI updatedOpenApi = new OpenAPI().paths(new Paths()
+                .addPathItem("/reports/v2/stats/group-by", new PathItem().post(new Operation())));
+        customizer.customise(updatedOpenApi);
+
+        assertNotNull(updatedOpenApi.getPaths().get("/reports/v2/stats/group-by").getPost().getExtensions());
+        org.mockito.Mockito.verify(operationResolver, org.mockito.Mockito.times(1))
+                .resolve(handlerMethod, secondInfo);
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void mapsComparisonPeriodBindingWithCanonicalRequestValues() throws Exception {
         UiAnalytics annotation = ComparisonController.class.getDeclaredMethod("comparison")

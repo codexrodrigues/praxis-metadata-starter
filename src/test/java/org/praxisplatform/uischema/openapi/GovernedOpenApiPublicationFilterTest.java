@@ -15,6 +15,7 @@ import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterRegistration;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -192,6 +193,54 @@ class GovernedOpenApiPublicationFilterTest {
         filter.doFilter(request, response, (input, output) -> calls.incrementAndGet());
         assertThat(calls.get()).isZero(); assertUnavailable(response);
     }
+
+    @Test
+    void bulkScopedModeFallsBackToChainWhenUnpublishedOrUnavailableButNeverOnProducerOrAliasFailures()
+            throws Exception {
+        when(documents.bulkOpenApiGuardMode()).thenReturn(BulkOpenApiGuardMode.BULK_SCOPED);
+        when(documents.publishedBulkOpenApiResponse("", BASE)).thenReturn(null);
+        when(documents.publishedBulkOpenApiResponse("", BASE + "/operations"))
+                .thenThrow(new GovernedOpenApiPublicationUnavailableException(
+                        new IllegalStateException("transient ledger suspend")));
+
+        for (String path : List.of(BASE, BASE + "/operations")) {
+            var getResponse = new MockHttpServletResponse();
+            var getCalls = new AtomicInteger();
+            filter.doFilter(request("", path, "GET"), getResponse, (in, out) -> {
+                getCalls.incrementAndGet();
+                ((HttpServletResponse) out).setStatus(200);
+            });
+            assertThat(getCalls.get()).isEqualTo(1);
+            assertThat(getResponse.getStatus()).isEqualTo(200);
+
+            var headResponse = new MockHttpServletResponse();
+            var headCalls = new AtomicInteger();
+            filter.doFilter(request("", path, "HEAD"), headResponse, (in, out) -> {
+                headCalls.incrementAndGet();
+                ((HttpServletResponse) out).setStatus(200);
+            });
+            assertThat(headCalls.get()).isEqualTo(1);
+            assertThat(headResponse.getStatus()).isEqualTo(200);
+        }
+
+        when(documents.publishedBulkOpenApiResponse("", BASE)).thenReturn(capture());
+        var publishedResponse = new MockHttpServletResponse();
+        var publishedCalls = new AtomicInteger();
+        filter.doFilter(request("", BASE, "GET"), publishedResponse, (in, out) -> publishedCalls.incrementAndGet());
+        assertThat(publishedCalls.get()).isZero();
+        assertThat(publishedResponse.getStatus()).isEqualTo(200);
+        assertThat(publishedResponse.getContentAsByteArray()).isEqualTo(JSON);
+
+        var badProducer = request("", BASE, "GET");
+        badProducer.addHeader(OpenApiProducerCaptureAccess.HEADER, "invalid");
+        when(documents.consumeBulkOpenApiProducer(badProducer)).thenReturn(false);
+        denied(badProducer);
+        denied(request("", BASE + ".yaml", "GET"));
+
+        when(documents.publishedBulkOpenApiResponse("", BASE)).thenThrow(new IllegalStateException("unexpected bug"));
+        denied(request("", BASE, "GET"));
+    }
+
     private static void assertUnavailable(MockHttpServletResponse response) {
         assertThat(response.getStatus()).isEqualTo(503); assertThat(response.getContentAsByteArray()).isEmpty();
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");

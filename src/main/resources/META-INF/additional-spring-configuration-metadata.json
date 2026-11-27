@@ -43,6 +43,18 @@
       "defaultValue": false
     },
     {
+      "name": "praxis.bulk.lifecycle.openapi-guard-mode",
+      "type": "org.praxisplatform.uischema.openapi.BulkOpenApiGuardMode",
+      "description": "Controls blast radius of governed bulk OpenAPI publication guards: GLOBAL_STRICT fails closed with 503 on all /v3/api-docs and /schemas/filtered reads while suspended/republishing; BULK_SCOPED keeps non-bulk documentary and schema reads serving via ordinary local cache while keeping bulk discovery, readiness, admission, and execution strictly fail-closed.",
+      "defaultValue": "GLOBAL_STRICT"
+    },
+    {
+      "name": "praxis.bulk.lifecycle.startup-convergence",
+      "type": "java.lang.String",
+      "description": "Asynchronous startup bulk publication convergence mode submitted after ApplicationReadyEvent (NONE, RECONCILE_ALL, or CONVERGE_ALL). CONVERGE_ALL performs a single cold OpenAPI composition and atomically reconciles matching releases or suspends and republishes drifted releases.",
+      "defaultValue": "NONE"
+    },
+    {
       "name": "praxis.openapi.validation.api-resource-required",
       "type": "java.lang.String",
       "description": "Validation mode enforced by DynamicSwaggerConfig at startup for controllers extending AbstractResourceQueryController or AbstractCollectionCommandResourceController without @ApiResource.",
@@ -80,6 +92,36 @@
     }
   ],
   "hints": [
+    {
+      "name": "praxis.bulk.lifecycle.openapi-guard-mode",
+      "values": [
+        {
+          "value": "GLOBAL_STRICT",
+          "description": "Requires an installed, ledger-attested OpenAPI publication for all /v3/api-docs and /schemas/filtered reads."
+        },
+        {
+          "value": "BULK_SCOPED",
+          "description": "Isolates governed fail-closed checks to bulk capabilities/actions/execution while allowing ordinary documentary and schema reads to degrade cleanly."
+        }
+      ]
+    },
+    {
+      "name": "praxis.bulk.lifecycle.startup-convergence",
+      "values": [
+        {
+          "value": "NONE",
+          "description": "Disables automatic bulk publication convergence at startup."
+        },
+        {
+          "value": "RECONCILE_ALL",
+          "description": "Submits an asynchronous RECONCILE_ALL job at ApplicationReadyEvent."
+        },
+        {
+          "value": "CONVERGE_ALL",
+          "description": "Submits an asynchronous single-composition CONVERGE_ALL job at ApplicationReadyEvent."
+        }
+      ]
+    },
     {
       "name": "praxis.openapi.validation.api-resource-required",
       "values": [
