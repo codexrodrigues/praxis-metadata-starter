@@ -461,7 +461,7 @@ public class VerifiedAnalyticalRecipeResolver {
                         recipe.orderBy()
                 );
             }
-            case INFERENCE, ANOMALIES -> throw new UnsupportedOperationException(
+            case INFERENCE, ANOMALIES, SIMULATION, COUNTERFACTUAL -> throw new UnsupportedOperationException(
                     "Verified analytical recipes currently support GROUP_BY, TIMESERIES, DISTRIBUTION, and COMPARISON operations."
             );
         }
@@ -924,7 +924,7 @@ public class VerifiedAnalyticalRecipeResolver {
                         );
                     }
                 }
-                case INFERENCE, ANOMALIES -> throw new IllegalStateException(
+                case INFERENCE, ANOMALIES, SIMULATION, COUNTERFACTUAL -> throw new IllegalStateException(
                         "Verified analytical recipe '" + recipe.id() + "' uses unsupported operation '"
                                 + recipe.operation() + "'."
                 );

@@ -1,9 +1,17 @@
 package org.praxisplatform.uischema.bulk;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.praxisplatform.uischema.rest.exceptionhandler.ErrorCategory;
 import org.praxisplatform.uischema.rest.exceptionhandler.GlobalExceptionHandler;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.ServletWebRequest;
 
@@ -30,5 +38,32 @@ class BulkHttpFailureContractTest {
         assertEquals(status, result.getStatusCode().value());
         assertNotNull(result.getBody());
         assertEquals("Bulk proposal cannot be accepted in its current state.", result.getBody().getMessage());
+    }
+
+    @Test
+    void invalidBulkProtocolPayloadMapsToSanitizedBulkCodeWithoutLeakingInput() {
+        var converter = new PraxisBulkProtocolHttpMessageConverter(new ObjectMapper(), List.of());
+        var input = new MockHttpInputMessage(
+                "{\"proposalId\":\"p\",\"unexpected\":\"secret-value\"}".getBytes(StandardCharsets.UTF_8));
+
+        BulkProtocolPayloadException thrown = assertThrows(
+                BulkProtocolPayloadException.class,
+                () -> converter.read(BulkConfirmationRequest.class, null, input));
+        assertNull(thrown.getCause());
+        assertFalse(thrown.getMessage().contains("secret-value"));
+
+        var result = handler.handleHttpMessageNotReadable(thrown, request);
+        assertEquals(HttpStatus.BAD_REQUEST, result.getStatusCode());
+        assertNotNull(result.getBody());
+        assertEquals("failure", result.getBody().getStatus());
+        assertEquals(BulkProtocolPayloadException.PUBLIC_MESSAGE, result.getBody().getMessage());
+        assertFalse(result.getBody().getMessage().contains("secret-value"));
+        assertNotNull(result.getBody().getErrors());
+        var error = result.getBody().getErrors().get(0);
+        assertEquals(ErrorCategory.VALIDATION, error.getCategory());
+        assertEquals("BULK_PROTOCOL_PAYLOAD_INVALID", error.getCode());
+        assertEquals(BulkProtocolPayloadException.PUBLIC_MESSAGE, error.getMessage());
+        assertFalse(error.getMessage().contains("secret-value"));
+        assertNull(error.getDetail());
     }
 }

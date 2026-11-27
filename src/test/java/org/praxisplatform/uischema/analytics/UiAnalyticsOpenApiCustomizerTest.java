@@ -356,6 +356,28 @@ class UiAnalyticsOpenApiCustomizerTest {
         );
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void mapsExtendedWaveAnalyticsIntentsAcrossWireValues() throws Exception {
+        UiAnalytics annotation = ExtendedWaveIntentsController.class.getDeclaredMethod("groupBy")
+                .getAnnotation(UiAnalytics.class);
+
+        Map<String, Object> analytics = new UiAnalyticsAnnotationMapper()
+                .toXUiAnalytics(annotation, "/workforce/positions/stats/group-by");
+        java.util.List<Map<String, Object>> projections =
+                (java.util.List<Map<String, Object>>) analytics.get("projections");
+
+        assertEquals(4, projections.size());
+        assertEquals("matrix", projections.get(0).get("intent"));
+        assertEquals("flow", projections.get(1).get("intent"));
+        assertEquals("range", projections.get(2).get("intent"));
+        assertEquals("multivariate", projections.get(3).get("intent"));
+        assertEquals("matrix", AnalyticsIntent.MATRIX.wireValue());
+        assertEquals("flow", AnalyticsIntent.FLOW.wireValue());
+        assertEquals("range", AnalyticsIntent.RANGE.wireValue());
+        assertEquals("multivariate", AnalyticsIntent.MULTIVARIATE.wireValue());
+    }
+
     static class SampleController {
 
         @PostMapping("/reports/stats/group-by")
@@ -756,6 +778,53 @@ class UiAnalyticsOpenApiCustomizerTest {
                                 @AnalyticsMetricBinding(field = "salario", aggregation = "histogram")
                         }
                 )
+        )
+        public void groupBy() {
+        }
+    }
+
+    static class ExtendedWaveIntentsController {
+
+        @PostMapping("/workforce/positions/stats/group-by")
+        @UiAnalytics(
+                projections = {
+                        @AnalyticsProjection(
+                                id = "grade-matrix",
+                                intent = AnalyticsIntent.MATRIX,
+                                sourceOperation = AnalyticsOperation.GROUP_BY,
+                                primaryDimension = @AnalyticsDimensionBinding(field = "gradeClass"),
+                                secondaryDimension = @AnalyticsDimensionBinding(field = "gradeStep"),
+                                primaryMetrics = @AnalyticsMetricBinding(field = "baseSalary", aggregation = "avg")
+                        ),
+                        @AnalyticsProjection(
+                                id = "unit-flow",
+                                intent = AnalyticsIntent.FLOW,
+                                sourceOperation = AnalyticsOperation.GROUP_BY,
+                                primaryDimension = @AnalyticsDimensionBinding(field = "originUnit"),
+                                secondaryDimension = @AnalyticsDimensionBinding(field = "targetUnit"),
+                                primaryMetrics = @AnalyticsMetricBinding(field = "id", aggregation = "count")
+                        ),
+                        @AnalyticsProjection(
+                                id = "salary-range",
+                                intent = AnalyticsIntent.RANGE,
+                                sourceOperation = AnalyticsOperation.GROUP_BY,
+                                primaryDimension = @AnalyticsDimensionBinding(field = "department"),
+                                primaryMetrics = {
+                                        @AnalyticsMetricBinding(field = "baseSalary", aggregation = "min", alias = "min"),
+                                        @AnalyticsMetricBinding(field = "baseSalary", aggregation = "max", alias = "max")
+                                }
+                        ),
+                        @AnalyticsProjection(
+                                id = "evaluation-multivariate",
+                                intent = AnalyticsIntent.MULTIVARIATE,
+                                sourceOperation = AnalyticsOperation.GROUP_BY,
+                                primaryDimension = @AnalyticsDimensionBinding(field = "cycle"),
+                                primaryMetrics = {
+                                        @AnalyticsMetricBinding(field = "attendanceScore", aggregation = "avg"),
+                                        @AnalyticsMetricBinding(field = "deliveryScore", aggregation = "avg")
+                                }
+                        )
+                }
         )
         public void groupBy() {
         }

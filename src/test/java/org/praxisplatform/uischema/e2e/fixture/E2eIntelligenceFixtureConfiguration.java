@@ -6,18 +6,35 @@ import org.praxisplatform.intelligence.contracts.IntelligenceContractVersion;
 import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanRequest;
 import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanResponse;
 import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanSummary;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualCandidate;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualFeasibilityStatus;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualLeverDelta;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualRequest;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualResponse;
 import org.praxisplatform.intelligence.contracts.epistemic.EpistemicKind;
 import org.praxisplatform.intelligence.contracts.inference.InferenceGroupResult;
 import org.praxisplatform.intelligence.contracts.inference.InferenceRequest;
 import org.praxisplatform.intelligence.contracts.inference.InferenceResponse;
 import org.praxisplatform.intelligence.contracts.inference.InferenceTestKind;
 import org.praxisplatform.intelligence.contracts.jobs.IntelligenceJobReceipt;
+import org.praxisplatform.intelligence.contracts.jobs.IntelligenceJobStatus;
 import org.praxisplatform.intelligence.contracts.modelcard.ModelCardDescriptor;
 import org.praxisplatform.intelligence.contracts.provenance.AnalyticalProvenance;
 import org.praxisplatform.intelligence.contracts.provenance.SuppressionStatus;
+import org.praxisplatform.intelligence.contracts.simulation.AnchorRevalidationStatus;
+import org.praxisplatform.intelligence.contracts.simulation.AnchorScenarioPoint;
+import org.praxisplatform.intelligence.contracts.simulation.FanChartPoint;
+import org.praxisplatform.intelligence.contracts.simulation.StochasticSimulationRequest;
+import org.praxisplatform.intelligence.contracts.simulation.StochasticSimulationResponse;
+import org.praxisplatform.intelligence.contracts.simulation.ThresholdBreachOutcome;
+import org.praxisplatform.intelligence.contracts.simulation.ThresholdDirection;
+import org.praxisplatform.intelligence.contracts.simulation.TornadoSensitivityDriver;
+import org.praxisplatform.intelligence.contracts.spi.CounterfactualRuleValidator;
+import org.praxisplatform.intelligence.contracts.spi.CounterfactualRuleVerdict;
 import org.praxisplatform.intelligence.contracts.spi.ResourceIntelligenceExecutor;
 import org.praxisplatform.intelligence.contracts.spi.TabularColumnDescriptor;
 import org.praxisplatform.intelligence.contracts.spi.TabularFrameSource;
+import org.praxisplatform.intelligence.contracts.spi.CounterfactualSearchOrchestrator;
 import org.praxisplatform.uischema.NumericFormat;
 import org.praxisplatform.uischema.annotation.AnalyticsDimensionBinding;
 import org.praxisplatform.uischema.annotation.AnalyticsIntent;
@@ -65,6 +82,78 @@ public class E2eIntelligenceFixtureConfiguration {
     @Profile("e2e-intelligence")
     public RecordingResourceIntelligenceExecutor recordingResourceIntelligenceExecutor() {
         return new RecordingResourceIntelligenceExecutor();
+    }
+
+    @Bean
+    @Profile("e2e-intelligence")
+    public CounterfactualRuleValidator e2eCounterfactualRuleValidator() {
+        return (req, candidate) -> {
+            Object toVal = candidate.leverDeltas().getFirst().toValue();
+            if (toVal instanceof Number num && num.doubleValue() > 50.0d) {
+                return CounterfactualRuleVerdict.reject(
+                        List.of("MAX_HEADCOUNT_CAP"),
+                        "Headcount exceeds maximum allowed cap"
+                );
+            }
+            return CounterfactualRuleVerdict.allow("Rule engine verified recourse candidate");
+        };
+    }
+
+    @Bean
+    @Profile("e2e-intelligence")
+    public CounterfactualSearchOrchestrator e2eCounterfactualSearchOrchestrator(
+            RecordingResourceIntelligenceExecutor executor,
+            CounterfactualRuleValidator validator
+    ) {
+        return new CounterfactualSearchOrchestrator() {
+            @Override
+            public CounterfactualResponse executeCounterfactualSearch(
+                    String resourceKey,
+                    CounterfactualRequest request,
+                    CounterfactualRuleValidator overrideValidator
+            ) {
+                CounterfactualRuleValidator effective = overrideValidator != null ? overrideValidator : validator;
+                CounterfactualResponse raw = executor.executeCounterfactualSearch(resourceKey, request);
+                List<CounterfactualCandidate> approved = new ArrayList<>();
+                int rejected = raw.rejectedCount();
+                for (CounterfactualCandidate c : raw.candidates()) {
+                    CounterfactualRuleVerdict verdict = effective.validate(request, c);
+                    if (verdict.allowed()) {
+                        approved.add(new CounterfactualCandidate(
+                                c.candidateId(),
+                                approved.size() + 1,
+                                c.leverDeltas(),
+                                c.predictedValue(),
+                                c.predictedDelta(),
+                                c.distanceScore(),
+                                CounterfactualFeasibilityStatus.VALIDATED_BY_RULES_ENGINE,
+                                List.of(verdict.explanation())
+                        ));
+                    } else {
+                        rejected++;
+                    }
+                }
+                return new CounterfactualResponse(
+                        raw.contractVersion(),
+                        raw.provenance(),
+                        raw.modelCard(),
+                        raw.baselineValue(),
+                        raw.targetValue(),
+                        raw.converged() && !approved.isEmpty(),
+                        approved,
+                        rejected
+                );
+            }
+
+            @Override
+            public IntelligenceJobReceipt submitCounterfactualJob(
+                    String resourceKey,
+                    CounterfactualRequest request,
+                    CounterfactualRuleValidator overrideValidator
+            ) {
+                return executor.submitCounterfactualJob(resourceKey, request);
+            }
+        };
     }
 
     @Bean
@@ -125,6 +214,8 @@ public class E2eIntelligenceFixtureConfiguration {
         private final AtomicReference<String> lastResourceKey = new AtomicReference<>();
         private final AtomicReference<InferenceRequest> lastInferenceRequest = new AtomicReference<>();
         private final AtomicReference<AnomalyScanRequest> lastAnomalyRequest = new AtomicReference<>();
+        private final AtomicReference<StochasticSimulationRequest> lastSimulationRequest = new AtomicReference<>();
+        private final AtomicReference<CounterfactualRequest> lastCounterfactualRequest = new AtomicReference<>();
         private final AtomicReference<List<TabularColumnDescriptor>> lastColumns = new AtomicReference<>(List.of());
         private final AtomicReference<List<Map<String, Object>>> lastRows = new AtomicReference<>(List.of());
         private final AtomicBoolean lastTransactionActiveInsideStream = new AtomicBoolean(false);
@@ -135,6 +226,8 @@ public class E2eIntelligenceFixtureConfiguration {
             lastResourceKey.set(null);
             lastInferenceRequest.set(null);
             lastAnomalyRequest.set(null);
+            lastSimulationRequest.set(null);
+            lastCounterfactualRequest.set(null);
             lastColumns.set(List.of());
             lastRows.set(List.of());
             lastTransactionActiveInsideStream.set(false);
@@ -152,6 +245,14 @@ public class E2eIntelligenceFixtureConfiguration {
 
         public AnomalyScanRequest lastAnomalyRequest() {
             return lastAnomalyRequest.get();
+        }
+
+        public StochasticSimulationRequest lastSimulationRequest() {
+            return lastSimulationRequest.get();
+        }
+
+        public CounterfactualRequest lastCounterfactualRequest() {
+            return lastCounterfactualRequest.get();
         }
 
         public List<TabularColumnDescriptor> lastColumns() {
@@ -304,6 +405,225 @@ public class E2eIntelligenceFixtureConfiguration {
                     modelCard,
                     List.of(),
                     new AnomalyScanSummary(collected.size(), 1, 0, 0, 0, 0, BigDecimal.ZERO, false)
+            );
+        }
+
+        @Override
+        public StochasticSimulationResponse executeStochasticSimulation(
+                String resourceKey,
+                StochasticSimulationRequest request
+        ) {
+            lastResourceKey.set(resourceKey);
+            lastSimulationRequest.set(request);
+            AnalyticalProvenance provenance = new AnalyticalProvenance(
+                    IntelligenceContractVersion.V1,
+                    "e2e-intelligence-stub",
+                    "1.0.0",
+                    "java-21",
+                    null,
+                    "e2e-simulation-model-v1",
+                    "1.0.0",
+                    request.seed(),
+                    request.asOfDate(),
+                    null,
+                    null,
+                    EpistemicKind.STOCHASTIC_SIMULATION,
+                    request.modelPoints().size(),
+                    0,
+                    request.requestId(),
+                    null,
+                    Instant.now()
+            );
+            ModelCardDescriptor modelCard = new ModelCardDescriptor(
+                    "e2e-simulation-model-v1",
+                    "1.0.0",
+                    "E2E Simulation Model",
+                    "workforce",
+                    "qmc-sobol-iman-conover",
+                    EpistemicKind.STOCHASTIC_SIMULATION,
+                    "End-to-end verification of two-layer stochastic simulation.",
+                    List.of("Automated statutory changes without human approval"),
+                    1,
+                    List.of("K-anonymity floor enforced"),
+                    "Human governance required"
+            );
+            List<FanChartPoint> fanSeries = new ArrayList<>(request.horizonPeriods());
+            for (int p = 1; p <= request.horizonPeriods(); p++) {
+                fanSeries.add(new FanChartPoint(
+                        p,
+                        new BigDecimal("100000.00"),
+                        new BigDecimal("5000.00"),
+                        Map.of(
+                                "p10", new BigDecimal("93500.00"),
+                                "p50", new BigDecimal("100000.00"),
+                                "p90", new BigDecimal("106500.00")
+                        ),
+                        Map.of()
+                ));
+            }
+            return new StochasticSimulationResponse(
+                    IntelligenceContractVersion.V1,
+                    provenance,
+                    modelCard,
+                    request.scenarioCount(),
+                    request.horizonPeriods(),
+                    fanSeries,
+                    new BigDecimal("100000.00"),
+                    new BigDecimal("5000.00"),
+                    new BigDecimal("109500.00"),
+                    Map.of(
+                            "p10", new BigDecimal("93500.00"),
+                            "p50", new BigDecimal("100000.00"),
+                            "p90", new BigDecimal("106500.00")
+                    ),
+                    List.of(new ThresholdBreachOutcome(
+                            "ceiling",
+                            ThresholdDirection.UPPER_CAP,
+                            null,
+                            0.08d,
+                            0.07d,
+                            0.09d,
+                            new BigDecimal("2500.00"),
+                            null
+                    )),
+                    List.of(new TornadoSensitivityDriver(
+                            "wage_index",
+                            0.88d,
+                            new BigDecimal("94000.00"),
+                            new BigDecimal("108000.00"),
+                            new BigDecimal("14000.00"),
+                            1
+                    )),
+                    List.of(new AnchorScenarioPoint(
+                            "P50",
+                            0.50d,
+                            42,
+                            new BigDecimal("100000.00"),
+                            Map.of("wage_index", 0.04d),
+                            null,
+                            null,
+                            AnchorRevalidationStatus.NOT_REVALIDATED
+                    )),
+                    0,
+                    SuppressionStatus.EXACT_RELEASE
+            );
+        }
+
+        @Override
+        public IntelligenceJobReceipt submitStochasticSimulationJob(
+                String resourceKey,
+                StochasticSimulationRequest request
+        ) {
+            lastResourceKey.set(resourceKey);
+            lastSimulationRequest.set(request);
+            Instant now = Instant.now();
+            return new IntelligenceJobReceipt(
+                    "e2e-sim-job-1",
+                    "STOCHASTIC_SIMULATION",
+                    IntelligenceJobStatus.QUEUED,
+                    0,
+                    request.requestId(),
+                    now,
+                    now,
+                    null,
+                    null,
+                    null
+            );
+        }
+
+        @Override
+        public CounterfactualResponse executeCounterfactualSearch(
+                String resourceKey,
+                CounterfactualRequest request
+        ) {
+            lastResourceKey.set(resourceKey);
+            lastCounterfactualRequest.set(request);
+            AnalyticalProvenance provenance = new AnalyticalProvenance(
+                    IntelligenceContractVersion.V1,
+                    "e2e-intelligence-stub",
+                    "1.0.0",
+                    "java-21",
+                    null,
+                    "e2e-counterfactual-model-v1",
+                    "1.0.0",
+                    request.seed(),
+                    request.asOfDate(),
+                    null,
+                    null,
+                    EpistemicKind.OPTIMIZATION_RESULT,
+                    1L,
+                    0,
+                    request.requestId(),
+                    null,
+                    Instant.now()
+            );
+            ModelCardDescriptor modelCard = new ModelCardDescriptor(
+                    "e2e-counterfactual-model-v1",
+                    "1.0.0",
+                    "E2E Counterfactual Model",
+                    "workforce",
+                    "sparse-recourse",
+                    EpistemicKind.OPTIMIZATION_RESULT,
+                    "End-to-end verification of rule-validated counterfactual search.",
+                    List.of("Bypassing deterministic rule engine validation"),
+                    1,
+                    List.of("Every surfaced candidate must pass CounterfactualRuleValidator"),
+                    "Human governance required"
+            );
+            return new CounterfactualResponse(
+                    IntelligenceContractVersion.V1,
+                    provenance,
+                    modelCard,
+                    request.baselineValue(),
+                    request.targetValue(),
+                    true,
+                    List.of(
+                            new CounterfactualCandidate(
+                                    "cf-disallowed",
+                                    1,
+                                    List.of(new CounterfactualLeverDelta(
+                                            "headcount_delta", 20.0d, 65.0d, 2.25d, new BigDecimal("-4.0"))),
+                                    new BigDecimal("0.48"),
+                                    new BigDecimal("-0.07"),
+                                    2.0d,
+                                    CounterfactualFeasibilityStatus.CANDIDATE_UNVERIFIED,
+                                    List.of()
+                            ),
+                            new CounterfactualCandidate(
+                                    "cf-allowed",
+                                    2,
+                                    List.of(new CounterfactualLeverDelta(
+                                            "headcount_delta", 20.0d, 15.0d, -0.25d, new BigDecimal("-6.0"))),
+                                    new BigDecimal("0.49"),
+                                    new BigDecimal("-0.06"),
+                                    0.5d,
+                                    CounterfactualFeasibilityStatus.CANDIDATE_UNVERIFIED,
+                                    List.of()
+                            )
+                    ),
+                    0
+            );
+        }
+
+        @Override
+        public IntelligenceJobReceipt submitCounterfactualJob(
+                String resourceKey,
+                CounterfactualRequest request
+        ) {
+            lastResourceKey.set(resourceKey);
+            lastCounterfactualRequest.set(request);
+            Instant now = Instant.now();
+            return new IntelligenceJobReceipt(
+                    "e2e-cf-job-1",
+                    "COUNTERFACTUAL",
+                    IntelligenceJobStatus.QUEUED,
+                    0,
+                    request.requestId(),
+                    now,
+                    now,
+                    null,
+                    null,
+                    null
             );
         }
 
@@ -504,6 +824,16 @@ public class E2eIntelligenceFixtureConfiguration {
 
         @Override
         public StatsSupportMode getAnomalyStatsSupportMode() {
+            return StatsSupportMode.AUTO;
+        }
+
+        @Override
+        public StatsSupportMode getSimulationStatsSupportMode() {
+            return StatsSupportMode.AUTO;
+        }
+
+        @Override
+        public StatsSupportMode getCounterfactualStatsSupportMode() {
             return StatsSupportMode.AUTO;
         }
 

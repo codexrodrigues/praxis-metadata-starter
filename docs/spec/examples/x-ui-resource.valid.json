@@ -36,6 +36,10 @@
     "statsGroupBy": true,
     "statsTimeSeries": true,
     "statsDistribution": true,
-    "statsComparison": true
+    "statsComparison": true,
+    "statsInference": false,
+    "statsAnomalies": false,
+    "statsSimulation": false,
+    "statsCounterfactual": false
   }
 }

@@ -370,6 +370,90 @@ class UiAnalyticsSpecContractTest {
         assertTrue(schema.validate(intelligenceAnalytics).isEmpty());
     }
 
+    @Test
+    void extendedWaveAnalyticsIntentsValidateAgainstAnalyticsSchema() throws Exception {
+        JsonNode schemaRoot = objectMapper.readTree(
+                Files.readString(Path.of("docs", "spec", "x-ui-analytics.schema.json")));
+        JsonNode intentEnum = schemaRoot
+                .path("$defs").path("projection")
+                .path("properties").path("intent")
+                .path("enum");
+        List<String> intents = new java.util.ArrayList<>();
+        intentEnum.forEach(node -> intents.add(node.asText()));
+        assertTrue(intents.containsAll(List.of("matrix", "flow", "range", "multivariate")));
+
+        JsonSchema schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
+                .getSchema(schemaRoot);
+        JsonNode extendedProjections = objectMapper.readTree("""
+                {
+                  "projections": [
+                    {
+                      "id": "pay-grade-matrix",
+                      "intent": "matrix",
+                      "source": {
+                        "kind": "praxis.stats",
+                        "resource": "/workforce/grades",
+                        "operation": "group-by"
+                      },
+                      "bindings": {
+                        "primaryDimension": { "field": "gradeClass", "role": "category" },
+                        "secondaryDimension": { "field": "gradeStep", "role": "category" },
+                        "primaryMetrics": [{ "field": "baseSalary", "aggregation": "avg" }]
+                      }
+                    },
+                    {
+                      "id": "mobility-flow",
+                      "intent": "flow",
+                      "source": {
+                        "kind": "praxis.stats",
+                        "resource": "/workforce/transfers",
+                        "operation": "group-by"
+                      },
+                      "bindings": {
+                        "primaryDimension": { "field": "originUnit", "role": "category" },
+                        "secondaryDimension": { "field": "targetUnit", "role": "category" },
+                        "primaryMetrics": [{ "field": "id", "aggregation": "count" }]
+                      }
+                    },
+                    {
+                      "id": "compensation-range",
+                      "intent": "range",
+                      "source": {
+                        "kind": "praxis.stats",
+                        "resource": "/workforce/positions",
+                        "operation": "group-by"
+                      },
+                      "bindings": {
+                        "primaryDimension": { "field": "department", "role": "category" },
+                        "primaryMetrics": [
+                          { "field": "baseSalary", "aggregation": "min", "alias": "min" },
+                          { "field": "baseSalary", "aggregation": "max", "alias": "max" }
+                        ]
+                      }
+                    },
+                    {
+                      "id": "probation-multivariate",
+                      "intent": "multivariate",
+                      "source": {
+                        "kind": "praxis.stats",
+                        "resource": "/workforce/evaluations",
+                        "operation": "group-by"
+                      },
+                      "bindings": {
+                        "primaryDimension": { "field": "evaluationCycle", "role": "category" },
+                        "primaryMetrics": [
+                          { "field": "attendanceScore", "aggregation": "avg" },
+                          { "field": "deliveryScore", "aggregation": "avg" }
+                        ]
+                      }
+                    }
+                  ]
+                }
+                """);
+
+        assertTrue(schema.validate(extendedProjections).isEmpty());
+    }
+
     private Set<String> requiredFields(JsonNode definition) {
         return objectMapper.convertValue(
                 definition.path("required"),

@@ -68,10 +68,16 @@ import org.praxisplatform.uischema.rest.response.RestApiResponseDistributionStat
 import org.praxisplatform.uischema.rest.response.RestApiResponseGroupByStatsResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseTimeSeriesStatsResponse;
 import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanResponse;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualResponse;
 import org.praxisplatform.intelligence.contracts.inference.InferenceResponse;
+import org.praxisplatform.intelligence.contracts.jobs.IntelligenceJobReceipt;
+import org.praxisplatform.intelligence.contracts.simulation.StochasticSimulationResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseAnomalyScanResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseComparisonStatsResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseCounterfactualResponse;
 import org.praxisplatform.uischema.rest.response.RestApiResponseInferenceResponse;
+import org.praxisplatform.uischema.rest.response.RestApiResponseIntelligenceJobReceipt;
+import org.praxisplatform.uischema.rest.response.RestApiResponseStochasticSimulationResponse;
 import org.praxisplatform.uischema.service.base.BaseResourceQueryService;
 import org.praxisplatform.uischema.service.base.VersionedCreateUpdateResourceService;
 import org.praxisplatform.uischema.stats.StatsCapability;
@@ -80,10 +86,12 @@ import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import org.praxisplatform.uischema.stats.dto.AnomalyScanStatsRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsRequest;
+import org.praxisplatform.uischema.stats.dto.CounterfactualStatsRequest;
 import org.praxisplatform.uischema.stats.dto.InferenceStatsRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
+import org.praxisplatform.uischema.stats.dto.StochasticSimulationStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import org.praxisplatform.uischema.stats.dto.VerifiedRecipeExecutionRequest;
@@ -245,7 +253,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
     @Value("${springdoc.api-docs.path:/v3/api-docs}")
     private String openApiBasePath;
 
-    @Value("${server.servlet.contextPath:}")
+    @Value("${server.servlet.context-path:}")
     private String contextPath;
 
     @Value("${praxis.query.by-ids.max:200}")
@@ -756,6 +764,195 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
         });
     }
 
+    @PostMapping("/stats/simulation")
+    @Operation(summary = "Simulacao estocastica em duas camadas sobre o conjunto filtrado do recurso")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Simulacao estocastica executada com sucesso",
+                    content = @Content(schema = @Schema(implementation = RestApiResponseStochasticSimulationResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Request de simulacao invalido ou premissas inconsistentes"),
+            @ApiResponse(responseCode = "403", description = "Operacao de simulacao indisponivel para o contexto atual"),
+            @ApiResponse(responseCode = "409", description = "Circuito de deriva deterministica aberto durante a revalidacao das ancoras"),
+            @ApiResponse(responseCode = "413", description = "Volume de dados ou cenarios excede o limite suportado"),
+            @ApiResponse(responseCode = "422", description = "Simulacao degradada ou incapaz de satisfazer premissas numericas"),
+            @ApiResponse(responseCode = "501", description = "Simulacao estocastica nao habilitada para este recurso"),
+            @ApiResponse(responseCode = "503", description = "Motor de inteligencia estatistica indisponivel"),
+            @ApiResponse(responseCode = "504", description = "Tempo limite excedido na execucao da simulacao estocastica")
+    })
+    public ResponseEntity<RestApiResponse<StochasticSimulationResponse>> stochasticSimulationStats(
+            @RequestBody StochasticSimulationStatsRequest<FD> request
+    ) {
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsSimulation");
+            try {
+                StochasticSimulationResponse result = getService().stochasticSimulationStats(request);
+                List<Link> links = new ArrayList<>();
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(linkToUiSchema("/stats/simulation", "post", "request"));
+                links.add(linkToUiSchema("/stats/simulation", "post", "response"));
+                return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                String message = StringUtils.hasText(ex.getMessage()) ? ex.getMessage() : "Not implemented.";
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, message);
+            }
+        });
+    }
+
+    @PostMapping("/stats/simulation/jobs")
+    @Operation(summary = "Submeter job assincrono de simulacao estocastica sobre o conjunto filtrado do recurso")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "202",
+                    description = "Job de simulacao estocastica aceito para execucao assincrona",
+                    content = @Content(schema = @Schema(implementation = RestApiResponseIntelligenceJobReceipt.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Request de simulacao invalido"),
+            @ApiResponse(responseCode = "403", description = "Operacao de simulacao indisponivel para o contexto atual"),
+            @ApiResponse(responseCode = "413", description = "Volume de dados ou cenarios excede o limite suportado"),
+            @ApiResponse(responseCode = "422", description = "Premissas do escopo filtrado insuficientes para simulacao"),
+            @ApiResponse(responseCode = "501", description = "Simulacao estocastica assincrona nao habilitada para este recurso"),
+            @ApiResponse(responseCode = "503", description = "Motor de inteligencia estatistica indisponivel")
+    })
+    public ResponseEntity<RestApiResponse<IntelligenceJobReceipt>> submitStochasticSimulationJob(
+            @RequestBody StochasticSimulationStatsRequest<FD> request
+    ) {
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsSimulation");
+            try {
+                IntelligenceJobReceipt receipt = getService().submitStochasticSimulationJob(request);
+                String jobHref = intelligenceJobPath(receipt.jobId());
+                List<Link> links = new ArrayList<>();
+                links.add(Link.of(jobHref).withSelfRel());
+                links.add(Link.of(intelligenceJobCancelPath(receipt.jobId()), "cancel"));
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(linkToUiSchema("/stats/simulation", "post", "request"));
+                links.add(linkToUiSchema("/stats/simulation", "post", "response"));
+                return withVersion(
+                        ResponseEntity.accepted().location(URI.create(jobHref)),
+                        RestApiResponse.success(receipt, hateoasOrNull(Links.of(links)))
+                );
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                String message = StringUtils.hasText(ex.getMessage()) ? ex.getMessage() : "Not implemented.";
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, message);
+            }
+        });
+    }
+
+    @PostMapping("/stats/counterfactual")
+    @Operation(summary = "Busca contrafactual esparsa filtrada por regras deterministicas sobre o recurso")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Busca contrafactual executada com validacao deterministica",
+                    content = @Content(schema = @Schema(implementation = RestApiResponseCounterfactualResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Request contrafactual invalido ou alavancas inconsistentes"),
+            @ApiResponse(responseCode = "403", description = "Busca contrafactual indisponivel para o contexto atual"),
+            @ApiResponse(responseCode = "413", description = "Espaco de busca contrafactual excede o limite suportado"),
+            @ApiResponse(responseCode = "422", description = "Otimizador contrafactual nao convergiu dentro dos limites"),
+            @ApiResponse(responseCode = "501", description = "Busca contrafactual nao habilitada para este recurso"),
+            @ApiResponse(responseCode = "503", description = "Motor de inteligencia ou validador de regras indisponivel"),
+            @ApiResponse(responseCode = "504", description = "Tempo limite excedido na execucao da busca contrafactual")
+    })
+    public ResponseEntity<RestApiResponse<CounterfactualResponse>> counterfactualStats(
+            @RequestBody CounterfactualStatsRequest<FD> request
+    ) {
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsCounterfactual");
+            try {
+                CounterfactualResponse result = getService().counterfactualStats(request);
+                List<Link> links = new ArrayList<>();
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(linkToUiSchema("/stats/counterfactual", "post", "request"));
+                links.add(linkToUiSchema("/stats/counterfactual", "post", "response"));
+                return withVersion(ResponseEntity.ok(), RestApiResponse.success(result, hateoasOrNull(Links.of(links))));
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                String message = StringUtils.hasText(ex.getMessage()) ? ex.getMessage() : "Not implemented.";
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, message);
+            }
+        });
+    }
+
+    @PostMapping("/stats/counterfactual/jobs")
+    @Operation(summary = "Submeter job assincrono de busca contrafactual governada por regras")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "202",
+                    description = "Job de busca contrafactual aceito para execucao assincrona",
+                    content = @Content(schema = @Schema(implementation = RestApiResponseIntelligenceJobReceipt.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "Request contrafactual invalido"),
+            @ApiResponse(responseCode = "403", description = "Busca contrafactual indisponivel para o contexto atual"),
+            @ApiResponse(responseCode = "413", description = "Espaco de busca contrafactual excede o limite suportado"),
+            @ApiResponse(responseCode = "422", description = "Premissas contrafactuais insuficientes ou nao satisfativeis"),
+            @ApiResponse(responseCode = "501", description = "Busca contrafactual assincrona nao habilitada para este recurso"),
+            @ApiResponse(responseCode = "503", description = "Orquestrador ou motor de inteligencia indisponivel")
+    })
+    public ResponseEntity<RestApiResponse<IntelligenceJobReceipt>> submitCounterfactualJob(
+            @RequestBody CounterfactualStatsRequest<FD> request
+    ) {
+        return withOperationAvailabilityScope(() -> {
+            assertCollectionOperationAvailable("statsCounterfactual");
+            try {
+                IntelligenceJobReceipt receipt = getService().submitCounterfactualJob(request);
+                String jobHref = intelligenceJobPath(receipt.jobId());
+                List<Link> links = new ArrayList<>();
+                links.add(Link.of(jobHref).withSelfRel());
+                links.add(Link.of(intelligenceJobCancelPath(receipt.jobId()), "cancel"));
+                addCollectionOperationLink(links, "filter", linkToFilter());
+                links.add(linkToUiSchema("/stats/counterfactual", "post", "request"));
+                links.add(linkToUiSchema("/stats/counterfactual", "post", "response"));
+                return withVersion(
+                        ResponseEntity.accepted().location(URI.create(jobHref)),
+                        RestApiResponse.success(receipt, hateoasOrNull(Links.of(links)))
+                );
+            } catch (IllegalArgumentException ex) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
+            } catch (UnsupportedOperationException ex) {
+                String message = StringUtils.hasText(ex.getMessage()) ? ex.getMessage() : "Not implemented.";
+                throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, message);
+            }
+        });
+    }
+
+    private String normalizedContextPrefix() {
+        if (!StringUtils.hasText(contextPath)) {
+            return "";
+        }
+        String prefix = contextPath.trim();
+        while (prefix.endsWith("/")) {
+            prefix = prefix.substring(0, prefix.length() - 1);
+        }
+        if (!prefix.isEmpty() && !prefix.startsWith("/")) {
+            prefix = "/" + prefix;
+        }
+        return prefix;
+    }
+
+    private String intelligenceJobPath(String jobId) {
+        return UriComponentsBuilder.fromPath(normalizedContextPrefix() + "/api/praxis/intelligence/jobs")
+                .pathSegment(jobId)
+                .build()
+                .encode()
+                .toUriString();
+    }
+
+    private String intelligenceJobCancelPath(String jobId) {
+        return UriComponentsBuilder.fromPath(normalizedContextPrefix() + "/api/praxis/intelligence/jobs")
+                .pathSegment(jobId, "cancel")
+                .build()
+                .encode()
+                .toUriString();
+    }
+
     @PostMapping("/stats/timeseries")
     @Operation(
             summary = "Time-series stats sobre o conjunto filtrado",
@@ -949,7 +1146,7 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
                             null,
                             getService().comparisonStats(compiled.comparisonRequest())
                     );
-                    case INFERENCE, ANOMALIES -> throw new UnsupportedOperationException(
+                    case INFERENCE, ANOMALIES, SIMULATION, COUNTERFACTUAL -> throw new UnsupportedOperationException(
                             "Verified analytical recipes do not support operation: " + recipe.operation()
                     );
                 };
@@ -988,6 +1185,8 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             case COMPARISON -> "statsComparison";
             case INFERENCE -> "statsInference";
             case ANOMALIES -> "statsAnomalies";
+            case SIMULATION -> "statsSimulation";
+            case COUNTERFACTUAL -> "statsCounterfactual";
         };
     }
 
@@ -2263,7 +2462,12 @@ public abstract class AbstractResourceQueryController<ResponseDTO, ID, FD extend
             return null;
         }
         ResourceStructuralCapabilities caps = getStructuralCapabilities();
-        if (caps != null && caps.stats() != null && (!caps.stats().fields().isEmpty() || caps.stats().inference() || caps.stats().anomalies())) {
+        if (caps != null && caps.stats() != null
+                && (!caps.stats().fields().isEmpty()
+                        || caps.stats().inference()
+                        || caps.stats().anomalies()
+                        || caps.stats().simulation()
+                        || caps.stats().counterfactual())) {
             return Link.of(resourcePath("stats", "capabilities"), "stats");
         }
         return null;

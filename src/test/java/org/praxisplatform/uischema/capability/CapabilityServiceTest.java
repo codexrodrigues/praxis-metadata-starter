@@ -274,6 +274,48 @@ class CapabilityServiceTest {
     }
 
     @Test
+    void collectionCapabilitiesSupportSimulationAndCounterfactualModesWithoutStatsFields() {
+        CapabilityService service = new DefaultCapabilityService(
+                new StaticCanonicalCapabilityResolver(Map.of(
+                        "statsInference", true,
+                        "statsAnomalies", true,
+                        "statsSimulation", true,
+                        "statsCounterfactual", true
+                )),
+                emptySurfaceCatalogService(),
+                emptyActionCatalogService(),
+                new StaticOpenApiDocumentService("human-resources")
+        );
+
+        CapabilitySnapshot snapshot = service.collectionCapabilities(
+                "human-resources.employees",
+                "/employees",
+                false,
+                null,
+                StatsFieldRegistry.empty(),
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO,
+                StatsSupportMode.AUTO
+        );
+
+        assertFalse(snapshot.canonicalOperations().get("statsInference"));
+        assertFalse(snapshot.canonicalOperations().get("statsAnomalies"));
+        assertTrue(snapshot.canonicalOperations().get("statsSimulation"));
+        assertTrue(snapshot.canonicalOperations().get("statsCounterfactual"));
+        assertTrue(snapshot.operations().get("statsSimulation").supported());
+        assertTrue(snapshot.operations().get("statsCounterfactual").supported());
+        assertFalse(snapshot.stats().inference());
+        assertFalse(snapshot.stats().anomalies());
+        assertTrue(snapshot.stats().simulation());
+        assertTrue(snapshot.stats().counterfactual());
+    }
+
+    @Test
     void collectionCapabilitiesPublishTemporalIntervalAndMinBucketCountMetadata() {
         CapabilityService service = new DefaultCapabilityService(
                 new StaticCanonicalCapabilityResolver(Map.of(
@@ -1077,6 +1119,8 @@ class CapabilityServiceTest {
             operations.put("statsComparison", operation("statsComparison", "COLLECTION", "POST", "stats-comparison"));
             operations.put("statsInference", operation("statsInference", "COLLECTION", "POST", "stats-inference"));
             operations.put("statsAnomalies", operation("statsAnomalies", "COLLECTION", "POST", "stats-anomalies"));
+            operations.put("statsSimulation", operation("statsSimulation", "COLLECTION", "POST", "stats-simulation"));
+            operations.put("statsCounterfactual", operation("statsCounterfactual", "COLLECTION", "POST", "stats-counterfactual"));
             return Map.copyOf(operations);
         }
 

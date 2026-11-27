@@ -90,3 +90,23 @@ Por padrão *fail-closed*, `AbstractBaseQueryResourceService#getInferenceStatsSu
    - **`InferenceStatsRequest<FD>`:** `filter`, `requestId`, `datasetKey`, `tests` (`List<InferenceTestKind>`), `groupByField`, `expectedField`, `observedField`, `residualField`, `variableOrRetroactiveEligible`, `alpha` (padrão `0.05`), `materialityThreshold`, `minBucketCount`, `seed`, `asOfDate`.
    - **`AnomalyScanStatsRequest<FD>`:** `filter`, `requestId`, `datasetKey`, `methods` (`Set<AnomalyMethod>`), `columnMapping` (`AnomalyColumnMapping.canonical()` quando omitido), `alpha` (`0.05` para controle BH FDR), `materialityThreshold`, `madThreshold` (`3.5` para escore robusto MAD), `minCohortSize` (`15`), `minGroupSize` (`20`), `enableBenford` (habilitado automaticamente quando omitido e `methods` contém `NIGRINI_BENFORD`; `false` caso contrário), `minBenfordSamples` (`500`), `minBucketCount`, `maxFindings` (`200`), `seed`, `asOfDate`.
 4. **Sem fallback fabricado:** Ausência de executor configurado falha fechado com `503 Service Unavailable` / estado `ENGINE_UNAVAILABLE`, preservando o limite de registros filtrados (`413 Payload Too Large` quando excedido).
+
+---
+
+## 4. Simulação Estocástica em Duas Camadas e Busca Contrafactual (`/stats/simulation` e `/stats/counterfactual`)
+
+Por padrão *fail-closed*, `AbstractBaseQueryResourceService#getSimulationStatsSupportMode()` e `#getCounterfactualStatsSupportMode()` retornam **`StatsSupportMode.DISABLED`**. Recursos neutros (ex.: `workforce.budgets`) habilitam os fluxos síncrono e assíncrono via `StatsSupportMode.AUTO` / `ENABLED` com os seguintes contratos:
+
+| Operação | Endpoint HTTP | Request DTO | Orquestrador / Validador SPI |
+| --- | --- | --- | --- |
+| Simulação síncrona | `POST /{resource}/stats/simulation` | `StochasticSimulationStatsRequest<FD>` | `StochasticSimulationOrchestrator` + `AnchorScenarioRevalidator` (`toleranceRatio` padrão `0.02d`) |
+| Submissão assíncrona de simulação | `POST /{resource}/stats/simulation/jobs` | `StochasticSimulationStatsRequest<FD>` | `StochasticSimulationOrchestrator#submitStochasticSimulationJob(...)` -> `202 Accepted` (`Location` + `_links`) |
+| Busca contrafactual síncrona | `POST /{resource}/stats/counterfactual` | `CounterfactualStatsRequest<FD>` | `CounterfactualSearchOrchestrator` + `CounterfactualRuleValidator` |
+| Submissão assíncrona contrafactual | `POST /{resource}/stats/counterfactual/jobs` | `CounterfactualStatsRequest<FD>` | `CounterfactualSearchOrchestrator#submitCounterfactualJob(...)` -> `202 Accepted` |
+
+### Invariantes da camada de serviço e segurança
+
+1. **`ResourceFilterAccessScope.Mode.DENIED` falha fechado com `403 Forbidden`** antes de derivar pontos ou iniciar orquestração.
+2. **Derivação no servidor (`resolveSimulationModelPoints` / `resolveCounterfactualRequest`):** executa dentro de transação curta somente leitura (`resolveReadOnlyStatsTransactionTemplate()`) antes de chamadas remotas. Quando `resolveSimulationModelPoints` retorna lista vazia não nula, o serviço lança `INSUFFICIENT_SAMPLE_SIZE` (`422`) e nunca aceita fallback para `modelPoints` do cliente.
+3. **Revalidação determinística (`0.02d` = 2%):** tanto na orquestração via `StochasticRevalidationPolicy` quanto na revalidação inline, qualquer célula suprimida por k-anonimato bloqueia revalidação exata (`K_ANONYMITY_SUPPRESSED`, `422`), âncoras não revalidadas são rejeitadas (`CONTRACT_VERSION_MISMATCH`, `502`/`422`), e `getFailOnAnchorDriftExceeded() == true` abre o circuito com `DRIFT_CIRCUIT_OPEN` (`409`).
+4. **Endpoints stateful de jobs vs CSRF:** rotas `/stats/simulation/jobs` e `/stats/counterfactual/jobs` criam estado e pertencem a `PraxisMetadataRequestMatchers.intelligenceJobPostPatterns(...)` (e `/api/praxis/intelligence/jobs/*` em `intelligenceJobPollAndCancelPatterns(...)`), nunca misturadas em `readOnlyPostPatterns()`.

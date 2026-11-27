@@ -1,7 +1,10 @@
 package org.praxisplatform.uischema.rest.exceptionhandler;
 
+import com.fasterxml.jackson.databind.exc.ValueInstantiationException;
 import lombok.extern.slf4j.Slf4j;
+import org.praxisplatform.intelligence.contracts.error.IntelligenceErrorCode;
 import org.praxisplatform.intelligence.contracts.error.IntelligenceExecutionException;
+import org.praxisplatform.uischema.bulk.BulkProtocolPayloadException;
 import org.praxisplatform.uischema.openapi.GovernedOpenApiPublicationUnavailableException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.BusinessException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
@@ -69,6 +72,7 @@ public class GlobalExceptionHandler {
     private static final String RESPONSE_STATUS_UNAVAILABLE_TYPE = "https://example.com/probs/service-unavailable";
     private static final String RESPONSE_STATUS_INTERNAL_TYPE = "https://example.com/probs/internal-server-error";
     private static final String ERROR_CODE_FILTER_PAYLOAD_INVALID = "FILTER_PAYLOAD_INVALID";
+    private static final String ERROR_CODE_BULK_PROTOCOL_PAYLOAD_INVALID = "BULK_PROTOCOL_PAYLOAD_INVALID";
     private static final String ERROR_CODE_REQUEST_PAYLOAD_INVALID = "REQUEST_PAYLOAD_INVALID";
     private static final String ERROR_CODE_INVALID_PARAMETER = "INVALID_PARAMETER";
     private static final String ERROR_CODE_METHOD_NOT_ALLOWED = "METHOD_NOT_ALLOWED";
@@ -307,7 +311,7 @@ public class GlobalExceptionHandler {
         }
         CustomProblemDetail problem = new CustomProblemDetail(detailMessage);
         problem.setStatus(status);
-        problem.setTitle(defaultProblemTitle(status));
+        problem.setTitle(intelligenceProblemTitle(ex.errorCode(), status));
         problem.setType(URI.create(defaultProblemType(status)));
         problem.setInstance(instanceUri(request));
         problem.setCategory(resolveCategory(status));
@@ -457,13 +461,36 @@ public class GlobalExceptionHandler {
         Throwable root = rootCause(ex);
         String rootMessage = normalize(root != null ? root.getMessage() : null);
         boolean filterPayloadViolation = root instanceof InvalidFilterPayloadException;
+        boolean bulkProtocolPayloadViolation = ex instanceof BulkProtocolPayloadException;
+        ValueInstantiationException valueInstantiation = findCause(ex, ValueInstantiationException.class);
+        String intelligenceMessage = null;
+        if (valueInstantiation != null
+                && valueInstantiation.getType() != null
+                && valueInstantiation.getType().getRawClass() != null
+                && valueInstantiation.getType().getRawClass().getName()
+                        .startsWith("org.praxisplatform.intelligence.contracts.")) {
+            Throwable cause = rootCause(valueInstantiation);
+            if (cause instanceof IllegalArgumentException) {
+                intelligenceMessage = normalize(cause.getMessage());
+            }
+        }
 
-        String detailMessage = filterPayloadViolation && rootMessage != null
-                ? rootMessage
-                : "Invalid JSON payload or payload incompatible with the filter contract.";
-        String errorCode = filterPayloadViolation
-                ? ERROR_CODE_FILTER_PAYLOAD_INVALID
-                : ERROR_CODE_REQUEST_PAYLOAD_INVALID;
+        String detailMessage;
+        String errorCode;
+        if (filterPayloadViolation) {
+            detailMessage = rootMessage != null
+                    ? rootMessage
+                    : "Invalid JSON payload or payload incompatible with the filter contract.";
+            errorCode = ERROR_CODE_FILTER_PAYLOAD_INVALID;
+        } else if (bulkProtocolPayloadViolation) {
+            detailMessage = BulkProtocolPayloadException.PUBLIC_MESSAGE;
+            errorCode = ERROR_CODE_BULK_PROTOCOL_PAYLOAD_INVALID;
+        } else {
+            detailMessage = intelligenceMessage != null
+                    ? intelligenceMessage
+                    : "Invalid JSON payload or payload incompatible with the filter contract.";
+            errorCode = ERROR_CODE_REQUEST_PAYLOAD_INVALID;
+        }
 
         CustomProblemDetail customProblemDetail = new CustomProblemDetail(detailMessage);
         customProblemDetail.setStatus(HttpStatus.BAD_REQUEST);
@@ -784,7 +811,7 @@ public class GlobalExceptionHandler {
             return RESPONSE_STATUS_DEFAULT_TYPE;
         }
         return switch (status) {
-            case BAD_REQUEST, UNPROCESSABLE_ENTITY -> RESPONSE_STATUS_VALIDATION_TYPE;
+            case BAD_REQUEST, PAYLOAD_TOO_LARGE, UNPROCESSABLE_ENTITY -> RESPONSE_STATUS_VALIDATION_TYPE;
             case METHOD_NOT_ALLOWED -> RESPONSE_STATUS_METHOD_NOT_ALLOWED_TYPE;
             case UNAUTHORIZED, FORBIDDEN -> RESPONSE_STATUS_SECURITY_TYPE;
             case NOT_FOUND -> RESPONSE_STATUS_NOT_FOUND_TYPE;
@@ -795,6 +822,23 @@ public class GlobalExceptionHandler {
             case SERVICE_UNAVAILABLE, GATEWAY_TIMEOUT -> RESPONSE_STATUS_UNAVAILABLE_TYPE;
             case INTERNAL_SERVER_ERROR -> RESPONSE_STATUS_INTERNAL_TYPE;
             default -> RESPONSE_STATUS_DEFAULT_TYPE;
+        };
+    }
+
+    private String intelligenceProblemTitle(IntelligenceErrorCode errorCode, HttpStatus status) {
+        if (errorCode == null) {
+            return defaultProblemTitle(status);
+        }
+        return switch (errorCode) {
+            case DRIFT_CIRCUIT_OPEN -> "Anchor drift circuit open";
+            case NON_CONVERGENT_OPTIMIZER -> "Counterfactual optimizer did not converge";
+            case INSUFFICIENT_SAMPLE_SIZE -> "Insufficient sample size";
+            case K_ANONYMITY_SUPPRESSED -> "Result suppressed by k-anonymity";
+            case PAYLOAD_TOO_LARGE -> "Payload too large";
+            case JOB_TIMEOUT -> "Analytical job timeout";
+            case CONTRACT_VERSION_MISMATCH -> "Analytical contract mismatch";
+            case INTELLIGENCE_ENGINE_UNAVAILABLE -> "Intelligence engine unavailable";
+            default -> defaultProblemTitle(status);
         };
     }
 
@@ -891,6 +935,21 @@ public class GlobalExceptionHandler {
             current = current.getCause();
         }
         return current;
+    }
+
+    private <T extends Throwable> T findCause(Throwable throwable, Class<T> type) {
+        Throwable current = throwable;
+        int depth = 0;
+        while (current != null && depth++ < 32) {
+            if (type.isInstance(current)) {
+                return type.cast(current);
+            }
+            if (current.getCause() == current) {
+                break;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     private HttpStatus resolveFrameworkStatus(Throwable throwable) {

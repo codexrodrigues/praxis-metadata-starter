@@ -61,7 +61,7 @@ public final class PraxisBulkProtocolHttpMessageConverter extends AbstractGeneri
             throw new IllegalArgumentException("Unsupported bulk protocol request");
         } catch (IllegalArgumentException ex) {
             // Do not attach a Jackson cause or protected request contents to public diagnostics.
-            throw new HttpMessageNotReadableException("Invalid bulk protocol request", input);
+            throw new BulkProtocolPayloadException(input);
         }
     }
 

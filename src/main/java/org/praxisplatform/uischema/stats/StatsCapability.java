@@ -20,6 +20,8 @@ import java.util.Set;
  * @param maxInMemorySampleRows limite maximo de linhas carregadas em memoria para agregacoes que exigem ordenacao/amostragem em Java
  * @param inference indica se o endpoint {@code /stats/inference} esta ativo e suportado para o recurso
  * @param anomalies indica se o endpoint {@code /stats/anomalies} esta ativo e suportado para o recurso
+ * @param simulation indica se o endpoint {@code /stats/simulation} esta ativo e suportado para o recurso
+ * @param counterfactual indica se o endpoint {@code /stats/counterfactual} esta ativo e suportado para o recurso
  */
 public record StatsCapability(
         List<StatsFieldCapability> fields,
@@ -29,7 +31,9 @@ public record StatsCapability(
         int defaultMinBucketCount,
         int maxInMemorySampleRows,
         boolean inference,
-        boolean anomalies
+        boolean anomalies,
+        boolean simulation,
+        boolean counterfactual
 ) {
 
     public static final int DEFAULT_MAX_DIMENSIONS = 2;
@@ -57,6 +61,30 @@ public record StatsCapability(
             int maxCells,
             int maxTimeSeriesWindowDays,
             int defaultMinBucketCount,
+            int maxInMemorySampleRows,
+            boolean inference,
+            boolean anomalies
+    ) {
+        this(
+                fields,
+                maxDimensions,
+                maxCells,
+                maxTimeSeriesWindowDays,
+                defaultMinBucketCount,
+                maxInMemorySampleRows,
+                inference,
+                anomalies,
+                false,
+                false
+        );
+    }
+
+    public StatsCapability(
+            List<StatsFieldCapability> fields,
+            int maxDimensions,
+            int maxCells,
+            int maxTimeSeriesWindowDays,
+            int defaultMinBucketCount,
             int maxInMemorySampleRows
     ) {
         this(
@@ -66,6 +94,8 @@ public record StatsCapability(
                 maxTimeSeriesWindowDays,
                 defaultMinBucketCount,
                 maxInMemorySampleRows,
+                false,
+                false,
                 false,
                 false
         );
@@ -237,6 +267,38 @@ public record StatsCapability(
             int defaultMinBucketCount,
             int maxInMemorySampleRows
     ) {
+        return from(
+                registry,
+                groupByStatsSupportMode,
+                timeSeriesStatsSupportMode,
+                distributionStatsSupportMode,
+                inferenceStatsSupportMode,
+                anomalyStatsSupportMode,
+                StatsSupportMode.DISABLED,
+                StatsSupportMode.DISABLED,
+                maxDimensions,
+                maxCells,
+                maxTimeSeriesWindowDays,
+                defaultMinBucketCount,
+                maxInMemorySampleRows
+        );
+    }
+
+    public static StatsCapability from(
+            StatsFieldRegistry registry,
+            StatsSupportMode groupByStatsSupportMode,
+            StatsSupportMode timeSeriesStatsSupportMode,
+            StatsSupportMode distributionStatsSupportMode,
+            StatsSupportMode inferenceStatsSupportMode,
+            StatsSupportMode anomalyStatsSupportMode,
+            StatsSupportMode simulationStatsSupportMode,
+            StatsSupportMode counterfactualStatsSupportMode,
+            int maxDimensions,
+            int maxCells,
+            int maxTimeSeriesWindowDays,
+            int defaultMinBucketCount,
+            int maxInMemorySampleRows
+    ) {
         boolean hasFields = registry != null && !registry.isEmpty();
         boolean inferenceEnabled = hasFields
                 && inferenceStatsSupportMode != null
@@ -244,6 +306,10 @@ public record StatsCapability(
         boolean anomaliesEnabled = hasFields
                 && anomalyStatsSupportMode != null
                 && anomalyStatsSupportMode != StatsSupportMode.DISABLED;
+        boolean simulationEnabled = simulationStatsSupportMode != null
+                && simulationStatsSupportMode != StatsSupportMode.DISABLED;
+        boolean counterfactualEnabled = counterfactualStatsSupportMode != null
+                && counterfactualStatsSupportMode != StatsSupportMode.DISABLED;
         if (!hasFields) {
             return new StatsCapability(
                     List.of(),
@@ -253,14 +319,17 @@ public record StatsCapability(
                     defaultMinBucketCount,
                     maxInMemorySampleRows,
                     false,
-                    false
+                    false,
+                    simulationEnabled,
+                    counterfactualEnabled
             );
         }
         boolean groupByEnabled = groupByStatsSupportMode != StatsSupportMode.DISABLED;
         boolean timeSeriesEnabled = timeSeriesStatsSupportMode != StatsSupportMode.DISABLED;
         boolean distributionEnabled = distributionStatsSupportMode != StatsSupportMode.DISABLED;
         if (!groupByEnabled && !timeSeriesEnabled && !distributionEnabled
-                && !inferenceEnabled && !anomaliesEnabled) {
+                && !inferenceEnabled && !anomaliesEnabled
+                && !simulationEnabled && !counterfactualEnabled) {
             return new StatsCapability(
                     List.of(),
                     maxDimensions,
@@ -269,10 +338,13 @@ public record StatsCapability(
                     defaultMinBucketCount,
                     maxInMemorySampleRows,
                     false,
+                    false,
+                    false,
                     false
             );
         }
-        boolean retainAllForIntelligence = inferenceEnabled || anomaliesEnabled;
+        boolean retainAllForIntelligence = inferenceEnabled || anomaliesEnabled
+                || simulationEnabled || counterfactualEnabled;
         return new StatsCapability(
                 registry.descriptors().stream()
                         .map(descriptor -> restrictDescriptor(
@@ -295,7 +367,9 @@ public record StatsCapability(
                 defaultMinBucketCount,
                 maxInMemorySampleRows,
                 inferenceEnabled,
-                anomaliesEnabled
+                anomaliesEnabled,
+                simulationEnabled,
+                counterfactualEnabled
         );
     }
 

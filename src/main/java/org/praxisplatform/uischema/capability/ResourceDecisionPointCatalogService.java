@@ -180,6 +180,20 @@ public class ResourceDecisionPointCatalogService {
                         DecisionPointKind.ANOMALY_SCAN,
                         "stats-anomalies",
                         "Varredura estatística de anomalias sobre a coleção de " + resourceKey));
+        points.add(
+                structuralPoint(
+                        resourceKey,
+                        resourcePath,
+                        DecisionPointKind.STOCHASTIC_SIMULATION,
+                        "stats-simulation",
+                        "Simulação estocástica governada sobre a coleção de " + resourceKey));
+        points.add(
+                structuralPoint(
+                        resourceKey,
+                        resourcePath,
+                        DecisionPointKind.COUNTERFACTUAL_SEARCH,
+                        "stats-counterfactual",
+                        "Busca contrafactual validada por regras sobre a coleção de " + resourceKey));
 
         // 2. Workflow actions (@WorkflowAction) across class hierarchy
         for (WorkflowAction action : collectWorkflowActions(controllerClass)) {

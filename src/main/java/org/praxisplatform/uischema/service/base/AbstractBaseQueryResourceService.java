@@ -62,12 +62,32 @@ import org.praxisplatform.intelligence.contracts.error.IntelligenceErrorCode;
 import org.praxisplatform.intelligence.contracts.error.IntelligenceExecutionException;
 import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanRequest;
 import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanResponse;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualCandidate;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualFeasibilityStatus;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualLeverDelta;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualLeverSpec;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualRequest;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualResponse;
 import org.praxisplatform.intelligence.contracts.inference.InferenceRequest;
 import org.praxisplatform.intelligence.contracts.inference.InferenceResponse;
+import org.praxisplatform.intelligence.contracts.jobs.IntelligenceJobReceipt;
+import org.praxisplatform.intelligence.contracts.simulation.AnchorRevalidationStatus;
+import org.praxisplatform.intelligence.contracts.simulation.AnchorScenarioPoint;
+import org.praxisplatform.intelligence.contracts.simulation.SimulationModelPoint;
+import org.praxisplatform.intelligence.contracts.simulation.StochasticSimulationRequest;
+import org.praxisplatform.intelligence.contracts.simulation.StochasticSimulationResponse;
+import org.praxisplatform.intelligence.contracts.spi.AnchorScenarioRevalidator;
+import org.praxisplatform.intelligence.contracts.spi.CounterfactualRuleValidator;
+import org.praxisplatform.intelligence.contracts.spi.CounterfactualRuleVerdict;
+import org.praxisplatform.intelligence.contracts.spi.CounterfactualSearchOrchestrator;
 import org.praxisplatform.intelligence.contracts.spi.ResourceIntelligenceExecutor;
+import org.praxisplatform.intelligence.contracts.spi.StochasticRevalidationPolicy;
+import org.praxisplatform.intelligence.contracts.spi.StochasticSimulationOrchestrator;
 import org.praxisplatform.intelligence.contracts.spi.TabularFrameSource;
 import org.praxisplatform.uischema.stats.dto.AnomalyScanStatsRequest;
+import org.praxisplatform.uischema.stats.dto.CounterfactualStatsRequest;
 import org.praxisplatform.uischema.stats.dto.InferenceStatsRequest;
+import org.praxisplatform.uischema.stats.dto.StochasticSimulationStatsRequest;
 import org.praxisplatform.uischema.stats.service.StatsQueryExecutor;
 import org.praxisplatform.uischema.stats.service.jpa.JpaStatsTabularFrameSource;
 import org.praxisplatform.uischema.action.ActionDefinition;
@@ -89,8 +109,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.slf4j.MDC;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
+import org.springframework.lang.Nullable;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
@@ -114,6 +137,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -157,11 +181,15 @@ public abstract class AbstractBaseQueryResourceService<
                 && optionSourceEligibility != null
                 && getOptionSourceRegistry().containsAny(getEntityClass());
         ResourceIntelligenceExecutor intelligenceExecutor = resolveResourceIntelligenceExecutor();
+        StochasticSimulationOrchestrator simOrchestrator = resolveStochasticSimulationOrchestrator();
+        CounterfactualSearchOrchestrator cfOrchestrator = resolveCounterfactualSearchOrchestrator();
         boolean intelligenceInfrastructure = properties.enabled()
                 && statsEligibility != null
                 && intelligenceExecutor != null;
         StatsSupportMode inferenceSupportMode = getInferenceStatsSupportMode();
         StatsSupportMode anomalySupportMode = getAnomalyStatsSupportMode();
+        StatsSupportMode simulationSupportMode = getSimulationStatsSupportMode();
+        StatsSupportMode counterfactualSupportMode = getCounterfactualStatsSupportMode();
         boolean inference = intelligenceInfrastructure
                 && inferenceSupportMode != null
                 && inferenceSupportMode != StatsSupportMode.DISABLED
@@ -170,6 +198,16 @@ public abstract class AbstractBaseQueryResourceService<
                 && anomalySupportMode != null
                 && anomalySupportMode != StatsSupportMode.DISABLED
                 && !registry.descriptors().isEmpty();
+        CounterfactualRuleValidator cfValidator = resolveCounterfactualRuleValidator();
+        boolean simulation = properties.enabled()
+                && simulationSupportMode != null
+                && simulationSupportMode != StatsSupportMode.DISABLED
+                && (intelligenceExecutor != null || simOrchestrator != null);
+        boolean counterfactual = properties.enabled()
+                && counterfactualSupportMode != null
+                && counterfactualSupportMode != StatsSupportMode.DISABLED
+                && ((cfOrchestrator != null && cfOrchestrator.isRuleValidatorReady(cfValidator))
+                        || (intelligenceExecutor != null && cfValidator != null));
         boolean export = supportsCollectionExport();
         return new ResourceStructuralCapabilities(
                 true,
@@ -180,10 +218,12 @@ public abstract class AbstractBaseQueryResourceService<
                 comparison,
                 inference,
                 anomalies,
+                simulation,
+                counterfactual,
                 export,
                 BaseResourceQueryService.super.getStructuralCapabilities().duplicateDraft(),
                 supportsCursorPagination(),
-                (statsInfrastructure || inference || anomalies)
+                (statsInfrastructure || inference || anomalies || simulation || counterfactual)
                         ? StatsCapability.from(
                                 registry,
                                 groupBy ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
@@ -191,6 +231,8 @@ public abstract class AbstractBaseQueryResourceService<
                                 distribution ? StatsSupportMode.AUTO : StatsSupportMode.DISABLED,
                                 inference ? (inferenceSupportMode == null ? StatsSupportMode.AUTO : inferenceSupportMode) : StatsSupportMode.DISABLED,
                                 anomalies ? (anomalySupportMode == null ? StatsSupportMode.AUTO : anomalySupportMode) : StatsSupportMode.DISABLED,
+                                simulation ? (simulationSupportMode == null ? StatsSupportMode.AUTO : simulationSupportMode) : StatsSupportMode.DISABLED,
+                                counterfactual ? (counterfactualSupportMode == null ? StatsSupportMode.AUTO : counterfactualSupportMode) : StatsSupportMode.DISABLED,
                                 properties.maxDimensions(),
                                 properties.maxCells(),
                                 properties.maxTimeSeriesWindowDays(),
@@ -221,6 +263,21 @@ public abstract class AbstractBaseQueryResourceService<
     private ObjectProvider<ResourceIntelligenceExecutor> resourceIntelligenceExecutorProvider;
 
     private volatile ResourceIntelligenceExecutor manualResourceIntelligenceExecutor;
+
+    @Autowired(required = false)
+    private ObjectProvider<StochasticSimulationOrchestrator> stochasticSimulationOrchestratorProvider;
+
+    private volatile StochasticSimulationOrchestrator manualStochasticSimulationOrchestrator;
+
+    @Autowired(required = false)
+    private ObjectProvider<CounterfactualSearchOrchestrator> counterfactualSearchOrchestratorProvider;
+
+    private volatile CounterfactualSearchOrchestrator manualCounterfactualSearchOrchestrator;
+
+    @Autowired(required = false)
+    private ObjectProvider<CounterfactualRuleValidator> counterfactualRuleValidatorProvider;
+
+    private volatile CounterfactualRuleValidator manualCounterfactualRuleValidator;
 
     @Autowired(required = false)
     private ObjectProvider<PlatformTransactionManager> statsTransactionManagerProvider;
@@ -355,6 +412,45 @@ public abstract class AbstractBaseQueryResourceService<
         }
         return resourceIntelligenceExecutorProvider != null
                 ? resourceIntelligenceExecutorProvider.getIfAvailable()
+                : null;
+    }
+
+    public void setStochasticSimulationOrchestrator(StochasticSimulationOrchestrator orchestrator) {
+        this.manualStochasticSimulationOrchestrator = orchestrator;
+    }
+
+    protected final StochasticSimulationOrchestrator resolveStochasticSimulationOrchestrator() {
+        if (manualStochasticSimulationOrchestrator != null) {
+            return manualStochasticSimulationOrchestrator;
+        }
+        return stochasticSimulationOrchestratorProvider != null
+                ? stochasticSimulationOrchestratorProvider.getIfAvailable()
+                : null;
+    }
+
+    public void setCounterfactualSearchOrchestrator(CounterfactualSearchOrchestrator orchestrator) {
+        this.manualCounterfactualSearchOrchestrator = orchestrator;
+    }
+
+    protected final CounterfactualSearchOrchestrator resolveCounterfactualSearchOrchestrator() {
+        if (manualCounterfactualSearchOrchestrator != null) {
+            return manualCounterfactualSearchOrchestrator;
+        }
+        return counterfactualSearchOrchestratorProvider != null
+                ? counterfactualSearchOrchestratorProvider.getIfAvailable()
+                : null;
+    }
+
+    public void setCounterfactualRuleValidator(CounterfactualRuleValidator validator) {
+        this.manualCounterfactualRuleValidator = validator;
+    }
+
+    protected CounterfactualRuleValidator resolveCounterfactualRuleValidator() {
+        if (manualCounterfactualRuleValidator != null) {
+            return manualCounterfactualRuleValidator;
+        }
+        return counterfactualRuleValidatorProvider != null
+                ? counterfactualRuleValidatorProvider.getIfAvailable()
                 : null;
     }
 
@@ -565,6 +661,16 @@ public abstract class AbstractBaseQueryResourceService<
 
     @Override
     public StatsSupportMode getAnomalyStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    @Override
+    public StatsSupportMode getSimulationStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    @Override
+    public StatsSupportMode getCounterfactualStatsSupportMode() {
         return StatsSupportMode.DISABLED;
     }
 
@@ -1637,6 +1743,544 @@ public abstract class AbstractBaseQueryResourceService<
                 properties.maxInMemorySampleRows()
         );
         return executor.executeAnomalyScan(resourceKey, contractRequest, frameSource);
+    }
+
+    @Nullable
+    protected List<SimulationModelPoint> resolveSimulationModelPoints(
+            StochasticSimulationStatsRequest<FilterDTO> request,
+            Specification<E> effectiveSpecification
+    ) {
+        return null;
+    }
+
+    protected CounterfactualStatsRequest<FilterDTO> resolveCounterfactualRequest(
+            CounterfactualStatsRequest<FilterDTO> request,
+            Specification<E> effectiveSpecification
+    ) {
+        return request;
+    }
+
+    protected AnchorScenarioRevalidator resolveAnchorScenarioRevalidator() {
+        return null;
+    }
+
+    protected double getAnchorRevalidationTolerancePct() {
+        return 0.02d;
+    }
+
+    @Nullable
+    protected Boolean getFailOnAnchorDriftExceeded() {
+        return null;
+    }
+
+    private void assertFilterAccessScopeNotDenied() {
+        if (resolveEffectiveFilterAccessScope().mode() == ResourceFilterAccessScope.Mode.DENIED) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to resource filter scope.");
+        }
+    }
+
+    @Nullable
+    private String resolveIntelligenceCorrelationId(@Nullable String requestId) {
+        if (requestId != null && !requestId.isBlank()) {
+            return requestId.trim();
+        }
+        String headerCorrelation = MDC.get("X-Correlation-ID");
+        if (headerCorrelation != null && !headerCorrelation.isBlank()) {
+            return headerCorrelation.trim();
+        }
+        String mdcCorrelation = MDC.get("correlationId");
+        return (mdcCorrelation != null && !mdcCorrelation.isBlank()) ? mdcCorrelation.trim() : null;
+    }
+
+    private <T> T executeInShortReadOnlyStatsTx(Supplier<T> action) {
+        TransactionTemplate txTemplate = resolveReadOnlyStatsTransactionTemplate();
+        if (txTemplate != null) {
+            return txTemplate.execute(status -> action.get());
+        }
+        return action.get();
+    }
+
+    @Override
+    public StochasticSimulationResponse stochasticSimulationStats(
+            StochasticSimulationStatsRequest<FilterDTO> request
+    ) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        StatsSupportMode mode = getSimulationStatsSupportMode();
+        if (!properties.enabled() || mode == null || mode == StatsSupportMode.DISABLED) {
+            throw new UnsupportedOperationException("Stochastic simulation not implemented");
+        }
+        assertFilterAccessScopeNotDenied();
+        if (request == null) {
+            throw new IllegalArgumentException("Stochastic simulation request must not be null.");
+        }
+        if (request.minBucketCount() != null && request.minBucketCount() < 1) {
+            throw new IllegalArgumentException("minBucketCount must be >= 1.");
+        }
+        String callerCorrelationId = resolveIntelligenceCorrelationId(request.requestId());
+        int requestedMinBucket = request.minBucketCount() == null ? 1 : request.minBucketCount();
+        int effectiveMinBucket = Math.max(1, Math.max(properties.defaultMinBucketCount(), requestedMinBucket));
+        Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged())
+                .effectiveSpecification();
+        List<SimulationModelPoint> modelPoints = executeInShortReadOnlyStatsTx(
+                () -> resolveSimulationModelPoints(request, specification)
+        );
+        if (modelPoints != null && modelPoints.isEmpty()) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.INSUFFICIENT_SAMPLE_SIZE,
+                    "Filtered resource scope produced no simulation model points.",
+                    callerCorrelationId
+            );
+        }
+        String resourceKey = resolveEffectiveIntelligenceResourceKey();
+        StochasticSimulationRequest contractRequest = request.toStochasticSimulationRequest(
+                resourceKey,
+                effectiveMinBucket,
+                modelPoints
+        );
+        AnchorScenarioRevalidator revalidator = resolveAnchorScenarioRevalidator();
+        StochasticRevalidationPolicy policy = new StochasticRevalidationPolicy(
+                getAnchorRevalidationTolerancePct(),
+                getFailOnAnchorDriftExceeded()
+        );
+        StochasticSimulationOrchestrator orchestrator = resolveStochasticSimulationOrchestrator();
+        if (orchestrator != null) {
+            StochasticSimulationResponse response = orchestrator.executeStochasticSimulation(
+                    resourceKey,
+                    contractRequest,
+                    revalidator,
+                    policy
+            );
+            if (response == null) {
+                throw new IntelligenceExecutionException(
+                        IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                        "Stochastic simulation orchestrator returned a null response.",
+                        callerCorrelationId
+                );
+            }
+            String effectiveCorrelation = (response.provenance() != null && response.provenance().correlationId() != null)
+                    ? response.provenance().correlationId()
+                    : callerCorrelationId;
+            if (revalidator != null && response.anchorScenarios() != null) {
+                for (AnchorScenarioPoint anchor : response.anchorScenarios()) {
+                    if (anchor.revalidationStatus() == AnchorRevalidationStatus.NOT_REVALIDATED) {
+                        throw new IntelligenceExecutionException(
+                                IntelligenceErrorCode.CONTRACT_VERSION_MISMATCH,
+                                "Stochastic simulation orchestrator returned un-revalidated anchor scenario '"
+                                        + anchor.anchorLabel() + "' while an AnchorScenarioRevalidator is configured.",
+                                effectiveCorrelation
+                        );
+                    }
+                }
+            }
+            return response;
+        }
+        ResourceIntelligenceExecutor executor = resolveResourceIntelligenceExecutor();
+        if (executor == null) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                    "Resource intelligence executor is not configured.",
+                    callerCorrelationId
+            );
+        }
+        StochasticSimulationResponse raw = executor.executeStochasticSimulation(resourceKey, contractRequest);
+        if (revalidator == null || raw.anchorScenarios().isEmpty()) {
+            return raw;
+        }
+        return revalidateAnchorsInline(contractRequest, raw, revalidator, callerCorrelationId);
+    }
+
+    @Override
+    public IntelligenceJobReceipt submitStochasticSimulationJob(
+            StochasticSimulationStatsRequest<FilterDTO> request
+    ) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        StatsSupportMode mode = getSimulationStatsSupportMode();
+        if (!properties.enabled() || mode == null || mode == StatsSupportMode.DISABLED) {
+            throw new UnsupportedOperationException("Asynchronous stochastic simulation not implemented");
+        }
+        assertFilterAccessScopeNotDenied();
+        if (request == null) {
+            throw new IllegalArgumentException("Stochastic simulation request must not be null.");
+        }
+        if (request.minBucketCount() != null && request.minBucketCount() < 1) {
+            throw new IllegalArgumentException("minBucketCount must be >= 1.");
+        }
+        String callerCorrelationId = resolveIntelligenceCorrelationId(request.requestId());
+        int requestedMinBucket = request.minBucketCount() == null ? 1 : request.minBucketCount();
+        int effectiveMinBucket = Math.max(1, Math.max(properties.defaultMinBucketCount(), requestedMinBucket));
+        Specification<E> specification = resolveResourceFilterQuery(request.filter(), Pageable.unpaged())
+                .effectiveSpecification();
+        List<SimulationModelPoint> modelPoints = executeInShortReadOnlyStatsTx(
+                () -> resolveSimulationModelPoints(request, specification)
+        );
+        if (modelPoints != null && modelPoints.isEmpty()) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.INSUFFICIENT_SAMPLE_SIZE,
+                    "Filtered resource scope produced no simulation model points.",
+                    callerCorrelationId
+            );
+        }
+        String resourceKey = resolveEffectiveIntelligenceResourceKey();
+        StochasticSimulationRequest contractRequest = request.toStochasticSimulationRequest(
+                resourceKey,
+                effectiveMinBucket,
+                modelPoints
+        );
+        AnchorScenarioRevalidator revalidator = resolveAnchorScenarioRevalidator();
+        StochasticRevalidationPolicy policy = new StochasticRevalidationPolicy(
+                getAnchorRevalidationTolerancePct(),
+                getFailOnAnchorDriftExceeded()
+        );
+        StochasticSimulationOrchestrator orchestrator = resolveStochasticSimulationOrchestrator();
+        if (orchestrator != null) {
+            return orchestrator.submitStochasticSimulationJob(resourceKey, contractRequest, revalidator, policy);
+        }
+        if (revalidator != null) {
+            throw new UnsupportedOperationException(
+                    "Governed async two-layer stochastic simulation requires a StochasticSimulationOrchestrator bean"
+            );
+        }
+        ResourceIntelligenceExecutor executor = resolveResourceIntelligenceExecutor();
+        if (executor == null) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                    "Resource intelligence executor is not configured.",
+                    callerCorrelationId
+            );
+        }
+        return executor.submitStochasticSimulationJob(resourceKey, contractRequest);
+    }
+
+    @Override
+    public CounterfactualResponse counterfactualStats(CounterfactualStatsRequest<FilterDTO> request) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        StatsSupportMode mode = getCounterfactualStatsSupportMode();
+        if (!properties.enabled() || mode == null || mode == StatsSupportMode.DISABLED) {
+            throw new UnsupportedOperationException("Counterfactual search not implemented");
+        }
+        assertFilterAccessScopeNotDenied();
+        if (request == null) {
+            throw new IllegalArgumentException("Counterfactual request must not be null.");
+        }
+        String callerCorrelationId = resolveIntelligenceCorrelationId(request.requestId());
+        Specification<E> effectiveSpec = resolveResourceFilterQuery(request.filter(), Pageable.unpaged())
+                .effectiveSpecification();
+        CounterfactualStatsRequest<FilterDTO> resolvedRequest = Objects.requireNonNull(
+                executeInShortReadOnlyStatsTx(() -> resolveCounterfactualRequest(request, effectiveSpec)),
+                "resolveCounterfactualRequest must not return null."
+        );
+        String resourceKey = resolveEffectiveIntelligenceResourceKey();
+        CounterfactualRequest contractRequest = resolvedRequest.toCounterfactualRequest(resourceKey);
+        CounterfactualRuleValidator validator = resolveCounterfactualRuleValidator();
+        CounterfactualSearchOrchestrator orchestrator = resolveCounterfactualSearchOrchestrator();
+        if (orchestrator != null) {
+            CounterfactualResponse response = orchestrator.executeCounterfactualSearch(
+                    resourceKey,
+                    contractRequest,
+                    validator
+            );
+            if (response == null) {
+                throw new IntelligenceExecutionException(
+                        IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                        "Counterfactual search orchestrator returned a null response.",
+                        callerCorrelationId
+                );
+            }
+            String effectiveCorrelation = (response.provenance() != null && response.provenance().correlationId() != null)
+                    ? response.provenance().correlationId()
+                    : callerCorrelationId;
+            if (response.candidates().size() > contractRequest.maxCandidates()) {
+                throw new IntelligenceExecutionException(
+                        IntelligenceErrorCode.CONTRACT_VERSION_MISMATCH,
+                        "Counterfactual orchestrator exceeded maxCandidates (" + contractRequest.maxCandidates() + ").",
+                        effectiveCorrelation
+                );
+            }
+            Set<String> allowedLeverKeys = new java.util.HashSet<>(contractRequest.mutableLevers().size());
+            for (CounterfactualLeverSpec lever : contractRequest.mutableLevers()) {
+                allowedLeverKeys.add(lever.leverKey());
+            }
+            for (CounterfactualCandidate candidate : response.candidates()) {
+                if (candidate.feasibilityStatus() != CounterfactualFeasibilityStatus.VALIDATED_BY_RULES_ENGINE) {
+                    throw new IntelligenceExecutionException(
+                            IntelligenceErrorCode.CONTRACT_VERSION_MISMATCH,
+                            "Counterfactual orchestrator returned candidate '" + candidate.candidateId()
+                                    + "' with non-validated status " + candidate.feasibilityStatus(),
+                            effectiveCorrelation
+                    );
+                }
+                if (candidate.leverDeltas().size() > contractRequest.maxChangedLevers()) {
+                    throw new IntelligenceExecutionException(
+                            IntelligenceErrorCode.CONTRACT_VERSION_MISMATCH,
+                            "Counterfactual orchestrator returned candidate '" + candidate.candidateId()
+                                    + "' exceeding maxChangedLevers (" + contractRequest.maxChangedLevers() + ")",
+                            effectiveCorrelation
+                    );
+                }
+                for (CounterfactualLeverDelta delta : candidate.leverDeltas()) {
+                    if (!allowedLeverKeys.contains(delta.leverKey())) {
+                        throw new IntelligenceExecutionException(
+                                IntelligenceErrorCode.CONTRACT_VERSION_MISMATCH,
+                                "Counterfactual orchestrator returned candidate '" + candidate.candidateId()
+                                        + "' referencing undeclared leverKey '" + delta.leverKey() + "'",
+                                effectiveCorrelation
+                        );
+                    }
+                }
+            }
+            return response;
+        }
+        if (validator == null) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                    "Counterfactual search requires a configured CounterfactualRuleValidator.",
+                    callerCorrelationId
+            );
+        }
+        ResourceIntelligenceExecutor executor = resolveResourceIntelligenceExecutor();
+        if (executor == null) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                    "Resource intelligence executor is not configured.",
+                    callerCorrelationId
+            );
+        }
+        CounterfactualResponse raw = executor.executeCounterfactualSearch(resourceKey, contractRequest);
+        return validateCounterfactualCandidatesFailClosed(contractRequest, raw, validator, callerCorrelationId);
+    }
+
+    @Override
+    public IntelligenceJobReceipt submitCounterfactualJob(CounterfactualStatsRequest<FilterDTO> request) {
+        StatsProperties properties = statsProperties != null ? statsProperties : StatsProperties.defaults();
+        StatsSupportMode mode = getCounterfactualStatsSupportMode();
+        if (!properties.enabled() || mode == null || mode == StatsSupportMode.DISABLED) {
+            throw new UnsupportedOperationException("Asynchronous counterfactual search not implemented");
+        }
+        assertFilterAccessScopeNotDenied();
+        if (request == null) {
+            throw new IllegalArgumentException("Counterfactual request must not be null.");
+        }
+        String callerCorrelationId = resolveIntelligenceCorrelationId(request.requestId());
+        Specification<E> effectiveSpec = resolveResourceFilterQuery(request.filter(), Pageable.unpaged())
+                .effectiveSpecification();
+        CounterfactualStatsRequest<FilterDTO> resolvedRequest = Objects.requireNonNull(
+                executeInShortReadOnlyStatsTx(() -> resolveCounterfactualRequest(request, effectiveSpec)),
+                "resolveCounterfactualRequest must not return null."
+        );
+        String resourceKey = resolveEffectiveIntelligenceResourceKey();
+        CounterfactualRequest contractRequest = resolvedRequest.toCounterfactualRequest(resourceKey);
+        CounterfactualSearchOrchestrator orchestrator = resolveCounterfactualSearchOrchestrator();
+        if (orchestrator == null) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                    "Governed async counterfactual search requires a CounterfactualSearchOrchestrator bean.",
+                    callerCorrelationId
+            );
+        }
+        return orchestrator.submitCounterfactualJob(resourceKey, contractRequest, resolveCounterfactualRuleValidator());
+    }
+
+    private StochasticSimulationResponse revalidateAnchorsInline(
+            StochasticSimulationRequest contractRequest,
+            StochasticSimulationResponse raw,
+            AnchorScenarioRevalidator revalidator,
+            String callerCorrelationId
+    ) {
+        String effectiveCorrelation = (raw.provenance() != null && raw.provenance().correlationId() != null)
+                ? raw.provenance().correlationId()
+                : callerCorrelationId;
+        if (raw.suppressedModelPoints() > 0) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.K_ANONYMITY_SUPPRESSED,
+                    "Cannot perform exact anchor revalidation when one or more model points were suppressed by k-anonymity.",
+                    effectiveCorrelation
+            );
+        }
+        BigDecimal denomFloor = new BigDecimal("1e-9");
+        double tolerancePct = getAnchorRevalidationTolerancePct();
+        boolean failOnDriftExceeded = Boolean.TRUE.equals(getFailOnAnchorDriftExceeded());
+        boolean anyDriftExceeded = false;
+        List<AnchorScenarioPoint> revalidatedAnchors = new ArrayList<>(raw.anchorScenarios().size());
+        for (AnchorScenarioPoint anchor : raw.anchorScenarios()) {
+            BigDecimal exact;
+            double relativeDriftPct;
+            try {
+                exact = Objects.requireNonNull(
+                        revalidator.revalidate(contractRequest, anchor),
+                        "AnchorScenarioRevalidator must return a non-null BigDecimal for anchor '"
+                                + anchor.anchorLabel() + "'"
+                );
+                BigDecimal absDiff = exact.subtract(anchor.surrogateTerminalValue()).abs();
+                if (absDiff.compareTo(BigDecimal.ZERO) == 0) {
+                    relativeDriftPct = 0.0d;
+                } else {
+                    BigDecimal denom = exact.abs().max(anchor.surrogateTerminalValue().abs()).max(denomFloor);
+                    relativeDriftPct = absDiff.divide(denom, java.math.MathContext.DECIMAL128).doubleValue();
+                }
+                if (!Double.isFinite(relativeDriftPct) || relativeDriftPct < 0.0d) {
+                    throw new IllegalStateException(
+                            "Computed non-finite relative drift for anchor '" + anchor.anchorLabel() + "'"
+                    );
+                }
+            } catch (IntelligenceExecutionException ex) {
+                if (effectiveCorrelation != null
+                        && (ex.correlationId() == null || ex.correlationId().isBlank())) {
+                    throw new IntelligenceExecutionException(
+                            ex.errorCode(),
+                            ex.detail(),
+                            effectiveCorrelation,
+                            ex.getCause() != null ? ex.getCause() : ex
+                    );
+                }
+                throw ex;
+            } catch (RuntimeException ex) {
+                throw new IntelligenceExecutionException(
+                        IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                        "Anchor scenario revalidation failed unexpectedly for anchor '" + anchor.anchorLabel() + "'",
+                        effectiveCorrelation,
+                        ex
+                );
+            }
+            AnchorRevalidationStatus status = relativeDriftPct <= tolerancePct
+                    ? AnchorRevalidationStatus.REVALIDATED_WITHIN_TOLERANCE
+                    : AnchorRevalidationStatus.REVALIDATED_DRIFT_EXCEEDED;
+            if (status == AnchorRevalidationStatus.REVALIDATED_DRIFT_EXCEEDED) {
+                anyDriftExceeded = true;
+            }
+            revalidatedAnchors.add(new AnchorScenarioPoint(
+                    anchor.anchorLabel(),
+                    anchor.quantile(),
+                    anchor.scenarioIndex(),
+                    anchor.surrogateTerminalValue(),
+                    anchor.realizedFactorValues(),
+                    exact,
+                    relativeDriftPct,
+                    status
+            ));
+        }
+        if (failOnDriftExceeded && anyDriftExceeded) {
+            throw new IntelligenceExecutionException(
+                    IntelligenceErrorCode.DRIFT_CIRCUIT_OPEN,
+                    "Deterministic anchor revalidation drift exceeded configured tolerance (" + tolerancePct + ").",
+                    effectiveCorrelation
+            );
+        }
+        return new StochasticSimulationResponse(
+                raw.contractVersion(),
+                raw.provenance(),
+                raw.modelCard(),
+                raw.scenarioCount(),
+                raw.horizonPeriods(),
+                raw.fanSeries(),
+                raw.terminalMean(),
+                raw.terminalStdDev(),
+                raw.terminalCvar95(),
+                raw.terminalQuantiles(),
+                raw.thresholdBreaches(),
+                raw.tornadoDrivers(),
+                revalidatedAnchors,
+                raw.suppressedModelPoints(),
+                raw.suppressionStatus()
+        );
+    }
+
+    private CounterfactualResponse validateCounterfactualCandidatesFailClosed(
+            CounterfactualRequest contractRequest,
+            CounterfactualResponse raw,
+            CounterfactualRuleValidator validator,
+            String callerCorrelationId
+    ) {
+        String effectiveCorrelation = raw.provenance().correlationId() != null
+                ? raw.provenance().correlationId()
+                : callerCorrelationId;
+        Set<String> allowedLeverKeys = new java.util.HashSet<>(contractRequest.mutableLevers().size());
+        for (CounterfactualLeverSpec lever : contractRequest.mutableLevers()) {
+            allowedLeverKeys.add(lever.leverKey());
+        }
+        for (CounterfactualCandidate candidate : raw.candidates()) {
+            if (candidate.leverDeltas().size() > contractRequest.maxChangedLevers()) {
+                throw new IntelligenceExecutionException(
+                        IntelligenceErrorCode.CONTRACT_VERSION_MISMATCH,
+                        "Counterfactual candidate '" + candidate.candidateId()
+                                + "' exceeds maxChangedLevers (" + contractRequest.maxChangedLevers() + ")",
+                        effectiveCorrelation
+                );
+            }
+            for (CounterfactualLeverDelta delta : candidate.leverDeltas()) {
+                if (!allowedLeverKeys.contains(delta.leverKey())) {
+                    throw new IntelligenceExecutionException(
+                            IntelligenceErrorCode.CONTRACT_VERSION_MISMATCH,
+                            "Counterfactual candidate '" + candidate.candidateId()
+                                    + "' references undeclared leverKey '" + delta.leverKey() + "'",
+                            effectiveCorrelation
+                    );
+                }
+            }
+        }
+        List<CounterfactualCandidate> approved = new ArrayList<>(raw.candidates().size());
+        int newlyRejected = 0;
+        for (CounterfactualCandidate candidate : raw.candidates()) {
+            if (approved.size() >= contractRequest.maxCandidates()) {
+                break;
+            }
+            if (candidate.feasibilityStatus() == CounterfactualFeasibilityStatus.REJECTED_BY_RULES_ENGINE) {
+                newlyRejected++;
+                continue;
+            }
+            CounterfactualRuleVerdict verdict;
+            try {
+                verdict = validator.validate(contractRequest, candidate);
+            } catch (IntelligenceExecutionException ex) {
+                if (effectiveCorrelation != null
+                        && (ex.correlationId() == null || ex.correlationId().isBlank())) {
+                    throw new IntelligenceExecutionException(
+                            ex.errorCode(),
+                            ex.detail(),
+                            effectiveCorrelation,
+                            ex.getCause() != null ? ex.getCause() : ex
+                    );
+                }
+                throw ex;
+            } catch (RuntimeException ex) {
+                throw new IntelligenceExecutionException(
+                        IntelligenceErrorCode.INTELLIGENCE_ENGINE_UNAVAILABLE,
+                        "Counterfactual rule validation failed unexpectedly while evaluating candidate '"
+                                + candidate.candidateId() + "'",
+                        effectiveCorrelation,
+                        ex
+                );
+            }
+            if (verdict != null && verdict.allowed()) {
+                List<String> messages = new ArrayList<>(candidate.ruleValidationMessages());
+                if (verdict.explanation() != null && !verdict.explanation().isBlank()) {
+                    messages.add(verdict.explanation());
+                }
+                approved.add(new CounterfactualCandidate(
+                        candidate.candidateId(),
+                        approved.size() + 1,
+                        candidate.leverDeltas(),
+                        candidate.predictedValue(),
+                        candidate.predictedDelta(),
+                        candidate.distanceScore(),
+                        CounterfactualFeasibilityStatus.VALIDATED_BY_RULES_ENGINE,
+                        messages
+                ));
+            } else {
+                newlyRejected++;
+            }
+        }
+        int totalRejected = raw.rejectedCount() + newlyRejected;
+        boolean converged = raw.converged() && (!approved.isEmpty() || (raw.candidates().isEmpty() && totalRejected == 0));
+        return new CounterfactualResponse(
+                raw.contractVersion(),
+                raw.provenance(),
+                raw.modelCard(),
+                raw.baselineValue(),
+                raw.targetValue(),
+                converged,
+                approved,
+                totalRejected
+        );
     }
 
     private String resolveEffectiveIntelligenceResourceKey() {

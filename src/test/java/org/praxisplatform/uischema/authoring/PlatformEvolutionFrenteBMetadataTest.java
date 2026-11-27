@@ -577,7 +577,8 @@ class PlatformEvolutionFrenteBMetadataTest {
                         "workforce.sample:operation:ai-tool",
                         "workforce.sample:operation:stats-inference",
                         "workforce.sample:operation:stats-anomalies",
-                        "workforce.sample:operation:ai-tool",
+                        "workforce.sample:operation:stats-simulation",
+                        "workforce.sample:operation:stats-counterfactual",
                         "workforce.sample:action:homologar-registro",
                         "workforce.sample:action:acao-sem-base-legal",
                         "workforce.sample:surface:audit-trail",
@@ -638,6 +639,18 @@ class PlatformEvolutionFrenteBMetadataTest {
                 .findFirst()
                 .orElseThrow();
         assertThat(statsAnomaliesPoint.kind()).isEqualTo(DecisionPointKind.ANOMALY_SCAN);
+
+        ResourceDecisionPointDescriptor statsSimulationPoint = points.stream()
+                .filter(p -> p.decisionPointKey().equals("workforce.sample:operation:stats-simulation"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(statsSimulationPoint.kind()).isEqualTo(DecisionPointKind.STOCHASTIC_SIMULATION);
+
+        ResourceDecisionPointDescriptor statsCounterfactualPoint = points.stream()
+                .filter(p -> p.decisionPointKey().equals("workforce.sample:operation:stats-counterfactual"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(statsCounterfactualPoint.kind()).isEqualTo(DecisionPointKind.COUNTERFACTUAL_SEARCH);
     }
 
     @Test

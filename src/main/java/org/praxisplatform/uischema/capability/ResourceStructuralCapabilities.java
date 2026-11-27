@@ -25,6 +25,8 @@ public record ResourceStructuralCapabilities(
         boolean statsComparison,
         boolean statsInference,
         boolean statsAnomalies,
+        boolean statsSimulation,
+        boolean statsCounterfactual,
         boolean export,
         boolean duplicateDraft,
         boolean cursorPagination,
@@ -37,6 +39,40 @@ public record ResourceStructuralCapabilities(
         if (!export) {
             exportCapability = null;
         }
+    }
+
+    public ResourceStructuralCapabilities(
+            boolean options,
+            boolean optionSources,
+            boolean statsGroupBy,
+            boolean statsTimeSeries,
+            boolean statsDistribution,
+            boolean statsComparison,
+            boolean statsInference,
+            boolean statsAnomalies,
+            boolean export,
+            boolean duplicateDraft,
+            boolean cursorPagination,
+            StatsCapability stats,
+            CollectionExportCapability exportCapability
+    ) {
+        this(
+                options,
+                optionSources,
+                statsGroupBy,
+                statsTimeSeries,
+                statsDistribution,
+                statsComparison,
+                statsInference,
+                statsAnomalies,
+                false,
+                false,
+                export,
+                duplicateDraft,
+                cursorPagination,
+                stats,
+                exportCapability
+        );
     }
 
     public ResourceStructuralCapabilities(
@@ -59,6 +95,8 @@ public record ResourceStructuralCapabilities(
                 statsTimeSeries,
                 statsDistribution,
                 statsComparison,
+                false,
+                false,
                 false,
                 false,
                 export,
@@ -90,6 +128,8 @@ public record ResourceStructuralCapabilities(
                 statsComparison,
                 false,
                 false,
+                false,
+                false,
                 export,
                 duplicateDraft,
                 false,
@@ -100,7 +140,7 @@ public record ResourceStructuralCapabilities(
 
     public static ResourceStructuralCapabilities unsupported() {
         return new ResourceStructuralCapabilities(
-                false, false, false, false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false, false, false, false, false,
                 StatsCapability.empty(), null
         );
     }

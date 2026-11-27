@@ -159,8 +159,8 @@ class BulkOperationStructuralCompilerTest {
                     registry(actionDefinition()), new ObjectMapper(),
                     new FilteredSchemaReferenceResolver()).compileAll().getFirst();
             var first = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
-            assertEquals("sha256:6078fb1443538929a9400bf15529a3a88859fcf282514ebb97f847de3a8928d8", first.descriptorFingerprint(),
-                    "operational/1 command reference updated for statsInference/statsAnomalies capability keys");
+            assertEquals("sha256:bea0f2fca47b09bbddec89ac0867f6212154a4eed88131979c08e4c6b8aabe50", first.descriptorFingerprint(),
+                    "operational/1 command reference updated for statsSimulation/statsCounterfactual capability keys");
             var repeated = BulkOperationalDescriptorComposer.compose(structural, provider("provider.r1", "deployment-a"));
 
             assertEquals(first.structuralRevision(), repeated.structuralRevision());
@@ -1216,8 +1216,8 @@ class BulkOperationStructuralCompilerTest {
                     registry(actionDefinition()), mapper, new FilteredSchemaReferenceResolver());
             var firstDescriptor = firstCompiler.compileAll().getFirst();
             String firstDigest = BulkStructuralSegmentDigest.compute(firstDescriptor);
-            assertEquals("sha256:ee7301be7f2194f386ecaa9f64daf58f84dc43fb52529ad63139cb89b910e41e", firstDigest,
-                    "structure/3 baseline updated for statsInference/statsAnomalies capability keys");
+            assertEquals("sha256:89301ddae81f31049d40938535beac8b048a534f265455d38c037473d045f1b1", firstDigest,
+                    "structure/3 baseline updated for statsSimulation/statsCounterfactual capability keys");
             assertEquals("praxis.bulk.structure/3", BulkStructuralSegmentDigest.canonicalContent(firstDescriptor)
                     .path("structureVersion").asText());
             assertTrue(firstDigest.matches("sha256:[0-9a-f]{64}"));

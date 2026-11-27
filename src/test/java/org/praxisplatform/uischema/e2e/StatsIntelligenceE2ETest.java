@@ -52,16 +52,24 @@ class StatsIntelligenceE2ETest extends AbstractE2eH2Test {
         JsonNode capsBody = body(capsResponse);
         assertTrue(capsBody.path("canonicalOperations").path("statsInference").asBoolean());
         assertTrue(capsBody.path("canonicalOperations").path("statsAnomalies").asBoolean());
+        assertTrue(capsBody.path("canonicalOperations").path("statsSimulation").asBoolean());
+        assertTrue(capsBody.path("canonicalOperations").path("statsCounterfactual").asBoolean());
         assertTrue(capsBody.path("operations").path("statsInference").path("supported").asBoolean());
         assertTrue(capsBody.path("operations").path("statsAnomalies").path("supported").asBoolean());
+        assertTrue(capsBody.path("operations").path("statsSimulation").path("supported").asBoolean());
+        assertTrue(capsBody.path("operations").path("statsCounterfactual").path("supported").asBoolean());
         assertTrue(capsBody.path("stats").path("inference").asBoolean());
         assertTrue(capsBody.path("stats").path("anomalies").asBoolean());
+        assertTrue(capsBody.path("stats").path("simulation").asBoolean());
+        assertTrue(capsBody.path("stats").path("counterfactual").asBoolean());
 
         ResponseEntity<String> statsCapsResponse = get("/intelligent-employees/stats/capabilities");
         assertEquals(200, statsCapsResponse.getStatusCode().value());
         JsonNode statsCapsBody = body(statsCapsResponse);
         assertTrue(statsCapsBody.path("inference").asBoolean());
         assertTrue(statsCapsBody.path("anomalies").asBoolean());
+        assertTrue(statsCapsBody.path("simulation").asBoolean());
+        assertTrue(statsCapsBody.path("counterfactual").asBoolean());
 
         ResponseEntity<String> domainResponse = get("/schemas/domain?resource=human-resources.intelligent-employees");
         assertEquals(200, domainResponse.getStatusCode().value());
@@ -70,6 +78,8 @@ class StatsIntelligenceE2ETest extends AbstractE2eH2Test {
         assertNotNull(conceptNode);
         assertTrue(conceptNode.path("metadata").path("capabilities").path("statsInference").asBoolean());
         assertTrue(conceptNode.path("metadata").path("capabilities").path("statsAnomalies").asBoolean());
+        assertTrue(conceptNode.path("metadata").path("capabilities").path("statsSimulation").asBoolean());
+        assertTrue(conceptNode.path("metadata").path("capabilities").path("statsCounterfactual").asBoolean());
 
         List<String> statsCapabilityKeys = new ArrayList<>();
         for (JsonNode node : domainBody.path("nodes")) {
@@ -84,11 +94,17 @@ class StatsIntelligenceE2ETest extends AbstractE2eH2Test {
                 "Expected stats.inference node in /schemas/domain: " + statsCapabilityKeys);
         assertTrue(statsCapabilityKeys.contains("stats.anomalies"),
                 "Expected stats.anomalies node in /schemas/domain: " + statsCapabilityKeys);
+        assertTrue(statsCapabilityKeys.contains("stats.simulation"),
+                "Expected stats.simulation node in /schemas/domain: " + statsCapabilityKeys);
+        assertTrue(statsCapabilityKeys.contains("stats.counterfactual"),
+                "Expected stats.counterfactual node in /schemas/domain: " + statsCapabilityKeys);
 
         ResponseEntity<String> standardCaps = get("/employees/capabilities");
         assertEquals(200, standardCaps.getStatusCode().value());
         assertFalse(body(standardCaps).path("canonicalOperations").path("statsInference").asBoolean());
         assertFalse(body(standardCaps).path("canonicalOperations").path("statsAnomalies").asBoolean());
+        assertFalse(body(standardCaps).path("canonicalOperations").path("statsSimulation").asBoolean());
+        assertFalse(body(standardCaps).path("canonicalOperations").path("statsCounterfactual").asBoolean());
 
         ResponseEntity<String> disabledInference = postJson("/employees/stats/inference", """
                 {
@@ -291,10 +307,165 @@ class StatsIntelligenceE2ETest extends AbstractE2eH2Test {
         assertEquals(expectedSortedKeys, streamedKeys);
     }
 
+    @Test
+    void simulationAndCounterfactualEndpointsEnforceSchemasJobsAndRuleValidation() throws Exception {
+        String simulationPayload = """
+                {
+                  "filter": {},
+                  "requestId": "corr-e2e-sim-1",
+                  "scenarioCount": 500,
+                  "horizonPeriods": 6,
+                  "seed": 42,
+                  "samplingStrategy": "QUASI_MONTE_CARLO_SOBOL",
+                  "dependenceMethod": "IMAN_CONOVER",
+                  "modelPoints": [
+                    {
+                      "pointKey": "pt-active",
+                      "segmentLabel": "Active Workforce",
+                      "fundingSourceKey": "GENERAL_FUND",
+                      "weightCount": 12,
+                      "baseAmount": 100000.00,
+                      "periodGrowthFactors": [],
+                      "factorSensitivities": { "wage_index": 1.0 },
+                      "fixedComponent": 0.00
+                    }
+                  ],
+                  "stochasticFactors": [
+                    {
+                      "factorKey": "wage_index",
+                      "distribution": "NORMAL",
+                      "parameters": { "mean": 0.04, "stdDev": 0.02 },
+                      "applyPerPeriod": false
+                    }
+                  ],
+                  "minBucketCount": 1
+                }
+                """;
+        ResponseEntity<String> simResp = postJson("/intelligent-employees/stats/simulation", simulationPayload);
+        assertEquals(200, simResp.getStatusCode().value());
+        JsonNode simJson = body(simResp);
+        assertEquals("STOCHASTIC_SIMULATION",
+                simJson.path("data").path("provenance").path("epistemicKind").asText());
+        assertEquals("corr-e2e-sim-1",
+                simJson.path("data").path("provenance").path("correlationId").asText());
+        assertEquals(500, simJson.path("data").path("scenarioCount").asInt());
+        assertEquals(6, simJson.path("data").path("fanSeries").size());
+        assertEquals(1, intelligenceExecutor.lastSimulationRequest().minBucketCount());
+        for (String schemaHref : extractSchemaHrefs(simJson.path("_links").path("schema"))) {
+            ResponseEntity<String> schemaRes = getHref(schemaHref);
+            assertEquals(200, schemaRes.getStatusCode().value());
+            assertTrue(body(schemaRes).has("properties"));
+        }
+
+        ResponseEntity<String> simJobResp = postJson("/intelligent-employees/stats/simulation/jobs", simulationPayload);
+        assertEquals(202, simJobResp.getStatusCode().value());
+        assertEquals("/api/praxis/intelligence/jobs/e2e-sim-job-1", simJobResp.getHeaders().getFirst("Location"));
+        JsonNode simJobJson = body(simJobResp);
+        assertEquals("e2e-sim-job-1", simJobJson.path("data").path("jobId").asText());
+        assertEquals("/api/praxis/intelligence/jobs/e2e-sim-job-1",
+                simJobJson.path("_links").path("self").path("href").asText());
+        assertEquals("/api/praxis/intelligence/jobs/e2e-sim-job-1/cancel",
+                simJobJson.path("_links").path("cancel").path("href").asText());
+        List<String> simJobSchemas = extractSchemaHrefs(simJobJson.path("_links").path("schema"));
+        assertEquals(2, simJobSchemas.size());
+        for (String schemaHref : simJobSchemas) {
+            ResponseEntity<String> schemaRes = getHref(schemaHref);
+            assertEquals(200, schemaRes.getStatusCode().value());
+            assertTrue(body(schemaRes).has("properties"));
+        }
+
+        String cfPayload = """
+                {
+                  "filter": {},
+                  "requestId": "corr-e2e-cf-1",
+                  "targetMetricKey": "fiscal_ratio",
+                  "direction": "DECREASE_TO_TARGET",
+                  "baselineValue": 0.55,
+                  "targetValue": 0.49,
+                  "mutableLevers": [
+                    {
+                      "leverKey": "headcount_delta",
+                      "leverType": "DISCRETE_INT",
+                      "currentValue": 20,
+                      "minValue": 0,
+                      "maxValue": 100,
+                      "stepSize": 5,
+                      "allowedCategories": [],
+                      "costWeight": 1.0,
+                      "linearSensitivity": -0.01,
+                      "categoryImpacts": {},
+                      "monotoneSign": -1
+                    }
+                  ],
+                  "maxCandidates": 5,
+                  "maxChangedLevers": 2,
+                  "seed": 42
+                }
+                """;
+        ResponseEntity<String> cfResp = postJson("/intelligent-employees/stats/counterfactual", cfPayload);
+        assertEquals(200, cfResp.getStatusCode().value());
+        JsonNode cfJson = body(cfResp);
+        assertEquals("OPTIMIZATION_RESULT",
+                cfJson.path("data").path("provenance").path("epistemicKind").asText());
+        assertEquals("corr-e2e-cf-1",
+                cfJson.path("data").path("provenance").path("correlationId").asText());
+        assertEquals(1, cfJson.path("data").path("candidates").size());
+        assertEquals("cf-allowed", cfJson.path("data").path("candidates").get(0).path("candidateId").asText());
+        assertEquals("VALIDATED_BY_RULES_ENGINE",
+                cfJson.path("data").path("candidates").get(0).path("feasibilityStatus").asText());
+        assertEquals(1, cfJson.path("data").path("rejectedCount").asInt());
+        for (String schemaHref : extractSchemaHrefs(cfJson.path("_links").path("schema"))) {
+            ResponseEntity<String> schemaRes = getHref(schemaHref);
+            assertEquals(200, schemaRes.getStatusCode().value());
+            assertTrue(body(schemaRes).has("properties"));
+        }
+
+        ResponseEntity<String> cfJobResp = postJson("/intelligent-employees/stats/counterfactual/jobs", cfPayload);
+        assertEquals(202, cfJobResp.getStatusCode().value());
+        assertEquals("/api/praxis/intelligence/jobs/e2e-cf-job-1", cfJobResp.getHeaders().getFirst("Location"));
+        JsonNode cfJobJson = body(cfJobResp);
+        assertEquals("e2e-cf-job-1", cfJobJson.path("data").path("jobId").asText());
+        List<String> cfJobSchemas = extractSchemaHrefs(cfJobJson.path("_links").path("schema"));
+        assertEquals(2, cfJobSchemas.size());
+        for (String schemaHref : cfJobSchemas) {
+            ResponseEntity<String> schemaRes = getHref(schemaHref);
+            assertEquals(200, schemaRes.getStatusCode().value());
+            assertTrue(body(schemaRes).has("properties"));
+        }
+
+        ResponseEntity<String> blockedSim = postWithPrincipalAndCorrelation(
+                "/intelligent-employees/stats/simulation", "blocked-resource-user", "e2e-corr-denied-sim", simulationPayload);
+        assertEquals(403, blockedSim.getStatusCode().value());
+        assertEquals("e2e-corr-denied-sim", body(blockedSim).path("errors").get(0).path("traceId").asText());
+
+        ResponseEntity<String> blockedCf = postWithPrincipalAndCorrelation(
+                "/intelligent-employees/stats/counterfactual", "blocked-resource-user", "e2e-corr-denied-cf", cfPayload);
+        assertEquals(403, blockedCf.getStatusCode().value());
+        assertEquals("e2e-corr-denied-cf", body(blockedCf).path("errors").get(0).path("traceId").asText());
+
+        ResponseEntity<String> disabledSim = postJson("/employees/stats/simulation", simulationPayload);
+        assertEquals(501, disabledSim.getStatusCode().value());
+
+        ResponseEntity<String> disabledCf = postJson("/employees/stats/counterfactual", cfPayload);
+        assertEquals(501, disabledCf.getStatusCode().value());
+    }
+
     private ResponseEntity<String> postWithPrincipal(String path, String principal, String bodyJson) {
+        return postWithPrincipalAndCorrelation(path, principal, null, bodyJson);
+    }
+
+    private ResponseEntity<String> postWithPrincipalAndCorrelation(
+            String path,
+            String principal,
+            String correlationId,
+            String bodyJson
+    ) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.add("X-Test-Principal", principal);
+        if (correlationId != null) {
+            headers.add("X-Correlation-ID", correlationId);
+        }
         return rest.getRestTemplate().exchange(
                 URI.create(url(path)),
                 HttpMethod.POST,

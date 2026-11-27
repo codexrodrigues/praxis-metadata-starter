@@ -9,7 +9,9 @@ public enum AnalyticsOperation {
     DISTRIBUTION("distribution"),
     COMPARISON("comparison"),
     INFERENCE("inference"),
-    ANOMALIES("anomalies");
+    ANOMALIES("anomalies"),
+    SIMULATION("simulation"),
+    COUNTERFACTUAL("counterfactual");
 
     private final String wireValue;
 

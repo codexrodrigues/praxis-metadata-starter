@@ -1,7 +1,10 @@
 package org.praxisplatform.uischema.service.base;
 
 import org.praxisplatform.intelligence.contracts.anomaly.AnomalyScanResponse;
+import org.praxisplatform.intelligence.contracts.counterfactual.CounterfactualResponse;
 import org.praxisplatform.intelligence.contracts.inference.InferenceResponse;
+import org.praxisplatform.intelligence.contracts.jobs.IntelligenceJobReceipt;
+import org.praxisplatform.intelligence.contracts.simulation.StochasticSimulationResponse;
 import org.praxisplatform.uischema.concurrency.ResourceRepresentationResult;
 
 import org.praxisplatform.uischema.dto.CursorPage;
@@ -17,6 +20,7 @@ import org.praxisplatform.uischema.options.OptionSourceFilterRequest;
 import org.praxisplatform.uischema.options.OptionSourceRegistry;
 import org.praxisplatform.uischema.stats.StatsFieldRegistry;
 import org.praxisplatform.uischema.stats.StatsSupportMode;
+import org.praxisplatform.uischema.stats.dto.CounterfactualStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsRequest;
 import org.praxisplatform.uischema.stats.dto.DistributionStatsResponse;
 import org.praxisplatform.uischema.stats.dto.AnomalyScanStatsRequest;
@@ -25,6 +29,7 @@ import org.praxisplatform.uischema.stats.dto.InferenceStatsRequest;
 import org.praxisplatform.uischema.stats.dto.ComparisonStatsResponse;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsRequest;
 import org.praxisplatform.uischema.stats.dto.GroupByStatsResponse;
+import org.praxisplatform.uischema.stats.dto.StochasticSimulationStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsRequest;
 import org.praxisplatform.uischema.stats.dto.TimeSeriesStatsResponse;
 import org.springframework.data.domain.Page;
@@ -105,6 +110,14 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
     }
 
     default StatsSupportMode getComparisonStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    default StatsSupportMode getSimulationStatsSupportMode() {
+        return StatsSupportMode.DISABLED;
+    }
+
+    default StatsSupportMode getCounterfactualStatsSupportMode() {
         return StatsSupportMode.DISABLED;
     }
 
@@ -192,6 +205,26 @@ public interface BaseResourceQueryService<ResponseDTO, ID, FilterDTO extends Gen
 
     default AnomalyScanResponse anomalyScanStats(AnomalyScanStatsRequest<FilterDTO> request) {
         throw new UnsupportedOperationException("Anomaly scan stats not implemented");
+    }
+
+    default StochasticSimulationResponse stochasticSimulationStats(
+            StochasticSimulationStatsRequest<FilterDTO> request
+    ) {
+        throw new UnsupportedOperationException("Stochastic simulation not implemented");
+    }
+
+    default IntelligenceJobReceipt submitStochasticSimulationJob(
+            StochasticSimulationStatsRequest<FilterDTO> request
+    ) {
+        throw new UnsupportedOperationException("Asynchronous stochastic simulation not implemented");
+    }
+
+    default CounterfactualResponse counterfactualStats(CounterfactualStatsRequest<FilterDTO> request) {
+        throw new UnsupportedOperationException("Counterfactual search not implemented");
+    }
+
+    default IntelligenceJobReceipt submitCounterfactualJob(CounterfactualStatsRequest<FilterDTO> request) {
+        throw new UnsupportedOperationException("Asynchronous counterfactual search not implemented");
     }
 
     default boolean supportsCollectionExport() {

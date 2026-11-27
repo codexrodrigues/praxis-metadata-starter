@@ -133,7 +133,9 @@ public class UiAnalyticsAnnotationMapper {
                 "/stats/distribution",
                 "/stats/comparison",
                 "/stats/inference",
-                "/stats/anomalies"
+                "/stats/anomalies",
+                "/stats/simulation",
+                "/stats/counterfactual"
         )) {
             if (normalizedPath.endsWith(suffix)) {
                 return normalizedPath.substring(0, normalizedPath.length() - suffix.length());

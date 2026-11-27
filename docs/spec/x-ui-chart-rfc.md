@@ -347,3 +347,36 @@ Define:
 - definir a API final do editor visual
 - definir a engine de renderizacao futura alem do adapter atual
 - fechar persistencia de preferencia por usuario/equipe
+
+## Onda Aditiva — Capacidades ECharts 6 (Contrato Neutro)
+
+Esta extensao preserva 100% de compatibilidade retroativa com a versao `0.1.0` e amplia o vocabulario neutro de plataforma sem expor `EChartsOption` em contratos publicos.
+
+### Novas Intencoes Analiticas (`AnalyticsIntent`)
+
+- `matrix`: projecoes matriciais bidimensionais sobre grades categoricas/ordinais (ex.: faixa × nivel).
+- `flow`: relacoes origem -> destino com intensidade (fluxos organizacionais e redes de movimentacao).
+- `range`: comparacao de amplitude entre piso, mediana/atual e teto por categoria.
+- `multivariate`: analise simultanea de multiplas metricas/quesitos comparaveis em coordenadas paralelas.
+
+### Novos Tipos Neutros de Chart (`kind`)
+
+- `matrix-grid`: grade matricial 2D/3D (mapeada internamente ao componente `Matrix` do renderer).
+- `range-comparison`: grafico de amplitude/halteres (piso, mediana/referencia atual e teto).
+- `beeswarm`: dispersao jittered sem sobreposicao para distribuicao de individuos por categoria.
+- `parallel`: coordenadas paralelas multivariadas com selecao por eixo.
+- `chord`: diagrama de cordas para fluxos relacionais entre entidades/unidades.
+
+### Contratos Transversais Declarativos
+
+- `targetMarkers[].emphasis`: aceita `"static"` (padrao) ou `"pulse"` (destaque animado de referencia alvo) com `rippleScale` opcional.
+- `trajectory`: trilha direcional ordenada (`steps[]`, `animated`, `showSymbols`, `curveness`) sobre eixos cartesianos ou matriciais.
+- `brushSelection`: selecao interativa em area (`mode`, `idField`, `bulkActionId`, `bulkActionLabel`, `bulkMode`, `resourcePath`, `maxSelectionCount`) para integracao governada com fluxos de lote.
+- `timeline`: evolucao temporal ou por marco com transicao continua (`stepField`, `steps`, `autoPlay`, `playIntervalMs`, `loop`, `morphTransition`).
+- `syncGroup`: agrupamento declarativo de widgets coordenados para sincronizacao de ponteiro e tooltip entre charts de um mesmo painel.
+
+### Operacoes de Projecao e Invariantes de Governanca
+
+- Operacoes suportadas em `praxis.stats`: acrescenta uso coordenado de `simulation` e `counterfactual` mantendo o mesmo envelope canonico.
+- **Privacidade LGPD (`k-anonymity`)**: linhas/registros suprimidos por politica de privacidade permanecem excluidos das agregacoes visuais e nunca sao emitidos em selecoes por area (`brushSelection`).
+- **Acessibilidade (`prefers-reduced-motion: reduce`)**: quando reduzido pelo usuario ou desabilitado em `motion.enabled=false`, marcadores pulsantes, efeitos de trajetoria animada, `autoPlay` e morfismo `UniversalTransition` devem degradar automaticamente para estado estatico.

@@ -144,7 +144,9 @@ class OpenApiCanonicalCapabilityResolverTest {
                     "/employees/stats/distribution": { "post": {} },
                     "/employees/stats/comparison": { "post": {} },
                     "/employees/stats/inference": { "post": {} },
-                    "/employees/stats/anomalies": { "post": {} }
+                    "/employees/stats/anomalies": { "post": {} },
+                    "/employees/stats/simulation": { "post": {} },
+                    "/employees/stats/counterfactual": { "post": {} }
                   }
                 }
                 """);
@@ -162,6 +164,8 @@ class OpenApiCanonicalCapabilityResolverTest {
         assertFalse(capabilities.get("statsComparison"));
         assertFalse(capabilities.get("statsInference"));
         assertFalse(capabilities.get("statsAnomalies"));
+        assertFalse(capabilities.get("statsSimulation"));
+        assertFalse(capabilities.get("statsCounterfactual"));
         resolver.resolveOperations(document, "/employees").values()
                 .forEach(operation -> assertFalse(operation.supported()));
     }
@@ -172,7 +176,9 @@ class OpenApiCanonicalCapabilityResolverTest {
                 {
                   "paths": {
                     "/employees/stats/inference": { "post": {} },
-                    "/employees/stats/anomalies": { "post": {} }
+                    "/employees/stats/anomalies": { "post": {} },
+                    "/employees/stats/simulation": { "post": {} },
+                    "/employees/stats/counterfactual": { "post": {} }
                   }
                 }
                 """);
@@ -180,7 +186,7 @@ class OpenApiCanonicalCapabilityResolverTest {
                 new StaticOpenApiDocumentService("human-resources", document),
                 ignored -> new ResourceStructuralCapabilities(
                         false, false, false, false, false, false,
-                        true, true, false, false, false,
+                        true, true, true, true, false, false, false,
                         StatsCapability.empty(), null
                 )
         );
@@ -188,9 +194,13 @@ class OpenApiCanonicalCapabilityResolverTest {
         Map<String, Boolean> capabilities = resolver.resolve("/employees");
         assertTrue(capabilities.get("statsInference"));
         assertTrue(capabilities.get("statsAnomalies"));
+        assertTrue(capabilities.get("statsSimulation"));
+        assertTrue(capabilities.get("statsCounterfactual"));
         Map<String, CapabilityOperation> operations = resolver.resolveOperations(document, "/employees");
         assertOperation(operations, "statsInference", true, "COLLECTION", "POST", "stats-inference");
         assertOperation(operations, "statsAnomalies", true, "COLLECTION", "POST", "stats-anomalies");
+        assertOperation(operations, "statsSimulation", true, "COLLECTION", "POST", "stats-simulation");
+        assertOperation(operations, "statsCounterfactual", true, "COLLECTION", "POST", "stats-counterfactual");
     }
 
     private static ResourceStructuralCapabilities fullySupported() {

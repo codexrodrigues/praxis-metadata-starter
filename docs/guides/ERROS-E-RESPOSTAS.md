@@ -90,6 +90,14 @@ rejeitado, e uma string isolada não representa um problema.
   O handler usa mensagem pública fixa e não expõe a causa privada. Demais `IllegalStateException`
   não recebem esse mapeamento. Ver [lifecycle governado](../spec/BULK-OPERATION-LIFECYCLE.md).
 - `InvalidFilterPayloadException` → 400 (payload de filtro inválido)
+- `BulkProtocolPayloadException` → 400 com categoria `VALIDATION`, código `BULK_PROTOCOL_PAYLOAD_INVALID` e mensagem pública fixa (`"Invalid JSON payload or payload incompatible with the bulk protocol contract."`), sem expor causa Jackson ou conteúdo do payload de entrada
+- `HttpMessageNotReadableException` com `IllegalArgumentException` na instanciação de contratos em `org.praxisplatform.intelligence.contracts.*` → 400 preservando a mensagem canônica do invariante violado
+- `IntelligenceExecutionException` → status e título semântico mapeados por `IntelligenceErrorCode`:
+  - `DRIFT_CIRCUIT_OPEN` → `409 Conflict` (`Anchor drift circuit open`)
+  - `PAYLOAD_TOO_LARGE` → `413 Payload Too Large` (`https://example.com/probs/validation-error`)
+  - `INSUFFICIENT_SAMPLE_SIZE` / `K_ANONYMITY_SUPPRESSED` / `NON_CONVERGENT_OPTIMIZER` → `422 Unprocessable Entity`
+  - `INTELLIGENCE_ENGINE_UNAVAILABLE` / `CONTRACT_VERSION_MISMATCH` → `503` / `502` conforme contrato do código
+  - `JOB_TIMEOUT` → `504 Gateway Timeout`
 - `BusinessException` → 400 com categoria `BUSINESS_LOGIC`
 - `ResourceOperationFailureException` → status, categoria, codigo e target derivados de uma
   decisao governada `ResourceOperationFailure`; o handler registra apenas a decisao publica e nunca

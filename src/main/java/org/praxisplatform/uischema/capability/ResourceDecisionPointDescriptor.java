@@ -73,7 +73,9 @@ public record ResourceDecisionPointDescriptor(
         COLLECTION_EXPORT,
         AI_TOOL_EXECUTION,
         STATISTICAL_INFERENCE,
-        ANOMALY_SCAN
+        ANOMALY_SCAN,
+        STOCHASTIC_SIMULATION,
+        COUNTERFACTUAL_SEARCH
     }
 
     public ResourceDecisionPointDescriptor {

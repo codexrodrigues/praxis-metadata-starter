@@ -9,7 +9,11 @@ public enum AnalyticsIntent {
     DISTRIBUTION("distribution"),
     COMPOSITION("composition"),
     COMPARISON("comparison"),
-    CORRELATION("correlation");
+    CORRELATION("correlation"),
+    MATRIX("matrix"),
+    FLOW("flow"),
+    RANGE("range"),
+    MULTIVARIATE("multivariate");
 
     private final String wireValue;
 

@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.EOFException;
 import org.junit.jupiter.api.Test;
+import org.praxisplatform.uischema.bulk.BulkProtocolPayloadException;
 import org.praxisplatform.uischema.concurrency.ResourceVersionPreconditionException;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.praxisplatform.uischema.rest.exceptionhandler.exception.InvalidFilterPayloadException;
 import org.praxisplatform.uischema.rest.failure.ResourceOperationFailure;
@@ -480,6 +482,28 @@ class GlobalExceptionHandlerTest {
         assertNotNull(body.getErrors());
         assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
         assertEquals("REQUEST_PAYLOAD_INVALID", body.getErrors().get(0).getCode());
+    }
+
+    @Test
+    void shouldMapBulkProtocolPayloadExceptionToBulkProtocolPayloadInvalid() {
+        WebRequest request = webRequest("/api/workforce/items/bulk/update/evaluation");
+
+        BulkProtocolPayloadException ex =
+                new BulkProtocolPayloadException(new MockHttpInputMessage(new byte[0]));
+
+        assertNull(ex.getCause());
+
+        var response = handler.handleHttpMessageNotReadable(ex, request);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        RestApiResponse<Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("failure", body.getStatus());
+        assertEquals(BulkProtocolPayloadException.PUBLIC_MESSAGE, body.getMessage());
+        assertNotNull(body.getErrors());
+        assertEquals(ErrorCategory.VALIDATION, body.getErrors().get(0).getCategory());
+        assertEquals("BULK_PROTOCOL_PAYLOAD_INVALID", body.getErrors().get(0).getCode());
+        assertEquals("/api/workforce/items/bulk/update/evaluation", body.getErrors().get(0).getInstance().toString());
     }
 
     @Test
