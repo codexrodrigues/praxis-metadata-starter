@@ -730,4 +730,11 @@ Following `b5358dce93` (`v8.0.0-rc.200`), `BulkPublicationAdminController.java`,
 1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
    - Refreshed committed-blob `sha256` digests on `BulkNamespaceBatchAndAsyncPublicationTest.java` (`excluded_outside_impact` / `bulk_embedded_pg`) and `BulkOperationLifecycleAutoConfigurationTest.java` (`no_db`), and recomputed `reviewedScopeDigest` on affected `impactReview` and `historical_reuse` closures encompassing `uischema/bulk/` / `uischema/`, preserving all `rawArtifactSha256`, `dependencyDigest`, and B–H / resource-contract obligations unchanged.
 
+## 2026-11-26 reconciliation: Onda 2 Compass & PLAT-EVO-21 analytics metadata + bulk protocol 400 error contract (future `v8.0.0-rc.201`)
+
+Following `21647eb67f` on `main`, added `BulkProtocolPayloadException`, `PraxisBulkProtocolHttpMessageConverter`, and `GlobalExceptionHandler` HTTP `400` validation mapping (`BULK_PROTOCOL_PAYLOAD_INVALID`), alongside Onda 2 Compass / `PLAT-EVO-21` analytics metadata (`AnalyticsIntent`, `AnalyticsOperation`, `StatsCapability`, `StochasticSimulationStatsRequest`, `CounterfactualStatsRequest`, query/capability/security helpers, and `x-ui` schemas/guides) and removed literal Neon branch/project identifiers from `AGENTS.md` to satisfy public purity gates. Zero database, SQL, Flyway migration, bulk-storage ACL/permission, or resource-contract storage changes were introduced.
+
+1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Inventoried new unit contract suite `src/test/java/org/praxisplatform/uischema/stats/ResourceSimulationAndCounterfactualStatsTest.java` (`no_db`), refreshed committed-blob `sha256` digests on the 13 modified test sources (`no_db` / `support` / `excluded_outside_impact`), and recomputed `reviewedScopeDigest` on affected `impactReview` and `historical_reuse` closures encompassing `uischema/bulk/` and `uischema/`, leaving all `rawArtifactSha256`, `dependencyDigest`, and prior B–H / resource-contract obligations unchanged.
+
 
