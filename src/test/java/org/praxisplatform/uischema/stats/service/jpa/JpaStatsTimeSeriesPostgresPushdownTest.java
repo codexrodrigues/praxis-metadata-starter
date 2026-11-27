@@ -40,6 +40,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -463,6 +464,199 @@ class JpaStatsTimeSeriesPostgresPushdownTest {
         long totalRollingRows = rolling.points().stream().mapToLong(TimeSeriesPoint::countOrZero).sum();
         assertEquals(12L, totalRollingRows);
         assertTrue(rolling.points().size() >= 36);
+    }
+
+    @Test
+    void preservesCalendarBucketsWhenHibernateJdbcTimeZoneIsUtcUnderNonUtcJvm() {
+        TimeZone previousDefault = TimeZone.getDefault();
+        LocalContainerEntityManagerFactoryBean utcBean = null;
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("America/Sao_Paulo"));
+
+            HibernateJpaVendorAdapter vendor = new HibernateJpaVendorAdapter();
+            vendor.setDatabase(Database.POSTGRESQL);
+            vendor.setShowSql(false);
+
+            utcBean = new LocalContainerEntityManagerFactoryBean();
+            utcBean.setDataSource(dataSource);
+            utcBean.setJpaVendorAdapter(vendor);
+            utcBean.setPackagesToScan();
+            utcBean.setPersistenceUnitPostProcessors(
+                    pui -> pui.addManagedClassName(PushdownSampleEntity.class.getName()));
+            utcBean.setJpaPropertyMap(Map.of(
+                    "hibernate.hbm2ddl.auto", "none",
+                    "hibernate.archive.autodetection", "none",
+                    "hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect",
+                    "hibernate.jdbc.time_zone", "UTC"
+            ));
+            utcBean.afterPropertiesSet();
+
+            EntityManagerFactory utcEmf = utcBean.getObject();
+            assertNotNull(utcEmf);
+            EntityManager utcEm = SharedEntityManagerCreator.createSharedEntityManager(utcEmf);
+            TransactionTemplate utcTx = new TransactionTemplate(new JpaTransactionManager(utcEmf));
+
+            utcTx.executeWithoutResult(status -> {
+                for (int i = 0; i < 4; i++) {
+                    PushdownSampleEntity entity = new PushdownSampleEntity();
+                    entity.setCohort("utc-jdbc-boundary");
+                    entity.setCategory("OCT");
+                    entity.setEventDate(LocalDate.of(2026, 10, 1));
+                    entity.setEventDateTime(LocalDateTime.of(2026, 10, 1, 10, 0));
+                    entity.setEventInstant(Instant.parse("2026-10-01T15:00:00Z"));
+                    entity.setAmount(BigDecimal.TEN);
+                    utcEm.persist(entity);
+                }
+
+                PushdownSampleEntity instantBoundary = new PushdownSampleEntity();
+                instantBoundary.setCohort("utc-jdbc-boundary");
+                instantBoundary.setCategory("NOV_CAL_OCT_INSTANT");
+                instantBoundary.setEventDate(LocalDate.of(2026, 11, 1));
+                instantBoundary.setEventDateTime(LocalDateTime.of(2026, 11, 1, 10, 0));
+                instantBoundary.setEventInstant(Instant.parse("2026-11-01T01:30:00Z"));
+                instantBoundary.setAmount(BigDecimal.TEN);
+                utcEm.persist(instantBoundary);
+
+                for (int i = 0; i < 5; i++) {
+                    PushdownSampleEntity entity = new PushdownSampleEntity();
+                    entity.setCohort("utc-jdbc-boundary");
+                    entity.setCategory("NOV");
+                    entity.setEventDate(LocalDate.of(2026, 11, 1));
+                    entity.setEventDateTime(LocalDateTime.of(2026, 11, 1, 14, 0));
+                    entity.setEventInstant(Instant.parse("2026-11-01T15:00:00Z"));
+                    entity.setAmount(BigDecimal.TEN);
+                    utcEm.persist(entity);
+                }
+            });
+
+            List<ResolvedStatsMetric> countOnly = List.of(
+                    new ResolvedStatsMetric(new StatsMetricRequest(StatsMetric.COUNT, null), null)
+            );
+
+            TimeSeriesStatsResponse dateMonthly = executor.executeTimeSeries(
+                    utcEm,
+                    PushdownSampleEntity.class,
+                    byCohort("utc-jdbc-boundary"),
+                    StatsFieldDescriptor.timeSeriesField("eventDate", "eventDate"),
+                    countOnly,
+                    new TimeSeriesStatsRequest<>(
+                            new EmptyFilter(),
+                            "eventDate",
+                            TimeSeriesGranularity.MONTH,
+                            new StatsMetricRequest(StatsMetric.COUNT, null),
+                            LocalDate.of(2026, 9, 1),
+                            LocalDate.of(2026, 11, 30),
+                            true,
+                            null,
+                            "America/Sao_Paulo"
+                    ),
+                    120,
+                    365,
+                    0,
+                    5
+            );
+            assertEquals(3, dateMonthly.points().size());
+            assertEquals(LocalDate.of(2026, 9, 1), dateMonthly.points().get(0).start());
+            assertEquals(0L, dateMonthly.points().get(0).count());
+            assertEquals(LocalDate.of(2026, 10, 1), dateMonthly.points().get(1).start());
+            assertEquals(4L, dateMonthly.points().get(1).count());
+            assertEquals(LocalDate.of(2026, 11, 1), dateMonthly.points().get(2).start());
+            assertEquals(6L, dateMonthly.points().get(2).count());
+
+            TimeSeriesStatsResponse dateDaily = executor.executeTimeSeries(
+                    utcEm,
+                    PushdownSampleEntity.class,
+                    byCohort("utc-jdbc-boundary"),
+                    StatsFieldDescriptor.timeSeriesField("eventDate", "eventDate"),
+                    countOnly,
+                    new TimeSeriesStatsRequest<>(
+                            new EmptyFilter(),
+                            "eventDate",
+                            TimeSeriesGranularity.DAY,
+                            new StatsMetricRequest(StatsMetric.COUNT, null),
+                            LocalDate.of(2026, 9, 28),
+                            LocalDate.of(2026, 11, 5),
+                            false,
+                            null,
+                            "America/Sao_Paulo"
+                    ),
+                    120,
+                    365,
+                    0,
+                    5
+            );
+            assertEquals(2, dateDaily.points().size());
+            assertEquals(LocalDate.of(2026, 10, 1), dateDaily.points().get(0).start());
+            assertEquals(4L, dateDaily.points().get(0).count());
+            assertEquals(LocalDate.of(2026, 11, 1), dateDaily.points().get(1).start());
+            assertEquals(6L, dateDaily.points().get(1).count());
+
+            TimeSeriesStatsResponse dateTimeMonthly = executor.executeTimeSeries(
+                    utcEm,
+                    PushdownSampleEntity.class,
+                    byCohort("utc-jdbc-boundary"),
+                    StatsFieldDescriptor.timeSeriesField("eventDateTime", "eventDateTime"),
+                    countOnly,
+                    new TimeSeriesStatsRequest<>(
+                            new EmptyFilter(),
+                            "eventDateTime",
+                            TimeSeriesGranularity.MONTH,
+                            new StatsMetricRequest(StatsMetric.COUNT, null),
+                            LocalDate.of(2026, 9, 1),
+                            LocalDate.of(2026, 11, 30),
+                            true,
+                            null,
+                            "America/Sao_Paulo"
+                    ),
+                    120,
+                    365,
+                    0,
+                    5
+            );
+            assertEquals(3, dateTimeMonthly.points().size());
+            assertEquals(LocalDate.of(2026, 9, 1), dateTimeMonthly.points().get(0).start());
+            assertEquals(0L, dateTimeMonthly.points().get(0).count());
+            assertEquals(LocalDate.of(2026, 10, 1), dateTimeMonthly.points().get(1).start());
+            assertEquals(4L, dateTimeMonthly.points().get(1).count());
+            assertEquals(LocalDate.of(2026, 11, 1), dateTimeMonthly.points().get(2).start());
+            assertEquals(6L, dateTimeMonthly.points().get(2).count());
+
+            TimeSeriesStatsResponse instantMonthly = executor.executeTimeSeries(
+                    utcEm,
+                    PushdownSampleEntity.class,
+                    byCohort("utc-jdbc-boundary"),
+                    StatsFieldDescriptor.timeSeriesField("eventInstant", "eventInstant"),
+                    countOnly,
+                    new TimeSeriesStatsRequest<>(
+                            new EmptyFilter(),
+                            "eventInstant",
+                            TimeSeriesGranularity.MONTH,
+                            new StatsMetricRequest(StatsMetric.COUNT, null),
+                            LocalDate.of(2026, 9, 1),
+                            LocalDate.of(2026, 11, 30),
+                            false,
+                            null,
+                            "America/Sao_Paulo"
+                    ),
+                    120,
+                    365,
+                    0,
+                    5
+            );
+            assertEquals(2, instantMonthly.points().size());
+            assertEquals(LocalDate.of(2026, 10, 1), instantMonthly.points().get(0).start());
+            assertEquals(5L, instantMonthly.points().get(0).count());
+            assertEquals(LocalDate.of(2026, 11, 1), instantMonthly.points().get(1).start());
+            assertEquals(5L, instantMonthly.points().get(1).count());
+        } finally {
+            try {
+                if (utcBean != null) {
+                    utcBean.destroy();
+                }
+            } finally {
+                TimeZone.setDefault(previousDefault);
+            }
+        }
     }
 
     static class EmptyFilter implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {

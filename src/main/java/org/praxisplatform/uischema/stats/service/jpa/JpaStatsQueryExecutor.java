@@ -1210,8 +1210,8 @@ public class JpaStatsQueryExecutor implements StatsQueryExecutor {
         Expression<?> bucketExpression;
         if (timeJavaType == LocalDate.class || timeJavaType == LocalDateTime.class) {
             bucketExpression = hcb.sql(
-                    "date_trunc('" + truncUnit + "', cast(? as timestamp))",
-                    LocalDateTime.class,
+                    "cast(date_trunc('" + truncUnit + "', cast(? as timestamp)) as date)",
+                    LocalDate.class,
                     timePath
             );
         } else {
