@@ -386,7 +386,9 @@ tecnico, locators ou detalhes de banco.</p>
 <code>byId</code>, <code>filter</code>, <code>cursor</code>,
 <code>options</code>, <code>optionSources</code>,
 <code>statsGroupBy</code>, <code>statsTimeSeries</code>,
-<code>statsDistribution</code>, <code>statsComparison</code> e
+<code>statsDistribution</code>, <code>statsComparison</code>,
+<code>statsInference</code>, <code>statsAnomalies</code>,
+<code>statsSimulation</code>, <code>statsCounterfactual</code> e
 <code>export</code>, alem das affordances básicas de recurso
 <code>create</code>, <code>view</code>, <code>edit</code>,
 <code>delete</code> e <code>duplicate-draft</code>. O <code>scope</code>
@@ -630,6 +632,28 @@ snapshot agregado</li>
 <p>Esse exemplo e propositalmente host-neutral. Em um host corporativo,
 motores legados, bancos externos, IAM ou motor regulatorio ficam atras
 da SPI. Nenhum desses nomes deve virar semantica publica do Praxis.</p>
+<h2
+id="matchers-de-seguranca-para-consultas-somente-leitura-vs-jobs-assincronos">Matchers
+de seguranca para consultas somente leitura vs jobs assincronos</h2>
+<p>Para configurar regras de CSRF e autorizacao em
+<code>SecurityFilterChain</code> com Spring Security
+<code>PathPatternParser</code> sem capturar mutacoes acidentalmente:</p>
+<ul>
+<li><code>PraxisMetadataRequestMatchers.readOnlyPostPatterns(...)</code>:
+cobre consultas POST somente leitura (<code>/filter</code>,
+<code>/export</code>, <code>/stats/group-by</code>,
+<code>/stats/simulation</code>, <code>/stats/counterfactual</code>,
+etc.).</li>
+<li><code>PraxisMetadataRequestMatchers.intelligenceJobPostPatterns(...)</code>:
+cobre exclusivamente as rotas POST <strong>stateful</strong> de
+submissao de jobs (<code>/stats/simulation/jobs</code> e
+<code>/stats/counterfactual/jobs</code>), mantendo CSRF e autorizacao de
+criacao explicitas.</li>
+<li><code>PraxisMetadataRequestMatchers.intelligenceJobPollAndCancelPatterns(...)</code>:
+cobre polling e cancelamento em
+<code>/api/praxis/intelligence/jobs/*</code> e
+<code>/api/praxis/intelligence/jobs/*/cancel</code>.</li>
+</ul>
 <h2 id="checklist-de-aceite-para-hosts">Checklist de aceite para
 hosts</h2>
 <p>Antes de declarar um recurso pronto para migracao assistida por

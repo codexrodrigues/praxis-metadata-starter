@@ -606,6 +606,99 @@ estado <code>ENGINE_UNAVAILABLE</code>, preservando o limite de
 registros filtrados (<code>413 Payload Too Large</code> quando
 excedido).</li>
 </ol>
+<hr />
+<h2
+id="simulação-estocástica-em-duas-camadas-e-busca-contrafactual-statssimulation-e-statscounterfactual">4.
+Simulação Estocástica em Duas Camadas e Busca Contrafactual
+(<code>/stats/simulation</code> e
+<code>/stats/counterfactual</code>)</h2>
+<p>Por padrão <em>fail-closed</em>,
+<code>AbstractBaseQueryResourceService#getSimulationStatsSupportMode()</code>
+e <code>#getCounterfactualStatsSupportMode()</code> retornam
+<strong><code>StatsSupportMode.DISABLED</code></strong>. Recursos
+neutros (ex.: <code>workforce.budgets</code>) habilitam os fluxos
+síncrono e assíncrono via <code>StatsSupportMode.AUTO</code> /
+<code>ENABLED</code> com os seguintes contratos:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Operação</th>
+<th>Endpoint HTTP</th>
+<th>Request DTO</th>
+<th>Orquestrador / Validador SPI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simulação síncrona</td>
+<td><code>POST /{resource}/stats/simulation</code></td>
+<td><code>StochasticSimulationStatsRequest&lt;FD&gt;</code></td>
+<td><code>StochasticSimulationOrchestrator</code> +
+<code>AnchorScenarioRevalidator</code> (<code>toleranceRatio</code>
+padrão <code>0.02d</code>)</td>
+</tr>
+<tr>
+<td>Submissão assíncrona de simulação</td>
+<td><code>POST /{resource}/stats/simulation/jobs</code></td>
+<td><code>StochasticSimulationStatsRequest&lt;FD&gt;</code></td>
+<td><code>StochasticSimulationOrchestrator#submitStochasticSimulationJob(...)</code>
+-&gt; <code>202 Accepted</code> (<code>Location</code> +
+<code>_links</code>)</td>
+</tr>
+<tr>
+<td>Busca contrafactual síncrona</td>
+<td><code>POST /{resource}/stats/counterfactual</code></td>
+<td><code>CounterfactualStatsRequest&lt;FD&gt;</code></td>
+<td><code>CounterfactualSearchOrchestrator</code> +
+<code>CounterfactualRuleValidator</code></td>
+</tr>
+<tr>
+<td>Submissão assíncrona contrafactual</td>
+<td><code>POST /{resource}/stats/counterfactual/jobs</code></td>
+<td><code>CounterfactualStatsRequest&lt;FD&gt;</code></td>
+<td><code>CounterfactualSearchOrchestrator#submitCounterfactualJob(...)</code>
+-&gt; <code>202 Accepted</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="invariantes-da-camada-de-serviço-e-segurança">Invariantes da
+camada de serviço e segurança</h3>
+<ol type="1">
+<li><strong><code>ResourceFilterAccessScope.Mode.DENIED</code> falha
+fechado com <code>403 Forbidden</code></strong> antes de derivar pontos
+ou iniciar orquestração.</li>
+<li><strong>Derivação no servidor
+(<code>resolveSimulationModelPoints</code> /
+<code>resolveCounterfactualRequest</code>):</strong> executa dentro de
+transação curta somente leitura
+(<code>resolveReadOnlyStatsTransactionTemplate()</code>) antes de
+chamadas remotas. Quando <code>resolveSimulationModelPoints</code>
+retorna lista vazia não nula, o serviço lança
+<code>INSUFFICIENT_SAMPLE_SIZE</code> (<code>422</code>) e nunca aceita
+fallback para <code>modelPoints</code> do cliente.</li>
+<li><strong>Revalidação determinística (<code>0.02d</code> =
+2%):</strong> tanto na orquestração via
+<code>StochasticRevalidationPolicy</code> quanto na revalidação inline,
+qualquer célula suprimida por k-anonimato bloqueia revalidação exata
+(<code>K_ANONYMITY_SUPPRESSED</code>, <code>422</code>), âncoras não
+revalidadas são rejeitadas (<code>CONTRACT_VERSION_MISMATCH</code>,
+<code>502</code>/<code>422</code>), e
+<code>getFailOnAnchorDriftExceeded() == true</code> abre o circuito com
+<code>DRIFT_CIRCUIT_OPEN</code> (<code>409</code>).</li>
+<li><strong>Endpoints stateful de jobs vs CSRF:</strong> rotas
+<code>/stats/simulation/jobs</code> e
+<code>/stats/counterfactual/jobs</code> criam estado e pertencem a
+<code>PraxisMetadataRequestMatchers.intelligenceJobPostPatterns(...)</code>
+(e <code>/api/praxis/intelligence/jobs/*</code> em
+<code>intelligenceJobPollAndCancelPatterns(...)</code>), nunca
+misturadas em <code>readOnlyPostPatterns()</code>.</li>
+</ol>
 <script type="module">
   const blocks = document.querySelectorAll('pre.mermaid, pre > code.language-mermaid');
   if (blocks.length > 0) {

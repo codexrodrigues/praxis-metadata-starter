@@ -66,7 +66,8 @@ package, SQL, metadados internos legados, ROWID, usuario tecnico, locators ou de
 
 IDs estaveis recebidos pelo provider incluem `all`, `byId`, `filter`, `cursor`,
 `options`, `optionSources`, `statsGroupBy`, `statsTimeSeries`,
-`statsDistribution`, `statsComparison` e `export`, alem das affordances básicas de recurso
+`statsDistribution`, `statsComparison`, `statsInference`, `statsAnomalies`,
+`statsSimulation`, `statsCounterfactual` e `export`, alem das affordances básicas de recurso
 `create`, `view`, `edit`, `delete` e `duplicate-draft`. O `scope` pertence a
 operacao: mesmo em um snapshot de item, uma operacao query/stats continua
 `COLLECTION` e nao recebe `resourceId` ou `resourceState`.
@@ -241,6 +242,19 @@ A fixture E2E do starter demonstra o padrao sem depender de nenhum sistema legad
 Esse exemplo e propositalmente host-neutral. Em um host corporativo, motores
 legados, bancos externos, IAM ou motor regulatorio ficam atras da SPI. Nenhum desses nomes
 deve virar semantica publica do Praxis.
+
+## Matchers de seguranca para consultas somente leitura vs jobs assincronos
+
+Para configurar regras de CSRF e autorizacao em `SecurityFilterChain` com Spring Security
+`PathPatternParser` sem capturar mutacoes acidentalmente:
+
+- `PraxisMetadataRequestMatchers.readOnlyPostPatterns(...)`: cobre consultas POST somente leitura
+  (`/filter`, `/export`, `/stats/group-by`, `/stats/simulation`, `/stats/counterfactual`, etc.).
+- `PraxisMetadataRequestMatchers.intelligenceJobPostPatterns(...)`: cobre exclusivamente as rotas
+  POST **stateful** de submissao de jobs (`/stats/simulation/jobs` e `/stats/counterfactual/jobs`),
+  mantendo CSRF e autorizacao de criacao explicitas.
+- `PraxisMetadataRequestMatchers.intelligenceJobPollAndCancelPatterns(...)`: cobre polling e
+  cancelamento em `/api/praxis/intelligence/jobs/*` e `/api/praxis/intelligence/jobs/*/cancel`.
 
 ## Checklist de aceite para hosts
 

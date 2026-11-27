@@ -85,7 +85,9 @@
         "statsDistribution": { "type": "boolean" },
         "statsComparison": { "type": "boolean" },
         "statsInference": { "type": "boolean" },
-        "statsAnomalies": { "type": "boolean" }
+        "statsAnomalies": { "type": "boolean" },
+        "statsSimulation": { "type": "boolean" },
+        "statsCounterfactual": { "type": "boolean" }
       }
     }
   },

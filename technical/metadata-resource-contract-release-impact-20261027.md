@@ -723,3 +723,25 @@ Following `0ab57d9e4f` (`v8.0.0-rc.199`), PR [#325](https://github.com/codexrodr
 2. **Inter-agent release governance (`AGENTS.md`):**
    - Documented mandatory consultation of `RELEASING.md`, causal `neon-test-inventory.json` reconciliation, pre-tag Neon release secret provisioning, and coordinate immutability rules so `v8.0.0-rc.200` cleanly supersedes `v8.0.0-rc.199`.
 
+## 2026-11-26 reconciliation: post-v8.0.0-rc.200 hardening (future `v8.0.0-rc.201`: `BulkPublicationAdminController` `Principal`/error hardening & `ApplicationReadyEvent` startup listener)
+
+Following `b5358dce93` (`v8.0.0-rc.200`), `BulkPublicationAdminController.java`, `BulkOperationLifecycleAutoConfiguration.java`, `BulkNamespaceBatchAndAsyncPublicationTest.java`, and `BulkOperationLifecycleAutoConfigurationTest.java` were hardened on `fix/bulk-admin-principal-and-ready-event` so opt-in admin job submission derives `actor` strictly from `Principal`, `@ExceptionHandler` responses omit raw internal exception text, and `praxisBulkLifecycleAutoReadyInitializer` listens to `ApplicationReadyEvent` (after web-server port binding). Zero database, SQL, Flyway migration, bulk-storage permission, or resource-contract changes were introduced.
+
+1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Refreshed committed-blob `sha256` digests on `BulkNamespaceBatchAndAsyncPublicationTest.java` (`excluded_outside_impact` / `bulk_embedded_pg`) and `BulkOperationLifecycleAutoConfigurationTest.java` (`no_db`), and recomputed `reviewedScopeDigest` on affected `impactReview` and `historical_reuse` closures encompassing `uischema/bulk/` / `uischema/`, preserving all `rawArtifactSha256`, `dependencyDigest`, and B–H / resource-contract obligations unchanged.
+
+## 2026-11-26 reconciliation: Onda 2 Compass & PLAT-EVO-21 analytics metadata + bulk protocol 400 error contract (future `v8.0.0-rc.201`)
+
+Following `21647eb67f` on `main`, added `BulkProtocolPayloadException`, `PraxisBulkProtocolHttpMessageConverter`, and `GlobalExceptionHandler` HTTP `400` validation mapping (`BULK_PROTOCOL_PAYLOAD_INVALID`), alongside Onda 2 Compass / `PLAT-EVO-21` analytics metadata (`AnalyticsIntent`, `AnalyticsOperation`, `StatsCapability`, `StochasticSimulationStatsRequest`, `CounterfactualStatsRequest`, query/capability/security helpers, and `x-ui` schemas/guides) and removed literal Neon branch/project identifiers from `AGENTS.md` to satisfy public purity gates. Zero database, SQL, Flyway migration, bulk-storage ACL/permission, or resource-contract storage changes were introduced.
+
+1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Inventoried new unit contract suite `src/test/java/org/praxisplatform/uischema/stats/ResourceSimulationAndCounterfactualStatsTest.java` (`no_db`), refreshed committed-blob `sha256` digests on the 13 modified test sources (`no_db` / `support` / `excluded_outside_impact`), and recomputed `reviewedScopeDigest` on affected `impactReview` and `historical_reuse` closures encompassing `uischema/bulk/` and `uischema/`, leaving all `rawArtifactSha256`, `dependencyDigest`, and prior B–H / resource-contract obligations unchanged.
+
+## 2026-11-27 reconciliation: bump `praxis-intelligence-contracts` to `0.1.0-beta.2` (future `v8.0.0-rc.202`)
+
+Following `1f08d1f168` (`v8.0.0-rc.201`), bumped `io.github.codexrodrigues:praxis-intelligence-contracts` in `pom.xml` from `0.1.0-beta.1` to `0.1.0-beta.2` so Wave 2 simulation/counterfactual orchestrator SPIs (`CounterfactualSearchOrchestrator`, `StochasticRevalidationPolicy`, `StochasticSimulationOrchestrator`, and the strict anchor revalidation overload in `EpistemicEnvelope`) resolve from Maven Central. Zero database, SQL, Flyway migration, bulk-storage ACL/permission, or resource-contract storage changes were introduced.
+
+1. **Causal inventory reconciliation (`tools/release/neon-test-inventory.json`):**
+   - Refreshed `reviewedScopeDigest` and `dependencyDigest` on `impactReview` and `historical_reuse` closures encompassing `pom.xml` while leaving all test-file `sha256` digests, `rawArtifactSha256`, and prior B–H / resource-contract obligations unchanged.
+
+

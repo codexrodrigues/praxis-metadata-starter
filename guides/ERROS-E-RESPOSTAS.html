@@ -449,6 +449,31 @@ handler usa mensagem pública fixa e não expõe a causa privada. Demais
 href="../spec/BULK-OPERATION-LIFECYCLE.md">lifecycle governado</a>.</li>
 <li><code>InvalidFilterPayloadException</code> → 400 (payload de filtro
 inválido)</li>
+<li><code>BulkProtocolPayloadException</code> → 400 com categoria
+<code>VALIDATION</code>, código
+<code>BULK_PROTOCOL_PAYLOAD_INVALID</code> e mensagem pública fixa
+(<code>"Invalid JSON payload or payload incompatible with the bulk protocol contract."</code>),
+sem expor causa Jackson ou conteúdo do payload de entrada</li>
+<li><code>HttpMessageNotReadableException</code> com
+<code>IllegalArgumentException</code> na instanciação de contratos em
+<code>org.praxisplatform.intelligence.contracts.*</code> → 400
+preservando a mensagem canônica do invariante violado</li>
+<li><code>IntelligenceExecutionException</code> → status e título
+semântico mapeados por <code>IntelligenceErrorCode</code>:
+<ul>
+<li><code>DRIFT_CIRCUIT_OPEN</code> → <code>409 Conflict</code>
+(<code>Anchor drift circuit open</code>)</li>
+<li><code>PAYLOAD_TOO_LARGE</code> → <code>413 Payload Too Large</code>
+(<code>https://example.com/probs/validation-error</code>)</li>
+<li><code>INSUFFICIENT_SAMPLE_SIZE</code> /
+<code>K_ANONYMITY_SUPPRESSED</code> /
+<code>NON_CONVERGENT_OPTIMIZER</code> →
+<code>422 Unprocessable Entity</code></li>
+<li><code>INTELLIGENCE_ENGINE_UNAVAILABLE</code> /
+<code>CONTRACT_VERSION_MISMATCH</code> → <code>503</code> /
+<code>502</code> conforme contrato do código</li>
+<li><code>JOB_TIMEOUT</code> → <code>504 Gateway Timeout</code></li>
+</ul></li>
 <li><code>BusinessException</code> → 400 com categoria
 <code>BUSINESS_LOGIC</code></li>
 <li><code>ResourceOperationFailureException</code> → status, categoria,
