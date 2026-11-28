@@ -49,8 +49,10 @@ def bounded_call(deadline, operation):
         signal.signal(signal.SIGALRM, previous_handler)
 
 
-def remaining_budget(started_at, now):
-    remaining = 90 * 60 - (now - started_at) - 180
+def remaining_budget(started_at, now, total_minutes=90):
+    if isinstance(total_minutes, bool) or not isinstance(total_minutes, (int, float)) or not math.isfinite(total_minutes) or total_minutes <= 0:
+        raise ValueError("Invalid total release budget")
+    remaining = total_minutes * 60 - (now - started_at) - 180
     if not math.isfinite(started_at) or not math.isfinite(now) or started_at > now or remaining < 120:
         raise ValueError("Insufficient release time for upload/status and final evidence preservation")
     return remaining
@@ -76,7 +78,9 @@ def save(path, receipt):
         os.fsync(stream.fileno())
 
 
-def publish(data, checked, record, token, transport, timeout=7200, interval=15):
+def publish(data, checked, record, token, transport, timeout=7200, interval=15, wait_for="published"):
+    if wait_for not in ("accepted", "published"):
+        raise ValueError("Unsupported wait mode")
     if hashlib.sha256(data).hexdigest() != checked["bundleSHA256"]:
         raise ValueError("Bundle changed after validation")
     # Reserve the attempt before touching the network. Unknown outcomes never retry upload.
@@ -120,6 +124,11 @@ def publish(data, checked, record, token, transport, timeout=7200, interval=15):
         # Save only known schema fields. Arbitrary remote errors never enter public evidence.
         save(record, state)
         if status == "PUBLISHED":
+            return state
+        if wait_for == "accepted" and status in ("VALIDATED", "PUBLISHING"):
+            state["publicAvailability"] = "ACCEPTED_ASYNC_PROPAGATION"
+            save(record, state)
+            print("Central deployment accepted:", deployment, status, flush=True)
             return state
         if status == "FAILED":
             raise RuntimeError("Central rejected the recorded deployment; use the official status workflow to inspect errors")
@@ -182,11 +191,13 @@ def main():
     parser.add_argument("--bundle", required=True, type=pathlib.Path)
     parser.add_argument("--validation", required=True, type=pathlib.Path)
     parser.add_argument("--record", required=True, type=pathlib.Path)
+    parser.add_argument("--budget-minutes", type=int, default=90)
+    parser.add_argument("--wait-for", choices=("accepted", "published"), default="published")
     args = parser.parse_args()
     if os.environ.get("GITHUB_RUN_ATTEMPT") != "1":
         raise SystemExit("Uploads require the first official workflow attempt; reconcile previous attempts")
     try:
-        remaining = remaining_budget(float(os.environ["PRAXIS_RELEASE_STARTED_AT"]), time.time())
+        remaining = remaining_budget(float(os.environ["PRAXIS_RELEASE_STARTED_AT"]), time.time(), total_minutes=args.budget_minutes)
     except (KeyError, ValueError) as error:
         raise SystemExit("Release budget unavailable or exhausted; retain the validated bundle without uploading") from None
     user, password = os.environ["CENTRAL_TOKEN_USER"], os.environ["CENTRAL_TOKEN_PASS"]
@@ -220,8 +231,9 @@ def main():
         return http_read(request, limit)
 
     try:
-        publish(data, checked, args.record, token, transport, timeout=max(0, deadline - time.monotonic()))
-        verify_availability(data, checked, args.record, public_transport, deadline)
+        publish(data, checked, args.record, token, transport, timeout=max(0, deadline - time.monotonic()), wait_for=args.wait_for)
+        if args.wait_for == "published":
+            verify_availability(data, checked, args.record, public_transport, deadline)
     except (RuntimeError, ValueError, FileExistsError) as error:
         raise SystemExit(str(error)) from None
 

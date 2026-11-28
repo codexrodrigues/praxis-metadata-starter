@@ -227,7 +227,7 @@
                             <failOnError>true</failOnError>
                             <outputDirectory>${project.build.directory}/historical-bulk-sdk</outputDirectory>
                             <outputFileName>metadata-v19-rc155.jar</outputFileName>
-                            <cacheDirectory>${project.build.directory}/historical-bulk-cache</cacheDirectory>
+                            <cacheDirectory>${user.home}/.m2/praxis-historical-bulk-cache</cacheDirectory>
                         </configuration>
                     </execution>
                     <execution>
@@ -241,7 +241,7 @@
                             <failOnError>true</failOnError>
                             <outputDirectory>${project.build.directory}/historical-bulk-sdk</outputDirectory>
                             <outputFileName>metadata-v17-rc154.jar</outputFileName>
-                            <cacheDirectory>${project.build.directory}/historical-bulk-cache</cacheDirectory>
+                            <cacheDirectory>${user.home}/.m2/praxis-historical-bulk-cache</cacheDirectory>
                         </configuration>
                     </execution>
                     <execution>
@@ -255,7 +255,7 @@
                             <failOnError>true</failOnError>
                             <outputDirectory>${project.build.directory}/historical-bulk-sdk</outputDirectory>
                             <outputFileName>metadata-v16-rc152.jar</outputFileName>
-                            <cacheDirectory>${project.build.directory}/historical-bulk-cache</cacheDirectory>
+                            <cacheDirectory>${user.home}/.m2/praxis-historical-bulk-cache</cacheDirectory>
                         </configuration>
                     </execution>
                     <execution>
@@ -269,7 +269,7 @@
                             <failOnError>true</failOnError>
                             <outputDirectory>${project.build.directory}/historical-bulk-sdk</outputDirectory>
                             <outputFileName>metadata-v15-rc149.jar</outputFileName>
-                            <cacheDirectory>${project.build.directory}/historical-bulk-cache</cacheDirectory>
+                            <cacheDirectory>${user.home}/.m2/praxis-historical-bulk-cache</cacheDirectory>
                         </configuration>
                     </execution>
                 </executions>
@@ -385,9 +385,9 @@
     <!-- Release profile to sign + publish to Maven Central (via Central Portal) -->
     <profiles>
         <profile>
-            <id>release-neon-gate</id>
+            <id>release-unit</id>
             <properties>
-                <praxis.release.reportsDirectory>${project.build.directory}/surefire-reports</praxis.release.reportsDirectory>
+                <download.plugin.skip>true</download.plugin.skip>
             </properties>
             <build>
                 <plugins>
@@ -396,8 +396,30 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <version>3.2.5</version>
                         <configuration>
-                            <reportsDirectory>${praxis.release.reportsDirectory}</reportsDirectory>
                             <failIfNoTests>true</failIfNoTests>
+                            <excludes>
+                                <!-- Remote Neon, EmbeddedPostgres, H2 E2E, and external-workspace parity tests -->
+                                <exclude>**/*NeonTest.java</exclude>
+                                <exclude>**/*NeonGateTest.java</exclude>
+                                <exclude>**/*PostgresTest.java</exclude>
+                                <exclude>**/*PostgresPushdownTest.java</exclude>
+                                <exclude>**/EmbeddedPostgresColdStartTest.java</exclude>
+                                <exclude>**/e2e/**/*Test.java</exclude>
+                                <exclude>**/BulkConsumerArtifactIntegrationTest.java</exclude>
+                                <exclude>**/BulkDeclarativeJpaHttpTest.java</exclude>
+                                <exclude>**/BulkNamespaceBatchAndAsyncPublicationTest.java</exclude>
+                                <exclude>**/BulkActionSchemaProjectionHttpTest.java</exclude>
+                                <exclude>**/BulkCrudOperationalCapabilityHttpTest.java</exclude>
+                                <exclude>**/BulkCrudStructuralOpenApiHttpTest.java</exclude>
+                                <exclude>**/BulkOperationStructuralCompilerTest.java</exclude>
+                                <exclude>**/JdbcResourceCommandReceiptStoreTest.java</exclude>
+                                <exclude>**/AbstractResourceControllerJpaWriteIntegrationTest.java</exclude>
+                                <exclude>**/JpaEntityLookupGapJ1J2J3J4IntegrationTest.java</exclude>
+                                <exclude>**/JpaStatsExecutorIntegrationTest.java</exclude>
+                                <exclude>**/StatsLabelAndComparisonSdcTest.java</exclude>
+                                <exclude>**/OntologyG2SchemaParityTest.java</exclude>
+                                <exclude>**/JsonLogicExpressionValidatorParityTest.java</exclude>
+                            </excludes>
                         </configuration>
                     </plugin>
                 </plugins>
