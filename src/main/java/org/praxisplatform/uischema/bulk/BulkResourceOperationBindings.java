@@ -222,7 +222,7 @@ public final class BulkResourceOperationBindings {
         return Optional.ofNullable(handlersByOperationId.get(operationId));
     }
 
-    Optional<RequestMappingInfo> mappingFor(HandlerMethod handler) {
+    public Optional<RequestMappingInfo> mappingFor(HandlerMethod handler) {
         List<RequestMappingInfo> mappings = mappingsByHandler.getOrDefault(handler, List.of());
         return mappings.size() == 1 ? Optional.of(mappings.getFirst()) : Optional.empty();
     }
@@ -233,7 +233,7 @@ public final class BulkResourceOperationBindings {
     }
 
     /** Returns the validated action bindings in deterministic resource/operation order. */
-    List<BulkOperationBinding> bulkOperations() {
+    public List<BulkOperationBinding> bulkOperations() {
         return bulkOperationsByConfirmation.values().stream()
                 .sorted(Comparator.comparing(BulkOperationBinding::resourceKey)
                         .thenComparing(BulkOperationBinding::confirmationOperationId))

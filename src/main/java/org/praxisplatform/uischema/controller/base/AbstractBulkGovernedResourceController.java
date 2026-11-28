@@ -23,7 +23,8 @@ import java.util.UUID;
  * The four inherited update IDs are resourceKey + .bulk.update[.evaluate] / .bulk.update-items[.evaluate].
  */
 public abstract class AbstractBulkGovernedResourceController<R, ID, F extends GenericFilterDTO, C, U>
-        extends AbstractResourceController<R, ID, F, C, U> {
+        extends AbstractResourceController<R, ID, F, C, U>
+        implements BulkResourceController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.praxisplatform.uischema.action.ActionDefinitionRegistry bulkActions;
     @org.springframework.beans.factory.annotation.Autowired

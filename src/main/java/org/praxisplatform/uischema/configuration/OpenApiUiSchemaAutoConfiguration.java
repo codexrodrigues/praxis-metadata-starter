@@ -986,6 +986,7 @@ public class OpenApiUiSchemaAutoConfiguration {
             ActionAvailabilityEvaluator actionAvailabilityEvaluator,
             ActionAvailabilityContextResolver actionAvailabilityContextResolver,
             ObjectProvider<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle,
+            ObjectProvider<org.praxisplatform.uischema.bulk.BulkCapabilityContractProvider> bulkContractProvider,
             CanonicalCapabilityResolver canonicalCapabilityResolver,
             OpenApiDocumentService openApiDocumentService,
             ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
@@ -1000,6 +1001,11 @@ public class OpenApiUiSchemaAutoConfiguration {
                 actionAvailabilityEvaluator,
                 actionAvailabilityContextResolver,
                 (definitions, consumer) -> {
+                    var contractProvider = bulkContractProvider.getIfAvailable();
+                    if (contractProvider != null) {
+                        var contracts = contractProvider.actionContracts(definitions);
+                        return consumer.apply(contracts == null ? java.util.Map.of() : contracts);
+                    }
                     var lifecycle = bulkLifecycle.getIfAvailable();
                     return lifecycle == null ? consumer.apply(java.util.Map.of())
                             : lifecycle.projectReadyActions(definitions, consumer);
@@ -1179,7 +1185,8 @@ public class OpenApiUiSchemaAutoConfiguration {
             ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
             ResourceStateSnapshotProvider resourceStateSnapshotProvider,
             ResourceStructuralCapabilityResolver resourceStructuralCapabilityResolver,
-            ObjectProvider<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle
+            ObjectProvider<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle,
+            ObjectProvider<org.praxisplatform.uischema.bulk.BulkCapabilityContractProvider> bulkContractProvider
     ) {
         return new DefaultCapabilityService(
                 canonicalCapabilityResolver,
@@ -1189,7 +1196,8 @@ public class OpenApiUiSchemaAutoConfiguration {
                 resourceOperationAvailabilityProvider,
                 resourceStateSnapshotProvider,
                 resourceStructuralCapabilityResolver,
-                bulkLifecycle::getIfAvailable
+                bulkLifecycle::getIfAvailable,
+                bulkContractProvider::getIfAvailable
         );
     }
 
