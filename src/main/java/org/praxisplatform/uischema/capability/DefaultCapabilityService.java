@@ -43,6 +43,7 @@ public class DefaultCapabilityService implements CapabilityService {
     private final ResourceStateSnapshotProvider resourceStateSnapshotProvider;
     private final ResourceStructuralCapabilityResolver structuralCapabilityResolver;
     private final java.util.function.Supplier<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle;
+    private final java.util.function.Supplier<org.praxisplatform.uischema.bulk.BulkCapabilityContractProvider> bulkContractProvider;
 
     public DefaultCapabilityService(
             CanonicalCapabilityResolver canonicalCapabilityResolver,
@@ -100,7 +101,21 @@ public class DefaultCapabilityService implements CapabilityService {
             ResourceStateSnapshotProvider resourceStateSnapshotProvider,
             ResourceStructuralCapabilityResolver structuralCapabilityResolver,
             java.util.function.Supplier<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle) {
+        this(canonicalCapabilityResolver, surfaceCatalogService, actionCatalogService, openApiDocumentService,
+                resourceOperationAvailabilityProvider, resourceStateSnapshotProvider, structuralCapabilityResolver,
+                bulkLifecycle, () -> null);
+    }
+
+    public DefaultCapabilityService(CanonicalCapabilityResolver canonicalCapabilityResolver,
+            SurfaceCatalogService surfaceCatalogService, ActionCatalogService actionCatalogService,
+            OpenApiDocumentService openApiDocumentService,
+            ResourceOperationAvailabilityProvider resourceOperationAvailabilityProvider,
+            ResourceStateSnapshotProvider resourceStateSnapshotProvider,
+            ResourceStructuralCapabilityResolver structuralCapabilityResolver,
+            java.util.function.Supplier<org.praxisplatform.uischema.bulk.BulkOperationLifecycle> bulkLifecycle,
+            java.util.function.Supplier<org.praxisplatform.uischema.bulk.BulkCapabilityContractProvider> bulkContractProvider) {
         this.bulkLifecycle = java.util.Objects.requireNonNull(bulkLifecycle, "bulkLifecycle");
+        this.bulkContractProvider = java.util.Objects.requireNonNull(bulkContractProvider, "bulkContractProvider");
         this.canonicalCapabilityResolver = canonicalCapabilityResolver;
         this.surfaceCatalogService = surfaceCatalogService;
         this.actionCatalogService = actionCatalogService;
@@ -226,16 +241,28 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode inferenceStatsSupportMode, StatsSupportMode anomalyStatsSupportMode,
             StatsSupportMode simulationStatsSupportMode, StatsSupportMode counterfactualStatsSupportMode
     ) {
-        var lifecycle = bulkLifecycle.get();
-        if (lifecycle == null) return buildCollectionCapabilities(resourceKey, resourcePath, collectionExportSupported,
-                collectionExportCapability, statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode,
-                distributionStatsSupportMode, comparisonStatsSupportMode, inferenceStatsSupportMode,
-                anomalyStatsSupportMode, simulationStatsSupportMode, counterfactualStatsSupportMode, Map.of());
-        return lifecycle.projectReadyCapabilities(resourceKey, contracts -> buildCollectionCapabilities(
+        return projectBulkCapabilities(resourceKey, contracts -> buildCollectionCapabilities(
                 resourceKey, resourcePath, collectionExportSupported, collectionExportCapability, statsFieldRegistry,
                 groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
                 comparisonStatsSupportMode, inferenceStatsSupportMode, anomalyStatsSupportMode,
                 simulationStatsSupportMode, counterfactualStatsSupportMode, contracts));
+    }
+
+    private CapabilitySnapshot projectBulkCapabilities(
+            String resourceKey,
+            java.util.function.Function<Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract>, CapabilitySnapshot> builder
+    ) {
+        var provider = bulkContractProvider.get();
+        if (provider != null) {
+            Map<String, org.praxisplatform.uischema.bulk.BulkExecutionContract> contracts =
+                    provider.resourceContracts(resourceKey);
+            return builder.apply(contracts == null ? Map.of() : Map.copyOf(contracts));
+        }
+        var lifecycle = bulkLifecycle.get();
+        if (lifecycle == null) {
+            return builder.apply(Map.of());
+        }
+        return lifecycle.projectReadyCapabilities(resourceKey, builder);
     }
 
     private CapabilitySnapshot buildCollectionCapabilities(String resourceKey, String resourcePath,
@@ -392,12 +419,7 @@ public class DefaultCapabilityService implements CapabilityService {
             StatsSupportMode inferenceStatsSupportMode, StatsSupportMode anomalyStatsSupportMode,
             StatsSupportMode simulationStatsSupportMode, StatsSupportMode counterfactualStatsSupportMode
     ) {
-        var lifecycle = bulkLifecycle.get();
-        if (lifecycle == null) return buildItemCapabilities(resourceKey, resourcePath, resourceId, statsFieldRegistry,
-                groupByStatsSupportMode, timeSeriesStatsSupportMode, distributionStatsSupportMode,
-                comparisonStatsSupportMode, inferenceStatsSupportMode, anomalyStatsSupportMode,
-                simulationStatsSupportMode, counterfactualStatsSupportMode, Map.of());
-        return lifecycle.projectReadyCapabilities(resourceKey, contracts -> buildItemCapabilities(resourceKey,
+        return projectBulkCapabilities(resourceKey, contracts -> buildItemCapabilities(resourceKey,
                 resourcePath, resourceId, statsFieldRegistry, groupByStatsSupportMode, timeSeriesStatsSupportMode,
                 distributionStatsSupportMode, comparisonStatsSupportMode, inferenceStatsSupportMode,
                 anomalyStatsSupportMode, simulationStatsSupportMode, counterfactualStatsSupportMode, contracts));

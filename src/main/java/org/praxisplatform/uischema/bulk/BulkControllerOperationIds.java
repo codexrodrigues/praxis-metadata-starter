@@ -1,9 +1,9 @@
 package org.praxisplatform.uischema.bulk;
 
 import io.swagger.v3.oas.annotations.Operation;
+import java.lang.reflect.Modifier;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.BulkOperation;
-import org.praxisplatform.uischema.controller.base.AbstractBulkGovernedResourceController;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.web.method.HandlerMethod;
 
@@ -32,7 +32,7 @@ public final class BulkControllerOperationIds {
         Operation explicit = AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(), Operation.class);
         if (explicit != null && !explicit.operationId().isBlank()) return explicit.operationId();
         BulkResourceOperation role = AnnotatedElementUtils.findMergedAnnotation(handler.getMethod(), BulkResourceOperation.class);
-        if (role == null || !AbstractBulkGovernedResourceController.class.isAssignableFrom(handler.getBeanType())) return null;
+        if (role == null || !BulkResourceController.class.isAssignableFrom(handler.getBeanType())) return null;
         ApiResource resource = AnnotatedElementUtils.findMergedAnnotation(handler.getBeanType(), ApiResource.class);
         if (resource == null || resource.resourceKey().isBlank()) return null;
         return switch (role.value()) {
@@ -88,7 +88,9 @@ public final class BulkControllerOperationIds {
     public static String evaluationId(HandlerMethod handler, BulkOperation operation) {
         if (!operation.evaluationOperationId().isEmpty()) return operation.evaluationOperationId();
         // Only the canonical inherited confirmation declaration can leave the ID implicit.
-        if (handler.getMethod().getDeclaringClass() == AbstractBulkGovernedResourceController.class)
+        Class<?> declaringClass = handler.getMethod().getDeclaringClass();
+        if (BulkResourceController.class.isAssignableFrom(declaringClass)
+                && Modifier.isAbstract(declaringClass.getModifiers()))
             return operationId(handler) + ".evaluate";
         return operation.evaluationOperationId();
     }
