@@ -57,7 +57,9 @@ public final class CanonicalOpenApiGroupSnapshot {
         if (documents == null) throw new IllegalArgumentException("OpenApiDocumentService is required");
         Object token = publicationIdentity(documents, group);
         JsonNode document = fresh ? documents.refreshDocumentForGroupStrict(group)
-                : documents.getDocumentForGroupStrict(group);
+                : (documents instanceof CachedOpenApiDocumentService cachedDocs
+                        ? cachedDocs.getReadOnlyDocumentForGroupStrict(group)
+                        : documents.getDocumentForGroupStrict(group));
         return new CanonicalOpenApiGroupSnapshot(documents, group, document,
                 token != null && token.equals(publicationIdentity(documents, group)) ? token : null, indexCache);
     }
@@ -84,6 +86,13 @@ public final class CanonicalOpenApiGroupSnapshot {
                     key -> CanonicalOpenApiGroupSnapshot.capture(documents, key, fresh, indexCache));
         }
 
+        /** Evicts a captured group snapshot once its bindings have finished compiling. */
+        public synchronized void evict(String group) {
+            if (group != null) {
+                snapshots.remove(group);
+            }
+        }
+
         /**
          * Resolves a whole structural composition from captured MVC maps and validates the
          * live registries before returning its result. No intermediate admission is minted.
@@ -104,8 +113,18 @@ public final class CanonicalOpenApiGroupSnapshot {
         }
 
         public void validateMappings() {
-            synchronized (indexCache) {
-                indexCache.mappingValidations.values().forEach(Runnable::run);
+            validateMappings(indexCache);
+        }
+
+        /** Returns a lightweight mapping validator that does not retain this {@link CaptureScope} or its snapshots. */
+        public Runnable mappingValidator() {
+            OperationIndexCache cache = this.indexCache;
+            return () -> validateMappings(cache);
+        }
+
+        private static void validateMappings(OperationIndexCache cache) {
+            synchronized (cache) {
+                cache.mappingValidations.values().forEach(Runnable::run);
             }
         }
     }

@@ -50,10 +50,10 @@ public final class OpenApiPublicationCandidate {
         this.responses = Map.copyOf(responses);
         if (!expected.equals(this.responses.keySet()))
             throw new IllegalArgumentException("Publication must capture exactly root, config and all declared groups");
-        requireOpenApiDocument(this.responses.get(basePath).document());
+        requireOpenApiDocument(this.responses.get(basePath).readOnlyDocument());
         for (String group : this.groups)
-            requireOpenApiDocument(this.responses.get(groupPath(basePath, group)).document());
-        requireSwaggerConfig(this.responses.get(basePath + "/swagger-config").document());
+            requireOpenApiDocument(this.responses.get(groupPath(basePath, group)).readOnlyDocument());
+        requireSwaggerConfig(this.responses.get(basePath + "/swagger-config").readOnlyDocument());
         this.digest = digest(this.responses);
     }
 

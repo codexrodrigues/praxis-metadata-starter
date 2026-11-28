@@ -113,11 +113,7 @@ final class BulkOperationStructuralCompiler {
             }
         }
         var snapshots = new CanonicalOpenApiGroupSnapshot.CaptureScope(documents, refreshOpenApi);
-        List<BulkOperationStructuralDescriptor> compiled = snapshots.compose(() -> {
-            List<BulkOperationStructuralDescriptor> result = new ArrayList<>(declared.size());
-            for (BulkOperationBinding binding : declared) result.add(compileBinding(binding, snapshots));
-            return List.copyOf(result);
-        });
+        List<BulkOperationStructuralDescriptor> compiled = snapshots.compose(() -> compileDeclaredBindings(declared, snapshots));
         if (publication != null && publication == documents.localPublishedBulkOpenApiPublicationToken()) {
             java.util.Set<String> groups = new java.util.LinkedHashSet<>();
             for (BulkOperationStructuralDescriptor descriptor : compiled) groups.add(descriptor.openApiGroup());
@@ -130,13 +126,49 @@ final class BulkOperationStructuralCompiler {
                         cachedPublicationToken = publication;
                         cachedGroupTokens = groupTokens;
                         cachedActionsByResource = actions;
-                        cachedMappingValidation = snapshots::validateMappings;
+                        cachedMappingValidation = snapshots.mappingValidator();
                         cachedCompiledDescriptors = compiled;
                     }
                 }
             }
         }
         return compiled;
+    }
+
+    private List<BulkOperationStructuralDescriptor> compileDeclaredBindings(
+            List<BulkOperationBinding> declared,
+            CanonicalOpenApiGroupSnapshot.CaptureScope snapshots) {
+        Map<String, List<Integer>> indicesByGroup = new LinkedHashMap<>();
+        boolean allMapped = true;
+        for (int i = 0; i < declared.size(); i++) {
+            BulkOperationBinding binding = declared.get(i);
+            var mapping = bindings.mappingFor(binding.confirmationHandler());
+            if (mapping.isEmpty()) {
+                allMapped = false;
+                break;
+            }
+            String group = operationResolver.resolve(binding.confirmationHandler(), mapping.get()).group();
+            indicesByGroup.computeIfAbsent(group, ignored -> new ArrayList<>()).add(i);
+        }
+        if (!allMapped) {
+            List<BulkOperationStructuralDescriptor> result = new ArrayList<>(declared.size());
+            for (BulkOperationBinding binding : declared) {
+                result.add(compileBinding(binding, snapshots));
+            }
+            return List.copyOf(result);
+        }
+        BulkOperationStructuralDescriptor[] results = new BulkOperationStructuralDescriptor[declared.size()];
+        for (var entry : indicesByGroup.entrySet()) {
+            String group = entry.getKey();
+            try {
+                for (int index : entry.getValue()) {
+                    results[index] = compileBinding(declared.get(index), snapshots);
+                }
+            } finally {
+                snapshots.evict(group);
+            }
+        }
+        return List.of(results);
     }
 
     private Map<String, Object> groupTokens(java.util.Set<String> groups) {

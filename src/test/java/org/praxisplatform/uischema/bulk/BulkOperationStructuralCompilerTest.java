@@ -1710,6 +1710,119 @@ class BulkOperationStructuralCompilerTest {
         }
     }
 
+    @Test
+    void compilesMultipleGroupsInDeclaredOrderWithoutRetainingCaptureScope() throws Exception {
+        try (var context = context(CompleteBulkController.class, OtherBulkController.class)) {
+            var mvc = context.getBean(RequestMappingHandlerMapping.class);
+            var bindings = BulkResourceOperationBindings.from(mvc);
+            var schemaReferences = new FilteredSchemaReferenceResolver();
+            var otherActionRef = new CanonicalOperationRef("other", "other.bulk-approve", "/api/other/actions/bulk-approve", "POST");
+            ActionDefinition otherAction = new ActionDefinition("approveOtherItems", "other.items", "/api/other", "other",
+                    ActionScope.COLLECTION, "Aprovar outros", "", otherActionRef,
+                    schemaReferences.resolve(otherActionRef.path(), "POST", "request", false, null, null, "id", false),
+                    schemaReferences.resolve(otherActionRef.path(), "POST", "response", false, null, null, "id", false),
+                    10, "Aprovados", List.of("BULK_APPROVE"), List.of("READY"), List.of("workflow"),
+                    new ActionExecutionContract(
+                            new ActionInteractionPolicy(null, null, false, false),
+                            new ActionPreconditionPolicy(null, null, null, ActionResourceVersionTransport.NONE),
+                            new ActionSelectionPolicy(null, null, null),
+                            new ActionOutcomePolicy(ActionOutcomeMode.SINGLE, ActionCollectionAtomicity.PER_ITEM),
+                            new ActionRefreshPolicy(false, true, true, true, List.of())));
+            ActionDefinitionRegistry multiRegistry = new ActionDefinitionRegistry() {
+                @Override public List<ActionDefinition> findByResourceKey(String resourceKey) {
+                    if (RESOURCE.equals(resourceKey)) return List.of(actionDefinition());
+                    if ("other.items".equals(resourceKey)) return List.of(otherAction);
+                    return List.of();
+                }
+                @Override public List<ActionDefinition> findByGroup(String group) { return List.of(actionDefinition(), otherAction); }
+            };
+            ObjectNode otherDoc = new ObjectMapper().createObjectNode();
+            otherDoc.put("openapi", "3.1.0");
+            var otherPaths = otherDoc.putObject("paths");
+            operation(otherPaths, "/api/other/bulk/proposals/{proposalId}", "get", "other.bulk.proposal", false, true);
+            operation(otherPaths, "/api/other/bulk/proposals/{proposalId}/results", "get", "other.bulk.proposal-results", false, true);
+            operation(otherPaths, "/api/other/bulk/executions/{executionId}", "get", "other.bulk.execution", false, true);
+            operation(otherPaths, "/api/other/bulk/executions/{executionId}/results", "get", "other.bulk.execution-results", false, true);
+            operation(otherPaths, "/api/other/bulk/executions/{executionId}/cancel", "post", "other.bulk.cancel", false, true);
+            operation(otherPaths, "/api/other/actions/bulk-approve/evaluation", "post", "other.bulk-approve.evaluation", true, true);
+            var confirmOp = otherPaths.putObject("/api/other/actions/bulk-approve").putObject("post")
+                    .put("operationId", "other.bulk-approve");
+            confirmOp.putObject("requestBody").putObject("content").set("application/json", mediaSchema());
+            var confirmResponses = confirmOp.putObject("responses");
+            confirmResponses.putObject("200").putObject("content").set("application/json", mediaSchema());
+            confirmResponses.putObject("202").putObject("content").set("application/json", mediaSchema());
+
+            Object publicationToken = new Object();
+            TestDocuments documents = new TestDocuments(document(true), otherDoc) {
+                @Override public String resolveGroupFromPath(String path) {
+                    return path != null && path.startsWith("/api/other") ? "other" : "inventory";
+                }
+                @Override public Object localPublishedBulkOpenApiPublicationToken() { return publicationToken; }
+                @Override public Object groupDocumentCacheToken(String groupName) { return groupName; }
+            };
+            var resolver = new OpenApiCanonicalOperationResolver(documents, mvc, bindings, List.of("inventory", "other"));
+            var compiler = new BulkOperationStructuralCompiler(
+                    bindings, resolver, documents, multiRegistry, new ObjectMapper(), schemaReferences);
+
+            List<BulkOperationStructuralDescriptor> first = compiler.compileAll();
+            List<String> expectedOrder = bindings.bulkOperations().stream()
+                    .map(BulkOperationBinding::confirmationOperationId)
+                    .toList();
+            assertEquals(expectedOrder, first.stream()
+                    .map(d -> d.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference().operationId())
+                    .toList());
+            assertEquals(3, documents.strictReads());
+
+            var validatorField = BulkOperationStructuralCompiler.class.getDeclaredField("cachedMappingValidation");
+            validatorField.setAccessible(true);
+            Runnable validator = (Runnable) validatorField.get(compiler);
+            org.junit.jupiter.api.Assertions.assertNotNull(validator);
+            for (var field : validator.getClass().getDeclaredFields()) {
+                assertFalse(
+                        org.praxisplatform.uischema.openapi.CanonicalOpenApiGroupSnapshot.CaptureScope.class
+                                .isAssignableFrom(field.getType()),
+                        "cachedMappingValidation must not retain CaptureScope: " + field.getType());
+            }
+
+            List<BulkOperationStructuralDescriptor> second = compiler.compileAll();
+            assertEquals(expectedOrder, second.stream()
+                    .map(d -> d.operation(BulkOperationStructuralDescriptor.Role.CONFIRMATION).reference().operationId())
+                    .toList());
+            assertEquals(3, documents.strictReads());
+        }
+    }
+
+    @ApiResource(value = "/api/other", resourceKey = "other.items")
+    @BulkResourceOperations(proposalOperationId = "other.bulk.proposal",
+            proposalResultsOperationId = "other.bulk.proposal-results",
+            executionOperationId = "other.bulk.execution",
+            executionResultsOperationId = "other.bulk.execution-results",
+            cancelOperationId = "other.bulk.cancel")
+    static class OtherBulkController {
+        @BulkResourceOperation(BulkResourceOperation.Role.PROPOSAL)
+        @GetMapping("/bulk/proposals/{proposalId}") public String proposal() { return ""; }
+        @BulkResourceOperation(BulkResourceOperation.Role.PROPOSAL_RESULTS)
+        @GetMapping("/bulk/proposals/{proposalId}/results") public String proposalResults() { return ""; }
+        @BulkResourceOperation(BulkResourceOperation.Role.EXECUTION)
+        @GetMapping("/bulk/executions/{executionId}") public String execution() { return ""; }
+        @BulkResourceOperation(BulkResourceOperation.Role.EXECUTION_RESULTS)
+        @GetMapping("/bulk/executions/{executionId}/results") public String executionResults() { return ""; }
+        @BulkResourceOperation(BulkResourceOperation.Role.CANCEL)
+        @PostMapping("/bulk/executions/{executionId}/cancel") public String cancel() { return ""; }
+        @BulkOperation(mode = BulkMode.DOMAIN_COMMAND, evaluationOperationId = "other.bulk-approve.evaluation",
+                atomicity = ActionCollectionAtomicity.PER_ITEM)
+        @WorkflowAction(id = "approveOtherItems", title = "Aprovar outros",
+                scope = ActionScope.COLLECTION, order = 10, successMessage = "Aprovados",
+                atomicity = ActionCollectionAtomicity.PER_ITEM, requiredAuthorities = {"BULK_APPROVE"},
+                allowedStates = {"READY"}, tags = {"workflow"})
+        @Operation(operationId = "other.bulk-approve")
+        @PostMapping("/actions/bulk-approve")
+        public String confirm(@RequestBody ConfirmationRequest request) { return ""; }
+        @Operation(operationId = "other.bulk-approve.evaluation")
+        @PostMapping("/actions/bulk-approve/evaluation")
+        public String evaluate(@RequestBody EvaluationRequest request) { return ""; }
+    }
+
     @ApiResource(value = "/api/items", resourceKey = RESOURCE)
     @BulkResourceOperations(proposalOperationId = "items.bulk.proposal", proposalResultsOperationId = "items.bulk.proposal-results",
             executionOperationId = "items.bulk.execution", executionResultsOperationId = "items.bulk.execution-results", cancelOperationId = "items.bulk.cancel",
@@ -2058,7 +2171,7 @@ class BulkOperationStructuralCompilerTest {
     }
 
     /** Structural-only source: operational publication intentionally requires the real cache fixture. */
-    private static final class TestDocuments implements OpenApiDocumentService {
+    private static class TestDocuments implements OpenApiDocumentService {
         private final java.util.Map<String, JsonNode> documents;
         private final java.util.Map<String, JsonNode> refreshDocuments;
         private final AtomicInteger strictReads = new AtomicInteger();
