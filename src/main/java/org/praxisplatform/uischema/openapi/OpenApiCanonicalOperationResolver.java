@@ -436,6 +436,15 @@ public class OpenApiCanonicalOperationResolver implements BatchCanonicalOperatio
     @Override
     public List<String> refreshPublishedOpenApiGroupsStrict(Set<String> requiredGroups) {
         List<String> ordered = publishedOpenApiGroups(requiredGroups);
+        if (openApiDocumentService.localPublishedBulkOpenApiPublicationToken() != null
+                && openApiDocumentService instanceof CachedOpenApiDocumentService cachedService) {
+            for (String group : ordered) {
+                GroupOperationSummary summary = cachedService.inspectGroupOperationSummaryStrict(group);
+                if (summary == null || summary.pathsSkeleton() == null)
+                    throw new IllegalStateException("Published OpenAPI group cannot be refreshed exactly: " + group);
+            }
+            return ordered;
+        }
         for (String group : ordered) {
             JsonNode document = openApiDocumentService.refreshDocumentForGroupStrict(group);
             if (document == null || !document.path("paths").isObject())

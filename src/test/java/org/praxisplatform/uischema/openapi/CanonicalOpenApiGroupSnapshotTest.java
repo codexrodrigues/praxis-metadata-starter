@@ -179,4 +179,33 @@ class CanonicalOpenApiGroupSnapshotTest {
         assertEquals("other", snapshot.resolveFilteredProjection(OPERATION, "request", other, caps, "id", true)
                 .reference().schemaId());
     }
+
+    @Test void evictReleasesSnapshotAndMappingValidatorDoesNotRetainCaptureScope() throws Exception {
+        var documents = org.mockito.Mockito.mock(OpenApiDocumentService.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        org.mockito.Mockito.doReturn(document()).when(documents).getDocumentForGroupStrict("inventory");
+        var scope = new CanonicalOpenApiGroupSnapshot.CaptureScope(documents, false);
+        var captured = scope.capture("inventory");
+        assertEquals(OPERATION.operationId(), captured.requireRequestSchema(OPERATION).operation().operationId());
+
+        scope.evict("inventory");
+        var recaptured = scope.capture("inventory");
+        assertFalse(captured == recaptured, "evict must drop the cached group snapshot");
+
+        Runnable validator = scope.mappingValidator();
+        for (var field : validator.getClass().getDeclaredFields()) {
+            assertFalse(CanonicalOpenApiGroupSnapshot.CaptureScope.class.isAssignableFrom(field.getType()),
+                    "mappingValidator must not strongly retain CaptureScope: " + field.getType());
+        }
+        var weakScope = new java.lang.ref.WeakReference<>(scope);
+        scope = null;
+        captured = null;
+        recaptured = null;
+        for (int i = 0; i < 6 && weakScope.get() != null; i++) {
+            System.gc();
+            Thread.sleep(20);
+        }
+        org.junit.jupiter.api.Assertions.assertNull(weakScope.get(),
+                "CaptureScope must remain eligible for GC after mappingValidator() is retained");
+        validator.run();
+    }
 }

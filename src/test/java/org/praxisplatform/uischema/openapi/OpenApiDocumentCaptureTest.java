@@ -64,4 +64,24 @@ class OpenApiDocumentCaptureTest {
             assertThat(mapper.getFactory().isEnabled(feature.mappedFeature())).isTrue();
     }
 
+    @Test
+    void rehydratesIdenticalTreeAndBytesAfterSoftCacheClearWhilePreservingOperationSummary() throws Exception {
+        byte[] wire = ("{\"openapi\":\"3.0.3\",\"paths\":{\"/api/items/bulk\":{\"post\":{\"operationId\":\"items.bulk\"}}}}")
+                .getBytes(StandardCharsets.UTF_8);
+        var capture = OpenApiDocumentCapture.parse(wire, new ObjectMapper());
+        var initialSummary = capture.operationSummary();
+        assertThat(initialSummary.locations().get("items.bulk")).containsExactly("/paths/~1api~1items~1bulk/post");
+
+        var field = OpenApiDocumentCapture.class.getDeclaredField("cachedDocument");
+        field.setAccessible(true);
+        ((java.lang.ref.SoftReference<?>) field.get(capture)).clear();
+
+        assertThat(capture.operationSummary()).isSameAs(initialSummary);
+        assertThat(capture.bytes()).isEqualTo(wire);
+        assertThat(capture.readOnlyDocument().at("/paths/~1api~1items~1bulk/post/operationId").asText())
+                .isEqualTo("items.bulk");
+        assertThat(capture.document().at("/paths/~1api~1items~1bulk/post/operationId").asText())
+                .isEqualTo("items.bulk");
+    }
+
 }

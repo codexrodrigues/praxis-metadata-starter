@@ -145,10 +145,21 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         return resolveDocumentForGroup(groupName, true);
     }
 
+    private boolean isInsideLifecycleSnapshot() {
+        return lifecycleSnapshot.get() != null || preparedCandidateScope.get() != null;
+    }
+
     private JsonNode resolveDocumentForGroup(String groupName, boolean readOnly) {
         return withCacheReadLock(() -> {
             PublishedSnapshot publication = publishedScope.get();
             if (publication != null) return publishedGroupDocument(publication, groupName, readOnly);
+            OpenApiPublicationCandidate prepared = preparedCandidateScope.get();
+            if (prepared != null) {
+                if (!prepared.groups().contains(groupName))
+                    throw new IllegalStateException("Group is outside the fresh lifecycle snapshot: " + groupName);
+                OpenApiDocumentCapture capture = prepared.groupCapture(groupName);
+                return readOnly ? capture.readOnlyDocument() : capture.document();
+            }
             Map<String, JsonNode> snapshot = lifecycleSnapshot.get();
             if (snapshot != null) {
                 JsonNode document = snapshot.get(groupName);
@@ -193,6 +204,13 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         return withCacheReadLock(() -> {
             PublishedSnapshot publication = publishedScope.get();
             if (publication != null) return publishedGroupDocument(publication, groupName, readOnly);
+            OpenApiPublicationCandidate prepared = preparedCandidateScope.get();
+            if (prepared != null) {
+                if (!prepared.groups().contains(groupName))
+                    throw new IllegalStateException("Group is outside the fresh lifecycle snapshot: " + groupName);
+                OpenApiDocumentCapture capture = prepared.groupCapture(groupName);
+                return readOnly ? capture.readOnlyDocument() : capture.document();
+            }
             Map<String, JsonNode> snapshot = lifecycleSnapshot.get();
             if (snapshot != null) {
                 JsonNode document = snapshot.get(groupName);
@@ -265,6 +283,12 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     public JsonNode refreshDocumentForGroupStrict(String groupName) {
         PublishedSnapshot publication = publishedScope.get();
         if (publication != null) return publishedGroupDocument(publication, groupName);
+        OpenApiPublicationCandidate prepared = preparedCandidateScope.get();
+        if (prepared != null) {
+            if (!prepared.groups().contains(groupName))
+                throw new IllegalStateException("Group is outside the fresh lifecycle snapshot: " + groupName);
+            return prepared.groupDocument(groupName);
+        }
         Map<String, JsonNode> snapshot = lifecycleSnapshot.get();
         if (snapshot != null) {
             JsonNode document = snapshot.get(groupName);
@@ -315,7 +339,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 
     private <T> T withCacheReadLock(Supplier<T> action) {
         if (publishedScope.get() != null) return action.get();
-        if (publicationGuard != null && lifecycleSnapshot.get() == null) {
+        if (publicationGuard != null && !isInsideLifecycleSnapshot()) {
             if (bulkOpenApiGuardMode == BulkOpenApiGuardMode.BULK_SCOPED) {
                 if (publishedSnapshot != null && !cacheLifecycleLock.isWriteLockedByCurrentThread()) {
                     try {
@@ -398,7 +422,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             throw new IllegalArgumentException("groups and action are required");
         if (!supportsFreshBulkLifecycleComposition())
             throw new IllegalStateException("Fresh bulk composition requires a local uncached source and Metadata-owned bounded HTTP transport");
-        if (lifecycleSnapshot.get() != null || cacheLifecycleLock.isWriteLockedByCurrentThread()
+        if (isInsideLifecycleSnapshot() || cacheLifecycleLock.isWriteLockedByCurrentThread()
                 || cacheLifecycleLock.getReadHoldCount() > 0)
             throw new IllegalStateException("Fresh lifecycle preparation must start outside cache locks and snapshots");
         for (String group : groups) {
@@ -473,7 +497,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         if (!supportsFreshBulkLifecycleComposition())
             throw new IllegalStateException("Publication preparation requires the Metadata-owned bounded fresh source");
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
-                || lifecycleSnapshot.get() != null || cacheLifecycleLock.isWriteLockedByCurrentThread()
+                || isInsideLifecycleSnapshot() || cacheLifecycleLock.isWriteLockedByCurrentThread()
                 || cacheLifecycleLock.getReadHoldCount() > 0)
             throw new IllegalStateException("Publication preparation must start outside transactions, cache locks and snapshots");
         String contextPath = openApiDocsSupport.localPublicationContextPath();
@@ -566,9 +590,8 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             requirePreparedCandidate(candidate);
             if (!candidate.contextPath().equals(bulkOpenApiServingContext))
                 throw new IllegalStateException("Prepared publication differs from the registered Servlet context");
-            Map<String, JsonNode> nodes = new LinkedHashMap<>();
-            for (String group : candidate.groups()) nodes.put(group, candidate.groupCapture(group).readOnlyDocument());
-            lifecycleSnapshot.set(Map.copyOf(nodes));
+            // Signal commit-scope containment without copying all group JsonNodes onto the thread.
+            lifecycleSnapshot.set(Map.of());
             preparedCandidateScope.set(candidate);
             preparedSchemaHashes.set(new ConcurrentHashMap<>());
             // Validate before admission. An admitted committed transaction is never timed out afterward.
@@ -635,7 +658,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     @Override
     public <T> T withPublishedBulkOpenApiPublication(java.util.function.BiFunction<OpenApiPublicationCandidate, Long, T> composition) {
         java.util.Objects.requireNonNull(composition, "composition");
-        if (lifecycleSnapshot.get() != null || publishedScope.get() != null
+        if (isInsideLifecycleSnapshot() || publishedScope.get() != null
                 || cacheLifecycleLock.isWriteLockedByCurrentThread() || cacheLifecycleLock.getReadHoldCount() > 0)
             throw new IllegalStateException("Published reads must start outside cache locks and snapshots");
         // A unit already holds durable namespace/global/operation locks. Taking a cache lock
@@ -660,7 +683,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
 
     private void requireOutsidePublicationScope() {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
-                || lifecycleSnapshot.get() != null || cacheLifecycleLock.isWriteLockedByCurrentThread()
+                || isInsideLifecycleSnapshot() || cacheLifecycleLock.isWriteLockedByCurrentThread()
                 || cacheLifecycleLock.getReadHoldCount() > 0)
             throw new IllegalStateException("Publication must start outside transactions, cache locks and snapshots");
     }
@@ -734,14 +757,11 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
         java.util.Objects.requireNonNull(candidate, "candidate");
         java.util.Objects.requireNonNull(composition, "composition");
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
-                || lifecycleSnapshot.get() != null || cacheLifecycleLock.isWriteLockedByCurrentThread()
+                || isInsideLifecycleSnapshot() || cacheLifecycleLock.isWriteLockedByCurrentThread()
                 || cacheLifecycleLock.getReadHoldCount() > 0)
             throw new IllegalStateException("Prepared composition must start outside transactions, cache locks and snapshots");
         return withCompositionDeadline(() -> withTimedLock(cacheLifecycleLock.readLock(), () -> {
             requirePreparedCandidate(candidate);
-            Map<String, JsonNode> snapshot = new LinkedHashMap<>();
-            for (String group : candidate.groups()) snapshot.put(group, candidate.groupCapture(group).readOnlyDocument());
-            lifecycleSnapshot.set(Map.copyOf(snapshot));
             preparedCandidateScope.set(candidate);
             preparedSchemaHashes.set(new ConcurrentHashMap<>());
             try {
@@ -751,7 +771,6 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
             } finally {
                 preparedSchemaHashes.remove();
                 preparedCandidateScope.remove();
-                lifecycleSnapshot.remove();
             }
         }));
     }
@@ -805,7 +824,7 @@ public class CachedOpenApiDocumentService implements OpenApiDocumentService {
     @Override
     public BulkLifecycleDocumentFence captureBulkLifecycleDocumentFence() {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
-                || (lifecycleSnapshot.get() == null && publishedScope.get() == null)
+                || (!isInsideLifecycleSnapshot() && publishedScope.get() == null)
                 || (!cacheLifecycleLock.isWriteLockedByCurrentThread() && publishedScope.get() == null))
             throw new IllegalStateException("A document fence must be captured inside its prepared or published lifecycle photograph outside transactions");
         return newDocumentFence(publishedScope.get());
