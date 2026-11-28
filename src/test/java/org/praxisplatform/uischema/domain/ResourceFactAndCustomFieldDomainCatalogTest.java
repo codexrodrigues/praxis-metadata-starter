@@ -241,7 +241,8 @@ class ResourceFactAndCustomFieldDomainCatalogTest {
                 new RequestHeaderResourceTenantContextResolver());
         var mvc = MockMvcBuilders.standaloneSetup(new SemanticDomainCatalogController(service)).build();
         mvc.perform(get("/schemas/domain").param("resource", RESOURCE).header("X-Tenant", "a"))
-                .andExpect(status().isOk()).andExpect(header().string("Vary", "X-Tenant, X-Tenant-ID"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Vary", "X-Tenant, X-Tenant-ID, X-Tenant-Realm, X-Organization-ID"))
                 .andExpect(jsonPath("$.nodes[?(@.source == 'custom_field')].metadata.fieldName").value("customFields.field_a"));
         mvc.perform(get("/schemas/domain").param("resource", RESOURCE).header("X-Tenant-ID", "b"))
                 .andExpect(status().isOk())

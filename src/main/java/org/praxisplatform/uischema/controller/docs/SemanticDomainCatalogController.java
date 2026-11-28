@@ -75,6 +75,6 @@ public class SemanticDomainCatalogController {
                         ? semanticDomainCatalogService.findByResourceKey(resolvedResourceKey)
                         : semanticDomainCatalogService.findByGroup(group));
         return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noCache().cachePrivate())
-                .varyBy("X-Tenant", "X-Tenant-ID").body(response);
+                .varyBy("X-Tenant", "X-Tenant-ID", "X-Tenant-Realm", "X-Organization-ID").body(response);
     }
 }
