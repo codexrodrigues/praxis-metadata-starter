@@ -433,6 +433,9 @@ public class ApiDocsController {
                 JsonNode alternatePathsNode = alternateRootNode.path(PATHS).path(alternateCanonicalPath).path(normalizedOperation);
                 if (!alternatePathsNode.isMissingNode()) {
                     rootNode = alternateRootNode;
+                    if (alternateGroup != null) {
+                        groupName = alternateGroup;
+                    }
                     canonicalPath = alternateCanonicalPath;
                     pathsNode = alternatePathsNode;
                 }
@@ -450,9 +453,32 @@ public class ApiDocsController {
 
         FilteredSchemaProjection projection = new FilteredSchemaProjection(objectMapper);
         FilteredSchemaProjection.Selection selected = projection.select(rootNode, canonicalPath, normalizedOperation, schemaType);
+        JsonNode schemaRootNode = rootNode;
+        String schemaBasePath = null;
+        if ("response".equalsIgnoreCase(schemaType)
+                && apiResourceIdentityResolver != null
+                && isUntypedRelatedChildSchema(selected.schemaName(), selected.schema())) {
+            Optional<String> childResourcePath = apiResourceIdentityResolver.resolveRelatedChildResourcePath(
+                    canonicalPath,
+                    normalizedOperation
+            );
+            if (childResourcePath.isPresent()) {
+                RelatedChildSchemaFallback fallback = resolveRelatedChildResponseSelection(
+                        childResourcePath.get(),
+                        projection,
+                        groupName,
+                        rootNode
+                );
+                if (fallback != null) {
+                    selected = fallback.selection();
+                    schemaRootNode = fallback.rootNode();
+                    schemaBasePath = fallback.basePath();
+                }
+            }
+        }
         String schemaName = selected.schemaName();
         JsonNode schemasNode = selected.schema();
-        JsonNode allSchemas = rootNode.path(COMPONENTS).path(SCHEMAS);
+        JsonNode allSchemas = schemaRootNode.path(COMPONENTS).path(SCHEMAS);
 
         LOGGER.info("Schema node retrieved successfully");
 
@@ -526,7 +552,8 @@ public class ApiDocsController {
         }
 
         // Anotar x-ui.resource.idField para o frontend
-        String resolvedIdField = resolveIdField(idField, schemaMap, rootNode, basePath, schemaType);
+        String effectiveSchemaBasePath = schemaBasePath != null ? schemaBasePath : basePath;
+        String resolvedIdField = resolveIdField(idField, schemaMap, schemaRootNode, effectiveSchemaBasePath, schemaType);
         Map<String, Boolean> caps = computeCapabilities(rootNode, basePath);
         boolean computedReadOnly = FilteredSchemaProjection.readOnly(readOnly, caps);
         @SuppressWarnings("unchecked")
@@ -685,7 +712,7 @@ public class ApiDocsController {
         boolean customFieldFilterRequest = customFieldSchemaEnricher != null && isFilterRequestSchema;
         String customFieldFingerprint = customFieldSchemaEnricher == null ? ""
                 : customFieldSchemaEnricher.enrich(schemaMap, customFieldResourceKey, tenant, schemaType, customFieldFilterRequest);
-        enrichPropertyOptionSources(schemaMap, basePath);
+        enrichPropertyOptionSources(schemaMap, effectiveSchemaBasePath);
         if (isFilterRequestSchema && apiResourceIdentityResolver != null) {
             inheritFilterMetadataFromResourceResponse(schemaMap, canonicalPath, normalizedOperation, pathsNode, allSchemas);
         }
@@ -819,6 +846,127 @@ public class ApiDocsController {
      */
     private String deriveBasePathFrom(String fullPath) {
         return new FilteredSchemaProjection(objectMapper).deriveBasePathFrom(fullPath);
+    }
+
+    private static final Set<String> UNTYPED_RELATED_SCHEMA_NAMES = Set.of(
+            "PageObject",
+            "CursorPageObject",
+            "Object",
+            "Page",
+            "ListObject",
+            "CollectionObject"
+    );
+
+    private record RelatedChildSchemaFallback(
+            FilteredSchemaProjection.Selection selection,
+            JsonNode rootNode,
+            String basePath
+    ) {
+    }
+
+    private static boolean isUntypedRelatedChildSchema(String schemaName, JsonNode schemaNode) {
+        if (schemaNode == null || schemaNode.isMissingNode()) {
+            return true;
+        }
+        if (StringUtils.hasText(schemaName) && UNTYPED_RELATED_SCHEMA_NAMES.contains(schemaName)) {
+            return true;
+        }
+        if (schemaNode.isObject()) {
+            JsonNode propertiesNode = schemaNode.path(PROPERTIES);
+            return propertiesNode.isMissingNode() || !propertiesNode.isObject() || !propertiesNode.fieldNames().hasNext();
+        }
+        return false;
+    }
+
+    private RelatedChildSchemaFallback resolveRelatedChildResponseSelection(
+            String childResourcePath,
+            FilteredSchemaProjection projection,
+            String currentGroupName,
+            JsonNode currentRootNode
+    ) {
+        String normalizedChildPath = normalizeChildResourceBasePath(childResourcePath);
+        if (!StringUtils.hasText(normalizedChildPath)) {
+            return null;
+        }
+        Map<String, JsonNode> loadedDocs = new HashMap<>();
+        if (StringUtils.hasText(currentGroupName) && currentRootNode != null) {
+            loadedDocs.put(currentGroupName, currentRootNode);
+        }
+        RelatedChildSchemaFallback direct = resolveRelatedChildFromBasePath(normalizedChildPath, projection, loadedDocs);
+        if (direct != null) {
+            return direct;
+        }
+        String alternateBasePath = normalizedChildPath.startsWith("/api/")
+                ? normalizedChildPath.substring(4)
+                : ("/api".equals(normalizedChildPath) ? "/" : "/api" + normalizedChildPath);
+        return resolveRelatedChildFromBasePath(alternateBasePath, projection, loadedDocs);
+    }
+
+    private RelatedChildSchemaFallback resolveRelatedChildFromBasePath(
+            String childBasePath,
+            FilteredSchemaProjection projection,
+            Map<String, JsonNode> loadedDocs
+    ) {
+        String prefix = "/".equals(childBasePath) ? "" : childBasePath;
+        String[][] candidates = new String[][]{
+                {prefix + "/{id}", "get"},
+                {prefix + "/all", "get"},
+                {prefix + "/filter", "post"},
+                {"/".equals(childBasePath) ? "/" : prefix, "get"}
+        };
+        for (String[] candidate : candidates) {
+            String candidatePath = candidate[0];
+            String candidateMethod = candidate[1];
+            CanonicalOperationRef candidateRef = canonicalOperationResolver.resolve(candidatePath, candidateMethod);
+            String candidateGroup = candidateRef.group();
+            JsonNode candidateRoot = candidateGroup == null ? null : loadedDocs.computeIfAbsent(
+                    candidateGroup,
+                    group -> OpenApiDocumentReaders.readOnlyGroupDocument(openApiDocumentService, group, false)
+            );
+            if (candidateRoot == null) {
+                continue;
+            }
+            String resolvedPath = openApiDocumentService.resolveDocumentPath(
+                    candidateRoot.path(PATHS),
+                    candidatePath,
+                    candidateMethod
+            );
+            if (!StringUtils.hasText(resolvedPath)) {
+                continue;
+            }
+            JsonNode opNode = candidateRoot.path(PATHS).path(resolvedPath).path(candidateMethod);
+            if (opNode.isMissingNode()) {
+                continue;
+            }
+            try {
+                FilteredSchemaProjection.Selection selection = projection.select(
+                        candidateRoot,
+                        resolvedPath,
+                        candidateMethod,
+                        "response"
+                );
+                if (!isUntypedRelatedChildSchema(selection.schemaName(), selection.schema())) {
+                    return new RelatedChildSchemaFallback(selection, candidateRoot, deriveBasePathFrom(resolvedPath));
+                }
+            } catch (ResponseStatusException ignored) {
+                // Keep probing remaining canonical child endpoints.
+            }
+        }
+        return null;
+    }
+
+    private static String normalizeChildResourceBasePath(String rawPath) {
+        if (!StringUtils.hasText(rawPath)) {
+            return null;
+        }
+        String normalized = rawPath.trim().replaceAll("/+", "/");
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        while (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     /**

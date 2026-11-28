@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.praxisplatform.uischema.annotation.ApiResource;
 import org.praxisplatform.uischema.annotation.ResourceIdentity;
 import org.praxisplatform.uischema.annotation.UiSurface;
+import org.praxisplatform.uischema.customfields.CustomFieldSupport;
+import org.praxisplatform.uischema.customfields.CustomFields;
 import org.praxisplatform.uischema.rest.response.RestApiResponse;
 import org.praxisplatform.uischema.surface.SurfaceKind;
 import org.praxisplatform.uischema.surface.SurfaceScope;
@@ -416,5 +418,83 @@ class ApiResourceIdentityResolverTest {
         org.springframework.http.ResponseEntity<org.praxisplatform.uischema.rest.response.RestApiResponse<DtoBackedIdentityPayload>> detail() {
             return null;
         }
+    }
+
+    @Test
+    void handlesNullCustomFieldsDtoAndResolvesRelatedChildResourcePathAndCustomFieldKeySafely() throws Exception {
+        assertTrue(CustomFieldSupport.property(null).isEmpty());
+
+        RequestMappingHandlerMapping mapping = mock(RequestMappingHandlerMapping.class);
+        var parentController = new SpiParentController();
+        var childWithCustomFieldsController = new ChildAbonoController();
+        var childWithoutCustomFieldsController = new ChildHeroProfileController();
+
+        Map<RequestMappingInfo, HandlerMethod> mappings = new java.util.LinkedHashMap<>();
+        mappings.put(
+                RequestMappingInfo.paths("/api/employees/{id}/abonos-permanencia-vinculo").methods(RequestMethod.GET).build(),
+                new HandlerMethod(parentController, SpiParentController.class.getDeclaredMethod("abonos")));
+        mappings.put(
+                RequestMappingInfo.paths("/api/employees/{id}/child-by-key-only").methods(RequestMethod.GET).build(),
+                new HandlerMethod(parentController, SpiParentController.class.getDeclaredMethod("childByKeyOnly")));
+        mappings.put(
+                RequestMappingInfo.paths("/api/employees/{id}/plain-child").methods(RequestMethod.GET).build(),
+                new HandlerMethod(parentController, SpiParentController.class.getDeclaredMethod("plainChild")));
+        mappings.put(
+                RequestMappingInfo.paths("/api/employees/{id}/missing-child").methods(RequestMethod.GET).build(),
+                new HandlerMethod(parentController, SpiParentController.class.getDeclaredMethod("missingChild")));
+        mappings.put(
+                RequestMappingInfo.paths("/api/abonos-permanencia").methods(RequestMethod.GET).build(),
+                new HandlerMethod(childWithCustomFieldsController, ChildAbonoController.class.getDeclaredMethod("list")));
+        mappings.put(
+                RequestMappingInfo.paths("/api/hero-profiles").methods(RequestMethod.GET).build(),
+                new HandlerMethod(childWithoutCustomFieldsController, ChildHeroProfileController.class.getDeclaredMethod("list")));
+        when(mapping.getHandlerMethods()).thenReturn(mappings);
+
+        var resolver = new ApiResourceIdentityResolver(mapping);
+
+        assertEquals("/api/abonos-permanencia", resolver.resolveRelatedChildResourcePath(
+                "/api/employees/{id}/abonos-permanencia-vinculo", "get").orElseThrow());
+        assertEquals("/api/hero-profiles", resolver.resolveRelatedChildResourcePath(
+                "/api/employees/{id}/child-by-key-only", "get").orElseThrow());
+        assertEquals("/api/unregistered-child", resolver.resolveRelatedChildResourcePath(
+                "/api/employees/{id}/missing-child", "get").orElseThrow());
+
+        assertEquals("test.abonos", resolver.resolveDtoCustomFieldResourceKey(
+                "/api/employees/{id}/abonos-permanencia-vinculo", "get", "response").orElseThrow());
+        assertTrue(resolver.resolveDtoCustomFieldResourceKey(
+                "/api/employees/{id}/plain-child", "get", "response").isEmpty());
+        assertTrue(resolver.resolveDtoCustomFieldResourceKey(
+                "/api/employees/{id}/missing-child", "get", "response").isEmpty());
+    }
+
+    @ResourceIdentity(keyField = "id", titleField = "processo")
+    static class ChildAbonoDto {
+        @CustomFields(resourceKey = "test.abonos")
+        private Map<String, Object> customFields;
+        public Map<String, Object> getCustomFields() { return customFields; }
+    }
+
+    @ApiResource(value = "/api/abonos-permanencia", resourceKey = "test.abonos")
+    static class ChildAbonoController {
+        ResponseEntity<RestApiResponse<Page<ChildAbonoDto>>> list() { return null; }
+    }
+
+    @ApiResource(value = "/api/spi-employees", resourceKey = "test.spi-employees")
+    static class SpiParentController {
+        @UiSurface(id = "abonos", title = "Abonos", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM,
+                relatedChildResourceKey = "test.abonos", relatedChildResourcePath = "/api/abonos-permanencia")
+        ResponseEntity<RestApiResponse<Page<?>>> abonos() { return null; }
+
+        @UiSurface(id = "child-by-key", title = "Child Key", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM,
+                relatedChildResourceKey = "test.hero-profiles", relatedChildResourcePath = "/api/not-registered")
+        ResponseEntity<RestApiResponse<Page<?>>> childByKeyOnly() { return null; }
+
+        @UiSurface(id = "plain-child", title = "Plain Child", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM,
+                relatedChildResourceKey = "test.hero-profiles", relatedChildResourcePath = "/api/hero-profiles")
+        ResponseEntity<RestApiResponse<Page<?>>> plainChild() { return null; }
+
+        @UiSurface(id = "missing-child", title = "Missing Child", kind = SurfaceKind.READ_PROJECTION, scope = SurfaceScope.ITEM,
+                relatedChildResourcePath = "/api/unregistered-child")
+        ResponseEntity<RestApiResponse<Page<?>>> missingChild() { return null; }
     }
 }

@@ -2159,6 +2159,162 @@ class ApiDocsControllerTest {
         org.mockito.Mockito.verify(spyMapper, org.mockito.Mockito.times(1)).valueToTree(any(Map.class));
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void resolvesRelatedChildResponseSchemaWhenParentSpiSurfacePublishesUntypedPageObjectAcrossGroups() throws Exception {
+        ApiResourceIdentityResolver identityResolver = mock(ApiResourceIdentityResolver.class);
+        when(identityResolver.resolveRelatedChildResourcePath("/api/employees/{id}/abonos", "get"))
+                .thenReturn(java.util.Optional.of("/api/abonos"));
+        when(identityResolver.resolveResourceMetadata(anyString(), anyString(), anyString()))
+                .thenReturn(java.util.Optional.of(Map.of(
+                        "resourceKey", "test.abonos",
+                        "title", "Abonos de Permanencia",
+                        "icon", "verified"
+                )));
+        when(identityResolver.resolveResourceMetadata(anyString())).thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolveResourceKey(anyString(), anyString(), anyString()))
+                .thenReturn(java.util.Optional.of("test.abonos"));
+        when(identityResolver.resolveDtoCustomFieldResourceKey("/api/employees/{id}/abonos", "get", "response"))
+                .thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolve(anyString(), anyString(), anyString())).thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolve(anyString())).thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolveHierarchy(anyString(), anyString())).thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolveCalculationMemory(anyString(), anyString())).thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolveProgression(anyString(), anyString())).thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolveTimeline(anyString(), anyString())).thenReturn(java.util.Optional.empty());
+        when(identityResolver.resolveSchedule(anyString(), anyString())).thenReturn(java.util.Optional.empty());
+        ReflectionTestUtils.setField(controller, "apiResourceIdentityResolver", identityResolver);
+
+        String employeesDoc = """
+                {
+                  "paths": {
+                    "/api/employees/{id}/abonos": {
+                      "get": {
+                        "x-ui": {
+                          "surfaceId": "abonos-permanencia-vinculo"
+                        },
+                        "responses": {
+                          "200": {
+                            "content": {
+                              "application/json": {
+                                "schema": { "$ref": "#/components/schemas/RestApiResponsePageObject" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "components": {
+                    "schemas": {
+                      "RestApiResponsePageObject": {
+                        "type": "object",
+                        "properties": {
+                          "data": { "$ref": "#/components/schemas/PageObject" }
+                        }
+                      },
+                      "PageObject": {
+                        "type": "object",
+                        "properties": {
+                          "content": {
+                            "type": "array",
+                            "items": { "type": "object" }
+                          },
+                          "totalElements": { "type": "integer" }
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+
+        String abonosDoc = """
+                {
+                  "paths": {
+                    "/api/abonos/{id}": {
+                      "get": {
+                        "responses": {
+                          "200": {
+                            "content": {
+                              "application/json": {
+                                "schema": { "$ref": "#/components/schemas/RestApiResponseAbonoResponse" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "components": {
+                    "schemas": {
+                      "RestApiResponseAbonoResponse": {
+                        "type": "object",
+                        "properties": {
+                          "data": { "$ref": "#/components/schemas/AbonoResponse" }
+                        }
+                      },
+                      "AbonoResponse": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "integer" },
+                          "processoNumero": { "type": "string", "x-ui": { "label": "Processo" } },
+                          "situacao": { "$ref": "#/components/schemas/AbonoStatus" }
+                        }
+                      },
+                      "AbonoStatus": {
+                        "type": "string",
+                        "enum": ["CONCEDIDO", "CESSADO"]
+                      }
+                    }
+                  }
+                }
+                """;
+
+        when(openApiGroupResolver.resolveGroup("/api/employees/{id}/abonos")).thenReturn("employees");
+        when(openApiGroupResolver.resolveGroup("/api/abonos/{id}")).thenReturn("abonos");
+        server.expect(requestTo("http://localhost/v3/api-docs/employees"))
+                .andRespond(withSuccess(employeesDoc, MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://localhost/v3/api-docs/abonos"))
+                .andRespond(withSuccess(abonosDoc, MediaType.APPLICATION_JSON));
+
+        var req = new MockHttpServletRequest();
+        req.setScheme("http");
+        req.setServerName("localhost");
+        req.setServerPort(80);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        var response = controller.getFilteredSchema(
+                "/api/employees/{id}/abonos",
+                "get",
+                false,
+                "response",
+                null,
+                null,
+                java.util.Locale.ENGLISH
+        );
+
+        assertEquals(200, response.getStatusCode().value());
+        Map<String, Object> body = response.getBody();
+        assertNotNull(body);
+        Map<String, Object> props = (Map<String, Object>) body.get("properties");
+        assertNotNull(props);
+        assertTrue(props.containsKey("id"));
+        assertTrue(props.containsKey("processoNumero"));
+        assertTrue(props.containsKey("situacao"));
+        assertFalse(props.containsKey("totalElements"));
+
+        Map<String, Object> componentsSchemas = (Map<String, Object>) ((Map<?, ?>) body.get("components")).get("schemas");
+        assertNotNull(componentsSchemas);
+        assertTrue(componentsSchemas.containsKey("AbonoStatus"));
+
+        Map<String, Object> xUi = (Map<String, Object>) body.get("x-ui");
+        assertEquals("abonos-permanencia-vinculo", xUi.get("surfaceId"));
+        Map<String, Object> resourceMeta = (Map<String, Object>) xUi.get("resource");
+        assertEquals("id", resourceMeta.get("idField"));
+        assertEquals(true, resourceMeta.get("idFieldValid"));
+        assertEquals("test.abonos", resourceMeta.get("resourceKey"));
+    }
+
     static class HeroFilterFixture implements org.praxisplatform.uischema.filter.dto.GenericFilterDTO {
         private String status;
         private List<HeroTagFixture> tags;
