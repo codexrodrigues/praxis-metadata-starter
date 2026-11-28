@@ -48,10 +48,11 @@
 - **Referências:** `docs/guides/{GUIA-03-ADOCAO-CONSUMIDOR-PILOTO,GUIA-04-QUANDO-USAR-RESOURCE-SURFACE-ACTION-CAPABILITY,GUIA-03-AI-FRONTEND-CRUD-ANGULAR}.md`, `docs/spec/{CONFORMANCE,AGENT-BRIEF}.md`.
 - **Economia de CI:** zero execuções remotas em dev normal; consultar [ACTIONS-RELEASE-POLICY.md](ACTIONS-RELEASE-POLICY.md) antes de tag/dispatch (`v*` publica release).
 
-## Governança de Release, Inventário Neon e Imutabilidade de Coordenadas
-- **Fonte obrigatória de release:** consultar [RELEASING.md](RELEASING.md) antes de qualquer dispatch, tag ou PR que toque testes ou escopos de release.
-- **Inventário Neon (`tools/release/neon-test-inventory.json`):** todo PR que adicionar ou modificar arquivos em `src/test/**` ou arquivos de produção referenciados em `reviewedScopeDigest`/`dependencyDigest` deve reconciliar `tools/release/neon-test-inventory.json` e `docs/technical/metadata-resource-contract-release-impact-20261027.md`, validando localmente:
+## Governança de Release e Imutabilidade de Coordenadas
+- **Fonte obrigatória de release:** consultar [RELEASING.md](RELEASING.md) antes de qualquer dispatch, tag ou PR que toque fluxo de publicação ou escopos de release.
+- **Verificações locais pré-release:** validar localmente antes do dispatch:
   - `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/release -p 'test_*.py' -v`
-  - `PYTHONDONTWRITEBYTECODE=1 python3 -B tools/release/neon_gate.py --release --require-clean --base "$(git rev-parse HEAD)" --version "<versao-pom>" --print-selection <no_db|managed-owner|optional-policies|resource-contracts>`
-- **Secrets Neon antes da tag:** atualizar `NEON_RELEASE_ASSIGNMENT_JSON` e `NEON_RELEASE_OWNER_URI` (child branch efêmera derivada de uma baseline PG17 limpa **sem roles canônicas `praxis_bulk_*`** e sem schema `praxis_bulk` — **não** usar branches de ambiente com roles `praxis_bulk_*` já provisionadas, pois falham em `BulkManagedOwnerNeonGateTest.assertNoCanonicalRoles()`, confirmando antes do dispatch a ausência de roles `praxis_bulk_*` e do schema `praxis_bulk`, role exclusiva criada na child via control plane Neon, host direto sem `-pooler`, `sslmode=verify-full`, janela `<= 4h`, `runAttempt` exato) **antes** do dispatch `create_tag=true`, pois o push da tag dispara imediatamente `Publish to Maven Central`. Sem acesso ao control plane Neon (MCP `neon_neon` / `https://mcp.neon.tech/mcp`, `neonctl` ou API), parar e reportar o bloqueio ao usuário; após a conclusão, excluir fisicamente a branch efêmera.
+  - `bash ./mvnw -B -P release-unit clean test`
+  - `scripts/check-public-contract-gate.sh --base <ultima-tag-publicada>`
+- **Fronteira de responsabilidade (lib vs. hosts):** a publicação da biblioteca não depende de branches efêmeras nem de secrets do Neon. Testes de integração contra banco real e topologia de nuvem (Neon, RDS, Azure PostgreSQL, Render etc.) pertencem aos projetos hosts (`praxis-ergon-showcase`, `praxis-api-quickstart` e demais consumidores).
 - **Imutabilidade de coordenada tagueada:** após o corte de `vX.Y.Z-rc.N`, `pom.xml` em `main` permanece em `X.Y.Z-rc.N` até a próxima release. **Proibido** executar `mvn install` ou vendorizar em consumidores (`.mvn/local-repo/`) um commit posterior à tag usando a mesma coordenada `X.Y.Z-rc.N` — alterações pós-tag devem ser publicadas em `vX.Y.Z-rc.(N+1)`.

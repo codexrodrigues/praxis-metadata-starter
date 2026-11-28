@@ -339,6 +339,60 @@ class PublisherTests(unittest.TestCase):
             self.publish(wrong)
         self.assertEqual("STATUS_UNKNOWN_RECONCILE_EXISTING_ID", json.loads(self.record.read_text())["state"])
 
+    def test_wait_for_accepted_returns_on_publishing_after_validating(self):
+        states = iter(["PENDING", "VALIDATING", "PUBLISHING", "PUBLISHED"])
+        def transport(req):
+            self.calls.append(req)
+            if len(self.calls) == 1:
+                return self.deployment.encode()
+            return json.dumps({"deploymentId": self.deployment, "deploymentState": next(states)}).encode()
+        state = self.publish(transport, wait_for="accepted", interval=0)
+        self.assertEqual("PUBLISHING", state["state"])
+        self.assertEqual("ACCEPTED_ASYNC_PROPAGATION", state["publicAvailability"])
+        persisted = json.loads(self.record.read_text())
+        self.assertEqual(self.deployment, persisted["deploymentId"])
+        self.assertEqual("ACCEPTED_ASYNC_PROPAGATION", persisted["publicAvailability"])
+        self.assertEqual(4, len(self.calls))
+
+    def test_wait_for_accepted_returns_on_validated(self):
+        def transport(req):
+            self.calls.append(req)
+            if len(self.calls) == 1:
+                return self.deployment.encode()
+            return json.dumps({"deploymentId": self.deployment, "deploymentState": "VALIDATED"}).encode()
+        state = self.publish(transport, wait_for="accepted", interval=0)
+        self.assertEqual("VALIDATED", state["state"])
+        self.assertEqual("ACCEPTED_ASYNC_PROPAGATION", state["publicAvailability"])
+        self.assertEqual(2, len(self.calls))
+
+    def test_wait_for_accepted_still_rejects_failed_deployment(self):
+        states = iter(["VALIDATING", "FAILED"])
+        def transport(req):
+            self.calls.append(req)
+            if len(self.calls) == 1:
+                return self.deployment.encode()
+            return json.dumps({"deploymentId": self.deployment, "deploymentState": next(states)}).encode()
+        with self.assertRaises(RuntimeError):
+            self.publish(transport, wait_for="accepted", interval=0)
+        persisted = json.loads(self.record.read_text())
+        self.assertEqual(self.deployment, persisted["deploymentId"])
+        self.assertEqual("FAILED", persisted["state"])
+
+    def test_wait_for_accepted_rejects_wrong_purls_when_published(self):
+        def wrong(req):
+            if self.calls:
+                self.calls.append(req)
+                return json.dumps({"deploymentId": self.deployment, "deploymentState": "PUBLISHED", "purls": ["pkg:maven/other/other@1"]}).encode()
+            return self.transport(req)
+        with self.assertRaises(RuntimeError):
+            self.publish(wrong, wait_for="accepted", interval=0)
+        self.assertEqual("STATUS_UNKNOWN_RECONCILE_EXISTING_ID", json.loads(self.record.read_text())["state"])
+
+    def test_remaining_budget_supports_custom_total_minutes(self):
+        self.assertEqual(1320, publisher.remaining_budget(1000, 1300, total_minutes=30))
+        with self.assertRaises(ValueError):
+            publisher.remaining_budget(1000, 1000 + 30 * 60 - 299, total_minutes=30)
+
 
 class OperationDeadlineTests(unittest.TestCase):
     def test_actual_blocking_operation_times_out_and_restores_handler(self):
