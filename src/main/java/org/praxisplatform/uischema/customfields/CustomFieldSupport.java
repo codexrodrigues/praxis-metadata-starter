@@ -59,7 +59,9 @@ public final class CustomFieldSupport {
                 current.field() != null ? current.field() : candidate.field(),
                 current.accessor() != null ? current.accessor() : candidate.accessor());
     }
-    public static Optional<Property> property(Class<?> type) { return PROPERTIES.get(type); }
+    public static Optional<Property> property(Class<?> type) {
+        return type == null ? Optional.empty() : PROPERTIES.get(type);
+    }
     public static Map<String, Object> read(Object value) {
         return value == null ? Map.of() : property(value.getClass()).map(p -> p.read(value)).orElse(Map.of());
     }

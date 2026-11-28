@@ -293,15 +293,47 @@ public class ApiResourceIdentityResolver {
     }
 
     /**
+     * Resolves the canonical related child resource path declared on {@link UiSurface}
+     * ({@code relatedChildResourcePath} or {@code relatedChildResourceKey}) for the handler method.
+     */
+    public Optional<String> resolveRelatedChildResourcePath(String canonicalPath, String httpMethod) {
+        HandlerIndex index = currentIndex();
+        return findHandlerMethod(index, canonicalPath, httpMethod).flatMap(handler -> {
+            Class<?> userType = resolveUserControllerType(handler);
+            Method targetMethod = resolveTargetMethod(handler.getMethod(), userType);
+            UiSurface surface = findUiSurfaceAnnotation(handler, targetMethod);
+            if (surface == null) {
+                return Optional.empty();
+            }
+            boolean hasPath = StringUtils.hasText(surface.relatedChildResourcePath());
+            if (hasPath && (findControllerTypeByPath(index, surface.relatedChildResourcePath()).isPresent()
+                    || !StringUtils.hasText(surface.relatedChildResourceKey()))) {
+                return Optional.of(normalize(surface.relatedChildResourcePath()));
+            }
+            if (StringUtils.hasText(surface.relatedChildResourceKey())) {
+                Optional<String> pathByKey = findApiResourceByKey(index, surface.relatedChildResourceKey())
+                        .flatMap(ApiResourceIdentityResolver::firstDeclaredPath)
+                        .map(ApiResourceIdentityResolver::normalize);
+                if (pathByKey.isPresent()) {
+                    return pathByKey;
+                }
+            }
+            return hasPath ? Optional.of(normalize(surface.relatedChildResourcePath())) : Optional.empty();
+        });
+    }
+
+    /**
      * Resolves an explicit {@code @CustomFields(resourceKey = ...)} declared on the operation's
-     * concrete request body (including {@code GenericFilterDTO}) or response DTO.
+     * concrete request body (including {@code GenericFilterDTO}), concrete response DTO, or
+     * related child resource response DTO referenced via {@link UiSurface}.
      */
     public Optional<String> resolveDtoCustomFieldResourceKey(
             String canonicalPath,
             String httpMethod,
             String schemaType
     ) {
-        return findHandlerMethod(canonicalPath, httpMethod).flatMap(handler -> {
+        HandlerIndex index = currentIndex();
+        return findHandlerMethod(index, canonicalPath, httpMethod).flatMap(handler -> {
             Class<?> userType = resolveUserControllerType(handler);
             Method specificMethod = resolveTargetMethod(handler.getMethod(), userType);
             Class<?> dtoClass = null;
@@ -327,11 +359,54 @@ public class ApiResourceIdentityResolver {
             } else if ("response".equalsIgnoreCase(schemaType)) {
                 dtoClass = resolveResponseDtoClass(ResolvableType.forMethodReturnType(
                         specificMethod, userType));
+                if (dtoClass == null) {
+                    UiSurface surface = findUiSurfaceAnnotation(handler, specificMethod);
+                    if (surface != null) {
+                        Optional<Class<?>> childController = Optional.empty();
+                        if (StringUtils.hasText(surface.relatedChildResourcePath())) {
+                            childController = findControllerTypeByPath(index, surface.relatedChildResourcePath());
+                        }
+                        if (childController.isEmpty() && StringUtils.hasText(surface.relatedChildResourceKey())) {
+                            childController = findControllerTypeByKey(index, surface.relatedChildResourceKey());
+                        }
+                        if (childController.isPresent()) {
+                            dtoClass = resolveControllerResponseDtoClass(index, childController.get());
+                        }
+                    }
+                }
+            }
+            if (dtoClass == null) {
+                return Optional.empty();
             }
             return org.praxisplatform.uischema.customfields.CustomFieldSupport.property(dtoClass)
                     .map(org.praxisplatform.uischema.customfields.CustomFieldSupport.Property::resourceKey)
                     .filter(key -> key != null && !key.isBlank());
         });
+    }
+
+    private static UiSurface findUiSurfaceAnnotation(HandlerMethod handler, Method targetMethod) {
+        UiSurface surface = AnnotationUtils.findAnnotation(targetMethod, UiSurface.class);
+        if (surface == null && targetMethod != handler.getMethod()) {
+            surface = AnnotationUtils.findAnnotation(handler.getMethod(), UiSurface.class);
+        }
+        return surface;
+    }
+
+    private static Optional<String> firstDeclaredPath(ApiResource resource) {
+        if (resource == null) {
+            return Optional.empty();
+        }
+        for (String path : resource.value()) {
+            if (StringUtils.hasText(path)) {
+                return Optional.of(path);
+            }
+        }
+        for (String path : resource.path()) {
+            if (StringUtils.hasText(path)) {
+                return Optional.of(path);
+            }
+        }
+        return Optional.empty();
     }
 
     private static Method resolveTargetMethod(Method handlerMethod, Class<?> userType) {
